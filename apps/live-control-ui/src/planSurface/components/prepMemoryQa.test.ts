@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { HermesGraphGrounding, LiveQueryResponse, WorldGraphAnchorCitation } from "../../api/types";
-import type { PlanSessionDescriptor } from "../types";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import {
   answerHeading,
   hasGrounding,
@@ -14,23 +14,7 @@ import {
   validateHermesGraphCitations,
 } from "./prepMemoryQa";
 
-const sessionDescriptor: PlanSessionDescriptor = {
-  surfaceId: "plan",
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown",
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "C2 Session 23 Prep",
-    targetRelpath: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md",
-    storageKey: "dmb.planCanvas.longmont-c2.23.longmont-c2-session-23-prep",
-    status: "local_draft",
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 const baseGrounding: HermesGraphGrounding = {
   schema: "dmb_hermes_graph_grounding_v1",
@@ -79,13 +63,13 @@ function hermesResponse(
 describe("prepMemoryQa helpers", () => {
   it("formats prep memory label from session descriptor", () => {
     expect(prepMemoryLabel(sessionDescriptor)).toBe(
-      "Memory through Session 21 · preparing Session 23",
+      "Memory through Session 21",
     );
   });
 
   it("formats prep memory label for world-union focus", () => {
     expect(prepMemoryLabel({ ...sessionDescriptor, memorySession: null })).toBe(
-      "World graph (all sessions) · preparing Session 23",
+      "World graph (all sessions)",
     );
   });
 

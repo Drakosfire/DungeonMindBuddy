@@ -21,6 +21,7 @@ vi.mock("../../api/liveApi", async () => {
 });
 
 import * as liveApi from "../../api/liveApi";
+import { FIXTURE_DOC_ID } from "../config/planSessionDescriptor";
 
 const innNode: GraphProjectionNodeView = {
   node_id: "location-inn",
@@ -109,17 +110,16 @@ const sessionDescriptor = {
   surfaceId: "plan" as const,
   campaignId: "longmont-c2",
   campaignLabel: "Longmont C2",
-  prepSession: 23,
   memorySession: 21,
   liveSession: 22,
   sourceStatusLabel: "Session 21",
   sourceStatusKind: "unknown" as const,
   planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
+    documentId: FIXTURE_DOC_ID,
     title: "C2 Session 23 Prep",
     targetRelpath: "corpus/example.md",
-    storageKey: "storage-key",
-    status: "local_draft" as const,
+    storageKey: "dmb.workspaceDocument.FIXTURE_DOC_ID",
+    status: "active", contentStatus: "draft", revision: 1, kind: "plan", campaignId: "longmont-c2", targetSession: 23 as const,
   },
 };
 
@@ -129,12 +129,11 @@ const surfaceConfig: SurfaceConfig = {
   context: {
     campaignId: "longmont-c2",
     headerLabel: "Longmont C2",
-    prepSession: 23,
     ingestSession: 21,
     liveSession: 22,
   },
   tools: [{ id: "statblock", label: "Statblock", size: "wide" }],
-  canvas: { documentId: "longmont-c2-session-23-prep" },
+  canvas: { documentId: FIXTURE_DOC_ID },
   theme: {},
   sessionDescriptor,
 };

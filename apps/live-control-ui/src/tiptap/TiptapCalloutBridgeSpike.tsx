@@ -20,32 +20,21 @@ import {
 import { markdownToTiptapDoc, type MarkdownImportDiagnostic } from "./markdown/markdownToTiptap";
 import type { RunbookReferenceAttrs } from "./references/runbookReferences";
 import {
-  buildInitialWorkingBoardState,
-  initialCalloutContent,
-  readTiptapWorkingBoardState,
-  writeTiptapWorkingBoardState,
-  type TiptapWorkingBoardState,
+  buildInitialWorkspaceDocumentLocalState,
+  readWorkspaceDocumentLocalState,
+  writeWorkspaceDocumentLocalState,
+  type WorkspaceDocumentLocalState,
 } from "./state/tiptapLocalState";
 import {
-  getTiptapRunbookDescriptor,
-  isKnownTiptapRunbookDocumentId,
-  TIPTAP_RUNBOOK_DESCRIPTORS,
+  initialCalloutContent,
+  northGateSessionRunbookStarterContent,
+  resolveRunbookSpikeDocument,
+  type TiptapRunbookDescriptor,
 } from "./descriptors/tiptapRunbookDescriptors";
 import "../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "./tiptapSpike.css";
 
 export { initialCalloutContent };
-
-export function activeTiptapRunbookDescriptorFromLocation() {
-  const params = new URLSearchParams(window.location.search);
-  return getTiptapRunbookDescriptor(params.get("doc"));
-}
-
-function unknownDocumentIdFromLocation(): string | null {
-  const documentId = new URLSearchParams(window.location.search).get("doc");
-  return documentId && !isKnownTiptapRunbookDocumentId(documentId) ? documentId : null;
-}
-
 
 export const RUNBOOK_REFERENCE_SAMPLES: RunbookReferenceAttrs[] = [
   { kind: "ref", refType: "npc", refId: "lysandro-ironveil", label: "Lysandro Ironveil" },
@@ -90,17 +79,45 @@ interface TiptapCalloutBridgeSpikeProps {
 }
 
 export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutBridgeSpikeProps) {
-  const descriptor = useMemo(activeTiptapRunbookDescriptorFromLocation, []);
-  const unknownDocumentId = useMemo(unknownDocumentIdFromLocation, []);
-  const [workingState, setWorkingState] = useState<TiptapWorkingBoardState>(() => (
-    readTiptapWorkingBoardState(window.localStorage, descriptor) ?? buildInitialWorkingBoardState(descriptor)
-  ));
-  const [localStateStatus, setLocalStateStatus] = useState<LocalStateStatus>(() => (
-    readTiptapWorkingBoardState(window.localStorage, descriptor) ? "Loaded local draft" : "Loaded starter content"
-  ));
+  const [descriptor, setDescriptor] = useState<TiptapRunbookDescriptor | null>(null);
+  const [documentLoadError, setDocumentLoadError] = useState<string | null>(null);
+  const [workingState, setWorkingState] = useState<WorkspaceDocumentLocalState | null>(null);
+  const [localStateStatus, setLocalStateStatus] = useState<LocalStateStatus>("Loaded starter content");
+  const [documentRevision, setDocumentRevision] = useState(1);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await resolveRunbookSpikeDocument();
+        if (cancelled) return;
+        const stored = readWorkspaceDocumentLocalState(window.localStorage, loaded.documentId);
+        const initial = stored ?? buildInitialWorkspaceDocumentLocalState({
+          documentId: loaded.documentId,
+          title: loaded.title,
+          campaignId: loaded.campaignId,
+          kind: "runbook",
+          targetSession: loaded.session,
+          surface: "runbook",
+          starterContent: loaded.starterContent,
+        });
+        setDescriptor(loaded);
+        setWorkingState(initial);
+        setDocumentRevision(loaded.revision ?? 1);
+        setLocalStateStatus(stored ? "Loaded local draft" : "Loaded starter content");
+        setDocumentLoadError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setDocumentLoadError(error instanceof Error ? error.message : "Failed to load runbook document");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [copyMessage, setCopyMessage] = useState("");
   const [isEditorLocked, setIsEditorLocked] = useState(false);
-  const [targetRelpath, setTargetRelpath] = useState(descriptor.targetRelpath);
   const [preparedWrite, setPreparedWrite] = useState<TiptapMarkdownWritePrepareResponse | null>(null);
   const [preparedMarkdown, setPreparedMarkdown] = useState("");
   const [writeStatus, setWriteStatus] = useState("");
@@ -112,9 +129,11 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const [activeBlockBoundary, setActiveBlockBoundary] = useState<RunbookBlockBoundary>(RUNBOOK_BLOCK_BOUNDARIES.local);
   const activeBlockRef = useRef<HTMLElement | null>(null);
   const editorShellRef = useRef<HTMLDivElement | null>(null);
+  const hasSyncedEditorContent = useRef(false);
+
   const editor = useEditor({
     extensions: [StarterKit, CalloutNode, RunbookReferenceNode],
-    content: workingState.tiptap_json as Content,
+    content: (workingState?.tiptap_json ?? northGateSessionRunbookStarterContent) as Content,
     editable: !isEditorLocked,
     onUpdate: ({ editor: nextEditor }) => {
       const tiptapJson = nextEditor.getJSON();
@@ -124,20 +143,27 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       setImportStatus("");
       setImportError("");
       setWorkingState((current) => {
+        if (!current || !descriptor) return current;
         const nextState = {
           ...current,
           tiptap_json: tiptapJson,
           exported_markdown: tiptapJsonToSemanticMarkdown(tiptapJson),
-          dirty: false,
+          dirty: true,
           updated_at: now,
           last_local_save_at: now,
         };
-        writeTiptapWorkingBoardState(window.localStorage, descriptor, nextState);
+        writeWorkspaceDocumentLocalState(window.localStorage, nextState);
         return nextState;
       });
       setLocalStateStatus("Saved locally");
     },
   });
+
+  useEffect(() => {
+    if (!editor || !workingState || hasSyncedEditorContent.current) return;
+    editor.commands.setContent(workingState.tiptap_json as Content, false);
+    hasSyncedEditorContent.current = true;
+  }, [editor, workingState]);
 
   const insertCallout = useCallback((kind: CalloutKind) => {
     editor?.chain().focus().insertCallout({ kind }).run();
@@ -200,11 +226,20 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   }, [commitResult, editor, isEditorLocked, localStateStatus]);
 
   const resetLocalDraft = useCallback(() => {
-    if (!editor) return;
+    if (!editor || !descriptor || !workingState) return;
     const now = new Date().toISOString();
-    const resetState = buildInitialWorkingBoardState(descriptor, now);
+    const resetState = buildInitialWorkspaceDocumentLocalState({
+      documentId: descriptor.documentId,
+      title: descriptor.title,
+      campaignId: descriptor.campaignId,
+      kind: "runbook",
+      targetSession: descriptor.session,
+      surface: "runbook",
+      starterContent: descriptor.starterContent,
+      now,
+    });
     editor.commands.setContent(descriptor.starterContent as Content, false);
-    writeTiptapWorkingBoardState(window.localStorage, descriptor, resetState);
+    writeWorkspaceDocumentLocalState(window.localStorage, resetState);
     setWorkingState(resetState);
     setLocalStateStatus("Reset to starter");
     setCopyMessage("");
@@ -212,11 +247,10 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     setWriteStatus("");
     clearActiveBlockDecoration();
     setActiveBlockBoundary(RUNBOOK_BLOCK_BOUNDARIES.local);
-  }, [clearActiveBlockDecoration, descriptor, editor]);
-
+  }, [clearActiveBlockDecoration, descriptor, editor, workingState]);
 
   const importCommittedMarkdown = useCallback(async () => {
-    if (!editor) return;
+    if (!editor || !descriptor || !workingState) return;
     setImportStatus("");
     setImportError("");
     setImportDiagnostics([]);
@@ -237,8 +271,17 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       const markdown = await response.text();
       const imported = markdownToTiptapDoc(markdown);
       const now = new Date().toISOString();
-      const importedState: TiptapWorkingBoardState = {
-        ...buildInitialWorkingBoardState(descriptor, now),
+      const importedState: WorkspaceDocumentLocalState = {
+        ...buildInitialWorkspaceDocumentLocalState({
+          documentId: descriptor.documentId,
+          title: descriptor.title,
+          campaignId: descriptor.campaignId,
+          kind: "runbook",
+          targetSession: descriptor.session,
+          surface: "runbook",
+          starterContent: descriptor.starterContent,
+          now,
+        }),
         tiptap_json: imported.doc,
         exported_markdown: tiptapJsonToSemanticMarkdown(imported.doc),
         dirty: false,
@@ -247,7 +290,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       };
 
       editor.commands.setContent(imported.doc as Content, false);
-      writeTiptapWorkingBoardState(window.localStorage, descriptor, importedState);
+      writeWorkspaceDocumentLocalState(window.localStorage, importedState);
       setWorkingState(importedState);
       setLocalStateStatus("Imported committed Markdown");
       setImportDiagnostics(imported.diagnostics);
@@ -256,9 +299,10 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       setImportStatus("");
       setImportError(error instanceof Error ? error.message : "Import committed Markdown failed.");
     }
-  }, [descriptor, editor, localStateStatus, workingState.exported_markdown]);
+  }, [descriptor, editor, localStateStatus, workingState?.exported_markdown]);
 
   const copyMarkdown = useCallback(async () => {
+    if (!workingState) return;
     if (!navigator.clipboard?.writeText) {
       setCopyMessage("Copy unavailable in this browser; select the Markdown export manually.");
       return;
@@ -270,18 +314,18 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     } catch {
       setCopyMessage("Copy unavailable in this browser; select the Markdown export manually.");
     }
-  }, [workingState.exported_markdown]);
+  }, [workingState?.exported_markdown]);
 
   const prepareFileWrite = useCallback(async () => {
+    if (!workingState) return;
     setWriteError("");
     setWriteStatus("Preparing file write…");
     setCommitResult(null);
     try {
       const response = await prepareTiptapMarkdownWrite({
         document_id: workingState.document_id,
-        title: workingState.title,
-        target_relpath: targetRelpath,
         markdown: workingState.exported_markdown,
+        expected_revision: documentRevision,
       });
       setPreparedWrite(response);
       setPreparedMarkdown(workingState.exported_markdown);
@@ -292,34 +336,34 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       setWriteStatus("");
       setWriteError(error instanceof Error ? error.message : "File write prepare failed.");
     }
-  }, [targetRelpath, workingState]);
+  }, [documentRevision, workingState]);
 
   const canCommit = Boolean(
     preparedWrite?.writer_ok
       && preparedWrite.writer_confirm_token
-      && preparedMarkdown === workingState.exported_markdown
-      && preparedWrite.target_relpath === targetRelpath,
+      && workingState
+      && preparedMarkdown === workingState.exported_markdown,
   );
 
   const commitFileWrite = useCallback(async () => {
-    if (!preparedWrite?.writer_confirm_token || !canCommit) return;
+    if (!preparedWrite?.writer_confirm_token || !canCommit || !workingState) return;
     setWriteError("");
     setWriteStatus("Committing reviewed file write…");
     try {
       const response = await commitTiptapMarkdownWrite({
         document_id: workingState.document_id,
-        title: workingState.title,
-        target_relpath: preparedWrite.target_relpath,
         markdown: preparedMarkdown,
         writer_confirm_token: preparedWrite.writer_confirm_token,
+        expected_revision: documentRevision,
       });
       setCommitResult(response);
+      setDocumentRevision(response.registry_revision);
       setWriteStatus("File written. Local draft remains available for further edits.");
     } catch (error) {
       setWriteStatus("");
       setWriteError(error instanceof Error ? error.message : "File write commit failed.");
     }
-  }, [canCommit, preparedMarkdown, preparedWrite, workingState.document_id, workingState.title]);
+  }, [canCommit, documentRevision, preparedMarkdown, preparedWrite, workingState]);
 
   useEffect(() => () => clearActiveBlockDecoration(), [clearActiveBlockDecoration]);
 
@@ -409,8 +453,16 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     return () => onEditorToolsChange?.(null);
   }, [canCommit, commitFileWrite, copyMarkdown, editor, importCommittedMarkdown, insertCallout, insertRunbookReference, isEditorLocked, onEditorToolsChange, prepareFileWrite, removeActiveBlock, resetLocalDraft, toggleEditorLock]);
 
-  const updatedAt = new Date(workingState.updated_at).toLocaleString();
-  const editorThemeClass = `md-theme-${descriptor.themeId}`;
+  const updatedAt = workingState ? new Date(workingState.updated_at).toLocaleString() : "";
+  const editorThemeClass = "md-theme-command";
+
+  if (!descriptor || !workingState) {
+    return (
+      <main className="tiptap-spike-page">
+        <p>{documentLoadError ?? "Loading runbook document…"}</p>
+      </main>
+    );
+  }
 
   return (
     <main className="tiptap-spike-page">
@@ -439,26 +491,12 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           <p>Working board state is saved locally in this browser. No backend or corpus write happens here.</p>
           <dl>
             <div><dt>Document</dt><dd>{descriptor.title}</dd></div>
-            <div><dt>Descriptor</dt><dd>{descriptor.documentId}</dd></div>
+            <div><dt>Document ID</dt><dd><code>{descriptor.documentId}</code></dd></div>
             <div><dt>Target</dt><dd>{descriptor.targetRelpath}</dd></div>
             <div><dt>State</dt><dd>{localStateStatus}</dd></div>
             <div><dt>Active block</dt><dd><span className={`tiptap-block-boundary-pill tiptap-block-boundary-${activeBlockBoundary.state}`}>{activeBlockBoundary.label}</span></dd></div>
             <div><dt>Updated</dt><dd>{updatedAt}</dd></div>
           </dl>
-          {unknownDocumentId && (
-            <p className="tiptap-write-warning">Unknown document id &quot;{unknownDocumentId}&quot;; loaded default descriptor.</p>
-          )}
-          <label htmlFor="tiptap-runbook-document">Runbook document</label>
-          <select
-            id="tiptap-runbook-document"
-            aria-label="Runbook document"
-            value={descriptor.documentId}
-            onChange={(event) => { window.location.href = `/tiptap-callout-spike?doc=${event.target.value}`; }}
-          >
-            {TIPTAP_RUNBOOK_DESCRIPTORS.map((option) => (
-              <option key={option.documentId} value={option.documentId}>{option.title}</option>
-            ))}
-          </select>
           {copyMessage && <p className="tiptap-copy-message">{copyMessage}</p>}
         </div>
 
@@ -503,15 +541,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
         </p>
         <div className="tiptap-write-form">
           <label htmlFor="tiptap-target-path">Target path</label>
-          <input
-            id="tiptap-target-path"
-            value={targetRelpath}
-            onChange={(event) => {
-              setTargetRelpath(event.target.value);
-              setCommitResult(null);
-              setWriteStatus("");
-            }}
-          />
+          <output id="tiptap-target-path" className="tiptap-target-path-display">{descriptor.targetRelpath}</output>
           <div className="tiptap-local-actions">
             <button type="button" onClick={importCommittedMarkdown} disabled={!editor}>Import committed Markdown</button>
             <button type="button" onClick={prepareFileWrite}>Prepare file write</button>
@@ -527,9 +557,6 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
         {importError && <p className="tiptap-write-error" role="alert">{importError}</p>}
         {preparedWrite && preparedMarkdown !== workingState.exported_markdown && (
           <p className="tiptap-write-warning">Editor changed after prepare. Re-prepare before committing.</p>
-        )}
-        {preparedWrite && preparedWrite.target_relpath !== targetRelpath && (
-          <p className="tiptap-write-warning">Target path changed after prepare. Re-prepare before committing.</p>
         )}
         {preparedWrite?.writer_diff != null && <pre className="tiptap-write-diff">{preparedWrite.writer_diff}</pre>}
         {preparedWrite?.warnings.map((warning) => <p className="tiptap-write-warning" key={warning}>{warning}</p>)}

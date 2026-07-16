@@ -93,7 +93,6 @@ export function planDogfoodStorageKey(sessionDescriptor: PlanSessionDescriptor):
   return [
     "dmb.planDogfood",
     sessionDescriptor.campaignId,
-    sessionDescriptor.prepSession,
     sessionDescriptor.planningDocument.documentId,
   ].join(".");
 }

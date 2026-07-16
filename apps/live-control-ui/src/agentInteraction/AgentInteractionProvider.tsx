@@ -30,7 +30,8 @@ function sameScope(left: AgentInteractionScope | null, right: AgentInteractionSc
     left &&
       left.campaignId === right.campaignId &&
       left.sessionNumber === right.sessionNumber &&
-      (left.surfaceId ?? "plan") === (right.surfaceId ?? "plan"),
+      (left.surfaceId ?? "plan") === (right.surfaceId ?? "plan") &&
+      (left.documentId ?? null) === (right.documentId ?? null),
   );
 }
 
@@ -47,30 +48,46 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       setThreadSummaries([]);
       return;
     }
-    setThreadSummaries(listAgentThreads(nextScope.campaignId, nextScope.surfaceId ?? "plan"));
+    setThreadSummaries(listAgentThreads(
+      nextScope.campaignId,
+      nextScope.surfaceId ?? "plan",
+      nextScope.documentId,
+    ));
   }, [scope]);
 
   const rehydrateScope = useCallback((nextScope: AgentInteractionScope) => {
     if (sameScope(scope, nextScope)) return;
     const surfaceId = nextScope.surfaceId ?? "plan";
-    const storedThread = loadAgentThread(nextScope.campaignId, surfaceId);
+    const storedThread = loadAgentThread(nextScope.campaignId, surfaceId, nextScope.documentId);
     setScope(nextScope);
     setActiveThread(storedThread);
     setSelectedSource(null);
-    setThreadSummaries(listAgentThreads(nextScope.campaignId, surfaceId));
+    setThreadSummaries(listAgentThreads(nextScope.campaignId, surfaceId, nextScope.documentId));
   }, [scope]);
 
   const updateThread = useCallback((thread: AgentInteractionThread) => {
     persistAgentThread(thread);
     setActiveThread(thread);
-    refreshSummaries({ campaignId: thread.campaignId, sessionNumber: thread.session ?? 0, surfaceId: thread.surfaceId });
+    refreshSummaries({
+      campaignId: thread.campaignId,
+      sessionNumber: thread.session ?? 0,
+      surfaceId: thread.surfaceId,
+      documentId: thread.documentId,
+    });
     return thread;
   }, [refreshSummaries]);
 
   const ensureThread = useCallback((title = "New prep thread", backend: LiveQueryBackend = "live") => {
     if (activeThread) return activeThread;
     if (!scope) throw new Error("Agent Interaction scope has not been published");
-    const nextThread = createAgentInteractionThread(scope.campaignId, scope.sessionNumber, scope.surfaceId ?? "plan", backend, title);
+    const nextThread = createAgentInteractionThread(
+      scope.campaignId,
+      scope.sessionNumber,
+      scope.surfaceId ?? "plan",
+      backend,
+      title,
+      scope.documentId,
+    );
     return updateThread(nextThread);
   }, [activeThread, scope, updateThread]);
 
@@ -82,8 +99,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       scope.surfaceId ?? "plan",
       activeThread?.activeBackend ?? "live",
       title,
+      scope.documentId,
     );
-    setActiveAgentThread(scope.campaignId, scope.surfaceId ?? "plan", nextThread.threadId);
+    setActiveAgentThread(scope.campaignId, scope.surfaceId ?? "plan", nextThread.threadId, scope.documentId);
     setSelectedSource(null);
     return updateThread(nextThread);
   }, [activeThread?.activeBackend, scope, updateThread]);
@@ -92,7 +110,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     if (!scope) return null;
     const nextThread = loadAgentThreadById(scope.campaignId, threadId);
     if (!nextThread) return null;
-    setActiveAgentThread(scope.campaignId, scope.surfaceId ?? "plan", threadId);
+    setActiveAgentThread(scope.campaignId, scope.surfaceId ?? "plan", threadId, scope.documentId);
     setSelectedSource(null);
     setActiveThread(nextThread);
     refreshSummaries(scope);
@@ -104,7 +122,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     const doomed = loadAgentThreadById(scope.campaignId, threadId);
     if (!doomed) return;
     deleteStoredAgentThread(doomed);
-    const nextThread = loadAgentThread(scope.campaignId, scope.surfaceId ?? "plan");
+    const nextThread = loadAgentThread(scope.campaignId, scope.surfaceId ?? "plan", scope.documentId);
     setActiveThread(nextThread);
     setSelectedSource(null);
     refreshSummaries(scope);

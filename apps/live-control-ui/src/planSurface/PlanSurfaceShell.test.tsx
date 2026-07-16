@@ -3,6 +3,21 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("./config/planSessionDescriptor", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./config/planSessionDescriptor")>();
+  return {
+    ...actual,
+    resolvePlanningDocument: vi.fn(async () => actual.fixturePlanDocumentDescriptor()),
+  };
+});
+
+import * as planSessionDescriptor from "./config/planSessionDescriptor";
+import {
+  FIXTURE_DOC_ID,
+  fixturePlanDocumentDescriptor,
+  fixturePlanSessionDescriptor,
+  fixtureWorkspaceDocumentRecord,
+} from "./config/planSessionDescriptor";
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
 import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
 import {
@@ -98,16 +113,30 @@ function renderPlanSurface() {
   return render(<PlanSurfaceTestHarness />);
 }
 
+async function waitForPlanSurfaceReady() {
+  await waitFor(() => {
+    expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
+  });
+}
+
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(worldGraphProjection);
+    vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [fixtureWorkspaceDocumentRecord()],
+    });
+    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
+    vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     localStorage.clear();
     window.history.pushState({}, "", "/plan");
   });
 
-  it("renders toolbar, edit bar, and canvas regions", () => {
+  it("renders toolbar, edit bar, and canvas regions", async () => {
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
@@ -129,23 +158,26 @@ describe("PlanSurfaceShell", () => {
   it("opens Recap from the tool query parameter", async () => {
     window.history.pushState({}, "", "/plan?tool=recap");
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Recap" })).toHaveAttribute("aria-pressed", "true"),
     );
   });
 
-  it("does not render dogfood checklist without ?dogfood=1", () => {
+  it("does not render dogfood checklist without ?dogfood=1", async () => {
     window.history.pushState({}, "", "/plan?campaign=longmont-c2&session=22");
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     expect(screen.queryByTestId("plan-dogfood-panel")).not.toBeInTheDocument();
     expect(screen.queryByText("Dogfood checklist")).not.toBeInTheDocument();
   });
 
-  it("renders dogfood checklist when ?dogfood=1 is present", () => {
+  it("renders dogfood checklist when ?dogfood=1 is present", async () => {
     window.history.pushState({}, "", "/plan?campaign=longmont-c2&session=22&dogfood=1");
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     expect(screen.getByTestId("plan-dogfood-panel")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dogfood checklist" })).toBeInTheDocument();
@@ -160,13 +192,14 @@ describe("PlanSurfaceShell", () => {
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
 
     expect(
       await screen.findByRole("complementary", { name: "DungeonBuddy drawer" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("World graph (all sessions) · preparing Session 23")).toBeInTheDocument();
+    expect(screen.getByText("World graph (all sessions)")).toBeInTheDocument();
     expect(screen.getByLabelText("Question")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
     expect(screen.getByText("Memory coverage diagnostics")).toBeInTheDocument();
@@ -179,8 +212,8 @@ describe("PlanSurfaceShell", () => {
 
   it("asks prep memory through live query using the live packet session", async () => {
     const user = userEvent.setup();
-    const liveThread = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Live retrieval thread");
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), liveThread.threadId);
+    const liveThread = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Live retrieval thread", FIXTURE_DOC_ID);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), liveThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", liveThread.threadId), JSON.stringify(liveThread));
 
     vi.spyOn(globalThis, "fetch")
@@ -245,9 +278,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     expect(screen.getByLabelText("Question")).toBeInTheDocument();
     await user.type(
       screen.getByLabelText("Question"),
@@ -267,7 +301,7 @@ describe("PlanSurfaceShell", () => {
     const sourceReader = await screen.findByRole("region", { name: "Source preview" });
     expect(sourceReader).toHaveTextContent("Current source content has the Lysandro gate reveal.");
     expect(sourceReader).not.toHaveTextContent("Stale packet excerpt should not be the reader body.");
-    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan"));
+    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan", FIXTURE_DOC_ID));
     expect(storedThreadId).toBeTruthy();
     expect(localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "").not.toContain("Current source content has the Lysandro gate reveal.");
     expect(screen.getByRole("region", { name: "Retrieval freshness" })).toBeInTheDocument();
@@ -347,6 +381,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Is this still current?");
@@ -363,11 +398,11 @@ describe("PlanSurfaceShell", () => {
       expected_fingerprint: "expected-source-lines-hash",
       fingerprint_algorithm: "sha256:source-lines-v1",
     });
-    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan"));
+    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan", FIXTURE_DOC_ID));
     const storedThread = localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "";
     expect(storedThread).toContain("expected-source-lines-hash");
     expect(storedThread).not.toContain("Current source content has the Lysandro gate reveal.");
-    const indexJson = localStorage.getItem(threadIndexStorageKey(mockPlanView.campaign_id, "plan")) ?? "";
+    const indexJson = localStorage.getItem(threadIndexStorageKey(mockPlanView.campaign_id, "plan", FIXTURE_DOC_ID)) ?? "";
     expect(indexJson).not.toContain("expected-source-lines-hash");
     expect(indexJson).not.toContain("corpus/test/session.md");
   });
@@ -419,9 +454,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -473,9 +509,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("First answer")).toBeInTheDocument();
@@ -526,9 +563,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "Who is Lysandro?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -581,9 +619,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
 
     await user.type(screen.getByLabelText("Question"), "Empty graph question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -610,9 +649,10 @@ describe("PlanSurfaceShell", () => {
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     expect(await screen.findByText("Initializing world graph context…")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Ask before projection is ready?");
@@ -651,9 +691,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What should I remember about the gate?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -691,9 +732,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -774,9 +816,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -826,9 +869,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
 
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -841,18 +885,15 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
     expect(screen.queryByText(/Conversation \(\d+\)/)).not.toBeInTheDocument();
 
-    const stored = localStorage.getItem("plan-agent-turns-v1:longmont-c2");
-    expect(stored).toBeTruthy();
-    const parsed = JSON.parse(String(stored)) as Array<{ question: string; answer: string }>;
-    expect(parsed.length).toBe(2);
-    expect(parsed[0].question).toBe("Second question?");
-    expect(parsed[0].answer).toBe("Second answer");
-    expect(JSON.stringify(parsed)).not.toMatch(/context_packet|text_excerpt/);
-
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     expect(activeThreadId).toBeTruthy();
     const storedThread = localStorage.getItem(threadStorageKey("longmont-c2", String(activeThreadId)));
     expect(storedThread).toBeTruthy();
+    const parsed = JSON.parse(String(storedThread)) as { turns: Array<{ question: string; answer: string }> };
+    expect(parsed.turns.length).toBe(2);
+    expect(parsed.turns[0].question).toBe("Second question?");
+    expect(parsed.turns[0].answer).toBe("Second answer");
+    expect(JSON.stringify(parsed)).not.toMatch(/context_packet|text_excerpt/);
     expect(storedThread).not.toMatch(/context_packet/);
     expect(storedThread).not.toMatch(/text_excerpt/);
     expect(storedThread).not.toMatch(/prompt_preview/);
@@ -861,13 +902,15 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Clear history" }));
     expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
-    expect(localStorage.getItem("plan-agent-turns-v1:longmont-c2")).toBe("[]");
+    const clearedThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
+    const clearedThread = JSON.parse(String(localStorage.getItem(threadStorageKey("longmont-c2", String(clearedThreadId))))) as { turns: unknown[] };
+    expect(clearedThread.turns).toEqual([]);
   });
 
   it("migrates existing active threads into the switcher and renames the active thread", async () => {
     const user = userEvent.setup();
     const existingThread = {
-      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Session 24 inn prep"),
+      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Session 24 inn prep", FIXTURE_DOC_ID),
       turns: [{
         turnId: "turn-existing",
         askedAt: "2026-06-22T00:00:00.000Z",
@@ -883,7 +926,7 @@ describe("PlanSurfaceShell", () => {
       }],
       uiState: { traceVisible: true, scrollAnchorTurnId: "turn-existing" },
     };
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), existingThread.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), existingThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", existingThread.threadId), JSON.stringify(existingThread));
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
@@ -892,6 +935,7 @@ describe("PlanSurfaceShell", () => {
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Session 24 inn prep");
@@ -900,7 +944,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     const switcher = screen.getByRole("region", { name: "DungeonBuddy threads" });
     expect(switcher).toHaveTextContent("Session 24 inn prep");
-    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Session 24 inn prep");
+    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID))).toContain("Session 24 inn prep");
 
     await user.click(screen.getByRole("button", { name: "Rename" }));
     await user.clear(screen.getByLabelText("Prep thread title"));
@@ -909,7 +953,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(screen.getAllByText("Mireward inn prep").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Mireward inn prep" })).toBeInTheDocument();
-    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Mireward inn prep");
+    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID))).toContain("Mireward inn prep");
   });
 
   it("keeps questions isolated across named threads and resets source reader when switching", async () => {
@@ -946,9 +990,10 @@ describe("PlanSurfaceShell", () => {
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(queryResponse("Answer for thread B", "b")) } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "Thread A question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
@@ -967,11 +1012,11 @@ describe("PlanSurfaceShell", () => {
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
     expect(screen.queryByText("Answer for thread B")).not.toBeInTheDocument();
 
-    const indexJson = localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan")) ?? "";
+    const indexJson = localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID)) ?? "";
     expect(indexJson).toContain("Thread A question?");
     expect(indexJson).toContain("Thread B question?");
     expect(indexJson).not.toContain("Answer for thread A");
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     expect(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "").not.toContain("Thread A source body");
   });
 
@@ -998,8 +1043,9 @@ describe("PlanSurfaceShell", () => {
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       await user.type(screen.getByLabelText("Question"), `Question ${index}?`);
@@ -1010,10 +1056,10 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("region", { name: "Thread getting long" })).toHaveTextContent(
       `This thread has ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS} turns. Start a new prep thread for a fresh topic?`,
     );
-    const originalThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const originalThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     await user.click(screen.getByRole("button", { name: "Keep going" }));
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
-    expect(localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"))).toBe(originalThreadId);
+    expect(localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID))).toBe(originalThreadId);
     expect(JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", originalThreadId ?? "")) ?? "{}").uiState.newThreadSuggestionDismissed).toBe(true);
   });
 
@@ -1038,8 +1084,9 @@ describe("PlanSurfaceShell", () => {
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `Before clear ${index}?` } });
@@ -1074,8 +1121,9 @@ describe("PlanSurfaceShell", () => {
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
@@ -1087,7 +1135,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Start new thread" }));
     expect(screen.getByRole("heading", { name: "New prep thread" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     const activeThread = JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "{}");
     expect(activeThread.title).toBe("New prep thread");
     expect(activeThread.turns).toEqual([]);
@@ -1102,8 +1150,9 @@ describe("PlanSurfaceShell", () => {
       .mockResolvedValue({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
 
     const rendered = renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "Restore thread A?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
@@ -1117,6 +1166,7 @@ describe("PlanSurfaceShell", () => {
 
     rendered.unmount();
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
@@ -1128,15 +1178,16 @@ describe("PlanSurfaceShell", () => {
 
   it("ignores corrupt thread index localStorage", async () => {
     const user = userEvent.setup();
-    localStorage.setItem(threadIndexStorageKey("longmont-c2", "plan"), "{not-json");
+    localStorage.setItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), "{not-json");
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       text: async () => JSON.stringify(mockSourceBundle),
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     expect(screen.getByText("No saved prep threads yet.")).toBeInTheDocument();
   });
@@ -1176,9 +1227,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What happened at bootstrap?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -1228,9 +1280,10 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions) · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What carried over from prior sessions?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -1239,8 +1292,9 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText("Preliminary verdict · Weak context")).toBeInTheDocument();
   });
 
-  it("applies spike theme tokens at the surface root", () => {
+  it("applies spike theme tokens at the surface root", async () => {
     const { container } = renderPlanSurface();
+    await waitForPlanSurfaceReady();
     const root = container.querySelector(".plan-surface-root");
     expect(root).toHaveAttribute("data-md-theme", "mireward-runbook");
     expect(root).toHaveStyle({ "--accent": "#7aa2f7" });
@@ -1253,6 +1307,7 @@ describe("PlanSurfaceShell", () => {
       json: async () => ({ records: [] }),
     } as Response);
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
 
@@ -1263,6 +1318,7 @@ describe("PlanSurfaceShell", () => {
   it("opens statblock projection from the toolbar registry", async () => {
     const user = userEvent.setup();
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: "Statblock" }));
@@ -1302,6 +1358,7 @@ describe("PlanSurfaceShell", () => {
     });
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await waitFor(() => {
       expect(screen.getByLabelText("Find objects")).toBeInTheDocument();
@@ -1327,8 +1384,9 @@ describe("PlanSurfaceShell", () => {
     );
   });
 
-  it("shows Markdown save control in the edit toolbar", () => {
+  it("shows Markdown save control in the edit toolbar", async () => {
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeInTheDocument();
   });
@@ -1343,7 +1401,7 @@ describe("PlanSurfaceShell", () => {
         text: async () =>
           JSON.stringify({
             schema_version: "dmb_tiptap_markdown_write_prepare_v1",
-            document_id: "longmont-c2-session-23-prep",
+            document_id: FIXTURE_DOC_ID,
             title: "C2 Session 23 Prep",
             target_relpath: planTarget,
             target_display_path: planTarget,
@@ -1361,7 +1419,7 @@ describe("PlanSurfaceShell", () => {
         text: async () =>
           JSON.stringify({
             schema_version: "dmb_tiptap_markdown_write_commit_v1",
-            document_id: "longmont-c2-session-23-prep",
+            document_id: FIXTURE_DOC_ID,
             title: "C2 Session 23 Prep",
             target_relpath: planTarget,
             target_display_path: planTarget,
@@ -1374,6 +1432,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
@@ -1382,9 +1441,9 @@ describe("PlanSurfaceShell", () => {
     });
     expect(fetchSpy.mock.calls[0][0]).toBe("/api/live/tiptap/markdown-write/prepare");
     const prepareBody = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
-    expect(prepareBody.target_relpath).toBe(planTarget);
-    expect(prepareBody.document_id).toBe("longmont-c2-session-23-prep");
+    expect(prepareBody.document_id).toBe(FIXTURE_DOC_ID);
     expect(prepareBody.markdown).toContain("C2 Session 23 Prep");
+    expect(prepareBody).not.toHaveProperty("target_relpath");
     expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
     expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
@@ -1492,6 +1551,7 @@ describe("PlanSurfaceShell", () => {
     });
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByLabelText("Question")).toBeInTheDocument();
@@ -1528,6 +1588,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), `${state} question?`);
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -1560,6 +1621,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Scope mismatch question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -1580,10 +1642,10 @@ describe("PlanSurfaceShell", () => {
       title: "Stale Hermes session",
     };
     const seededThread = {
-      ...createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Stale session thread"),
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Stale session thread", FIXTURE_DOC_ID),
       hermesSession: staleSession,
     };
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), seededThread.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), seededThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", seededThread.threadId), JSON.stringify(seededThread));
 
     vi.spyOn(globalThis, "fetch")
@@ -1614,6 +1676,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Stale session thread");
     await user.type(screen.getByLabelText("Question"), "Hermes graph question?");
@@ -1665,6 +1728,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -1721,6 +1785,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -1735,7 +1800,7 @@ describe("PlanSurfaceShell", () => {
   it("reloads saved Hermes graph grounding, citations, and trace without a new query", async () => {
     const user = userEvent.setup();
     const savedThread = {
-      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread"),
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread", FIXTURE_DOC_ID),
       turns: [{
         turnId: "turn-saved-graph",
         askedAt: "2026-07-14T18:00:00Z",
@@ -1751,7 +1816,7 @@ describe("PlanSurfaceShell", () => {
       }],
       uiState: { traceVisible: true, scrollAnchorTurnId: "turn-saved-graph" },
     };
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), savedThread.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), savedThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", savedThread.threadId), JSON.stringify(savedThread));
 
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
@@ -1760,6 +1825,7 @@ describe("PlanSurfaceShell", () => {
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
 
     expect(await screen.findByText("Saved graph answer.")).toBeInTheDocument();
@@ -1786,6 +1852,7 @@ describe("PlanSurfaceShell", () => {
     });
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(
@@ -1848,6 +1915,7 @@ describe("PlanSurfaceShell", () => {
     });
 
     const { unmount } = renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(
       screen.getByLabelText("Question"),
@@ -1856,7 +1924,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await screen.findByText("Tripod stands at the North Gate.");
 
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     expect(activeThreadId).toBeTruthy();
     const storedKey = threadStorageKey("longmont-c2", String(activeThreadId));
     const storedBefore = localStorage.getItem(storedKey) ?? "";
@@ -1917,6 +1985,7 @@ describe("PlanSurfaceShell", () => {
     });
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByText("Tripod stands at the North Gate.")).toBeInTheDocument();
 
@@ -1963,6 +2032,7 @@ describe("PlanSurfaceShell", () => {
     });
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Thread A turn 1?");
@@ -1985,7 +2055,7 @@ describe("PlanSurfaceShell", () => {
   it("uses the saved citation revision when opening graph evidence after reload", async () => {
     const user = userEvent.setup();
     const savedThread = {
-      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread"),
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread", FIXTURE_DOC_ID),
       turns: [{
         turnId: "turn-saved-graph",
         askedAt: "2026-07-14T18:00:00Z",
@@ -2001,7 +2071,7 @@ describe("PlanSurfaceShell", () => {
       }],
       uiState: { traceVisible: false, scrollAnchorTurnId: "turn-saved-graph" },
     };
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), savedThread.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), savedThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", savedThread.threadId), JSON.stringify(savedThread));
 
     vi.spyOn(globalThis, "fetch")
@@ -2028,6 +2098,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
@@ -2048,6 +2119,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -2074,6 +2146,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -2096,6 +2169,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -2128,6 +2202,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -2162,6 +2237,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -2203,6 +2279,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -2255,6 +2332,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -2325,6 +2403,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
@@ -2347,6 +2426,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");

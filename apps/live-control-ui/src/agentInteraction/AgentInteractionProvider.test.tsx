@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { LiveQueryResponse } from "../api/types";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { activeThreadStorageKey, createAgentInteractionThread, persistAgentThread, threadStorageKey } from "./agentInteractionStorage";
+import { FIXTURE_DOC_ID } from "../planSurface/config/planSessionDescriptor";
 import { useAgentInteraction } from "./useAgentInteraction";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -45,7 +46,7 @@ describe("AgentInteractionProvider", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
 
     act(() => {
-      result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" });
+      result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID });
       result.current.publishSurfaceContext({
         surfaceId: "plan",
         label: "Plan · Session 23",
@@ -67,16 +68,16 @@ describe("AgentInteractionProvider", () => {
   });
 
   it("rehydrates saved thread state and keeps thread turns isolated", () => {
-    const first = { ...createAgentInteractionThread("longmont-c2", 23, "plan", "live", "First"), threadId: "first" };
-    const second = { ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Second"), threadId: "second" };
+    const first = { ...createAgentInteractionThread("longmont-c2", 23, "plan", "live", "First", FIXTURE_DOC_ID), threadId: "first" };
+    const second = { ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Second", FIXTURE_DOC_ID), threadId: "second" };
     first.turns = [{ turnId: "t1", askedAt: "2026-06-28T00:00:00.000Z", question: "A?", answer: "A", backend: "live", status: "ok" }];
     second.turns = [{ turnId: "t2", askedAt: "2026-06-28T00:00:00.000Z", question: "B?", answer: "B", backend: "hermes", status: "ok", corpusFreshness: { status: "changed", checked_at: "2026-06-28T00:00:00.000Z", diagnostics: [], warnings: [] } }];
     persistAgentThread(first);
     persistAgentThread(second);
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), "second");
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), "second");
 
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
 
     expect(result.current.activeThread?.threadId).toBe("second");
     expect(result.current.turns[0].question).toBe("B?");
@@ -98,15 +99,15 @@ describe("AgentInteractionProvider", () => {
       title: "Stale session",
     };
     const seeded = {
-      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Seeded"),
+      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Seeded", FIXTURE_DOC_ID),
       threadId: "seeded-thread",
       hermesSession: staleSession,
     };
     persistAgentThread(seeded);
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), seeded.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), seeded.threadId);
 
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
     expect(result.current.activeThread?.hermesSession).toEqual(staleSession);
 
     act(() => {
@@ -139,7 +140,7 @@ describe("AgentInteractionProvider", () => {
 
   it("keeps subsequent Hermes turns independent without forwarding a session handle", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
 
     act(() => {
       result.current.appendResponseTurn("First graph turn?", {
@@ -169,7 +170,7 @@ describe("AgentInteractionProvider", () => {
       title: "Live session",
     };
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
 
     act(() => {
       result.current.appendResponseTurn("Live turn?", {
@@ -184,10 +185,10 @@ describe("AgentInteractionProvider", () => {
 
   it("persists bounded metadata without prompt previews or raw context packets", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
     act(() => result.current.appendResponseTurn("Bounded?", { ...response, ["context" + "_packet"]: { admitted_evidence: [{ evidence_id: "e1", path: "corpus/session.md", source_role: "play_recap", authority: "canon_play", text_excerpt: "unbounded excerpt" }], rejected_evidence: [] }, agent_trace: { trace_id: "trace", prompt_preview: "raw" + " prompt", artifact_refs: [{ kind: "file", label: "tmp", path: "/tmp/raw.json" }] } as never }));
 
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     const stored = localStorage.getItem(threadStorageKey("longmont-c2", String(activeThreadId))) ?? "";
     expect(stored).toContain("Bounded?");
     expect(stored).toContain("corpus/session.md");

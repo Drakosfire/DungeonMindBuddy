@@ -3,8 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
-import type { PlanSessionDescriptor } from "../types";
-import { createPlanCanvasStorageKey } from "../config/planSessionDescriptor";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import { PlanDogfoodPanel } from "./PlanDogfoodPanel";
 import {
@@ -12,28 +11,7 @@ import {
   dogfoodModeFromLocation,
 } from "./planDogfoodState";
 
-const sessionDescriptor: PlanSessionDescriptor = {
-  surfaceId: "plan",
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown",
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "Longmont C2 Session 23 Prep",
-    targetRelpath:
-      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md",
-    storageKey: createPlanCanvasStorageKey({
-      campaignId: "longmont-c2",
-      prepSession: 23,
-      documentId: "longmont-c2-session-23-prep",
-    }),
-    status: "local_draft",
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 function renderPanel(saveStatusLabel = "Local draft · not yet saved to Markdown") {
   return render(
@@ -112,7 +90,7 @@ describe("PlanDogfoodPanel", () => {
     localStorage.setItem(
       planDogfoodStorageKey(sessionDescriptor),
       JSON.stringify({
-        checked: { "answer-discloses-lag": true },
+        checked: { "answer-names-boundary": true },
         notes: "",
         updatedAt: "2026-07-09T00:00:00.000Z",
       }),
@@ -122,7 +100,7 @@ describe("PlanDogfoodPanel", () => {
 
     expect(
       screen.getByRole("checkbox", {
-        name: /Answer discloses memory lag/,
+        name: /Answer names the latest admitted recap/,
       }),
     ).toBeChecked();
   });

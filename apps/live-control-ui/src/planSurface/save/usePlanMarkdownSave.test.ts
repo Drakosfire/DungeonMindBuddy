@@ -3,32 +3,16 @@ import type { Editor } from "@tiptap/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../../api/liveApi";
+import { fixturePlanSessionDescriptor, FIXTURE_DOC_ID } from "../config/planSessionDescriptor";
 import { usePlanMarkdownSave } from "./usePlanMarkdownSave";
-import type { PlanSessionDescriptor } from "../types";
 
 vi.mock("../../api/liveApi", () => ({
   prepareTiptapMarkdownWrite: vi.fn(),
   commitTiptapMarkdownWrite: vi.fn(),
 }));
 
-const sessionDescriptor: PlanSessionDescriptor = {
-  surfaceId: "plan",
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown",
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "C2 Session 23 Prep",
-    targetRelpath:
-      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md",
-    storageKey: "dmb.planCanvas.longmont-c2.23.longmont-c2-session-23-prep",
-    status: "local_draft",
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
+const planningDocument = sessionDescriptor.planningDocument;
 
 function createEditor(initialText: string) {
   let text = initialText;
@@ -48,10 +32,11 @@ describe("usePlanMarkdownSave", () => {
     vi.clearAllMocks();
     vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_prepare_v1",
-      document_id: "longmont-c2-session-23-prep",
+      document_id: FIXTURE_DOC_ID,
       title: "C2 Session 23 Prep",
-      target_relpath: sessionDescriptor.planningDocument.targetRelpath,
-      target_display_path: sessionDescriptor.planningDocument.targetRelpath,
+      target_relpath: planningDocument.targetRelpath!,
+      target_display_path: planningDocument.targetRelpath!,
+      registry_revision: 1,
       file_exists: false,
       writer_ok: true,
       writer_phase: "prepare",
@@ -62,10 +47,11 @@ describe("usePlanMarkdownSave", () => {
     });
     vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_commit_v1",
-      document_id: "longmont-c2-session-23-prep",
+      document_id: FIXTURE_DOC_ID,
       title: "C2 Session 23 Prep",
-      target_relpath: sessionDescriptor.planningDocument.targetRelpath,
-      target_display_path: sessionDescriptor.planningDocument.targetRelpath,
+      target_relpath: planningDocument.targetRelpath!,
+      target_display_path: planningDocument.targetRelpath!,
+      registry_revision: 2,
       writer_ok: true,
       writer_phase: "commit",
       bytes_written: 42,
@@ -76,7 +62,7 @@ describe("usePlanMarkdownSave", () => {
 
   it("prepares and commits in one saveMarkdown call", async () => {
     const editor = createEditor("C2 Session 23 Prep");
-    const { result } = renderHook(() => usePlanMarkdownSave({ editor, sessionDescriptor }));
+    const { result } = renderHook(() => usePlanMarkdownSave({ editor, planningDocument }));
 
     await act(async () => {
       await result.current.saveMarkdown();
@@ -85,14 +71,18 @@ describe("usePlanMarkdownSave", () => {
     await waitFor(() => {
       expect(result.current.state.status).toBe("committed");
     });
-    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledWith({
+      document_id: FIXTURE_DOC_ID,
+      markdown: expect.stringContaining("C2 Session 23 Prep"),
+      expected_revision: planningDocument.revision,
+    });
     expect(commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
     expect(result.current.saveDisabled).toBe(false);
   });
 
   it("marks dirty after a successful save when the board changes", async () => {
     const editor = createEditor("C2 Session 23 Prep");
-    const { result } = renderHook(() => usePlanMarkdownSave({ editor, sessionDescriptor }));
+    const { result } = renderHook(() => usePlanMarkdownSave({ editor, planningDocument }));
 
     await act(async () => {
       await result.current.saveMarkdown();

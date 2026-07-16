@@ -485,22 +485,26 @@ export function PlanAgentInteractionBar({
   const [freshnessChecking, setFreshnessChecking] = useState(false);
 
   const memorySessionLabel = prepMemoryLabel(sessionDescriptor);
+  const planningDocumentId = sessionDescriptor.planningDocument.documentId;
   // Outer /api/live/query must match the loaded live packet session (liveSession),
   // not memorySession. World-graph focus uses memorySession when ?session= is set;
   // otherwise focus is world-union (kind: none).
   const querySession = sessionDescriptor.liveSession;
 
   useEffect(() => {
+    const { planningDocument } = sessionDescriptor;
     agentInteraction.rehydrateScope({
       campaignId: sessionDescriptor.campaignId,
-      sessionNumber: sessionDescriptor.prepSession,
+      sessionNumber: sessionDescriptor.liveSession,
       surfaceId: "plan",
+      documentId: planningDocument.documentId,
     });
     agentInteraction.publishSurfaceContext({
       surfaceId: "plan",
-      label: `Plan · Session ${sessionDescriptor.prepSession}`,
+      label: planningDocument.title,
       campaignId: sessionDescriptor.campaignId,
-      sessionNumber: sessionDescriptor.prepSession,
+      documentId: planningDocument.documentId,
+      sessionNumber: sessionDescriptor.liveSession,
       ambientSummary: `Plan prep for ${sessionDescriptor.campaignLabel}, ${memorySessionLabel}`,
       sourceEnvelope: null,
       updatedAt: new Date().toISOString(),
@@ -508,7 +512,9 @@ export function PlanAgentInteractionBar({
   }, [
     sessionDescriptor.campaignId,
     sessionDescriptor.campaignLabel,
-    sessionDescriptor.prepSession,
+    sessionDescriptor.liveSession,
+    sessionDescriptor.planningDocument.documentId,
+    sessionDescriptor.planningDocument.title,
     memorySessionLabel,
   ]);
 
@@ -619,6 +625,8 @@ export function PlanAgentInteractionBar({
       querySession,
       "plan",
       queryBackend,
+      "New prep thread",
+      planningDocumentId,
     );
     agentInteraction.updateThread(nextThread);
     activateThread(nextThread);
@@ -651,6 +659,8 @@ export function PlanAgentInteractionBar({
       querySession,
       "plan",
       queryBackend,
+      "New prep thread",
+      planningDocumentId,
     );
     const nextThread = agentInteraction.renameThread(titleDraft) ?? baseThread;
     activateThread(nextThread);
@@ -800,6 +810,7 @@ export function PlanAgentInteractionBar({
         "plan",
         queryBackend,
         threadTitleFromQuestion(trimmed),
+        planningDocumentId,
       );
       const response = await askCorpus(
         trimmed,
@@ -830,6 +841,7 @@ export function PlanAgentInteractionBar({
         || response.agent_trace?.mode === "hermes_graph_agent";
       const nextThread: AgentInteractionThread = {
         ...currentThread,
+        documentId: currentThread.documentId ?? planningDocumentId,
         threadId: response.agent_thread_id ?? currentThread.threadId,
         title: currentThread.turns.length ? currentThread.title : threadTitleFromQuestion(trimmed),
         updatedAt: new Date().toISOString(),
@@ -1345,6 +1357,8 @@ export function PlanAgentInteractionBar({
                   querySession,
                   "plan",
                   queryBackend,
+                  "New prep thread",
+                  planningDocumentId,
                 );
                 const nextThread = { ...baseThread, uiState: { ...baseThread.uiState, traceVisible: !traceVisible } };
                 setThread(nextThread);

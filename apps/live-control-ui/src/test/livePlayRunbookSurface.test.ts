@@ -13,7 +13,8 @@ describe("Live Play North Gate runbook surface", () => {
     const html = readFileSync(livePlayPath, "utf8");
 
     expect(html).toContain("content/tiptap/north-gate-session-runbook.md");
-    expect(html).toContain("/tiptap-callout-spike?doc=north-gate-session-runbook");
+    expect(html).toContain("/tiptap-callout-spike");
+    expect(html).not.toMatch(/\/tiptap-callout-spike\?doc=/);
     expect(html).not.toContain("dogfood runbook");
     expect(html).toContain("Edit runbook");
     expect(html).toContain('data-open-toolbox="ingestion"');

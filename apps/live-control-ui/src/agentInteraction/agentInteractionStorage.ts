@@ -6,7 +6,6 @@ export {
   clearAgentThread,
   createAgentInteractionThread,
   deleteAgentThread,
-  historyStorageKey,
   listAgentThreads,
   loadAgentThread,
   loadAgentThreadById,

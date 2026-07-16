@@ -9,9 +9,8 @@ import { PartyRegistryModule } from "./PartyRegistryModule";
 const mockContext = {
   campaignId: "longmont-c2",
   liveSession: 22,
-  prepSession: 23,
   ingestSession: 23,
-  headerLabel: "Plan · Longmont C2 · preparing Session 23",
+  headerLabel: "Plan · C2 Session 23 Prep",
 };
 
 function makePartyRegistryResponse(

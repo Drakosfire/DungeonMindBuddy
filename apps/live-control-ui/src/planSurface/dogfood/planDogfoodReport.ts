@@ -26,7 +26,7 @@ export function buildPlanDogfoodReport(args: {
     "# /plan Dogfood Report",
     "",
     `Campaign: ${sessionDescriptor.campaignLabel}`,
-    `Prep session: ${sessionDescriptor.prepSession}`,
+    `Target session: ${planningDocument.targetSession ?? "unset"}`,
     `Memory session: ${sessionDescriptor.memorySession ?? "none (world union)"}`,
     `Document: ${planningDocument.title}`,
     `Target path: ${planningDocument.targetRelpath}`,

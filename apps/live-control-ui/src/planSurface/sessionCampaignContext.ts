@@ -39,17 +39,13 @@ export function requestedSessionNumberFromLocation(
   return Number.isFinite(session) && session > 0 ? session : null;
 }
 
-/** Optional `?prepSession=24` (or `session-24`) for the Plan board target. */
-export function requestedPrepSessionFromLocation(
+/** Optional `?documentId=<uuid>` selects a workspace document. */
+export function requestedDocumentIdFromLocation(
   search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
-): number | null {
+): string | null {
   if (search == null) return null;
-  const raw = new URLSearchParams(search).get("prepSession")?.trim();
-  if (!raw) return null;
-  const match = raw.match(/^(?:session-)?(\d+)$/i);
-  if (!match) return null;
-  const session = Number.parseInt(match[1], 10);
-  return Number.isFinite(session) && session > 0 ? session : null;
+  const raw = new URLSearchParams(search).get("documentId")?.trim();
+  return raw || null;
 }
 
 export function resolveInitialReviewCampaignId(

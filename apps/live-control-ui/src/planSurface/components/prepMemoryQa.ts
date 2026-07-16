@@ -19,11 +19,9 @@ const HERMES_GROUNDING_STATES: readonly HermesGraphGroundingState[] = [
 const FOCUS_KINDS = ["none", "session"] as const;
 
 export function prepMemoryLabel(sessionDescriptor: PlanSessionDescriptor): string {
-  const memory =
-    sessionDescriptor.memorySession == null
-      ? "World graph (all sessions)"
-      : `Memory through Session ${sessionDescriptor.memorySession}`;
-  return `${memory} · preparing Session ${sessionDescriptor.prepSession}`;
+  return sessionDescriptor.memorySession == null
+    ? "World graph (all sessions)"
+    : `Memory through Session ${sessionDescriptor.memorySession}`;
 }
 
 export function isHermesGraphAgentResponse(answer: LiveQueryResponse): boolean {

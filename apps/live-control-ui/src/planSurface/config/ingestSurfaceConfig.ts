@@ -29,7 +29,7 @@ export function createIngestSurfaceConfig(
       },
     ],
     canvas: {
-      documentId: "ingest-surface",
+      documentId: null,
     },
     theme: {
       themeId: PLAN_SURFACE_SPIKE_THEME_ID,

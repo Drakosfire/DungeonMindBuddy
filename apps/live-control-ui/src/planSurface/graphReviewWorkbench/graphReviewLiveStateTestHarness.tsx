@@ -10,7 +10,6 @@ import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 const defaultContext: PlanContextDescriptor = {
   campaignId: "longmont-c2",
   liveSession: 24,
-  prepSession: 25,
   ingestSession: 23,
   headerLabel: "Ingest",
 };

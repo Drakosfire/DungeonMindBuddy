@@ -1,27 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import {
   buildPlanWorldGraphProjectionRequest,
   getPlanWorldGraphContext,
 } from "./planGraphContextRequest";
 
-const sessionDescriptor = {
-  surfaceId: "plan" as const,
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: null as number | null,
-  liveSession: 22,
-  sourceStatusLabel: "World graph",
-  sourceStatusKind: "unknown" as const,
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "C2 Session 23 Prep",
-    targetRelpath: "corpus/example.md",
-    storageKey: "storage-key",
-    status: "local_draft" as const,
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: null });
 
 describe("planGraphContextRequest", () => {
   it("defaults World Graph focus to none when memory session is unset", () => {
@@ -49,9 +34,5 @@ describe("planGraphContextRequest", () => {
       campaignId: "longmont-c2",
       focus: { kind: "session", sessionId: "session-24" },
     });
-  });
-
-  it("rejects unsupported campaigns", () => {
-    expect(getPlanWorldGraphContext({ ...sessionDescriptor, campaignId: "unknown-campaign" })).toBeNull();
   });
 });

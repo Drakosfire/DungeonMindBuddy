@@ -4,40 +4,24 @@ import { describe, expect, it } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { ProjectionProvider, useProjection } from "./projectionContext";
 import type { SurfaceConfig } from "../types";
 import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 
-const sessionDescriptor = {
-  surfaceId: "plan" as const,
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown" as const,
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "C2 Session 23 Prep",
-    targetRelpath: "corpus/example.md",
-    storageKey: "storage-key",
-    status: "local_draft" as const,
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 const surfaceConfig: SurfaceConfig = {
   id: "plan",
   label: "Plan",
   context: {
     campaignId: "longmont-c2",
-    headerLabel: "Longmont C2",
-    prepSession: 23,
+    headerLabel: sessionDescriptor.planningDocument.title,
     ingestSession: 21,
     liveSession: 22,
   },
   tools: [{ id: "statblock", label: "Statblock", size: "wide" }],
-  canvas: { documentId: "longmont-c2-session-23-prep" },
+  canvas: { documentId: sessionDescriptor.planningDocument.documentId },
   theme: {},
   sessionDescriptor,
 };
@@ -59,33 +43,36 @@ function Probe() {
   const { active, activePlanReference, openPlanReferenceResolution } = useProjection();
   return (
     <div>
+      <p data-testid="active-key">{active?.key ?? "none"}</p>
+      <p data-testid="active-plan-ref">{activePlanReference?.message ?? "none"}</p>
       <button
         type="button"
-        onClick={() => {
-          const resolution: PlanReferenceResolution = {
-            kind: "graph-node",
-            locator: "dmb-node:location-inn",
-            graphObject: buildGraphObjectCardFromNodeView(innNode),
-            graphNodeId: "location-inn",
-            fallback: null,
-            source: "union-supergraph",
-            graphProjectionState: "ready",
-          };
-          openPlanReferenceResolution(resolution, "ready");
-        }}
+        onClick={() =>
+          openPlanReferenceResolution(
+            {
+              kind: "graph-node",
+              locator: `dmb-node:${innNode.node_id}`,
+              refType: innNode.kind,
+              refId: innNode.node_id,
+              graphObject: buildGraphObjectCardFromNodeView(innNode),
+              graphNodeId: innNode.node_id,
+              fallback: null,
+              source: "world-graph",
+              message: `Resolved graph node ${innNode.label}.`,
+              graphProjectionState: "ready",
+            } satisfies PlanReferenceResolution,
+            "ready",
+          )
+        }
       >
-        Open related
+        Open graph node
       </button>
-      <p data-testid="active-title">{active?.title ?? "none"}</p>
-      <p data-testid="active-kind">{activePlanReference?.kind ?? "none"}</p>
-      <p data-testid="active-node">{activePlanReference?.graphNodeId ?? "none"}</p>
-      <p data-testid="glance-only">{String(active?.kind === "content" ? active.glanceOnly : "n/a")}</p>
     </div>
   );
 }
 
-describe("projectionContext openPlanReferenceResolution", () => {
-  it("opens a Plan reference resolution without a chip click", async () => {
+describe("projectionContext", () => {
+  it("opens plan reference resolution into content projection", async () => {
     const user = userEvent.setup();
     render(
       <ProjectionProvider config={surfaceConfig}>
@@ -93,15 +80,11 @@ describe("projectionContext openPlanReferenceResolution", () => {
       </ProjectionProvider>,
     );
 
-    expect(screen.getByTestId("active-title")).toHaveTextContent("none");
-
-    await user.click(screen.getByRole("button", { name: "Open related" }));
+    await user.click(screen.getByRole("button", { name: "Open graph node" }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("active-title")).toHaveTextContent("Inn");
+      expect(screen.getByTestId("active-key")).toHaveTextContent("location");
     });
-    expect(screen.getByTestId("active-kind")).toHaveTextContent("graph-node");
-    expect(screen.getByTestId("active-node")).toHaveTextContent("location-inn");
-    expect(screen.getByTestId("glance-only")).toHaveTextContent("false");
+    expect(screen.getByTestId("active-plan-ref")).toHaveTextContent("Resolved graph node Inn.");
   });
 });

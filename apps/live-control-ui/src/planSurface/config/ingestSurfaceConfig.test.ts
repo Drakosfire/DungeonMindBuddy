@@ -6,7 +6,6 @@ import { createIngestSurfaceConfig } from "./ingestSurfaceConfig";
 const context: PlanContextDescriptor = {
   campaignId: "longmont-c2",
   liveSession: 24,
-  prepSession: 25,
   ingestSession: 23,
   headerLabel: "Ingest",
 };
@@ -29,6 +28,6 @@ describe("ingestSurfaceConfig", () => {
     expect(
       config.tools.find((tool) => tool.id === "graph-review-author-draft")?.size,
     ).toBe("fullscreen");
-    expect(config.canvas.documentId).toBe("ingest-surface");
+    expect(config.canvas.documentId).toBeNull();
   });
 });

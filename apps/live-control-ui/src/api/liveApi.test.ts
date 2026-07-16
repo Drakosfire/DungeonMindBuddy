@@ -482,10 +482,9 @@ describe("liveApi artifact/capability helpers", () => {
 
   it("posts Tiptap Markdown prepare and commit requests", async () => {
     const request = {
-      document_id: "doc",
-      title: "Title",
-      target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/doc.md",
+      document_id: "11111111-1111-4111-8111-111111111111",
       markdown: "# Title",
+      expected_revision: 2,
     };
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(mockJsonResponse({ schema_version: "dmb_tiptap_markdown_write_prepare_v1" }))

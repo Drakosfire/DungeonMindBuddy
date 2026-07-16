@@ -108,9 +108,10 @@ describe("agentInteractionHistory", () => {
 
   it("load empty index returns valid empty index", () => {
     expect(loadAgentThreadIndex("longmont-c2", "plan")).toEqual({
-      schema: "agent_interaction_thread_index_v1",
+      schema: "agent_interaction_thread_index_v2",
       campaignId: "longmont-c2",
       surfaceId: "plan",
+      documentId: null,
       activeThreadId: null,
       threads: [],
     });
@@ -119,9 +120,10 @@ describe("agentInteractionHistory", () => {
   it("persists and loads an index round-trip", () => {
     const thread = makeThread();
     persistAgentThreadIndex({
-      schema: "agent_interaction_thread_index_v1",
+      schema: "agent_interaction_thread_index_v2",
       campaignId: "longmont-c2",
       surfaceId: "plan",
+      documentId: null,
       activeThreadId: thread.threadId,
       threads: [{ threadId: thread.threadId, title: thread.title, createdAt: thread.createdAt, updatedAt: thread.updatedAt, turnCount: 1, activeBackend: "hermes", hermesSessionId: null }],
     });

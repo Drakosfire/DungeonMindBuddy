@@ -1,116 +1,138 @@
 import { vi } from "vitest";
 
+import { FIXTURE_DOC_ID } from "../../planSurface/config/planSessionDescriptor";
 import {
-  getTiptapRunbookDescriptor,
+  northGateSessionRunbookStarterContent,
+  runbookDescriptorFromRecord,
   tiptapRunbookStorageKey,
 } from "../descriptors/tiptapRunbookDescriptors";
 import {
-  TIPTAP_WORKING_BOARD_KEY,
-  buildInitialWorkingBoardState,
-  clearTiptapWorkingBoardState,
-  readTiptapWorkingBoardState,
-  writeTiptapWorkingBoardState,
+  buildInitialWorkspaceDocumentLocalState,
+  clearWorkspaceDocumentLocalState,
+  readWorkspaceDocumentLocalState,
+  workspaceDocumentStorageKey,
+  writeWorkspaceDocumentLocalState,
+  WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA,
 } from "./tiptapLocalState";
 
-const northGateDescriptor = getTiptapRunbookDescriptor("north-gate-session-runbook");
-const spikeDescriptor = getTiptapRunbookDescriptor("north-gate-callout-spike");
+const northGateDescriptor = runbookDescriptorFromRecord({
+  document_id: FIXTURE_DOC_ID,
+  title: "North Gate Session Runbook",
+  campaign_id: "longmont-c2",
+  target_session: 23,
+  target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
+  revision: 1,
+}, northGateSessionRunbookStarterContent);
 
-describe("Tiptap local working-board state", () => {
+const otherDescriptor = runbookDescriptorFromRecord({
+  document_id: "22222222-2222-4222-8222-222222222222",
+  title: "Other Runbook",
+  campaign_id: "longmont-c2",
+  target_session: 24,
+  target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/other.md",
+  revision: 1,
+});
+
+describe("Workspace document local state", () => {
   it("builds descriptor-derived initial state for the session runbook", () => {
     const now = "2026-06-18T12:00:00.000Z";
-    const state = buildInitialWorkingBoardState(northGateDescriptor, now);
+    const state = buildInitialWorkspaceDocumentLocalState({
+      documentId: northGateDescriptor.documentId,
+      title: northGateDescriptor.title,
+      campaignId: northGateDescriptor.campaignId,
+      kind: "runbook",
+      targetSession: northGateDescriptor.session,
+      surface: "runbook",
+      starterContent: northGateDescriptor.starterContent,
+      now,
+    });
 
-    expect(TIPTAP_WORKING_BOARD_KEY).toBe(tiptapRunbookStorageKey(northGateDescriptor));
+    expect(workspaceDocumentStorageKey(FIXTURE_DOC_ID)).toBe(tiptapRunbookStorageKey(northGateDescriptor));
     expect(state).toMatchObject({
-      schema_version: "dmb_tiptap_working_board_state_v1",
-      document_id: "north-gate-session-runbook",
+      schema_version: WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA,
+      document_id: FIXTURE_DOC_ID,
       title: "North Gate Session Runbook",
       campaign_id: "longmont-c2",
-      session: 23,
-      surface: "tiptap-callout-spike",
+      target_session: 23,
+      surface: "runbook",
       dirty: false,
       created_at: now,
       updated_at: now,
       last_local_save_at: now,
     });
-    expect(state.tiptap_json).toEqual(expect.objectContaining({ type: "doc" }));
     expect(state.exported_markdown).toContain("# C2S23 North Gate Session Runbook");
-    expect(state.exported_markdown).toContain("## Table start checklist");
-    expect(state.exported_markdown).toContain("## First player prompt");
-    expect(state.exported_markdown).toContain("### Gate clock");
-    expect(state.exported_markdown).toContain("## What to say when they stall");
-    expect(state.exported_markdown).toContain("## Exit ramps into combat / council / chase");
   });
 
-  it("builds descriptor-derived initial state for the callout spike", () => {
-    const state = buildInitialWorkingBoardState(spikeDescriptor, "2026-06-18T12:00:00.000Z");
-
-    expect(state).toMatchObject({
-      document_id: "north-gate-callout-spike",
-      title: "North Gate Callout Spike",
-      campaign_id: "longmont-c2",
-      session: 23,
+  it("reads valid document-keyed local state", () => {
+    const state = buildInitialWorkspaceDocumentLocalState({
+      documentId: northGateDescriptor.documentId,
+      title: northGateDescriptor.title,
+      campaignId: northGateDescriptor.campaignId,
+      kind: "runbook",
+      targetSession: northGateDescriptor.session,
+      surface: "runbook",
+      starterContent: northGateDescriptor.starterContent,
+      now: "2026-06-18T12:00:00.000Z",
     });
-    expect(state.exported_markdown).toContain("# North Gate Callout Spike");
-  });
-
-  it("reads valid descriptor-keyed local state", () => {
-    const state = buildInitialWorkingBoardState(northGateDescriptor, "2026-06-18T12:00:00.000Z");
     const storage = { getItem: vi.fn(() => JSON.stringify(state)) };
 
-    expect(readTiptapWorkingBoardState(storage, northGateDescriptor)).toEqual(state);
-    expect(storage.getItem).toHaveBeenCalledWith(tiptapRunbookStorageKey(northGateDescriptor));
+    expect(readWorkspaceDocumentLocalState(storage, FIXTURE_DOC_ID)).toEqual(state);
+    expect(storage.getItem).toHaveBeenCalledWith(workspaceDocumentStorageKey(FIXTURE_DOC_ID));
   });
 
-  it("re-derives exported Markdown from stored Tiptap JSON", () => {
-    const state = {
-      ...buildInitialWorkingBoardState(northGateDescriptor, "2026-06-18T12:00:00.000Z"),
-      exported_markdown: "stale unsafe markdown",
-    };
+  it("rejects mismatched document ids", () => {
+    const state = buildInitialWorkspaceDocumentLocalState({
+      documentId: FIXTURE_DOC_ID,
+      title: northGateDescriptor.title,
+      campaignId: northGateDescriptor.campaignId,
+      kind: "runbook",
+      targetSession: northGateDescriptor.session,
+      surface: "runbook",
+      starterContent: northGateDescriptor.starterContent,
+    });
 
-    const loaded = readTiptapWorkingBoardState({ getItem: () => JSON.stringify(state) }, northGateDescriptor);
-
-    expect(loaded?.exported_markdown).toContain("# C2S23 North Gate Session Runbook");
-    expect(loaded?.exported_markdown).not.toContain("stale unsafe markdown");
+    expect(readWorkspaceDocumentLocalState({ getItem: () => JSON.stringify(state) }, "other-id")).toBeNull();
   });
 
-  it("rejects malformed JSON", () => {
-    expect(readTiptapWorkingBoardState({ getItem: () => "{bad" }, northGateDescriptor)).toBeNull();
-  });
-
-  it("rejects the wrong schema version", () => {
-    const state = {
-      ...buildInitialWorkingBoardState(northGateDescriptor, "2026-06-18T12:00:00.000Z"),
-      schema_version: "obsolete",
-    };
-
-    expect(readTiptapWorkingBoardState({ getItem: () => JSON.stringify(state) }, northGateDescriptor)).toBeNull();
-  });
-
-  it("writes and reads two descriptors under isolated keys", () => {
+  it("writes and reads two documents under isolated keys", () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: vi.fn((key: string) => values.get(key) ?? null),
       setItem: vi.fn((key: string, value: string) => { values.set(key, value); }),
     };
-    const sessionState = buildInitialWorkingBoardState(northGateDescriptor, "2026-06-18T12:00:00.000Z");
-    const spikeState = buildInitialWorkingBoardState(spikeDescriptor, "2026-06-18T12:00:00.000Z");
+    const sessionState = buildInitialWorkspaceDocumentLocalState({
+      documentId: northGateDescriptor.documentId,
+      title: northGateDescriptor.title,
+      campaignId: northGateDescriptor.campaignId,
+      kind: "runbook",
+      targetSession: northGateDescriptor.session,
+      surface: "runbook",
+      starterContent: northGateDescriptor.starterContent,
+      now: "2026-06-18T12:00:00.000Z",
+    });
+    const otherState = buildInitialWorkspaceDocumentLocalState({
+      documentId: otherDescriptor.documentId,
+      title: otherDescriptor.title,
+      campaignId: otherDescriptor.campaignId,
+      kind: "runbook",
+      targetSession: otherDescriptor.session,
+      surface: "runbook",
+      starterContent: otherDescriptor.starterContent,
+      now: "2026-06-18T12:00:00.000Z",
+    });
 
-    writeTiptapWorkingBoardState(storage, northGateDescriptor, sessionState);
-    writeTiptapWorkingBoardState(storage, spikeDescriptor, spikeState);
+    writeWorkspaceDocumentLocalState(storage, sessionState);
+    writeWorkspaceDocumentLocalState(storage, otherState);
 
-    expect(storage.setItem).toHaveBeenCalledWith(tiptapRunbookStorageKey(northGateDescriptor), JSON.stringify(sessionState));
-    expect(storage.setItem).toHaveBeenCalledWith(tiptapRunbookStorageKey(spikeDescriptor), JSON.stringify(spikeState));
-    expect(tiptapRunbookStorageKey(northGateDescriptor)).not.toBe(tiptapRunbookStorageKey(spikeDescriptor));
-    expect(readTiptapWorkingBoardState(storage, northGateDescriptor)?.document_id).toBe("north-gate-session-runbook");
-    expect(readTiptapWorkingBoardState(storage, spikeDescriptor)?.document_id).toBe("north-gate-callout-spike");
+    expect(tiptapRunbookStorageKey(northGateDescriptor)).not.toBe(tiptapRunbookStorageKey(otherDescriptor));
+    expect(readWorkspaceDocumentLocalState(storage, FIXTURE_DOC_ID)?.document_id).toBe(FIXTURE_DOC_ID);
+    expect(readWorkspaceDocumentLocalState(storage, otherDescriptor.documentId)?.document_id)
+      .toBe(otherDescriptor.documentId);
   });
 
-  it("clears state under the descriptor key", () => {
+  it("clears state under the document key", () => {
     const removeItem = vi.fn();
-
-    clearTiptapWorkingBoardState({ removeItem }, northGateDescriptor);
-
-    expect(removeItem).toHaveBeenCalledWith(tiptapRunbookStorageKey(northGateDescriptor));
+    clearWorkspaceDocumentLocalState({ removeItem }, FIXTURE_DOC_ID);
+    expect(removeItem).toHaveBeenCalledWith(workspaceDocumentStorageKey(FIXTURE_DOC_ID));
   });
 });

@@ -8,6 +8,8 @@ Current product framing for the next `/plan` dogfood phase is in `Docs/Design/DE
 
 Post-PR314 transitional vs durable graph-memory path for Plan (selected-object card convergence, graph-aware resolver, plan-scoped prep-memory query, Union Supergraph as target read model) is in `Docs/Design/DESIGN-plan-graph-memory-reanchor-after-dogfood-2026-07.md`.
 
+**Workspace document identity (2026-07):** Authored workspace documents (plan preps, Tiptap runbooks) use **opaque server-issued UUIDs** from the workspace document registry — not semantic slugs or path-derived keys. URL selection is `?documentId=<uuid>`; `?session=` is memory/graph focus only. Contract: [`CONTRACT-workspace-document-identity-v1.md`](CONTRACT-workspace-document-identity-v1.md).
+
 Since this architecture was written, `/ingest` has matured into the **Graph Review / correction cockpit** for authored-memory commits. `/plan` is a **consumer surface**: it consumes reviewed graph memory and reuses selected-object projections from that work; it may draft prep and launch preview_write but does not absorb Graph Review diagnostics, Author Draft, identity merging, or durable commit semantics as its default session-prep UX. The current right-side Plan projection container remains transitional implementation state.
 
 **Dual authority:** corpus/source artifacts are prose and evidentiary authority; the World Supergraph head is durable materialized knowledge state. Plan reads both through adapters; it does not own Kernel merge or graph-head advancement.

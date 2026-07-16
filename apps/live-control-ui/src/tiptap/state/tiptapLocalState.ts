@@ -1,21 +1,15 @@
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
-import type { TiptapRunbookDescriptor } from "../descriptors/tiptapRunbookDescriptors";
-import {
-  getTiptapRunbookDescriptor,
-  northGateSessionRunbookStarterContent,
-  tiptapRunbookStorageKey,
-} from "../descriptors/tiptapRunbookDescriptors";
 
-export const TIPTAP_WORKING_BOARD_KEY = tiptapRunbookStorageKey(getTiptapRunbookDescriptor());
-export const initialCalloutContent = northGateSessionRunbookStarterContent;
+export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v2" as const;
 
-export interface TiptapWorkingBoardState {
-  schema_version: "dmb_tiptap_working_board_state_v1";
+export interface WorkspaceDocumentLocalState {
+  schema_version: typeof WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA;
   document_id: string;
   title: string;
   campaign_id: string;
-  session: number;
-  surface: "tiptap-callout-spike";
+  kind: "plan" | "runbook";
+  target_session: number | null;
+  surface: "plan" | "runbook";
   tiptap_json: unknown;
   exported_markdown: string;
   dirty: boolean;
@@ -24,23 +18,38 @@ export interface TiptapWorkingBoardState {
   last_local_save_at: string;
 }
 
+/** @deprecated Use WorkspaceDocumentLocalState */
+export type TiptapWorkingBoardState = WorkspaceDocumentLocalState;
+
+export function workspaceDocumentStorageKey(documentId: string): string {
+  return `dmb.workspaceDocument.${documentId}`;
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function buildInitialWorkingBoardState(
-  descriptor: TiptapRunbookDescriptor,
-  now = new Date().toISOString(),
-): TiptapWorkingBoardState {
+export function buildInitialWorkspaceDocumentLocalState(args: {
+  documentId: string;
+  title: string;
+  campaignId: string;
+  kind: "plan" | "runbook";
+  targetSession: number | null;
+  surface: "plan" | "runbook";
+  starterContent: unknown;
+  now?: string;
+}): WorkspaceDocumentLocalState {
+  const now = args.now ?? new Date().toISOString();
   return {
-    schema_version: "dmb_tiptap_working_board_state_v1",
-    document_id: descriptor.documentId,
-    title: descriptor.title,
-    campaign_id: descriptor.campaignId,
-    session: descriptor.session,
-    surface: "tiptap-callout-spike",
-    tiptap_json: descriptor.starterContent,
-    exported_markdown: tiptapJsonToSemanticMarkdown(descriptor.starterContent),
+    schema_version: WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA,
+    document_id: args.documentId,
+    title: args.title,
+    campaign_id: args.campaignId,
+    kind: args.kind,
+    target_session: args.targetSession,
+    surface: args.surface,
+    tiptap_json: args.starterContent,
+    exported_markdown: tiptapJsonToSemanticMarkdown(args.starterContent),
     dirty: false,
     created_at: now,
     updated_at: now,
@@ -48,16 +57,42 @@ export function buildInitialWorkingBoardState(
   };
 }
 
-export function isTiptapWorkingBoardState(value: unknown): value is TiptapWorkingBoardState {
+/** @deprecated Use buildInitialWorkspaceDocumentLocalState */
+export function buildInitialWorkingBoardState(
+  descriptor: {
+    documentId: string;
+    title: string;
+    campaignId: string;
+    kind?: "plan" | "runbook";
+    targetSession?: number | null;
+    session?: number;
+    starterContent: unknown;
+  },
+  now = new Date().toISOString(),
+): WorkspaceDocumentLocalState {
+  return buildInitialWorkspaceDocumentLocalState({
+    documentId: descriptor.documentId,
+    title: descriptor.title,
+    campaignId: descriptor.campaignId,
+    kind: descriptor.kind ?? "runbook",
+    targetSession: descriptor.targetSession ?? descriptor.session ?? null,
+    surface: descriptor.kind ?? "runbook",
+    starterContent: descriptor.starterContent,
+    now,
+  });
+}
+
+export function isWorkspaceDocumentLocalState(value: unknown): value is WorkspaceDocumentLocalState {
   if (!isObject(value)) return false;
 
   return (
-    value.schema_version === "dmb_tiptap_working_board_state_v1"
+    value.schema_version === WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA
     && typeof value.document_id === "string"
     && typeof value.title === "string"
     && typeof value.campaign_id === "string"
-    && typeof value.session === "number"
-    && value.surface === "tiptap-callout-spike"
+    && (value.kind === "plan" || value.kind === "runbook")
+    && (value.target_session === null || typeof value.target_session === "number")
+    && (value.surface === "plan" || value.surface === "runbook")
     && isObject(value.tiptap_json)
     && typeof value.exported_markdown === "string"
     && typeof value.dirty === "boolean"
@@ -67,42 +102,69 @@ export function isTiptapWorkingBoardState(value: unknown): value is TiptapWorkin
   );
 }
 
-function deriveWorkingBoardMarkdown(
-  state: TiptapWorkingBoardState,
-): TiptapWorkingBoardState {
+/** @deprecated Use isWorkspaceDocumentLocalState */
+export const isTiptapWorkingBoardState = isWorkspaceDocumentLocalState;
+
+function deriveWorkspaceDocumentMarkdown(
+  state: WorkspaceDocumentLocalState,
+): WorkspaceDocumentLocalState {
   return {
     ...state,
     exported_markdown: tiptapJsonToSemanticMarkdown(state.tiptap_json),
   };
 }
 
-export function readTiptapWorkingBoardState(
+export function readWorkspaceDocumentLocalState(
   storage: Pick<Storage, "getItem">,
-  descriptor: TiptapRunbookDescriptor,
-): TiptapWorkingBoardState | null {
+  documentId: string,
+): WorkspaceDocumentLocalState | null {
   try {
-    const stored = storage.getItem(tiptapRunbookStorageKey(descriptor));
+    const stored = storage.getItem(workspaceDocumentStorageKey(documentId));
     if (stored === null) return null;
     const parsed: unknown = JSON.parse(stored);
-    return isTiptapWorkingBoardState(parsed)
-      ? deriveWorkingBoardMarkdown(parsed)
-      : null;
+    if (!isWorkspaceDocumentLocalState(parsed)) return null;
+    if (parsed.document_id !== documentId) return null;
+    return deriveWorkspaceDocumentMarkdown(parsed);
   } catch {
     return null;
   }
 }
 
-export function writeTiptapWorkingBoardState(
-  storage: Pick<Storage, "setItem">,
-  descriptor: TiptapRunbookDescriptor,
-  state: TiptapWorkingBoardState,
-): void {
-  storage.setItem(tiptapRunbookStorageKey(descriptor), JSON.stringify(state));
+/** @deprecated Use readWorkspaceDocumentLocalState */
+export function readTiptapWorkingBoardState(
+  storage: Pick<Storage, "getItem">,
+  descriptor: { documentId: string },
+): WorkspaceDocumentLocalState | null {
+  return readWorkspaceDocumentLocalState(storage, descriptor.documentId);
 }
 
+export function writeWorkspaceDocumentLocalState(
+  storage: Pick<Storage, "setItem">,
+  state: WorkspaceDocumentLocalState,
+): void {
+  storage.setItem(workspaceDocumentStorageKey(state.document_id), JSON.stringify(state));
+}
+
+/** @deprecated Use writeWorkspaceDocumentLocalState */
+export function writeTiptapWorkingBoardState(
+  storage: Pick<Storage, "setItem">,
+  _descriptor: { documentId: string },
+  state: WorkspaceDocumentLocalState,
+): void {
+  writeWorkspaceDocumentLocalState(storage, state);
+}
+
+export function clearWorkspaceDocumentLocalState(
+  storage: Pick<Storage, "removeItem">,
+  documentId: string,
+): void {
+  storage.removeItem(workspaceDocumentStorageKey(documentId));
+}
+
+/** @deprecated Use clearWorkspaceDocumentLocalState */
 export function clearTiptapWorkingBoardState(
   storage: Pick<Storage, "removeItem">,
-  descriptor: TiptapRunbookDescriptor,
+  descriptor: { documentId: string },
 ): void {
-  storage.removeItem(tiptapRunbookStorageKey(descriptor));
+  clearWorkspaceDocumentLocalState(storage, descriptor.documentId);
 }

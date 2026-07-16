@@ -579,6 +579,7 @@ export interface AgentInteractionThread {
   updatedAt: string;
   campaignId: string;
   session?: number | null;
+  documentId?: string | null;
   surfaceId: "plan" | "play" | "build" | string;
   activeBackend: LiveQueryBackend;
   hermesSession?: HermesSessionHandle | null;
@@ -601,9 +602,10 @@ export interface AgentInteractionThreadSummary {
 }
 
 export interface AgentInteractionThreadIndex {
-  schema: "agent_interaction_thread_index_v1";
+  schema: "agent_interaction_thread_index_v2";
   campaignId: string;
   surfaceId: string;
+  documentId?: string | null;
   activeThreadId: string | null;
   threads: AgentInteractionThreadSummary[];
 }
@@ -1313,11 +1315,53 @@ export interface StatblockCorpusWriteCommitResponse {
   available_actions: StatblockWorkbenchAction[];
 }
 
-export interface TiptapMarkdownWritePrepareRequest {
+export type WorkspaceDocumentKind = "plan" | "runbook";
+export type WorkspaceDocumentStatus = "active" | "discarded";
+export type WorkspaceDocumentContentStatus = "draft" | "committed";
+
+export interface WorkspaceDocumentRecord {
+  schema_version: "dmb_workspace_document_record_v1";
   document_id: string;
   title: string;
-  target_relpath: string;
+  campaign_id: string;
+  target_session: number | null;
+  kind: WorkspaceDocumentKind;
+  target_relpath: string | null;
+  status: WorkspaceDocumentStatus;
+  content_status: WorkspaceDocumentContentStatus;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceDocumentsListResponse {
+  schema_version: "dmb_workspace_document_registry_v1";
+  records: WorkspaceDocumentRecord[];
+}
+
+export interface CreateWorkspaceDocumentRequest {
+  title: string;
+  campaign_id: string;
+  kind: WorkspaceDocumentKind;
+  target_session?: number | null;
+  target_relpath?: string | null;
+}
+
+export interface UpdateWorkspaceDocumentMetadataRequest {
+  title?: string | null;
+  target_session?: number | null;
+  target_relpath?: string | null;
+  expected_revision?: number | null;
+}
+
+export interface WorkspaceDocumentRevisionRequest {
+  expected_revision?: number | null;
+}
+
+export interface TiptapMarkdownWritePrepareRequest {
+  document_id: string;
   markdown: string;
+  expected_revision?: number | null;
 }
 
 export interface TiptapMarkdownWritePrepareResponse {
@@ -1326,6 +1370,7 @@ export interface TiptapMarkdownWritePrepareResponse {
   title: string;
   target_relpath: string;
   target_display_path: string;
+  registry_revision: number;
   file_exists: boolean;
   writer_ok: boolean;
   writer_phase?: string | null;
@@ -1339,10 +1384,9 @@ export interface TiptapMarkdownWritePrepareResponse {
 
 export interface TiptapMarkdownWriteCommitRequest {
   document_id: string;
-  title: string;
-  target_relpath: string;
   markdown: string;
   writer_confirm_token: string;
+  expected_revision?: number | null;
 }
 
 export interface TiptapMarkdownWriteCommitResponse {
@@ -1351,6 +1395,7 @@ export interface TiptapMarkdownWriteCommitResponse {
   title: string;
   target_relpath: string;
   target_display_path: string;
+  registry_revision: number;
   writer_ok: boolean;
   writer_phase?: string | null;
   bytes_written?: number | null;

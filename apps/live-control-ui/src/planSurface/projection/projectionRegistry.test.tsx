@@ -6,6 +6,7 @@ import type { GraphProjectionNodeView } from "../../api/types";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import { renderContentProjection } from "./projectionRegistry";
 import type { PlanSurfaceConfig } from "../types";
+import { FIXTURE_DOC_ID, fixturePlanSessionDescriptor, workspaceDocumentStorageKey } from "../config/planSessionDescriptor";
 
 const node: GraphProjectionNodeView = {
   node_id: "location-north-gate",
@@ -20,35 +21,20 @@ const node: GraphProjectionNodeView = {
   summary: "The northern gate of Mireward Reach.",
 };
 
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
+
 const config = {
   id: "plan",
   label: "Plan",
   context: {
     campaignId: "longmont-c2",
     liveSession: 22,
-    prepSession: 23,
     ingestSession: 21,
-    headerLabel: "Plan",
+    headerLabel: sessionDescriptor.planningDocument.title,
   },
-  sessionDescriptor: {
-    surfaceId: "plan",
-    campaignId: "longmont-c2",
-    campaignLabel: "Longmont C2",
-    prepSession: 23,
-    memorySession: 21,
-    liveSession: 22,
-    sourceStatusLabel: "Session 21",
-    sourceStatusKind: "unknown",
-    planningDocument: {
-      documentId: "longmont-c2-session-23-prep",
-      title: "C2 Session 23 Prep",
-      targetRelpath: "corpus/example.md",
-      storageKey: "storage-key",
-      status: "local_draft",
-    },
-  },
+  sessionDescriptor,
   tools: [],
-  canvas: { documentId: "longmont-c2-session-23-prep" },
+  canvas: { documentId: FIXTURE_DOC_ID },
   theme: { themeId: "command" },
 } satisfies PlanSurfaceConfig;
 

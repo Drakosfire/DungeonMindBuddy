@@ -16,13 +16,12 @@ export interface SurfaceToolConfig {
 }
 
 export interface SurfaceCanvasConfig {
-  documentId: string;
+  documentId?: string | null;
 }
 
 export interface PlanContextDescriptor {
   campaignId: string;
   liveSession: number;
-  prepSession: number;
   /**
    * Recap/tool fallback session: explicit `?session=` when present, else the live
    * packet session. Never invents live-1 as a stale memory default.
@@ -31,23 +30,28 @@ export interface PlanContextDescriptor {
   headerLabel: string;
 }
 
-export type PlanDocumentStatus = "local_draft" | "durable" | "missing" | "unknown";
+export type PlanDocumentStatus = "active" | "discarded";
+export type PlanDocumentContentStatus = "draft" | "committed";
 export type PlanSourceStatusKind = "ready" | "missing" | "stale" | "unknown";
 
 export interface PlanDocumentDescriptor {
   documentId: string;
   title: string;
   description?: string;
-  targetRelpath: string;
+  campaignId: string;
+  targetSession: number | null;
+  targetRelpath: string | null;
   storageKey: string;
   status: PlanDocumentStatus;
+  contentStatus: PlanDocumentContentStatus;
+  revision: number;
+  kind: "plan" | "runbook";
 }
 
 export interface PlanSessionDescriptor {
   surfaceId: "plan";
   campaignId: string;
   campaignLabel: string;
-  prepSession: number;
   /** Explicit `?session=` memory/graph focus; null → world-union focus (do not invent live-1). */
   memorySession: number | null;
   liveSession: number;

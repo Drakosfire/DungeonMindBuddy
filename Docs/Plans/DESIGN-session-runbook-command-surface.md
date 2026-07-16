@@ -677,7 +677,7 @@ Add or update a Command Board page section:
 <section class="prep-panel runbook-panel">
   <div class="panel-heading">
     <h2>Session Runbook</h2>
-    <a href="/tiptap-callout-spike?doc=north-gate-session-runbook">Edit in Tiptap</a>
+    <a href="/tiptap-callout-spike">Edit in Tiptap</a>
   </div>
 
   <div
@@ -730,15 +730,10 @@ type TiptapRunbookDescriptor = {
 
 #### Scope
 
-- Add a small local descriptor registry.
-- Support route query like:
-
-```txt
-/tiptap-callout-spike?doc=north-gate-session-runbook
-```
-
-- Initialize localStorage key per descriptor.
-- Set default write target from descriptor.
+- Resolve documents via the server workspace document registry (opaque UUIDs; see `Docs/Design/CONTRACT-workspace-document-identity-v1.md`).
+- Support route query `/tiptap-callout-spike?documentId=<uuid>`; bare `/tiptap-callout-spike` resolves the default runbook.
+- Initialize localStorage key as `dmb.workspaceDocument.{documentId}`.
+- Set write target from registry record (`target_relpath`).
 
 #### Acceptance Criteria
 

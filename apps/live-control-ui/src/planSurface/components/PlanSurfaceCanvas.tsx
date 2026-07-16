@@ -13,11 +13,11 @@ import {
   type CalloutKind,
 } from "../../tiptap/markdown/calloutMarkdown";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
-import { planDocumentToRunbookDescriptor } from "../config/planSessionDescriptor";
+import { createStarterContentForPlanDocument } from "../config/planSessionDescriptor";
 import {
-  buildInitialWorkingBoardState,
-  readTiptapWorkingBoardState,
-  writeTiptapWorkingBoardState,
+  buildInitialWorkspaceDocumentLocalState,
+  readWorkspaceDocumentLocalState,
+  writeWorkspaceDocumentLocalState,
 } from "../../tiptap/state/tiptapLocalState";
 import { useEditCapability } from "../edit/editCapability";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
@@ -27,7 +27,7 @@ import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import { usePlanMarkdownSave } from "../save/usePlanMarkdownSave";
-import type { PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
+import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
@@ -37,6 +37,7 @@ interface PlanSurfaceCanvasProps {
   theme: SurfaceThemeConfig;
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
   onSaveStatusChange?: (statusLabel: string) => void;
+  onPlanningDocumentCommitted?: (document: PlanDocumentDescriptor) => void;
 }
 
 export function PlanSurfaceCanvas({
@@ -44,11 +45,9 @@ export function PlanSurfaceCanvas({
   theme,
   onEditorToolsChange,
   onSaveStatusChange,
+  onPlanningDocumentCommitted,
 }: PlanSurfaceCanvasProps) {
-  const descriptor = useMemo(
-    () => planDocumentToRunbookDescriptor(sessionDescriptor),
-    [sessionDescriptor],
-  );
+  const planningDocument = sessionDescriptor.planningDocument;
   const { isLocked, canEdit, toggleLock } = useEditCapability();
   const { openContentFromChip, openPlanReferenceResolution } = useProjection();
   const {
@@ -61,8 +60,16 @@ export function PlanSurfaceCanvas({
   const markDirtyRef = useRef<() => void>(() => {});
   const skipNextDirtyRef = useRef(true);
   const [workingState] = useState(() =>
-    readTiptapWorkingBoardState(window.localStorage, descriptor)
-      ?? buildInitialWorkingBoardState(descriptor),
+    readWorkspaceDocumentLocalState(window.localStorage, planningDocument.documentId)
+      ?? buildInitialWorkspaceDocumentLocalState({
+        documentId: planningDocument.documentId,
+        title: planningDocument.title,
+        campaignId: planningDocument.campaignId,
+        kind: planningDocument.kind,
+        targetSession: planningDocument.targetSession,
+        surface: "plan",
+        starterContent: createStarterContentForPlanDocument(sessionDescriptor),
+      }),
   );
 
   const editor = useEditor({
@@ -72,13 +79,13 @@ export function PlanSurfaceCanvas({
     onUpdate: ({ editor: nextEditor }) => {
       const tiptapJson = nextEditor.getJSON();
       const now = new Date().toISOString();
-      const nextState = {
+      writeWorkspaceDocumentLocalState(window.localStorage, {
         ...workingState,
         tiptap_json: tiptapJson,
         updated_at: now,
         last_local_save_at: now,
-      };
-      writeTiptapWorkingBoardState(window.localStorage, descriptor, nextState);
+        dirty: true,
+      });
       if (skipNextDirtyRef.current) {
         skipNextDirtyRef.current = false;
         return;
@@ -93,7 +100,11 @@ export function PlanSurfaceCanvas({
     saveDisabled,
     markDirty,
     saveMarkdown,
-  } = usePlanMarkdownSave({ editor, sessionDescriptor });
+  } = usePlanMarkdownSave({
+    editor,
+    planningDocument,
+    onPlanningDocumentCommitted,
+  });
 
   useEffect(() => {
     markDirtyRef.current = markDirty;
@@ -285,14 +296,13 @@ export function PlanSurfaceCanvas({
     toggleLock,
   ]);
 
-  const editorThemeClass = `md-theme-${theme.themeId ?? descriptor.themeId}`;
-  const planningDocument = sessionDescriptor.planningDocument;
+  const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
 
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
       <div className="plan-canvas-heading">
         <p className="plan-surface-kicker">Working board</p>
-        <h2 data-testid="plan-canvas-title">{descriptor.title}</h2>
+        <h2 data-testid="plan-canvas-title">{planningDocument.title}</h2>
         <p className="plan-canvas-meta" data-testid="plan-canvas-document-id">
           Document <code>{planningDocument.documentId}</code> · {statusLabel}
         </p>
@@ -300,7 +310,7 @@ export function PlanSurfaceCanvas({
       <div
         ref={editorShellRef}
         className={`tiptap-spike-editor md-content ${editorThemeClass}`}
-        data-md-theme={theme.themeId ?? descriptor.themeId}
+        data-md-theme={theme.themeId}
         data-testid="plan-surface-canvas-editor"
         onClick={(event) => {
           void handleChipActivate(event.target);
