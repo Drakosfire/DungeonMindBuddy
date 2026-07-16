@@ -609,7 +609,6 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
             with patch("run_agent.OpenAI"):
                 agent = AIAgent(
                     api_key="test-key-1234567890",
-                    base_url="https://openrouter.ai/api/v1",
                     **kwargs,
                 )
         agent.client = MagicMock()
