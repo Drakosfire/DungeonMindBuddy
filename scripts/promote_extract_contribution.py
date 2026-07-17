@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Promote a reviewed candidate-graph extract into a World Supergraph head.
 
-Prepare seals a proposal (typed IR + identity gate + digest). Confirm verifies
-the seal and merges only when publication succeeds. The durable contribution is
-reconstructed entirely from sealed effect fields.
+Thin CLI over ``graph_memory.extract_promote_ops``. Prepare seals a proposal;
+confirm verifies the seal and merges only when publication succeeds.
 
 Defaults to a tmp world root. Live ``out/`` requires ``--allow-live-world``.
 """
@@ -22,24 +21,18 @@ for path in (REPO_ROOT / "src", REPO_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-import graph_memory.kernel as kernel
-from graph_memory.candidate_graph_to_contribution import (
-    CandidateGraphMappingError,
-    load_typed_candidate_graph,
-    verify_source_revision,
+from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
+from graph_memory.extract_promote_ops import (
+    DEFAULT_WORLD_ID,
+    ExtractPromoteLiveWorldError,
+    ExtractPromoteWorldError,
+    confirm_extract_promote,
+    default_live_root,
+    prepare_extract_promote,
 )
-from graph_memory.extract_identity_gate import (
-    IdentityGateResult,
-    build_accepted_contribution_from_proposals,
-    gate_candidate_graph_against_head,
-)
-from graph_memory.extract_promote_proposal import (
-    PromoteProposalError,
-    verify_promote_proposal,
-)
+from graph_memory.extract_promote_proposal import PromoteProposalError
 
-DEFAULT_LIVE_ROOT = REPO_ROOT / "out"
-DEFAULT_WORLD_ID = "eldyrwild"
+DEFAULT_LIVE_ROOT = default_live_root(repo_root=REPO_ROOT)
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -63,240 +56,96 @@ def _copy_world_root(source_root: Path, dest_root: Path) -> None:
 
 
 def cmd_prepare(args: argparse.Namespace) -> int:
-    payload = _read_json(Path(args.candidate_graph))
-    preview = load_typed_candidate_graph(payload)
+    candidate_path = Path(args.candidate_graph).resolve()
+    payload = _read_json(candidate_path)
     world_root = Path(args.world_root).resolve()
     if args.copy_from:
         _copy_world_root(Path(args.copy_from).resolve(), world_root)
 
-    verified_revision = verify_source_revision(
+    result = prepare_extract_promote(
+        candidate_graph=payload,
+        world_root=world_root,
         source_uri=args.source_uri,
         source_revision_id=args.source_revision_id,
-        repo_root=REPO_ROOT,
-    )
-
-    node_ids = tuple(args.node_ids) if args.node_ids else None
-    gate = gate_candidate_graph_against_head(
-        preview,
-        root=world_root,
+        prepared_by=args.prepared_by,
         world_id=args.world_id,
         source_artifact_id=args.source_artifact_id,
-        source_revision_id=verified_revision,
         campaign_scope=args.campaign_scope,
-        source_uri=args.source_uri,
-        node_ids=node_ids,
+        node_ids=tuple(args.node_ids) if args.node_ids else None,
         include_edges=not args.nodes_only,
-    )
-    package = gate.to_review_package(
-        prepared_by=args.prepared_by,
-        world_root=str(world_root),
-        candidate_graph_path=str(Path(args.candidate_graph).resolve()),
+        candidate_graph_path=str(candidate_path),
+        repo_root=REPO_ROOT,
     )
     out = Path(args.output)
-    _write_json(out, package)
+    _write_json(out, result.review_package)
     print(
         f"wrote sealed proposal {out} "
-        f"proposal_id={package['proposal_id']} "
-        f"digest={package['proposal_digest'][:16]}… "
-        f"parent={gate.parent_revision_id} "
-        f"accepted_proposals={len(gate.accepted_proposals)} "
-        f"unresolved={len(gate.unresolved_mentions)}"
+        f"proposal_id={result.proposal_id} "
+        f"digest={result.proposal_digest[:16]}… "
+        f"parent={result.parent_revision_id} "
+        f"accepted_proposals={result.accepted_proposals_count} "
+        f"unresolved={result.unresolved_mentions_count}"
     )
     return 0
-
-
-def _gate_from_verified(verified: dict[str, Any]) -> IdentityGateResult:
-    """Rebuild gate state solely from sealed verify() output (no envelope)."""
-    from graph_memory.kernel.contributions import create_graph_contribution
-
-    meta = verified["contribution_meta"]
-    # Placeholder only — durable merge uses sealed contribution_meta.
-    placeholder = create_graph_contribution(
-        world_id=verified["world_id"],
-        source_kind=meta["source_kind"],
-        source_artifact_id=meta["source_artifact_id"],
-        source_revision_id=meta["source_revision_id"],
-        extraction_profile=meta["extraction_profile"],
-        campaign_scope=meta.get("campaign_scope"),
-        authored_by=meta["authored_by"],
-    )
-    return IdentityGateResult(
-        parent_revision_id=verified["parent_revision_id"],
-        world_id=verified["world_id"],
-        contribution=placeholder,
-        accepted_proposals=list(verified["accepted_proposals"]),
-        unresolved_mentions=list(verified["unresolved_mentions"]),
-        rejected_assertions=list(verified["rejected_assertions"]),
-        scorer_report={},
-        node_id_map=dict(verified["node_id_map"]),
-        identity_outcome_snapshot=dict(verified["identity_outcome_snapshot"]),
-        diagnostics=[],
-        candidate_preview_id=verified["candidate_preview_id"],
-        candidate_schema=verified["candidate_schema"],
-        candidate_version=verified["candidate_version"],
-        source_revision_id=verified["source_revision_id"],
-        source_artifact_id=verified["source_artifact_id"],
-        verified_source_uri=verified["verified_source_uri"],
-    )
 
 
 def cmd_confirm(args: argparse.Namespace) -> int:
     package_path = Path(args.review_package)
     package = _read_json(package_path)
-    world_root = Path(args.world_root or package.get("world_root") or "").resolve()
-    if not world_root:
-        raise SystemExit("--world-root is required when review package omits world_root")
-
-    live_root = DEFAULT_LIVE_ROOT.resolve()
-    if world_root == live_root and not args.allow_live_world:
-        raise SystemExit(
-            "refusing to mutate live out/ without --allow-live-world"
-        )
-
-    world_id_hint = (
-        (package.get("effect") or {}).get("world_id") or DEFAULT_WORLD_ID
-    )
-    head, _rev, _store = kernel.open_current_world_graph(
-        world_root, str(world_id_hint)
+    world_root = (
+        Path(args.world_root).resolve() if args.world_root else None
     )
 
     try:
-        verified = verify_promote_proposal(
-            package,
+        result = confirm_extract_promote(
+            review_package=package,
+            world_root=world_root,
             confirming_principal=args.confirming_principal,
-            expected_parent_revision_id=head.head_revision_id,
-            selected_assertion_ids=tuple(args.assertion_ids)
-            if args.assertion_ids
-            else None,
-        )
-    except PromoteProposalError as exc:
-        raise SystemExit(f"proposal verification failed: {exc}") from exc
-
-    # Re-verify sealed source revision against the sealed URI only.
-    try:
-        verify_source_revision(
-            source_uri=verified["verified_source_uri"],
-            source_revision_id=verified["source_revision_id"],
+            assertion_ids=tuple(args.assertion_ids) if args.assertion_ids else None,
+            dry_run=bool(args.dry_run),
+            allow_live_world=bool(args.allow_live_world),
+            allow_idempotent_noop=bool(args.allow_idempotent_noop),
+            live_root=DEFAULT_LIVE_ROOT,
             repo_root=REPO_ROOT,
         )
+    except ExtractPromoteLiveWorldError as exc:
+        raise SystemExit(str(exc)) from exc
+    except ExtractPromoteWorldError as exc:
+        raise SystemExit(str(exc)) from exc
+    except PromoteProposalError as exc:
+        raise SystemExit(f"proposal verification failed: {exc}") from exc
     except CandidateGraphMappingError as exc:
-        raise SystemExit(f"source revision verification failed: {exc}") from exc
-
-    gate = _gate_from_verified(verified)
-    accepted_ids = tuple(args.assertion_ids) if args.assertion_ids else None
-    try:
-        contribution = build_accepted_contribution_from_proposals(
-            gate,
-            root=world_root,
-            accepted_assertion_ids=accepted_ids,
-            proposal_digest=verified["proposal_digest"],
-            contribution_meta=verified["contribution_meta"],
-        )
-    except CandidateGraphMappingError as exc:
+        # Source re-verify or selection errors from confirm path.
+        message = str(exc)
+        if "source_revision" in message or "mismatch" in message:
+            raise SystemExit(f"source revision verification failed: {exc}") from exc
         raise SystemExit(f"selection error: {exc}") from exc
 
-    if args.dry_run:
+    if result.dry_run:
         out = Path(args.output) if args.output else package_path.with_name(
             "accepted_contribution.dry_run.json"
         )
-        _write_json(
-            out,
-            {
-                "schema": "dmb_accepted_extract_contribution_v1",
-                "ok": True,
-                "dry_run": True,
-                "proposal_id": verified["proposal_id"],
-                "proposal_digest": verified["proposal_digest"],
-                "confirming_principal": verified["confirming_principal"],
-                "world_root": str(world_root),
-                "expected_parent_revision_id": gate.parent_revision_id,
-                "contribution_id": contribution.contribution_id,
-                "contribution": contribution.model_dump(mode="json"),
-            },
-        )
+        _write_json(out, result.payload)
         print(f"dry-run wrote {out} (no merge)")
         return 0
-
-    result = kernel.merge_contribution_to_revision(
-        world_root,
-        world_id=gate.world_id,
-        contribution=contribution,
-        expected_parent_revision_id=gate.parent_revision_id,
-    )
-
-    published_ok = bool(result.published)
-    if (
-        not published_ok
-        and args.allow_idempotent_noop
-        and "idempotent_noop:contribution_already_applied" in (result.diagnostics or [])
-    ):
-        published_ok = True
 
     out = Path(args.output) if args.output else package_path.with_name(
         "promote_proof.json"
     )
-
-    if not published_ok:
-        proof = {
-            "schema": "dmb_promote_extract_proof_v1",
-            "ok": False,
-            "world_root": str(world_root),
-            "world_id": gate.world_id,
-            "proposal_id": verified["proposal_id"],
-            "proposal_digest": verified["proposal_digest"],
-            "confirming_principal": verified["confirming_principal"],
-            "parent_revision_id": gate.parent_revision_id,
-            "merge": result.model_dump(mode="json"),
-            "failure_reason": "merge_did_not_publish",
-        }
-        _write_json(out, proof)
+    _write_json(out, result.payload)
+    if not result.ok:
+        merge = result.payload.get("merge") or {}
         print(
-            f"publication failed published={result.published} "
-            f"revision={result.revision_id} proof={out}"
+            f"publication failed published={merge.get('published')} "
+            f"revision={merge.get('revision_id')} proof={out}"
         )
         return 1
 
-    rebuild = kernel.rebuild_from_contributions(
-        world_root, world_id=gate.world_id, publish=False
-    )
-    from graph_memory.projection.world_projection import (
-        PROJECTION_REQUEST_SCHEMA,
-        WorldGraphProjectionFocus,
-        WorldGraphProjectionRequest,
-    )
-
-    projection = kernel.project_world_graph(
-        world_root,
-        WorldGraphProjectionRequest(
-            schema=PROJECTION_REQUEST_SCHEMA,
-            world_id=gate.world_id,
-            campaign_id=contribution.campaign_scope or "longmont-c2",
-            focus=WorldGraphProjectionFocus(kind="none"),
-            admissibility="gm",
-        ),
-    )
-    proof = {
-        "schema": "dmb_promote_extract_proof_v1",
-        "ok": True,
-        "world_root": str(world_root),
-        "world_id": gate.world_id,
-        "proposal_id": verified["proposal_id"],
-        "proposal_digest": verified["proposal_digest"],
-        "confirming_principal": verified["confirming_principal"],
-        "parent_revision_id": gate.parent_revision_id,
-        "contribution_id": contribution.contribution_id,
-        "merge": result.model_dump(mode="json"),
-        "rebuild_diagnostics": list(rebuild.diagnostics),
-        "rebuild_equivalent_to_head": "rebuild_equivalent_to_head" in rebuild.diagnostics,
-        "projection_revision_id": projection.snapshot.revision_id,
-        "projection_node_count": projection.summary.node_count,
-        "projection_relationship_count": projection.summary.relationship_count,
-    }
-    _write_json(out, proof)
+    merge = result.payload.get("merge") or {}
     print(
-        f"published revision={result.revision_id} "
-        f"accepted={len(result.accepted_assertion_ids)} "
-        f"rebuild_ok={proof['rebuild_equivalent_to_head']} "
+        f"published revision={merge.get('revision_id')} "
+        f"accepted={len(merge.get('accepted_assertion_ids') or [])} "
+        f"rebuild_ok={result.payload.get('rebuild_equivalent_to_head')} "
         f"proof={out}"
     )
     return 0

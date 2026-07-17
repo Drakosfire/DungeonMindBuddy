@@ -293,8 +293,6 @@ def test_cli_confirm_published_false_writes_failure_proof(
     """Simulate Kernel returning published=False without raising."""
     world_root, _graph, package_path, _digest = _prepare_world(tmp_path, loaded_bundle)
 
-    # Import CLI module functions and patch merge inside the subprocess path is
-    # hard; instead call cmd_confirm via importing the script module.
     sys_path_inserted = False
     if str(REPO_ROOT / "src") not in sys.path:
         sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -303,6 +301,8 @@ def test_cli_confirm_published_false_writes_failure_proof(
         sys.path.insert(0, str(REPO_ROOT))
 
     import importlib.util
+
+    import graph_memory.extract_promote_ops as ops
 
     spec = importlib.util.spec_from_file_location(
         "promote_extract_contribution", CLI
@@ -326,7 +326,7 @@ def test_cli_confirm_published_false_writes_failure_proof(
             }
 
     monkeypatch.setattr(
-        mod.kernel,
+        ops.kernel,
         "merge_contribution_to_revision",
         lambda *a, **k: FakeResult(),
     )
