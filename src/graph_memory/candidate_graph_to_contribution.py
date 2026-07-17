@@ -1,15 +1,30 @@
-"""Map category candidate graphs into Kernel GraphContribution assertions.
+"""Map typed CandidateGraphPreview objects into Kernel GraphContribution assertions.
 
-Preview extracts use ``node_type`` / ``description`` / span evidence. Kernel
-merge expects ``kind`` / ``role`` / ``aliases`` / ``source_domains`` plus
-embedded evidence/source-artifact payloads (PR006 shape). This module is the
-fail-closed bridge; it does not resolve identity or publish.
+Fail-closed: requires validated preview IR, promote-eligible semantics, evidence
+per assertion, and verified source revision digests. Does not resolve identity
+or publish.
 """
 
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from graph_memory.candidate_graph_preview import (
+    CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+    CandidateEdge,
+    CandidateGraphPreview,
+    CandidateNode,
+    EvidenceRef,
+    candidate_graph_preview_from_dict,
+    validate_candidate_graph_preview,
+)
+from graph_memory.candidate_semantic_promote_matrix import (
+    CandidateSemanticPromoteError,
+    map_candidate_semantics_to_kernel,
+    semantic_diagnostics,
+)
 from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
 from graph_memory.kernel.contribution_models import GraphContribution, GraphContributionAssertion
 
@@ -32,6 +47,10 @@ _NODE_TYPE_TO_KIND: dict[str, str] = {
     "thread": "thread",
     "job": "job",
     "encounter": "encounter",
+    "combat_encounter": "encounter",
+    "quest": "job",
+    "clue": "mystery",
+    "landmark": "location",
 }
 
 
@@ -53,43 +72,142 @@ def _require_nonempty(value: str | None, *, field: str) -> str:
     return text
 
 
+def load_typed_candidate_graph(payload: Mapping[str, Any]) -> CandidateGraphPreview:
+    """Parse and structurally validate a CandidateGraphPreview IR document."""
+    if payload.get("schema") == "dmb_portable_object_demo_candidate_v1":
+        raise CandidateGraphMappingError(
+            "phase4 portable demo JSON is not a candidate_graph; pass a "
+            "dmb_candidate_graph_preview_v0 document"
+        )
+    if payload.get("schema") != CANDIDATE_GRAPH_PREVIEW_SCHEMA:
+        raise CandidateGraphMappingError(
+            f"unsupported schema {payload.get('schema')!r}; require "
+            f"{CANDIDATE_GRAPH_PREVIEW_SCHEMA}"
+        )
+    # Detect common category-extractor drift before pydantic-ish dataclass parse.
+    nodes = list(payload.get("nodes") or [])
+    if nodes and isinstance(nodes[0], dict):
+        semantic = nodes[0].get("semantic_state") or {}
+        if isinstance(semantic, dict) and "canon_status" in semantic:
+            raise CandidateGraphMappingError(
+                "candidate graph uses extractor semantic_state aliases "
+                "(canon_status/lifecycle/memory_status); promote requires typed "
+                "CandidateGraphPreview SemanticState "
+                "(canon_state/lifecycle_state/evidence_role/authority_state/"
+                "visibility_state). Align the extractor or use a gold IR fixture."
+            )
+    try:
+        preview = candidate_graph_preview_from_dict(payload)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise CandidateGraphMappingError(
+            f"candidate graph failed typed parse: {exc}"
+        ) from exc
+    report = validate_candidate_graph_preview(preview)
+    errors = [i for i in report.issues if i.severity == "error"]
+    if errors:
+        sample = "; ".join(
+            f"{i.code}:{i.object_id or ''}:{i.message}" for i in errors[:8]
+        )
+        raise CandidateGraphMappingError(
+            f"candidate graph failed validation ({len(errors)} issues): {sample}"
+        )
+    return preview
+
+
+def resolve_source_bytes(source_uri: str, *, repo_root: Path | None = None) -> bytes:
+    """Resolve a file path or repo:// URI to source artifact bytes."""
+    uri = _require_nonempty(source_uri, field="source_uri")
+    if uri.startswith("repo://"):
+        rel = uri[len("repo://") :].lstrip("/")
+        root = (repo_root or Path.cwd()).resolve()
+        path = (root / rel).resolve()
+        if not str(path).startswith(str(root)):
+            raise CandidateGraphMappingError(
+                f"source_uri escapes repo root: {source_uri}"
+            )
+    else:
+        path = Path(uri).expanduser().resolve()
+    if not path.is_file():
+        raise CandidateGraphMappingError(f"source_uri is not a readable file: {uri}")
+    return path.read_bytes()
+
+
+def verify_source_revision(
+    *,
+    source_uri: str,
+    source_revision_id: str,
+    repo_root: Path | None = None,
+) -> str:
+    """Hash source bytes and require source_revision_id == sha256:{digest}."""
+    raw = resolve_source_bytes(source_uri, repo_root=repo_root)
+    digest = hashlib.sha256(raw).hexdigest()
+    expected = f"sha256:{digest}"
+    provided = _require_nonempty(source_revision_id, field="source_revision_id")
+    if not provided.startswith("sha256:"):
+        provided = f"sha256:{provided}"
+    if provided != expected:
+        raise CandidateGraphMappingError(
+            f"source_revision_id mismatch: provided={provided} computed={expected}"
+        )
+    return expected
+
+
 def _evidence_ref_payloads(
-    evidence_refs: Sequence[Mapping[str, Any]] | None,
+    evidence_refs: Sequence[EvidenceRef],
     *,
     assertion_key: str,
-    source_artifact_id: str,
-    source_domain: str,
+    default_source_domain: str,
     session_id: str | None,
-) -> tuple[list[str], list[dict[str, Any]]]:
-    refs = list(evidence_refs or [])
-    if not refs:
+    verified_source_revision_id: str,
+    source_uri: str | None,
+    campaign_id: str | None,
+) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]]]:
+    if not evidence_refs:
         raise CandidateGraphMappingError(
             f"assertion {assertion_key!r} has no evidence_refs"
         )
     evidence_ids: list[str] = []
     embedded: list[dict[str, Any]] = []
-    for index, ref in enumerate(refs):
-        span = str(ref.get("source_span_ref_id") or "").strip()
+    source_artifacts: list[dict[str, Any]] = []
+    seen_artifacts: set[str] = set()
+    for index, ref in enumerate(evidence_refs):
+        span = str(ref.source_span_ref_id or "").strip()
         if not span:
             raise CandidateGraphMappingError(
                 f"assertion {assertion_key!r} evidence[{index}] missing source_span_ref_id"
             )
-        evidence_id = f"evidence:{source_artifact_id}:{span}"
-        if evidence_id in evidence_ids:
-            continue
-        evidence_ids.append(evidence_id)
-        payload: dict[str, Any] = {
-            "evidence_ref_id": evidence_id,
-            "source_artifact_id": source_artifact_id,
-            "source_domain": source_domain,
-            "source_span_ref_id": span,
-        }
-        if session_id:
-            payload["session_id"] = session_id
-        else:
-            payload["locator"] = span
-        embedded.append(payload)
-    return evidence_ids, embedded
+        artifact_id = _require_nonempty(
+            ref.source_artifact_id, field=f"{assertion_key}.evidence[{index}].source_artifact_id"
+        )
+        evidence_id = f"evidence:{artifact_id}:{span}"
+        if evidence_id not in evidence_ids:
+            evidence_ids.append(evidence_id)
+            payload: dict[str, Any] = {
+                "evidence_ref_id": evidence_id,
+                "source_artifact_id": artifact_id,
+                "source_domain": default_source_domain,
+                "source_span_ref_id": span,
+            }
+            if session_id:
+                payload["session_id"] = session_id
+            else:
+                payload["locator"] = span
+            if ref.source_ref_id:
+                payload["source_ref_id"] = ref.source_ref_id
+            embedded.append(payload)
+        if artifact_id not in seen_artifacts:
+            seen_artifacts.add(artifact_id)
+            source_artifacts.append(
+                _source_artifact_payload(
+                    source_artifact_id=artifact_id,
+                    source_revision_id=verified_source_revision_id,
+                    source_domain=default_source_domain,
+                    campaign_id=campaign_id,
+                    session_id=session_id,
+                    source_uri=source_uri,
+                )
+            )
+    return evidence_ids, embedded, source_artifacts
 
 
 def _source_artifact_payload(
@@ -106,8 +224,7 @@ def _source_artifact_payload(
         "source_artifact_id": source_artifact_id,
         "source_domain": source_domain,
         "content_sha256": digest,
-        "uri": source_uri
-        or f"repo://extract/{source_artifact_id}",
+        "uri": source_uri or f"repo://extract/{source_artifact_id}",
     }
     if campaign_id:
         payload["campaign_id"] = campaign_id
@@ -117,9 +234,8 @@ def _source_artifact_payload(
 
 
 def map_candidate_node_to_assertion(
-    node: Mapping[str, Any],
+    node: CandidateNode,
     *,
-    source_artifact_id: str,
     source_revision_id: str,
     campaign_scope: str | None,
     source_domain: str = "recap",
@@ -131,59 +247,65 @@ def map_candidate_node_to_assertion(
     kind_override: str | None = None,
     subject_node_id_override: str | None = None,
 ) -> GraphContributionAssertion:
-    node_id = _require_nonempty(str(node.get("node_id") or ""), field="node.node_id")
-    label = _require_nonempty(str(node.get("label") or node_id), field="node.label")
-    kind = kind_override or kernel_kind_for_node_type(str(node.get("node_type") or ""))
-    evidence_ids, embedded_evidence = _evidence_ref_payloads(
-        node.get("evidence_refs"),
+    try:
+        mapping = map_candidate_semantics_to_kernel(
+            object_id=node.node_id,
+            semantic=node.semantic_state,
+            proposed_action=node.proposed_action,
+            confidence=node.confidence,
+            warnings=node.warnings,
+            acceptance_state=acceptance_state,
+        )
+    except CandidateSemanticPromoteError as exc:
+        raise CandidateGraphMappingError(str(exc)) from exc
+
+    node_id = _require_nonempty(node.node_id, field="node.node_id")
+    label = _require_nonempty(node.label or node_id, field="node.label")
+    kind = kind_override or kernel_kind_for_node_type(node.node_type)
+    evidence_ids, embedded_evidence, source_artifacts = _evidence_ref_payloads(
+        node.evidence_refs,
         assertion_key=node_id,
-        source_artifact_id=source_artifact_id,
-        source_domain=source_domain,
+        default_source_domain=source_domain,
         session_id=session_id,
+        verified_source_revision_id=source_revision_id,
+        source_uri=source_uri,
+        campaign_id=campaign_id,
     )
-    aliases = [label]
-    summary = str(node.get("description") or "").strip() or None
+    # Top-level source_artifact_id is the first evidence artifact (not a rewrite of all).
+    primary_artifact = source_artifacts[0]["source_artifact_id"]
+    summary = (node.description or "").strip() or None
     value: dict[str, Any] = {
         "kind": kind,
         "role": kind,
-        "aliases": aliases,
+        "aliases": [label],
         "source_domains": [source_domain],
         "evidence": embedded_evidence,
-        "source_artifacts": [
-            _source_artifact_payload(
-                source_artifact_id=source_artifact_id,
-                source_revision_id=source_revision_id,
-                source_domain=source_domain,
-                campaign_id=campaign_id,
-                session_id=session_id,
-                source_uri=source_uri,
-            )
-        ],
-        "canon_state": "canonical",
-        "approval_state": "accepted" if acceptance_state == "accepted" else "candidate",
+        "source_artifacts": source_artifacts,
+        "canon_state": mapping.canon_state,
+        "approval_state": mapping.approval_state,
     }
     if summary:
         value["summary"] = summary
-    return build_assertion(
+    assertion = build_assertion(
         assertion_kind="node",
         acceptance_state=acceptance_state,
         subject_node_id=subject_node_id_override or node_id,
         label=label,
         value=value,
         evidence_ref_ids=evidence_ids,
-        source_artifact_id=source_artifact_id,
+        source_artifact_id=primary_artifact,
         source_revision_id=source_revision_id,
         campaign_scope=campaign_scope,
-        epistemic_kind="source_derived_candidate",
-        visibility="gm",
+        epistemic_kind=mapping.epistemic_kind,
+        visibility=mapping.visibility,
         identity_resolution_outcome=identity_resolution_outcome,
     )
+    return assertion
 
 
 def map_candidate_edge_to_assertion(
-    edge: Mapping[str, Any],
+    edge: CandidateEdge,
     *,
-    source_artifact_id: str,
     source_revision_id: str,
     campaign_scope: str | None,
     source_domain: str = "recap",
@@ -196,45 +318,45 @@ def map_candidate_edge_to_assertion(
     target_node_id_override: str | None = None,
     node_id_map: Mapping[str, str] | None = None,
 ) -> GraphContributionAssertion:
-    edge_id = _require_nonempty(str(edge.get("edge_id") or ""), field="edge.edge_id")
-    from_id = _require_nonempty(
-        str(edge.get("from_node_id") or ""), field="edge.from_node_id"
-    )
-    to_id = _require_nonempty(str(edge.get("to_node_id") or ""), field="edge.to_node_id")
+    try:
+        mapping = map_candidate_semantics_to_kernel(
+            object_id=edge.edge_id,
+            semantic=edge.semantic_state,
+            proposed_action=edge.proposed_action,
+            confidence=edge.confidence,
+            warnings=edge.warnings,
+            acceptance_state=acceptance_state,
+        )
+    except CandidateSemanticPromoteError as exc:
+        raise CandidateGraphMappingError(str(exc)) from exc
+
+    edge_id = _require_nonempty(edge.edge_id, field="edge.edge_id")
+    from_id = _require_nonempty(edge.from_node_id, field="edge.from_node_id")
+    to_id = _require_nonempty(edge.to_node_id, field="edge.to_node_id")
     id_map = dict(node_id_map or {})
     subject_id = subject_node_id_override or id_map.get(from_id, from_id)
     target_id = target_node_id_override or id_map.get(to_id, to_id)
-    predicate = (
-        str(edge.get("relationship_type") or edge.get("predicate") or "related_to").strip()
-        or "related_to"
-    )
-    label = str(edge.get("label") or predicate).strip() or predicate
-    evidence_ids, embedded_evidence = _evidence_ref_payloads(
-        edge.get("evidence_refs"),
+    predicate = (edge.relationship_type or "related_to").strip() or "related_to"
+    label = (edge.label or predicate).strip() or predicate
+    evidence_ids, embedded_evidence, source_artifacts = _evidence_ref_payloads(
+        edge.evidence_refs,
         assertion_key=edge_id,
-        source_artifact_id=source_artifact_id,
-        source_domain=source_domain,
+        default_source_domain=source_domain,
         session_id=session_id,
+        verified_source_revision_id=source_revision_id,
+        source_uri=source_uri,
+        campaign_id=campaign_id,
     )
+    primary_artifact = source_artifacts[0]["source_artifact_id"]
     value: dict[str, Any] = {
         "edge_id": f"edge:{subject_id}:{predicate}:{target_id}",
         "predicate": predicate,
-        "predicate_family": edge.get("predicate_family"),
         "source_domains": [source_domain],
         "direction": "outbound",
         "evidence": embedded_evidence,
-        "source_artifacts": [
-            _source_artifact_payload(
-                source_artifact_id=source_artifact_id,
-                source_revision_id=source_revision_id,
-                source_domain=source_domain,
-                campaign_id=campaign_id,
-                session_id=session_id,
-                source_uri=source_uri,
-            )
-        ],
-        "canon_state": "canonical",
-        "approval_state": "accepted" if acceptance_state == "accepted" else "candidate",
+        "source_artifacts": source_artifacts,
+        "canon_state": mapping.canon_state,
+        "approval_state": mapping.approval_state,
     }
     if session_id:
         value["session_ids"] = [session_id]
@@ -247,22 +369,22 @@ def map_candidate_edge_to_assertion(
         label=label,
         value=value,
         evidence_ref_ids=evidence_ids,
-        source_artifact_id=source_artifact_id,
+        source_artifact_id=primary_artifact,
         source_revision_id=source_revision_id,
         campaign_scope=campaign_scope,
-        epistemic_kind="source_derived_candidate",
-        visibility="gm",
+        epistemic_kind=mapping.epistemic_kind,
+        visibility=mapping.visibility,
         identity_resolution_outcome=identity_resolution_outcome,
         temporal_scope={"session_id": session_id} if session_id else None,
     )
 
 
 def candidate_graph_to_contribution(
-    candidate_graph: Mapping[str, Any],
+    preview: CandidateGraphPreview,
     *,
     world_id: str,
+    source_revision_id: str,
     source_artifact_id: str | None = None,
-    source_revision_id: str | None = None,
     campaign_scope: str | None = None,
     extraction_profile: str | None = "current_default",
     authored_by: str | None = "candidate-graph-mapper",
@@ -270,64 +392,58 @@ def candidate_graph_to_contribution(
     source_uri: str | None = None,
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
+    proposal_digest: str | None = None,
 ) -> GraphContribution:
-    """Map a candidate graph into a source_extraction contribution (candidates only)."""
+    """Map a typed CandidateGraphPreview into a source_extraction contribution."""
     world = _require_nonempty(world_id, field="world_id")
-    artifact_id = _require_nonempty(
-        source_artifact_id
-        or (
-            (candidate_graph.get("source_artifact_ids") or [None])[0]
-            if isinstance(candidate_graph.get("source_artifact_ids"), list)
-            else None
-        ),
-        field="source_artifact_id",
-    )
     revision_id = _require_nonempty(source_revision_id, field="source_revision_id")
     if not revision_id.startswith("sha256:"):
         revision_id = f"sha256:{revision_id}"
 
-    session_id = str(candidate_graph.get("session_id") or "").strip() or None
-    campaign_id = str(candidate_graph.get("campaign_id") or "").strip() or None
+    artifact_id = _require_nonempty(
+        source_artifact_id
+        or (preview.source_artifact_ids[0] if preview.source_artifact_ids else None),
+        field="source_artifact_id",
+    )
+    session_id = preview.session_id
+    campaign_id = preview.campaign_id
     scope = campaign_scope or campaign_id
 
     allow = set(node_ids) if node_ids is not None else None
     nodes = [
         node
-        for node in list(candidate_graph.get("nodes") or [])
-        if isinstance(node, dict)
-        and (allow is None or str(node.get("node_id") or "") in allow)
+        for node in preview.nodes
+        if allow is None or node.node_id in allow
     ]
     if not nodes:
         raise CandidateGraphMappingError("candidate graph has no nodes to map")
 
-    node_assertions: list[GraphContributionAssertion] = [
-        map_candidate_node_to_assertion(
-            node,
-            source_artifact_id=artifact_id,
-            source_revision_id=revision_id,
-            campaign_scope=scope,
-            source_domain=source_domain,
-            session_id=session_id,
-            campaign_id=campaign_id,
-            source_uri=source_uri,
+    diagnostics: list[str] = []
+    node_assertions: list[GraphContributionAssertion] = []
+    for node in nodes:
+        diagnostics.extend(semantic_diagnostics(node))
+        node_assertions.append(
+            map_candidate_node_to_assertion(
+                node,
+                source_revision_id=revision_id,
+                campaign_scope=scope,
+                source_domain=source_domain,
+                session_id=session_id,
+                campaign_id=campaign_id,
+                source_uri=source_uri,
+            )
         )
-        for node in nodes
-    ]
 
     edge_assertions: list[GraphContributionAssertion] = []
     if include_edges:
-        mapped_node_ids = {str(node.get("node_id") or "") for node in nodes}
-        for edge in list(candidate_graph.get("edges") or []):
-            if not isinstance(edge, dict):
+        mapped_node_ids = {node.node_id for node in nodes}
+        for edge in preview.edges:
+            if edge.from_node_id not in mapped_node_ids or edge.to_node_id not in mapped_node_ids:
                 continue
-            from_id = str(edge.get("from_node_id") or "")
-            to_id = str(edge.get("to_node_id") or "")
-            if from_id not in mapped_node_ids or to_id not in mapped_node_ids:
-                continue
+            diagnostics.extend(semantic_diagnostics(edge))
             edge_assertions.append(
                 map_candidate_edge_to_assertion(
                     edge,
-                    source_artifact_id=artifact_id,
                     source_revision_id=revision_id,
                     campaign_scope=scope,
                     source_domain=source_domain,
@@ -346,8 +462,11 @@ def candidate_graph_to_contribution(
         campaign_scope=scope,
         authored_by=authored_by,
         candidate_assertions=[*node_assertions, *edge_assertions],
+        proposal_digest=proposal_digest,
         diagnostics=[
+            *diagnostics,
             f"mapped_nodes:{len(node_assertions)}",
             f"mapped_edges:{len(edge_assertions)}",
+            f"preview_id:{preview.preview_id}",
         ],
     )

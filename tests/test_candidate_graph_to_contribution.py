@@ -2,53 +2,121 @@
 
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 import pytest
 
+from graph_memory.candidate_graph_preview import (
+    CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+    CANDIDATE_GRAPH_PREVIEW_VERSION,
+    CandidateNode,
+    candidate_graph_preview_from_dict,
+)
 from graph_memory.candidate_graph_to_contribution import (
     CandidateGraphMappingError,
     candidate_graph_to_contribution,
     kernel_kind_for_node_type,
+    load_typed_candidate_graph,
     map_candidate_node_to_assertion,
+    verify_source_revision,
 )
 
 
-def _minimal_graph(*, with_evidence: bool = True) -> dict:
-    evidence = (
+def _semantic(*, canon: str = "played_canon", authority: str = "system_derived") -> dict:
+    return {
+        "canon_state": canon,
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": authority,
+        "visibility_state": "gm_private",
+    }
+
+
+def _evidence(
+    suffix: str,
+    *,
+    artifact: str = "artifact:recap:longmont-c2:session-22",
+) -> dict:
+    return {
+        "source_ref_id": f"ref:{suffix}",
+        "source_artifact_id": artifact,
+        "source_anchor_id": f"anchor:{suffix}",
+        "label": "span",
+        "evidence_role": "source_evidence",
+        "can_open_source": True,
+        "can_highlight_span": True,
+        "source_span_ref_id": f"session-22:recap:paragraph:{suffix}",
+        "anchor_quotes": ["quote"],
+    }
+
+
+def _diagnostics() -> dict:
+    return {
+        "preview_only": True,
+        "extraction_performed": False,
+        "llm_used": False,
+        "runtime_connected": False,
+        "plan_connected": False,
+        "agent_interaction_connected": False,
+        "corpus_scanned": False,
+        "corpus_mutated": False,
+        "facts_promoted": False,
+        "canon_promoted": False,
+        "unresolved_evidence_refs": 0,
+        "missing_evidence_objects": 0,
+        "warning_count": 0,
+    }
+
+
+def _minimal_graph(
+    *,
+    with_evidence: bool = True,
+    canon: str = "played_canon",
+    multi_source: bool = False,
+) -> dict:
+    art_a = "artifact:recap:longmont-c2:session-22"
+    art_b = "artifact:recap:longmont-c2:session-22-alt"
+    vial_evidence = [_evidence("006", artifact=art_a)] if with_evidence else []
+    puddle_evidence = (
         [
-            {
-                "source_span_ref_id": "session-22:recap:paragraph:006",
-                "anchor_quotes": ["vial of puddle water"],
-            }
+            _evidence("007", artifact=art_b if multi_source else art_a),
         ]
         if with_evidence
         else []
     )
     return {
-        "schema": "dmb_candidate_graph_preview_v0",
+        "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
+        "preview_id": "preview:test-promote-minimal",
         "session_id": "session-22",
         "campaign_id": "longmont-c2",
-        "source_artifact_ids": ["artifact:recap:longmont-c2:session-22"],
+        "source_artifact_ids": [art_a] + ([art_b] if multi_source else []),
+        "status": "preview",
         "nodes": [
             {
                 "node_id": "obj_session22_vial",
                 "label": "vial",
                 "node_type": "item",
                 "description": "Small vial of puddle water",
-                "evidence_refs": evidence,
+                "importance": "medium",
+                "semantic_state": _semantic(canon=canon),
+                "evidence_refs": vial_evidence,
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
             },
             {
                 "node_id": "mystery_puddles",
                 "label": "Magic puddles",
                 "node_type": "mystery",
                 "description": "Puddles with delayed reflections",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:007",
-                        "anchor_quotes": ["delayed reflections"],
-                    }
-                ]
-                if with_evidence
-                else [],
+                "importance": "medium",
+                "semantic_state": _semantic(canon=canon),
+                "evidence_refs": puddle_evidence,
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
             },
         ],
         "edges": [
@@ -57,16 +125,12 @@ def _minimal_graph(*, with_evidence: bool = True) -> dict:
                 "from_node_id": "obj_session22_vial",
                 "to_node_id": "mystery_puddles",
                 "relationship_type": "linked_to",
-                "predicate_family": "social_relation",
                 "label": "linked to",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:007",
-                        "anchor_quotes": ["vial"],
-                    }
-                ]
-                if with_evidence
-                else [],
+                "semantic_state": _semantic(canon=canon),
+                "evidence_refs": [_evidence("007")] if with_evidence else [],
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
             },
             {
                 "edge_id": "e_orphan",
@@ -74,14 +138,18 @@ def _minimal_graph(*, with_evidence: bool = True) -> dict:
                 "to_node_id": "not_in_selection",
                 "relationship_type": "related_to",
                 "label": "orphan",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:007",
-                        "anchor_quotes": ["x"],
-                    }
-                ],
+                "semantic_state": _semantic(canon=canon),
+                "evidence_refs": [_evidence("007")] if with_evidence else [],
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
             },
         ],
+        "beats": [],
+        "proposed_writes": [],
+        "ignored_items": [],
+        "deferred_items": [],
+        "diagnostics": _diagnostics(),
     }
 
 
@@ -91,11 +159,27 @@ def test_kernel_kind_mapping() -> None:
     assert kernel_kind_for_node_type("location") == "location"
 
 
+def test_load_typed_rejects_extractor_semantic_aliases() -> None:
+    payload = _minimal_graph()
+    payload["nodes"][0]["semantic_state"] = {
+        "canon_status": "preview_only",
+        "lifecycle": "candidate",
+        "memory_status": "uncommitted",
+    }
+    with pytest.raises(CandidateGraphMappingError, match="extractor semantic_state"):
+        load_typed_candidate_graph(payload)
+
+
+def test_load_typed_rejects_missing_nodes_only_payload() -> None:
+    with pytest.raises(CandidateGraphMappingError, match="unsupported schema"):
+        load_typed_candidate_graph({"nodes": []})
+
+
 def test_map_node_uses_kernel_value_shape() -> None:
-    node = _minimal_graph()["nodes"][0]
+    preview = candidate_graph_preview_from_dict(_minimal_graph())
+    node = preview.nodes[0]
     assertion = map_candidate_node_to_assertion(
         node,
-        source_artifact_id="artifact:recap:longmont-c2:session-22",
         source_revision_id="sha256:abc123",
         campaign_scope="longmont-c2",
         session_id="session-22",
@@ -105,8 +189,9 @@ def test_map_node_uses_kernel_value_shape() -> None:
     assert assertion.acceptance_state == "candidate"
     assert assertion.value["kind"] == "item"
     assert assertion.value["role"] == "item"
+    assert assertion.value["canon_state"] == "canonical"
+    assert assertion.visibility == "gm"
     assert "aliases" in assertion.value
-    assert "source_domains" in assertion.value
     assert assertion.value["source_domains"] == ["recap"]
     assert assertion.evidence_ref_ids
     assert assertion.value["evidence"]
@@ -114,28 +199,98 @@ def test_map_node_uses_kernel_value_shape() -> None:
 
 
 def test_map_fails_closed_without_evidence() -> None:
-    node = _minimal_graph(with_evidence=False)["nodes"][0]
+    preview = candidate_graph_preview_from_dict(_minimal_graph(with_evidence=False))
+    # Bypass validate; construct node with empty evidence directly.
+    node = CandidateNode(
+        node_id="x",
+        label="x",
+        node_type="item",
+        description=None,
+        importance="medium",
+        semantic_state=preview.nodes[0].semantic_state,
+        evidence_refs=(),
+        proposed_action="create",
+        confidence="medium",
+    )
     with pytest.raises(CandidateGraphMappingError, match="no evidence_refs"):
         map_candidate_node_to_assertion(
             node,
-            source_artifact_id="artifact:x",
             source_revision_id="sha256:abc",
             campaign_scope="longmont-c2",
+        )
+
+
+def test_planning_scaffold_semantics_rejected() -> None:
+    with pytest.raises(CandidateGraphMappingError, match="not promote-eligible"):
+        candidate_graph_to_contribution(
+            candidate_graph_preview_from_dict(
+                _minimal_graph(canon="planning_scaffold")
+            ),
+            world_id="eldyrwild",
+            source_revision_id="sha256:deadbeef",
+        )
+
+
+def test_llm_generated_authority_rejected() -> None:
+    payload = _minimal_graph()
+    payload["nodes"][0]["semantic_state"]["authority_state"] = "llm_generated"
+    with pytest.raises(CandidateGraphMappingError, match="authority_state"):
+        candidate_graph_to_contribution(
+            candidate_graph_preview_from_dict(payload),
+            world_id="eldyrwild",
+            source_revision_id="sha256:deadbeef",
+            node_ids=["obj_session22_vial"],
+            include_edges=False,
         )
 
 
 def test_map_fails_closed_without_source_revision() -> None:
     with pytest.raises(CandidateGraphMappingError, match="source_revision_id"):
         candidate_graph_to_contribution(
-            _minimal_graph(),
+            candidate_graph_preview_from_dict(_minimal_graph()),
             world_id="eldyrwild",
             source_revision_id="",
         )
 
 
+def test_multi_source_evidence_preserves_artifact_ids() -> None:
+    preview = candidate_graph_preview_from_dict(_minimal_graph(multi_source=True))
+    contribution = candidate_graph_to_contribution(
+        preview,
+        world_id="eldyrwild",
+        source_revision_id="sha256:deadbeef",
+        node_ids=["obj_session22_vial", "mystery_puddles"],
+        include_edges=False,
+    )
+    artifact_ids = {
+        e["source_artifact_id"]
+        for a in contribution.candidate_assertions
+        for e in a.value["evidence"]
+    }
+    assert "artifact:recap:longmont-c2:session-22" in artifact_ids
+    assert "artifact:recap:longmont-c2:session-22-alt" in artifact_ids
+
+
+def test_verify_source_revision_hashes_file(tmp_path: Path) -> None:
+    source = tmp_path / "recap.md"
+    content = b"session 22 recap body\n"
+    source.write_bytes(content)
+    digest = hashlib.sha256(content).hexdigest()
+    verified = verify_source_revision(
+        source_uri=str(source),
+        source_revision_id=f"sha256:{digest}",
+    )
+    assert verified == f"sha256:{digest}"
+    with pytest.raises(CandidateGraphMappingError, match="mismatch"):
+        verify_source_revision(
+            source_uri=str(source),
+            source_revision_id="sha256:deadbeef",
+        )
+
+
 def test_candidate_graph_maps_nodes_and_in_scope_edges_only() -> None:
     contribution = candidate_graph_to_contribution(
-        _minimal_graph(),
+        candidate_graph_preview_from_dict(_minimal_graph()),
         world_id="eldyrwild",
         source_revision_id="sha256:deadbeef",
         node_ids=["obj_session22_vial", "mystery_puddles"],

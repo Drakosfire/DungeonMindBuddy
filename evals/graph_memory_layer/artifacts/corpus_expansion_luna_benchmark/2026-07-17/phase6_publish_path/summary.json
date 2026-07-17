@@ -1,38 +1,19 @@
 {
   "schema": "dmb_phase6_publish_path_summary_v1",
-  "generated_at": "2026-07-17T22:10:00Z",
-  "status": "tmp_world_proven_live_untouched",
-  "live_head": {
-    "path": "out/graph_memory/worlds/eldyrwild/head.json",
-    "head_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
-    "mutated": false
-  },
-  "vertical": {
-    "source_candidate_graph": "phase2_frozen_benchmark/runs/session-22__gpt-5.4-mini__trial-1/candidate_graph.json",
-    "node_ids": [
-      "obj_session22_vial",
-      "mystery_session22_magic_puddles_delayed_reflections"
-    ],
-    "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
-    "published_revision_id": "rev:8ee983888c844775e776434704baf251",
-    "accepted_assertions": 3,
-    "projection_node_count": 14,
-    "projection_relationship_count": 12,
-    "rebuild_equivalent_to_head": true
-  },
-  "modules": [
-    "src/graph_memory/candidate_graph_to_contribution.py",
-    "src/graph_memory/extract_identity_gate.py",
-    "scripts/promote_extract_contribution.py"
-  ],
-  "tests": [
-    "tests/test_candidate_graph_to_contribution.py",
-    "tests/test_extract_identity_gate.py"
-  ],
-  "correction": "Eldyrwild head already existed; phase4/5 'no head' blocker was stale. Real work was mapper + identity gate + promote CLI.",
-  "next": [
-    "Operator-reviewed live C2 recap batch (explicit --allow-live-world)",
-    "Ingest UI promote button wiring to the same Kernel path",
-    "Usefulness-at-scale eval after head grows"
+  "status": "tmp_world_proven_via_sealed_confirm",
+  "proposal_id": "proposal:adc2248573564af3841c89d6b49b2a0c",
+  "proposal_digest": "22416b741a4af2ee8af6dea6feae348df0b74c318a4257ba1f3ab91b5284c4dd",
+  "prepared_by": "phase6-proof@harden",
+  "confirming_principal": "phase6-proof@harden",
+  "proof_ok": true,
+  "published": true,
+  "revision_id": "rev:924dc36928ac2d2a745d8c64ac510247",
+  "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+  "contribution_id": "contribution:5e3e747d1f79b239",
+  "rebuild_equivalent_to_head": true,
+  "candidate_graph": "candidate_graph_vial_promote_ir.json",
+  "notes": [
+    "Proof uses typed CandidateGraphPreview IR (played_canon), sealed proposal digest, and confirm-time verification.",
+    "Live out/ was not mutated; world root was a tmp copy."
   ]
 }

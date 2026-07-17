@@ -1,190 +1,5 @@
 {
-  "accepted_proposals": [
-    {
-      "acceptance_state": "accepted",
-      "assertion_id": "assertion:3b4a4791b30358bf",
-      "assertion_kind": "node",
-      "campaign_scope": "longmont-c2",
-      "contribution_id": "contribution:pending",
-      "epistemic_kind": "source_derived_candidate",
-      "evidence_ref_ids": [
-        "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006",
-        "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007"
-      ],
-      "identity_resolution_outcome": "created_new",
-      "label": "vial",
-      "predicate": null,
-      "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-      "source_revision_id": "sha256:873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
-      "subject_node_id": "obj_session22_vial",
-      "target_node_id": null,
-      "temporal_scope": null,
-      "value": {
-        "aliases": [
-          "vial"
-        ],
-        "approval_state": "accepted",
-        "canon_state": "canonical",
-        "evidence": [
-          {
-            "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "source_span_ref_id": "session-22:recap:paragraph:006"
-          },
-          {
-            "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "source_span_ref_id": "session-22:recap:paragraph:007"
-          }
-        ],
-        "kind": "item",
-        "role": "item",
-        "source_artifacts": [
-          {
-            "campaign_id": "longmont-c2",
-            "content_sha256": "873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "uri": "repo://extract/artifact:recap:longmont-c2:session-22"
-          }
-        ],
-        "source_domains": [
-          "recap"
-        ],
-        "summary": "A small vial examined by Stafl and Caelynn; it is warned against drinking and appears linked to planar bleed magic."
-      },
-      "visibility": "gm"
-    },
-    {
-      "acceptance_state": "accepted",
-      "assertion_id": "assertion:31f83df11a7a04b4",
-      "assertion_kind": "node",
-      "campaign_scope": "longmont-c2",
-      "contribution_id": "contribution:pending",
-      "epistemic_kind": "source_derived_candidate",
-      "evidence_ref_ids": [
-        "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:004",
-        "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006"
-      ],
-      "identity_resolution_outcome": "created_new",
-      "label": "Puddles show delayed reflections with conjuration magic",
-      "predicate": null,
-      "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-      "source_revision_id": "sha256:873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
-      "subject_node_id": "mystery_session22_magic_puddles_delayed_reflections",
-      "target_node_id": null,
-      "temporal_scope": null,
-      "value": {
-        "aliases": [
-          "Puddles show delayed reflections with conjuration magic"
-        ],
-        "approval_state": "accepted",
-        "canon_state": "canonical",
-        "evidence": [
-          {
-            "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:004",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "source_span_ref_id": "session-22:recap:paragraph:004"
-          },
-          {
-            "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "source_span_ref_id": "session-22:recap:paragraph:006"
-          }
-        ],
-        "kind": "mystery",
-        "role": "mystery",
-        "source_artifacts": [
-          {
-            "campaign_id": "longmont-c2",
-            "content_sha256": "873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "uri": "repo://extract/artifact:recap:longmont-c2:session-22"
-          }
-        ],
-        "source_domains": [
-          "recap"
-        ],
-        "summary": "The road\u2019s puddles reflect objects a second late, and Detect Magic indicates the effect in the puddle is conjuration, suggesting an unusual planar or magical anomaly in the terrain."
-      },
-      "visibility": "gm"
-    },
-    {
-      "acceptance_state": "accepted",
-      "assertion_id": "assertion:1161fdb614f1c500",
-      "assertion_kind": "edge",
-      "campaign_scope": "longmont-c2",
-      "contribution_id": "contribution:pending",
-      "epistemic_kind": "source_derived_candidate",
-      "evidence_ref_ids": [
-        "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006",
-        "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007"
-      ],
-      "identity_resolution_outcome": "created_new",
-      "label": "linked to",
-      "predicate": "linked_to",
-      "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-      "source_revision_id": "sha256:873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
-      "subject_node_id": "obj_session22_vial",
-      "target_node_id": "mystery_session22_magic_puddles_delayed_reflections",
-      "temporal_scope": {
-        "session_id": "session-22"
-      },
-      "value": {
-        "approval_state": "accepted",
-        "canon_state": "canonical",
-        "direction": "outbound",
-        "edge_id": "edge:obj_session22_vial:linked_to:mystery_session22_magic_puddles_delayed_reflections",
-        "evidence": [
-          {
-            "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "source_span_ref_id": "session-22:recap:paragraph:006"
-          },
-          {
-            "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "source_span_ref_id": "session-22:recap:paragraph:007"
-          }
-        ],
-        "predicate": "linked_to",
-        "predicate_family": "social_relation",
-        "session_ids": [
-          "session-22"
-        ],
-        "source_artifacts": [
-          {
-            "campaign_id": "longmont-c2",
-            "content_sha256": "873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
-            "session_id": "session-22",
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "uri": "repo://extract/artifact:recap:longmont-c2:session-22"
-          }
-        ],
-        "source_domains": [
-          "recap"
-        ]
-      },
-      "visibility": "gm"
-    }
-  ],
-  "candidate_graph_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase2_frozen_benchmark/runs/session-22__gpt-5.4-mini__trial-1/candidate_graph.json",
+  "candidate_graph_path": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase6_publish_path/candidate_graph_vial_promote_ir.json",
   "contribution_candidate": {
     "accepted_assertions": [],
     "authored_by": "extract-identity-gate",
@@ -192,20 +7,19 @@
     "candidate_assertions": [
       {
         "acceptance_state": "candidate",
-        "assertion_id": "assertion:4ec244befaf15bce",
+        "assertion_id": "assertion:aeb4cb462acbeeb8",
         "assertion_kind": "node",
         "campaign_scope": "longmont-c2",
-        "contribution_id": "contribution:3347bb8d4669efc9",
+        "contribution_id": "contribution:ae40d9744f754f92",
         "epistemic_kind": "source_derived_candidate",
         "evidence_ref_ids": [
-          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006",
-          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007"
+          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006"
         ],
         "identity_resolution_outcome": "unresolved",
         "label": "vial",
         "predicate": null,
         "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-        "source_revision_id": "sha256:873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
+        "source_revision_id": "sha256:da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
         "subject_node_id": "obj_session22_vial",
         "target_node_id": null,
         "temporal_scope": null,
@@ -221,14 +35,8 @@
               "session_id": "session-22",
               "source_artifact_id": "artifact:recap:longmont-c2:session-22",
               "source_domain": "recap",
+              "source_ref_id": "ref:006",
               "source_span_ref_id": "session-22:recap:paragraph:006"
-            },
-            {
-              "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007",
-              "session_id": "session-22",
-              "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-              "source_domain": "recap",
-              "source_span_ref_id": "session-22:recap:paragraph:007"
             }
           ],
           "kind": "item",
@@ -236,37 +44,36 @@
           "source_artifacts": [
             {
               "campaign_id": "longmont-c2",
-              "content_sha256": "873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
+              "content_sha256": "da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
               "session_id": "session-22",
               "source_artifact_id": "artifact:recap:longmont-c2:session-22",
               "source_domain": "recap",
-              "uri": "repo://extract/artifact:recap:longmont-c2:session-22"
+              "uri": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase6_publish_path/source_fixture_vial.md"
             }
           ],
           "source_domains": [
             "recap"
           ],
-          "summary": "A small vial examined by Stafl and Caelynn; it is warned against drinking and appears linked to planar bleed magic."
+          "summary": "A small vial examined by Stafl and Caelynn; linked to planar bleed magic."
         },
         "visibility": "gm"
       },
       {
         "acceptance_state": "candidate",
-        "assertion_id": "assertion:3f50cec53f9a853e",
+        "assertion_id": "assertion:ac1e81ee7ac2e3c5",
         "assertion_kind": "node",
         "campaign_scope": "longmont-c2",
-        "contribution_id": "contribution:3347bb8d4669efc9",
+        "contribution_id": "contribution:ae40d9744f754f92",
         "epistemic_kind": "source_derived_candidate",
         "evidence_ref_ids": [
-          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:004",
-          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006"
+          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007"
         ],
         "identity_resolution_outcome": "unresolved",
         "label": "Puddles show delayed reflections with conjuration magic",
         "predicate": null,
         "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-        "source_revision_id": "sha256:873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
-        "subject_node_id": "mystery_session22_magic_puddles_delayed_reflections",
+        "source_revision_id": "sha256:da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
+        "subject_node_id": "mystery_puddles",
         "target_node_id": null,
         "temporal_scope": null,
         "value": {
@@ -277,18 +84,12 @@
           "canon_state": "canonical",
           "evidence": [
             {
-              "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:004",
+              "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007",
               "session_id": "session-22",
               "source_artifact_id": "artifact:recap:longmont-c2:session-22",
               "source_domain": "recap",
-              "source_span_ref_id": "session-22:recap:paragraph:004"
-            },
-            {
-              "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006",
-              "session_id": "session-22",
-              "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-              "source_domain": "recap",
-              "source_span_ref_id": "session-22:recap:paragraph:006"
+              "source_ref_id": "ref:007",
+              "source_span_ref_id": "session-22:recap:paragraph:007"
             }
           ],
           "kind": "mystery",
@@ -296,36 +97,36 @@
           "source_artifacts": [
             {
               "campaign_id": "longmont-c2",
-              "content_sha256": "873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
+              "content_sha256": "da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
               "session_id": "session-22",
               "source_artifact_id": "artifact:recap:longmont-c2:session-22",
               "source_domain": "recap",
-              "uri": "repo://extract/artifact:recap:longmont-c2:session-22"
+              "uri": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase6_publish_path/source_fixture_vial.md"
             }
           ],
           "source_domains": [
             "recap"
           ],
-          "summary": "The road\u2019s puddles reflect objects a second late, and Detect Magic indicates the effect in the puddle is conjuration, suggesting an unusual planar or magical anomaly in the terrain."
+          "summary": "Puddles with delayed reflections."
         },
         "visibility": "gm"
       }
     ],
-    "contribution_id": "contribution:3347bb8d4669efc9",
+    "contribution_id": "contribution:ae40d9744f754f92",
     "diagnostics": [
       "parent_revision_id:rev:5cadc9798562862cdde22350d8a3b56c",
       "scorer_matched:0",
       "scorer_ambiguity:0",
       "identity:obj_session22_vial:created_new:obj_session22_vial",
-      "identity:mystery_session22_magic_puddles_delayed_reflections:created_new:mystery_session22_magic_puddles_delayed_reflections"
+      "identity:mystery_puddles:created_new:mystery_puddles"
     ],
     "extraction_profile": "current_default",
     "identity_decision_ids": [],
-    "produced_at": "2026-07-17T22:05:15Z",
+    "produced_at": "2026-07-17T22:28:49Z",
     "rejected_assertions": [],
     "source_artifact_id": "artifact:recap:longmont-c2:session-22",
     "source_kind": "source_extraction",
-    "source_revision_id": "sha256:873831b719ee03b46c1bab00f720c21e07fb786cf9ae9d97f8d8e2808e30c89b",
+    "source_revision_id": "sha256:da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
     "status": "active",
     "supersedes_contribution_id": null,
     "unresolved_mentions": [],
@@ -336,15 +137,195 @@
     "scorer_matched:0",
     "scorer_ambiguity:0",
     "identity:obj_session22_vial:created_new:obj_session22_vial",
-    "identity:mystery_session22_magic_puddles_delayed_reflections:created_new:mystery_session22_magic_puddles_delayed_reflections"
+    "identity:mystery_puddles:created_new:mystery_puddles"
   ],
-  "node_id_map": {
-    "mystery_session22_magic_puddles_delayed_reflections": "mystery_session22_magic_puddles_delayed_reflections",
-    "obj_session22_vial": "obj_session22_vial"
+  "effect": {
+    "accepted_proposals": [
+      {
+        "acceptance_state": "accepted",
+        "assertion_id": "assertion:140bb434dd1ea21f",
+        "assertion_kind": "node",
+        "campaign_scope": "longmont-c2",
+        "contribution_id": "contribution:pending",
+        "epistemic_kind": "source_derived_candidate",
+        "evidence_ref_ids": [
+          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006"
+        ],
+        "identity_resolution_outcome": "created_new",
+        "label": "vial",
+        "predicate": null,
+        "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+        "source_revision_id": "sha256:da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
+        "subject_node_id": "obj_session22_vial",
+        "target_node_id": null,
+        "temporal_scope": null,
+        "value": {
+          "aliases": [
+            "vial"
+          ],
+          "approval_state": "accepted",
+          "canon_state": "canonical",
+          "evidence": [
+            {
+              "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:006",
+              "session_id": "session-22",
+              "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+              "source_domain": "recap",
+              "source_ref_id": "ref:006",
+              "source_span_ref_id": "session-22:recap:paragraph:006"
+            }
+          ],
+          "kind": "item",
+          "role": "item",
+          "source_artifacts": [
+            {
+              "campaign_id": "longmont-c2",
+              "content_sha256": "da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
+              "session_id": "session-22",
+              "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+              "source_domain": "recap",
+              "uri": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase6_publish_path/source_fixture_vial.md"
+            }
+          ],
+          "source_domains": [
+            "recap"
+          ],
+          "summary": "A small vial examined by Stafl and Caelynn; linked to planar bleed magic."
+        },
+        "visibility": "gm"
+      },
+      {
+        "acceptance_state": "accepted",
+        "assertion_id": "assertion:b521496d1b717258",
+        "assertion_kind": "node",
+        "campaign_scope": "longmont-c2",
+        "contribution_id": "contribution:pending",
+        "epistemic_kind": "source_derived_candidate",
+        "evidence_ref_ids": [
+          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007"
+        ],
+        "identity_resolution_outcome": "created_new",
+        "label": "Puddles show delayed reflections with conjuration magic",
+        "predicate": null,
+        "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+        "source_revision_id": "sha256:da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
+        "subject_node_id": "mystery_puddles",
+        "target_node_id": null,
+        "temporal_scope": null,
+        "value": {
+          "aliases": [
+            "Puddles show delayed reflections with conjuration magic"
+          ],
+          "approval_state": "accepted",
+          "canon_state": "canonical",
+          "evidence": [
+            {
+              "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007",
+              "session_id": "session-22",
+              "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+              "source_domain": "recap",
+              "source_ref_id": "ref:007",
+              "source_span_ref_id": "session-22:recap:paragraph:007"
+            }
+          ],
+          "kind": "mystery",
+          "role": "mystery",
+          "source_artifacts": [
+            {
+              "campaign_id": "longmont-c2",
+              "content_sha256": "da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
+              "session_id": "session-22",
+              "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+              "source_domain": "recap",
+              "uri": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase6_publish_path/source_fixture_vial.md"
+            }
+          ],
+          "source_domains": [
+            "recap"
+          ],
+          "summary": "Puddles with delayed reflections."
+        },
+        "visibility": "gm"
+      },
+      {
+        "acceptance_state": "accepted",
+        "assertion_id": "assertion:b2b79c7d1f50b2b9",
+        "assertion_kind": "edge",
+        "campaign_scope": "longmont-c2",
+        "contribution_id": "contribution:pending",
+        "epistemic_kind": "source_derived_candidate",
+        "evidence_ref_ids": [
+          "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007"
+        ],
+        "identity_resolution_outcome": "created_new",
+        "label": "linked to",
+        "predicate": "linked_to",
+        "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+        "source_revision_id": "sha256:da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
+        "subject_node_id": "obj_session22_vial",
+        "target_node_id": "mystery_puddles",
+        "temporal_scope": {
+          "session_id": "session-22"
+        },
+        "value": {
+          "approval_state": "accepted",
+          "canon_state": "canonical",
+          "direction": "outbound",
+          "edge_id": "edge:obj_session22_vial:linked_to:mystery_puddles",
+          "evidence": [
+            {
+              "evidence_ref_id": "evidence:artifact:recap:longmont-c2:session-22:session-22:recap:paragraph:007",
+              "session_id": "session-22",
+              "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+              "source_domain": "recap",
+              "source_ref_id": "ref:007",
+              "source_span_ref_id": "session-22:recap:paragraph:007"
+            }
+          ],
+          "predicate": "linked_to",
+          "session_ids": [
+            "session-22"
+          ],
+          "source_artifacts": [
+            {
+              "campaign_id": "longmont-c2",
+              "content_sha256": "da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
+              "session_id": "session-22",
+              "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+              "source_domain": "recap",
+              "uri": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase6_publish_path/source_fixture_vial.md"
+            }
+          ],
+          "source_domains": [
+            "recap"
+          ]
+        },
+        "visibility": "gm"
+      }
+    ],
+    "candidate_preview_id": "preview:phase6-vial-promote",
+    "candidate_schema": "dmb_candidate_graph_preview_v0",
+    "candidate_version": "0.1",
+    "identity_outcome_snapshot": {
+      "mystery_puddles": "created_new",
+      "obj_session22_vial": "created_new"
+    },
+    "node_id_map": {
+      "mystery_puddles": "mystery_puddles",
+      "obj_session22_vial": "obj_session22_vial"
+    },
+    "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+    "rejected_assertions": [],
+    "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+    "source_revision_id": "sha256:da2ca636aeb9fc7fcfd1cb29880c1415443aa04bc19633cb89001b9f59f1114e",
+    "unresolved_mentions": [],
+    "world_id": "eldyrwild"
   },
-  "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
-  "rejected_assertions": [],
-  "schema": "dmb_extract_identity_gate_review_v1",
+  "prepared_by": "phase6-proof@harden",
+  "proposal_digest": "22416b741a4af2ee8af6dea6feae348df0b74c318a4257ba1f3ab91b5284c4dd",
+  "proposal_id": "proposal:adc2248573564af3841c89d6b49b2a0c",
+  "proposal_version": 1,
+  "schema": "dmb_extract_promote_proposal_v1",
   "scorer_report": {
     "candidate_node_count": 2,
     "duplicate_risk": [],
@@ -358,7 +339,7 @@
       },
       {
         "label": "Puddles show delayed reflections with conjuration magic",
-        "node_id": "mystery_session22_magic_puddles_delayed_reflections"
+        "node_id": "mystery_puddles"
       }
     ],
     "unmatched_head_sample": [
@@ -413,7 +394,6 @@
     ],
     "unresolved_ambiguity": []
   },
-  "unresolved_mentions": [],
-  "world_id": "eldyrwild",
-  "world_root": "/tmp/eldyrwild-promote-V0pBfC"
+  "verified_source_uri": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase6_publish_path/source_fixture_vial.md",
+  "world_root": "/tmp/eldyrwild-promote-59frAH"
 }

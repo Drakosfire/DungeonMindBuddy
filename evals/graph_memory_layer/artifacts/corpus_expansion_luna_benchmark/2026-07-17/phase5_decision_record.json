@@ -90,19 +90,28 @@
   "infrastructure_gaps_closed_phase6": [
     "identity suitability scorer with fixed candidate-node set and unresolved ambiguity outcomes",
     "candidate-graph to GraphContribution mapping with evidence-span and source-revision validation",
-    "Kernel publication/replay/projection on Eldyrwild head (tmp copy proof; live untouched)"
+    "typed CandidateGraphPreview load + played_canon semantic promote matrix (fail closed)",
+    "sealed promote proposal (id/version/digest/principal) with confirm-time verification",
+    "proposal_digest in contribution identity; edge endpoint validation against pinned parent",
+    "CLI nonzero exit + failure-shaped proof when published=False",
+    "Kernel publication/replay/projection on Eldyrwild head (tmp copy sealed-confirm proof; live untouched)"
   ],
   "phase6_publish_path": {
     "modules": [
       "src/graph_memory/candidate_graph_to_contribution.py",
+      "src/graph_memory/candidate_semantic_promote_matrix.py",
       "src/graph_memory/extract_identity_gate.py",
+      "src/graph_memory/extract_promote_proposal.py",
       "scripts/promote_extract_contribution.py"
     ],
     "proof_artifacts": [
+      "phase6_publish_path/candidate_graph_vial_promote_ir.json",
+      "phase6_publish_path/source_fixture_vial.md",
       "phase6_publish_path/review_package_vial.json",
       "phase6_publish_path/promote_proof_vial.json",
       "phase6_publish_path/summary.json"
-    ]
+    ],
+    "confirm_boundary": "sealed_proposal_v1"
   },
   "model_resolution": {
     "gpt5_mini": {

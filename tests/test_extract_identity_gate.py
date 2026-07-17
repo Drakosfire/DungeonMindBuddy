@@ -7,6 +7,12 @@ from pathlib import Path
 import pytest
 
 import graph_memory.kernel as kernel
+from graph_memory.candidate_graph_preview import (
+    CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+    CANDIDATE_GRAPH_PREVIEW_VERSION,
+    candidate_graph_preview_from_dict,
+)
+from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
 from graph_memory.contribution_bundles import load_contribution_bundle
 from graph_memory.extract_identity_gate import (
     build_accepted_contribution_from_proposals,
@@ -82,61 +88,77 @@ def _initialize(root: Path, bundle):
     )
 
 
+def _semantic() -> dict:
+    return {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private",
+    }
+
+
+def _evidence(suffix: str) -> dict:
+    return {
+        "source_ref_id": f"ref:{suffix}",
+        "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+        "source_anchor_id": f"anchor:{suffix}",
+        "label": "span",
+        "evidence_role": "source_evidence",
+        "can_open_source": True,
+        "can_highlight_span": True,
+        "source_span_ref_id": f"session-22:recap:paragraph:{suffix}",
+        "anchor_quotes": ["quote"],
+    }
+
+
+def _diagnostics() -> dict:
+    return {
+        "preview_only": True,
+        "extraction_performed": False,
+        "llm_used": False,
+        "runtime_connected": False,
+        "plan_connected": False,
+        "agent_interaction_connected": False,
+        "corpus_scanned": False,
+        "corpus_mutated": False,
+        "facts_promoted": False,
+        "canon_promoted": False,
+        "unresolved_evidence_refs": 0,
+        "missing_evidence_objects": 0,
+        "warning_count": 0,
+    }
+
+
+def _node(node_id: str, label: str, node_type: str, suffix: str, description: str) -> dict:
+    return {
+        "node_id": node_id,
+        "label": label,
+        "node_type": node_type,
+        "description": description,
+        "importance": "medium",
+        "semantic_state": _semantic(),
+        "evidence_refs": [_evidence(suffix)],
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+    }
+
+
 def _candidate_graph() -> dict:
     return {
-        "schema": "dmb_candidate_graph_preview_v0",
+        "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
+        "preview_id": "preview:test-identity-gate",
         "session_id": "session-22",
         "campaign_id": "longmont-c2",
         "source_artifact_ids": ["artifact:recap:longmont-c2:session-22"],
+        "status": "preview",
         "nodes": [
-            {
-                "node_id": "node:caelynn",
-                "label": "Caelynn",
-                "node_type": "character",
-                "description": "PC",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:001",
-                        "anchor_quotes": ["Caelynn"],
-                    }
-                ],
-            },
-            {
-                "node_id": "loc_mireward",
-                "label": "Mireward",
-                "node_type": "location",
-                "description": "Town",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:002",
-                        "anchor_quotes": ["Mireward"],
-                    }
-                ],
-            },
-            {
-                "node_id": "obj_session22_vial",
-                "label": "vial",
-                "node_type": "item",
-                "description": "Puddle sample vial",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:006",
-                        "anchor_quotes": ["vial"],
-                    }
-                ],
-            },
-            {
-                "node_id": "mystery_puddles",
-                "label": "Magic puddles",
-                "node_type": "mystery",
-                "description": "Delayed reflections",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:007",
-                        "anchor_quotes": ["puddles"],
-                    }
-                ],
-            },
+            _node("node:caelynn", "Caelynn", "character", "001", "PC"),
+            _node("loc_mireward", "Mireward", "location", "002", "Town"),
+            _node("obj_session22_vial", "vial", "item", "006", "Puddle sample vial"),
+            _node("mystery_puddles", "Magic puddles", "mystery", "007", "Delayed reflections"),
         ],
         "edges": [
             {
@@ -145,14 +167,18 @@ def _candidate_graph() -> dict:
                 "to_node_id": "mystery_puddles",
                 "relationship_type": "linked_to",
                 "label": "linked to",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:007",
-                        "anchor_quotes": ["vial"],
-                    }
-                ],
+                "semantic_state": _semantic(),
+                "evidence_refs": [_evidence("007")],
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
             }
         ],
+        "beats": [],
+        "proposed_writes": [],
+        "ignored_items": [],
+        "deferred_items": [],
+        "diagnostics": _diagnostics(),
     }
 
 
@@ -160,8 +186,9 @@ def test_identity_gate_attaches_existing_and_creates_new(
     tmp_path: Path, loaded_bundle
 ) -> None:
     _initialize(tmp_path, loaded_bundle)
+    preview = candidate_graph_preview_from_dict(_candidate_graph())
     gate = gate_candidate_graph_against_head(
-        _candidate_graph(),
+        preview,
         root=tmp_path,
         world_id=WORLD_ID,
         source_revision_id="sha256:testdigest001",
@@ -171,6 +198,7 @@ def test_identity_gate_attaches_existing_and_creates_new(
     assert gate.node_id_map["loc_mireward"] == "location:mireward"
     assert gate.node_id_map["obj_session22_vial"]
     assert gate.node_id_map["mystery_puddles"]
+    assert gate.identity_outcome_snapshot["node:caelynn"] == "resolved_existing"
 
     outcomes = {
         a.subject_node_id: a.identity_resolution_outcome
@@ -193,33 +221,26 @@ def test_identity_gate_attaches_existing_and_creates_new(
 
 def test_ambiguous_identity_parks_unresolved(tmp_path: Path, loaded_bundle) -> None:
     _initialize(tmp_path, loaded_bundle)
-    # Two head locations that both alias-collide is hard; instead inject a graph
-    # where character label matches nothing uniquely and we force ambiguous via
-    # duplicate same-kind labels on a synthetic store is complex. Use a blocked
-    # cross-kind case: item labeled Caelynn should not silently attach to pc.
     graph = {
-        "schema": "dmb_candidate_graph_preview_v0",
+        "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
+        "preview_id": "preview:test-collision",
         "session_id": "session-22",
         "campaign_id": "longmont-c2",
         "source_artifact_ids": ["artifact:recap:longmont-c2:session-22"],
+        "status": "preview",
         "nodes": [
-            {
-                "node_id": "item_named_caelynn",
-                "label": "Caelynn",
-                "node_type": "item",
-                "description": "Wrong kind",
-                "evidence_refs": [
-                    {
-                        "source_span_ref_id": "session-22:recap:paragraph:001",
-                        "anchor_quotes": ["Caelynn"],
-                    }
-                ],
-            }
+            _node("item_named_caelynn", "Caelynn", "item", "001", "Wrong kind"),
         ],
         "edges": [],
+        "beats": [],
+        "proposed_writes": [],
+        "ignored_items": [],
+        "deferred_items": [],
+        "diagnostics": _diagnostics(),
     }
     gate = gate_candidate_graph_against_head(
-        graph,
+        candidate_graph_preview_from_dict(graph),
         root=tmp_path,
         world_id=WORLD_ID,
         source_revision_id="sha256:testdigest002",
@@ -230,6 +251,60 @@ def test_ambiguous_identity_parks_unresolved(tmp_path: Path, loaded_bundle) -> N
     assert "item_named_caelynn" not in gate.node_id_map
 
 
+def test_partial_edge_selection_rejected(tmp_path: Path, loaded_bundle) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    gate = gate_candidate_graph_against_head(
+        candidate_graph_preview_from_dict(_candidate_graph()),
+        root=tmp_path,
+        world_id=WORLD_ID,
+        source_revision_id="sha256:testdigest004",
+        node_ids=["obj_session22_vial", "mystery_puddles"],
+    )
+    edge = next(a for a in gate.accepted_proposals if a.assertion_kind == "edge")
+    vial = next(
+        a
+        for a in gate.accepted_proposals
+        if a.assertion_kind == "node"
+        and a.subject_node_id == gate.node_id_map["obj_session22_vial"]
+    )
+    with pytest.raises(CandidateGraphMappingError, match="target endpoint"):
+        build_accepted_contribution_from_proposals(
+            gate,
+            root=tmp_path,
+            accepted_assertion_ids=[vial.assertion_id, edge.assertion_id],
+            proposal_digest="digest-a",
+        )
+
+
+def test_different_selections_produce_different_contribution_ids(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    gate = gate_candidate_graph_against_head(
+        candidate_graph_preview_from_dict(_candidate_graph()),
+        root=tmp_path,
+        world_id=WORLD_ID,
+        source_revision_id="sha256:testdigest005",
+        node_ids=["obj_session22_vial", "mystery_puddles"],
+        include_edges=False,
+    )
+    nodes = [a for a in gate.accepted_proposals if a.assertion_kind == "node"]
+    assert len(nodes) == 2
+    a_only = build_accepted_contribution_from_proposals(
+        gate,
+        root=tmp_path,
+        accepted_assertion_ids=[nodes[0].assertion_id],
+        proposal_digest="digest-selection-a",
+    )
+    both = build_accepted_contribution_from_proposals(
+        gate,
+        root=tmp_path,
+        accepted_assertion_ids=[nodes[0].assertion_id, nodes[1].assertion_id],
+        proposal_digest="digest-selection-ab",
+    )
+    assert a_only.contribution_id != both.contribution_id
+
+
 def test_build_accepted_contribution_and_merge(
     tmp_path: Path, loaded_bundle
 ) -> None:
@@ -237,13 +312,17 @@ def test_build_accepted_contribution_and_merge(
     parent = init.current_head_revision_id or init.initial_head_revision_id
     assert parent is not None
     gate = gate_candidate_graph_against_head(
-        _candidate_graph(),
+        candidate_graph_preview_from_dict(_candidate_graph()),
         root=tmp_path,
         world_id=WORLD_ID,
         source_revision_id="sha256:testdigest003",
         node_ids=["obj_session22_vial", "mystery_puddles"],
     )
-    contribution = build_accepted_contribution_from_proposals(gate)
+    contribution = build_accepted_contribution_from_proposals(
+        gate,
+        root=tmp_path,
+        proposal_digest="digest-merge-test",
+    )
     assert contribution.accepted_assertions
     assert all(a.acceptance_state == "accepted" for a in contribution.accepted_assertions)
     result = kernel.merge_contribution_to_revision(
