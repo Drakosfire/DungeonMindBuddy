@@ -152,6 +152,59 @@ def verify_source_revision(
     return expected
 
 
+def _collect_evidence_artifact_ids(
+    nodes: Sequence[CandidateNode],
+    edges: Sequence[CandidateEdge],
+) -> set[str]:
+    ids: set[str] = set()
+    for node in nodes:
+        for ref in node.evidence_refs:
+            aid = (ref.source_artifact_id or "").strip()
+            if aid:
+                ids.add(aid)
+    for edge in edges:
+        for ref in edge.evidence_refs:
+            aid = (ref.source_artifact_id or "").strip()
+            if aid:
+                ids.add(aid)
+    return ids
+
+
+def _require_single_verified_source_artifact(
+    *,
+    preview: CandidateGraphPreview,
+    verified_artifact_id: str,
+    nodes: Sequence[CandidateNode],
+    edges: Sequence[CandidateEdge],
+) -> None:
+    """Until per-artifact URI/revision verification exists, promote only one source.
+
+    Multi-artifact evidence would otherwise inherit the single verified file's
+    hash/URI — recording artifact B as having artifact A's bytes.
+    """
+    verified = _require_nonempty(verified_artifact_id, field="source_artifact_id")
+    top_level = {
+        str(a).strip() for a in (preview.source_artifact_ids or []) if str(a).strip()
+    }
+    evidence_ids = _collect_evidence_artifact_ids(nodes, edges)
+    combined = top_level | evidence_ids
+    if len(combined) > 1:
+        raise CandidateGraphMappingError(
+            "promotion rejects multi-artifact candidate graphs until per-artifact "
+            f"{{artifact_id, URI, revision}} verification exists; found {sorted(combined)}"
+        )
+    if combined and verified not in combined:
+        raise CandidateGraphMappingError(
+            f"verified source_artifact_id {verified!r} does not match evidence "
+            f"artifacts {sorted(combined)}"
+        )
+    if evidence_ids and evidence_ids != {verified}:
+        raise CandidateGraphMappingError(
+            f"evidence source_artifact_ids {sorted(evidence_ids)} must equal "
+            f"verified {verified!r}"
+        )
+
+
 def _evidence_ref_payloads(
     evidence_refs: Sequence[EvidenceRef],
     *,
@@ -418,6 +471,22 @@ def candidate_graph_to_contribution(
     if not nodes:
         raise CandidateGraphMappingError("candidate graph has no nodes to map")
 
+    mapped_node_ids = {node.node_id for node in nodes}
+    edges_in_scope: list[CandidateEdge] = []
+    if include_edges:
+        edges_in_scope = [
+            edge
+            for edge in preview.edges
+            if edge.from_node_id in mapped_node_ids and edge.to_node_id in mapped_node_ids
+        ]
+
+    _require_single_verified_source_artifact(
+        preview=preview,
+        verified_artifact_id=artifact_id,
+        nodes=nodes,
+        edges=edges_in_scope,
+    )
+
     diagnostics: list[str] = []
     node_assertions: list[GraphContributionAssertion] = []
     for node in nodes:
@@ -435,23 +504,19 @@ def candidate_graph_to_contribution(
         )
 
     edge_assertions: list[GraphContributionAssertion] = []
-    if include_edges:
-        mapped_node_ids = {node.node_id for node in nodes}
-        for edge in preview.edges:
-            if edge.from_node_id not in mapped_node_ids or edge.to_node_id not in mapped_node_ids:
-                continue
-            diagnostics.extend(semantic_diagnostics(edge))
-            edge_assertions.append(
-                map_candidate_edge_to_assertion(
-                    edge,
-                    source_revision_id=revision_id,
-                    campaign_scope=scope,
-                    source_domain=source_domain,
-                    session_id=session_id,
-                    campaign_id=campaign_id,
-                    source_uri=source_uri,
-                )
+    for edge in edges_in_scope:
+        diagnostics.extend(semantic_diagnostics(edge))
+        edge_assertions.append(
+            map_candidate_edge_to_assertion(
+                edge,
+                source_revision_id=revision_id,
+                campaign_scope=scope,
+                source_domain=source_domain,
+                session_id=session_id,
+                campaign_id=campaign_id,
+                source_uri=source_uri,
             )
+        )
 
     return create_graph_contribution(
         world_id=world,

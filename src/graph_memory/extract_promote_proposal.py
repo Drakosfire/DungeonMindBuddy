@@ -1,8 +1,9 @@
 """Sealed promote proposals: identity, digest, and confirm-time verification.
 
-Prepare seals the exact effect an operator reviewed. Confirm recomputes the
-digest and refuses to merge if the package, parent pin, source revision, or
-identity outcomes drifted.
+Prepare seals the complete durable effect an operator reviewed. Confirm
+reconstructs the merge contribution only from sealed fields and refuses to
+merge if the package, parent pin, source URI/revision, contribution metadata,
+or identity outcomes drifted.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from graph_memory.kernel.contribution_models import (
 from graph_memory.kernel.contributions import canonical_payload_sha256
 
 PROMOTE_PROPOSAL_SCHEMA = "dmb_extract_promote_proposal_v1"
-PROMOTE_PROPOSAL_VERSION = 1
+PROMOTE_PROPOSAL_VERSION = 2
 
 
 class PromoteProposalError(ValueError):
@@ -36,29 +37,75 @@ def compute_proposal_digest(effect_body: Mapping[str, Any]) -> str:
     return hashlib.sha256(_canonical_json(effect_body).encode("utf-8")).hexdigest()
 
 
+def compute_selection_digest(assertion_ids: Sequence[str]) -> str:
+    """SHA-256 over the canonical selected-assertion-id set."""
+    canonical = sorted({str(a).strip() for a in assertion_ids if str(a).strip()})
+    return hashlib.sha256(_canonical_json(canonical).encode("utf-8")).hexdigest()
+
+
+def contribution_meta_from_contribution(
+    contribution: GraphContribution,
+) -> dict[str, Any]:
+    """Extract durable contribution metadata that must be sealed."""
+    return {
+        "source_kind": contribution.source_kind,
+        "source_artifact_id": contribution.source_artifact_id,
+        "source_revision_id": contribution.source_revision_id,
+        "extraction_profile": contribution.extraction_profile,
+        "campaign_scope": contribution.campaign_scope,
+        "authored_by": contribution.authored_by,
+    }
+
+
 def build_effect_body(
     *,
     world_id: str,
     parent_revision_id: str,
     source_revision_id: str,
     source_artifact_id: str,
+    verified_source_uri: str,
     candidate_preview_id: str,
     candidate_schema: str,
     candidate_version: str,
+    contribution_meta: Mapping[str, Any],
     accepted_proposals: Sequence[GraphContributionAssertion],
     rejected_assertions: Sequence[GraphContributionAssertion],
     unresolved_mentions: Sequence[ContributionIdentityMention],
     node_id_map: Mapping[str, str],
     identity_outcome_snapshot: Mapping[str, str],
 ) -> dict[str, Any]:
+    uri = (verified_source_uri or "").strip()
+    if not uri:
+        raise PromoteProposalError("verified_source_uri is required in sealed effect")
+    meta = dict(contribution_meta)
+    for required in (
+        "source_kind",
+        "source_artifact_id",
+        "source_revision_id",
+        "extraction_profile",
+        "authored_by",
+    ):
+        if not str(meta.get(required) or "").strip():
+            raise PromoteProposalError(
+                f"contribution_meta.{required} is required in sealed effect"
+            )
     return {
         "world_id": world_id,
         "parent_revision_id": parent_revision_id,
         "source_revision_id": source_revision_id,
         "source_artifact_id": source_artifact_id,
+        "verified_source_uri": uri,
         "candidate_preview_id": candidate_preview_id,
         "candidate_schema": candidate_schema,
         "candidate_version": candidate_version,
+        "contribution_meta": {
+            "source_kind": str(meta["source_kind"]),
+            "source_artifact_id": str(meta["source_artifact_id"]),
+            "source_revision_id": str(meta["source_revision_id"]),
+            "extraction_profile": str(meta["extraction_profile"]),
+            "campaign_scope": meta.get("campaign_scope"),
+            "authored_by": str(meta["authored_by"]),
+        },
         "accepted_proposals": [
             a.model_dump(mode="json") for a in accepted_proposals
         ],
@@ -81,21 +128,21 @@ def seal_promote_proposal(
     parent_revision_id: str,
     source_revision_id: str,
     source_artifact_id: str,
+    verified_source_uri: str,
     candidate_preview_id: str,
     candidate_schema: str,
     candidate_version: str,
+    contribution_meta: Mapping[str, Any],
     accepted_proposals: Sequence[GraphContributionAssertion],
     rejected_assertions: Sequence[GraphContributionAssertion],
     unresolved_mentions: Sequence[ContributionIdentityMention],
     node_id_map: Mapping[str, str],
     identity_outcome_snapshot: Mapping[str, str],
     prepared_by: str,
-    contribution_candidate: GraphContribution,
     scorer_report: Mapping[str, Any] | None = None,
     diagnostics: Sequence[str] | None = None,
     world_root: str | None = None,
     candidate_graph_path: str | None = None,
-    verified_source_uri: str | None = None,
     proposal_id: str | None = None,
     proposal_version: int = PROMOTE_PROPOSAL_VERSION,
 ) -> dict[str, Any]:
@@ -108,9 +155,11 @@ def seal_promote_proposal(
         parent_revision_id=parent_revision_id,
         source_revision_id=source_revision_id,
         source_artifact_id=source_artifact_id,
+        verified_source_uri=verified_source_uri,
         candidate_preview_id=candidate_preview_id,
         candidate_schema=candidate_schema,
         candidate_version=candidate_version,
+        contribution_meta=contribution_meta,
         accepted_proposals=accepted_proposals,
         rejected_assertions=rejected_assertions,
         unresolved_mentions=unresolved_mentions,
@@ -127,7 +176,7 @@ def seal_promote_proposal(
         "proposal_digest": digest,
         "prepared_by": prepared,
         "effect": effect,
-        "contribution_candidate": contribution_candidate.model_dump(mode="json"),
+        # Advisory only — never used to construct the durable contribution.
         "scorer_report": dict(scorer_report or {}),
         "diagnostics": list(diagnostics or []),
     }
@@ -135,8 +184,6 @@ def seal_promote_proposal(
         package["world_root"] = world_root
     if candidate_graph_path:
         package["candidate_graph_path"] = candidate_graph_path
-    if verified_source_uri:
-        package["verified_source_uri"] = verified_source_uri
     return package
 
 
@@ -210,6 +257,37 @@ def verify_promote_proposal(
                 f"parent_revision_id mismatch: sealed={parent!r} head={expected!r}"
             )
 
+    verified_source_uri = str(effect.get("verified_source_uri") or "").strip()
+    if not verified_source_uri:
+        raise PromoteProposalError("sealed effect missing verified_source_uri")
+
+    contribution_meta = dict(effect.get("contribution_meta") or {})
+    for required in (
+        "source_kind",
+        "source_artifact_id",
+        "source_revision_id",
+        "extraction_profile",
+        "authored_by",
+    ):
+        if not str(contribution_meta.get(required) or "").strip():
+            raise PromoteProposalError(
+                f"sealed effect missing contribution_meta.{required}"
+            )
+
+    # Reject unsealed envelope fields that historically leaked into durable
+    # construction — confirm must never trust them.
+    if "contribution_candidate" in package:
+        raise PromoteProposalError(
+            "review package must not carry contribution_candidate; "
+            "durable contribution is reconstructed only from sealed effect"
+        )
+    if package.get("verified_source_uri") is not None:
+        envelope_uri = str(package.get("verified_source_uri") or "").strip()
+        if envelope_uri and envelope_uri != verified_source_uri:
+            raise PromoteProposalError(
+                "envelope verified_source_uri disagrees with sealed effect"
+            )
+
     accepted = _parse_assertions(effect.get("accepted_proposals"))
     by_id = {a.assertion_id: a for a in accepted}
     if selected_assertion_ids is not None:
@@ -227,10 +305,6 @@ def verify_promote_proposal(
     for assertion in accepted:
         if assertion.assertion_kind != "node":
             continue
-        # Snapshot keys are extract node ids; subject may already be durable.
-        # Match via contribution diagnostics is unreliable; require sealed
-        # assertion.identity_resolution_outcome to be present and consistent
-        # with any snapshot entry that maps to this durable subject.
         outcome = assertion.identity_resolution_outcome
         if not outcome:
             raise PromoteProposalError(
@@ -272,5 +346,10 @@ def verify_promote_proposal(
         "parent_revision_id": parent,
         "source_revision_id": str(effect.get("source_revision_id") or ""),
         "source_artifact_id": str(effect.get("source_artifact_id") or ""),
+        "verified_source_uri": verified_source_uri,
+        "contribution_meta": contribution_meta,
         "world_id": str(effect.get("world_id") or ""),
+        "candidate_preview_id": str(effect.get("candidate_preview_id") or ""),
+        "candidate_schema": str(effect.get("candidate_schema") or ""),
+        "candidate_version": str(effect.get("candidate_version") or ""),
     }

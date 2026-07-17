@@ -91,9 +91,10 @@
     "identity suitability scorer with fixed candidate-node set and unresolved ambiguity outcomes",
     "candidate-graph to GraphContribution mapping with evidence-span and source-revision validation",
     "typed CandidateGraphPreview load + played_canon semantic promote matrix (fail closed)",
-    "sealed promote proposal (id/version/digest/principal) with confirm-time verification",
-    "proposal_digest in contribution identity; edge endpoint validation against pinned parent",
-    "CLI nonzero exit + failure-shaped proof when published=False",
+    "sealed promote proposal v2: effect covers contribution_meta + verified_source_uri; confirm reconstructs only from sealed fields",
+    "proposal_digest + selection_digest in contribution identity; edge endpoint validation against pinned parent",
+    "single-artifact evidence gate until per-artifact URI/revision verification exists",
+    "CLI nonzero exit + failure-shaped proof when published=False; --authored-by removed from confirm",
     "Kernel publication/replay/projection on Eldyrwild head (tmp copy sealed-confirm proof; live untouched)"
   ],
   "phase6_publish_path": {
@@ -111,7 +112,7 @@
       "phase6_publish_path/promote_proof_vial.json",
       "phase6_publish_path/summary.json"
     ],
-    "confirm_boundary": "sealed_proposal_v1"
+    "confirm_boundary": "sealed_proposal_v2_effect_complete_selection_digest"
   },
   "model_resolution": {
     "gpt5_mini": {

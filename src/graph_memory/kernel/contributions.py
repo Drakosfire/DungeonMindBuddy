@@ -91,6 +91,7 @@ def compute_contribution_id(
     authored_by: str | None,
     supersedes_contribution_id: str | None = None,
     proposal_digest: str | None = None,
+    selection_digest: str | None = None,
 ) -> str:
     payload = {
         "world_id": world_id,
@@ -101,6 +102,7 @@ def compute_contribution_id(
         "authored_by": authored_by,
         "supersedes_contribution_id": supersedes_contribution_id,
         "proposal_digest": proposal_digest,
+        "selection_digest": selection_digest,
     }
     digest = hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()[:16]
     return f"contribution:{digest}"
@@ -315,14 +317,16 @@ def create_graph_contribution(
     authored_by: str | None = None,
     supersedes_contribution_id: str | None = None,
     proposal_digest: str | None = None,
+    selection_digest: str | None = None,
     produced_at: str | None = None,
     diagnostics: list[str] | None = None,
 ) -> GraphContribution:
     """Build a GraphContribution with a deterministic contribution_id.
 
     ``produced_at`` is metadata only and does not affect identity.
-    ``proposal_digest`` (when set) enters durable contribution identity so
-    distinct sealed promote selections cannot collide on the same ID.
+    ``proposal_digest`` and ``selection_digest`` (when set) enter durable
+    contribution identity so distinct sealed proposals and distinct accepted
+    assertion subsets cannot collide on the same ID.
     """
     if not world_id.strip():
         raise ValueError("world_id must be non-empty")
@@ -336,6 +340,7 @@ def create_graph_contribution(
         authored_by=authored_by,
         supersedes_contribution_id=supersedes_contribution_id,
         proposal_digest=proposal_digest,
+        selection_digest=selection_digest,
     )
 
     candidates = _with_contribution_id(

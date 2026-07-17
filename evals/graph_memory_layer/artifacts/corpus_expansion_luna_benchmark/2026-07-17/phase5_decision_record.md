@@ -67,7 +67,9 @@ Artifact: `evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/20
 
 - Fixed-candidate identity scorer with unresolved ambiguity / duplicate-risk diagnostics (`extract_identity_gate`).
 - Candidate-to-GraphContribution mapping with evidence + source revision fail-closed (`candidate_graph_to_contribution`).
-- Sealed promote proposal (`proposal_id` / `proposal_version` / `proposal_digest` / confirming principal) with confirm-time digest + parent + source-pin verification (`extract_promote_proposal`).
+- Sealed promote proposal v2 (`proposal_id` / `proposal_version=2` / `proposal_digest` / confirming principal): digest covers complete durable effect including `contribution_meta` + `verified_source_uri`; confirm reconstructs contribution only from sealed fields (no `contribution_candidate` envelope; no confirm-time `--authored-by`).
+- `selection_digest` in contribution identity so partial assertion subsets under the same proposal cannot collide.
+- Single-artifact evidence gate until per-artifact `{artifact_id, URI, revision}` verification exists.
 - Typed CandidateGraphPreview input + played_canon semantic promote matrix (fail closed on planning/diagnostic/llm-default semantics).
 - Kernel publication, replay, and projection verification on a tmp copy of the Eldyrwild head (`scripts/promote_extract_contribution.py`; proof under `phase6_publish_path/`); CLI exits nonzero when `published=False`.
 

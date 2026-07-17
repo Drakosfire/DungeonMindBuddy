@@ -20,7 +20,11 @@ from graph_memory.candidate_graph_to_contribution import (
     map_candidate_edge_to_assertion,
     map_candidate_node_to_assertion,
 )
-from graph_memory.extract_promote_proposal import seal_promote_proposal
+from graph_memory.extract_promote_proposal import (
+    compute_selection_digest,
+    contribution_meta_from_contribution,
+    seal_promote_proposal,
+)
 from graph_memory.kernel import (
     ContributionIdentityMention,
     GraphContribution,
@@ -67,26 +71,30 @@ class IdentityGateResult:
         world_root: str | None = None,
         candidate_graph_path: str | None = None,
     ) -> dict[str, Any]:
+        if not (self.verified_source_uri or "").strip():
+            raise CandidateGraphMappingError(
+                "verified_source_uri is required to seal a promote proposal"
+            )
         return seal_promote_proposal(
             world_id=self.world_id,
             parent_revision_id=self.parent_revision_id,
             source_revision_id=self.source_revision_id,
             source_artifact_id=self.source_artifact_id,
+            verified_source_uri=str(self.verified_source_uri),
             candidate_preview_id=self.candidate_preview_id,
             candidate_schema=self.candidate_schema,
             candidate_version=self.candidate_version,
+            contribution_meta=contribution_meta_from_contribution(self.contribution),
             accepted_proposals=self.accepted_proposals,
             rejected_assertions=self.rejected_assertions,
             unresolved_mentions=self.unresolved_mentions,
             node_id_map=self.node_id_map,
             identity_outcome_snapshot=self.identity_outcome_snapshot,
             prepared_by=prepared_by,
-            contribution_candidate=self.contribution,
             scorer_report=self.scorer_report,
             diagnostics=self.diagnostics,
             world_root=world_root,
             candidate_graph_path=candidate_graph_path,
-            verified_source_uri=self.verified_source_uri,
         )
 
 
@@ -448,13 +456,14 @@ def build_accepted_contribution_from_proposals(
     *,
     root: Path,
     accepted_assertion_ids: Sequence[str] | None = None,
-    authored_by: str | None = None,
     proposal_digest: str | None = None,
+    contribution_meta: Mapping[str, Any] | None = None,
 ) -> GraphContribution:
     """Build a merge-ready contribution from selected accepted proposals.
 
-    Edge endpoints must be selected node subjects or present on the exact
-    pinned parent revision store.
+    Durable metadata comes from sealed ``contribution_meta`` (or, for unit
+    tests that skip sealing, from ``gate.contribution``). Edge endpoints must
+    be selected node subjects or present on the exact pinned parent revision.
     """
     allow = set(accepted_assertion_ids) if accepted_assertion_ids is not None else None
     selected = [
@@ -505,23 +514,29 @@ def build_accepted_contribution_from_proposals(
                 )
         filtered.append(assertion)
 
-    base = gate.contribution
+    meta = dict(contribution_meta) if contribution_meta is not None else (
+        contribution_meta_from_contribution(gate.contribution)
+    )
+    selection_digest = compute_selection_digest(
+        [a.assertion_id for a in filtered]
+    )
     return create_graph_contribution(
         world_id=gate.world_id,
-        source_kind="source_extraction",
-        source_artifact_id=base.source_artifact_id,
-        source_revision_id=base.source_revision_id,
-        extraction_profile=base.extraction_profile,
-        campaign_scope=base.campaign_scope,
-        authored_by=authored_by or base.authored_by,
+        source_kind=str(meta["source_kind"]),  # type: ignore[arg-type]
+        source_artifact_id=str(meta["source_artifact_id"]),
+        source_revision_id=str(meta["source_revision_id"]),
+        extraction_profile=str(meta["extraction_profile"]),
+        campaign_scope=meta.get("campaign_scope"),
+        authored_by=str(meta["authored_by"]),
         accepted_assertions=filtered,
         rejected_assertions=list(gate.rejected_assertions),
         unresolved_mentions=list(gate.unresolved_mentions),
         proposal_digest=proposal_digest,
+        selection_digest=selection_digest,
         diagnostics=[
-            *gate.diagnostics,
             f"accepted_for_merge:{len(filtered)}",
             f"parent_revision_id:{gate.parent_revision_id}",
+            f"selection_digest:{selection_digest}",
             *(
                 [f"proposal_digest:{proposal_digest}"]
                 if proposal_digest

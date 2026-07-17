@@ -290,19 +290,22 @@ def test_different_selections_produce_different_contribution_ids(
     )
     nodes = [a for a in gate.accepted_proposals if a.assertion_kind == "node"]
     assert len(nodes) == 2
+    # Same proposal digest — selection_digest must still distinguish subsets.
+    same_digest = "digest-same-proposal"
     a_only = build_accepted_contribution_from_proposals(
         gate,
         root=tmp_path,
         accepted_assertion_ids=[nodes[0].assertion_id],
-        proposal_digest="digest-selection-a",
+        proposal_digest=same_digest,
     )
     both = build_accepted_contribution_from_proposals(
         gate,
         root=tmp_path,
         accepted_assertion_ids=[nodes[0].assertion_id, nodes[1].assertion_id],
-        proposal_digest="digest-selection-ab",
+        proposal_digest=same_digest,
     )
     assert a_only.contribution_id != both.contribution_id
+    assert any(d.startswith("selection_digest:") for d in a_only.diagnostics)
 
 
 def test_build_accepted_contribution_and_merge(

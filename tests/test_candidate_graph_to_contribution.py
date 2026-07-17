@@ -253,23 +253,16 @@ def test_map_fails_closed_without_source_revision() -> None:
         )
 
 
-def test_multi_source_evidence_preserves_artifact_ids() -> None:
+def test_multi_source_evidence_rejected_until_per_artifact_verify() -> None:
     preview = candidate_graph_preview_from_dict(_minimal_graph(multi_source=True))
-    contribution = candidate_graph_to_contribution(
-        preview,
-        world_id="eldyrwild",
-        source_revision_id="sha256:deadbeef",
-        node_ids=["obj_session22_vial", "mystery_puddles"],
-        include_edges=False,
-    )
-    artifact_ids = {
-        e["source_artifact_id"]
-        for a in contribution.candidate_assertions
-        for e in a.value["evidence"]
-    }
-    assert "artifact:recap:longmont-c2:session-22" in artifact_ids
-    assert "artifact:recap:longmont-c2:session-22-alt" in artifact_ids
-
+    with pytest.raises(CandidateGraphMappingError, match="multi-artifact"):
+        candidate_graph_to_contribution(
+            preview,
+            world_id="eldyrwild",
+            source_revision_id="sha256:deadbeef",
+            node_ids=["obj_session22_vial", "mystery_puddles"],
+            include_edges=False,
+        )
 
 def test_verify_source_revision_hashes_file(tmp_path: Path) -> None:
     source = tmp_path / "recap.md"

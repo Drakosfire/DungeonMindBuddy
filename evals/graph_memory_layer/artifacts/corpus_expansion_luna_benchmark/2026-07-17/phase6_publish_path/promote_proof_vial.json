@@ -1,6 +1,6 @@
 {
   "confirming_principal": "phase6-proof@harden",
-  "contribution_id": "contribution:5e3e747d1f79b239",
+  "contribution_id": "contribution:77f1e1e789a4f37e",
   "merge": {
     "accepted_assertion_ids": [
       "assertion:140bb434dd1ea21f",
@@ -8,23 +8,19 @@
       "assertion:b2b79c7d1f50b2b9"
     ],
     "contribution_ids": [
-      "contribution:5e3e747d1f79b239"
+      "contribution:77f1e1e789a4f37e"
     ],
     "diagnostics": [
-      "parent_revision_id:rev:5cadc9798562862cdde22350d8a3b56c",
-      "scorer_matched:0",
-      "scorer_ambiguity:0",
-      "identity:obj_session22_vial:created_new:obj_session22_vial",
-      "identity:mystery_puddles:created_new:mystery_puddles",
       "accepted_for_merge:3",
       "parent_revision_id:rev:5cadc9798562862cdde22350d8a3b56c",
-      "proposal_digest:22416b741a4af2ee8af6dea6feae348df0b74c318a4257ba1f3ab91b5284c4dd"
+      "selection_digest:e202ca913e37809a08f3373a7398ce599eb6edc4a936094eac742d0271cea125",
+      "proposal_digest:1016fcfb4b99b9107fd73eb4f77d8f773bd33c6cec49be5b9e34690ffca79ad4"
     ],
     "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
     "published": true,
     "rejected_assertion_ids": [],
     "retracted_assertion_ids": [],
-    "revision_id": "rev:924dc36928ac2d2a745d8c64ac510247",
+    "revision_id": "rev:43411787c3e0e234ded2f3b96ae3ad38",
     "superseded_contribution_ids": [],
     "world_id": "eldyrwild"
   },
@@ -32,9 +28,9 @@
   "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
   "projection_node_count": 14,
   "projection_relationship_count": 12,
-  "projection_revision_id": "rev:924dc36928ac2d2a745d8c64ac510247",
-  "proposal_digest": "22416b741a4af2ee8af6dea6feae348df0b74c318a4257ba1f3ab91b5284c4dd",
-  "proposal_id": "proposal:adc2248573564af3841c89d6b49b2a0c",
+  "projection_revision_id": "rev:43411787c3e0e234ded2f3b96ae3ad38",
+  "proposal_digest": "1016fcfb4b99b9107fd73eb4f77d8f773bd33c6cec49be5b9e34690ffca79ad4",
+  "proposal_id": "proposal:90ba5a5e49a24d32b1a0f5a62a9d7b80",
   "rebuild_diagnostics": [
     "rebuild_equivalent_to_pre_publish_head",
     "rebuild_equivalent_to_head"
@@ -42,5 +38,5 @@
   "rebuild_equivalent_to_head": true,
   "schema": "dmb_promote_extract_proof_v1",
   "world_id": "eldyrwild",
-  "world_root": "/tmp/eldyrwild-promote-59frAH"
+  "world_root": "/tmp/tmp.EE55gHHURI"
 }

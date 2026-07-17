@@ -336,7 +336,6 @@ def test_cli_confirm_published_false_writes_failure_proof(
         world_root=str(world_root),
         assertion_ids=None,
         confirming_principal="gm@confirm",
-        authored_by="promote-extract-cli",
         dry_run=False,
         allow_live_world=False,
         allow_idempotent_noop=False,

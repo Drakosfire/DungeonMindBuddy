@@ -2,7 +2,8 @@
 """Promote a reviewed candidate-graph extract into a World Supergraph head.
 
 Prepare seals a proposal (typed IR + identity gate + digest). Confirm verifies
-the seal and merges only when publication succeeds.
+the seal and merges only when publication succeeds. The durable contribution is
+reconstructed entirely from sealed effect fields.
 
 Defaults to a tmp world root. Live ``out/`` requires ``--allow-live-world``.
 """
@@ -104,31 +105,38 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     return 0
 
 
-def _gate_from_verified(
-    verified: dict[str, Any],
-    package: dict[str, Any],
-) -> IdentityGateResult:
-    from graph_memory.kernel.contribution_models import GraphContribution
+def _gate_from_verified(verified: dict[str, Any]) -> IdentityGateResult:
+    """Rebuild gate state solely from sealed verify() output (no envelope)."""
+    from graph_memory.kernel.contributions import create_graph_contribution
 
-    contribution = GraphContribution.model_validate(package["contribution_candidate"])
-    effect = verified["effect"]
+    meta = verified["contribution_meta"]
+    # Placeholder only — durable merge uses sealed contribution_meta.
+    placeholder = create_graph_contribution(
+        world_id=verified["world_id"],
+        source_kind=meta["source_kind"],
+        source_artifact_id=meta["source_artifact_id"],
+        source_revision_id=meta["source_revision_id"],
+        extraction_profile=meta["extraction_profile"],
+        campaign_scope=meta.get("campaign_scope"),
+        authored_by=meta["authored_by"],
+    )
     return IdentityGateResult(
         parent_revision_id=verified["parent_revision_id"],
         world_id=verified["world_id"],
-        contribution=contribution,
+        contribution=placeholder,
         accepted_proposals=list(verified["accepted_proposals"]),
         unresolved_mentions=list(verified["unresolved_mentions"]),
         rejected_assertions=list(verified["rejected_assertions"]),
-        scorer_report=dict(package.get("scorer_report") or {}),
+        scorer_report={},
         node_id_map=dict(verified["node_id_map"]),
         identity_outcome_snapshot=dict(verified["identity_outcome_snapshot"]),
-        diagnostics=list(package.get("diagnostics") or []),
-        candidate_preview_id=str(effect.get("candidate_preview_id") or ""),
-        candidate_schema=str(effect.get("candidate_schema") or ""),
-        candidate_version=str(effect.get("candidate_version") or ""),
+        diagnostics=[],
+        candidate_preview_id=verified["candidate_preview_id"],
+        candidate_schema=verified["candidate_schema"],
+        candidate_version=verified["candidate_version"],
         source_revision_id=verified["source_revision_id"],
         source_artifact_id=verified["source_artifact_id"],
-        verified_source_uri=package.get("verified_source_uri"),
+        verified_source_uri=verified["verified_source_uri"],
     )
 
 
@@ -146,9 +154,7 @@ def cmd_confirm(args: argparse.Namespace) -> int:
         )
 
     world_id_hint = (
-        (package.get("effect") or {}).get("world_id")
-        or (package.get("contribution_candidate") or {}).get("world_id")
-        or DEFAULT_WORLD_ID
+        (package.get("effect") or {}).get("world_id") or DEFAULT_WORLD_ID
     )
     head, _rev, _store = kernel.open_current_world_graph(
         world_root, str(world_id_hint)
@@ -166,27 +172,25 @@ def cmd_confirm(args: argparse.Namespace) -> int:
     except PromoteProposalError as exc:
         raise SystemExit(f"proposal verification failed: {exc}") from exc
 
-    # Re-verify sealed source revision against the sealed URI when present.
-    source_uri = package.get("verified_source_uri")
-    if source_uri:
-        try:
-            verify_source_revision(
-                source_uri=str(source_uri),
-                source_revision_id=verified["source_revision_id"],
-                repo_root=REPO_ROOT,
-            )
-        except CandidateGraphMappingError as exc:
-            raise SystemExit(f"source revision verification failed: {exc}") from exc
+    # Re-verify sealed source revision against the sealed URI only.
+    try:
+        verify_source_revision(
+            source_uri=verified["verified_source_uri"],
+            source_revision_id=verified["source_revision_id"],
+            repo_root=REPO_ROOT,
+        )
+    except CandidateGraphMappingError as exc:
+        raise SystemExit(f"source revision verification failed: {exc}") from exc
 
-    gate = _gate_from_verified(verified, package)
+    gate = _gate_from_verified(verified)
     accepted_ids = tuple(args.assertion_ids) if args.assertion_ids else None
     try:
         contribution = build_accepted_contribution_from_proposals(
             gate,
             root=world_root,
             accepted_assertion_ids=accepted_ids,
-            authored_by=args.authored_by,
             proposal_digest=verified["proposal_digest"],
+            contribution_meta=verified["contribution_meta"],
         )
     except CandidateGraphMappingError as exc:
         raise SystemExit(f"selection error: {exc}") from exc
@@ -329,7 +333,6 @@ def build_parser() -> argparse.ArgumentParser:
     confirm.add_argument("--world-root", default=None)
     confirm.add_argument("--assertion-ids", nargs="*", default=None)
     confirm.add_argument("--confirming-principal", required=True)
-    confirm.add_argument("--authored-by", default="promote-extract-cli")
     confirm.add_argument("--dry-run", action="store_true")
     confirm.add_argument("--allow-live-world", action="store_true")
     confirm.add_argument(
