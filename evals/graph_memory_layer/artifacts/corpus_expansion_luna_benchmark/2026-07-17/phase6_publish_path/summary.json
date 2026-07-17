@@ -1,0 +1,21 @@
+{
+  "candidate_graph": "candidate_graph_vial_promote_ir.json",
+  "confirming_principal": "phase6-proof@harden",
+  "contribution_id": "contribution:77f1e1e789a4f37e",
+  "notes": [
+    "Proof uses typed CandidateGraphPreview IR (played_canon), sealed effect v2 (contribution_meta + verified_source_uri), selection_digest in contribution identity, single-artifact evidence gate.",
+    "Durable contribution reconstructed only from sealed effect; no contribution_candidate envelope.",
+    "Live out/ was not mutated; world root was a tmp copy."
+  ],
+  "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+  "prepared_by": "phase6-proof@harden",
+  "proof_ok": true,
+  "proposal_digest": "1016fcfb4b99b9107fd73eb4f77d8f773bd33c6cec49be5b9e34690ffca79ad4",
+  "proposal_id": "proposal:90ba5a5e49a24d32b1a0f5a62a9d7b80",
+  "proposal_version": 2,
+  "published": true,
+  "rebuild_equivalent_to_head": true,
+  "revision_id": "rev:43411787c3e0e234ded2f3b96ae3ad38",
+  "schema": "dmb_phase6_publish_path_summary_v1",
+  "status": "tmp_world_proven_via_sealed_confirm_v2"
+}

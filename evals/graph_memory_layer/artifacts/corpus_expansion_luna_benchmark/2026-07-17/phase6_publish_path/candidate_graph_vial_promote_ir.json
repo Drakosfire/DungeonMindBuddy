@@ -1,0 +1,130 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "preview:phase6-vial-promote",
+  "session_id": "session-22",
+  "campaign_id": "longmont-c2",
+  "source_artifact_ids": [
+    "artifact:recap:longmont-c2:session-22"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "obj_session22_vial",
+      "label": "vial",
+      "node_type": "item",
+      "description": "A small vial examined by Stafl and Caelynn; linked to planar bleed magic.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "ref:006",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+          "source_anchor_id": "anchor:006",
+          "label": "span",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "session-22:recap:paragraph:006",
+          "anchor_quotes": [
+            "vial"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "mystery_puddles",
+      "label": "Puddles show delayed reflections with conjuration magic",
+      "node_type": "mystery",
+      "description": "Puddles with delayed reflections.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "ref:007",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+          "source_anchor_id": "anchor:007",
+          "label": "span",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "session-22:recap:paragraph:007",
+          "anchor_quotes": [
+            "puddles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "e33",
+      "from_node_id": "obj_session22_vial",
+      "to_node_id": "mystery_puddles",
+      "relationship_type": "linked_to",
+      "label": "linked to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "ref:007",
+          "source_artifact_id": "artifact:recap:longmont-c2:session-22",
+          "source_anchor_id": "anchor:007",
+          "label": "span",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "session-22:recap:paragraph:007",
+          "anchor_quotes": [
+            "puddles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    }
+  ],
+  "beats": [],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

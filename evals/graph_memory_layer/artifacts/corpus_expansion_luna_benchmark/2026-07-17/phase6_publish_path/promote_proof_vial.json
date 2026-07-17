@@ -1,0 +1,42 @@
+{
+  "confirming_principal": "phase6-proof@harden",
+  "contribution_id": "contribution:77f1e1e789a4f37e",
+  "merge": {
+    "accepted_assertion_ids": [
+      "assertion:140bb434dd1ea21f",
+      "assertion:b521496d1b717258",
+      "assertion:b2b79c7d1f50b2b9"
+    ],
+    "contribution_ids": [
+      "contribution:77f1e1e789a4f37e"
+    ],
+    "diagnostics": [
+      "accepted_for_merge:3",
+      "parent_revision_id:rev:5cadc9798562862cdde22350d8a3b56c",
+      "selection_digest:e202ca913e37809a08f3373a7398ce599eb6edc4a936094eac742d0271cea125",
+      "proposal_digest:1016fcfb4b99b9107fd73eb4f77d8f773bd33c6cec49be5b9e34690ffca79ad4"
+    ],
+    "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+    "published": true,
+    "rejected_assertion_ids": [],
+    "retracted_assertion_ids": [],
+    "revision_id": "rev:43411787c3e0e234ded2f3b96ae3ad38",
+    "superseded_contribution_ids": [],
+    "world_id": "eldyrwild"
+  },
+  "ok": true,
+  "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+  "projection_node_count": 14,
+  "projection_relationship_count": 12,
+  "projection_revision_id": "rev:43411787c3e0e234ded2f3b96ae3ad38",
+  "proposal_digest": "1016fcfb4b99b9107fd73eb4f77d8f773bd33c6cec49be5b9e34690ffca79ad4",
+  "proposal_id": "proposal:90ba5a5e49a24d32b1a0f5a62a9d7b80",
+  "rebuild_diagnostics": [
+    "rebuild_equivalent_to_pre_publish_head",
+    "rebuild_equivalent_to_head"
+  ],
+  "rebuild_equivalent_to_head": true,
+  "schema": "dmb_promote_extract_proof_v1",
+  "world_id": "eldyrwild",
+  "world_root": "/tmp/tmp.EE55gHHURI"
+}
