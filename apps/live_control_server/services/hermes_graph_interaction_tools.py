@@ -69,8 +69,8 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                 "name": "expand_graph_retrieval",
                 "description": (
                     "Expand the current shared GraphRetrievalSession with a bounded "
-                    "graph operation (object, neighborhood, compare, path, timeline, "
-                    "support, coverage, or search). Always pass the retrievalSessionId "
+                    "graph operation (object, neighborhood, search, or support). "
+                    "Always pass the retrievalSessionId "
                     "that was provided for this turn. Scope/revision are server-enforced. "
                     "Use this instead of rediscovering objects independently. "
                     "Do not open Markdown or corpus files directly on a graph gap."

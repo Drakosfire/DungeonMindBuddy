@@ -44,12 +44,8 @@ from graph_memory.retrieval.models import (
 ExpansionOperation = Literal[
     "object",
     "neighborhood",
-    "compare",
-    "path",
-    "timeline",
-    "support",
-    "coverage",
     "search",
+    "support",
 ]
 
 
@@ -176,16 +172,6 @@ def _dispatch_expansion(
     root: Path | None,
 ):
     del focus  # focus already embedded in ctx
-    if request.operation in {"timeline", "coverage", "path", "compare"} and not node_ids:
-        search_req = WorldGraphSearchRequest.model_validate(
-            {
-                **ctx,
-                "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
-                "queryText": request.query_text or session.question or "session timeline",
-                "seedNodeIds": list(session.preflight_candidate_ids),
-            }
-        )
-        return retrieval_service.search_campaign_graph(search_req, root=root)
     if request.operation == "object":
         if not node_ids:
             return {
@@ -203,7 +189,7 @@ def _dispatch_expansion(
             }
         )
         return retrieval_service.get_campaign_object(obj_req, root=root)
-    if request.operation in {"neighborhood", "explore", "timeline", "path", "compare"}:
+    if request.operation == "neighborhood":
         seeds = node_ids or list(session.preflight_candidate_ids)
         if not seeds:
             search_req = WorldGraphSearchRequest.model_validate(

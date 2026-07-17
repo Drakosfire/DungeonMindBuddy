@@ -13,7 +13,7 @@ from graph_memory.interaction.answer_validator import (
     validate_structured_answer,
 )
 from graph_memory.interaction.authority_classifier import classify_authority_for_attribute
-from graph_memory.interaction.claims import GraphClaim
+from graph_memory.interaction.claims import GraphClaim, ClaimSupport
 from graph_memory.interaction.digest_audit import (
     TRIPOD_CONTRIBUTION_ID,
     audit_contribution_source_digests,
@@ -25,6 +25,7 @@ from graph_memory.interaction.forensic import (
     forensic_enabled,
 )
 from graph_memory.interaction.initial_resolve import create_session_from_preflight
+from graph_memory.interaction.session_hydrate import hydrate_session_from_packet
 from graph_memory.interaction.schema_constants import DIGEST_AUDIT_SCHEMA
 from graph_memory.interaction.session import (
     GraphRetrievalSession,
@@ -32,7 +33,7 @@ from graph_memory.interaction.session import (
     SourceAnchorState,
     SourceReadEntry,
 )
-from graph_memory.interaction.session_store import clear_sessions
+from graph_memory.interaction.session_store import clear_sessions, create_session
 
 
 @pytest.fixture(autouse=True)
@@ -530,6 +531,154 @@ def test_classify_runtime_branch_no_tool_and_no_completion() -> None:
         )
         == "no_completion"
     )
+
+
+def _seed_expand_session() -> GraphRetrievalSession:
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+            focus={"kind": "session", "session_id": "session-21"},
+        ),
+        question="Where is Tripod?",
+        preflight_candidate_ids=["threat:tripod"],
+    )
+    create_session(session)
+    return session
+
+
+def _fake_retrieval_result(*, schema: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        model_dump=lambda mode, by_alias: {
+            "schema": schema,
+            "outcome": "enough",
+            "sourceAnchors": [],
+            "diagnostics": [],
+        }
+    )
+
+
+def test_project_for_hermes_advertises_only_four_expansions() -> None:
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="Where is Tripod?",
+    )
+    assert session.project_for_hermes()["available_expansions"] == [
+        "object",
+        "neighborhood",
+        "search",
+        "support",
+    ]
+
+
+def test_expand_rejects_overpromised_operations() -> None:
+    for operation in ("timeline", "compare", "path", "coverage"):
+        result = execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": "sess:any",
+                "operation": operation,
+            }
+        )
+        assert result["code"] == "invalid_arguments", operation
+        assert result["statusCode"] == 422
+
+
+@pytest.mark.parametrize(
+    ("operation", "patch_target", "expected_schema"),
+    [
+        (
+            "search",
+            "graph_memory.interaction.expansion_executor.retrieval_service.search_campaign_graph",
+            "dmb_world_graph_search_v1",
+        ),
+        (
+            "object",
+            "graph_memory.interaction.expansion_executor.retrieval_service.get_campaign_object",
+            "dmb_world_graph_object_v1",
+        ),
+        (
+            "neighborhood",
+            "graph_memory.interaction.expansion_executor.retrieval_service.get_object_neighborhood",
+            "dmb_world_graph_neighborhood_v1",
+        ),
+        (
+            "support",
+            "graph_memory.interaction.expansion_executor.retrieval_service.get_object_evidence",
+            "dmb_world_graph_evidence_v1",
+        ),
+    ],
+)
+def test_expand_valid_operations_dispatch(
+    operation: str,
+    patch_target: str,
+    expected_schema: str,
+) -> None:
+    session = _seed_expand_session()
+    fake = _fake_retrieval_result(schema=expected_schema)
+    with patch(patch_target, return_value=fake) as mocked:
+        result = execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": session.id,
+                "operation": operation,
+                "targets": [{"kind": "node", "id": "threat:tripod"}],
+                "queryText": "Tripod",
+            }
+        )
+    assert result["schema"] == expected_schema
+    assert result["retrievalSessionId"] == session.id
+    mocked.assert_called_once()
+
+
+def test_graph_claim_hydrate_round_trip_preserves_all_fields() -> None:
+    full_claim = GraphClaim(
+        claim_id="assertion:full",
+        claim_kind="relationship",
+        subject_node_id="threat:tripod",
+        subject_label="Tripod",
+        predicate="connected_to",
+        object_node_id="location:north-gate",
+        value_text="North Gate",
+        epistemic_kind="accepted",
+        canon_state="active",
+        acceptance_state="accepted",
+        visibility="gm",
+        campaign_scope="campaign:c1",
+        revision_id="revision:test",
+        authority_class="accepted_relationship",
+        support=ClaimSupport(
+            state="source_opened",
+            source_anchor_ids=["anchor:1"],
+            source_read_ids=["read:1"],
+            readable_anchor_ids=["anchor:1"],
+            unreadable_anchor_ids=["anchor:2"],
+        ),
+        used_in_answer=True,
+    )
+    session = GraphRetrievalSession(
+        id="grs:test-hydrate",
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+            focus={"kind": "session", "session_id": "session-21"},
+        ),
+        question="Where is Tripod?",
+        claims=[full_claim],
+    )
+    create_session(session)
+    packet = session.project_for_hermes()
+    rehydrated = hydrate_session_from_packet(packet)
+    assert len(rehydrated.claims) == 1
+    assert full_claim.model_dump(mode="json", by_alias=True) == rehydrated.claims[
+        0
+    ].model_dump(mode="json", by_alias=True)
 
 
 def test_expand_graph_retrieval_rejects_unknown_session() -> None:

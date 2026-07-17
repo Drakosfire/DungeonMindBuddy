@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from graph_memory.interaction.claims import ClaimSupport, GraphClaim
+from graph_memory.interaction.claims import GraphClaim
 from graph_memory.interaction.session import (
     CoverageState,
     GraphReferent,
@@ -51,42 +51,18 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
     for item in packet.get("claim_ledger") or packet.get("claims") or []:
         if not isinstance(item, Mapping):
             continue
-        support_raw = item.get("support") if isinstance(item.get("support"), Mapping) else {}
-        claims.append(
-            GraphClaim(
-                claim_id=str(item.get("claim_id") or ""),
-                claim_kind=str(item.get("claim_kind") or "attribute"),  # type: ignore[arg-type]
-                subject_node_id=(
-                    None
-                    if item.get("subject_node_id") is None
-                    else str(item.get("subject_node_id"))
-                ),
-                subject_label=(
-                    None if item.get("subject_label") is None else str(item.get("subject_label"))
-                ),
-                predicate=None if item.get("predicate") is None else str(item.get("predicate")),
-                object_node_id=(
-                    None if item.get("object_node_id") is None else str(item.get("object_node_id"))
-                ),
-                value_text=None if item.get("value_text") is None else str(item.get("value_text")),
-                revision_id=str(item.get("revision_id") or snapshot.revision_id),
-                authority_class=str(
-                    item.get("authority_class") or "unknown"
-                ),  # type: ignore[arg-type]
-                support=ClaimSupport(
-                    state=str(support_raw.get("state") or "graph_accepted"),  # type: ignore[arg-type]
-                    source_anchor_ids=[str(x) for x in (support_raw.get("source_anchor_ids") or [])],
-                    source_read_ids=[str(x) for x in (support_raw.get("source_read_ids") or [])],
-                    readable_anchor_ids=[
-                        str(x) for x in (support_raw.get("readable_anchor_ids") or [])
-                    ],
-                    unreadable_anchor_ids=[
-                        str(x) for x in (support_raw.get("unreadable_anchor_ids") or [])
-                    ],
-                ),
-                used_in_answer=bool(item.get("used_in_answer")),
-            )
-        )
+        claim_id = str(item.get("claim_id") or "").strip()
+        if not claim_id:
+            continue
+        raw = dict(item)
+        raw["claim_id"] = claim_id
+        if not raw.get("revision_id"):
+            raw["revision_id"] = snapshot.revision_id
+        if not raw.get("authority_class"):
+            raw["authority_class"] = "unknown"
+        if not raw.get("claim_kind"):
+            raw["claim_kind"] = "attribute"
+        claims.append(GraphClaim.model_validate(raw))
 
     anchors: list[SourceAnchorState] = []
     for item in packet.get("source_anchors") or []:
@@ -130,7 +106,7 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
         ),
         referents=referents,
         operations=operations,
-        claims=[c for c in claims if c.claim_id],
+        claims=claims,
         source_anchors=[a for a in anchors if a.anchor_id],
         source_reads=reads,
         coverage=CoverageState(

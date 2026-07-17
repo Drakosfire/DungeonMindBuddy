@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -16,11 +17,10 @@ def load_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, data: dict[str, Any]) -> None:
     """Write one JSON object atomically (temp file + replace) using stable formatting.
 
-    L1 uses a deterministic ``.<name>.tmp`` sibling path (fine for local single-user use).
-    L3 HTTP layout writes must serialize per session file or use unique temp paths if
-    concurrent requests can touch the same JSON path.
+    Uses a unique sibling temp path so concurrent writers to the same JSON file
+    do not collide on replace.
     """
-    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temp_path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",

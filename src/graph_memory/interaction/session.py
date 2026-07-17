@@ -216,11 +216,8 @@ class GraphRetrievalSession(BaseModel):
             "available_expansions": [
                 "object",
                 "neighborhood",
-                "compare",
-                "path",
-                "timeline",
+                "search",
                 "support",
-                "coverage",
             ],
             "diagnostics": list(self.diagnostics),
         }

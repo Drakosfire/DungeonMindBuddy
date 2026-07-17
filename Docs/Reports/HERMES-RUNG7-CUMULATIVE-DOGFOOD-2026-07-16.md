@@ -1,6 +1,6 @@
 # Hermes Rung 7 Cumulative Dogfood — 2026-07-16
 
-**Gate:** `PASS` — cumulative Plan Hermes product acceptance + Plan Hermes-only demolition  
+**Gate:** `DOING` — Plan Hermes-only demolition present; cumulative acceptance open  
 **Scope:** End-to-end Plan dogfood (Turns 1–3 + reload) and default-backend decision  
 **Campaign / revision:** longmont-c2 · `rev:5cadc9798562862cdde22350d8a3b56c`
 
@@ -10,12 +10,15 @@
 |---|---|---|---|
 | 1 | Tripod / North Gate discovery | Rung 5 Trial 1 (`agent-trace-846a5a991eb3`): Hermes synthesis; graph retrieval at pinned revision | `PASS` |
 | 2 | “What is it connected to that should affect my prep?” | Rung 5 Trials 1–3: bounded history resolves “it”; fresh `expand_graph_retrieval`; prior prose is identity-only | `PASS` |
-| 3 | Coverage gap (answer in Markdown, absent from graph) | Deterministic Hermes product path: empty/graph-gap turns abstain; HTTP Hermes host errors do not fall back to Live; Live sibling never invokes Hermes host; graph capability policy excludes manifest/corpus/lexical tools | `PASS` |
+| 3 | Coverage gap (answer in Markdown, absent from graph) | Deterministic Hermes product path: empty/graph-gap turns abstain; HTTP Hermes host errors do not fall back to Live; Live sibling never invokes Hermes host; graph capability policy excludes manifest/corpus/lexical tools | `PASS` (contract proof; live stochastic turn optional per amended tracker gate) |
 | Reload | Hard reload same thread | Rung 6 live dogfood: completed-turn display restored; `hermes_session_pointer_status: accepted`; worker restart + fresh graph retrieval | `PASS` |
 
 ## Turn 3 — coverage-gap authority
 
-Live stochastic coverage-gap prose is not required for Rung 7 when the product path is falsified by contract:
+The tracker’s required dogfood originally called for a live graph-gap ask. That
+gate is **explicitly amended**: live stochastic coverage-gap prose is optional.
+Coverage-gap authority is accepted when the product path is falsified by
+deterministic contract:
 
 - `test_valid_history_graph_gap_still_abstains` — history present + empty graph tool outcome → `grounding.state == abstained`, fixed abstention answer, no citations.
 - `test_http_host_error_no_fallback` — Hermes host failure stays `mode == hermes_graph_agent` / `status == error`; Live synthesizer is not invoked (`no_fallback` fixture).
@@ -43,7 +46,11 @@ Source-anchor `partial` / `unreadable_source_anchors` warnings remain a separate
 - Source-anchor readability / opened excerpt integrity
 - Hermes prompt / voice tuning
 - Deleting Live ChatModule or legacy plugin packages retained for Live/eval consumers (PR012)
+- CI-backed / workflow-run verification provenance (current evidence is local/manual)
 
 ## Verdict
 
-Rung 7 is **PASS**. PR010B is cumulatively accepted for Plan Hermes as the steady-state conversational backend. PR011 is unblocked on the infrastructure side.
+Rung 7 remains **DOING**. Demolition and journey evidence are real, and the
+coverage-gap criterion is amended to deterministic contracts, but cumulative
+acceptance stays open until remaining merge gates clear and current-head
+confidence is recorded. PR010B remains `DOING`. PR011 remains `BLOCKED`.

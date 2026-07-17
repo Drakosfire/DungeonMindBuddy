@@ -4,7 +4,7 @@
 Does not require a live Hermes model. Exercises:
   1) digest completeness (Tripod contribution)
   2) preflight → GraphRetrievalSession claim ledger
-  3) expand_graph_retrieval (timeline / object)
+  3) expand_graph_retrieval (search / object)
   4) structured answer validation (graph-grounded without unread source cites)
 
 Usage:
@@ -127,7 +127,7 @@ def main() -> int:
         {
             "schema": "dmb_expand_graph_retrieval_request_v1",
             "retrieval_session_id": session.id,
-            "operation": "timeline",
+            "operation": "search",
             "query_text": args.question,
             "targets": [
                 {"kind": "node", "id": nid}
@@ -139,7 +139,7 @@ def main() -> int:
     report["checks"]["expand_schema"] = expand.get("schema")
     report["checks"]["expand_outcome"] = expand.get("outcome")
     if expand.get("schema") == "dmb_world_graph_retrieval_error_v1":
-        # Object expand is a softer fallback for sparse timeline support.
+        # Object expand is a softer fallback for sparse search support.
         expand = execute_expand_graph_retrieval(
             {
                 "schema": "dmb_expand_graph_retrieval_request_v1",

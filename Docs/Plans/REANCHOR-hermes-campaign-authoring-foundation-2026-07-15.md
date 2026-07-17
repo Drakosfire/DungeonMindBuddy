@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 **Scope:** Hermes workstream and current implementation branch
-**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5–7 PASS; PR010B cumulatively accepted; PR011 READY
+**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 DONE; Rung 6 PASS; Rung 7 DOING; PR010B DOING; PR011 BLOCKED
 **Related plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md)
 **Active design index:** [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md)
 
@@ -41,13 +41,14 @@ statblock promotion are complete.
   contract tests. The acceptance record is
   [`../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md).
   The real `AIAgent` wire-start environment failure remains a separate open item.
-- Rung 7 cumulative Plan Hermes acceptance and Plan Hermes-only demolition are
-  accepted (PASS): Hermes is the only Plan Agent Interaction backend; legacy
-  Live Plan threads migrate on load; coverage-gap abstention / no Live fallback
-  are proven by product-path contracts; Turns 1–2 and reload harvest Rung 5/6
-  live evidence. The acceptance record is
+- Rung 7 Plan Hermes-only demolition and Turns 1–2/reload evidence are present
+  (DOING, not yet cumulative PASS): Hermes is the only Plan Agent Interaction
+  backend; legacy Live Plan threads migrate on load; coverage-gap abstention /
+  no Live fallback are proven by product-path contracts after an explicit
+  tracker amendment that accepts deterministic proof in place of a required live
+  stochastic coverage-gap turn. The record is
   [`../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md).
-  PR011 is unblocked.
+  PR011 remains BLOCKED on Rung 7 cumulative acceptance.
 
 ## Re-anchor decisions
 
@@ -155,16 +156,17 @@ are cleanup rather than product blockers:
 - merge/landing of the continuity integration branch to `main`.
 
 The current branch is therefore **re-anchored for direction, initial cleanup,
-S1 acceptance, and PR010B Rungs 5–7 PASS**. Phase 2 creative primitives and
-PR011 infrastructure are unblocked. Merge/landing of this continuity branch to
-`main` remains a Phase 0 follow-up.
+S1 acceptance, Rung 5 DONE, Rung 6 PASS, and Rung 7 DOING**. Phase 2 creative
+primitives may proceed; PR011 infrastructure remains blocked on Rung 7
+cumulative acceptance. Merge/landing of this continuity branch to `main`
+remains a Phase 0 follow-up.
 
 ## Next gate
 
-Construct the smallest independently falsifiable `CreativeOperationSession`
-kernel for the S2 statblock proving domain. Do not reopen the rejected
-empty-graph abstention path, and do not add domain generators until the shared
-workflow boundary exists. In parallel infrastructure work, begin PR011
-(app-level context + governed tool runtime); treat the real `AIAgent`
-wire-start environment failure and source-anchor readability as separate open
-items (not rung reopens).
+Close Rung 7 cumulative acceptance after remaining merge gates and current-head
+verification confidence. Do not reopen the rejected empty-graph abstention
+path. Treat the real `AIAgent` wire-start environment failure and source-anchor
+readability as separate open items (not Rung 5/6 reopens). In parallel product
+work, construct the smallest independently falsifiable `CreativeOperationSession`
+kernel for the S2 statblock proving domain once the shared workflow boundary
+exists.

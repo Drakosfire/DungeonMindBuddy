@@ -16,6 +16,19 @@ POINTER_STORE_SCHEMA = "dmb_hermes_session_pointer_store_v1"
 BindingStatus = Literal["active", "expired", "invalid"]
 PointerStatus = Literal["absent", "accepted", "rejected", "recovered"]
 
+_STORE_LOCKS: dict[str, threading.RLock] = {}
+_STORE_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for_base(base: Path) -> threading.RLock:
+    key = str(base.resolve())
+    with _STORE_LOCKS_GUARD:
+        lock = _STORE_LOCKS.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _STORE_LOCKS[key] = lock
+        return lock
+
 
 @dataclass(frozen=True, slots=True)
 class HermesSessionPointerBinding:
@@ -82,7 +95,7 @@ class HermesSessionPointerStore:
 
     def __init__(self, base: Path) -> None:
         self._base = base.resolve()
-        self._lock = threading.RLock()
+        self._lock = _lock_for_base(self._base)
 
     def _load_store(self) -> dict[str, Any]:
         path = _store_path(self._base)

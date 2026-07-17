@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-16 — Hermes product re-anchor accepted; Rung 5–7 PASS; PR010B cumulatively accepted; PR011 unblocked
+**Updated:** 2026-07-16 — Rung 5 DONE; Rung 6 PASS; Rung 7 DOING; PR010B DOING; PR011 BLOCKED; authority model includes registry-admitted latest-recap exception
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -23,7 +23,7 @@ decisions were made, but they cannot override either active authority.
 - Source artifacts remain prose/evidence authority; the World Supergraph is durable materialized knowledge state.
 - Agents are not privileged writers. Durable changes require typed tools and preview → proposal-bound GM confirmation.
 - Runtime graph selection never uses latest-ingest, preview-source, manifest path, run directory, or mutable store path.
-- **Agent factual discovery is graph-only.** Markdown is reachable only through source anchors admitted by graph retrieval; it is not a parallel search/fallback plane.
+- **Agent factual discovery is graph-first.** Graph claims are the canonical materialized fact plane; graph-admitted source anchors are the normal source-evidence route. A server-owned artifact registry may admit a narrowly typed source (today: latest-recap) for explicit memory-lag workflows; that material remains source evidence, not promoted graph memory. Hermes cannot discover arbitrary Markdown or filesystem paths.
 
 ## Global conventions
 
@@ -40,17 +40,18 @@ Required deletion PR:
 
 PR012 is a leftover safety net, not the default owner of deferred demolition.
 
-### Graph-only retrieval boundary
+### Graph-first retrieval boundary
 
 For Agent Interaction and other graph-aware consumers:
 
 1. Discovery begins from a revision-pinned World Supergraph projection or graph-retrieval API.
-2. Retrieval may return graph objects, attributes, relationships, paths, and graph-admitted source anchors.
+2. Retrieval may return graph objects, attributes, relationships, neighborhoods, and graph-admitted source anchors.
 3. A source reader may open only those admitted anchors, with bounded excerpts and stable evidence locators.
-4. No product fallback may search manifests, corpus indexes, arbitrary repository Markdown, or lexical/vector stores outside graph admission.
-5. A graph miss or evidence gap produces an explicit abstention and a coverage-gap diagnostic. It does not trigger hidden Markdown search.
+4. Narrow exception: a server-owned artifact registry may admit a narrowly typed source (today: latest-recap) for disclosed memory-lag workflows. Selection and path resolution are server-owned; the result is source evidence, not graph memory.
+5. No product fallback may search manifests, corpus indexes, arbitrary repository Markdown, or lexical/vector stores outside graph or registry admission.
+6. A graph miss or evidence gap produces an explicit abstention and a coverage-gap diagnostic. It does not trigger hidden Markdown search.
 
-This does **not** demote source documents. It makes the graph the routing/admission plane and source anchors the evidence plane.
+This does **not** demote source documents. It makes the graph the normal routing/admission plane, source anchors the normal evidence plane, and the registry the only narrow non-graph source admission for typed memory-lag workflows.
 
 ## Current critical path
 
@@ -60,11 +61,11 @@ DONE  PR007A   Revision-pinned projection/read snapshot
 DONE  PR008A   Plan World Graph object-card migration
 DONE  PR008B   Agent Interaction receives revision-pinned graph query context
 DONE  PR010A   Graph retrieval contract and source-anchor admission
-DONE  PR010B   Hermes graph-retrieval dogfood (Rungs 1–7 accepted)
-READY PR011  Agent Context + governed tool runtime
+DOING PR010B   Hermes graph-retrieval dogfood (Rungs 5–6 accepted; Rung 7 DOING)
+BLOCKED PR011  Agent Context + governed tool runtime
 ```
 
-PR009 Play migration may proceed independently after PR008 lessons. Multi-source ingestion expansion can also continue without changing the graph-only Agent Interaction direction.
+PR009 Play migration may proceed independently after PR008 lessons. Multi-source ingestion expansion can also continue without changing the graph-first Agent Interaction direction.
 
 PR010B is decomposed into independently useful rungs:
 
@@ -77,13 +78,16 @@ DONE    PR010B Rung 4B — single-turn backend product cutover (#354)
 DONE    PR010B Rung 4C — Plan evidence presentation and completed-turn persistence (#355)
 DONE    PR010B Rung 5 — same-thread object continuity through bounded visible-prose replay
 PASS    PR010B Rung 6 — durable Hermes session-pointer and reload/process lifecycle
-PASS    PR010B Rung 7 — cumulative product acceptance and replaced-path demolition
+DOING   PR010B Rung 7 — cumulative product acceptance and replaced-path demolition
 ```
 
-Rungs 5–7 are accepted (see the Rung 5–7 dogfood reports). Hermes is the only
-Plan Agent Interaction backend; Live remains for `/surface` ChatModule. The real
-`AIAgent` wire-start environment failure and the source-anchor readability
-investigation remain separate open items.
+Rungs 5–6 are accepted (see the Rung 5–6 dogfood reports). Rung 7 demolition and
+Turns 1–2/reload evidence are present; coverage-gap authority is accepted via
+deterministic contracts after an explicit tracker amendment. Cumulative Rung 7
+`PASS` remains open pending remaining merge gates and current-head acceptance
+confidence. Hermes is the only Plan Agent Interaction backend; Live remains for
+`/surface` ChatModule. The real `AIAgent` wire-start environment failure and the
+source-anchor readability investigation remain separate open items.
 
 ---
 
@@ -178,7 +182,7 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 ### PR010B — Hermes graph-retrieval dogfood
 
-**Status:** DONE — Rung 1–7 accepted; PR010B cumulatively accepted. PR011 is READY. PR009 remains an independent parallel lane.
+**Status:** Doing — Rungs 5–6 accepted; Rung 7 DOING. PR011 remains BLOCKED until Rung 7 cumulative acceptance. PR009 remains an independent parallel lane.
 
 **Purpose:** Run Hermes as the actual conversational agent over PR010A read tools and dogfood multi-turn graph-grounded prep in the existing Agent Interaction surface.
 
@@ -192,7 +196,7 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 - **Rung 4C / PR355 (DONE / #355):** Plan presentation of grounding, opaque graph citations, bounded tool trace, and reload-safe local completed-turn persistence (display only — not Hermes session resume).
 - **Rung 5 (DONE / planned #356):** Same-thread object continuity through bounded replay of prior visible role/content pairs, accepted across three live trials. Each trial showed fresh `expand_graph_retrieval` after conversational referent resolution at the pinned revision; prior prose resolved shorthand only and was not treated as campaign truth. `unreadable_source_anchors` remains a separate source-evidence gate on the backlog. Rung 5 does not establish a persistent Hermes session, persist an internal Hermes transcript, own demolition, or change the backend selector/default.
 - **Rung 6 (PASS):** Durable Hermes session-pointer and reload/process lifecycle accepted. Server-authoritative opaque `hptr-*` pointer with thread binding, durable store, accepted/rejected/recovered telemetry, and deterministic recovery contracts. Live dogfood after full shutdown/reload showed `accepted` pointer continuation, `worker_pid_changed`, and fresh graph retrieval; Thread B isolation passed; invalid/expired recovery is proven by contract tests (not UI dogfood). Distinct from Rung 4C display persistence and Rung 5 prose replay. Evidence: [`HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md).
-- **Rung 7 (PASS):** Cumulative Plan Hermes product acceptance and Plan Hermes-only demolition. Hermes is the only Plan Agent Interaction backend; legacy Live Plan threads migrate on load; `/surface` ChatModule retains Live. Coverage-gap abstention and no Live fallback are proven by product-path contracts; Turns 1–2 + reload harvest Rung 5/6 live evidence. Evidence: [`HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md).
+- **Rung 7 (DOING):** Plan Hermes-only demolition and Turns 1–2/reload evidence are present. Coverage-gap authority is proven by deterministic product-path contracts after an explicit tracker amendment (live stochastic coverage-gap prose is optional). Cumulative `PASS` remains open pending remaining merge gates. Evidence: [`HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md).
 
 **Target runtime shape:**
 
@@ -220,14 +224,14 @@ These tools are graph/revision scoped. `read_source_anchor` accepts an opaque an
 3. The answer cites admitted anchors and exposes revision/tool trace metadata.
 4. Ask in the same thread: “What is it connected to that should affect my prep?”
 5. Hermes resolves “it” from thread context, performs bounded graph traversal, and explains concrete prep implications.
-6. If the graph lacks an answer, Hermes says so and reports the missing coverage. It does not search other Markdown.
+6. Coverage-gap authority: deterministic contract tests prove Hermes abstains / reports the gap and does not search Markdown, manifest, corpus, or lexical fallback. A live stochastic coverage-gap turn is optional evidence, not a required gate.
 7. Reload restores completed-turn display (Rung 4C). Durable Hermes session-pointer resume is Rung 6, not Rung 5 prose replay.
 
 **Live Rung 5 evidence:** [`HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md) is the Rung 5 acceptance report (DONE, three live trials) and keeps the source-anchor evidence gap separate from the Rung 5 verdict.
 
 **Live Rung 6 evidence:** [`HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md) is the Rung 6 acceptance report (PASS). The real `AIAgent` wire-start environment failure remains a separate open item.
 
-**Live Rung 7 evidence:** [`HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md) is the Rung 7 cumulative acceptance report (PASS). Plan is Hermes-only; Live remains for ChatModule.
+**Live Rung 7 evidence:** [`HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md) records demolition progress and coverage-gap contract proof; cumulative gate remains `DOING`.
 
 **Non-goals:** Full operator tool parity, graph writes, draft persistence, preview/confirm, Play migration, generalized autonomous planning, or broad UI redesign.
 
@@ -244,7 +248,7 @@ These tools are graph/revision scoped. `read_source_anchor` accepts an opaque an
 
 **Expected slice:** PR011.
 
-PR011 builds on accepted PR010B behavior. It adds app-level context assembly, cross-surface continuity, typed `read_only`, `draft_only`, `preview_write`, `confirm_commit`, and `admin_diagnostic` capabilities, and proposal-bound writes through Kernel paths.
+PR011 builds on accepted PR010B behavior (currently blocked until Rung 7 cumulative acceptance). It adds app-level context assembly, cross-surface continuity, typed `read_only`, `draft_only`, `preview_write`, `confirm_commit`, and `admin_diagnostic` capabilities, and proposal-bound writes through Kernel paths.
 
 **Exit criteria:**
 
