@@ -170,7 +170,7 @@ def _collect_evidence_artifact_ids(
     return ids
 
 
-def _require_single_verified_source_artifact(
+def require_single_verified_source_artifact(
     *,
     preview: CandidateGraphPreview,
     verified_artifact_id: str,
@@ -181,6 +181,9 @@ def _require_single_verified_source_artifact(
 
     Multi-artifact evidence would otherwise inherit the single verified file's
     hash/URI — recording artifact B as having artifact A's bytes.
+
+    Callers must pass the exact selected node-and-edge set being promoted
+    (including edges mapped outside ``candidate_graph_to_contribution``).
     """
     verified = _require_nonempty(verified_artifact_id, field="source_artifact_id")
     top_level = {
@@ -212,6 +215,7 @@ def _evidence_ref_payloads(
     default_source_domain: str,
     session_id: str | None,
     verified_source_revision_id: str,
+    verified_source_artifact_id: str,
     source_uri: str | None,
     campaign_id: str | None,
 ) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]]]:
@@ -219,6 +223,9 @@ def _evidence_ref_payloads(
         raise CandidateGraphMappingError(
             f"assertion {assertion_key!r} has no evidence_refs"
         )
+    verified_artifact = _require_nonempty(
+        verified_source_artifact_id, field="verified_source_artifact_id"
+    )
     evidence_ids: list[str] = []
     embedded: list[dict[str, Any]] = []
     source_artifacts: list[dict[str, Any]] = []
@@ -232,6 +239,11 @@ def _evidence_ref_payloads(
         artifact_id = _require_nonempty(
             ref.source_artifact_id, field=f"{assertion_key}.evidence[{index}].source_artifact_id"
         )
+        if artifact_id != verified_artifact:
+            raise CandidateGraphMappingError(
+                f"assertion {assertion_key!r} evidence[{index}] source_artifact_id "
+                f"{artifact_id!r} != verified {verified_artifact!r}"
+            )
         evidence_id = f"evidence:{artifact_id}:{span}"
         if evidence_id not in evidence_ids:
             evidence_ids.append(evidence_id)
@@ -290,6 +302,7 @@ def map_candidate_node_to_assertion(
     node: CandidateNode,
     *,
     source_revision_id: str,
+    verified_source_artifact_id: str,
     campaign_scope: str | None,
     source_domain: str = "recap",
     session_id: str | None = None,
@@ -321,6 +334,7 @@ def map_candidate_node_to_assertion(
         default_source_domain=source_domain,
         session_id=session_id,
         verified_source_revision_id=source_revision_id,
+        verified_source_artifact_id=verified_source_artifact_id,
         source_uri=source_uri,
         campaign_id=campaign_id,
     )
@@ -360,6 +374,7 @@ def map_candidate_edge_to_assertion(
     edge: CandidateEdge,
     *,
     source_revision_id: str,
+    verified_source_artifact_id: str,
     campaign_scope: str | None,
     source_domain: str = "recap",
     session_id: str | None = None,
@@ -397,6 +412,7 @@ def map_candidate_edge_to_assertion(
         default_source_domain=source_domain,
         session_id=session_id,
         verified_source_revision_id=source_revision_id,
+        verified_source_artifact_id=verified_source_artifact_id,
         source_uri=source_uri,
         campaign_id=campaign_id,
     )
@@ -480,7 +496,7 @@ def candidate_graph_to_contribution(
             if edge.from_node_id in mapped_node_ids and edge.to_node_id in mapped_node_ids
         ]
 
-    _require_single_verified_source_artifact(
+    require_single_verified_source_artifact(
         preview=preview,
         verified_artifact_id=artifact_id,
         nodes=nodes,
@@ -495,6 +511,7 @@ def candidate_graph_to_contribution(
             map_candidate_node_to_assertion(
                 node,
                 source_revision_id=revision_id,
+                verified_source_artifact_id=artifact_id,
                 campaign_scope=scope,
                 source_domain=source_domain,
                 session_id=session_id,
@@ -510,6 +527,7 @@ def candidate_graph_to_contribution(
             map_candidate_edge_to_assertion(
                 edge,
                 source_revision_id=revision_id,
+                verified_source_artifact_id=artifact_id,
                 campaign_scope=scope,
                 source_domain=source_domain,
                 session_id=session_id,

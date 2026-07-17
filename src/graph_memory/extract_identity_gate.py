@@ -19,6 +19,7 @@ from graph_memory.candidate_graph_to_contribution import (
     kernel_kind_for_node_type,
     map_candidate_edge_to_assertion,
     map_candidate_node_to_assertion,
+    require_single_verified_source_artifact,
 )
 from graph_memory.extract_promote_proposal import (
     compute_selection_digest,
@@ -41,6 +42,13 @@ _MUTATING_OUTCOMES = frozenset({"resolved_existing", "created_new", "human_overr
 _NON_MUTATING_OUTCOMES = frozenset(
     {"ambiguous", "blocked_collision", "rejected", "provisional_new"}
 )
+
+
+def _require_artifact_id(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        raise CandidateGraphMappingError("source_artifact_id is required")
+    return text
 
 
 @dataclass
@@ -254,10 +262,34 @@ def gate_candidate_graph_against_head(
     if not nodes:
         raise CandidateGraphMappingError("candidate graph has no nodes to gate")
 
+    selected_node_ids = {node.node_id for node in nodes}
+    edges_in_scope = []
+    if include_edges:
+        edges_in_scope = [
+            edge
+            for edge in preview.edges
+            if edge.from_node_id in selected_node_ids
+            and edge.to_node_id in selected_node_ids
+        ]
+
+    # Resolve verified artifact before mapping so edge-only second artifacts
+    # cannot bypass the check that runs inside candidate_graph_to_contribution
+    # with include_edges=False.
+    artifact_id = _require_artifact_id(
+        source_artifact_id
+        or (preview.source_artifact_ids[0] if preview.source_artifact_ids else None)
+    )
+    require_single_verified_source_artifact(
+        preview=preview,
+        verified_artifact_id=artifact_id,
+        nodes=nodes,
+        edges=edges_in_scope,
+    )
+
     candidate_contribution = candidate_graph_to_contribution(
         preview,
         world_id=world_id,
-        source_artifact_id=source_artifact_id,
+        source_artifact_id=artifact_id,
         source_revision_id=source_revision_id,
         campaign_scope=campaign_scope,
         extraction_profile=extraction_profile,
@@ -268,7 +300,6 @@ def gate_candidate_graph_against_head(
         include_edges=False,
     )
 
-    artifact_id = candidate_contribution.source_artifact_id or ""
     revision_id = candidate_contribution.source_revision_id or source_revision_id
     session_id = preview.session_id
     campaign_id = preview.campaign_id
@@ -336,6 +367,7 @@ def gate_candidate_graph_against_head(
                     map_candidate_node_to_assertion(
                         node,
                         source_revision_id=revision_id,
+                        verified_source_artifact_id=artifact_id,
                         campaign_scope=scope,
                         source_domain=source_domain,
                         session_id=session_id,
@@ -371,6 +403,7 @@ def gate_candidate_graph_against_head(
             map_candidate_node_to_assertion(
                 node,
                 source_revision_id=revision_id,
+                verified_source_artifact_id=artifact_id,
                 campaign_scope=scope,
                 source_domain=source_domain,
                 session_id=session_id,
@@ -385,7 +418,7 @@ def gate_candidate_graph_against_head(
 
     if include_edges:
         mapped = set(node_id_map)
-        for edge in preview.edges:
+        for edge in edges_in_scope:
             from_id = edge.from_node_id
             to_id = edge.to_node_id
             if from_id not in mapped or to_id not in mapped:
@@ -394,6 +427,7 @@ def gate_candidate_graph_against_head(
                 map_candidate_edge_to_assertion(
                     edge,
                     source_revision_id=revision_id,
+                    verified_source_artifact_id=artifact_id,
                     campaign_scope=scope,
                     source_domain=source_domain,
                     session_id=session_id,

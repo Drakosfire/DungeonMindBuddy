@@ -181,6 +181,7 @@ def test_map_node_uses_kernel_value_shape() -> None:
     assertion = map_candidate_node_to_assertion(
         node,
         source_revision_id="sha256:abc123",
+        verified_source_artifact_id="artifact:recap:longmont-c2:session-22",
         campaign_scope="longmont-c2",
         session_id="session-22",
         campaign_id="longmont-c2",
@@ -216,6 +217,7 @@ def test_map_fails_closed_without_evidence() -> None:
         map_candidate_node_to_assertion(
             node,
             source_revision_id="sha256:abc",
+            verified_source_artifact_id="artifact:recap:longmont-c2:session-22",
             campaign_scope="longmont-c2",
         )
 
@@ -262,6 +264,22 @@ def test_multi_source_evidence_rejected_until_per_artifact_verify() -> None:
             source_revision_id="sha256:deadbeef",
             node_ids=["obj_session22_vial", "mystery_puddles"],
             include_edges=False,
+        )
+
+
+def test_map_edge_rejects_artifact_mismatch() -> None:
+    from graph_memory.candidate_graph_to_contribution import map_candidate_edge_to_assertion
+
+    preview = candidate_graph_preview_from_dict(_minimal_graph())
+    edge = preview.edges[0]
+    with pytest.raises(CandidateGraphMappingError, match="!= verified"):
+        map_candidate_edge_to_assertion(
+            edge,
+            source_revision_id="sha256:abc",
+            verified_source_artifact_id="artifact:other",
+            campaign_scope="longmont-c2",
+            session_id="session-22",
+            campaign_id="longmont-c2",
         )
 
 def test_verify_source_revision_hashes_file(tmp_path: Path) -> None:

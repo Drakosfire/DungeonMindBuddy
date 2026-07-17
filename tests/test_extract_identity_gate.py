@@ -276,6 +276,38 @@ def test_partial_edge_selection_rejected(tmp_path: Path, loaded_bundle) -> None:
         )
 
 
+def test_edge_only_second_artifact_rejected_by_identity_gate(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    """Node evidence A + edge evidence B must not bypass the single-artifact gate.
+
+    Regression: gate called candidate_graph_to_contribution(include_edges=False)
+    then mapped edges without re-checking artifacts.
+    """
+    _initialize(tmp_path, loaded_bundle)
+    payload = _candidate_graph()
+    art_a = "artifact:recap:longmont-c2:session-22"
+    art_b = "artifact:recap:longmont-c2:session-22-alt"
+    # Top-level and node evidence stay on A; only the edge points at B.
+    payload["source_artifact_ids"] = [art_a]
+    for node in payload["nodes"]:
+        for ref in node["evidence_refs"]:
+            ref["source_artifact_id"] = art_a
+    for edge in payload["edges"]:
+        for ref in edge["evidence_refs"]:
+            ref["source_artifact_id"] = art_b
+    with pytest.raises(CandidateGraphMappingError, match="multi-artifact"):
+        gate_candidate_graph_against_head(
+            candidate_graph_preview_from_dict(payload),
+            root=tmp_path,
+            world_id=WORLD_ID,
+            source_revision_id="sha256:testdigest-edge-artifact",
+            source_artifact_id=art_a,
+            node_ids=["obj_session22_vial", "mystery_puddles"],
+            include_edges=True,
+        )
+
+
 def test_different_selections_produce_different_contribution_ids(
     tmp_path: Path, loaded_bundle
 ) -> None:
