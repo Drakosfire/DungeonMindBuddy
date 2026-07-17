@@ -21,7 +21,15 @@ from graph_memory.interaction.session import GraphRetrievalSession
 StatementKind = Literal["graph_fact", "source_detail", "inference", "suggestion", "gap"]
 ValidatorPath = Literal[
     "explicit_conversation_context",
+    "graph_context_synthesis",
     "claim_ledger_validation",
+]
+AnswerAuthority = Literal[
+    "explicit_conversation_context",
+    "graph_context_synthesis",
+    "graph_grounded",
+    "abstained",
+    "execution_error",
 ]
 ExplicitAnswerScope = Literal["conversation_context"]
 
@@ -63,6 +71,10 @@ class ValidatedAnswer(BaseModel):
     # S1 only: server support channel (never join into Hermes chat answer_text).
     support_lag_text: str | None = None
     support_excerpt_text: str | None = None
+    # Natural Hermes prose is frontstage, while this ledger rendering remains
+    # available as support until sentence-level response projection exists.
+    support_claim_ledger_text: str | None = None
+    answer_authority: AnswerAuthority | None = None
     validator_path: ValidatorPath | None = None
 
 
@@ -273,6 +285,18 @@ def _graph_refs_for_claims(
     return refs
 
 
+def _claim_ledger_text(claims: Sequence[GraphClaim]) -> str | None:
+    if not claims:
+        return None
+    bullets: list[str] = []
+    for claim in claims[:12]:
+        label = claim.subject_label or claim.subject_node_id or claim.claim_id
+        predicate = claim.predicate or claim.claim_kind
+        value = claim.value_text or ""
+        bullets.append(f"- {label}: {predicate} — {value}".strip(" —"))
+    return "Graph-grounded facts for this turn:\n" + "\n".join(bullets)
+
+
 def _source_citations_from_session(session: GraphRetrievalSession) -> list[SourceCitation]:
     citations: list[SourceCitation] = []
     for read in session.source_reads:
@@ -309,7 +333,7 @@ def synthesize_draft_from_session(
     """
     factual = [c for c in session.claims if c.may_state_as_campaign_fact()]
     sections: list[AnswerSection] = []
-    if factual:
+    if factual and not (model_prose and model_prose.strip()):
         bullets = []
         for claim in factual[:12]:
             label = claim.subject_label or claim.subject_node_id or claim.claim_id
@@ -372,9 +396,9 @@ def validate_structured_answer(
     """Validate a Hermes turn's answer against the shared claim ledger.
 
     ``answer_scope`` is set when Hermes completed ``declare_conversation_context``
-    without graph retrieval this turn. Explicit ``conversation_context`` preserves
-    model prose only when no graph claims, inferences, or latest-recap named-gap
-    evidence were accepted.
+    without graph retrieval this turn. That explicit scope wins over deterministic
+    preflight candidates: they remain session context, not support for a
+    conversation summary.
     """
     if execution_error:
         return ValidatedAnswer(
@@ -385,7 +409,26 @@ def validate_structured_answer(
             ),
             diagnostic_codes=[execution_error_code or "hermes_graph_agent_error"],
             reason_codes=["execution_error"],
+            answer_authority="execution_error",
             validator_path="claim_ledger_validation",
+        )
+
+    if answer_scope == "conversation_context":
+        if model_prose and model_prose.strip():
+            return ValidatedAnswer(
+                outcome="conversation_context",
+                answer_text=model_prose.strip(),
+                reason_codes=["explicit_conversation_context"],
+                answer_authority="explicit_conversation_context",
+                validator_path="explicit_conversation_context",
+            )
+        return ValidatedAnswer(
+            outcome="abstained",
+            answer_text=ABSTENTION_ANSWER,
+            diagnostic_codes=["hermes_insufficient_evidence"],
+            reason_codes=["explicit_conversation_context", "missing_chat_answer"],
+            answer_authority="abstained",
+            validator_path="explicit_conversation_context",
         )
 
     parsed = (
@@ -426,6 +469,51 @@ def validate_structured_answer(
         for read in session.source_reads
         if read.outcome in {"enough", "partial", "truncated"}
     }
+
+    if not parsed.sections and model_prose and model_prose.strip():
+        factual = [
+            claim
+            for claim in session.claims
+            if current_factual_claim(claim.claim_id) is not None
+        ]
+        if factual:
+            citations = _source_citations_from_session(session)
+            refs = _graph_refs_for_claims(
+                factual,
+                revision_id=session.snapshot.revision_id,
+            )
+            unreadable = any(
+                (not anchor.readable) and (not anchor.opened)
+                for anchor in session.source_anchors
+            )
+            synthesis_reasons = [
+                "graph_context_synthesis",
+                "sentence_level_grounding_unvalidated",
+                "hermes_agent_answer",
+            ]
+            if unreadable:
+                warnings.append(PARTIAL_SOURCE_WARNING)
+                synthesis_reasons.append("source_anchor_unreadable")
+            if citations:
+                outcome = "source_verified"
+            elif unreadable:
+                outcome = "partial_coverage"
+            else:
+                outcome = "graph_grounded"
+            return ValidatedAnswer(
+                outcome=outcome,
+                answer_text=model_prose.strip(),
+                accepted_claim_ids=[claim.claim_id for claim in factual],
+                rejected_claim_ids=list(dict.fromkeys(rejected)),
+                graph_references=refs,
+                source_citations=citations,
+                warnings=list(dict.fromkeys(warnings)),
+                diagnostic_codes=list(dict.fromkeys(synthesis_reasons)),
+                reason_codes=list(dict.fromkeys(synthesis_reasons)),
+                support_claim_ledger_text=_claim_ledger_text(factual),
+                answer_authority="graph_context_synthesis",
+                validator_path="graph_context_synthesis",
+            )
 
     for section in parsed.sections:
         if section.statement_kind == "suggestion":
@@ -521,6 +609,7 @@ def validate_structured_answer(
             warnings=warnings,
             diagnostic_codes=["hermes_insufficient_evidence"],
             reason_codes=["no_admissible_claims", *reason_codes],
+            answer_authority="abstained",
             validator_path="claim_ledger_validation",
         )
 
@@ -557,6 +646,11 @@ def validate_structured_answer(
             reason_codes=list(dict.fromkeys(reason_codes)),
             support_lag_text=lag_text,
             support_excerpt_text=excerpt_text,
+            answer_authority=(
+                "graph_context_synthesis"
+                if agent_text
+                else "abstained"
+            ),
             validator_path="claim_ledger_validation",
         )
     elif citations and accepted_unique:
@@ -570,11 +664,7 @@ def validate_structured_answer(
 
     answer_text = "\n\n".join(text for text in accepted_texts if text.strip())
     if not answer_text.strip() and accepted_unique:
-        answer_text = "Graph-grounded facts for this turn:\n" + "\n".join(
-            f"- {claim.subject_label or claim.subject_node_id or claim.claim_id}: "
-            f"{claim.predicate or claim.claim_kind} — {claim.value_text or ''}".strip(" —")
-            for claim in accepted_unique[:12]
-        )
+        answer_text = _claim_ledger_text(accepted_unique) or ""
     if model_prose and model_prose.strip() in accepted_texts:
         reason_codes.append("hermes_agent_answer")
 
@@ -589,12 +679,15 @@ def validate_structured_answer(
         warnings=list(dict.fromkeys(warnings)),
         diagnostic_codes=list(dict.fromkeys(reason_codes)),
         reason_codes=list(dict.fromkeys(reason_codes)),
+        support_claim_ledger_text=_claim_ledger_text(accepted_unique),
+        answer_authority="graph_grounded",
         validator_path="claim_ledger_validation",
     )
 
 
 __all__ = [
     "ABSTENTION_ANSWER",
+    "AnswerAuthority",
     "HERMES_NO_CHAT_ANSWER",
     "AnswerSection",
     "StructuredAnswerDraft",

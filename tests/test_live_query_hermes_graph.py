@@ -1468,6 +1468,80 @@ def test_explicit_declare_conversation_context_turn(tmp_path: Path) -> None:
     assert trace["validator_path"] == "explicit_conversation_context"
 
 
+def test_explicit_conversation_scope_ignores_preflight_claims(
+    tmp_path: Path,
+) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="We discussed Tripod's position and the siege prep question.",
+        tool_events=[_declare_tool_event()],
+        answer_scope="conversation_context",
+    )
+    response = run_hermes_graph_query(
+        text="What have we discussed so far?",
+        packet=PACKET,
+        graph_envelope=READY_ENVELOPE,
+        agent_thread_id="agent-thread-conversation-preflight",
+        turn_id="turn-conversation-preflight",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+        conversation_history=VALID_HISTORY,
+    )
+
+    assert response["grounding"]["state"] == "conversation_context"
+    assert response["grounding"]["answer_authority"] == "explicit_conversation_context"
+    assert response["answer"] == (
+        "We discussed Tripod's position and the siege prep question."
+    )
+    assert response["grounding"]["accepted_claim_ids"] == []
+    assert response["graph_references"] == []
+    assert response["agent_trace"]["validator_path"] == "explicit_conversation_context"
+
+
+def test_graph_context_synthesis_keeps_natural_answer_and_ledger_support(
+    tmp_path: Path,
+) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response=(
+            "Tripod is at the North Gate and controls the Shepherd's army."
+        ),
+        tool_events=[_tool_event()],
+    )
+    graph_envelope = {
+        **READY_ENVELOPE,
+        "nodes": [{"node_id": "threat:tripod", "label": "Tripod"}],
+        "matched_node_ids": ["threat:tripod"],
+        "attributes": [
+            {
+                "assertion_id": "assertion:loc",
+                "subject_node_id": "threat:tripod",
+                "predicate": "location",
+                "text_value": "North Gate",
+                "authority_class": "accepted_explicit_attribute",
+            }
+        ],
+    }
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=graph_envelope,
+        agent_thread_id="agent-thread-natural-answer",
+        turn_id="turn-natural-answer",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+
+    assert response["answer"] == (
+        "Tripod is at the North Gate and controls the Shepherd's army."
+    )
+    assert response["agent_trace"]["validator_path"] == "graph_context_synthesis"
+    assert response["grounding"]["answer_authority"] == "graph_context_synthesis"
+    support_text = response["grounding"]["support_claim_ledger_text"]
+    assert "Graph-grounded facts for this turn:" in support_text
+    assert "location — North Gate" in support_text
+    assert "controls the Shepherd's army" not in support_text
+    assert "assertion:loc" in response["grounding"]["accepted_claim_ids"]
+
+
 def test_zero_tool_calls_without_prose_still_abstains(tmp_path: Path) -> None:
     """Zero tool calls and an empty final_response — still nothing to answer with."""
     host = _EchoRetrievalSessionHost(final_response="", tool_events=[])

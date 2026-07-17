@@ -139,12 +139,16 @@ def test_validate_structured_answer_partial_when_claims_and_unreadable_anchors()
     assert validated.accepted_claim_ids == ["assertion:loc"]
     assert any("Source verification" in warning for warning in validated.warnings)
     assert validated.answer_text == (
+        "Tripod is at the North Gate, controls the Shepherd's army, and "
+        "can only be killed with fire."
+    )
+    assert validated.validator_path == "graph_context_synthesis"
+    assert validated.answer_authority == "graph_context_synthesis"
+    assert "sentence_level_grounding_unvalidated" in validated.reason_codes
+    assert validated.support_claim_ledger_text == (
         "Graph-grounded facts for this turn:\n"
         "- Tripod: location — North Gate"
     )
-    assert "Shepherd's army" not in validated.answer_text
-    assert "killed with fire" not in validated.answer_text
-    assert "hermes_agent_answer" not in validated.reason_codes
     assert "Source verification" not in validated.answer_text
 
 
@@ -167,7 +171,14 @@ def test_validate_structured_answer_graph_grounded_without_unreadable_anchors() 
 
     assert validated.outcome == "graph_grounded"
     assert validated.source_citations == []
-    assert "Graph-grounded facts for this turn:" in validated.answer_text
+    assert validated.answer_text == "Tripod is at the North Gate."
+    assert validated.validator_path == "graph_context_synthesis"
+    assert validated.answer_authority == "graph_context_synthesis"
+    assert "sentence_level_grounding_unvalidated" in validated.reason_codes
+    assert validated.support_claim_ledger_text == (
+        "Graph-grounded facts for this turn:\n"
+        "- Tripod: location — North Gate"
+    )
 
 
 def test_validate_structured_answer_rejects_claim_from_foreign_revision() -> None:
@@ -437,7 +448,7 @@ def test_validate_explicit_answer_scope_preserves_prose() -> None:
             revision_id="revision:test",
         ),
         question="What have we discussed so far?",
-        claims=[],
+        claims=[_accepted_claim()],
     )
 
     validated = validate_structured_answer(
@@ -449,6 +460,9 @@ def test_validate_explicit_answer_scope_preserves_prose() -> None:
 
     assert validated.outcome == "conversation_context"
     assert validated.answer_text == "Earlier we talked about siege prep and Tripod."
+    assert validated.accepted_claim_ids == []
+    assert validated.graph_references == []
+    assert validated.answer_authority == "explicit_conversation_context"
     assert validated.validator_path == "explicit_conversation_context"
     assert "explicit_conversation_context" in validated.reason_codes
 

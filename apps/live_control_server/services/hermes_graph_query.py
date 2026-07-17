@@ -782,6 +782,8 @@ def classify_hermes_graph_result(
                 cite.model_dump(mode="json")
                 for cite in validated.source_citations
             ],
+            "support_claim_ledger_text": validated.support_claim_ledger_text,
+            "answer_authority": validated.answer_authority,
             "validator_path": validated.validator_path,
         }
         if validated.support_lag_text or validated.support_excerpt_text:
@@ -1204,6 +1206,10 @@ def build_hermes_graph_product_response(
     grounding["accepted_claim_ids"] = list(acceptance.get("accepted_claim_ids") or [])
     grounding["rejected_claim_ids"] = list(acceptance.get("rejected_claim_ids") or [])
     grounding["reason_codes"] = list(acceptance.get("reason_codes") or [])
+    if acceptance.get("support_claim_ledger_text"):
+        grounding["support_claim_ledger_text"] = acceptance["support_claim_ledger_text"]
+    if acceptance.get("answer_authority"):
+        grounding["answer_authority"] = acceptance["answer_authority"]
     if state in {"grounded", "partial"}:
         grounding["source_anchor_count"] = len(source_cites) if source_cites else 0
         grounding["graph_reference_count"] = len(graph_refs)
