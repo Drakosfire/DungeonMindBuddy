@@ -1,4 +1,17 @@
-"""Durable server-authoritative Hermes session pointer bindings per agent thread."""
+"""Durable server-authoritative Hermes session pointer bindings per agent thread.
+
+Concurrency contract
+--------------------
+``HermesSessionPointerStore`` is safe for concurrent access from multiple
+store instances **within a single Python process** via a path-scoped shared
+``RLock``. Unique temporary filenames avoid same-process temp-file collisions.
+
+It is **not** safe across multiple OS processes writing the same
+``hermes_thread_pointers.json``. Each process has its own lock map; two
+processes can still load–modify–replace and lose updates. The live-control
+server is expected to own the store as a single-process writer. Cross-process
+safety would require an OS file lock, transactional DB, or CAS revision.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +29,7 @@ POINTER_STORE_SCHEMA = "dmb_hermes_session_pointer_store_v1"
 BindingStatus = Literal["active", "expired", "invalid"]
 PointerStatus = Literal["absent", "accepted", "rejected", "recovered"]
 
+# Same-process only: path → shared RLock. Not shared across OS processes.
 _STORE_LOCKS: dict[str, threading.RLock] = {}
 _STORE_LOCKS_GUARD = threading.Lock()
 
@@ -91,7 +105,11 @@ def _parse_binding(raw: dict[str, Any]) -> HermesSessionPointerBinding | None:
 
 
 class HermesSessionPointerStore:
-    """File-backed pointer store scoped to one live session directory."""
+    """File-backed pointer store scoped to one live session directory.
+
+    Single-process ownership: concurrent same-process instances share a
+    path-scoped lock. Multiple server processes must not write the same file.
+    """
 
     def __init__(self, base: Path) -> None:
         self._base = base.resolve()

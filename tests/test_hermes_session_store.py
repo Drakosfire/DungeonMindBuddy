@@ -47,7 +47,8 @@ def test_concurrent_upsert_from_two_instances_preserves_both_bindings(
             executor.submit(upsert_a),
             executor.submit(upsert_b),
         ]
-        concurrent.futures.wait(futures)
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
 
     store = HermesSessionPointerStore(base)
     binding_a = store.get_for_thread(

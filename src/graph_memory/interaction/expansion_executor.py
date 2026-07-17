@@ -50,13 +50,22 @@ ExpansionOperation = Literal[
 
 
 class ExpandTarget(BaseModel):
+    """Node-only targets until edge/assertion expand semantics exist."""
+
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    kind: Literal["node", "edge", "assertion"] = "node"
+    kind: Literal["node"] = "node"
     id: str = Field(min_length=1)
 
 
 class ExpandGraphRetrievalRequest(BaseModel):
+    """Model-visible expand request.
+
+    Only fields the executor actually honors are admitted. Filtering
+    (relationFamilies / claimPredicates) and client-supplied bounds are
+    omitted until they have distinct tested semantics.
+    """
+
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     schema_: Literal["dmb_expand_graph_retrieval_request_v1"] = Field(
@@ -67,14 +76,11 @@ class ExpandGraphRetrievalRequest(BaseModel):
     operation: ExpansionOperation
     targets: list[ExpandTarget] = Field(default_factory=list)
     query_text: str | None = Field(default=None, alias="queryText")
-    relation_families: list[str] = Field(default_factory=list, alias="relationFamilies")
-    claim_predicates: list[str] = Field(default_factory=list, alias="claimPredicates")
     depth: Literal[1, 2] = 1
     historical_revision_id: str | None = Field(
         default=None,
         alias="historicalRevisionId",
     )
-    bounds: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReadGraphSourceRequest(BaseModel):
@@ -121,10 +127,6 @@ def _normalize_interaction_arguments(arguments: Mapping[str, Any]) -> dict[str, 
         payload.pop("max_chars", None)
     if "historicalRevisionId" in payload and "historical_revision_id" in payload:
         payload.pop("historical_revision_id", None)
-    if "relationFamilies" in payload and "relation_families" in payload:
-        payload.pop("relation_families", None)
-    if "claimPredicates" in payload and "claim_predicates" in payload:
-        payload.pop("claim_predicates", None)
     return payload
 
 
@@ -155,7 +157,8 @@ def _session_or_raise(session_id: str):
 
 def _target_node_ids(request: ExpandGraphRetrievalRequest, session) -> list[str]:
     if request.targets:
-        return [t.id for t in request.targets if t.kind == "node"]
+        # Schema admits node targets only; every target id is a node id.
+        return [t.id for t in request.targets]
     selected = session.selected_referent_ids()
     if selected:
         return selected

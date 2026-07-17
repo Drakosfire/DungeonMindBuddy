@@ -10,6 +10,9 @@
 
 - The first Hermes graph turn creates a server-issued opaque `hptr-*` pointer.
 - The pointer binds to `(campaign_id, agent_thread_id)` in durable local server storage.
+- **Concurrency contract:** path-scoped same-process locking only. The live-control
+  server is the single-process writer for `hermes_thread_pointers.json`. Cross-process
+  writers are unsupported without an OS file lock / transactional store.
 - A valid pointer resolves to the internal Hermes session ID without exposing that ID to the UI.
 - Cross-thread or cross-campaign reuse is rejected.
 - Unknown and expired pointers recover to a fresh session and rotate the pointer.

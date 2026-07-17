@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from graph_memory.interaction.answer_validator import (
     ABSTENTION_ANSWER,
@@ -589,6 +590,47 @@ def test_expand_rejects_overpromised_operations() -> None:
         assert result["statusCode"] == 422
 
 
+def test_expand_rejects_unimplemented_target_kinds_and_filters() -> None:
+    """Model-visible schema must not admit fields the executor ignores."""
+    session = _seed_expand_session()
+    for payload in (
+        {
+            "schema": "dmb_expand_graph_retrieval_request_v1",
+            "retrievalSessionId": session.id,
+            "operation": "support",
+            "targets": [{"kind": "edge", "id": "edge:tripod-at-gate"}],
+        },
+        {
+            "schema": "dmb_expand_graph_retrieval_request_v1",
+            "retrievalSessionId": session.id,
+            "operation": "search",
+            "targets": [{"kind": "assertion", "id": "assertion:1"}],
+        },
+        {
+            "schema": "dmb_expand_graph_retrieval_request_v1",
+            "retrievalSessionId": session.id,
+            "operation": "neighborhood",
+            "targets": [{"kind": "node", "id": "threat:tripod"}],
+            "relationFamilies": ["appeared_in"],
+        },
+        {
+            "schema": "dmb_expand_graph_retrieval_request_v1",
+            "retrievalSessionId": session.id,
+            "operation": "search",
+            "claimPredicates": ["location"],
+        },
+        {
+            "schema": "dmb_expand_graph_retrieval_request_v1",
+            "retrievalSessionId": session.id,
+            "operation": "search",
+            "bounds": {"maxNodes": 1},
+        },
+    ):
+        result = execute_expand_graph_retrieval(payload)
+        assert result["code"] == "invalid_arguments", payload
+        assert result["statusCode"] == 422
+
+
 @pytest.mark.parametrize(
     ("operation", "patch_target", "expected_schema"),
     [
@@ -679,6 +721,82 @@ def test_graph_claim_hydrate_round_trip_preserves_all_fields() -> None:
     assert full_claim.model_dump(mode="json", by_alias=True) == rehydrated.claims[
         0
     ].model_dump(mode="json", by_alias=True)
+
+
+def _minimal_claim_dict(**overrides: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "schema": "dmb_graph_claim_v1",
+        "claim_id": "assertion:minimal",
+        "claim_kind": "attribute",
+        "revision_id": "revision:foreign",
+        "authority_class": "accepted_explicit_attribute",
+        "support": {"state": "graph_accepted"},
+    }
+    base.update(overrides)
+    return base
+
+
+def _hydrate_packet_with_claim(claim: dict[str, object], *, snapshot_revision: str = "revision:current"):
+    packet = {
+        "schema": "dmb_graph_retrieval_session_v1",
+        "retrieval_session_id": "grs:hydrate-fail-closed",
+        "snapshot": {
+            "world_id": "world:eldyrwild",
+            "campaign_id": "campaign:c1",
+            "revision_id": snapshot_revision,
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+        },
+        "question": "test",
+        "claim_ledger": [claim],
+    }
+    return hydrate_session_from_packet(packet)
+
+
+def test_hydrate_preserves_foreign_revision_without_rebinding() -> None:
+    claim = _minimal_claim_dict(revision_id="revision:foreign")
+    session = _hydrate_packet_with_claim(claim, snapshot_revision="revision:current")
+    assert session.snapshot.revision_id == "revision:current"
+    assert session.claims[0].revision_id == "revision:foreign"
+
+
+def test_hydrate_rejects_missing_revision_id() -> None:
+    claim = _minimal_claim_dict()
+    del claim["revision_id"]
+    with pytest.raises(ValidationError):
+        _hydrate_packet_with_claim(claim)
+
+
+def test_hydrate_rejects_missing_claim_kind() -> None:
+    claim = _minimal_claim_dict()
+    del claim["claim_kind"]
+    with pytest.raises(ValidationError):
+        _hydrate_packet_with_claim(claim)
+
+
+def test_hydrate_rejects_missing_authority_class() -> None:
+    claim = _minimal_claim_dict()
+    del claim["authority_class"]
+    with pytest.raises(ValidationError):
+        _hydrate_packet_with_claim(claim)
+
+
+def test_hydrate_rejects_invalid_authority_class() -> None:
+    claim = _minimal_claim_dict(authority_class="not_a_real_authority")
+    with pytest.raises(ValidationError):
+        _hydrate_packet_with_claim(claim)
+
+
+def test_hydrate_rejects_invalid_support_state() -> None:
+    claim = _minimal_claim_dict(support={"state": "not_a_real_support_state"})
+    with pytest.raises(ValidationError):
+        _hydrate_packet_with_claim(claim)
+
+
+def test_hydrate_rejects_extra_claim_fields() -> None:
+    claim = _minimal_claim_dict(invented_field="should-fail")
+    with pytest.raises(ValidationError):
+        _hydrate_packet_with_claim(claim)
 
 
 def test_expand_graph_retrieval_rejects_unknown_session() -> None:
