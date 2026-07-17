@@ -1,0 +1,62 @@
+{
+  "question": "What changed after the latest ingested recap?",
+  "results": [
+    {
+      "trial": 1,
+      "http_status": 200,
+      "elapsed_ms": 14079,
+      "grounding_state": "partial",
+      "acceptance_state": "partial_coverage",
+      "reason_codes": [
+        "named_gap",
+        "latest_recap_memory_lag_disclosed"
+      ],
+      "warnings": [],
+      "answer_preview": "The latest admitted recap is session-24.\n\nComparison boundary: latest admitted recap to graph head session session-23 and revision rev:5cadc9798562862cdde22350d8a3b56c.\n\nsession-24 is admitted as a recap source, but it is not yet present in the durable World Graph head. That is memory lag, not a completed no-change comparison.\n\nI cannot narrate grounded campaign movement from graph claims for this turn because the focused graph has no admissible matched objects yet. Promote or ingest the latest ",
+      "answer_has_session_24": true,
+      "answer_has_session_23": true,
+      "answer_mentions_memory_lag": true,
+      "has_no_admissible_claims": false,
+      "latest_recap_outcome": "memory_lag",
+      "agent_trace_state": null
+    },
+    {
+      "trial": 2,
+      "http_status": 200,
+      "elapsed_ms": 11680,
+      "grounding_state": "partial",
+      "acceptance_state": "partial_coverage",
+      "reason_codes": [
+        "named_gap",
+        "latest_recap_memory_lag_disclosed"
+      ],
+      "warnings": [],
+      "answer_preview": "The latest admitted recap is session-24.\n\nComparison boundary: latest admitted recap to graph head session session-23 and revision rev:5cadc9798562862cdde22350d8a3b56c.\n\nsession-24 is admitted as a recap source, but it is not yet present in the durable World Graph head. That is memory lag, not a completed no-change comparison.\n\nI cannot narrate grounded campaign movement from graph claims for this turn because the focused graph has no admissible matched objects yet. Promote or ingest the latest ",
+      "answer_has_session_24": true,
+      "answer_has_session_23": true,
+      "answer_mentions_memory_lag": true,
+      "has_no_admissible_claims": false,
+      "latest_recap_outcome": "memory_lag",
+      "agent_trace_state": null
+    },
+    {
+      "trial": 3,
+      "http_status": 200,
+      "elapsed_ms": 11191,
+      "grounding_state": "partial",
+      "acceptance_state": "partial_coverage",
+      "reason_codes": [
+        "named_gap",
+        "latest_recap_memory_lag_disclosed"
+      ],
+      "warnings": [],
+      "answer_preview": "The latest admitted recap is session-24.\n\nComparison boundary: latest admitted recap to graph head session session-23 and revision rev:5cadc9798562862cdde22350d8a3b56c.\n\nsession-24 is admitted as a recap source, but it is not yet present in the durable World Graph head. That is memory lag, not a completed no-change comparison.\n\nI cannot narrate grounded campaign movement from graph claims for this turn because the focused graph has no admissible matched objects yet. Promote or ingest the latest ",
+      "answer_has_session_24": true,
+      "answer_has_session_23": true,
+      "answer_mentions_memory_lag": true,
+      "has_no_admissible_claims": false,
+      "latest_recap_outcome": "memory_lag",
+      "agent_trace_state": null
+    }
+  ]
+}

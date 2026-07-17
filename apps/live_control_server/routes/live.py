@@ -12,9 +12,7 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextError,
     AgentWorldGraphQueryContextRequest,
 )
-from apps.live_control_server.services.hermes_graph_query import (
-    HermesGraphQueryRequestError,
-)
+from apps.live_control_server.services.hermes_graph_query import HermesGraphQueryRequestError
 from apps.live_control_server.services.live_agent_loop import process_live_query
 from apps.live_control_server.services.citation_source_reader import (
     CitationSourceError,
@@ -175,8 +173,85 @@ class LiveQueryRequest(BaseModel):
     manifest_path: str | None = None
     agent_thread_id: str | None = None
     hermes_session_id: str | None = None
+    hermes_session_pointer: str | None = None
     trace_requested: bool | None = None
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None
+    conversation_history: Any | None = None
+
+
+def _history_is_absent(value: Any) -> bool:
+    return value is None or (isinstance(value, list) and len(value) == 0)
+
+
+_ROUTE_HISTORY_MAX_MESSAGES = 12
+_ROUTE_HISTORY_MAX_MESSAGE_CHARS = 4000
+_ROUTE_HISTORY_MAX_TOTAL_CHARS = 16000
+_ROUTE_HISTORY_ROLES = frozenset({"user", "assistant"})
+
+
+def _route_history_invalid(message: str) -> HermesGraphQueryRequestError:
+    return HermesGraphQueryRequestError(message, code="hermes_history_invalid")
+
+
+def _normalize_route_conversation_history(value: Any) -> list[dict[str, str]] | None:
+    """Route-owned wire parser — independent of the service normalizer."""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise _route_history_invalid("conversation_history must be a list, null, or absent.")
+    if len(value) == 0:
+        return None
+    if len(value) > _ROUTE_HISTORY_MAX_MESSAGES:
+        raise _route_history_invalid("conversation_history exceeds maximum message count.")
+    if len(value) % 2 != 0:
+        raise _route_history_invalid(
+            "conversation_history must contain complete user/assistant pairs."
+        )
+
+    normalized: list[dict[str, str]] = []
+    total_chars = 0
+    for index, item in enumerate(value):
+        expected_role = "user" if index % 2 == 0 else "assistant"
+        if not isinstance(item, dict):
+            raise _route_history_invalid("conversation_history entries must be objects.")
+        unknown = set(item.keys()) - {"role", "content"}
+        if unknown:
+            raise _route_history_invalid("conversation_history entries contain unknown keys.")
+        role = item.get("role")
+        if role not in _ROUTE_HISTORY_ROLES:
+            raise _route_history_invalid("conversation_history role must be user or assistant.")
+        if role != expected_role:
+            raise _route_history_invalid(
+                "conversation_history messages must alternate user then assistant."
+            )
+        content_raw = item.get("content")
+        if not isinstance(content_raw, str):
+            raise _route_history_invalid("conversation_history content must be a string.")
+        content = content_raw.strip()
+        if not content:
+            raise _route_history_invalid("conversation_history content must be non-empty.")
+        if len(content) > _ROUTE_HISTORY_MAX_MESSAGE_CHARS:
+            raise _route_history_invalid("conversation_history message exceeds maximum length.")
+        total_chars += len(content)
+        if total_chars > _ROUTE_HISTORY_MAX_TOTAL_CHARS:
+            raise _route_history_invalid("conversation_history exceeds total content budget.")
+        normalized.append({"role": role, "content": content})
+    return normalized
+
+
+def _parse_live_query_conversation_history(
+    *,
+    query_backend: str,
+    conversation_history: Any | None,
+) -> list[dict[str, str]] | None:
+    if _history_is_absent(conversation_history):
+        return None
+    if query_backend != "hermes":
+        raise HermesGraphQueryRequestError(
+            "conversation_history is supported only for Hermes queries.",
+            code="conversation_history_not_supported",
+        )
+    return _normalize_route_conversation_history(conversation_history)
 
 
 class ResolveRollRequest(BaseModel):
@@ -825,6 +900,10 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             detail="campaign_id/session do not match loaded live packet",
         )
     try:
+        normalized_history = _parse_live_query_conversation_history(
+            query_backend=body.query_backend,
+            conversation_history=body.conversation_history,
+        )
         return process_live_query(
             body.text,
             base=base,
@@ -832,9 +911,11 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             query_backend=body.query_backend,
             agent_thread_id=body.agent_thread_id,
             hermes_session_id=body.hermes_session_id,
+            hermes_session_pointer=body.hermes_session_pointer,
             trace_requested=body.trace_requested,
             world_graph_context=body.world_graph_context,
             outer_campaign_id=body.campaign_id,
+            conversation_history=normalized_history,
         )
     except HermesGraphQueryRequestError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.response_body())

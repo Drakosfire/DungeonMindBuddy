@@ -3,23 +3,23 @@ import type { Editor } from "@tiptap/react";
 
 import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../../api/liveApi";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
-import type { PlanSessionDescriptor } from "../types";
+import type { PlanDocumentDescriptor } from "../types";
 import {
   planMarkdownSaveStatusLabel,
   type PlanMarkdownSaveState,
   type PlanMarkdownSaveStatus,
 } from "./planMarkdownSaveTypes";
 
-function canSaveToTarget(targetRelpath: string): boolean {
-  return targetRelpath !== "TBD durable planning path";
+function canSaveToTarget(targetRelpath: string | null): boolean {
+  return targetRelpath != null && targetRelpath !== "TBD durable planning path";
 }
 
 export function usePlanMarkdownSave(args: {
   editor: Editor | null;
-  sessionDescriptor: PlanSessionDescriptor;
+  planningDocument: PlanDocumentDescriptor;
+  onPlanningDocumentCommitted?: (document: PlanDocumentDescriptor) => void;
 }) {
-  const { editor, sessionDescriptor } = args;
-  const planningDocument = sessionDescriptor.planningDocument;
+  const { editor, planningDocument, onPlanningDocumentCommitted } = args;
   const [state, setState] = useState<PlanMarkdownSaveState>({ status: "idle" });
 
   const exportCurrentMarkdown = useCallback((): string | null => {
@@ -65,9 +65,8 @@ export function usePlanMarkdownSave(args: {
     try {
       const prepared = await prepareTiptapMarkdownWrite({
         document_id: planningDocument.documentId,
-        title: planningDocument.title,
-        target_relpath: planningDocument.targetRelpath,
         markdown,
+        expected_revision: planningDocument.revision,
       });
 
       if (!prepared.writer_ok || !prepared.writer_confirm_token) {
@@ -82,10 +81,17 @@ export function usePlanMarkdownSave(args: {
 
       const committed = await commitTiptapMarkdownWrite({
         document_id: planningDocument.documentId,
-        title: planningDocument.title,
-        target_relpath: prepared.target_relpath,
         markdown,
         writer_confirm_token: prepared.writer_confirm_token,
+        expected_revision: planningDocument.revision,
+      });
+
+      onPlanningDocumentCommitted?.({
+        ...planningDocument,
+        title: committed.title,
+        targetRelpath: committed.target_relpath,
+        revision: committed.registry_revision,
+        contentStatus: "committed",
       });
 
       setState({
@@ -104,7 +110,11 @@ export function usePlanMarkdownSave(args: {
           : message,
       });
     }
-  }, [exportCurrentMarkdown, planningDocument.documentId, planningDocument.targetRelpath, planningDocument.title]);
+  }, [
+    exportCurrentMarkdown,
+    onPlanningDocumentCommitted,
+    planningDocument,
+  ]);
 
   const statusLabel = planMarkdownSaveStatusLabel(state);
   const saveDisabled = !editor || !canSaveToTarget(planningDocument.targetRelpath) || state.status === "saving";

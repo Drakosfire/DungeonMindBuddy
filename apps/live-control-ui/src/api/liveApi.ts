@@ -53,6 +53,11 @@ import type {
   TiptapMarkdownWriteCommitResponse,
   TiptapMarkdownWritePrepareRequest,
   TiptapMarkdownWritePrepareResponse,
+  WorkspaceDocumentRecord,
+  WorkspaceDocumentsListResponse,
+  CreateWorkspaceDocumentRequest,
+  UpdateWorkspaceDocumentMetadataRequest,
+  WorkspaceDocumentRevisionRequest,
   GraphPreviewSurfaceResponse,
   GraphPreviewRunsResponse,
   GraphIngestLatestRunResponse,
@@ -94,6 +99,7 @@ import type {
   PartyRegistrySessionRosterWritePrepareRequest,
   PartyRegistrySessionRosterWritePrepareResponse,
 } from "./types";
+import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 const defaultUnionSupergraphPreviewSource =
@@ -648,32 +654,46 @@ export async function postLiveQuery(
   queryBackend: LiveQueryBackend = "live",
   options: LiveQueryOptions = {},
 ): Promise<LiveQueryResponse> {
-  const body =
-    queryBackend === "hermes"
-      ? {
-          campaign_id: campaignId,
-          session,
-          mode: "live",
-          query_backend: "hermes",
-          text,
-          agent_thread_id: options.agentThreadId ?? null,
-          trace_requested: options.traceRequested ?? null,
-          ...(options.worldGraphContext != null
-            ? { world_graph_context: options.worldGraphContext }
-            : {}),
-        }
-      : {
-          campaign_id: campaignId,
-          session,
-          mode: "live",
-          query_backend: queryBackend,
-          text,
-          manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
-          agent_thread_id: options.agentThreadId ?? null,
-          hermes_session_id: options.hermesSessionId ?? null,
-          trace_requested: options.traceRequested ?? null,
-          world_graph_context: options.worldGraphContext ?? undefined,
-        };
+  if (queryBackend === "hermes") {
+    const normalizedHistory = normalizeHermesOutboundConversationHistory(
+      options.conversationHistory,
+    );
+    const body: Record<string, unknown> = {
+      campaign_id: campaignId,
+      session,
+      mode: "live",
+      query_backend: "hermes",
+      text,
+      agent_thread_id: options.agentThreadId ?? null,
+      trace_requested: options.traceRequested ?? null,
+      ...(options.hermesSessionPointer
+        ? { hermes_session_pointer: options.hermesSessionPointer }
+        : {}),
+      ...(options.worldGraphContext != null
+        ? { world_graph_context: options.worldGraphContext }
+        : {}),
+      ...(normalizedHistory.length > 0
+        ? { conversation_history: normalizedHistory }
+        : {}),
+    };
+    return apiFetch<LiveQueryResponse>("/api/live/query", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  const body = {
+    campaign_id: campaignId,
+    session,
+    mode: "live",
+    query_backend: queryBackend,
+    text,
+    manifest_path: DEFAULT_PLANNING_MANIFEST_PATH,
+    agent_thread_id: options.agentThreadId ?? null,
+    hermes_session_id: options.hermesSessionId ?? null,
+    trace_requested: options.traceRequested ?? null,
+    world_graph_context: options.worldGraphContext ?? undefined,
+  };
 
   return apiFetch<LiveQueryResponse>("/api/live/query", {
     method: "POST",
@@ -828,6 +848,66 @@ export async function commitStatblockCorpusWrite(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
     },
+  );
+}
+
+export async function listWorkspaceDocuments(args: {
+  campaign_id?: string;
+  kind?: "plan" | "runbook";
+  status?: "active" | "discarded";
+} = {}): Promise<WorkspaceDocumentsListResponse> {
+  const params = new URLSearchParams();
+  if (args.campaign_id) params.set("campaign_id", args.campaign_id);
+  if (args.kind) params.set("kind", args.kind);
+  if (args.status) params.set("status", args.status);
+  const query = params.toString();
+  return apiFetch<WorkspaceDocumentsListResponse>(
+    `/api/live/workspace-documents${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
+  );
+}
+
+export async function createWorkspaceDocument(
+  request: CreateWorkspaceDocumentRequest,
+): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    "/api/live/workspace-documents",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function updateWorkspaceDocumentMetadata(
+  documentId: string,
+  request: UpdateWorkspaceDocumentMetadataRequest,
+): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
+    { method: "PATCH", body: JSON.stringify(request) },
+  );
+}
+
+export async function discardWorkspaceDocument(
+  documentId: string,
+  request: WorkspaceDocumentRevisionRequest = {},
+): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/discard`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function restoreWorkspaceDocument(
+  documentId: string,
+  request: WorkspaceDocumentRevisionRequest = {},
+): Promise<WorkspaceDocumentRecord> {
+  return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/restore`,
+    { method: "POST", body: JSON.stringify(request) },
   );
 }
 

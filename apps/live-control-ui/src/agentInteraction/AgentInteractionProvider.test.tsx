@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { LiveQueryResponse } from "../api/types";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { activeThreadStorageKey, createAgentInteractionThread, persistAgentThread, threadStorageKey } from "./agentInteractionStorage";
+import { FIXTURE_DOC_ID } from "../planSurface/config/planSessionDescriptor";
 import { useAgentInteraction } from "./useAgentInteraction";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -45,7 +46,7 @@ describe("AgentInteractionProvider", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
 
     act(() => {
-      result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" });
+      result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID });
       result.current.publishSurfaceContext({
         surfaceId: "plan",
         label: "Plan · Session 23",
@@ -67,16 +68,16 @@ describe("AgentInteractionProvider", () => {
   });
 
   it("rehydrates saved thread state and keeps thread turns isolated", () => {
-    const first = { ...createAgentInteractionThread("longmont-c2", 23, "plan", "live", "First"), threadId: "first" };
-    const second = { ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Second"), threadId: "second" };
+    const first = { ...createAgentInteractionThread("longmont-c2", 23, "plan", "live", "First", FIXTURE_DOC_ID), threadId: "first" };
+    const second = { ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Second", FIXTURE_DOC_ID), threadId: "second" };
     first.turns = [{ turnId: "t1", askedAt: "2026-06-28T00:00:00.000Z", question: "A?", answer: "A", backend: "live", status: "ok" }];
     second.turns = [{ turnId: "t2", askedAt: "2026-06-28T00:00:00.000Z", question: "B?", answer: "B", backend: "hermes", status: "ok", corpusFreshness: { status: "changed", checked_at: "2026-06-28T00:00:00.000Z", diagnostics: [], warnings: [] } }];
     persistAgentThread(first);
     persistAgentThread(second);
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), "second");
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), "second");
 
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
 
     expect(result.current.activeThread?.threadId).toBe("second");
     expect(result.current.turns[0].question).toBe("B?");
@@ -91,61 +92,88 @@ describe("AgentInteractionProvider", () => {
     expect(result.current.turns[0].question).not.toBe("B?");
   });
 
-  it("clears stale Hermes session after hermes_graph_agent response", () => {
-    const staleSession = {
-      sessionId: "stale-hermes-session",
-      runtime: "api",
-      title: "Stale session",
-    };
-    const seeded = {
-      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Seeded"),
-      threadId: "seeded-thread",
-      hermesSession: staleSession,
-    };
-    persistAgentThread(seeded);
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), seeded.threadId);
-
+  it("persists server-approved Hermes pointer for graph turns", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
-    expect(result.current.activeThread?.hermesSession).toEqual(staleSession);
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
 
     act(() => {
       result.current.appendResponseTurn("Graph question?", {
         ...response,
         mode: "hermes_graph_agent",
-        hermes_session: null,
+        hermes_session: {
+          sessionId: "hptr-server-approved",
+          runtime: "process_isolated",
+          title: null,
+          createdAt: "2026-06-28T00:00:00.000Z",
+          updatedAt: "2026-06-28T00:00:01.000Z",
+        },
         agent_trace: {
           trace_id: "trace-hermes",
-          hermes_session_id: "observability-only-session",
-          runtime: "api",
+          runtime: "process_isolated",
           backend: "hermes",
           mode: "hermes_graph_agent",
           started_at: "2026-06-28T00:00:00.000Z",
           completed_at: "2026-06-28T00:00:01.000Z",
           elapsed_ms: 10,
           status: "ok",
-          usage: { available: true, input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+          usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
           steps: [],
           context_summary: {},
           artifact_refs: [],
+          conversation_context: {
+            history_present: false,
+            message_count: 0,
+            pair_count: 0,
+            payload_shape: "role_content_only",
+            graph_metadata_in_history: false,
+            hermes_session_pointer_in_request: false,
+            hermes_session_pointer_status: "absent",
+            worker_pid_changed: false,
+            fresh_graph_revision_used: true,
+          },
           warnings: [],
         } as never,
       });
     });
 
-    expect(result.current.activeThread?.hermesSession).toBeNull();
-    expect(result.current.activeThread?.turns[0].trace?.hermes_session_id).toBe("observability-only-session");
+    expect(result.current.activeThread?.hermesSession?.sessionId).toBe("hptr-server-approved");
+    expect(result.current.activeThread?.turns[0].trace?.hermes_session_id).toBeUndefined();
   });
 
-  it("keeps subsequent Hermes turns independent without forwarding a session handle", () => {
+  it("rehydrates persisted Hermes pointer with the thread", () => {
+    const seeded = {
+      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Seeded", FIXTURE_DOC_ID),
+      threadId: "seeded-thread",
+      hermesSession: {
+        sessionId: "hptr-reload",
+        runtime: "process_isolated",
+        title: null,
+        createdAt: "2026-06-28T00:00:00.000Z",
+        updatedAt: "2026-06-28T00:00:01.000Z",
+      },
+    };
+    persistAgentThread(seeded);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), seeded.threadId);
+
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
+
+    expect(result.current.activeThread?.hermesSession?.sessionId).toBe("hptr-reload");
+  });
+
+  it("keeps subsequent Hermes turns forwarding the persisted pointer", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
 
     act(() => {
       result.current.appendResponseTurn("First graph turn?", {
         ...response,
         mode: "hermes_graph_agent",
-        hermes_session: null,
+        hermes_session: {
+          sessionId: "hptr-follow-up",
+          runtime: "process_isolated",
+          title: null,
+        },
       });
     });
     act(() => {
@@ -153,11 +181,15 @@ describe("AgentInteractionProvider", () => {
         ...response,
         answer: "Second answer",
         mode: "hermes_graph_agent",
-        hermes_session: null,
+        hermes_session: {
+          sessionId: "hptr-follow-up",
+          runtime: "process_isolated",
+          title: null,
+        },
       });
     });
 
-    expect(result.current.activeThread?.hermesSession).toBeNull();
+    expect(result.current.activeThread?.hermesSession?.sessionId).toBe("hptr-follow-up");
     expect(result.current.activeThread?.turns).toHaveLength(2);
     expect(result.current.activeThread?.turns[0].answer).toBe("Second answer");
   });
@@ -169,7 +201,7 @@ describe("AgentInteractionProvider", () => {
       title: "Live session",
     };
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
 
     act(() => {
       result.current.appendResponseTurn("Live turn?", {
@@ -184,10 +216,10 @@ describe("AgentInteractionProvider", () => {
 
   it("persists bounded metadata without prompt previews or raw context packets", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
-    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan" }));
+    act(() => result.current.rehydrateScope({ campaignId: "longmont-c2", sessionNumber: 23, surfaceId: "plan", documentId: FIXTURE_DOC_ID }));
     act(() => result.current.appendResponseTurn("Bounded?", { ...response, ["context" + "_packet"]: { admitted_evidence: [{ evidence_id: "e1", path: "corpus/session.md", source_role: "play_recap", authority: "canon_play", text_excerpt: "unbounded excerpt" }], rejected_evidence: [] }, agent_trace: { trace_id: "trace", prompt_preview: "raw" + " prompt", artifact_refs: [{ kind: "file", label: "tmp", path: "/tmp/raw.json" }] } as never }));
 
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     const stored = localStorage.getItem(threadStorageKey("longmont-c2", String(activeThreadId))) ?? "";
     expect(stored).toContain("Bounded?");
     expect(stored).toContain("corpus/session.md");

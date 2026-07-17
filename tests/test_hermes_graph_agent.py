@@ -17,17 +17,25 @@ import yaml
 
 from apps.live_control_server.services.hermes_graph_agent import (
     HermesGraphAgentTurnRequest,
+    _derive_answer_scope,
     _summarize_tool_result,
     run_hermes_graph_agent_turn,
 )
-from apps.live_control_server.services.hermes_graph_read_tool_adapter import (
-    hermes_graph_read_tool_definitions,
+from apps.live_control_server.services.hermes_graph_agent_contract import (
+    HermesGraphToolEvent,
+    deserialize_hermes_graph_agent_turn_result,
+    serialize_hermes_graph_agent_turn_result,
 )
-from apps.live_control_server.services.hermes_graph_read_tools import (
-    HERMES_GRAPH_READ_TOOL_NAMES,
+from apps.live_control_server.services.hermes_graph_interaction_tools import (
+    DECLARE_CONVERSATION_CONTEXT_ACK_SCHEMA,
+    DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+    execute_hermes_graph_interaction_tool_json,
+    hermes_model_visible_tool_definitions,
 )
 from graph_memory.hermes_graph_plugin import (
+    HERMES_GRAPH_READ_TOOL_NAMES,
     ORDERED_GRAPH_TOOL_NAMES,
+    ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     TOOLSET_NAME,
     HermesCapabilityPolicy,
     HermesGraphScope,
@@ -36,8 +44,11 @@ from graph_memory.hermes_graph_plugin import (
     apply_capability_policy_to_arguments,
     default_graph_only_capability_policy,
     reset_active_capability_policy,
+    reset_active_retrieval_session_id,
     set_active_capability_policy,
+    set_active_retrieval_session_id,
 )
+from graph_memory.interaction.schema_constants import EXPAND_GRAPH_RETRIEVAL_SCHEMA
 from graph_memory.retrieval.models import (
     RETRIEVAL_ERROR_SCHEMA,
     WorldGraphRetrievalDiagnostic,
@@ -142,7 +153,7 @@ def _enable_graph_plugin(tmp_path: Path) -> Path:
     return home
 
 
-def test_plugin_discovery_registers_exact_five_graph_tools(
+def test_plugin_discovery_registers_exact_two_interaction_tools(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -161,13 +172,16 @@ def test_plugin_discovery_registers_exact_five_graph_tools(
     entries, _ = registry._snapshot_state()
     graph_tools = [e for e in entries if e.toolset == TOOLSET_NAME]
     names = [e.name for e in graph_tools]
-    assert names == list(ORDERED_TOOL_NAMES)
-    assert set(names) == set(HERMES_GRAPH_READ_TOOL_NAMES)
+    assert names == list(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
+    retrieval_names = [name for name in names if name in HERMES_GRAPH_READ_TOOL_NAMES]
+    assert retrieval_names == list(ORDERED_TOOL_NAMES)
+    assert set(retrieval_names) == set(HERMES_GRAPH_READ_TOOL_NAMES)
+    assert DECLARE_CONVERSATION_CONTEXT_TOOL_NAME in names
     for legacy in LEGACY_TOOL_NAMES:
         assert legacy not in names
 
 
-def test_plugin_schemas_match_rung2_catalog_function_schemas(
+def test_plugin_schemas_match_interaction_catalog_function_schemas(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -180,7 +194,7 @@ def test_plugin_schemas_match_rung2_catalog_function_schemas(
     hermes_plugins.discover_plugins(force=True)
     catalog = {
         item["function"]["name"]: item["function"]
-        for item in hermes_graph_read_tool_definitions()
+        for item in hermes_model_visible_tool_definitions()
     }
     entries, _ = registry._snapshot_state()
     for entry in entries:
@@ -189,7 +203,7 @@ def test_plugin_schemas_match_rung2_catalog_function_schemas(
         assert entry.schema == catalog[entry.name]
 
 
-def test_plugin_handlers_route_to_rung2_json_adapter(
+def test_plugin_handlers_route_to_interaction_json_executor(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -216,38 +230,35 @@ def test_plugin_handlers_route_to_rung2_json_adapter(
         )
 
     monkeypatch.setattr(
-        "graph_memory.hermes_graph_plugin.execute_hermes_graph_read_tool_json",
+        "graph_memory.hermes_graph_plugin.execute_hermes_graph_interaction_tool_json",
         _fake_execute,
     )
 
     policy = default_graph_only_capability_policy(_default_scope())
-    token = set_active_capability_policy(policy)
+    policy_token = set_active_capability_policy(policy)
+    session_token = set_active_retrieval_session_id("sess:policy-inject")
     try:
         entries, _ = registry._snapshot_state()
         by_name = {e.name: e for e in entries if e.toolset == TOOLSET_NAME}
         payload = {
-            "schema": "dmb_world_graph_search_request_v1",
-            "worldId": "world:WRONG",
-            "campaignId": "campaign:WRONG",
+            "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+            "retrievalSessionId": "sess:SPOOF",
+            "operation": "search",
             "queryText": "Tripod",
-            "focus": {"kind": "session", "sessionId": "session:spoof"},
-            "admissibility": "player",
-            "revisionPin": "rev:spoof",
         }
-        result = by_name["search_campaign_graph"].handler(payload)
+        result = by_name["expand_graph_retrieval"].handler(payload)
         assert isinstance(result, str)
         assert len(calls) == 1
-        assert calls[0][0] == "search_campaign_graph"
-        # Runtime injects authoritative scope; model spoofing is overwritten.
-        assert calls[0][1]["worldId"] == "world:eldyrwild"
-        assert calls[0][1]["campaignId"] == "campaign:c1"
-        assert calls[0][1]["admissibility"] == "gm"
-        assert calls[0][1]["revisionPin"] is None
-        assert calls[0][1]["focus"] == {"kind": "none", "sessionId": None}
+        assert calls[0][0] == "expand_graph_retrieval"
+        # Runtime injects authoritative retrieval session; model spoofing is overwritten.
+        assert calls[0][1]["retrievalSessionId"] == "sess:policy-inject"
+        assert "retrieval_session_id" not in calls[0][1]
+        assert calls[0][1]["operation"] == "search"
         assert calls[0][1]["queryText"] == "Tripod"
         assert json.loads(result)["outcome"] == "empty"
     finally:
-        reset_active_capability_policy(token)
+        reset_active_retrieval_session_id(session_token)
+        reset_active_capability_policy(policy_token)
 
 
 def test_dispatch_without_active_policy_is_denied(
@@ -267,11 +278,11 @@ def test_dispatch_without_active_policy_is_denied(
         entries, _ = registry._snapshot_state()
         by_name = {e.name: e for e in entries if e.toolset == TOOLSET_NAME}
         result = json.loads(
-            by_name["search_campaign_graph"].handler(
+            by_name["expand_graph_retrieval"].handler(
                 {
-                    "schema": "dmb_world_graph_search_request_v1",
-                    "worldId": "world:eldyrwild",
-                    "campaignId": "campaign:c1",
+                    "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+                    "retrievalSessionId": "sess:denied",
+                    "operation": "search",
                     "queryText": "x",
                 }
             )
@@ -285,20 +296,24 @@ def test_dispatch_without_active_policy_is_denied(
 def test_capability_policy_rejects_unlisted_tool() -> None:
     policy = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
-        enabled_tool_names=("search_campaign_graph",),
+        enabled_tool_names=("expand_graph_retrieval",),
         graph_scope=_default_scope(),
         plugin_activations=(_graph_plugin_activation(),),
         tool_rules=(
             HermesToolCapabilityRule(
-                tool_name="search_campaign_graph",
-                require_graph_scope=True,
+                tool_name="expand_graph_retrieval",
+                require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
             ),
         ),
     )
     payload, denied = apply_capability_policy_to_arguments(
-        "get_campaign_object",
-        {"worldId": "world:eldyrwild", "campaignId": "campaign:c1", "nodeId": "n1"},
+        "read_graph_source",
+        {
+            "schema": "dmb_read_graph_source_request_v1",
+            "retrievalSessionId": "sess:1",
+            "anchorIds": ["source-anchor:v1:example"],
+        },
         policy=policy,
     )
     assert payload is None
@@ -330,13 +345,10 @@ class _FakeAgent:
         }
         if self._start and self._complete:
             args = {
-                "schema": "dmb_world_graph_search_request_v1",
-                "worldId": "world:eldyrwild",
-                "campaignId": "campaign:c1",
+                "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+                "retrievalSessionId": "sess:fake-events",
+                "operation": "search",
                 "queryText": "Tripod",
-                "focus": {"kind": "none", "sessionId": None},
-                "admissibility": "gm",
-                "revisionPin": None,
             }
             rel = WorldGraphRetrievalRelationship(
                 edge_id="edge:tripod-north-gate",
@@ -373,8 +385,8 @@ class _FakeAgent:
             leaked = json.loads(tool_json)
             leaked["content"] = "/secret/path should never appear in events"
             tool_json = json.dumps(leaked)
-            self._start("call-1", "search_campaign_graph", args)
-            self._complete("call-1", "search_campaign_graph", args, tool_json)
+            self._start("call-1", "expand_graph_retrieval", args)
+            self._complete("call-1", "expand_graph_retrieval", args, tool_json)
         return {
             "final_response": "Tripod is at the North Gate.",
             "messages": [
@@ -404,18 +416,72 @@ def test_agent_receives_exact_lockdown_configuration(tmp_path: Path) -> None:
     assert init.get("skip_context_files") is True
     assert init.get("enabled_toolsets") == [TOOLSET_NAME]
     assert init.get("fallback_model") is None
+    assert init.get("provider") == "openai-api"
+    assert init.get("base_url") == "https://api.openai.com/v1"
+    assert init.get("api_mode") == "chat_completions"
+    assert isinstance(init.get("model"), str) and init.get("model")
     assert "disabled_toolsets" not in init or init.get("disabled_toolsets") in (None, [])
+    assert "anthropic" not in str(init.get("provider") or "").lower()
+    assert "anthropic" not in str(init.get("base_url") or "").lower()
+
+
+def test_missing_openai_key_fails_closed_for_production_factory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import hermes_graph_agent as agent_mod
+
+    monkeypatch.setattr(
+        agent_mod,
+        "_resolve_hermes_openai_inference",
+        lambda **_kwargs: "hermes_openai_credentials_missing",
+    )
+    result = agent_mod.run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="What changed after the latest ingested recap?",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            root=tmp_path,
+        ),
+        agent_factory=None,
+    )
+    assert result.status == "error"
+    assert result.error_code == "hermes_openai_credentials_missing"
+    assert "OPENAI_API_KEY" in (result.error_message or "")
+
+
+def test_isolated_home_config_pins_openai_not_anthropic(tmp_path: Path) -> None:
+    from apps.live_control_server.services.hermes_graph_agent import (
+        _prepare_isolated_hermes_home,
+    )
+
+    home = tmp_path / "isolated"
+    _prepare_isolated_hermes_home(
+        home,
+        enabled_plugin_ids=["dungeonbuddy_graph"],
+        model="gpt-5.4-mini",
+        provider="openai-api",
+        base_url="https://api.openai.com/v1",
+    )
+    raw = yaml.safe_load((home / "config.yaml").read_text(encoding="utf-8"))
+    assert raw["model"]["provider"] == "openai-api"
+    assert raw["model"]["default"] == "gpt-5.4-mini"
+    assert "anthropic" not in json.dumps(raw).lower()
+    assert "openrouter" not in json.dumps(raw).lower()
 
 
 def test_turn_passes_history_and_captures_messages(tmp_path: Path) -> None:
-    history = [{"role": "user", "content": "Remember: it means Tripod."}]
+    history = [
+        {"role": "user", "content": "What do we know about Tripod Null-Calf at the North Gate?"},
+        {"role": "assistant", "content": "Tripod Null-Calf is a siege scout."},
+    ]
     result = run_hermes_graph_agent_turn(
         HermesGraphAgentTurnRequest(
             question="What is it connected to?",
             world_id="world:eldyrwild",
             campaign_id="campaign:c1",
             conversation_history=history,
-            session_id="sess-hist",
+            session_id=None,
             root=tmp_path,
         ),
         agent_factory=_FakeAgent,
@@ -423,9 +489,9 @@ def test_turn_passes_history_and_captures_messages(tmp_path: Path) -> None:
     assert result.status == "ok"
     assert _FakeAgent.last_run is not None
     assert _FakeAgent.last_run["conversation_history"] == history
+    assert _FakeAgent.last_run["user_message"] == "What is it connected to?"
     assert result.final_response == "Tripod is at the North Gate."
     assert result.messages[0]["role"] == "user"
-    assert result.hermes_session_id == "sess-hist"
 
 
 def test_tool_events_preserve_order_and_redact_unsafe_content(tmp_path: Path) -> None:
@@ -441,7 +507,7 @@ def test_tool_events_preserve_order_and_redact_unsafe_content(tmp_path: Path) ->
     )
     assert result.status == "ok"
     assert [e.state for e in result.tool_events] == ["start", "completion"]
-    assert result.tool_events[0].tool_name == "search_campaign_graph"
+    assert result.tool_events[0].tool_name == "expand_graph_retrieval"
     completion = result.tool_events[1]
     assert completion.outcome == "partial"
     assert completion.matched_node_ids == ["threat:tripod-null-calf"]
@@ -517,14 +583,15 @@ def test_tool_error_json_emits_error_event(tmp_path: Path) -> None:
         def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
             del user_message, kwargs
             args = {
-                "worldId": "world:eldyrwild",
-                "campaignId": "campaign:c1",
+                "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+                "retrievalSessionId": "sess:error",
+                "operation": "search",
                 "queryText": "x",
             }
-            self._start("c1", "search_campaign_graph", args)
+            self._start("c1", "expand_graph_retrieval", args)
             self._complete(
                 "c1",
-                "search_campaign_graph",
+                "expand_graph_retrieval",
                 args,
                 json.dumps(
                     {
@@ -566,14 +633,15 @@ def test_graph_miss_outcomes_do_not_trigger_alternate_retrieval(
         def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
             if self._complete:
                 args = {
-                    "worldId": "world:eldyrwild",
-                    "campaignId": "campaign:c1",
+                    "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+                    "retrievalSessionId": "sess:miss",
+                    "operation": "search",
                     "queryText": "missing",
                 }
-                self._start("c1", "search_campaign_graph", args)
+                self._start("c1", "expand_graph_retrieval", args)
                 self._complete(
                     "c1",
-                    "search_campaign_graph",
+                    "expand_graph_retrieval",
                     args,
                     json.dumps(
                         {
@@ -821,24 +889,21 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
         ).model_dump_json(by_alias=True)
 
     monkeypatch.setattr(
-        "graph_memory.hermes_graph_plugin.execute_hermes_graph_read_tool_json",
+        "graph_memory.hermes_graph_plugin.execute_hermes_graph_interaction_tool_json",
         _fake_execute,
     )
 
     tool_args = {
-        "schema": "dmb_world_graph_search_request_v1",
-        "worldId": "world:SPOOF",
-        "campaignId": "campaign:SPOOF",
+        "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+        "retrievalSessionId": "sess:SPOOF",
+        "operation": "search",
         "queryText": "Tripod",
-        "focus": {"kind": "session", "sessionId": "session:spoof"},
-        "admissibility": "player",
-        "revisionPin": "rev:spoof",
     }
     tc = SimpleNamespace(
         id="call-graph-1",
         type="function",
         function=SimpleNamespace(
-            name="search_campaign_graph",
+            name="expand_graph_retrieval",
             arguments=json.dumps(tool_args),
         ),
     )
@@ -855,11 +920,15 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
     def _factory(**kwargs: Any) -> Any:
         with hermes_import_namespace():
             with patch("run_agent.OpenAI"):
-                agent = AIAgent(
-                    api_key="test-key-1234567890",
-                    base_url="https://openrouter.ai/api/v1",
+                # Runtime now pins openai-api; absorb those kwargs without
+                # double-passing base_url/provider from this test double.
+                init = {
+                    "api_key": "test-key-1234567890",
                     **kwargs,
-                )
+                }
+                init.setdefault("base_url", "https://api.openai.com/v1")
+                init["api_mode"] = "chat_completions"
+                agent = AIAgent(**init)
         agent.client = MagicMock()
         agent.client.chat.completions.create.side_effect = [tool_resp, final_resp]
         agent._cached_system_prompt = "test"
@@ -876,6 +945,7 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
             world_id="world:eldyrwild",
             campaign_id="campaign:c1",
             session_id="sess-real-aiagent",
+            retrieval_session_id="sess-real-aiagent",
             root=tmp_path / "graph",
         ),
         agent_factory=_factory,
@@ -885,21 +955,18 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
     assert result.final_response == "Tripod stands at the North Gate."
     assert adapter_calls == [
         (
-            "search_campaign_graph",
+            "expand_graph_retrieval",
             {
-                "schema": "dmb_world_graph_search_request_v1",
-                "worldId": "world:eldyrwild",
-                "campaignId": "campaign:c1",
+                "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+                "retrievalSessionId": "sess-real-aiagent",
+                "operation": "search",
                 "queryText": "Tripod",
-                "focus": {"kind": "none", "sessionId": None},
-                "admissibility": "gm",
-                "revisionPin": None,
             },
         )
     ]
     assert [e.tool_name for e in result.tool_events] == [
-        "search_campaign_graph",
-        "search_campaign_graph",
+        "expand_graph_retrieval",
+        "expand_graph_retrieval",
     ]
     assert [e.state for e in result.tool_events] == ["start", "completion"]
     assert result.tool_events[1].matched_node_ids == ["threat:tripod-null-calf"]
@@ -912,13 +979,13 @@ def test_policy_structure_requires_one_rule_per_enabled_tool() -> None:
 
     bad = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
-        enabled_tool_names=("search_campaign_graph", "get_campaign_object"),
+        enabled_tool_names=("expand_graph_retrieval", "read_graph_source"),
         graph_scope=_default_scope(),
         plugin_activations=(_graph_plugin_activation(),),
         tool_rules=(
             HermesToolCapabilityRule(
-                tool_name="search_campaign_graph",
-                require_graph_scope=True,
+                tool_name="expand_graph_retrieval",
+                require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
             ),
         ),
@@ -932,7 +999,7 @@ def test_policy_with_incomplete_enabled_names_fails_before_provider(
     tmp_path: Path,
 ) -> None:
     """Model-visible tools must match enabled_tool_names exactly."""
-    names = ORDERED_TOOL_NAMES[:4]
+    names = ORDERED_TOOL_NAMES[:1]
     policy = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=names,
@@ -941,7 +1008,7 @@ def test_policy_with_incomplete_enabled_names_fails_before_provider(
         tool_rules=tuple(
             HermesToolCapabilityRule(
                 tool_name=name,
-                require_graph_scope=True,
+                require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
             )
             for name in names
@@ -981,24 +1048,26 @@ def test_tool_event_durations_correlate_by_tool_call_id(
         def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
             del user_message, kwargs
             args_a = {
-                "worldId": "world:eldyrwild",
-                "campaignId": "campaign:c1",
+                "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+                "retrievalSessionId": "sess:dur-a",
+                "operation": "search",
                 "queryText": "alpha-query-text",
             }
             args_b = {
-                "worldId": "world:eldyrwild",
-                "campaignId": "campaign:c1",
+                "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+                "retrievalSessionId": "sess:dur-b",
+                "operation": "search",
                 "queryText": "beta-query-text-longer",
             }
             # start A at t=1000.0
-            self._start("call-a", "search_campaign_graph", args_a)
+            self._start("call-a", "expand_graph_retrieval", args_a)
             clock["t"] = 1000.010
-            self._start("call-b", "search_campaign_graph", args_b)
+            self._start("call-b", "expand_graph_retrieval", args_b)
             # complete A after 50 ms of fake elapsed time from its own start
             clock["t"] = 1000.050
             self._complete(
                 "call-a",
-                "search_campaign_graph",
+                "expand_graph_retrieval",
                 args_a,
                 json.dumps(
                     {
@@ -1013,7 +1082,7 @@ def test_tool_event_durations_correlate_by_tool_call_id(
             clock["t"] = 1000.200
             self._complete(
                 "call-b",
-                "search_campaign_graph",
+                "expand_graph_retrieval",
                 args_b,
                 json.dumps(
                     {
@@ -1240,17 +1309,15 @@ def test_tool_events_use_authoritative_policy_scope_not_model_args(
         def run_conversation(self, user_message: str, **kwargs: Any) -> dict[str, Any]:
             del user_message, kwargs
             args = {
-                "worldId": "/secret/path/or/prompt-dump",
-                "campaignId": "x" * 5000,
-                "admissibility": "player-spoof",
-                "revisionPin": "rev:spoof",
-                "focus": {"kind": "session", "sessionId": "session:spoof"},
+                "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
+                "retrievalSessionId": "sess:spoof-scope",
+                "operation": "search",
                 "queryText": "secret query",
             }
-            self._start("c1", "search_campaign_graph", args)
+            self._start("c1", "expand_graph_retrieval", args)
             self._complete(
                 "c1",
-                "search_campaign_graph",
+                "expand_graph_retrieval",
                 args,
                 json.dumps(
                     {
@@ -1349,15 +1416,24 @@ def test_mixed_plugin_capability_policy_loads_both_surfaces(
         home: Path,
         *,
         enabled_plugin_ids: list[str] | tuple[str, ...],
+        model: str = "gpt-5.4-mini",
+        provider: str = "openai-api",
+        base_url: str = "https://api.openai.com/v1",
     ) -> None:
         captured_plugin_ids.append(list(enabled_plugin_ids))
-        real_prepare(home, enabled_plugin_ids=enabled_plugin_ids)
+        real_prepare(
+            home,
+            enabled_plugin_ids=enabled_plugin_ids,
+            model=model,
+            provider=provider,
+            base_url=base_url,
+        )
         if SYNTH_PLUGIN_KEY in enabled_plugin_ids:
             _seed_synth_user_plugin(home)
 
     monkeypatch.setattr(agent_mod, "_prepare_isolated_hermes_home", _prepare_with_synth)
 
-    graph_names = tuple(ORDERED_TOOL_NAMES)
+    graph_names = tuple(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
     policy = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME, SYNTH_TOOLSET),
         enabled_tool_names=graph_names + (SYNTH_TOOL_NAME,),
@@ -1373,7 +1449,7 @@ def test_mixed_plugin_capability_policy_loads_both_surfaces(
             HermesToolCapabilityRule(
                 tool_name=name,
                 toolset=TOOLSET_NAME,
-                require_graph_scope=True,
+                require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
             )
             for name in graph_names
@@ -1429,7 +1505,7 @@ def test_builtin_hermes_toolset_is_explicitly_rejected(tmp_path: Path) -> None:
             HermesToolCapabilityRule(
                 tool_name=name,
                 toolset=TOOLSET_NAME,
-                require_graph_scope=True,
+                require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
             )
             for name in ORDERED_TOOL_NAMES
@@ -1468,14 +1544,14 @@ def test_policy_rule_toolset_must_be_enabled() -> None:
 
     bad = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
-        enabled_tool_names=("search_campaign_graph",),
+        enabled_tool_names=("expand_graph_retrieval",),
         graph_scope=_default_scope(),
         plugin_activations=(_graph_plugin_activation(),),
         tool_rules=(
             HermesToolCapabilityRule(
-                tool_name="search_campaign_graph",
+                tool_name="expand_graph_retrieval",
                 toolset="other_plugin",
-                require_graph_scope=True,
+                require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
             ),
         ),
@@ -1490,14 +1566,14 @@ def test_policy_plugin_activations_must_cover_enabled_toolsets() -> None:
 
     bad = HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME, "campaign_weather"),
-        enabled_tool_names=("search_campaign_graph",),
+        enabled_tool_names=("expand_graph_retrieval",),
         graph_scope=_default_scope(),
         plugin_activations=(_graph_plugin_activation(),),
         tool_rules=(
             HermesToolCapabilityRule(
-                tool_name="search_campaign_graph",
+                tool_name="expand_graph_retrieval",
                 toolset=TOOLSET_NAME,
-                require_graph_scope=True,
+                require_graph_scope=False,
                 allowed_effects=frozenset({"read"}),
             ),
         ),
@@ -1505,3 +1581,62 @@ def test_policy_plugin_activations_must_cover_enabled_toolsets() -> None:
     assert validate_capability_policy_structure(bad) == (
         "hermes_capability_policy_plugin_toolset_mismatch"
     )
+
+
+def test_default_policy_exposes_declare_conversation_context_tool() -> None:
+    policy = default_graph_only_capability_policy(_default_scope())
+    assert DECLARE_CONVERSATION_CONTEXT_TOOL_NAME in policy.enabled_tool_names
+    assert policy.rule_for(DECLARE_CONVERSATION_CONTEXT_TOOL_NAME) is not None
+    assert policy.rule_for(DECLARE_CONVERSATION_CONTEXT_TOOL_NAME).require_graph_scope is False
+
+
+def test_declare_conversation_context_tool_returns_bounded_ack() -> None:
+    payload = json.loads(execute_hermes_graph_interaction_tool_json(
+        DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+        {},
+    ))
+    assert payload == {
+        "schema": DECLARE_CONVERSATION_CONTEXT_ACK_SCHEMA,
+        "scope": "conversation_context",
+    }
+
+
+def test_derive_answer_scope_requires_declare_without_graph_tools() -> None:
+    declare_only = [
+        HermesGraphToolEvent(
+            tool_name=DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+            state="completion",
+        )
+    ]
+    assert _derive_answer_scope(declare_only) == "conversation_context"
+
+    with_graph = [
+        HermesGraphToolEvent(tool_name="expand_graph_retrieval", state="completion"),
+        HermesGraphToolEvent(
+            tool_name=DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
+            state="completion",
+        ),
+    ]
+    assert _derive_answer_scope(with_graph) == "graph"
+
+    no_tools: list[HermesGraphToolEvent] = []
+    assert _derive_answer_scope(no_tools) is None
+
+
+def test_turn_result_wire_round_trips_answer_scope() -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+    )
+
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="Summary of this chat.",
+        messages=[],
+        hermes_session_id="sess-1",
+        tool_events=[],
+        answer_scope="conversation_context",
+    )
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    assert wire["answerScope"] == "conversation_context"
+    restored = deserialize_hermes_graph_agent_turn_result(wire)
+    assert restored.answer_scope == "conversation_context"

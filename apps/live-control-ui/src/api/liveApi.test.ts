@@ -482,10 +482,9 @@ describe("liveApi artifact/capability helpers", () => {
 
   it("posts Tiptap Markdown prepare and commit requests", async () => {
     const request = {
-      document_id: "doc",
-      title: "Title",
-      target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/doc.md",
+      document_id: "11111111-1111-4111-8111-111111111111",
       markdown: "# Title",
+      expected_revision: 2,
     };
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(mockJsonResponse({ schema_version: "dmb_tiptap_markdown_write_prepare_v1" }))
@@ -654,6 +653,7 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
 
     await postLiveQuery("Who is Glowkindle?", "longmont-c2", 22, "hermes", {
       hermesSessionId: "hermes-session-should-not-send",
+      hermesSessionPointer: "hptr-should-send",
       agentThreadId: "thread-1",
       traceRequested: true,
     });
@@ -670,6 +670,7 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
       text: "Who is Glowkindle?",
       agent_thread_id: "thread-1",
       trace_requested: true,
+      hermes_session_pointer: "hptr-should-send",
     });
   });
 
@@ -723,6 +724,46 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
     expect(body).not.toHaveProperty("history");
     expect(body).not.toHaveProperty("capability_policy");
     expect(body).not.toHaveProperty("graph_root");
+  });
+
+  it("omits conversation_history on first Hermes turn and includes normalized pairs on follow-up", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postLiveQuery("First question?", "longmont-c2", 22, "hermes");
+    let body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("conversation_history");
+
+    await postLiveQuery("Follow-up?", "longmont-c2", 22, "hermes", {
+      conversationHistory: [
+        { role: "user", content: "First question?" },
+        { role: "assistant", content: "First answer." },
+      ],
+    });
+    body = JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)) as Record<string, unknown>;
+    expect(body.conversation_history).toEqual([
+      { role: "user", content: "First question?" },
+      { role: "assistant", content: "First answer." },
+    ]);
+    expect(body.text).toBe("Follow-up?");
+    expect(JSON.stringify(body)).not.toContain("RAW_TRACE_SECRET");
+  });
+
+  it("never serializes conversation_history for Live requests", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postLiveQuery("Live question?", "longmont-c2", 22, "live", {
+      conversationHistory: [
+        { role: "user", content: "prior" },
+        { role: "assistant", content: "answer" },
+      ],
+    });
+
+    const body = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body)) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("conversation_history");
   });
 });
 

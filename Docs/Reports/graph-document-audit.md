@@ -121,7 +121,9 @@ Stub pointers remain at former paths.
 | `Docs/Design/GRAPH-MEMORY-ENCOUNTER-JOB-TAXONOMY-DECISION.md` | Encounter/job taxonomy | **KEEP** | Accepted taxonomy decision |
 | `Docs/Design/DESIGN-contextual-vocabulary-layer.md` | Vocabulary layer | **KEEP** | Identity/vocab direction |
 | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` | Plan toolbox | **ACTIVE REFERENCE** / **KEEP** | Surface architecture; not graph ownership or sequencing |
-| `Docs/Design/ANCHOR-agent-interaction-hermes.md` | Agent boundary | **KEEP** | Surface/agent boundary |
+| `Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md` | Hermes product goal | **ACTIVE PROPOSED** | Reset goal anchor; reconcile at Phase 1 |
+| `Docs/Design/INDEX-hermes-campaign-authoring-foundation.md` | Hermes active document set | **ACTIVE PROPOSED** | Current Hermes design index |
+| `Docs/Design/ANCHOR-agent-interaction-hermes.md` | Superseded agent boundary | **ARCHIVED STUB** | Historical source is under the 2026-07-15 Hermes reset archive |
 | `Docs/Design/RESEARCH-graph-visualization-exploration.md` | Viz research | **RESEARCH_ONLY** / **KEEP** | Research only |
 | `Docs/Reports/GRAPH-MEMORY-CROSS-CLASS-BLOCKED-DIAGNOSTICS.md` | Collision diagnostics | **KEEP** | Identity-safety evidence |
 | `Docs/Reports/archive/2026-06-28/graph-memory/GRAPH-MEMORY-SHARED-SOURCE-VOCABULARY-CONTRACT.md` | Full vocab contract copy | **KEEP** | Prefer Design CONTRACT as canonical |
@@ -167,7 +169,7 @@ No other document may invent a competing Campaign Supergraph PR sequence.
 | Document | Action | Replacement |
 |---|---|---|
 | `Docs/Design/DESIGN-graph-review-gold-authoring-workbench.md` | **SUPERSEDED** | `DESIGN-graph-object-authoring-surface.md` |
-| `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` | **SUPERSEDED** | `ROADMAP-graph-object-authoring-surface.md` + Campaign Supergraph tracker |
+| `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` | **ARCHIVED STUB** (2026-07-15) | Body under `Plans/archive/2026-07-15/superseded-roadmaps/`; replacement `ROADMAP-graph-object-authoring-surface.md` |
 | `Docs/Design/dungeonbuddy_spec_architecture_v0_2.md` | **SUPERSEDED** / **HISTORICAL** | `ARCHITECTURE-campaign-supergraph.md` (+ roadmap + tracker). Banner required; do not use for sequencing or Kernel contracts. |
 | `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` | **SUPERSEDED** | Stub → Campaign Supergraph architecture / roadmap / tracker |
 
@@ -188,7 +190,7 @@ Already under archive trees, or in-place historical:
 | `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-*.md` | **HISTORICAL EVIDENCE** |
 | `Docs/Plans/GRAPH-MEMORY-EXTRACTION-SPIKE-ANCHOR.md` | **HISTORICAL EVIDENCE** |
 | `Docs/Plans/HANDOFF-design-recap-ingestion-to-supergraph.md` | **HISTORICAL EVIDENCE** |
-| `Docs/Plans/HANDOFF-a10m-union-supergraph-merge-reconciliation.md` | **HISTORICAL EVIDENCE** |
+| `Docs/Plans/HANDOFF-a10m-union-supergraph-merge-reconciliation.md` | **ARCHIVED STUB** (2026-07-15) | Body under `Plans/archive/2026-07-15/completed-supergraph-handoffs/` |
 | `Docs/Plans/NOTE-a10*.md`, `NOTE-a8*`, `NOTE-a9a*` | **HISTORICAL EVIDENCE** |
 | `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md` | **HISTORICAL EVIDENCE** |
 | `Docs/Experiments/GRAPH-MEMORY-FORK-TRACKING.md` | **HISTORICAL EVIDENCE** |

@@ -9,7 +9,6 @@ import { GraphGoldReviewModule } from "./GraphGoldReviewModule";
 const context: PlanContextDescriptor = {
   campaignId: "longmont-c2",
   liveSession: 24,
-  prepSession: 25,
   ingestSession: 23,
   headerLabel: "Plan",
 };

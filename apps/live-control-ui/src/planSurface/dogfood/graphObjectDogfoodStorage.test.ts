@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { PlanSessionDescriptor } from "../types";
-import { createPlanCanvasStorageKey } from "../config/planSessionDescriptor";
+import { fixturePlanSessionDescriptor, FIXTURE_DOC_ID, workspaceDocumentStorageKey } from "../config/planSessionDescriptor";
 import {
   addNodeToDogfoodList,
   createEmptyGraphObjectDogfoodState,
@@ -16,36 +15,16 @@ import {
   saveGraphObjectDogfoodState,
 } from "./graphObjectDogfoodStorage";
 
-const sessionDescriptor: PlanSessionDescriptor = {
-  surfaceId: "plan",
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown",
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "Longmont C2 Session 23 Prep",
-    targetRelpath: "corpus/example/Session 23 Prep.md",
-    storageKey: createPlanCanvasStorageKey({
-      campaignId: "longmont-c2",
-      prepSession: 23,
-      documentId: "longmont-c2-session-23-prep",
-    }),
-    status: "local_draft",
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 describe("graphObjectDogfoodStorage", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it("uses campaign and prep session in the storage key", () => {
+  it("uses campaign and document id in the storage key", () => {
     expect(graphObjectDogfoodStorageKey(sessionDescriptor)).toBe(
-      "dmb.planGraphObjectDogfood.longmont-c2.session-23",
+      `dmb.planGraphObjectDogfood.longmont-c2.${FIXTURE_DOC_ID}`,
     );
   });
 
@@ -78,7 +57,7 @@ describe("graphObjectDogfoodStorage", () => {
   });
 
   it("clear removes only dogfood storage", () => {
-    const canvasKey = sessionDescriptor.planningDocument.storageKey;
+    const canvasKey = workspaceDocumentStorageKey(FIXTURE_DOC_ID);
     localStorage.setItem(canvasKey, JSON.stringify({ doc: "board" }));
     saveGraphObjectDogfoodState(
       localStorage,

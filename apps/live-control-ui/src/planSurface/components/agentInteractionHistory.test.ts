@@ -14,6 +14,7 @@ import {
   deleteAgentThread,
   loadAgentThreadById,
   loadAgentThreadIndex,
+  normalizePlanAgentBackend,
   persistAgentThread,
   persistAgentThreadIndex,
   renameAgentThread,
@@ -106,11 +107,26 @@ describe("agentInteractionHistory", () => {
     localStorage.clear();
   });
 
+  it("forces Plan threads to Hermes even when constructed or persisted as Live", () => {
+    const created = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Forced");
+    expect(created.activeBackend).toBe("hermes");
+
+    const legacy: AgentInteractionThread = {
+      ...created,
+      activeBackend: "live",
+    };
+    persistAgentThread({ ...legacy, threadId: "legacy-live" });
+    const loaded = loadAgentThreadById("longmont-c2", "legacy-live");
+    expect(loaded?.activeBackend).toBe("hermes");
+    expect(normalizePlanAgentBackend(legacy).activeBackend).toBe("hermes");
+  });
+
   it("load empty index returns valid empty index", () => {
     expect(loadAgentThreadIndex("longmont-c2", "plan")).toEqual({
-      schema: "agent_interaction_thread_index_v1",
+      schema: "agent_interaction_thread_index_v2",
       campaignId: "longmont-c2",
       surfaceId: "plan",
+      documentId: null,
       activeThreadId: null,
       threads: [],
     });
@@ -119,9 +135,10 @@ describe("agentInteractionHistory", () => {
   it("persists and loads an index round-trip", () => {
     const thread = makeThread();
     persistAgentThreadIndex({
-      schema: "agent_interaction_thread_index_v1",
+      schema: "agent_interaction_thread_index_v2",
       campaignId: "longmont-c2",
       surfaceId: "plan",
+      documentId: null,
       activeThreadId: thread.threadId,
       threads: [{ threadId: thread.threadId, title: thread.title, createdAt: thread.createdAt, updatedAt: thread.updatedAt, turnCount: 1, activeBackend: "hermes", hermesSessionId: null }],
     });
@@ -797,5 +814,121 @@ describe("agentInteractionHistory", () => {
     expect(turn.grounding).toBeNull();
     expect(turn.citations).toEqual([]);
     expect(turn.trace?.backend).toBe("hermes");
+  });
+
+  it("persists s1Support from response and round-trips through storage", () => {
+    const thread = makeThread("S1 support prep");
+    const turn = turnFromResponse("What changed after the latest recap?", {
+      answer: "The gate pressure shifted.",
+      mode: "hermes_graph_agent",
+      status: "ok",
+      classification: {},
+      events_written: [],
+      jobs_queued: [],
+      next_suggestions: [],
+      diagnostics: {},
+      provenance: {},
+      grounding: graphGrounding,
+      citations: [graphCitation],
+      s1_support: {
+        lag_disclosure: "Latest ingested recap is Session 21; memory through Session 20.",
+        admitted_recap_excerpt: "North Gate: Lysandro holds the line.",
+      },
+    }, "hermes");
+    expect(turn.s1Support).toEqual({
+      lagDisclosure: "Latest ingested recap is Session 21; memory through Session 20.",
+      admittedRecapExcerpt: "North Gate: Lysandro holds the line.",
+    });
+    thread.turns = [turn];
+    persistAgentThread(thread);
+
+    const stored = localStorage.getItem(threadStorageKey("longmont-c2", thread.threadId)) ?? "";
+    expect(stored).toContain("lagDisclosure");
+    expect(stored).toContain("admittedRecapExcerpt");
+    expect(stored).not.toContain("lag_disclosure");
+
+    const reloaded = loadAgentThreadById("longmont-c2", thread.threadId);
+    expect(reloaded?.turns[0].s1Support).toEqual(turn.s1Support);
+  });
+
+  it("projects only valid sibling turns for outbound Hermes continuity", async () => {
+    const { buildHermesConversationHistory } = await import("../../agentInteraction/hermesConversationHistory");
+    const thread = makeThread("Continuity thread");
+    thread.turns = [
+      {
+        ...thread.turns[0],
+        turnId: "valid-turn",
+        question: "Valid question?",
+        answer: "Valid answer.",
+        trace: {
+          trace_id: "trace-valid",
+          runtime: "process_isolated",
+          backend: "hermes",
+          mode: "hermes_graph_agent",
+          started_at: "2026-06-22T00:00:00.000Z",
+          completed_at: "2026-06-22T00:00:01.000Z",
+          elapsed_ms: 1,
+          status: "ok",
+          usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+          steps: [],
+          context_summary: {},
+          artifact_refs: [],
+          tool_events: [],
+          hermes_session_id: "hermes-session-must-not-persist",
+          warnings: [],
+        } as AgentInteractionTrace,
+      },
+      {
+        turnId: "malformed-turn",
+        askedAt: "2026-06-22T00:00:02.000Z",
+        completedAt: "2026-06-22T00:00:03.000Z",
+        question: "",
+        answer: "Missing question should drop.",
+        backend: "hermes",
+        status: "ok",
+      } as never,
+      {
+        turnId: "poison-turn",
+        askedAt: "2026-06-22T00:00:04.000Z",
+        completedAt: "2026-06-22T00:00:05.000Z",
+        question: "Poison question?",
+        answer: "Poison answer.",
+        backend: "hermes",
+        status: "ok",
+        trace: {
+          trace_id: "RAW_TRACE_SECRET",
+          runtime: "process_isolated",
+          backend: "hermes",
+          mode: "hermes_graph_agent",
+          started_at: "2026-06-22T00:00:04.000Z",
+          completed_at: "2026-06-22T00:00:05.000Z",
+          elapsed_ms: 1,
+          status: "ok",
+          usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+          steps: [],
+          context_summary: {},
+          artifact_refs: [],
+          tool_events: [],
+          hermes_session_id: "RAW_HERMES_TRANSCRIPT_SECRET",
+          warnings: [],
+        } as never,
+        citations: [graphCitation],
+        grounding: graphGrounding,
+      } as never,
+    ];
+    const history = buildHermesConversationHistory(thread.turns);
+    expect(history).toEqual([
+      { role: "user", content: "Poison question?" },
+      { role: "assistant", content: "Poison answer." },
+      { role: "user", content: "Valid question?" },
+      { role: "assistant", content: "Valid answer." },
+    ]);
+
+    persistAgentThread(thread);
+    const stored = localStorage.getItem(threadStorageKey(thread.campaignId, thread.threadId)) ?? "";
+    expect(stored).not.toContain("conversation_history");
+    expect(stored).not.toContain("hermes_session_id");
+    expect(stored).not.toContain("hermes-session-must-not-persist");
+    expect(stored).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
   });
 });

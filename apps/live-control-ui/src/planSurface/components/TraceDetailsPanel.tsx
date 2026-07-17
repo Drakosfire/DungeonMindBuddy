@@ -1,9 +1,17 @@
-import type { AgentInteractionTrace, HermesGraphToolTraceEvent } from "../../api/types";
+import { useState } from "react";
+
+import type {
+  AgentInteractionTrace,
+  HermesConversationTraceContext,
+  HermesGraphToolTraceEvent,
+} from "../../api/types";
 
 interface TraceDetailsPanelProps {
   trace: AgentInteractionTrace;
   answer?: string | null;
 }
+
+type CopyStatus = "idle" | "copied" | "error";
 
 function formatTokens(usage: unknown): string {
   if (!isRecord(usage) || usage.available !== true) {
@@ -79,7 +87,222 @@ function formatIdList(ids: string[]): string {
   return `${ids.slice(0, 3).join(", ")} (+${ids.length - 3} more)`;
 }
 
+function formatYesNo(value: boolean): string {
+  return value ? "yes" : "no";
+}
+
+function normalizeConversationContext(raw: unknown): HermesConversationTraceContext | null {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.history_present !== "boolean") return null;
+  if (typeof raw.message_count !== "number") return null;
+  if (typeof raw.pair_count !== "number") return null;
+  if (typeof raw.payload_shape !== "string" || !raw.payload_shape.trim()) return null;
+  if (typeof raw.graph_metadata_in_history !== "boolean") return null;
+  if (typeof raw.hermes_session_pointer_in_request !== "boolean") return null;
+  return {
+    history_present: raw.history_present,
+    message_count: raw.message_count,
+    pair_count: raw.pair_count,
+    payload_shape: raw.payload_shape,
+    graph_metadata_in_history: raw.graph_metadata_in_history,
+    hermes_session_pointer_in_request: raw.hermes_session_pointer_in_request,
+    hermes_session_pointer_status: typeof raw.hermes_session_pointer_status === "string"
+      && raw.hermes_session_pointer_status.trim()
+      ? raw.hermes_session_pointer_status
+      : undefined,
+    worker_pid_changed: typeof raw.worker_pid_changed === "boolean"
+      ? raw.worker_pid_changed
+      : undefined,
+    fresh_graph_revision_used: typeof raw.fresh_graph_revision_used === "boolean"
+      ? raw.fresh_graph_revision_used
+      : undefined,
+  };
+}
+
+/** Collapsed summary fragment for Hermes request-context telemetry (Thread B isolation). */
+export function formatTraceConversationContextSummary(
+  conversationContext: HermesConversationTraceContext | null,
+  options: { isHermesGraphAgent: boolean },
+): string {
+  if (!options.isHermesGraphAgent || !conversationContext) return "";
+  const contextLabel = conversationContext.history_present
+    ? `ctx: ${conversationContext.message_count} msgs · ${conversationContext.pair_count} pairs · ${
+        conversationContext.graph_metadata_in_history
+          ? "graph meta in history"
+          : "graph meta excluded"
+      }`
+    : "ctx: no history";
+  const lifecycleLabels = [
+    conversationContext.hermes_session_pointer_status
+      ? `pointer: ${conversationContext.hermes_session_pointer_status}`
+      : null,
+    typeof conversationContext.worker_pid_changed === "boolean"
+      ? `worker: ${conversationContext.worker_pid_changed ? "changed" : "same"}`
+      : null,
+    typeof conversationContext.fresh_graph_revision_used === "boolean"
+      ? `graph: ${conversationContext.fresh_graph_revision_used ? "fresh" : "not fresh"}`
+      : null,
+  ].filter((label): label is string => label != null);
+  return [contextLabel, ...lifecycleLabels].join(" · ");
+}
+
+function formatConversationContextForClipboard(
+  conversationContext: HermesConversationTraceContext,
+): string[] {
+  return [
+    "Conversation context",
+    `history_present: ${formatYesNo(conversationContext.history_present)}`,
+    `message_count: ${conversationContext.message_count}`,
+    `pair_count: ${conversationContext.pair_count}`,
+    `payload_shape: ${conversationContext.payload_shape}`,
+    `graph_metadata_in_history: ${formatYesNo(conversationContext.graph_metadata_in_history)}`,
+    `hermes_session_pointer_in_request: ${formatYesNo(conversationContext.hermes_session_pointer_in_request)}`,
+    ...(conversationContext.hermes_session_pointer_status
+      ? [`hermes_session_pointer_status: ${conversationContext.hermes_session_pointer_status}`]
+      : []),
+    ...(typeof conversationContext.worker_pid_changed === "boolean"
+      ? [`worker_pid_changed: ${formatYesNo(conversationContext.worker_pid_changed)}`]
+      : []),
+    ...(typeof conversationContext.fresh_graph_revision_used === "boolean"
+      ? [`fresh_graph_revision_used: ${formatYesNo(conversationContext.fresh_graph_revision_used)}`]
+      : []),
+  ];
+}
+
+/** Collapsed summary fragment: tool names, or explicit none for Hermes graph turns. */
+export function formatTraceToolSummary(
+  toolEvents: HermesGraphToolTraceEvent[],
+  options: { isHermesGraphAgent: boolean },
+): string {
+  if (toolEvents.length === 0) {
+    return options.isHermesGraphAgent ? "tools: none" : "";
+  }
+  const names = toolEvents.map((event) => event.tool_name);
+  const unique = [...new Set(names)];
+  const preview = unique.slice(0, 3).join(", ");
+  const extra = unique.length > 3 ? ` (+${unique.length - 3} more)` : "";
+  const count = toolEvents.length !== unique.length ? ` ×${toolEvents.length}` : "";
+  return `tools: ${preview}${extra}${count}`;
+}
+
+function formatToolEventForClipboard(event: HermesGraphToolTraceEvent, index: number): string {
+  const lines = [
+    `${index + 1}. ${event.tool_name} · ${event.state}`
+      + (event.duration_ms != null ? ` · ${event.duration_ms}ms` : "")
+      + (event.outcome ? ` · ${event.outcome}` : ""),
+  ];
+  if (event.revision_pin) lines.push(`   revision: ${event.revision_pin}`);
+  if (event.world_id) lines.push(`   world: ${event.world_id}`);
+  if (event.campaign_id) lines.push(`   campaign: ${event.campaign_id}`);
+  if (event.focus?.kind) {
+    lines.push(
+      `   focus: ${event.focus.kind}`
+        + (event.focus.session_id ? ` · ${event.focus.session_id}` : ""),
+    );
+  }
+  if (event.admissibility) lines.push(`   admissibility: ${event.admissibility}`);
+  lines.push(`   matched_nodes: ${formatIdList(event.matched_node_ids)}`);
+  lines.push(`   relationships: ${formatIdList(event.relationship_ids)}`);
+  lines.push(`   source_anchors: ${formatIdList(event.source_anchor_ids)}`);
+  if (event.diagnostic_codes.length) {
+    lines.push(`   diagnostics: ${formatIdList(event.diagnostic_codes)}`);
+  }
+  return lines.join("\n");
+}
+
+/** Plain-text dump for dogfood paste into chat / notes. */
+export function formatTraceForClipboard(
+  trace: AgentInteractionTrace,
+  options: {
+    answer?: string | null;
+    toolEvents: HermesGraphToolTraceEvent[];
+    skippedToolEvents: number;
+  },
+): string {
+  const mode = displayString(trace.mode);
+  const isHermesGraphAgent = mode === "hermes_graph_agent";
+  const lines: string[] = [
+    "Agent trace",
+    [
+      displayString(trace.backend),
+      displayString(trace.runtime),
+      displayString(trace.status, "unknown"),
+      `${typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0}ms`,
+    ].filter(Boolean).join(" · "),
+    `mode: ${mode || "n/a"}`,
+    `trace_id: ${displayString(trace.trace_id) || "n/a"}`,
+    `started_at: ${displayString(trace.started_at) || "n/a"}`,
+  ];
+
+  const provider = displayOptionalString(trace.provider);
+  const model = displayOptionalString(trace.model);
+  if (provider || model) {
+    lines.push(`provider/model: ${provider ?? "n/a"} / ${model ?? "n/a"}`);
+  }
+  if (displayOptionalString(trace.toolset)) {
+    lines.push(`toolset: ${trace.toolset}`);
+  }
+  lines.push(`tokens: ${formatTokens(trace.usage)}`);
+
+  if (isHermesGraphAgent) {
+    if (displayOptionalString(trace.hermes_session_id)) {
+      lines.push(`hermes_session_id: ${trace.hermes_session_id}`);
+    }
+    if (displayOptionalString(trace.answer_scope)) {
+      lines.push(`answer_scope: ${trace.answer_scope}`);
+    }
+    if (typeof trace.tool_event_count === "number") {
+      lines.push(`tool_event_count: ${trace.tool_event_count}`);
+    }
+    if (typeof trace.evidence_event_count === "number") {
+      lines.push(`evidence_event_count: ${trace.evidence_event_count}`);
+    }
+    if (typeof trace.final_response_present === "boolean") {
+      lines.push(`final_response_present: ${trace.final_response_present ? "yes" : "no"}`);
+    }
+    if (displayOptionalString(trace.validator_path)) {
+      lines.push(`validator_path: ${trace.validator_path}`);
+    }
+    const conversationContext = normalizeConversationContext(trace.conversation_context);
+    if (conversationContext) {
+      lines.push("");
+      lines.push(...formatConversationContextForClipboard(conversationContext));
+    }
+  }
+
+  lines.push("");
+  lines.push(`Graph tool activity (${options.toolEvents.length})`);
+  if (options.toolEvents.length === 0) {
+    lines.push(isHermesGraphAgent ? "none" : "(no tool events)");
+  } else {
+    for (const [index, event] of options.toolEvents.entries()) {
+      lines.push(formatToolEventForClipboard(event, index));
+    }
+  }
+  if (options.skippedToolEvents > 0) {
+    lines.push(`skipped_malformed_tool_events: ${options.skippedToolEvents}`);
+  }
+
+  const warnings = stringArrayField(trace.warnings);
+  if (warnings.length) {
+    lines.push("");
+    lines.push("Warnings");
+    for (const warning of warnings) {
+      lines.push(`- ${warning}`);
+    }
+  }
+
+  if (options.answer?.trim()) {
+    lines.push("");
+    lines.push("Answer");
+    lines.push(options.answer.trim());
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
 export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const context = isRecord(trace.context_summary) ? trace.context_summary : {};
   const steps = Array.isArray(trace.steps) ? trace.steps : [];
   const stepCount = steps.length;
@@ -105,14 +328,65 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
     ? 1
     : rawToolEvents.length - normalizedToolEvents.length;
   const elapsedMs = typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0;
+  const hasAnswerScopeTool = normalizedToolEvents.some(
+    (event) => event.tool_name === "declare_conversation_context",
+  );
+  const toolActivityLabel = hasAnswerScopeTool ? "Tool activity" : "Graph tool activity";
+  const answerScope = displayOptionalString(trace.answer_scope);
+  const toolEventCount = typeof trace.tool_event_count === "number" ? trace.tool_event_count : null;
+  const evidenceEventCount = typeof trace.evidence_event_count === "number" ? trace.evidence_event_count : null;
+  const finalResponsePresent = typeof trace.final_response_present === "boolean" ? trace.final_response_present : null;
+  const validatorPath = displayOptionalString(trace.validator_path);
+  const toolSummary = formatTraceToolSummary(normalizedToolEvents, { isHermesGraphAgent });
+  const conversationContext = normalizeConversationContext(trace.conversation_context);
+  const conversationContextSummary = formatTraceConversationContextSummary(
+    conversationContext,
+    { isHermesGraphAgent },
+  );
+  const metaLine = [backend, runtime, status, `${elapsedMs}ms`, toolSummary, conversationContextSummary]
+    .filter((part) => part.length > 0)
+    .join(" · ");
+
+  const handleCopyTrace = async () => {
+    const text = formatTraceForClipboard(trace, {
+      answer,
+      toolEvents: normalizedToolEvents,
+      skippedToolEvents,
+    });
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setCopyStatus("copied");
+        return;
+      }
+      throw new Error("Clipboard API unavailable");
+    } catch {
+      setCopyStatus("error");
+    }
+  };
 
   return (
     <section className="plan-agent-trace" aria-label="Agent interaction trace">
+      <div className="plan-agent-trace-toolbar">
+        <button
+          type="button"
+          className="plan-agent-trace-copy"
+          onClick={() => void handleCopyTrace()}
+        >
+          {copyStatus === "copied" ? "Copied" : "Copy trace"}
+        </button>
+        {copyStatus === "error" ? (
+          <span className="plan-agent-warning" role="alert">
+            Could not copy trace
+          </span>
+        ) : null}
+      </div>
+
       <details className="plan-agent-trace-details">
         <summary>
           <span>Agent trace</span>
-          <span className="plan-agent-muted">
-            {backend} · {runtime} · {status} · {elapsedMs}ms
+          <span className="plan-agent-muted" data-testid="plan-agent-trace-summary-meta">
+            {metaLine}
           </span>
         </summary>
 
@@ -166,6 +440,36 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
             <div>
               <dt>Hermes session (observability)</dt>
               <dd><code>{hermesSessionId}</code></dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && answerScope ? (
+            <div>
+              <dt>Answer scope</dt>
+              <dd>{answerScope}</dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && toolEventCount != null ? (
+            <div>
+              <dt>Tool events</dt>
+              <dd>{toolEventCount}</dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && evidenceEventCount != null ? (
+            <div>
+              <dt>Evidence events</dt>
+              <dd>{evidenceEventCount}</dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && finalResponsePresent != null ? (
+            <div>
+              <dt>Final response</dt>
+              <dd>{finalResponsePresent ? "present" : "absent"}</dd>
+            </div>
+          ) : null}
+          {isHermesGraphAgent && validatorPath ? (
+            <div>
+              <dt>Validator path</dt>
+              <dd><code>{validatorPath}</code></dd>
             </div>
           ) : null}
         </dl>
@@ -227,74 +531,132 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           </div>
         ) : null}
 
-        {isHermesGraphAgent && (normalizedToolEvents.length > 0 || skippedToolEvents > 0) ? (
+        {isHermesGraphAgent && conversationContext ? (
+          <div className="plan-agent-trace-context" data-testid="plan-agent-trace-conversation-context">
+            <h5>Conversation context</h5>
+            <dl className="plan-agent-trace-grid">
+              <div>
+                <dt>History present</dt>
+                <dd>{formatYesNo(conversationContext.history_present)}</dd>
+              </div>
+              <div>
+                <dt>Message count</dt>
+                <dd>{conversationContext.message_count}</dd>
+              </div>
+              <div>
+                <dt>Pair count</dt>
+                <dd>{conversationContext.pair_count}</dd>
+              </div>
+              <div>
+                <dt>Payload shape</dt>
+                <dd>{conversationContext.payload_shape}</dd>
+              </div>
+              <div>
+                <dt>Graph metadata in history</dt>
+                <dd>{formatYesNo(conversationContext.graph_metadata_in_history)}</dd>
+              </div>
+              <div>
+                <dt>Hermes session pointer in request</dt>
+                <dd>{formatYesNo(conversationContext.hermes_session_pointer_in_request)}</dd>
+              </div>
+              <div>
+                <dt>Hermes session pointer status</dt>
+                <dd>{conversationContext.hermes_session_pointer_status ?? "not reported"}</dd>
+              </div>
+              <div>
+                <dt>Worker PID changed</dt>
+                <dd>
+                  {typeof conversationContext.worker_pid_changed === "boolean"
+                    ? formatYesNo(conversationContext.worker_pid_changed)
+                    : "not reported"}
+                </dd>
+              </div>
+              <div>
+                <dt>Fresh graph revision used</dt>
+                <dd>
+                  {typeof conversationContext.fresh_graph_revision_used === "boolean"
+                    ? formatYesNo(conversationContext.fresh_graph_revision_used)
+                    : "not reported"}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        ) : null}
+
+        {isHermesGraphAgent ? (
           <details className="plan-agent-trace-tool-events" open>
-            <summary>Graph tool activity ({normalizedToolEvents.length})</summary>
-            <ul>
-              {normalizedToolEvents.map((event, index) => (
-                <li key={`${event.tool_name}-${index}`} className="plan-agent-trace-tool-event">
-                  <div className="plan-agent-trace-tool-event-header">
-                    <strong>{event.tool_name}</strong>
-                    <span className="plan-agent-muted">
-                      {event.state}
-                      {event.duration_ms != null ? ` · ${event.duration_ms}ms` : ""}
-                      {event.outcome ? ` · ${event.outcome}` : ""}
-                    </span>
-                  </div>
-                  <dl className="plan-agent-trace-tool-event-grid">
-                    {event.world_id ? (
-                      <div>
-                        <dt>World</dt>
-                        <dd><code>{event.world_id}</code></dd>
-                      </div>
-                    ) : null}
-                    {event.campaign_id ? (
-                      <div>
-                        <dt>Campaign</dt>
-                        <dd><code>{event.campaign_id}</code></dd>
-                      </div>
-                    ) : null}
-                    {event.revision_pin ? (
-                      <div>
-                        <dt>Revision pin</dt>
-                        <dd><code>{event.revision_pin}</code></dd>
-                      </div>
-                    ) : null}
-                    {event.focus?.kind ? (
-                      <div>
-                        <dt>Focus</dt>
-                        <dd>
-                          {event.focus.kind}
-                          {event.focus.session_id ? ` · ${event.focus.session_id}` : ""}
-                        </dd>
-                      </div>
-                    ) : null}
-                    {event.admissibility ? (
-                      <div>
-                        <dt>Admissibility</dt>
-                        <dd>{event.admissibility}</dd>
-                      </div>
-                    ) : null}
-                    <div>
-                      <dt>Matched nodes</dt>
-                      <dd>{formatIdList(event.matched_node_ids)}</dd>
+            <summary>{toolActivityLabel} ({normalizedToolEvents.length})</summary>
+            {normalizedToolEvents.length === 0 ? (
+              <p className="plan-agent-muted plan-agent-trace-tool-empty" data-testid="plan-agent-trace-tools-none">
+                No graph tools were called on this turn.
+              </p>
+            ) : (
+              <ul>
+                {normalizedToolEvents.map((event, index) => (
+                  <li key={`${event.tool_name}-${index}`} className="plan-agent-trace-tool-event">
+                    <div className="plan-agent-trace-tool-event-header">
+                      <strong>{event.tool_name}</strong>
+                      <span className="plan-agent-muted">
+                        {event.state}
+                        {event.duration_ms != null ? ` · ${event.duration_ms}ms` : ""}
+                        {event.outcome ? ` · ${event.outcome}` : ""}
+                      </span>
                     </div>
-                    <div>
-                      <dt>Relationships</dt>
-                      <dd>{formatIdList(event.relationship_ids)}</dd>
-                    </div>
-                    <div>
-                      <dt>Source anchors</dt>
-                      <dd>{formatIdList(event.source_anchor_ids)}</dd>
-                    </div>
-                    <div>
-                      <dt>Diagnostic codes</dt>
-                      <dd>{formatIdList(event.diagnostic_codes)}</dd>
-                    </div>
-                  </dl>
-                </li>
-              ))}
-            </ul>
+                    <dl className="plan-agent-trace-tool-event-grid">
+                      {event.world_id ? (
+                        <div>
+                          <dt>World</dt>
+                          <dd><code>{event.world_id}</code></dd>
+                        </div>
+                      ) : null}
+                      {event.campaign_id ? (
+                        <div>
+                          <dt>Campaign</dt>
+                          <dd><code>{event.campaign_id}</code></dd>
+                        </div>
+                      ) : null}
+                      {event.revision_pin ? (
+                        <div>
+                          <dt>Revision pin</dt>
+                          <dd><code>{event.revision_pin}</code></dd>
+                        </div>
+                      ) : null}
+                      {event.focus?.kind ? (
+                        <div>
+                          <dt>Focus</dt>
+                          <dd>
+                            {event.focus.kind}
+                            {event.focus.session_id ? ` · ${event.focus.session_id}` : ""}
+                          </dd>
+                        </div>
+                      ) : null}
+                      {event.admissibility ? (
+                        <div>
+                          <dt>Admissibility</dt>
+                          <dd>{event.admissibility}</dd>
+                        </div>
+                      ) : null}
+                      <div>
+                        <dt>Matched nodes</dt>
+                        <dd>{formatIdList(event.matched_node_ids)}</dd>
+                      </div>
+                      <div>
+                        <dt>Relationships</dt>
+                        <dd>{formatIdList(event.relationship_ids)}</dd>
+                      </div>
+                      <div>
+                        <dt>Source anchors</dt>
+                        <dd>{formatIdList(event.source_anchor_ids)}</dd>
+                      </div>
+                      <div>
+                        <dt>Diagnostic codes</dt>
+                        <dd>{formatIdList(event.diagnostic_codes)}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+            )}
             {skippedToolEvents > 0 ? (
               <p className="plan-agent-warning plan-agent-trace-tool-event-warning">
                 Skipped {skippedToolEvents} malformed graph tool event{skippedToolEvents === 1 ? "" : "s"}.

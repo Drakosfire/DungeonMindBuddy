@@ -16,7 +16,7 @@ const USEFULNESS_VALUES = new Set<GraphObjectDogfoodUsefulness>([
 export function graphObjectDogfoodStorageKey(
   sessionDescriptor: PlanSessionDescriptor,
 ): string {
-  return `dmb.planGraphObjectDogfood.${sessionDescriptor.campaignId}.session-${sessionDescriptor.prepSession}`;
+  return `dmb.planGraphObjectDogfood.${sessionDescriptor.campaignId}.${sessionDescriptor.planningDocument.documentId}`;
 }
 
 function asStringArray(value: unknown): string[] {

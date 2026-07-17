@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -270,11 +271,6 @@ def test_query_can_route_through_hermes_backend(
     )
     monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
     monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
-    monkeypatch.setattr(
-        live_agent_loop,
-        "run_hermes_conversation",
-        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("legacy hermes")),
-    )
 
     response = client.post(
         "/api/live/query",
@@ -306,7 +302,8 @@ def test_query_can_route_through_hermes_backend(
         }
     ]
     assert body["context_packet"] is None
-    assert body["hermes_session"] is None
+    assert body["hermes_session"] is not None
+    assert body["hermes_session"]["sessionId"].startswith("hptr-")
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
     assert body["agent_trace"]["runtime"] == "process_isolated"
@@ -329,12 +326,8 @@ def test_query_hermes_cli_env_does_not_invoke_subprocess(
         HermesGraphToolEvent,
     )
 
-    monkeypatch.setenv(live_agent_loop.HERMES_CLI_MODE_ENV, "cli")
+    monkeypatch.setenv("DUNGEONMIND_LIVE_HERMES_MODE", "cli")
 
-    def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
-        raise AssertionError("Hermes CLI subprocess must be unreachable after PR354")
-
-    monkeypatch.setattr(live_agent_loop.subprocess, "run", fake_run)
     monkeypatch.setattr(
         live_agent_loop,
         "resolve_agent_world_graph_query_context",
@@ -1259,7 +1252,8 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
     assert body["world_graph_context"]["revision_id"] == "rev:honest"
     assert body["mode"] == "hermes_graph_agent"
     assert body["grounding"]["state"] == "grounded"
-    assert body["hermes_session"] is None
+    assert body["hermes_session"] is not None
+    assert body["hermes_session"]["sessionId"].startswith("hptr-")
     assert body["agent_trace"]["hermes_session_id"] == "obs-only"
     assert body["agent_trace"]["usage"]["available"] is False
     assert body["agent_trace"]["steps"] == []
@@ -1473,7 +1467,7 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """CLI env must not reach subprocess; host path owns Hermes after PR354."""
+    """Legacy CLI env is ignored; graph host owns Hermes after Phase 0 demolition."""
     from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
     from apps.live_control_server.services import live_agent_loop
     from apps.live_control_server.services.hermes_graph_agent_contract import (
@@ -1481,8 +1475,7 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
         HermesGraphToolEvent,
     )
 
-    monkeypatch.setenv(live_agent_loop.HERMES_CLI_MODE_ENV, "cli")
-    monkeypatch.setattr(live_agent_loop.shutil, "which", lambda name: "/usr/bin/hermes")
+    monkeypatch.setenv("DUNGEONMIND_LIVE_HERMES_MODE", "cli")
     monkeypatch.setattr(
         live_agent_loop,
         "resolve_agent_world_graph_query_context",
@@ -1511,11 +1504,6 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
             },
         },
     )
-
-    def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
-        raise AssertionError("subprocess hermes must not run")
-
-    monkeypatch.setattr(live_agent_loop.subprocess, "run", fake_run)
 
     class _Host:
         def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
@@ -1560,3 +1548,346 @@ def test_hermes_cli_env_cannot_inject_graph_prompt_via_subprocess(
     assert body["answer"] == "host not cli"
     assert body["world_graph_context"]["revision_id"] == "rev:cli"
     assert "prompt_preview" not in body["agent_trace"]
+
+
+def test_hermes_history_accepts_valid_wire_shape(
+    client: TestClient,
+    isolated_session: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services import hermes_graph_query as hermes_graph_query_mod
+    from apps.live_control_server.services import live_agent_loop
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        HermesGraphAgentTurnResult,
+        HermesGraphToolEvent,
+    )
+
+    captured: dict[str, Any] = {}
+
+    class _Host:
+        def execute(self, request, *, timeout_s=None):  # type: ignore[no-untyped-def]
+            captured["history"] = request.conversation_history
+            return HermesGraphAgentTurnResult(
+                status="ok",
+                final_response="Follow-up grounded.",
+                messages=[],
+                hermes_session_id="hermes-obs",
+                tool_events=[
+                    HermesGraphToolEvent(
+                        tool_name="search_campaign_graph",
+                        state="completion",
+                        world_id="eldyrwild",
+                        campaign_id="longmont-c2",
+                        focus={"kind": "session", "sessionId": "session-21"},
+                        admissibility="gm",
+                        revision_pin="rev:route",
+                        outcome="enough",
+                        source_anchor_ids=["anchor:route-2"],
+                    )
+                ],
+                process_isolation="process_exclusive",
+            )
+
+    monkeypatch.setattr(
+        live_agent_loop,
+        "resolve_agent_world_graph_query_context",
+        lambda *args, **kwargs: {
+            "schema": "dmb_agent_world_graph_query_context_v1",
+            "status": "ready",
+            "world_id": "eldyrwild",
+            "campaign_id": "longmont-c2",
+            "revision_id": "rev:route",
+            "head_revision_id": "rev:route",
+            "is_head": True,
+            "focus": {"kind": "session", "session_id": "session-21"},
+            "admissibility": "gm",
+            "query_text": "follow-up",
+            "matched_node_ids": [],
+            "nodes": [],
+            "relationships": [],
+            "attributes": [],
+            "projection_truncated": False,
+            "diagnostics": [],
+            "warning_codes": [],
+            "trust_boundary": {
+                "graph_role": "structured_campaign_memory_and_navigation",
+                "citation_authority": "corpus_source_evidence",
+                "graph_citations_permitted": False,
+            },
+        },
+    )
+    monkeypatch.setattr(hermes_graph_query_mod, "get_hermes_graph_agent_host", lambda: _Host())
+    monkeypatch.setattr(live_agent_loop, "world_graph_root", lambda: tmp_path)
+
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "What is it connected to?",
+            "world_graph_context": _GRAPH_NESTED,
+            "conversation_history": [
+                {
+                    "role": "user",
+                    "content": "What do we know about Tripod Null-Calf at the North Gate?",
+                },
+                {
+                    "role": "assistant",
+                    "content": "Tripod Null-Calf is a siege scout.",
+                },
+            ],
+        },
+    )
+    assert response.status_code == 200
+    assert captured["history"] == [
+        {
+            "role": "user",
+            "content": "What do we know about Tripod Null-Calf at the North Gate?",
+        },
+        {"role": "assistant", "content": "Tripod Null-Calf is a siege scout."},
+    ]
+
+
+_TOO_MANY_HISTORY_MESSAGES = [
+    item
+    for i in range(7)
+    for item in (
+        {"role": "user", "content": f"q{i}"},
+        {"role": "assistant", "content": f"a{i}"},
+    )
+]
+
+
+@pytest.mark.parametrize(
+    "history,expected_code",
+    [
+        ("not-a-list", "hermes_history_invalid"),
+        ([{"role": "user", "content": "solo"}], "hermes_history_invalid"),
+        (
+            [
+                {"role": "assistant", "content": "wrong order"},
+                {"role": "user", "content": "second"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": "x", "trace": "HOSTILE_TRACE"},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "system", "content": "nope"},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "tool", "content": "nope"},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": ""},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": 12},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": "x" * 4001},
+                {"role": "assistant", "content": "y"},
+            ],
+            "hermes_history_invalid",
+        ),
+        (
+            [
+                {"role": "user", "content": "a" * 3000},
+                {"role": "assistant", "content": "b" * 3000},
+                {"role": "user", "content": "c" * 3000},
+                {"role": "assistant", "content": "d" * 3000},
+                {"role": "user", "content": "e" * 3000},
+                {"role": "assistant", "content": "f" * 3000},
+            ],
+            "hermes_history_invalid",
+        ),
+        (_TOO_MANY_HISTORY_MESSAGES, "hermes_history_invalid"),
+    ],
+)
+def test_hermes_history_invalid_returns_422_without_execution(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    history: Any,
+    expected_code: str,
+) -> None:
+    import apps.live_control_server.routes.live as live_routes
+
+    monkeypatch.setattr(
+        live_routes,
+        "process_live_query",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("process_live_query must not run")
+        ),
+    )
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "hermes",
+            "text": "follow-up",
+            "world_graph_context": _GRAPH_NESTED,
+            "conversation_history": history,
+        },
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == expected_code
+    assert "HOSTILE_TRACE" not in json.dumps(body)
+
+
+@pytest.mark.parametrize("history", [None, []])
+def test_hermes_null_or_empty_history_does_not_422_as_invalid(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    history: Any,
+) -> None:
+    import apps.live_control_server.routes.live as live_routes
+
+    captured: dict[str, Any] = {}
+
+    def _capture(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        captured["history"] = kwargs.get("conversation_history")
+        return {
+            "schema": "dmb_live_query_response_v1",
+            "answer": "ok",
+            "status": "ok",
+            "mode": "hermes_graph_agent",
+            "classification": {
+                "intent": "hermes_graph_agent",
+                "latency_mode": "hermes_graph_agent",
+                "event_type": "hermes_graph_agent",
+            },
+            "events_written": [],
+            "jobs_queued": [],
+            "next_suggestions": [],
+            "diagnostics": {},
+            "provenance": {"backend": "hermes", "runtime": "process_isolated"},
+            "citations": [],
+            "context_packet": None,
+            "agent_thread_id": "t",
+            "turn_id": "u",
+        }
+
+    monkeypatch.setattr(live_routes, "process_live_query", _capture)
+    payload: dict[str, Any] = {
+        "campaign_id": "longmont-c2",
+        "session": 22,
+        "mode": "live",
+        "query_backend": "hermes",
+        "text": "follow-up",
+        "world_graph_context": _GRAPH_NESTED,
+    }
+    if history is not None:
+        payload["conversation_history"] = history
+    response = client.post("/api/live/query", json=payload)
+    assert response.status_code == 200
+    assert captured["history"] is None
+
+
+def test_live_backend_rejects_non_empty_history(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import apps.live_control_server.routes.live as live_routes
+
+    monkeypatch.setattr(
+        live_routes,
+        "process_live_query",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("process_live_query must not run")
+        ),
+    )
+    response = client.post(
+        "/api/live/query",
+        json={
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "follow-up",
+            "conversation_history": [
+                {"role": "user", "content": "prior"},
+                {"role": "assistant", "content": "answer"},
+            ],
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "conversation_history_not_supported"
+
+
+def test_live_backend_allows_null_or_empty_history(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import apps.live_control_server.routes.live as live_routes
+
+    calls = {"n": 0}
+
+    def _ok(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        calls["n"] += 1
+        return {
+            "schema": "dmb_live_query_response_v1",
+            "answer": "live-ok",
+            "status": "ok",
+            "mode": "live",
+            "classification": {
+                "intent": "note",
+                "latency_mode": "instant",
+                "event_type": "note",
+            },
+            "events_written": [],
+            "jobs_queued": [],
+            "next_suggestions": [],
+            "diagnostics": {},
+            "provenance": {"backend": "live", "runtime": "in_process"},
+            "citations": [],
+            "context_packet": None,
+            "agent_thread_id": "t",
+            "turn_id": "u",
+        }
+
+    monkeypatch.setattr(live_routes, "process_live_query", _ok)
+    for history in (None, []):
+        payload: dict[str, Any] = {
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "mode": "live",
+            "query_backend": "live",
+            "text": "note",
+        }
+        if history is not None:
+            payload["conversation_history"] = history
+        response = client.post("/api/live/query", json=payload)
+        assert response.status_code == 200
+    assert calls["n"] == 2

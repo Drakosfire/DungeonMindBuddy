@@ -1,12 +1,19 @@
 import type {
   AgentWorldGraphQueryContext,
+  GraphReferenceCitation,
+  HermesGraphGrounding,
   PersistedWorldGraphContextSummary,
+  SourceCitationCitation,
 } from "../../api/types";
 
 interface WorldGraphQueryContextPanelProps {
   context: AgentWorldGraphQueryContext | null;
   summary: PersistedWorldGraphContextSummary | null | undefined;
   persistedOnly?: boolean;
+  grounding?: HermesGraphGrounding | null;
+  retrievalSessionId?: string | null;
+  graphReferences?: GraphReferenceCitation[] | null;
+  sourceCitations?: SourceCitationCitation[] | null;
 }
 
 function nodeLabel(
@@ -22,10 +29,18 @@ function focusLabel(focus: { kind: "none" | "session"; session_id?: string | nul
   return focus.session_id ?? focus.sessionId ?? "unknown session";
 }
 
+function previewList(items: string[], limit = 6): string[] {
+  return items.slice(0, limit);
+}
+
 export function WorldGraphQueryContextPanel({
   context,
   summary,
   persistedOnly = false,
+  grounding = null,
+  retrievalSessionId = null,
+  graphReferences = null,
+  sourceCitations = null,
 }: WorldGraphQueryContextPanelProps) {
   if (!context && !summary) return null;
 
@@ -42,6 +57,51 @@ export function WorldGraphQueryContextPanel({
   const attributes = context?.attributes ?? [];
   const diagnostics = context?.diagnostics ?? [];
   const nodes = context?.nodes ?? [];
+
+  const sessionId =
+    retrievalSessionId
+    ?? summary?.retrievalSessionId
+    ?? null;
+  const acceptanceState =
+    grounding?.acceptance_state
+    ?? summary?.acceptanceState
+    ?? null;
+  const acceptedClaimIds =
+    grounding?.accepted_claim_ids
+    ?? summary?.acceptedClaimIds
+    ?? [];
+  const graphRefCount =
+    grounding?.graph_reference_count
+    ?? summary?.graphReferenceCount
+    ?? graphReferences?.length
+    ?? null;
+  const sourceCiteCount =
+    grounding?.source_anchor_count
+    ?? summary?.sourceCitationCount
+    ?? sourceCitations?.length
+    ?? null;
+  const reasonCodes = grounding?.reason_codes ?? summary?.reasonCodes ?? [];
+  const graphRefPreview = (graphReferences ?? []).map((ref) => ({
+    objectId: ref.object_id,
+    label: ref.label ?? null,
+    claimId: ref.claim_id ?? null,
+  }));
+  const summaryGraphPreview = summary?.graphReferencePreview ?? [];
+  const sourceCitePreview = (sourceCitations ?? []).map((cite) => ({
+    anchorId: cite.anchor_id,
+    sourceArtifactId: cite.source_artifact_id ?? null,
+  }));
+  const summarySourcePreview = summary?.sourceCitationPreview ?? [];
+  const showRetrievalSession =
+    Boolean(sessionId)
+    || Boolean(acceptanceState)
+    || acceptedClaimIds.length > 0
+    || (graphRefCount != null && graphRefCount > 0)
+    || (sourceCiteCount != null && sourceCiteCount > 0)
+    || graphRefPreview.length > 0
+    || sourceCitePreview.length > 0
+    || summaryGraphPreview.length > 0
+    || summarySourcePreview.length > 0;
 
   const connectedObjects = relationships.map((relationship) => {
     const peerId = matchedNodeIds.includes(relationship.source_node_id)
@@ -66,6 +126,7 @@ export function WorldGraphQueryContextPanel({
       <details className="plan-agent-metadata-drawer">
         <summary>
           World graph · {status} · {matchedNodeIds.length} matched
+          {acceptanceState ? ` · ${acceptanceState}` : ""}
         </summary>
         <div>
           <p className="plan-surface-kicker">World graph</p>
@@ -95,6 +156,82 @@ export function WorldGraphQueryContextPanel({
           <dd>{projectionTruncated ? "yes" : "no"}</dd>
         </div>
       </dl>
+
+      {showRetrievalSession ? (
+        <div className="plan-agent-world-graph-retrieval-session">
+          <h5>Retrieval session</h5>
+          <dl className="plan-agent-world-graph-context-grid">
+            <div>
+              <dt>Session id</dt>
+              <dd>{sessionId ? <code>{sessionId}</code> : "n/a"}</dd>
+            </div>
+            <div>
+              <dt>Acceptance</dt>
+              <dd>{acceptanceState ?? "n/a"}</dd>
+            </div>
+            <div>
+              <dt>Accepted claims</dt>
+              <dd>{acceptedClaimIds.length}</dd>
+            </div>
+            <div>
+              <dt>Graph references</dt>
+              <dd>{graphRefCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Source citations (opened)</dt>
+              <dd>{sourceCiteCount ?? 0}</dd>
+            </div>
+          </dl>
+          {acceptedClaimIds.length ? (
+            <div>
+              <p className="plan-agent-muted">Accepted claim ids</p>
+              <ul>
+                {previewList(acceptedClaimIds).map((claimId) => (
+                  <li key={claimId}><code>{claimId}</code></li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {(graphRefPreview.length || summaryGraphPreview.length) ? (
+            <div>
+              <p className="plan-agent-muted">Graph references (accepted claims)</p>
+              <ul>
+                {(graphRefPreview.length ? graphRefPreview : summaryGraphPreview).slice(0, 6).map((ref) => (
+                  <li key={ref.objectId}>
+                    <code>{ref.objectId}</code>
+                    {ref.label ? <span className="plan-agent-muted"> · {ref.label}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {(sourceCitePreview.length || summarySourcePreview.length) ? (
+            <div>
+              <p className="plan-agent-muted">Source citations (opened)</p>
+              <ul>
+                {(sourceCitePreview.length ? sourceCitePreview : summarySourcePreview).slice(0, 6).map((cite) => (
+                  <li key={cite.anchorId}>
+                    <code>{cite.anchorId}</code>
+                    {cite.sourceArtifactId ? (
+                      <span className="plan-agent-muted"> · {cite.sourceArtifactId}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {reasonCodes.length ? (
+            <div>
+              <p className="plan-agent-muted">Reason codes</p>
+              <ul>
+                {previewList(reasonCodes).map((code) => (
+                  <li key={code}><code>{code}</code></li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {matchedNodeIds.length ? (
         <div className="plan-agent-world-graph-matched">

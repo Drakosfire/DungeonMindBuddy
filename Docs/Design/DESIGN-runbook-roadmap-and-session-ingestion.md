@@ -354,10 +354,10 @@ type TiptapRunbookDescriptor = {
 
 ### Scope
 
-- Add a local descriptor registry.
-- Support a route query like `/tiptap-callout-spike?doc=north-gate-session-runbook`.
-- Key localStorage by document descriptor.
-- Set default write target from descriptor.
+- Resolve runbook documents through the **server workspace document registry** (opaque UUIDs; see [`CONTRACT-workspace-document-identity-v1.md`](CONTRACT-workspace-document-identity-v1.md)).
+- Support route query `/tiptap-callout-spike?documentId=<uuid>`; bare `/tiptap-callout-spike` resolves the default runbook from registry.
+- Key localStorage by `dmb.workspaceDocument.{documentId}`.
+- Set write target from registry record (`target_relpath`), not client-editable path.
 
 ### Out of scope
 

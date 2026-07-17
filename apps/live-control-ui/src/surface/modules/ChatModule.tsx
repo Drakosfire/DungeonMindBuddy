@@ -28,7 +28,7 @@ export function ChatModule({ campaignId, session, onQuerySuccess }: ChatModulePr
     setLoading(true);
     setError(null);
     try {
-      const response = await postLiveQuery(trimmed, campaignId, session);
+      const response = await postLiveQuery(trimmed, campaignId, session, "live");
       setLastResponse(response);
       setText("");
       await onQuerySuccess(response);

@@ -1,34 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import type { HermesGraphGrounding, LiveQueryResponse, WorldGraphAnchorCitation } from "../../api/types";
-import type { PlanSessionDescriptor } from "../types";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import {
   answerHeading,
   hasGrounding,
+  isConversationContext,
   isWorldGraphAnchorCitation,
   parseHermesGraphGrounding,
   parseWorldGraphAnchorCitation,
   prepMemoryLabel,
+  s1SupportFromTurn,
   validateHermesGraphCitations,
 } from "./prepMemoryQa";
 
-const sessionDescriptor: PlanSessionDescriptor = {
-  surfaceId: "plan",
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown",
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "C2 Session 23 Prep",
-    targetRelpath: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md",
-    storageKey: "dmb.planCanvas.longmont-c2.23.longmont-c2-session-23-prep",
-    status: "local_draft",
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 const baseGrounding: HermesGraphGrounding = {
   schema: "dmb_hermes_graph_grounding_v1",
@@ -77,7 +63,13 @@ function hermesResponse(
 describe("prepMemoryQa helpers", () => {
   it("formats prep memory label from session descriptor", () => {
     expect(prepMemoryLabel(sessionDescriptor)).toBe(
-      "Memory through Session 21 · preparing Session 23",
+      "Memory through Session 21",
+    );
+  });
+
+  it("formats prep memory label for world-union focus", () => {
+    expect(prepMemoryLabel({ ...sessionDescriptor, memorySession: null })).toBe(
+      "World graph (all sessions)",
     );
   });
 
@@ -113,12 +105,92 @@ describe("prepMemoryQa helpers", () => {
     expect(hasGrounding(hermesResponse("partial"))).toBe(true);
   });
 
+  it("accepts S1 named-gap partials with zero claims or citations", () => {
+    const s1Partial = hermesResponse("partial", [], {
+      source_anchor_count: 0,
+      acceptance_state: "partial_coverage",
+      accepted_claim_ids: [],
+      graph_reference_count: 0,
+      reason_codes: ["named_gap", "latest_recap_memory_lag_disclosed"],
+      warnings: ["graph_context_empty"],
+    });
+
+    expect(answerHeading(s1Partial)).toBe("No Hermes answer");
+    expect(hasGrounding(s1Partial)).toBe(true);
+    expect(validateHermesGraphCitations(s1Partial.citations, s1Partial.grounding).contractWarning).toBeNull();
+  });
+
+  it("labels S1 agent answers and admitted-recap reads", () => {
+    const s1WithRead = hermesResponse("partial", [], {
+      source_anchor_count: 0,
+      acceptance_state: "partial_coverage",
+      accepted_claim_ids: [],
+      graph_reference_count: 0,
+      reason_codes: [
+        "named_gap",
+        "latest_recap_memory_lag_disclosed",
+        "admitted_recap_source_read",
+      ],
+    });
+    expect(answerHeading(s1WithRead)).toBe("No Hermes answer");
+    expect(hasGrounding(s1WithRead)).toBe(true);
+
+    const s1Agent = hermesResponse("partial", [], {
+      source_anchor_count: 0,
+      acceptance_state: "partial_coverage",
+      accepted_claim_ids: [],
+      graph_reference_count: 0,
+      reason_codes: [
+        "named_gap",
+        "latest_recap_memory_lag_disclosed",
+        "hermes_agent_answer",
+      ],
+    });
+    expect(answerHeading(s1Agent)).toBe("Hermes answer");
+  });
+
+  it("still rejects empty partials without named-gap reason codes", () => {
+    const emptyPartial = hermesResponse("partial", [], {
+      source_anchor_count: 0,
+      accepted_claim_ids: [],
+      graph_reference_count: 0,
+      reason_codes: [],
+    });
+    expect(answerHeading(emptyPartial)).toBe("Hermes grounding contract error");
+    expect(hasGrounding(emptyPartial)).toBe(false);
+  });
+
   it("maps Hermes abstained and error states without treating them as grounded", () => {
     expect(answerHeading(hermesResponse("abstained", []))).toBe("Graph evidence gap");
     expect(answerHeading(hermesResponse("error", []))).toBe("Hermes graph error");
     expect(hasGrounding(hermesResponse("abstained", []))).toBe(false);
     expect(hasGrounding(hermesResponse("error", []))).toBe(false);
     expect(hasGrounding(hermesResponse("abstained", [graphCitation]))).toBe(false);
+  });
+
+  it("treats conversation_context as a non-graph answer, not an evidence gap", () => {
+    const conversational = hermesResponse("conversation_context", [], {
+      source_anchor_count: 0,
+      accepted_claim_ids: [],
+      graph_reference_count: 0,
+      reason_codes: ["conversation_context_no_tool_calls"],
+      diagnostic_codes: [],
+    });
+
+    expect(answerHeading(conversational)).toBe("Answered from conversation");
+    expect(hasGrounding(conversational)).toBe(false);
+    expect(isConversationContext(parseHermesGraphGrounding(conversational.grounding))).toBe(true);
+    expect(validateHermesGraphCitations(conversational.citations, conversational.grounding)).toEqual({
+      grounding: expect.objectContaining({ state: "conversation_context" }),
+      citations: [],
+      contractWarning: null,
+    });
+
+    const withStrayCitations = hermesResponse("conversation_context", [graphCitation]);
+    expect(
+      validateHermesGraphCitations(withStrayCitations.citations, withStrayCitations.grounding)
+        .contractWarning,
+    ).toBe("Graph citations ignored for conversation-context turns.");
   });
 
   it("reports contract errors for malformed Hermes grounding or mismatched citations", () => {
@@ -260,5 +332,27 @@ describe("prepMemoryQa helpers", () => {
     }], baseGrounding);
     expect(dropped.citations).toHaveLength(0);
     expect(dropped.contractWarning).toContain("scope or revision mismatch");
+  });
+
+  it("s1SupportFromTurn prefers persisted turn support over wire fallback", () => {
+    expect(s1SupportFromTurn(
+      { s1Support: { lagDisclosure: "Persisted lag", admittedRecapExcerpt: null } },
+      {
+        s1_support: { lag_disclosure: "Wire lag", admitted_recap_excerpt: "Wire excerpt" },
+      } as never,
+    )).toEqual({ lagDisclosure: "Persisted lag", admittedRecapExcerpt: null });
+
+    expect(s1SupportFromTurn(
+      { s1Support: null },
+      {
+        latest_recap_change: {
+          lag_disclosure: "From latest recap change",
+          admitted_recap_excerpt: "Recap body",
+        },
+      } as never,
+    )).toEqual({
+      lagDisclosure: "From latest recap change",
+      admittedRecapExcerpt: "Recap body",
+    });
   });
 });

@@ -2,29 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import {
   buildPlanGraphObjectActions,
   hasPlanSourceOrEvidence,
 } from "./buildPlanGraphObjectActions";
 import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
 
-const sessionDescriptor = {
-  surfaceId: "plan" as const,
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown" as const,
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "C2 Session 23 Prep",
-    targetRelpath: "corpus/example.md",
-    storageKey: "storage-key",
-    status: "local_draft" as const,
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 function makeNode(overrides: Partial<GraphProjectionNodeView> = {}): GraphProjectionNodeView {
   return {

@@ -1,0 +1,46 @@
+{
+  "campaign_id": "longmont-c2",
+  "contract_checks": {
+    "comparison_boundary_pinned": true,
+    "latest_recap_identified": true,
+    "memory_lag_disclosed": true,
+    "no_durable_graph_or_corpus_writes": true,
+    "outcome_classified": true
+  },
+  "cost_usd": 0.0,
+  "created_at": "2026-07-15T21:17:14.918559Z",
+  "latest_recap_change": {
+    "campaign_id": "longmont-c2",
+    "comparison_boundary": {
+      "graph_latest_session_id": "session-23",
+      "graph_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+      "kind": "latest_admitted_recap_to_graph_head",
+      "recap_session_id": "session-24"
+    },
+    "diagnostic_codes": [
+      "latest_recap_not_in_graph_head"
+    ],
+    "graph_object_ids": [],
+    "graph_session_ids": [
+      "session-22",
+      "session-23"
+    ],
+    "latest_recap": {
+      "artifact_id": "longmont-c2/session-24",
+      "campaign_id": "longmont-c2",
+      "session_id": "session-24",
+      "source_artifact_id": null,
+      "source_recap_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 24 - Mireward Gate Battle.md",
+      "source_sha256": "sha256:d800d442cd66c6c0984c5de6500aa8272378f8c7606205b5d8f71fd19c7f526a"
+    },
+    "memory_lag": true,
+    "outcome": "memory_lag",
+    "schema": "dmb_latest_recap_change_context_v1",
+    "status": "ready"
+  },
+  "mutations": [],
+  "ok": true,
+  "question": "What changed after the latest ingested recap?",
+  "schema": "dmb_hermes_s1_latest_recap_dogfood_report_v1",
+  "world_id": "eldyrwild"
+}

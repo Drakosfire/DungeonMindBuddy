@@ -3,37 +3,75 @@ import { readFileSync } from "node:fs";
 import { beforeEach, vi } from "vitest";
 
 import type { AppChromeTools } from "../chrome/AppChrome";
+import {
+  commitTiptapMarkdownWrite,
+  createWorkspaceDocument,
+  getWorkspaceDocument,
+  listWorkspaceDocuments,
+  prepareTiptapMarkdownWrite,
+} from "../api/liveApi";
+import type { WorkspaceDocumentRecord } from "../api/types";
+import { FIXTURE_DOC_ID, fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
 import { TiptapCalloutBridgeSpike } from "./TiptapCalloutBridgeSpike";
 import {
   normalizeCalloutKind,
   tiptapJsonToSemanticMarkdown,
 } from "./markdown/calloutMarkdown";
-import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../api/liveApi";
 import {
-  buildInitialWorkingBoardState,
-  TIPTAP_WORKING_BOARD_KEY,
-} from "./state/tiptapLocalState";
-import {
-  getTiptapRunbookDescriptor,
+  NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+  runbookDescriptorFromRecord,
   tiptapRunbookStorageKey,
 } from "./descriptors/tiptapRunbookDescriptors";
+import {
+  buildInitialWorkspaceDocumentLocalState,
+  workspaceDocumentStorageKey,
+} from "./state/tiptapLocalState";
 
 vi.mock("../api/liveApi", () => ({
   prepareTiptapMarkdownWrite: vi.fn(),
   commitTiptapMarkdownWrite: vi.fn(),
+  listWorkspaceDocuments: vi.fn(),
+  getWorkspaceDocument: vi.fn(),
+  createWorkspaceDocument: vi.fn(),
 }));
 
 const prepareMock = vi.mocked(prepareTiptapMarkdownWrite);
 const commitMock = vi.mocked(commitTiptapMarkdownWrite);
-const northGateDescriptor = getTiptapRunbookDescriptor("north-gate-session-runbook");
-const spikeDescriptor = getTiptapRunbookDescriptor("north-gate-callout-spike");
+const listMock = vi.mocked(listWorkspaceDocuments);
+const getMock = vi.mocked(getWorkspaceDocument);
+const createMock = vi.mocked(createWorkspaceDocument);
+
+const SPIKE_DOC_ID = "22222222-2222-4222-8222-222222222222";
+const SPIKE_TARGET_RELPATH = "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md";
+
+const northGateRecord = (): WorkspaceDocumentRecord => fixtureWorkspaceDocumentRecord({
+  document_id: FIXTURE_DOC_ID,
+  title: "North Gate Session Runbook",
+  kind: "runbook",
+  target_relpath: NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+  target_session: 23,
+  revision: 1,
+});
+
+const spikeRecord = (): WorkspaceDocumentRecord => fixtureWorkspaceDocumentRecord({
+  document_id: SPIKE_DOC_ID,
+  title: "North Gate Callout Spike",
+  kind: "runbook",
+  target_relpath: SPIKE_TARGET_RELPATH,
+  target_session: 23,
+  revision: 1,
+});
+
+const northGateDescriptor = runbookDescriptorFromRecord(northGateRecord());
+const spikeDescriptor = runbookDescriptorFromRecord(spikeRecord());
 
 const preparedResponse = {
   schema_version: "dmb_tiptap_markdown_write_prepare_v1" as const,
-  document_id: "north-gate-session-runbook",
+  document_id: FIXTURE_DOC_ID,
   title: "North Gate Session Runbook",
-  target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
-  target_display_path: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
+  target_relpath: NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+  target_display_path: NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+  registry_revision: 1,
   file_exists: false,
   writer_ok: true,
   writer_phase: "prepare",
@@ -43,6 +81,25 @@ const preparedResponse = {
   diagnostics: ["dry-run only; no file was written"],
 };
 
+function setupRegistryMocks() {
+  listMock.mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v1",
+    records: [northGateRecord()],
+  });
+  getMock.mockImplementation(async (documentId: string) => {
+    if (documentId === FIXTURE_DOC_ID) return northGateRecord();
+    if (documentId === SPIKE_DOC_ID) return spikeRecord();
+    throw new Error(`Unknown document id "${documentId}"`);
+  });
+  createMock.mockResolvedValue(northGateRecord());
+}
+
+async function renderLoadedSpike(path = "/tiptap-callout-spike") {
+  window.history.pushState({}, "", path);
+  render(<TiptapCalloutBridgeSpike />);
+  expect(await screen.findByTestId("tiptap-editor")).toBeInTheDocument();
+}
+
 describe("semantic callout Markdown bridge", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/tiptap-callout-spike");
@@ -50,6 +107,7 @@ describe("semantic callout Markdown bridge", () => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", vi.fn());
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    setupRegistryMocks();
     prepareMock.mockResolvedValue(preparedResponse);
     commitMock.mockResolvedValue({
       schema_version: "dmb_tiptap_markdown_write_commit_v1",
@@ -57,6 +115,7 @@ describe("semantic callout Markdown bridge", () => {
       title: preparedResponse.title,
       target_relpath: preparedResponse.target_relpath,
       target_display_path: preparedResponse.target_display_path,
+      registry_revision: 2,
       writer_ok: true,
       bytes_written: 42,
       file_fingerprint: "fingerprint",
@@ -148,10 +207,9 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("renders the spike surface and initialized callouts", async () => {
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
 
     expect(screen.getByRole("heading", { name: "Tiptap Session Runbook Editor" })).toBeInTheDocument();
-    expect(screen.getByTestId("tiptap-editor")).toBeInTheDocument();
     expect(screen.getByTestId("tiptap-editor")).toHaveAttribute("data-md-theme", "command");
     expect(screen.getByTestId("tiptap-editor")).toHaveClass("md-theme-command");
     expect(screen.getByRole("heading", { name: "Editor JSON" })).toBeInTheDocument();
@@ -177,97 +235,88 @@ describe("semantic callout Markdown bridge", () => {
     expect(exportedMarkdown).toHaveTextContent("#dmb-action:combat:north-gate-combat");
   });
 
-
-  it("loads descriptor-selected callout spike target", () => {
-    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-callout-spike");
-
-    render(<TiptapCalloutBridgeSpike />);
+  it("loads registry-selected runbook by documentId query", async () => {
+    await renderLoadedSpike(`/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
 
     expect(screen.getAllByText("North Gate Callout Spike").length).toBeGreaterThan(0);
-    expect(screen.getByText("north-gate-callout-spike")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md")).toBeInTheDocument();
-    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# North Gate Callout Spike");
+    expect(screen.getByText(SPIKE_DOC_ID)).toBeInTheDocument();
+    expect(screen.getByLabelText("Target path")).toHaveTextContent(SPIKE_TARGET_RELPATH);
+    expect(getMock).toHaveBeenCalledWith(SPIKE_DOC_ID);
+    expect(listMock).not.toHaveBeenCalled();
   });
 
-  it("falls back to the default descriptor for unknown query docs", () => {
-    window.history.pushState({}, "", "/tiptap-callout-spike?doc=bogus");
-
+  it("shows a load error for unknown documentId query values", async () => {
+    window.history.pushState({}, "", "/tiptap-callout-spike?documentId=bogus");
     render(<TiptapCalloutBridgeSpike />);
 
-    expect(screen.getByText(/Unknown document id "bogus"; loaded default descriptor/)).toBeInTheDocument();
-    expect(screen.getByText("north-gate-session-runbook")).toBeInTheDocument();
+    expect(await screen.findByText(/Unknown document id "bogus"/)).toBeInTheDocument();
+    expect(screen.queryByTestId("tiptap-editor")).not.toBeInTheDocument();
   });
 
-  it("prepares writes with the active descriptor target path", async () => {
-    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-callout-spike");
+  it("prepares writes with the active document id and markdown", async () => {
+    await renderLoadedSpike(`/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
     prepareMock.mockResolvedValueOnce({
       ...preparedResponse,
-      document_id: "north-gate-callout-spike",
+      document_id: SPIKE_DOC_ID,
       title: "North Gate Callout Spike",
-      target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
-      target_display_path: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
+      target_relpath: SPIKE_TARGET_RELPATH,
+      target_display_path: SPIKE_TARGET_RELPATH,
     });
 
-    render(<TiptapCalloutBridgeSpike />);
     fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
 
-    await waitFor(() => expect(prepareMock).toHaveBeenCalledWith(expect.objectContaining({
-      document_id: "north-gate-callout-spike",
-      title: "North Gate Callout Spike",
-      target_relpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md",
-    })));
+    await waitFor(() => expect(prepareMock).toHaveBeenCalledWith({
+      document_id: SPIKE_DOC_ID,
+      markdown: expect.stringContaining("> [!READ-ALOUD]"),
+      expected_revision: 1,
+    }));
   });
 
-  it("resets the active descriptor starter content under its own key", async () => {
-    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-callout-spike");
+  it("resets the active document starter content under its own storage key", async () => {
+    await renderLoadedSpike(`/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
 
-    render(<TiptapCalloutBridgeSpike />);
     fireEvent.click(screen.getByRole("button", { name: "Reset local draft" }));
 
     expect(await screen.findByText("Reset to starter")).toBeInTheDocument();
-    expect(window.localStorage.getItem(tiptapRunbookStorageKey(spikeDescriptor))).toContain("north-gate-callout-spike");
+    expect(window.localStorage.getItem(tiptapRunbookStorageKey(spikeDescriptor))).toContain("# C2S23 North Gate Session Runbook");
     expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toBeNull();
-    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# North Gate Callout Spike");
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# C2S23 North Gate Session Runbook");
   });
 
-
-  it("renders an import committed Markdown action", () => {
-    render(<TiptapCalloutBridgeSpike />);
-
+  it("renders an import committed Markdown action", async () => {
+    await renderLoadedSpike();
     expect(screen.getByRole("button", { name: "Import committed Markdown" })).toBeInTheDocument();
   });
 
-  it("imports from the active descriptor target and writes active local storage", async () => {
-    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-session-runbook");
+  it("imports from the active document target and writes document-keyed local storage", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response("# Imported Title\n\nTalk to [Lysandro Ironveil](#dmb-ref:npc:lysandro-ironveil)."));
 
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
     fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith("/evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md"));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(`/${NORTH_GATE_RUNBOOK_TARGET_RELPATH}`));
     expect(await screen.findByText(/Imported committed Markdown from evals\/c2_live_prep/)).toBeInTheDocument();
     expect(screen.getByTestId("markdown-export")).toHaveTextContent("# Imported Title");
     expect(screen.getByTestId("markdown-export")).toHaveTextContent("#dmb-ref:npc:lysandro-ironveil");
-    expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toContain("Imported Title");
+    expect(window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID))).toContain("Imported Title");
   });
 
-  it("imports using the selected descriptor target and storage key", async () => {
-    window.history.pushState({}, "", "/tiptap-callout-spike?doc=north-gate-callout-spike");
+  it("imports using the selected document target and storage key", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response("# Spike Import\n\n> [!WARNING]\n> Spike warning."));
 
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike(`/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
     fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith("/evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md"));
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(`/${SPIKE_TARGET_RELPATH}`));
     expect(await screen.findByText(/Imported committed Markdown from evals\/c2_live_prep/)).toBeInTheDocument();
-    expect(window.localStorage.getItem(tiptapRunbookStorageKey(spikeDescriptor))).toContain("Spike Import");
-    expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toBeNull();
+    expect(window.localStorage.getItem(workspaceDocumentStorageKey(SPIKE_DOC_ID))).toContain("Spike Import");
+    expect(window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID))).toBeNull();
   });
 
   it("treats imported committed Markdown as a saved draft until a file write commits", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response("# Imported Title\n\nA plain imported plan."));
 
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
     fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
 
     const importedParagraph = await screen.findByText("A plain imported plan.");
@@ -278,24 +327,32 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("confirms before replacing a local draft", async () => {
-    const state = buildInitialWorkingBoardState(northGateDescriptor);
+    const state = buildInitialWorkspaceDocumentLocalState({
+      documentId: FIXTURE_DOC_ID,
+      title: northGateDescriptor.title,
+      campaignId: northGateDescriptor.campaignId,
+      kind: "runbook",
+      targetSession: northGateDescriptor.session,
+      surface: "runbook",
+      starterContent: northGateDescriptor.starterContent,
+    });
     state.exported_markdown = "# Existing local draft\n";
     state.tiptap_json = { type: "doc", content: [{ type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Existing local draft" }] }] };
-    window.localStorage.setItem(tiptapRunbookStorageKey(northGateDescriptor), JSON.stringify(state));
+    window.localStorage.setItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID), JSON.stringify(state));
     vi.mocked(window.confirm).mockReturnValueOnce(false);
 
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
     fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
 
     expect(fetch).not.toHaveBeenCalled();
     expect(screen.getByTestId("markdown-export")).toHaveTextContent("# Existing local draft");
-    expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toContain("Existing local draft");
+    expect(window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID))).toContain("Existing local draft");
   });
 
   it("renders import errors calmly and leaves the editor unchanged", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response("not found", { status: 404, statusText: "Not Found" }));
 
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
     const before = screen.getByTestId("markdown-export").textContent;
     fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
 
@@ -303,8 +360,8 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByTestId("markdown-export").textContent).toBe(before);
   });
 
-  it("renders the explicit file write boundary without calling the backend", () => {
-    render(<TiptapCalloutBridgeSpike />);
+  it("renders the explicit file write boundary without calling the backend", async () => {
+    await renderLoadedSpike();
     expect(screen.getByText(/Preparing a write asks the backend/)).toBeInTheDocument();
     expect(screen.getByText(/Committing writes the reviewed runbook Markdown file/)).toBeInTheDocument();
     expect(prepareMock).not.toHaveBeenCalled();
@@ -312,7 +369,7 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("shows block save-state guidance when hovering reference and operational blocks", async () => {
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
 
     fireEvent.mouseMove((await screen.findAllByText("Lysandro Ironveil"))[0]);
 
@@ -327,7 +384,7 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("can lock the editor from an operational block badge", async () => {
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
 
     fireEvent.mouseMove((await screen.findAllByText("North Gate Combat"))[0]);
     fireEvent.click(screen.getByRole("button", { name: "Lock live block" }));
@@ -342,62 +399,47 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("prepares derived Markdown, shows its diff, and commits the reviewed token", async () => {
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
     fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
 
-    await waitFor(() => expect(prepareMock).toHaveBeenCalledWith(expect.objectContaining({
-      document_id: "north-gate-session-runbook",
-      title: "North Gate Session Runbook",
-      target_relpath: preparedResponse.target_relpath,
+    await waitFor(() => expect(prepareMock).toHaveBeenCalledWith({
+      document_id: FIXTURE_DOC_ID,
       markdown: expect.stringContaining("> [!READ-ALOUD]"),
-    })));
+      expected_revision: 1,
+    }));
     expect(await screen.findByText("+> [!READ-ALOUD]", { exact: false })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Commit reviewed file write" }));
-    await waitFor(() => expect(commitMock).toHaveBeenCalledWith(expect.objectContaining({
-      writer_confirm_token: "confirm-token",
+    await waitFor(() => expect(commitMock).toHaveBeenCalledWith({
+      document_id: FIXTURE_DOC_ID,
       markdown: expect.stringContaining("> [!READ-ALOUD]"),
-    })));
+      writer_confirm_token: "confirm-token",
+      expected_revision: 1,
+    }));
     expect(await screen.findByText(/Local draft remains available/)).toBeInTheDocument();
   });
 
-  it("disables commit when the target changes after prepare", async () => {
-    render(<TiptapCalloutBridgeSpike />);
-    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeEnabled());
-    fireEvent.change(screen.getByLabelText("Target path"), { target: { value: `${preparedResponse.target_relpath}-changed` } });
-    expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeDisabled();
-    expect(screen.getByText(/Target path changed after prepare/)).toBeInTheDocument();
-  });
-
-  it("clears prior commit success when the target changes", async () => {
-    render(<TiptapCalloutBridgeSpike />);
-    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeEnabled());
-    fireEvent.click(screen.getByRole("button", { name: "Commit reviewed file write" }));
-    expect(await screen.findByText(/Local draft remains available/)).toBeInTheDocument();
-    expect(screen.getByText("fingerprint")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Target path"), { target: { value: `${preparedResponse.target_relpath}-changed` } });
-
-    expect(screen.queryByText(/Local draft remains available/)).not.toBeInTheDocument();
-    expect(screen.queryByText("fingerprint")).not.toBeInTheDocument();
+  it("displays registry-owned target path as read-only", async () => {
+    await renderLoadedSpike();
+    expect(screen.getByLabelText("Target path")).toHaveTextContent(preparedResponse.target_relpath);
+    expect(screen.queryByRole("textbox", { name: "Target path" })).not.toBeInTheDocument();
   });
 
   it("shows prepare errors", async () => {
     prepareMock.mockRejectedValueOnce(new Error("unsafe target"));
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
     fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("unsafe target");
   });
 
   it("resets and saves the starter content locally", async () => {
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset local draft" }));
 
     expect(await screen.findByText("Reset to starter")).toBeInTheDocument();
     expect(window.localStorage.length).toBe(1);
+    expect(window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID))).toContain("# C2S23 North Gate Session Runbook");
   });
 
   it("registers editor tools for the app chrome", async () => {
@@ -441,7 +483,15 @@ describe("semantic callout Markdown bridge", () => {
   });
 
   it("renders malformed persisted references as invalid editor text", async () => {
-    const state = buildInitialWorkingBoardState(northGateDescriptor);
+    const state = buildInitialWorkspaceDocumentLocalState({
+      documentId: FIXTURE_DOC_ID,
+      title: northGateDescriptor.title,
+      campaignId: northGateDescriptor.campaignId,
+      kind: "runbook",
+      targetSession: northGateDescriptor.session,
+      surface: "runbook",
+      starterContent: northGateDescriptor.starterContent,
+    });
     state.tiptap_json = {
       type: "doc",
       content: [{
@@ -452,9 +502,9 @@ describe("semantic callout Markdown bridge", () => {
         }],
       }],
     };
-    window.localStorage.setItem(TIPTAP_WORKING_BOARD_KEY, JSON.stringify(state));
+    window.localStorage.setItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID), JSON.stringify(state));
 
-    render(<TiptapCalloutBridgeSpike />);
+    await renderLoadedSpike();
 
     const invalidReference = await screen.findByTitle("Invalid runbook reference");
     expect(invalidReference).toHaveTextContent("Bog Thing");
@@ -469,12 +519,10 @@ describe("semantic callout Markdown bridge", () => {
     const html = readFileSync("../../evals/c2_live_prep/mireward-prep/live-play.html", "utf8");
 
     expect(html).toContain("content/tiptap/north-gate-session-runbook.md");
-    expect(html).toContain("/tiptap-callout-spike?doc=north-gate-session-runbook");
-    expect(html).not.toContain("content/tiptap/north-gate-callout-spike.md");
   });
 
-  it("does not render page-local tool copy", () => {
-    render(<TiptapCalloutBridgeSpike />);
+  it("does not render page-local tool copy", async () => {
+    await renderLoadedSpike();
 
     expect(screen.queryByText("Callouts")).not.toBeInTheDocument();
     expect(screen.queryByText("Insert semantic Markdown blocks.")).not.toBeInTheDocument();

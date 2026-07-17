@@ -18,29 +18,44 @@ import type {
 } from "../../api/types";
 import {
   parseHermesGraphGrounding,
+  s1SupportFromAnswer,
   validateHermesGraphCitations,
 } from "./prepMemoryQa";
 
 export const AGENT_TURN_HISTORY_CAP = 20;
 export const AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS = 6;
-export const AGENT_THREAD_STORAGE_PREFIX = "agent-interaction-thread-v1";
-export const AGENT_ACTIVE_THREAD_STORAGE_PREFIX = "agent-interaction-active-thread-v1";
-export const AGENT_THREAD_INDEX_STORAGE_PREFIX = "agent-interaction-thread-index-v1";
+export const AGENT_THREAD_STORAGE_PREFIX = "agent-interaction-thread-v2";
+export const AGENT_ACTIVE_THREAD_STORAGE_PREFIX = "agent-interaction-active-thread-v2";
+export const AGENT_THREAD_INDEX_STORAGE_PREFIX = "agent-interaction-thread-index-v2";
 
-export function activeThreadStorageKey(campaignId: string, surfaceId = "plan"): string {
-  return `${AGENT_ACTIVE_THREAD_STORAGE_PREFIX}:${campaignId}:${surfaceId}`;
+function scopedStorageSuffix(
+  campaignId: string,
+  surfaceId: string,
+  documentId?: string | null,
+): string {
+  return documentId
+    ? `${campaignId}:${surfaceId}:${documentId}`
+    : `${campaignId}:${surfaceId}`;
+}
+
+export function activeThreadStorageKey(
+  campaignId: string,
+  surfaceId = "plan",
+  documentId?: string | null,
+): string {
+  return `${AGENT_ACTIVE_THREAD_STORAGE_PREFIX}:${scopedStorageSuffix(campaignId, surfaceId, documentId)}`;
 }
 
 export function threadStorageKey(campaignId: string, threadId: string): string {
   return `${AGENT_THREAD_STORAGE_PREFIX}:${campaignId}:${threadId}`;
 }
 
-export function threadIndexStorageKey(campaignId: string, surfaceId = "plan"): string {
-  return `${AGENT_THREAD_INDEX_STORAGE_PREFIX}:${campaignId}:${surfaceId}`;
-}
-
-export function historyStorageKey(campaignId: string): string {
-  return `plan-agent-turns-v1:${campaignId}`;
+export function threadIndexStorageKey(
+  campaignId: string,
+  surfaceId = "plan",
+  documentId?: string | null,
+): string {
+  return `${AGENT_THREAD_INDEX_STORAGE_PREFIX}:${scopedStorageSuffix(campaignId, surfaceId, documentId)}`;
 }
 
 function newId(prefix: string): string {
@@ -53,14 +68,26 @@ export function threadTitleFromQuestion(question: string): string {
   return trimmed.length > 56 ? `${trimmed.slice(0, 53)}…` : trimmed;
 }
 
+/** Plan Agent Interaction is Hermes-only (Rung 7). Live remains for /surface ChatModule. */
+export function normalizePlanAgentBackend(
+  thread: AgentInteractionThread,
+): AgentInteractionThread {
+  if (thread.surfaceId !== "plan" || thread.activeBackend === "hermes") {
+    return thread;
+  }
+  return { ...thread, activeBackend: "hermes" };
+}
+
 export function createAgentInteractionThread(
   campaignId: string,
   session: number,
   surfaceId = "plan",
   backend: LiveQueryBackend = "hermes",
   title = "New prep thread",
+  documentId?: string | null,
 ): AgentInteractionThread {
   const now = new Date().toISOString();
+  const resolvedBackend: LiveQueryBackend = surfaceId === "plan" ? "hermes" : backend;
   return {
     threadId: newId("agent-thread"),
     title,
@@ -68,33 +95,40 @@ export function createAgentInteractionThread(
     updatedAt: now,
     campaignId,
     session,
+    documentId: documentId ?? null,
     surfaceId,
-    activeBackend: backend,
+    activeBackend: resolvedBackend,
     hermesSession: null,
     turns: [],
     uiState: { traceVisible: true, scrollAnchorTurnId: null, newThreadSuggestionDismissed: false },
   };
 }
 
-function emptyThreadIndex(campaignId: string, surfaceId = "plan"): AgentInteractionThreadIndex {
+function emptyThreadIndex(
+  campaignId: string,
+  surfaceId = "plan",
+  documentId?: string | null,
+): AgentInteractionThreadIndex {
   return {
-    schema: "agent_interaction_thread_index_v1",
+    schema: "agent_interaction_thread_index_v2",
     campaignId,
     surfaceId,
+    documentId: documentId ?? null,
     activeThreadId: null,
     threads: [],
   };
 }
 
 function summarizeThread(thread: AgentInteractionThread): AgentInteractionThreadSummary {
+  const normalized = normalizePlanAgentBackend(thread);
   return {
-    threadId: thread.threadId,
-    title: thread.title || "New prep thread",
-    createdAt: thread.createdAt,
-    updatedAt: thread.updatedAt,
-    turnCount: thread.turns.length,
-    activeBackend: thread.activeBackend,
-    hermesSessionId: thread.hermesSession?.sessionId ?? null,
+    threadId: normalized.threadId,
+    title: normalized.title || "New prep thread",
+    createdAt: normalized.createdAt,
+    updatedAt: normalized.updatedAt,
+    turnCount: normalized.turns.length,
+    activeBackend: normalized.activeBackend,
+    hermesSessionId: normalized.hermesSession?.sessionId ?? null,
   };
 }
 
@@ -242,7 +276,27 @@ function safeHermesGraphTraceForPersistence(
     context_summary: {},
     artifact_refs: [],
     tool_events: sanitizeHermesGraphToolEvents(trace.tool_events),
-    hermes_session_id: truncatePersistedString(trace.hermes_session_id),
+    conversation_context: isRecord(trace.conversation_context)
+      ? {
+          history_present: Boolean(trace.conversation_context.history_present),
+          message_count: typeof trace.conversation_context.message_count === "number"
+            ? trace.conversation_context.message_count
+            : 0,
+          pair_count: typeof trace.conversation_context.pair_count === "number"
+            ? trace.conversation_context.pair_count
+            : 0,
+          payload_shape: truncatePersistedString(trace.conversation_context.payload_shape) ?? "role_content_only",
+          graph_metadata_in_history: Boolean(trace.conversation_context.graph_metadata_in_history),
+          hermes_session_pointer_in_request: Boolean(trace.conversation_context.hermes_session_pointer_in_request),
+          hermes_session_pointer_status: truncatePersistedString(trace.conversation_context.hermes_session_pointer_status) ?? undefined,
+          worker_pid_changed: typeof trace.conversation_context.worker_pid_changed === "boolean"
+            ? trace.conversation_context.worker_pid_changed
+            : undefined,
+          fresh_graph_revision_used: typeof trace.conversation_context.fresh_graph_revision_used === "boolean"
+            ? trace.conversation_context.fresh_graph_revision_used
+            : undefined,
+        }
+      : undefined,
     process_isolation: truncatePersistedString(trace.process_isolation),
     warnings: warnings.slice(0, MAX_PERSISTED_WARNINGS),
   };
@@ -394,12 +448,16 @@ export function worstCorpusFreshnessStatus(statuses: CitationFreshnessStatus[]):
 
 function buildWorldGraphContextSummary(
   context: AgentWorldGraphQueryContext | null | undefined,
+  response?: LiveQueryResponse | null,
 ): PersistedWorldGraphContextSummary | null {
   if (!context) return null;
   const warningCodes = [...(context.warning_codes ?? [])];
   if (!warningCodes.includes("graph_context_detail_not_persisted")) {
     warningCodes.push("graph_context_detail_not_persisted");
   }
+  const grounding = response?.grounding ?? null;
+  const graphReferences = response?.graph_references ?? [];
+  const sourceCitations = response?.source_citations ?? [];
   return {
     schema: "dmb_agent_world_graph_context_summary_v1",
     status: context.status,
@@ -415,6 +473,21 @@ function buildWorldGraphContextSummary(
     matchedNodeIds: context.matched_node_ids,
     projectionTruncated: context.projection_truncated,
     warningCodes,
+    retrievalSessionId: response?.retrieval_session_id ?? null,
+    acceptanceState: grounding?.acceptance_state ?? null,
+    acceptedClaimIds: grounding?.accepted_claim_ids ?? [],
+    graphReferenceCount: grounding?.graph_reference_count ?? graphReferences.length,
+    sourceCitationCount: grounding?.source_anchor_count ?? sourceCitations.length,
+    reasonCodes: grounding?.reason_codes ?? [],
+    graphReferencePreview: graphReferences.slice(0, 6).map((ref) => ({
+      objectId: ref.object_id,
+      label: ref.label ?? null,
+      claimId: ref.claim_id ?? null,
+    })),
+    sourceCitationPreview: sourceCitations.slice(0, 6).map((cite) => ({
+      anchorId: cite.anchor_id,
+      sourceArtifactId: cite.source_artifact_id ?? null,
+    })),
   };
 }
 
@@ -455,8 +528,12 @@ export function turnFromResponse(
       evidenceSnapshots: [],
       corpusFreshness: null,
       worldGraphContext: response.world_graph_context ?? null,
-      worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),
+      worldGraphContextSummary: buildWorldGraphContextSummary(
+        response.world_graph_context,
+        response,
+      ),
       grounding: validated.grounding,
+      s1Support: s1SupportFromAnswer(response),
     };
   }
 
@@ -488,8 +565,12 @@ export function turnFromResponse(
     ),
     corpusFreshness: null,
     worldGraphContext: response.world_graph_context ?? null,
-    worldGraphContextSummary: buildWorldGraphContextSummary(response.world_graph_context),
+    worldGraphContextSummary: buildWorldGraphContextSummary(
+      response.world_graph_context,
+      response,
+    ),
     grounding: parseHermesGraphGrounding(response.grounding),
+    s1Support: s1SupportFromAnswer(response),
   };
 }
 
@@ -518,23 +599,27 @@ export function turnMetaFromResponse(
   };
 }
 
-export function loadAgentThread(campaignId: string, surfaceId = "plan"): AgentInteractionThread | null {
+export function loadAgentThread(
+  campaignId: string,
+  surfaceId = "plan",
+  documentId?: string | null,
+): AgentInteractionThread | null {
   try {
-    const index = loadAgentThreadIndex(campaignId, surfaceId);
+    const index = loadAgentThreadIndex(campaignId, surfaceId, documentId);
     const activeThreadId =
-      index.activeThreadId ?? localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId));
+      index.activeThreadId ?? localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId, documentId));
     if (!activeThreadId) return null;
     const raw = localStorage.getItem(threadStorageKey(campaignId, activeThreadId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AgentInteractionThread;
     if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
-    return {
+    return normalizePlanAgentBackend({
       ...parsed,
       turns: parsed.turns
         .slice(0, AGENT_TURN_HISTORY_CAP)
         .map((turn) => sanitizePersistedTurnSafe(turn))
         .filter((turn): turn is AgentInteractionTurn => turn !== null),
-    };
+    });
   } catch {
     return null;
   }
@@ -546,29 +631,34 @@ export function loadAgentThreadById(campaignId: string, threadId: string): Agent
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AgentInteractionThread;
     if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
-    return {
+    return normalizePlanAgentBackend({
       ...parsed,
       turns: parsed.turns
         .slice(0, AGENT_TURN_HISTORY_CAP)
         .map((turn) => sanitizePersistedTurnSafe(turn))
         .filter((turn): turn is AgentInteractionTurn => turn !== null),
-    };
+    });
   } catch {
     return null;
   }
 }
 
-export function loadAgentThreadIndex(campaignId: string, surfaceId = "plan"): AgentInteractionThreadIndex {
-  const key = threadIndexStorageKey(campaignId, surfaceId);
+export function loadAgentThreadIndex(
+  campaignId: string,
+  surfaceId = "plan",
+  documentId?: string | null,
+): AgentInteractionThreadIndex {
+  const key = threadIndexStorageKey(campaignId, surfaceId, documentId);
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw) as AgentInteractionThreadIndex;
       if (
-        parsed?.schema === "agent_interaction_thread_index_v1" &&
-        parsed.campaignId === campaignId &&
-        parsed.surfaceId === surfaceId &&
-        Array.isArray(parsed.threads)
+        parsed?.schema === "agent_interaction_thread_index_v2"
+        && parsed.campaignId === campaignId
+        && parsed.surfaceId === surfaceId
+        && (parsed.documentId ?? null) === (documentId ?? null)
+        && Array.isArray(parsed.threads)
       ) {
         return {
           ...parsed,
@@ -576,21 +666,21 @@ export function loadAgentThreadIndex(campaignId: string, surfaceId = "plan"): Ag
           threads: parsed.threads.filter((summary) => Boolean(summary.threadId && summary.title)),
         };
       }
-      return emptyThreadIndex(campaignId, surfaceId);
+      return emptyThreadIndex(campaignId, surfaceId, documentId);
     }
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId));
-    if (!activeThreadId) return emptyThreadIndex(campaignId, surfaceId);
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey(campaignId, surfaceId, documentId));
+    if (!activeThreadId) return emptyThreadIndex(campaignId, surfaceId, documentId);
     const activeThread = loadAgentThreadById(campaignId, activeThreadId);
-    if (!activeThread) return emptyThreadIndex(campaignId, surfaceId);
+    if (!activeThread) return emptyThreadIndex(campaignId, surfaceId, documentId);
     const migrated = {
-      ...emptyThreadIndex(campaignId, surfaceId),
+      ...emptyThreadIndex(campaignId, surfaceId, documentId),
       activeThreadId: activeThread.threadId,
       threads: [summarizeThread(activeThread)],
     };
     persistAgentThreadIndex(migrated);
     return migrated;
   } catch {
-    return emptyThreadIndex(campaignId, surfaceId);
+    return emptyThreadIndex(campaignId, surfaceId, documentId);
   }
 }
 
@@ -609,25 +699,37 @@ export function persistAgentThreadIndex(index: AgentInteractionThreadIndex): voi
       }))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
   };
-  localStorage.setItem(threadIndexStorageKey(index.campaignId, index.surfaceId), JSON.stringify(bounded));
+  localStorage.setItem(
+    threadIndexStorageKey(index.campaignId, index.surfaceId, index.documentId),
+    JSON.stringify(bounded),
+  );
 }
 
 export function upsertThreadInIndex(thread: AgentInteractionThread): void {
-  const index = loadAgentThreadIndex(thread.campaignId, thread.surfaceId);
+  const index = loadAgentThreadIndex(thread.campaignId, thread.surfaceId, thread.documentId);
   const summary = summarizeThread(thread);
   const threads = [summary, ...index.threads.filter((item) => item.threadId !== thread.threadId)];
   persistAgentThreadIndex({ ...index, activeThreadId: thread.threadId, threads });
 }
 
-export function listAgentThreads(campaignId: string, surfaceId = "plan"): AgentInteractionThreadSummary[] {
-  return loadAgentThreadIndex(campaignId, surfaceId).threads;
+export function listAgentThreads(
+  campaignId: string,
+  surfaceId = "plan",
+  documentId?: string | null,
+): AgentInteractionThreadSummary[] {
+  return loadAgentThreadIndex(campaignId, surfaceId, documentId).threads;
 }
 
-export function setActiveAgentThread(campaignId: string, surfaceId: string, threadId: string | null): void {
-  const index = loadAgentThreadIndex(campaignId, surfaceId);
+export function setActiveAgentThread(
+  campaignId: string,
+  surfaceId: string,
+  threadId: string | null,
+  documentId?: string | null,
+): void {
+  const index = loadAgentThreadIndex(campaignId, surfaceId, documentId);
   persistAgentThreadIndex({ ...index, activeThreadId: threadId });
-  if (threadId) localStorage.setItem(activeThreadStorageKey(campaignId, surfaceId), threadId);
-  else localStorage.removeItem(activeThreadStorageKey(campaignId, surfaceId));
+  if (threadId) localStorage.setItem(activeThreadStorageKey(campaignId, surfaceId, documentId), threadId);
+  else localStorage.removeItem(activeThreadStorageKey(campaignId, surfaceId, documentId));
 }
 
 export function renameAgentThread(thread: AgentInteractionThread, title: string): AgentInteractionThread {
@@ -639,11 +741,11 @@ export function renameAgentThread(thread: AgentInteractionThread, title: string)
 
 export function deleteAgentThread(thread: AgentInteractionThread): void {
   localStorage.removeItem(threadStorageKey(thread.campaignId, thread.threadId));
-  const index = loadAgentThreadIndex(thread.campaignId, thread.surfaceId);
+  const index = loadAgentThreadIndex(thread.campaignId, thread.surfaceId, thread.documentId);
   const remaining = index.threads.filter((item) => item.threadId !== thread.threadId);
   const nextActive = index.activeThreadId === thread.threadId ? remaining[0]?.threadId ?? null : index.activeThreadId;
   persistAgentThreadIndex({ ...index, activeThreadId: nextActive, threads: remaining });
-  setActiveAgentThread(thread.campaignId, thread.surfaceId, nextActive);
+  setActiveAgentThread(thread.campaignId, thread.surfaceId, nextActive, thread.documentId);
 }
 
 export function persistAgentThread(thread: AgentInteractionThread): void {
@@ -664,31 +766,13 @@ export function persistAgentThread(thread: AgentInteractionThread): void {
         corpusFreshness: sanitized.corpusFreshness ?? null,
         worldGraphContextSummary: sanitized.worldGraphContextSummary ?? null,
         grounding: sanitized.grounding ?? null,
+        s1Support: sanitized.s1Support ?? null,
       }];
     }),
   };
-  localStorage.setItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId), thread.threadId);
+  localStorage.setItem(activeThreadStorageKey(thread.campaignId, thread.surfaceId, thread.documentId), thread.threadId);
   localStorage.setItem(threadStorageKey(thread.campaignId, thread.threadId), JSON.stringify(bounded));
   upsertThreadInIndex(bounded);
-  localStorage.setItem(
-    historyStorageKey(thread.campaignId),
-    JSON.stringify(bounded.turns.map((turn) => ({
-      id: turn.turnId,
-      question: turn.question,
-      answer: turn.answer,
-      backend: turn.backend,
-      model: turn.trace?.model ?? null,
-      status: turn.status,
-      askedAt: turn.askedAt,
-      traceId: turn.trace?.trace_id ?? null,
-      admittedCount: turn.contextSummary?.admitted_count ?? null,
-      rejectedCount: turn.contextSummary?.rejected_count ?? null,
-      runtime: turn.trace?.runtime ?? null,
-      elapsedMs: turn.trace?.elapsed_ms ?? null,
-      provider: turn.trace?.provider ?? null,
-      stepCount: turn.trace?.steps?.length ?? null,
-    }))),
-  );
 }
 
 export function clearAgentThread(thread: AgentInteractionThread): void {
@@ -704,39 +788,25 @@ export function clearAgentThread(thread: AgentInteractionThread): void {
     },
   };
   persistAgentThread(cleared);
-  localStorage.setItem(historyStorageKey(thread.campaignId), "[]");
 }
 
-export function loadTurnHistory(campaignId: string): AgentInteractionTurnMeta[] {
-  const thread = loadAgentThread(campaignId);
-  if (thread) {
-    return thread.turns.map((turn) => ({
-      id: turn.turnId,
-      question: turn.question,
-      answer: turn.answer,
-      backend: turn.backend,
-      model: turn.trace?.model ?? null,
-      status: turn.status,
-      askedAt: turn.askedAt,
-      traceId: turn.trace?.trace_id ?? null,
-      admittedCount: turn.contextSummary?.admitted_count ?? null,
-      rejectedCount: turn.contextSummary?.rejected_count ?? null,
-      runtime: turn.trace?.runtime ?? null,
-      elapsedMs: turn.trace?.elapsed_ms ?? null,
-      provider: turn.trace?.provider ?? null,
-      stepCount: turn.trace?.steps?.length ?? null,
-    }));
-  }
-  try {
-    const raw = localStorage.getItem(historyStorageKey(campaignId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as AgentInteractionTurnMeta[];
-    return Array.isArray(parsed) ? parsed.slice(0, AGENT_TURN_HISTORY_CAP) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function persistTurnHistory(campaignId: string, turns: AgentInteractionTurnMeta[]): void {
-  localStorage.setItem(historyStorageKey(campaignId), JSON.stringify(turns.slice(0, AGENT_TURN_HISTORY_CAP)));
+export function loadTurnHistory(campaignId: string, documentId?: string | null): AgentInteractionTurnMeta[] {
+  const thread = loadAgentThread(campaignId, "plan", documentId);
+  if (!thread) return [];
+  return thread.turns.map((turn) => ({
+    id: turn.turnId,
+    question: turn.question,
+    answer: turn.answer,
+    backend: turn.backend,
+    model: turn.trace?.model ?? null,
+    status: turn.status,
+    askedAt: turn.askedAt,
+    traceId: turn.trace?.trace_id ?? null,
+    admittedCount: turn.contextSummary?.admitted_count ?? null,
+    rejectedCount: turn.contextSummary?.rejected_count ?? null,
+    runtime: turn.trace?.runtime ?? null,
+    elapsedMs: turn.trace?.elapsed_ms ?? null,
+    provider: turn.trace?.provider ?? null,
+    stepCount: turn.trace?.steps?.length ?? null,
+  }));
 }

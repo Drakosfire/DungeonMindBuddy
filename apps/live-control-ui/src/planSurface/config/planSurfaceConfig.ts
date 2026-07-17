@@ -1,8 +1,10 @@
 import type { PlanViewProjection } from "../../api/types";
-import type { PlanSurfaceConfig } from "../types";
+import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "../types";
+import { requestedSessionNumberFromLocation } from "../sessionCampaignContext";
 import {
   buildPlanContextFromPlanView,
   createPlanSessionDescriptor,
+  type PlanSessionLocationOverrides,
 } from "./planSessionDescriptor";
 
 export const PLAN_SURFACE_SPIKE_THEME_ID = "mireward-runbook";
@@ -20,12 +22,27 @@ export const PLAN_SURFACE_THEME_TOKENS: Record<string, string> = {
 
 export { buildPlanContextFromPlanView } from "./planSessionDescriptor";
 
-export function createPlanSurfaceConfig(planView: PlanViewProjection): PlanSurfaceConfig {
-  const sessionDescriptor = createPlanSessionDescriptor(planView);
+export function planLocationOverridesFromSearch(
+  search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
+): PlanSessionLocationOverrides {
+  return {
+    memorySession: requestedSessionNumberFromLocation(search),
+  };
+}
+
+export function createPlanSurfaceConfig(
+  planView: PlanViewProjection,
+  planningDocument: PlanDocumentDescriptor,
+  locationSearch: string | null | undefined = typeof window !== "undefined"
+    ? window.location.search
+    : null,
+): PlanSurfaceConfig {
+  const overrides = planLocationOverridesFromSearch(locationSearch);
+  const sessionDescriptor = createPlanSessionDescriptor(planView, planningDocument, overrides);
   return {
     id: "plan",
     label: "Plan",
-    context: buildPlanContextFromPlanView(planView),
+    context: buildPlanContextFromPlanView(planView, planningDocument, overrides),
     sessionDescriptor,
     tools: [
       { id: "recap", label: "Recap", size: "wide" },
@@ -33,7 +50,7 @@ export function createPlanSurfaceConfig(planView: PlanViewProjection): PlanSurfa
       { id: "statblock", label: "Statblock", size: "wide" },
     ],
     canvas: {
-      documentId: sessionDescriptor.planningDocument.documentId,
+      documentId: planningDocument.documentId,
     },
     theme: {
       themeId: PLAN_SURFACE_SPIKE_THEME_ID,

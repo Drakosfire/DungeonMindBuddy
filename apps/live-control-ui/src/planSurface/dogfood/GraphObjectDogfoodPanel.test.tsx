@@ -10,8 +10,7 @@ import type {
 } from "../../api/types";
 import { ProjectionProvider, useProjection } from "../projection/projectionContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
-import type { PlanSessionDescriptor, SurfaceConfig } from "../types";
-import { createPlanCanvasStorageKey } from "../config/planSessionDescriptor";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { GraphObjectDogfoodPanel } from "./GraphObjectDogfoodPanel";
 import { graphObjectDogfoodStorageKey } from "./graphObjectDogfoodStorage";
 
@@ -159,27 +158,7 @@ const projection: WorldGraphProjection = {
   diagnostics: [],
 };
 
-const sessionDescriptor: PlanSessionDescriptor = {
-  surfaceId: "plan",
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown",
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "Longmont C2 Session 23 Prep",
-    targetRelpath: "corpus/example/Session 23 Prep.md",
-    storageKey: createPlanCanvasStorageKey({
-      campaignId: "longmont-c2",
-      prepSession: 23,
-      documentId: "longmont-c2-session-23-prep",
-    }),
-    status: "local_draft",
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 const surfaceConfig: SurfaceConfig = {
   id: "plan",
@@ -187,13 +166,12 @@ const surfaceConfig: SurfaceConfig = {
   context: {
     campaignId: "longmont-c2",
     liveSession: 22,
-    prepSession: 23,
     ingestSession: 21,
-    headerLabel: "Longmont C2",
+    headerLabel: sessionDescriptor.planningDocument.title,
   },
   sessionDescriptor,
   tools: [],
-  canvas: { documentId: "longmont-c2-session-23-prep" },
+  canvas: { documentId: sessionDescriptor.planningDocument.documentId },
   theme: {},
 };
 

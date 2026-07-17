@@ -18,9 +18,11 @@ Authoring Workbench.
 Read first (in this order):
 
 1. This file: `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
-2. `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` — the governing roadmap
-   (R0-R11). Read §4 of this handoff before trusting its milestone table; the live-only
-   pivot is a real deviation from what the roadmap assumed.
+2. `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` — archived stub; body under
+   `Docs/Plans/archive/2026-07-15/superseded-roadmaps/`. Prefer
+   `Docs/Plans/ROADMAP-graph-object-authoring-surface.md` for current authoring sequencing.
+   Historical note: §4 of this handoff records a live-only pivot that already diverged from
+   the gold-workbench roadmap's milestone table.
 3. `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md` — the last real dogfood of
    the Author Draft loop (2026-07-03), still mostly unresolved at the interaction-quality
    level even after this handoff's cleanup pass.

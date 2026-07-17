@@ -370,7 +370,7 @@ export function ExistingObjectResolverPanel({
       </label>
       <button
         type="button"
-        onClick={runResolver}
+        onClick={() => runResolver()}
         disabled={status === "loading" || !searchPhrase}
       >
         Find existing object

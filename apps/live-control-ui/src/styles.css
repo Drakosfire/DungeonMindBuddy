@@ -179,7 +179,8 @@ code {
 
 .app-shell--edit-dock:has(.plan-surface-root) {
   --plan-agent-bar-height: 4.75rem;
-  --plan-agent-open-chrome-height: calc(var(--plan-agent-bar-height) + min(64vh, 680px));
+  /* The collapsed bar is hidden while the drawer pane is open. */
+  --plan-agent-open-chrome-height: min(64vh, 680px);
 }
 
 .app-shell--edit-dock .app-shell-layout {

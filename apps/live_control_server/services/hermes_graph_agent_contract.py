@@ -20,6 +20,7 @@ from graph_memory.hermes_graph_plugin import (
 )
 
 HermesGraphAgentStatus = Literal["ok", "error"]
+HermesAnswerScope = Literal["graph", "conversation_context"]
 ToolEventState = Literal["start", "completion", "error"]
 ProcessIsolationMode = Literal["process_exclusive"]
 
@@ -62,6 +63,8 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "sessionId",
         "root",
         "capabilityPolicy",
+        "retrievalSessionId",
+        "retrievalSession",
     }
 )
 _REQUEST_FORBIDDEN_KEYS = frozenset(
@@ -93,6 +96,9 @@ _RESULT_ALLOWED_KEYS = frozenset(
         "errorCode",
         "errorMessage",
         "processIsolation",
+        "retrievalSessionId",
+        "retrievalSession",
+        "answerScope",
     }
 )
 _TOOL_EVENT_ALLOWED_KEYS = frozenset(
@@ -145,6 +151,9 @@ class HermesGraphAgentTurnResult:
     error_code: str | None = None
     error_message: str | None = None
     process_isolation: ProcessIsolationMode = PROCESS_ISOLATION_MODE
+    retrieval_session_id: str | None = None
+    retrieval_session: dict[str, Any] | None = None
+    answer_scope: HermesAnswerScope | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +168,8 @@ class HermesGraphAgentTurnRequest:
     session_id: str | None = None
     root: Path | None = None
     capability_policy: HermesCapabilityPolicy | None = None
+    retrieval_session_id: str | None = None
+    retrieval_session: Mapping[str, Any] | None = None
 
 
 def _reject_unknown_keys(payload: Mapping[str, Any], allowed: frozenset[str], *, label: str) -> None:
@@ -236,6 +247,36 @@ def _deserialize_focus(focus: Any) -> dict[str, str | None] | None:
     return _serialize_focus(dict(focus))
 
 
+def _require_nonempty_str(value: Any, *, label: str, max_chars: int) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be a string")
+    trimmed = value.strip()
+    if not trimmed:
+        raise ValueError(f"{label} must be a non-empty string")
+    if len(trimmed) > max_chars:
+        raise ValueError(f"{label} exceeds max length {max_chars}")
+    return trimmed
+
+
+def _validate_history_pairs(items: Sequence[Mapping[str, Any]]) -> None:
+    if len(items) % 2 != 0:
+        raise ValueError("conversationHistory must contain complete user/assistant pairs")
+    for index, item in enumerate(items):
+        expected_role = "user" if index % 2 == 0 else "assistant"
+        role = item.get("role")
+        if role not in {"user", "assistant"}:
+            raise ValueError("conversationHistory role must be user or assistant")
+        if role != expected_role:
+            raise ValueError(
+                "conversationHistory messages must alternate user then assistant"
+            )
+        _require_nonempty_str(
+            item.get("content"),
+            label="conversationHistory.content",
+            max_chars=MAX_MESSAGE_CHARS,
+        )
+
+
 def _serialize_history(
     history: Sequence[Mapping[str, Any]] | None,
 ) -> list[dict[str, str]] | None:
@@ -254,12 +295,15 @@ def _serialize_history(
             label="conversationHistory.role",
             max_chars=MAX_ID_CHARS,
         )
-        content = _require_str(
+        if role not in {"user", "assistant"}:
+            raise ValueError("conversationHistory role must be user or assistant")
+        content = _require_nonempty_str(
             item.get("content"),
             label="conversationHistory.content",
             max_chars=MAX_MESSAGE_CHARS,
         )
         bounded.append({"role": role, "content": _clip_str(content, max_chars=MAX_MESSAGE_CHARS)})
+    _validate_history_pairs(bounded)
     return bounded
 
 
@@ -525,6 +569,12 @@ def serialize_hermes_graph_agent_turn_request(
         if request.capability_policy is None
         else serialize_capability_policy(request.capability_policy)
     )
+    retrieval_session = None
+    if request.retrieval_session is not None:
+        if not isinstance(request.retrieval_session, Mapping):
+            raise ValueError("retrievalSession must be a mapping or null")
+        # Bound by wire encoder MAX_WIRE_BYTES; keep as JSON-safe mapping.
+        retrieval_session = dict(request.retrieval_session)
     return {
         "question": question,
         "worldId": world_id,
@@ -548,6 +598,12 @@ def serialize_hermes_graph_agent_turn_request(
         ),
         "root": root_str,
         "capabilityPolicy": policy_payload,
+        "retrievalSessionId": _optional_str(
+            request.retrieval_session_id,
+            label="retrievalSessionId",
+            max_chars=MAX_SESSION_ID_CHARS,
+        ),
+        "retrievalSession": retrieval_session,
     }
 
 
@@ -565,6 +621,9 @@ def deserialize_hermes_graph_agent_turn_request(
     policy = None if policy_raw is None else deserialize_capability_policy(policy_raw)
     history = _deserialize_history(payload.get("conversationHistory"))
     focus = _deserialize_focus(payload.get("focus"))
+    retrieval_session_raw = payload.get("retrievalSession")
+    if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
+        raise ValueError("retrievalSession must be a mapping or null")
     return HermesGraphAgentTurnRequest(
         question=_require_str(payload.get("question") or "", label="question", max_chars=MAX_QUESTION_CHARS),
         world_id=_require_str(payload.get("worldId") or "", label="worldId", max_chars=MAX_ID_CHARS),
@@ -588,6 +647,12 @@ def deserialize_hermes_graph_agent_turn_request(
         ),
         root=root,
         capability_policy=policy,
+        retrieval_session_id=_optional_str(
+            payload.get("retrievalSessionId"),
+            label="retrievalSessionId",
+            max_chars=MAX_SESSION_ID_CHARS,
+        ),
+        retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
     )
 
 
@@ -699,6 +764,11 @@ def serialize_hermes_graph_agent_turn_result(
     error_message = result.error_message
     if error_message is not None:
         error_message = _clip_str(error_message, max_chars=MAX_ERROR_MESSAGE_CHARS)
+    retrieval_session = None
+    if result.retrieval_session is not None:
+        if not isinstance(result.retrieval_session, Mapping):
+            raise ValueError("retrievalSession must be a mapping or null")
+        retrieval_session = dict(result.retrieval_session)
     return {
         "status": result.status,
         "finalResponse": final_response,
@@ -713,6 +783,13 @@ def serialize_hermes_graph_agent_turn_result(
         ),
         "errorMessage": error_message,
         "processIsolation": result.process_isolation,
+        "retrievalSessionId": (
+            None
+            if result.retrieval_session_id is None
+            else _clip_str(result.retrieval_session_id, max_chars=MAX_SESSION_ID_CHARS)
+        ),
+        "retrievalSession": retrieval_session,
+        "answerScope": result.answer_scope,
     }
 
 
@@ -828,6 +905,15 @@ def deserialize_hermes_graph_agent_turn_result(
     process_isolation = payload.get("processIsolation")
     if process_isolation not in {None, PROCESS_ISOLATION_MODE}:
         raise ValueError("processIsolation must be process_exclusive")
+    retrieval_session_raw = payload.get("retrievalSession")
+    if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
+        raise ValueError("retrievalSession must be a mapping or null")
+    answer_scope_raw = payload.get("answerScope")
+    if answer_scope_raw is not None and answer_scope_raw not in {
+        "graph",
+        "conversation_context",
+    }:
+        raise ValueError("answerScope must be graph, conversation_context, or null")
     return HermesGraphAgentTurnResult(
         status=status,  # type: ignore[arg-type]
         final_response=final_response,
@@ -841,6 +927,13 @@ def deserialize_hermes_graph_agent_turn_result(
         error_code=_optional_str(payload.get("errorCode"), label="errorCode", max_chars=MAX_ID_CHARS),
         error_message=error_message,
         process_isolation=PROCESS_ISOLATION_MODE,
+        retrieval_session_id=_optional_str(
+            payload.get("retrievalSessionId"),
+            label="retrievalSessionId",
+            max_chars=MAX_SESSION_ID_CHARS,
+        ),
+        retrieval_session=None if retrieval_session_raw is None else dict(retrieval_session_raw),
+        answer_scope=answer_scope_raw,  # type: ignore[arg-type]
     )
 
 
@@ -866,6 +959,7 @@ __all__ = [
     "HermesGraphAgentTurnRequest",
     "HermesGraphAgentTurnResult",
     "HermesGraphToolEvent",
+    "HermesAnswerScope",
     "PROCESS_ISOLATION_MODE",
     "decode_json_wire",
     "decode_turn_request_wire",

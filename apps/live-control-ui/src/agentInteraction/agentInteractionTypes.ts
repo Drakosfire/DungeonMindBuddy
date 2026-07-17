@@ -64,6 +64,7 @@ export interface AgentInteractionSurfaceContext {
   surfaceId: AgentInteractionSurfaceId;
   label: string;
   campaignId?: string | null;
+  documentId?: string | null;
   sessionNumber?: number | null;
   ambientSummary?: string | null;
   sourceEnvelope?: AgentInteractionSourceEnvelope | null;
@@ -83,6 +84,7 @@ export interface AgentInteractionScope {
   campaignId: string;
   sessionNumber: number;
   surfaceId?: AgentInteractionSurfaceId;
+  documentId?: string | null;
 }
 
 export interface AgentInteractionActions {

@@ -3,6 +3,21 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("./config/planSessionDescriptor", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./config/planSessionDescriptor")>();
+  return {
+    ...actual,
+    resolvePlanningDocument: vi.fn(async () => actual.fixturePlanDocumentDescriptor()),
+  };
+});
+
+import * as planSessionDescriptor from "./config/planSessionDescriptor";
+import {
+  FIXTURE_DOC_ID,
+  fixturePlanDocumentDescriptor,
+  fixturePlanSessionDescriptor,
+  fixtureWorkspaceDocumentRecord,
+} from "./config/planSessionDescriptor";
 import { mockHermesCliTrace, mockPlanView, mockSourceBundle } from "../test/fixtures";
 import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
 import {
@@ -24,7 +39,7 @@ const worldGraphProjection = {
     revisionId: "rev-1",
     headRevisionId: "rev-1",
     isHead: true,
-    focus: { kind: "session" as const, sessionId: "session-21" },
+    focus: { kind: "none" as const, sessionId: null },
     admissibility: "gm" as const,
   },
   summary: { nodeCount: 0, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
@@ -40,7 +55,7 @@ const expectedWorldGraphContextRequest = {
   schema: "dmb_agent_world_graph_query_context_request_v1",
   world_id: "eldyrwild",
   campaign_id: "longmont-c2",
-  focus: { kind: "session", session_id: "session-21" },
+  focus: { kind: "none", session_id: null },
   admissibility: "gm",
   revision_pin: "rev-1",
 };
@@ -64,7 +79,7 @@ function mockWorldGraphQueryContext(
     revision_id: "rev-1",
     head_revision_id: "rev-1",
     is_head: true,
-    focus: { kind: "session", session_id: "session-21" },
+    focus: { kind: "none", session_id: null },
     admissibility: "gm",
     query_text: "test query",
     matched_node_ids: overrides.matched_node_ids ?? [],
@@ -98,41 +113,43 @@ function renderPlanSurface() {
   return render(<PlanSurfaceTestHarness />);
 }
 
+async function waitForPlanSurfaceReady() {
+  await waitFor(() => {
+    expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
+  });
+}
+
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(worldGraphProjection);
+    vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [fixtureWorkspaceDocumentRecord()],
+    });
+    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
+    vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     localStorage.clear();
     window.history.pushState({}, "", "/plan");
   });
 
-  it("renders nav, toolbar, edit bar, and canvas regions", () => {
+  it("renders toolbar, edit bar, and canvas regions", async () => {
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
-    expect(screen.getByRole("navigation", { name: "Plan surface navigation" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
-    expect(screen.getByText(/preparing Session 23/i)).toBeInTheDocument();
-    expect(screen.getByTestId("plan-memory-source")).toHaveTextContent(/Session 21/i);
-    expect(screen.getByTestId("plan-document-context")).toHaveTextContent(/C2 Session 23 Prep · local draft/i);
-    expect(screen.getByTestId("plan-local-draft-note")).toHaveTextContent(/not yet saved to Markdown/i);
-    expect(screen.getByTestId("plan-document-target")).toHaveTextContent(
-      /Session Prep\/Session 23 Prep\.md/i,
-    );
-    expect(screen.getByRole("link", { name: "Review memory" })).toHaveAttribute(
-      "href",
-      "/ingest?campaign=longmont-c2&session=session-21",
-    );
+    expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
+    expect(screen.queryByRole("navigation", { name: "Plan surface navigation" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("plan-memory-source")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Review memory" })).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Plan toolbox" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open drawer" })).toBeInTheDocument();
     // Docked Edit starts open; the side tab is hidden until the drawer closes.
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Live Play" })).toHaveAttribute(
-      "href",
-      "/evals/c2_live_prep/mireward-prep/live-play.html",
-    );
     expect(screen.getByRole("complementary", { name: "Edit toolbar" })).toBeInTheDocument();
     expect(screen.getByText("World Graph objects")).toBeInTheDocument();
     expect(screen.getByTestId("plan-graph-ref-search")).toBeInTheDocument();
@@ -141,27 +158,30 @@ describe("PlanSurfaceShell", () => {
   it("opens Recap from the tool query parameter", async () => {
     window.history.pushState({}, "", "/plan?tool=recap");
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Recap" })).toHaveAttribute("aria-pressed", "true"),
     );
   });
 
-  it("does not render dogfood checklist without ?dogfood=1", () => {
+  it("does not render dogfood checklist without ?dogfood=1", async () => {
     window.history.pushState({}, "", "/plan?campaign=longmont-c2&session=22");
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     expect(screen.queryByTestId("plan-dogfood-panel")).not.toBeInTheDocument();
     expect(screen.queryByText("Dogfood checklist")).not.toBeInTheDocument();
   });
 
-  it("renders dogfood checklist when ?dogfood=1 is present", () => {
+  it("renders dogfood checklist when ?dogfood=1 is present", async () => {
     window.history.pushState({}, "", "/plan?campaign=longmont-c2&session=22&dogfood=1");
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     expect(screen.getByTestId("plan-dogfood-panel")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dogfood checklist" })).toBeInTheDocument();
-    expect(screen.getByText(/smoke-test real prep/i)).toBeInTheDocument();
+    expect(screen.getByText(/S1 only: ask what changed after the latest ingested recap/i)).toBeInTheDocument();
   });
 
   it("opens the prep memory Q&A drawer", async () => {
@@ -172,41 +192,31 @@ describe("PlanSurfaceShell", () => {
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
 
     expect(
-      await screen.findByRole("complementary", { name: "Prep memory drawer" }),
+      await screen.findByRole("complementary", { name: "DungeonBuddy drawer" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Memory through Session 21 · preparing Session 23")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ask prep memory" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Live retrieval" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Hermes tools" })).toBeInTheDocument();
+    expect(screen.getByText("World graph (all sessions)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Question")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
     expect(screen.getByText("Memory coverage diagnostics")).toBeInTheDocument();
     expect(screen.queryByText("Advanced source metadata")).not.toBeInTheDocument();
     expect(screen.queryByText(/future Agent Interaction contract/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Ask prep memory · New prep thread")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "New prep thread" })).toBeInTheDocument();
+    expect(screen.queryByText("Ask DungeonBuddy · New prep thread")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Suggested prep questions")).not.toBeInTheDocument();
   });
 
-  it("fills the question field when a suggested prep prompt is clicked", async () => {
+  it("migrates legacy Live Plan threads to Hermes-only asks", async () => {
     const user = userEvent.setup();
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify(mockSourceBundle),
-    } as Response);
+    const liveThread = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Legacy live thread", FIXTURE_DOC_ID);
+    liveThread.activeBackend = "live";
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), liveThread.threadId);
+    localStorage.setItem(threadStorageKey("longmont-c2", liveThread.threadId), JSON.stringify(liveThread));
 
-    renderPlanSurface();
-
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
-    await user.click(screen.getByRole("button", { name: "What threats should I have ready?" }));
-
-    expect(screen.getByLabelText("Question")).toHaveValue("What threats should I have ready?");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("asks prep memory through live query using the live packet session", async () => {
-    const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
@@ -216,100 +226,67 @@ describe("PlanSurfaceShell", () => {
         ok: true,
         text: async () =>
           JSON.stringify({
-            answer: "Raw synthesized answer should not be the primary result.",
-            classification: {},
+            answer: "Tripod stands at the North Gate.",
+            classification: {
+              intent: "hermes_graph_agent",
+              latency_mode: "hermes_graph_agent",
+              event_type: "hermes_graph_agent",
+            },
+            mode: "hermes_graph_agent",
+            status: "ok",
             events_written: [],
             jobs_queued: [],
             next_suggestions: [],
-            diagnostics: [],
-            provenance: {},
-            citations: [{ evidence_id: "e1", path: "corpus/test/session.md", line_start: 2, line_end: 2, source_role: "play_recap", authority: "canon_play" }],
-            retrieval_freshness: {
-              schema: "dmb_retrieval_freshness_decision_v1",
-              decision: "fresh_retrieval",
-              used_fresh_retrieval: true,
-              used_thread_context: false,
-              admitted_evidence_count: 1,
-              rejected_evidence_count: 1,
-              prior_turn_count: 0,
-              reason: "Fresh corpus evidence was admitted for this turn.",
+            diagnostics: {},
+            provenance: { backend: "hermes" },
+            citations: [],
+            hermes_session: { sessionId: "hptr-rung7-migrated", status: "active" },
+            agent_trace: {
+              trace_id: "agent-trace-rung7-migrate",
+              runtime: "process_isolated",
+              backend: "hermes",
+              mode: "hermes_graph_agent",
+              started_at: "2026-07-16T20:00:00Z",
+              completed_at: "2026-07-16T20:00:01Z",
+              elapsed_ms: 42,
+              status: "ok",
+              usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+              steps: [],
+              context_summary: {},
+              artifact_refs: [],
+              tool_events: [],
               warnings: [],
             },
-            context_packet: {
-              admitted_evidence: [{
-                evidence_id: "e1",
-                path: "corpus/test/session.md",
-                source_role: "play_recap",
-                authority: "canon_play",
-                line_start: 2,
-                line_end: 2,
-                text_excerpt: "Stale packet excerpt should not be the reader body.",
-              }],
-              rejected_evidence: [{ reason_code: "authority_mismatch", evidence: { path: "y" } }],
-            },
-          }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () =>
-          JSON.stringify({
-            schema_version: "dmb_citation_source_v1",
-            path: "corpus/test/session.md",
-            content_type: "text/markdown",
-            content: "# Session file\nCurrent source content has the Lysandro gate reveal.\nMore notes.",
-            truncated: false,
-            highlight: {
-              line_start: 2,
-              line_end: 2,
-              text_excerpt: "Current source content has the Lysandro gate reveal.",
-              match_source: "line_range",
-            },
-            diagnostics: ["read-only source lookup", "no events or jobs written"],
           }),
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
-    expect(screen.getByRole("heading", { name: "Ask prep memory" })).toBeInTheDocument();
-    await user.type(
-      screen.getByLabelText("Question"),
-      "What changed after Session 22?",
-    );
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await screen.findByText("World graph (all sessions)");
+    expect(screen.getByRole("heading", { name: "Legacy live thread" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Question"), "What do we know about Tripod?");
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
-    expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
-    expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
-    expect(screen.getByRole("region", { name: "Grounded answer" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
-    expect(screen.getByRole("region", { name: "Context packet review" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Supporting sources" })).toHaveTextContent("play_recap · canon_play");
-    expect(screen.queryByRole("region", { name: "Source preview" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Open source" }));
-
-    const sourceReader = await screen.findByRole("region", { name: "Source preview" });
-    expect(sourceReader).toHaveTextContent("Current source content has the Lysandro gate reveal.");
-    expect(sourceReader).not.toHaveTextContent("Stale packet excerpt should not be the reader body.");
-    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan"));
-    expect(storedThreadId).toBeTruthy();
-    expect(localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "").not.toContain("Current source content has the Lysandro gate reveal.");
-    expect(screen.getByRole("region", { name: "Retrieval freshness" })).toBeInTheDocument();
-    expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
-    expect(screen.getByText("Fresh corpus evidence was admitted for this turn.")).toBeInTheDocument();
-    expect(screen.getByText("authority_mismatch: 1")).toBeInTheDocument();
-    expect(screen.getByText("Grounded answer")).toBeInTheDocument();
-    expect(screen.getByText("Supporting sources")).toBeInTheDocument();
+    expect(await screen.findByText("Tripod stands at the North Gate.")).toBeInTheDocument();
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
-    expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({
+    const body = JSON.parse(String(queryCall[1]?.body));
+    expect(body).toMatchObject({
       campaign_id: "longmont-c2",
       session: 22,
-      query_backend: "live",
+      query_backend: "hermes",
       world_graph_context: expectedWorldGraphContextRequest,
     });
-    const sourceCall = vi.mocked(globalThis.fetch).mock.calls[2];
-    expect(String(sourceCall[0])).toContain("/api/live/citation-source");
-    expect(JSON.parse(String(sourceCall[1]?.body))).toMatchObject({ path: "corpus/test/session.md", line_start: 2, line_end: 2 });
+    expect(body).not.toHaveProperty("manifest_path");
+    expect(body.hermes_session_id).toBeUndefined();
+    // First turn: empty history and absent pointer are omitted from the Hermes serializer.
+    expect(body.hermes_session_pointer).toBeUndefined();
+    expect(body.conversation_history).toBeUndefined();
+
+    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan", FIXTURE_DOC_ID));
+    const stored = JSON.parse(localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "{}");
+    expect(stored.activeBackend).toBe("hermes");
   });
 
 
@@ -370,10 +347,11 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Is this still current?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByRole("region", { name: "Corpus change signal" })).toHaveTextContent("Corpus signal: Unknown");
     await user.click(screen.getByRole("button", { name: "Check current source state" }));
@@ -386,16 +364,16 @@ describe("PlanSurfaceShell", () => {
       expected_fingerprint: "expected-source-lines-hash",
       fingerprint_algorithm: "sha256:source-lines-v1",
     });
-    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan"));
+    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan", FIXTURE_DOC_ID));
     const storedThread = localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "";
     expect(storedThread).toContain("expected-source-lines-hash");
     expect(storedThread).not.toContain("Current source content has the Lysandro gate reveal.");
-    const indexJson = localStorage.getItem(threadIndexStorageKey(mockPlanView.campaign_id, "plan")) ?? "";
+    const indexJson = localStorage.getItem(threadIndexStorageKey(mockPlanView.campaign_id, "plan", FIXTURE_DOC_ID)) ?? "";
     expect(indexJson).not.toContain("expected-source-lines-hash");
     expect(indexJson).not.toContain("corpus/test/session.md");
   });
 
-  it("can route the Prep memory drawer through Hermes tools", async () => {
+  it("can route the DungeonBuddy drawer through Hermes tools", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
@@ -442,12 +420,12 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
     expect(screen.getAllByText("Blended").length).toBeGreaterThan(0);
@@ -497,15 +475,16 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "First question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("First answer")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Second question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Second answer")).toBeInTheDocument();
 
     const firstQueryBody = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[1][1]?.body));
@@ -550,11 +529,12 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "Who is Lysandro?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     const graphPanel = await screen.findByRole("region", { name: "World graph query context" });
     expect(graphPanel).toHaveTextContent("Graph context · ready");
@@ -605,17 +585,18 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
 
     await user.type(screen.getByLabelText("Question"), "Empty graph question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Graph context · empty")).toBeInTheDocument();
     expect(screen.getByText("graph_context_empty")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Unavailable graph question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Graph context · unavailable")).toBeInTheDocument();
     expect(screen.getByText("world_graph_unavailable")).toBeInTheDocument();
   });
@@ -634,13 +615,14 @@ describe("PlanSurfaceShell", () => {
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     expect(await screen.findByText("Initializing world graph context…")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Ask before projection is ready?");
-    const submitButton = screen.getByRole("button", { name: "Ask prep memory" });
+    const submitButton = screen.getByRole("button", { name: "Ask DungeonBuddy" });
     expect(submitButton).toBeDisabled();
 
     resolveProjection?.(worldGraphProjection);
@@ -675,13 +657,14 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What should I remember about the gate?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
-    const answerRegion = await screen.findByRole("region", { name: "Ungrounded draft" });
+    const answerRegion = await screen.findByRole("region", { name: "Hermes reply" });
     expect(screen.getByText(/No grounded evidence returned/i)).toBeInTheDocument();
     expect(answerRegion).toBeInTheDocument();
     expect(screen.getByText("I can speculate, but I did not find supporting campaign text.")).toBeInTheDocument();
@@ -715,12 +698,12 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getByText("CLI synthesized answer for operator.")).toBeInTheDocument();
@@ -799,12 +782,12 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getByText("Tripod stands at the North Gate.")).toBeInTheDocument();
@@ -852,32 +835,31 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
 
     await user.type(screen.getByLabelText("Question"), "First question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("First answer")).toBeInTheDocument();
-    expect(screen.getByText("Conversation (1)")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Second question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Second answer")).toBeInTheDocument();
-    expect(screen.getByText("Conversation (2)")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
+    expect(screen.queryByText(/Conversation \(\d+\)/)).not.toBeInTheDocument();
 
-    const stored = localStorage.getItem("plan-agent-turns-v1:longmont-c2");
-    expect(stored).toBeTruthy();
-    const parsed = JSON.parse(String(stored)) as Array<{ question: string; answer: string }>;
-    expect(parsed.length).toBe(2);
-    expect(parsed[0].question).toBe("Second question?");
-    expect(parsed[0].answer).toBe("Second answer");
-    expect(JSON.stringify(parsed)).not.toMatch(/context_packet|text_excerpt/);
-
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     expect(activeThreadId).toBeTruthy();
     const storedThread = localStorage.getItem(threadStorageKey("longmont-c2", String(activeThreadId)));
     expect(storedThread).toBeTruthy();
+    const parsed = JSON.parse(String(storedThread)) as { turns: Array<{ question: string; answer: string }> };
+    expect(parsed.turns.length).toBe(2);
+    expect(parsed.turns[0].question).toBe("Second question?");
+    expect(parsed.turns[0].answer).toBe("Second answer");
+    expect(JSON.stringify(parsed)).not.toMatch(/context_packet|text_excerpt/);
     expect(storedThread).not.toMatch(/context_packet/);
     expect(storedThread).not.toMatch(/text_excerpt/);
     expect(storedThread).not.toMatch(/prompt_preview/);
@@ -885,14 +867,16 @@ describe("PlanSurfaceShell", () => {
     expect(storedThread).not.toMatch(/\/tmp\/hermes/);
 
     await user.click(screen.getByRole("button", { name: "Clear history" }));
-    expect(screen.queryByText("Conversation (2)")).not.toBeInTheDocument();
-    expect(localStorage.getItem("plan-agent-turns-v1:longmont-c2")).toBe("[]");
+    expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
+    const clearedThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
+    const clearedThread = JSON.parse(String(localStorage.getItem(threadStorageKey("longmont-c2", String(clearedThreadId))))) as { turns: unknown[] };
+    expect(clearedThread.turns).toEqual([]);
   });
 
   it("migrates existing active threads into the switcher and renames the active thread", async () => {
     const user = userEvent.setup();
     const existingThread = {
-      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Session 24 inn prep"),
+      ...createAgentInteractionThread("longmont-c2", 23, "plan", "hermes", "Session 24 inn prep", FIXTURE_DOC_ID),
       turns: [{
         turnId: "turn-existing",
         askedAt: "2026-06-22T00:00:00.000Z",
@@ -908,7 +892,7 @@ describe("PlanSurfaceShell", () => {
       }],
       uiState: { traceVisible: true, scrollAnchorTurnId: "turn-existing" },
     };
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), existingThread.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), existingThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", existingThread.threadId), JSON.stringify(existingThread));
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
@@ -917,15 +901,16 @@ describe("PlanSurfaceShell", () => {
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Session 24 inn prep");
     expect(screen.getByText("The inn has Mireward rumors.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
-    const switcher = screen.getByRole("region", { name: "Prep memory threads" });
+    const switcher = screen.getByRole("region", { name: "DungeonBuddy threads" });
     expect(switcher).toHaveTextContent("Session 24 inn prep");
-    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Session 24 inn prep");
+    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID))).toContain("Session 24 inn prep");
 
     await user.click(screen.getByRole("button", { name: "Rename" }));
     await user.clear(screen.getByLabelText("Prep thread title"));
@@ -933,8 +918,8 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Save title" }));
 
     expect(screen.getAllByText("Mireward inn prep").length).toBeGreaterThan(0);
-    expect(screen.getByText("Ask prep memory · Mireward inn prep")).toBeInTheDocument();
-    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan"))).toContain("Mireward inn prep");
+    expect(screen.getByRole("heading", { name: "Mireward inn prep" })).toBeInTheDocument();
+    expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID))).toContain("Mireward inn prep");
   });
 
   it("keeps questions isolated across named threads and resets source reader when switching", async () => {
@@ -971,11 +956,12 @@ describe("PlanSurfaceShell", () => {
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(queryResponse("Answer for thread B", "b")) } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "Thread A question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open source" }));
     expect(await screen.findByRole("region", { name: "Source preview" })).toHaveTextContent("Thread A source body");
@@ -984,19 +970,20 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByText("Answer for thread A")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Source preview" })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "Thread B question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for thread B")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     await user.click(screen.getAllByRole("button", { name: /Thread A question/i })[0]);
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
     expect(screen.queryByText("Answer for thread B")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "DungeonBuddy threads" })).not.toBeInTheDocument();
 
-    const indexJson = localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan")) ?? "";
+    const indexJson = localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID)) ?? "";
     expect(indexJson).toContain("Thread A question?");
     expect(indexJson).toContain("Thread B question?");
     expect(indexJson).not.toContain("Answer for thread A");
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     expect(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "").not.toContain("Thread A source body");
   });
 
@@ -1023,22 +1010,23 @@ describe("PlanSurfaceShell", () => {
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       await user.type(screen.getByLabelText("Question"), `Question ${index}?`);
-      await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+      await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
       expect(await screen.findByText(`Answer ${index}`)).toBeInTheDocument();
     }
 
     expect(screen.getByRole("region", { name: "Thread getting long" })).toHaveTextContent(
       `This thread has ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS} turns. Start a new prep thread for a fresh topic?`,
     );
-    const originalThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    const originalThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     await user.click(screen.getByRole("button", { name: "Keep going" }));
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
-    expect(localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"))).toBe(originalThreadId);
+    expect(localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID))).toBe(originalThreadId);
     expect(JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", originalThreadId ?? "")) ?? "{}").uiState.newThreadSuggestionDismissed).toBe(true);
   });
 
@@ -1063,23 +1051,24 @@ describe("PlanSurfaceShell", () => {
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `Before clear ${index}?` } });
-      fireEvent.click(screen.getByRole("button", { name: "Ask prep memory" }));
+      fireEvent.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
       expect(await screen.findByText(`Clear reset answer ${index}`)).toBeInTheDocument();
     }
 
     await user.click(screen.getByRole("button", { name: "Keep going" }));
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear history" }));
-    expect(screen.queryByText(`Conversation (${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS})`)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `After clear ${index}?` } });
-      fireEvent.click(screen.getByRole("button", { name: "Ask prep memory" }));
+      fireEvent.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
       expect(await screen.findByText(`Clear reset answer ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS + index}`)).toBeInTheDocument();
     }
 
@@ -1099,20 +1088,21 @@ describe("PlanSurfaceShell", () => {
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       await user.type(screen.getByLabelText("Question"), `Long question ${index}?`);
-      await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+      await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
       expect(await screen.findByText(`Long answer ${index}`)).toBeInTheDocument();
     }
 
     await user.click(screen.getByRole("button", { name: "Start new thread" }));
-    expect(screen.getByText("Ask prep memory · New prep thread")).toBeInTheDocument();
-    expect(screen.queryByText(`Conversation (${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS})`)).not.toBeInTheDocument();
-    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan"));
+    expect(screen.getByRole("heading", { name: "New prep thread" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     const activeThread = JSON.parse(localStorage.getItem(threadStorageKey("longmont-c2", activeThreadId ?? "")) ?? "{}");
     expect(activeThread.title).toBe("New prep thread");
     expect(activeThread.turns).toEqual([]);
@@ -1127,14 +1117,15 @@ describe("PlanSurfaceShell", () => {
       .mockResolvedValue({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
 
     const rendered = renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "Restore thread A?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "New prep thread" }));
     await user.type(screen.getByLabelText("Question"), "Restore thread B?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for restore B")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     await user.click(screen.getAllByRole("button", { name: /Restore thread A\?/i })[0]);
@@ -1142,26 +1133,28 @@ describe("PlanSurfaceShell", () => {
 
     rendered.unmount();
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
-    const switcher = screen.getByRole("region", { name: "Prep memory threads" });
+    const switcher = screen.getByRole("region", { name: "DungeonBuddy threads" });
     expect(switcher).toHaveTextContent("Restore thread A?");
     expect(switcher).toHaveTextContent("Restore thread B?");
-    expect(screen.getByText("Ask prep memory · Restore thread A?")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Restore thread A?" })).toBeInTheDocument();
   });
 
   it("ignores corrupt thread index localStorage", async () => {
     const user = userEvent.setup();
-    localStorage.setItem(threadIndexStorageKey("longmont-c2", "plan"), "{not-json");
+    localStorage.setItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), "{not-json");
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       text: async () => JSON.stringify(mockSourceBundle),
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     expect(screen.getByText("No saved prep threads yet.")).toBeInTheDocument();
   });
@@ -1201,11 +1194,12 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What happened at bootstrap?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByText("Preliminary verdict · Weak context")).toBeInTheDocument();
     expect(screen.getByText(/operational metadata/i)).toBeInTheDocument();
@@ -1253,19 +1247,21 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("Memory through Session 21 · preparing Session 23");
+    await screen.findByText("World graph (all sessions)");
     await user.type(screen.getByLabelText("Question"), "What carried over from prior sessions?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByText("Retrieved text (2)")).toBeInTheDocument();
     expect(screen.getAllByText(/Session 21 - Drake Nest Mirathorn Call.md/).length).toBeGreaterThan(0);
     expect(screen.getByText("Preliminary verdict · Weak context")).toBeInTheDocument();
   });
 
-  it("applies spike theme tokens at the surface root", () => {
+  it("applies spike theme tokens at the surface root", async () => {
     const { container } = renderPlanSurface();
+    await waitForPlanSurfaceReady();
     const root = container.querySelector(".plan-surface-root");
     expect(root).toHaveAttribute("data-md-theme", "mireward-runbook");
     expect(root).toHaveStyle({ "--accent": "#7aa2f7" });
@@ -1278,6 +1274,7 @@ describe("PlanSurfaceShell", () => {
       json: async () => ({ records: [] }),
     } as Response);
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
 
@@ -1288,6 +1285,7 @@ describe("PlanSurfaceShell", () => {
   it("opens statblock projection from the toolbar registry", async () => {
     const user = userEvent.setup();
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: "Statblock" }));
@@ -1306,7 +1304,7 @@ describe("PlanSurfaceShell", () => {
           schema: "dmb_world_graph_projection_request_v1",
           worldId: "eldyrwild",
           campaignId: "longmont-c2",
-          focus: { kind: "session", sessionId: "session-21" },
+          focus: { kind: "none", sessionId: null },
           admissibility: "gm",
         });
         return {
@@ -1327,6 +1325,7 @@ describe("PlanSurfaceShell", () => {
     });
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await waitFor(() => {
       expect(screen.getByLabelText("Find objects")).toBeInTheDocument();
@@ -1352,8 +1351,9 @@ describe("PlanSurfaceShell", () => {
     );
   });
 
-  it("shows Markdown save control in the edit toolbar", () => {
+  it("shows Markdown save control in the edit toolbar", async () => {
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeInTheDocument();
   });
@@ -1368,7 +1368,7 @@ describe("PlanSurfaceShell", () => {
         text: async () =>
           JSON.stringify({
             schema_version: "dmb_tiptap_markdown_write_prepare_v1",
-            document_id: "longmont-c2-session-23-prep",
+            document_id: FIXTURE_DOC_ID,
             title: "C2 Session 23 Prep",
             target_relpath: planTarget,
             target_display_path: planTarget,
@@ -1386,7 +1386,7 @@ describe("PlanSurfaceShell", () => {
         text: async () =>
           JSON.stringify({
             schema_version: "dmb_tiptap_markdown_write_commit_v1",
-            document_id: "longmont-c2-session-23-prep",
+            document_id: FIXTURE_DOC_ID,
             title: "C2 Session 23 Prep",
             target_relpath: planTarget,
             target_display_path: planTarget,
@@ -1399,6 +1399,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
@@ -1407,12 +1408,13 @@ describe("PlanSurfaceShell", () => {
     });
     expect(fetchSpy.mock.calls[0][0]).toBe("/api/live/tiptap/markdown-write/prepare");
     const prepareBody = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
-    expect(prepareBody.target_relpath).toBe(planTarget);
-    expect(prepareBody.document_id).toBe("longmont-c2-session-23-prep");
+    expect(prepareBody.document_id).toBe(FIXTURE_DOC_ID);
     expect(prepareBody.markdown).toContain("C2 Session 23 Prep");
+    expect(prepareBody).not.toHaveProperty("target_relpath");
     expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
-    expect(screen.getByTestId("plan-local-draft-note")).toHaveTextContent(/Saved to Markdown/i);
+    expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Saved to Markdown/i);
   });
 
   function buildHermesGraphGrounding(
@@ -1516,26 +1518,26 @@ describe("PlanSurfaceShell", () => {
     });
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    expect(await screen.findByRole("heading", { name: "Ask prep memory" })).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
+    expect(await screen.findByLabelText("Question")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Trace On" }));
 
-    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
     await user.click(screen.getByText("Memory coverage diagnostics"));
     expect(document.querySelector(".plan-agent-diagnostics-drawer .plan-agent-error")).toBeTruthy();
     expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).includes("/api/live/query"))).toBe(true);
   });
 
   it.each([
-    ["grounded", "Graph-grounded answer", true] as const,
-    ["partial", "Qualified graph answer", true] as const,
-    ["abstained", "Graph evidence gap", false] as const,
-    ["error", "Hermes graph error", false] as const,
-  ])("renders Hermes graph grounding state %s", async (state, heading, showCards) => {
+    ["grounded", true] as const,
+    ["partial", true] as const,
+    ["abstained", false] as const,
+    ["error", false] as const,
+  ])("renders Hermes graph grounding state %s", async (state, showCards) => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
@@ -1553,13 +1555,13 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), `${state} question?`);
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: heading })).toHaveTextContent(`${state} answer`);
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toHaveTextContent(`${state} answer`);
     if (showCards) {
       expect(screen.getByRole("region", { name: "Graph evidence" })).toBeInTheDocument();
     } else {
@@ -1586,20 +1588,20 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Scope mismatch question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toHaveTextContent(
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toHaveTextContent(
       "Citation scope mismatch answer.",
     );
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
     expect(screen.getByText(/graph citations were dropped due to scope or revision mismatch/i)).toBeInTheDocument();
   });
 
-  it("clears stale hermesSession after Hermes graph submit and omits it from subsequent live asks", async () => {
+  it("persists the Hermes pointer after graph submit and forwards it on subsequent Hermes asks", async () => {
     const user = userEvent.setup();
     const staleSession = {
       sessionId: "stale-hermes-session-handle",
@@ -1607,10 +1609,10 @@ describe("PlanSurfaceShell", () => {
       title: "Stale Hermes session",
     };
     const seededThread = {
-      ...createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Stale session thread"),
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Stale session thread", FIXTURE_DOC_ID),
       hermesSession: staleSession,
     };
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), seededThread.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), seededThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", seededThread.threadId), JSON.stringify(seededThread));
 
     vi.spyOn(globalThis, "fetch")
@@ -1619,16 +1621,16 @@ describe("PlanSurfaceShell", () => {
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
           hermes_session: {
-            sessionId: "malformed-should-not-persist",
-            runtime: "api",
-            title: "Bad session from response",
+            sessionId: "hptr-server-approved",
+            runtime: "process_isolated",
+            title: null,
           },
         })),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({
-          answer: "Follow-up live answer.",
+          answer: "Follow-up Hermes answer.",
           classification: {},
           events_written: [],
           jobs_queued: [],
@@ -1641,25 +1643,27 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("Stale session thread");
     await user.type(screen.getByLabelText("Question"), "Hermes graph question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
-    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
 
     const storedAfterGraph = JSON.parse(
       localStorage.getItem(threadStorageKey("longmont-c2", seededThread.threadId)) ?? "{}",
     );
-    expect(storedAfterGraph.hermesSession).toBeNull();
+    expect(storedAfterGraph.hermesSession.sessionId).toBe("hptr-server-approved");
 
-    await user.type(screen.getByLabelText("Question"), "Follow-up live question?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
-    expect(await screen.findByText("Follow-up live answer.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Question"), "Follow-up Hermes question?");
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    expect(await screen.findByText("Follow-up Hermes answer.")).toBeInTheDocument();
 
     const followUpCall = vi.mocked(globalThis.fetch).mock.calls[2];
     const followUpBody = JSON.parse(String(followUpCall[1]?.body));
-    expect(followUpBody.hermes_session_id).toBeNull();
+    expect(followUpBody.hermes_session_pointer).toBe("hptr-server-approved");
+    expect(followUpBody.hermes_session_id).toBeUndefined();
   });
 
   it("opens graph citations through the opaque source-anchor read route with pinned revision", async () => {
@@ -1692,11 +1696,11 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
     expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent(
@@ -1749,11 +1753,11 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
     const reader = await screen.findByRole("region", { name: "Graph evidence preview" });
@@ -1764,7 +1768,7 @@ describe("PlanSurfaceShell", () => {
   it("reloads saved Hermes graph grounding, citations, and trace without a new query", async () => {
     const user = userEvent.setup();
     const savedThread = {
-      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread"),
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread", FIXTURE_DOC_ID),
       turns: [{
         turnId: "turn-saved-graph",
         askedAt: "2026-07-14T18:00:00Z",
@@ -1780,7 +1784,7 @@ describe("PlanSurfaceShell", () => {
       }],
       uiState: { traceVisible: true, scrollAnchorTurnId: "turn-saved-graph" },
     };
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), savedThread.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), savedThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", savedThread.threadId), JSON.stringify(savedThread));
 
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
@@ -1789,6 +1793,7 @@ describe("PlanSurfaceShell", () => {
     } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
 
     expect(await screen.findByText("Saved graph answer.")).toBeInTheDocument();
@@ -1798,10 +1803,227 @@ describe("PlanSurfaceShell", () => {
     expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"))).toHaveLength(0);
   });
 
+  it("serializes bounded prior-turn history on the second Hermes submit in the same thread", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What do we know about Tripod Null-Calf at the North Gate?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await screen.findByText("Tripod stands at the North Gate.");
+
+    await user.clear(screen.getByLabelText("Question"));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What is it connected to that should affect my prep?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await waitFor(() => {
+      expect(screen.getAllByText("Tripod stands at the North Gate.")).toHaveLength(2);
+    });
+
+    const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
+    expect(queryCalls).toHaveLength(2);
+    const firstBody = JSON.parse(String(queryCalls[0][1]?.body)) as Record<string, unknown>;
+    const secondBody = JSON.parse(String(queryCalls[1][1]?.body)) as Record<string, unknown>;
+    expect(firstBody).not.toHaveProperty("conversation_history");
+    expect(secondBody.text).toBe("What is it connected to that should affect my prep?");
+    expect(secondBody.conversation_history).toEqual([
+      {
+        role: "user",
+        content: "What do we know about Tripod Null-Calf at the North Gate?",
+      },
+      { role: "assistant", content: "Tripod stands at the North Gate." },
+    ]);
+    expect(secondBody.world_graph_context).toEqual(expectedWorldGraphContextRequest);
+    expect(JSON.stringify(secondBody)).not.toContain("hermes_session_id");
+    expect(JSON.stringify(secondBody.conversation_history)).not.toContain("source-anchor");
+  });
+
+  it("after persist and reload, follow-up history ignores hostile stored children and session ids", async () => {
+    const user = userEvent.setup();
+    const firstResponse = buildHermesGraphQueryResponse({
+      answer: "Tripod stands at the North Gate.",
+      agent_trace: {
+        ...buildHermesGraphQueryResponse().agent_trace,
+        hermes_session_id: "hermes-session-must-not-persist",
+      },
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(firstResponse),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    const { unmount } = renderPlanSurface();
+    await waitForPlanSurfaceReady();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What do we know about Tripod Null-Calf at the North Gate?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await screen.findByText("Tripod stands at the North Gate.");
+
+    const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
+    expect(activeThreadId).toBeTruthy();
+    const storedKey = threadStorageKey("longmont-c2", String(activeThreadId));
+    const storedBefore = localStorage.getItem(storedKey) ?? "";
+    expect(storedBefore).not.toContain("hermes_session_id");
+    expect(storedBefore).not.toContain("hermes-session-must-not-persist");
+
+    const parsed = JSON.parse(storedBefore) as {
+      turns: Array<Record<string, unknown>>;
+    };
+    // Newest-first: inject a malformed sibling ahead of the valid persisted turn.
+    parsed.turns.unshift({
+      turnId: "hostile-malformed",
+      askedAt: "2026-07-14T17:00:00Z",
+      completedAt: "2026-07-14T17:00:01Z",
+      question: "",
+      answer: "Malformed stored child",
+      backend: "hermes",
+      status: "ok",
+      citations: [],
+      warnings: [],
+      grounding: null,
+      trace: {
+        trace_id: "RAW_TRACE_SECRET",
+        hermes_session_id: "RAW_HERMES_TRANSCRIPT_SECRET",
+        mode: "hermes_graph_agent",
+        runtime: "process_isolated",
+        backend: "hermes",
+        started_at: "2026-07-14T17:00:00Z",
+        completed_at: "2026-07-14T17:00:01Z",
+        elapsed_ms: 1,
+        status: "ok",
+        usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        tool_events: [],
+        warnings: [],
+      },
+    });
+    localStorage.setItem(storedKey, JSON.stringify(parsed));
+
+    unmount();
+    fetchSpy.mockClear();
+    fetchSpy.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+            answer: "Follow-up after reload.",
+          })),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    expect(await screen.findByText("Tripod stands at the North Gate.")).toBeInTheDocument();
+
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What is it connected to that should affect my prep?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await screen.findByText("Follow-up after reload.");
+
+    const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
+    expect(queryCalls).toHaveLength(1);
+    const followUpBody = JSON.parse(String(queryCalls[0][1]?.body)) as Record<string, unknown>;
+    expect(followUpBody.conversation_history).toEqual([
+      {
+        role: "user",
+        content: "What do we know about Tripod Null-Calf at the North Gate?",
+      },
+      { role: "assistant", content: "Tripod stands at the North Gate." },
+    ]);
+    expect(JSON.stringify(followUpBody)).not.toContain("hermes_session_id");
+    expect(JSON.stringify(followUpBody)).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
+
+    const storedAfter = localStorage.getItem(storedKey) ?? "";
+    expect(storedAfter).not.toContain("hermes_session_id");
+    expect(storedAfter).not.toContain("hermes-session-must-not-persist");
+    expect(storedAfter).not.toContain("RAW_HERMES_TRANSCRIPT_SECRET");
+  });
+
+  it("does not leak Thread A history into Thread B follow-up requests", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/source-bundle")) {
+        return { ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response;
+      }
+      if (url.includes("/api/live/query")) {
+        return {
+          ok: true,
+          text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
+        } as Response;
+      }
+      return { ok: true, text: async () => "{}" } as Response;
+    });
+
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.type(screen.getByLabelText("Question"), "Thread A turn 1?");
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await screen.findByText("Tripod stands at the North Gate.");
+
+    await user.click(screen.getByRole("button", { name: "New prep thread" }));
+    await user.type(
+      screen.getByLabelText("Question"),
+      "What is it connected to that should affect my prep?",
+    );
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+
+    const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
+    const threadBBody = JSON.parse(String(queryCalls.at(-1)?.[1]?.body)) as Record<string, unknown>;
+    expect(threadBBody).not.toHaveProperty("conversation_history");
+    expect(JSON.stringify(threadBBody)).not.toContain("Thread A turn 1?");
+  });
+
   it("uses the saved citation revision when opening graph evidence after reload", async () => {
     const user = userEvent.setup();
     const savedThread = {
-      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread"),
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Saved graph thread", FIXTURE_DOC_ID),
       turns: [{
         turnId: "turn-saved-graph",
         askedAt: "2026-07-14T18:00:00Z",
@@ -1817,7 +2039,7 @@ describe("PlanSurfaceShell", () => {
       }],
       uiState: { traceVisible: false, scrollAnchorTurnId: "turn-saved-graph" },
     };
-    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan"), savedThread.threadId);
+    localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), savedThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", savedThread.threadId), JSON.stringify(savedThread));
 
     vi.spyOn(globalThis, "fetch")
@@ -1844,6 +2066,7 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
@@ -1864,11 +2087,11 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByText("Graph tool activity (1)")).toBeInTheDocument();
     expect(screen.getByText("search_campaign_graph")).toBeInTheDocument();
@@ -1891,14 +2114,14 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
   });
 
@@ -1914,14 +2137,14 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open evidence" })).not.toBeInTheDocument();
   });
 
@@ -1947,11 +2170,11 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getByText("Tripod stands at the North Gate.")).toBeInTheDocument();
@@ -1959,7 +2182,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText("bounded string warning")).toBeInTheDocument();
     expect(screen.queryByText(/unexpected object/)).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
-    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
   });
   it("keeps Plan usable when top-level warnings are non-array and grounding is malformed", async () => {
     const user = userEvent.setup();
@@ -1982,15 +2205,15 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
-    expect(await screen.findByRole("region", { name: "Hermes grounding contract error" })).toBeInTheDocument();
+    expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
   });
 
@@ -2024,11 +2247,11 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
     expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent(
@@ -2077,11 +2300,11 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
     expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent(
@@ -2148,11 +2371,11 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
     const reader = await screen.findByRole("region", { name: "Graph evidence preview" });
@@ -2171,14 +2394,14 @@ describe("PlanSurfaceShell", () => {
       } as Response);
 
     renderPlanSurface();
+    await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("radio", { name: "Hermes tools" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
-    await user.click(screen.getByRole("button", { name: "Ask prep memory" }));
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
-    expect(await screen.findByRole("region", { name: "Graph-grounded answer" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Corpus change signal" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Check current source state" })).not.toBeInTheDocument();
   });

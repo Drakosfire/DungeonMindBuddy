@@ -1,31 +1,47 @@
 import { describe, expect, it } from "vitest";
 
 import { mockPlanView } from "../../test/fixtures";
-import { buildPlanContextFromPlanView, createPlanSurfaceConfig } from "./planSurfaceConfig";
+import {
+  createPlanSurfaceConfig,
+  planLocationOverridesFromSearch,
+} from "./planSurfaceConfig";
+import { FIXTURE_DOC_ID, fixturePlanDocumentDescriptor } from "./planSessionDescriptor";
 
 describe("planSurfaceConfig", () => {
-  it("builds plan context from plan view projection", () => {
-    const context = buildPlanContextFromPlanView(mockPlanView);
-    expect(context.campaignId).toBe("longmont-c2");
-    expect(context.liveSession).toBe(22);
-    expect(context.prepSession).toBe(23);
-    expect(context.ingestSession).toBe(21);
-    expect(context.headerLabel).toContain("Plan · Longmont C2");
-    expect(context.headerLabel).toContain("preparing Session 23");
+  const planningDocument = fixturePlanDocumentDescriptor();
+
+  it("builds plan context without prepSession identity", () => {
+    const config = createPlanSurfaceConfig(mockPlanView, planningDocument);
+    expect(config.context.liveSession).toBe(22);
+    expect(config.context.ingestSession).toBe(22);
+    expect(config.context.headerLabel).toContain("C2 Session 23 Prep");
   });
 
-  it("creates plan surface config with one session-prep board", () => {
-    const config = createPlanSurfaceConfig(mockPlanView);
-    expect(config.id).toBe("plan");
-    expect(config.tools.map((tool) => tool.id)).toEqual([
-      "recap",
-      "party-registry",
-      "statblock",
-    ]);
-    expect(config.theme.themeId).toBe("mireward-runbook");
-    expect(config.theme.tokens?.["--accent"]).toBe("#7aa2f7");
-    expect(config.canvas.documentId).toBe("longmont-c2-session-23-prep");
-    expect(config.sessionDescriptor.planningDocument.title).toBe("C2 Session 23 Prep");
-    expect(config.sessionDescriptor.planningDocument.targetRelpath).toContain("Session Prep/Session 23 Prep.md");
+  it("parses memory session overrides from search", () => {
+    expect(planLocationOverridesFromSearch("?session=24")).toEqual({
+      memorySession: 24,
+    });
+    expect(planLocationOverridesFromSearch("")).toEqual({
+      memorySession: null,
+    });
+    expect(planLocationOverridesFromSearch("?documentId=abc")).toEqual({
+      memorySession: null,
+    });
+  });
+
+  it("wires canvas documentId from the registry-backed planning document", () => {
+    const config = createPlanSurfaceConfig(mockPlanView, planningDocument);
+    expect(config.canvas.documentId).toBe(FIXTURE_DOC_ID);
+    expect(config.sessionDescriptor.planningDocument.documentId).toBe(FIXTURE_DOC_ID);
+  });
+
+  it("honors memory session override in session descriptor", () => {
+    const config = createPlanSurfaceConfig(
+      mockPlanView,
+      planningDocument,
+      "?campaign=longmont-c2&session=24&dogfood=1",
+    );
+    expect(config.sessionDescriptor.memorySession).toBe(24);
+    expect(config.canvas.documentId).toBe(FIXTURE_DOC_ID);
   });
 });

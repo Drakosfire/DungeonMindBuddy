@@ -1,18 +1,18 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import type { AppChromeTools } from "../chrome/AppChrome";
 import type { PlanViewProjection } from "../api/types";
 import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
-import { PlanNavBar } from "./components/PlanNavBar";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { PlanDogfoodPanel } from "./dogfood/PlanDogfoodPanel";
 import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
+import { resolvePlanningDocument } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
 import { ProjectionProvider } from "./projection/projectionContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
-import type { PlanSurfaceConfig } from "./types";
+import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "./types";
 import "./planSurface.css";
 
 interface PlanSurfaceShellProps {
@@ -25,39 +25,92 @@ function themeStyle(config: PlanSurfaceConfig): CSSProperties {
 }
 
 export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceShellProps) {
-  const config = useMemo(() => createPlanSurfaceConfig(planView), [planView]);
+  const [locationSearch, setLocationSearch] = useState(
+    () => (typeof window !== "undefined" ? window.location.search : ""),
+  );
+  const [planningDocument, setPlanningDocument] = useState<PlanDocumentDescriptor | null>(null);
+  const [documentLoadStatus, setDocumentLoadStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [documentLoadError, setDocumentLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sync = () => setLocationSearch(window.location.search);
+    sync();
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+
+  const loadPlanningDocument = useCallback(async () => {
+    setDocumentLoadStatus("loading");
+    setDocumentLoadError(null);
+    try {
+      const document = await resolvePlanningDocument({ planView, locationSearch });
+      setPlanningDocument(document);
+      setDocumentLoadStatus("ready");
+    } catch (error) {
+      setPlanningDocument(null);
+      setDocumentLoadStatus("error");
+      setDocumentLoadError(error instanceof Error ? error.message : "Failed to load planning document");
+    }
+  }, [locationSearch, planView]);
+
+  useEffect(() => {
+    void loadPlanningDocument();
+  }, [loadPlanningDocument]);
+
+  const config = useMemo(
+    () => (planningDocument ? createPlanSurfaceConfig(planView, planningDocument, locationSearch) : null),
+    [locationSearch, planView, planningDocument],
+  );
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();
+
+  if (documentLoadStatus === "loading" || !config) {
+    return (
+      <main className="app-status">
+        <p>Loading planning document…</p>
+      </main>
+    );
+  }
+
+  if (documentLoadStatus === "error") {
+    return (
+      <main className="app-status app-error">
+        <h1>Plan</h1>
+        <p>{documentLoadError ?? "Unable to load planning document."}</p>
+      </main>
+    );
+  }
 
   return (
     <EditCapabilityProvider>
       <ProjectionProvider config={config}>
         <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
           <div
-          className="plan-surface-root"
-          data-surface={config.id}
-          data-md-theme={config.theme.themeId}
-          style={themeStyle(config)}
-        >
-          <PlanNavBar config={config} saveStatusLabel={saveStatusLabel} />
-          {dogfoodMode ? (
-            <PlanDogfoodPanel
-              sessionDescriptor={config.sessionDescriptor}
-              saveStatusLabel={saveStatusLabel}
-            />
-          ) : null}
-          <div className="plan-surface-layout">
-            <div className="plan-surface-main">
-              <PlanSurfaceCanvas
+            className="plan-surface-root"
+            data-surface={config.id}
+            data-md-theme={config.theme.themeId}
+            style={themeStyle(config)}
+          >
+            {dogfoodMode ? (
+              <PlanDogfoodPanel
                 sessionDescriptor={config.sessionDescriptor}
-                theme={config.theme}
-                onEditorToolsChange={onEditorToolsChange}
-                onSaveStatusChange={setSaveStatusLabel}
+                saveStatusLabel={saveStatusLabel}
               />
+            ) : null}
+            <div className="plan-surface-layout">
+              <div className="plan-surface-main">
+                <PlanSurfaceCanvas
+                  sessionDescriptor={config.sessionDescriptor}
+                  theme={config.theme}
+                  onEditorToolsChange={onEditorToolsChange}
+                  onSaveStatusChange={setSaveStatusLabel}
+                  onPlanningDocumentCommitted={setPlanningDocument}
+                />
+              </div>
+              <AdaptiveProjectionContainer config={config} />
             </div>
-            <AdaptiveProjectionContainer config={config} />
-          </div>
-          <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
+            <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
           </div>
         </PlanGraphReferenceResolverProvider>
       </ProjectionProvider>

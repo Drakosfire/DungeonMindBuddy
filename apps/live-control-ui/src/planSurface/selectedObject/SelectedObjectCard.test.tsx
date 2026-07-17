@@ -13,6 +13,7 @@ vi.mock("../../api/liveApi", () => ({
 }));
 
 import { postCitationSource, resolveRoll } from "../../api/liveApi";
+import { FIXTURE_DOC_ID } from "../config/planSessionDescriptor";
 
 const surfaceConfig: SurfaceConfig = {
   id: "plan",
@@ -20,30 +21,28 @@ const surfaceConfig: SurfaceConfig = {
   context: {
     campaignId: "longmont-c2",
     headerLabel: "Longmont C2",
-    prepSession: 24,
     ingestSession: 23,
     liveSession: 23,
   },
   tools: [
     { id: "statblock", label: "Statblock", size: "wide" },
   ],
-  canvas: { documentId: "longmont-c2-session-24-prep" },
+  canvas: { documentId: FIXTURE_DOC_ID },
   theme: {},
   sessionDescriptor: {
     surfaceId: "plan",
     campaignId: "longmont-c2",
     campaignLabel: "Longmont C2",
-    prepSession: 24,
     memorySession: 23,
     liveSession: 23,
     sourceStatusLabel: "unknown",
     sourceStatusKind: "unknown",
     planningDocument: {
-      documentId: "longmont-c2-session-24-prep",
+      documentId: FIXTURE_DOC_ID,
       title: "C2 Session 24 Prep",
       targetRelpath: "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 24 Prep.md",
-      storageKey: "dmb.planCanvas.longmont-c2.24.longmont-c2-session-24-prep",
-      status: "local_draft",
+      storageKey: `dmb.workspaceDocument.${FIXTURE_DOC_ID}`,
+      status: "active", contentStatus: "draft", revision: 1, kind: "plan", campaignId: "longmont-c2", targetSession: 23,
     },
   },
 };

@@ -1,38 +1,54 @@
+import { describe, expect, it } from "vitest";
+
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import {
-  DEFAULT_TIPTAP_RUNBOOK_DOCUMENT_ID,
-  getTiptapRunbookDescriptor,
+  NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+  northGateRunbookCreateRequest,
   northGateSessionRunbookStarterMarkdown,
-  TIPTAP_RUNBOOK_DESCRIPTORS,
+  runbookDescriptorFromRecord,
   tiptapRunbookStorageKey,
 } from "./tiptapRunbookDescriptors";
+import { FIXTURE_DOC_ID } from "../../planSurface/config/planSessionDescriptor";
+import { fixtureWorkspaceDocumentRecord } from "../../planSurface/config/planSessionDescriptor";
 
 describe("Tiptap runbook descriptors", () => {
-  it("defaults to the North Gate session runbook", () => {
-    expect(DEFAULT_TIPTAP_RUNBOOK_DOCUMENT_ID).toBe("north-gate-session-runbook");
-    expect(getTiptapRunbookDescriptor().documentId).toBe("north-gate-session-runbook");
-    expect(getTiptapRunbookDescriptor("bogus").documentId).toBe("north-gate-session-runbook");
+  it("maps registry records to runbook descriptors with opaque ids", () => {
+    const record = fixtureWorkspaceDocumentRecord({
+      document_id: FIXTURE_DOC_ID,
+      kind: "runbook",
+      title: "North Gate Session Runbook",
+      target_relpath: NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+    });
+    const descriptor = runbookDescriptorFromRecord(record);
+    expect(descriptor.documentId).toBe(FIXTURE_DOC_ID);
+    expect(descriptor.targetRelpath).toBe(NORTH_GATE_RUNBOOK_TARGET_RELPATH);
   });
 
-  it("keeps descriptor ids and write targets safe and isolated", () => {
-    expect(TIPTAP_RUNBOOK_DESCRIPTORS).toHaveLength(2);
-    for (const descriptor of TIPTAP_RUNBOOK_DESCRIPTORS) {
-      expect(descriptor.documentId).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-      expect(descriptor.targetRelpath).toMatch(/^evals\/c2_live_prep\/mireward-prep\/content\/tiptap\/[a-z0-9-]+\.md$/);
-    }
-    const keys = TIPTAP_RUNBOOK_DESCRIPTORS.map(tiptapRunbookStorageKey);
-    expect(new Set(keys).size).toBe(keys.length);
+  it("uses workspace document storage keys", () => {
+    const key = tiptapRunbookStorageKey({ documentId: FIXTURE_DOC_ID });
+    expect(key).toBe(`dmb.workspaceDocument.${FIXTURE_DOC_ID}`);
   });
 
-  it("keeps the North Gate reset starter aligned with the durable Markdown artifact", () => {
+  it("keeps the North Gate reset starter isolated from the durable Markdown artifact", () => {
     const artifactPath = resolve(
       process.cwd(),
       "../../evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
     );
     const artifactMarkdown = readFileSync(artifactPath, "utf8").trim();
+    const starterMarkdown = northGateSessionRunbookStarterMarkdown.trim();
 
-    expect(northGateSessionRunbookStarterMarkdown.trim()).toBe(artifactMarkdown);
+    expect(starterMarkdown).not.toBe(artifactMarkdown);
+    expect(starterMarkdown).toContain("# C2S23 North Gate Session Runbook");
+    expect(starterMarkdown).toContain("## Hard boundaries");
+    expect(starterMarkdown).toContain("[North Reach Gate](#dmb-ref:location:north-reach-gate)");
+    expect(artifactMarkdown).toContain("# C2S23 Mireward Reach North Gate Runbook");
+  });
+
+  it("suggests north gate create payload without inventing document ids", () => {
+    const payload = northGateRunbookCreateRequest();
+    expect(payload.kind).toBe("runbook");
+    expect(payload.target_relpath).toBe(NORTH_GATE_RUNBOOK_TARGET_RELPATH);
   });
 });

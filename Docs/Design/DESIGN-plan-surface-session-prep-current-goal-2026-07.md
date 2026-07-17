@@ -160,7 +160,7 @@ Start from the existing route and seams. Make the planning board, context, refer
 
 Landed and dogfoodable:
 
-- Session context descriptors (campaign, prep session, memory session, document identity, durable target path, local-draft status).
+- Session context descriptors (campaign, memory session, optional `targetSession`, opaque workspace document identity via server registry — select with `?documentId=<uuid>`; see [`CONTRACT-workspace-document-identity-v1.md`](CONTRACT-workspace-document-identity-v1.md); durable target path and local-draft status).
 - One derived session-prep board; North Gate / eval runbooks stay off the normal `/plan` document model.
 - Durable Markdown save for that board (operator-facing single Save; backend still uses guarded prepare/commit).
 - Reference chips → Plan selected-object card + source preview (corpus-index backed; **transitional**).

@@ -1,5 +1,9 @@
+import { createWorkspaceDocument, getWorkspaceDocument, listWorkspaceDocuments } from "../../api/liveApi";
+import type { WorkspaceDocumentRecord } from "../../api/types";
+import { requestedDocumentIdFromLocation } from "../../planSurface/sessionCampaignContext";
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../markdown/markdownToTiptap";
+import { workspaceDocumentStorageKey } from "../state/tiptapLocalState";
 
 export type TiptapRunbookThemeId = "command" | "plain" | "statblock";
 
@@ -7,17 +11,17 @@ export type TiptapRunbookDescriptor = {
   documentId: string;
   title: string;
   campaignId: string;
-  session: number;
+  session: number | null;
   targetRelpath: string;
   themeId: TiptapRunbookThemeId;
   description?: string;
   /** Local-only reset seed. Durable Markdown remains canon; descriptor starter content is not canon. */
   starterContent: unknown;
-  /** Optional override for plan-surface collision-safe local drafts. */
-  storageKey?: string;
+  revision?: number;
 };
 
-export const DEFAULT_TIPTAP_RUNBOOK_DOCUMENT_ID = "north-gate-session-runbook";
+export const NORTH_GATE_RUNBOOK_TARGET_RELPATH =
+  "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md";
 
 export const northGateSessionRunbookStarterMarkdown = String.raw`# C2S23 North Gate Session Runbook
 
@@ -122,36 +126,77 @@ This runbook is table prep only. It should not write canon, launch combat, execu
 
 export const northGateSessionRunbookStarterContent = markdownToTiptapDoc(northGateSessionRunbookStarterMarkdown).doc;
 
-export const northGateCalloutSpikeStarterContent = {
-  type: "doc",
-  content: [
-    { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "North Gate Callout Spike" }] },
-    { type: "paragraph", content: [{ type: "text", text: "Small smoke-test document for descriptor-keyed local drafts." }] },
-    { type: "callout", attrs: { kind: "gm-note" }, content: [{ type: "paragraph", content: [{ type: "text", text: "Use this lightweight document to verify target-path and localStorage isolation." }] }] },
-  ],
-};
+export const initialCalloutContent = northGateSessionRunbookStarterContent;
 
-export const TIPTAP_RUNBOOK_DESCRIPTORS: TiptapRunbookDescriptor[] = [
-  { documentId: DEFAULT_TIPTAP_RUNBOOK_DOCUMENT_ID, title: "North Gate Session Runbook", campaignId: "longmont-c2", session: 23, targetRelpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md", themeId: "command", description: "C2S23 table-facing North Gate opening runbook.", starterContent: northGateSessionRunbookStarterContent },
-  { documentId: "north-gate-callout-spike", title: "North Gate Callout Spike", campaignId: "longmont-c2", session: 23, targetRelpath: "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md", themeId: "command", description: "Small callout bridge smoke-test document.", starterContent: northGateCalloutSpikeStarterContent },
-];
-
-export function isKnownTiptapRunbookDocumentId(documentId: string): boolean {
-  return TIPTAP_RUNBOOK_DESCRIPTORS.some((descriptor) => descriptor.documentId === documentId);
+export function northGateRunbookCreateRequest() {
+  return {
+    title: "North Gate Session Runbook",
+    campaign_id: "longmont-c2",
+    kind: "runbook" as const,
+    target_session: 23,
+    target_relpath: NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+  };
 }
 
-export function getTiptapRunbookDescriptor(documentId?: string | null): TiptapRunbookDescriptor {
-  return TIPTAP_RUNBOOK_DESCRIPTORS.find((descriptor) => descriptor.documentId === documentId)
-    ?? TIPTAP_RUNBOOK_DESCRIPTORS[0];
+export function runbookDescriptorFromRecord(record: {
+  document_id: string;
+  title: string;
+  campaign_id: string;
+  target_session: number | null;
+  target_relpath: string | null;
+  revision: number;
+}, starterContent: unknown = northGateSessionRunbookStarterContent): TiptapRunbookDescriptor {
+  return {
+    documentId: record.document_id,
+    title: record.title,
+    campaignId: record.campaign_id,
+    session: record.target_session,
+    targetRelpath: record.target_relpath ?? NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+    themeId: "command",
+    starterContent,
+    revision: record.revision,
+  };
 }
 
-export function tiptapRunbookStorageKey(descriptor: TiptapRunbookDescriptor): string {
-  if (descriptor.storageKey) {
-    return descriptor.storageKey;
-  }
-  return `dmb:tiptap-working-board:${descriptor.campaignId}:session-${descriptor.session}:${descriptor.documentId}`;
+export function tiptapRunbookStorageKey(descriptor: Pick<TiptapRunbookDescriptor, "documentId">): string {
+  return workspaceDocumentStorageKey(descriptor.documentId);
 }
 
 export function starterContentMarkdown(descriptor: TiptapRunbookDescriptor): string {
   return tiptapJsonToSemanticMarkdown(descriptor.starterContent);
+}
+
+export async function resolveRunbookSpikeDocument(
+  locationSearch: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
+): Promise<TiptapRunbookDescriptor> {
+  const requestedId = requestedDocumentIdFromLocation(locationSearch);
+  if (requestedId) {
+    const record = await getWorkspaceDocument(requestedId);
+    return runbookDescriptorFromRecord(record);
+  }
+
+  const list = await listWorkspaceDocuments({
+    campaign_id: "longmont-c2",
+    kind: "runbook",
+    status: "active",
+  });
+  const northGate = list.records.find(
+    (record) => record.target_relpath === NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+  );
+  if (northGate) {
+    return runbookDescriptorFromRecord(northGate);
+  }
+  if (list.records.length > 0) {
+    return runbookDescriptorFromRecord(list.records[0]);
+  }
+
+  const created = await createWorkspaceDocument(northGateRunbookCreateRequest());
+  return runbookDescriptorFromRecord(created);
+}
+
+export function runbookDescriptorFromWorkspaceRecord(
+  record: WorkspaceDocumentRecord,
+  starterContent: unknown = northGateSessionRunbookStarterContent,
+): TiptapRunbookDescriptor {
+  return runbookDescriptorFromRecord(record, starterContent);
 }

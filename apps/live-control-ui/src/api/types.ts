@@ -300,9 +300,50 @@ export interface WorldGraphAnchorCitation {
   revision_id: string;
 }
 
-export type LiveQueryCitation = LegacyPathCitation | WorldGraphAnchorCitation;
+export interface GraphReferenceCitation {
+  schema: "dmb_graph_reference_v1";
+  kind: "graph_reference";
+  revision_id: string;
+  object_kind: "assertion" | "node" | "relationship" | "claim" | string;
+  object_id: string;
+  label?: string | null;
+  claim_id?: string | null;
+  world_id?: string;
+  campaign_id?: string;
+  focus?: { kind: "none" | "session"; session_id: string | null };
+  admissibility?: string;
+}
 
-export type HermesGraphGroundingState = "grounded" | "partial" | "abstained" | "error";
+export interface SourceCitationCitation {
+  schema: "dmb_source_citation_v1";
+  kind: "source_citation";
+  revision_id: string;
+  anchor_id: string;
+  source_artifact_id?: string | null;
+  content_sha256?: string | null;
+  line_start?: number | null;
+  line_end?: number | null;
+  truncated?: boolean;
+  source_read_id?: string | null;
+  world_id?: string;
+  campaign_id?: string;
+  focus?: { kind: "none" | "session"; session_id: string | null };
+  admissibility?: string;
+}
+
+export type LiveQueryCitation =
+  | LegacyPathCitation
+  | WorldGraphAnchorCitation
+  | GraphReferenceCitation
+  | SourceCitationCitation;
+
+export type HermesGraphGroundingState =
+  | "grounded"
+  | "partial"
+  | "abstained"
+  | "error"
+  /** No graph tool was called this turn; answer came from the visible conversation. */
+  | "conversation_context";
 
 export interface HermesGraphGrounding {
   schema: "dmb_hermes_graph_grounding_v1";
@@ -316,6 +357,12 @@ export interface HermesGraphGrounding {
   source_anchor_count: number;
   diagnostic_codes: string[];
   warnings: string[];
+  /** Additive retrieval-session acceptance from structured graph answers. */
+  acceptance_state?: string | null;
+  accepted_claim_ids?: string[];
+  rejected_claim_ids?: string[];
+  reason_codes?: string[];
+  graph_reference_count?: number | null;
 }
 
 export interface HermesGraphToolTraceEvent {
@@ -373,6 +420,13 @@ export interface LiveContextPacket {
 
 export type LiveQueryBackend = "live" | "hermes";
 
+export type HermesConversationHistoryRole = "user" | "assistant";
+
+export interface HermesConversationHistoryMessage {
+  role: HermesConversationHistoryRole;
+  content: string;
+}
+
 export interface AgentInteractionTraceUsage {
   available: boolean;
   input_tokens: number | null;
@@ -389,6 +443,18 @@ export interface AgentInteractionTraceArtifactRef {
   kind: string;
   path: string;
   label?: string | null;
+}
+
+export interface HermesConversationTraceContext {
+  history_present: boolean;
+  message_count: number;
+  pair_count: number;
+  payload_shape: "role_content_only" | string;
+  graph_metadata_in_history: boolean;
+  hermes_session_pointer_in_request: boolean;
+  hermes_session_pointer_status?: "absent" | "accepted" | "rejected" | "recovered" | string;
+  worker_pid_changed?: boolean;
+  fresh_graph_revision_used?: boolean;
 }
 
 export interface AgentInteractionContextSummary {
@@ -455,6 +521,14 @@ export interface AgentInteractionTrace {
   tool_events?: HermesGraphToolTraceEvent[];
   hermes_session_id?: string | null;
   process_isolation?: string | null;
+  /** Explicit Hermes answer scope when declare_conversation_context completed. */
+  answer_scope?: "graph" | "conversation_context" | null;
+  tool_event_count?: number | null;
+  evidence_event_count?: number | null;
+  final_response_present?: boolean | null;
+  validator_path?: string | null;
+  /** Server-derived request telemetry; prose and graph metadata are never echoed. */
+  conversation_context?: HermesConversationTraceContext | null;
   warnings: string[];
 }
 
@@ -506,6 +580,10 @@ export interface AgentInteractionTurn {
   worldGraphContext?: AgentWorldGraphQueryContext | null;
   worldGraphContextSummary?: PersistedWorldGraphContextSummary | null;
   grounding?: HermesGraphGrounding | null;
+  s1Support?: {
+    lagDisclosure?: string | null;
+    admittedRecapExcerpt?: string | null;
+  } | null;
 }
 
 export interface AgentInteractionThread {
@@ -515,6 +593,7 @@ export interface AgentInteractionThread {
   updatedAt: string;
   campaignId: string;
   session?: number | null;
+  documentId?: string | null;
   surfaceId: "plan" | "play" | "build" | string;
   activeBackend: LiveQueryBackend;
   hermesSession?: HermesSessionHandle | null;
@@ -537,9 +616,10 @@ export interface AgentInteractionThreadSummary {
 }
 
 export interface AgentInteractionThreadIndex {
-  schema: "agent_interaction_thread_index_v1";
+  schema: "agent_interaction_thread_index_v2";
   campaignId: string;
   surfaceId: string;
+  documentId?: string | null;
   activeThreadId: string | null;
   threads: AgentInteractionThreadSummary[];
 }
@@ -613,13 +693,30 @@ export interface PersistedWorldGraphContextSummary {
   matchedNodeIds: string[];
   projectionTruncated: boolean;
   warningCodes: string[];
+  retrievalSessionId?: string | null;
+  acceptanceState?: string | null;
+  acceptedClaimIds?: string[];
+  graphReferenceCount?: number | null;
+  sourceCitationCount?: number | null;
+  reasonCodes?: string[];
+  graphReferencePreview?: Array<{
+    objectId: string;
+    label?: string | null;
+    claimId?: string | null;
+  }>;
+  sourceCitationPreview?: Array<{
+    anchorId: string;
+    sourceArtifactId?: string | null;
+  }>;
 }
 
 export interface LiveQueryOptions {
   agentThreadId?: string | null;
   hermesSessionId?: string | null;
+  hermesSessionPointer?: string | null;
   traceRequested?: boolean | null;
   worldGraphContext?: AgentWorldGraphQueryContextRequest | null;
+  conversationHistory?: unknown;
 }
 
 export interface AgentInteractionTurnMeta {
@@ -706,6 +803,15 @@ export interface LiveQueryResponse {
   evidence_snapshots?: AgentEvidenceSnapshot[];
   world_graph_context?: AgentWorldGraphQueryContext | null;
   grounding?: HermesGraphGrounding | null;
+  retrieval_session_id?: string | null;
+  graph_references?: GraphReferenceCitation[];
+  source_citations?: SourceCitationCitation[];
+  /** S1 support channel: lag disclosure + admitted-recap excerpt (not Hermes chat). */
+  s1_support?: {
+    lag_disclosure?: string | null;
+    admitted_recap_excerpt?: string | null;
+  } | null;
+  latest_recap_change?: Record<string, unknown> | null;
 }
 
 export interface LiveEvent {
@@ -1224,11 +1330,53 @@ export interface StatblockCorpusWriteCommitResponse {
   available_actions: StatblockWorkbenchAction[];
 }
 
-export interface TiptapMarkdownWritePrepareRequest {
+export type WorkspaceDocumentKind = "plan" | "runbook";
+export type WorkspaceDocumentStatus = "active" | "discarded";
+export type WorkspaceDocumentContentStatus = "draft" | "committed";
+
+export interface WorkspaceDocumentRecord {
+  schema_version: "dmb_workspace_document_record_v1";
   document_id: string;
   title: string;
-  target_relpath: string;
+  campaign_id: string;
+  target_session: number | null;
+  kind: WorkspaceDocumentKind;
+  target_relpath: string | null;
+  status: WorkspaceDocumentStatus;
+  content_status: WorkspaceDocumentContentStatus;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkspaceDocumentsListResponse {
+  schema_version: "dmb_workspace_document_registry_v1";
+  records: WorkspaceDocumentRecord[];
+}
+
+export interface CreateWorkspaceDocumentRequest {
+  title: string;
+  campaign_id: string;
+  kind: WorkspaceDocumentKind;
+  target_session?: number | null;
+  target_relpath?: string | null;
+}
+
+export interface UpdateWorkspaceDocumentMetadataRequest {
+  title?: string | null;
+  target_session?: number | null;
+  target_relpath?: string | null;
+  expected_revision?: number | null;
+}
+
+export interface WorkspaceDocumentRevisionRequest {
+  expected_revision?: number | null;
+}
+
+export interface TiptapMarkdownWritePrepareRequest {
+  document_id: string;
   markdown: string;
+  expected_revision?: number | null;
 }
 
 export interface TiptapMarkdownWritePrepareResponse {
@@ -1237,6 +1385,7 @@ export interface TiptapMarkdownWritePrepareResponse {
   title: string;
   target_relpath: string;
   target_display_path: string;
+  registry_revision: number;
   file_exists: boolean;
   writer_ok: boolean;
   writer_phase?: string | null;
@@ -1250,10 +1399,9 @@ export interface TiptapMarkdownWritePrepareResponse {
 
 export interface TiptapMarkdownWriteCommitRequest {
   document_id: string;
-  title: string;
-  target_relpath: string;
   markdown: string;
   writer_confirm_token: string;
+  expected_revision?: number | null;
 }
 
 export interface TiptapMarkdownWriteCommitResponse {
@@ -1262,6 +1410,7 @@ export interface TiptapMarkdownWriteCommitResponse {
   title: string;
   target_relpath: string;
   target_display_path: string;
+  registry_revision: number;
   writer_ok: boolean;
   writer_phase?: string | null;
   bytes_written?: number | null;

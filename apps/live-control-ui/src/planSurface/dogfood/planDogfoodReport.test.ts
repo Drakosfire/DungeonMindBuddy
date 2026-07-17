@@ -1,27 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { PlanSessionDescriptor } from "../types";
+import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { buildPlanDogfoodReport } from "./planDogfoodReport";
 import { PLAN_DOGFOOD_CHECKLIST } from "./planDogfoodState";
 
-const sessionDescriptor: PlanSessionDescriptor = {
-  surfaceId: "plan",
-  campaignId: "longmont-c2",
-  campaignLabel: "Longmont C2",
-  prepSession: 23,
-  memorySession: 21,
-  liveSession: 22,
-  sourceStatusLabel: "Session 21",
-  sourceStatusKind: "unknown",
-  planningDocument: {
-    documentId: "longmont-c2-session-23-prep",
-    title: "Longmont C2 Session 23 Prep",
-    targetRelpath:
-      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md",
-    storageKey: "dmb.planCanvas.longmont-c2.23.longmont-c2-session-23-prep",
-    status: "local_draft",
-  },
-};
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 describe("buildPlanDogfoodReport", () => {
   it("includes campaign, sessions, target path, save status, checklist, and notes", () => {
@@ -29,7 +12,7 @@ describe("buildPlanDogfoodReport", () => {
       sessionDescriptor,
       checklist: PLAN_DOGFOOD_CHECKLIST,
       state: {
-        checked: { "open-plan": true, "add-real-notes": true },
+        checked: { "open-s1-plan": true, "ask-s1-question": true },
         notes: "Save felt trustworthy.",
         updatedAt: "2026-07-09T00:00:00.000Z",
       },
@@ -48,20 +31,29 @@ describe("buildPlanDogfoodReport", () => {
 
     expect(report).toContain("# /plan Dogfood Report");
     expect(report).toContain("Campaign: Longmont C2");
-    expect(report).toContain("Prep session: 23");
+    expect(report).toContain("Target session: 23");
     expect(report).toContain("Memory session: 21");
-    expect(report).toContain("Document: Longmont C2 Session 23 Prep");
+    expect(report).toContain("Document: C2 Session 23 Prep");
     expect(report).toContain("Target path: corpus/eldyrwild-markdown");
     expect(report).toContain("Save status: Saved to Markdown");
     expect(report).toContain("World Graph revision: rev-21");
     expect(report).toContain("World Graph head revision: rev-22");
     expect(report).toContain("World Graph focus: session-21");
     expect(report).toContain("Generated at: 2026-07-09T12:00:00.000Z");
-    expect(report).toContain("- [x] Open /plan?dogfood=1 with the intended live session dir");
-    expect(report).toContain("- [x] Edit the board with real prep notes for this session");
-    expect(report).toContain("- [ ] Stop the dev server");
+    expect(report).toContain(
+      "- [x] Open /plan?dogfood=1&campaign=longmont-c2&session=24",
+    );
+    expect(report).toContain(
+      '- [x] Ask: "What changed after the latest ingested recap?"',
+    );
+    expect(report).toContain(
+      "- [ ] Answer names the latest admitted recap and the comparison boundary",
+    );
+    expect(report).not.toContain("Tripod Null-Calf");
     expect(report).toContain("Save felt trustworthy.");
     expect(report).toContain("## Suggested follow-ups");
+    expect(report).toContain("CreativeOperationSession");
+    expect(report).toContain("empty-graph generic abstention");
   });
 
   it("uses placeholder when notes are empty", () => {

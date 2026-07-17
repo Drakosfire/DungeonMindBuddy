@@ -9,6 +9,13 @@ from typing import Literal
 import blake3
 from pydantic import BaseModel, Field
 
+from apps.live_control_server.services.workspace_document_registry import (
+    WorkspaceDocumentRecord,
+    WorkspaceDocumentRegistryError,
+    get_workspace_document,
+    mark_workspace_document_committed,
+)
+
 _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE = re.compile(
     r"^evals/c2_live_prep/mireward-prep/content/tiptap/[a-z0-9][a-z0-9_-]*\.md$"
 )
@@ -38,9 +45,8 @@ class TiptapMarkdownWriteConflictError(TiptapMarkdownWriteError):
 
 class TiptapMarkdownWritePrepareRequest(BaseModel):
     document_id: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    target_relpath: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
+    expected_revision: int | None = None
 
 
 class TiptapMarkdownWritePrepareResponse(BaseModel):
@@ -51,6 +57,7 @@ class TiptapMarkdownWritePrepareResponse(BaseModel):
     title: str
     target_relpath: str
     target_display_path: str
+    registry_revision: int
     file_exists: bool
     writer_ok: bool
     writer_phase: str | None = None
@@ -64,10 +71,9 @@ class TiptapMarkdownWritePrepareResponse(BaseModel):
 
 class TiptapMarkdownWriteCommitRequest(BaseModel):
     document_id: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    target_relpath: str = Field(min_length=1)
     markdown: str = Field(min_length=1)
     writer_confirm_token: str = Field(min_length=1)
+    expected_revision: int | None = None
 
 
 class TiptapMarkdownWriteCommitResponse(BaseModel):
@@ -78,6 +84,7 @@ class TiptapMarkdownWriteCommitResponse(BaseModel):
     title: str
     target_relpath: str
     target_display_path: str
+    registry_revision: int
     writer_ok: bool
     writer_phase: str | None = None
     bytes_written: int | None = None
@@ -120,15 +127,65 @@ def _file_state_token(target: Path) -> str:
     return f"present:{stat.st_mtime_ns}:{stat.st_size}"
 
 
-def _confirm_token(relpath: str, content: str, file_state: str) -> str:
-    payload = f"{relpath}\0{content}\0{file_state}".encode()
+def _confirm_token(
+    document_id: str,
+    registry_revision: int,
+    relpath: str,
+    content: str,
+    file_state: str,
+) -> str:
+    payload = (
+        f"{document_id}\0{registry_revision}\0{relpath}\0{content}\0{file_state}"
+    ).encode()
     return blake3.blake3(payload).hexdigest()
+
+
+def _map_registry_error(exc: WorkspaceDocumentRegistryError) -> TiptapMarkdownWriteError:
+    if exc.status_code == 409:
+        return TiptapMarkdownWriteConflictError(str(exc))
+    error = TiptapMarkdownWriteError(str(exc))
+    error.status_code = exc.status_code
+    return error
+
+
+def _resolve_writable_document(
+    root: Path,
+    document_id: str,
+    *,
+    expected_revision: int | None,
+) -> WorkspaceDocumentRecord:
+    try:
+        record = get_workspace_document(root, document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        raise _map_registry_error(exc) from exc
+
+    if expected_revision is not None and record.revision != expected_revision:
+        raise TiptapMarkdownWriteConflictError(
+            f"revision mismatch: expected {expected_revision}, current {record.revision}"
+        )
+
+    if record.status == "discarded":
+        raise TiptapMarkdownWriteConflictError(
+            f"workspace document is discarded: {record.document_id}"
+        )
+
+    if not record.target_relpath or not record.target_relpath.strip():
+        raise TiptapMarkdownWriteError(
+            "workspace document has no target_relpath; cannot write Markdown"
+        )
+
+    return record
 
 
 def prepare_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWritePrepareRequest
 ) -> TiptapMarkdownWritePrepareResponse:
-    relpath = normalize_tiptap_target_relpath(request.target_relpath)
+    record = _resolve_writable_document(
+        root,
+        request.document_id,
+        expected_revision=request.expected_revision,
+    )
+    relpath = normalize_tiptap_target_relpath(record.target_relpath)
     target = resolve_tiptap_markdown_target(root, relpath)
     content = _final_content(request.markdown)
     exists = target.is_file()
@@ -142,15 +199,20 @@ def prepare_tiptap_markdown_write(
         )
     )
     return TiptapMarkdownWritePrepareResponse(
-        document_id=request.document_id,
-        title=request.title,
+        document_id=record.document_id,
+        title=record.title,
         target_relpath=relpath,
         target_display_path=relpath,
+        registry_revision=record.revision,
         file_exists=exists,
         writer_ok=True,
         writer_phase="prepare",
         writer_confirm_token=_confirm_token(
-            relpath, content, _file_state_token(target)
+            record.document_id,
+            record.revision,
+            relpath,
+            content,
+            _file_state_token(target),
         ),
         writer_diff=diff,
         existing_size_bytes=len(existing.encode()) if exists else None,
@@ -176,10 +238,21 @@ def _prepare_diagnostics(relpath: str) -> list[str]:
 def commit_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
-    relpath = normalize_tiptap_target_relpath(request.target_relpath)
+    record = _resolve_writable_document(
+        root,
+        request.document_id,
+        expected_revision=request.expected_revision,
+    )
+    relpath = normalize_tiptap_target_relpath(record.target_relpath)
     target = resolve_tiptap_markdown_target(root, relpath)
     content = _final_content(request.markdown)
-    expected = _confirm_token(relpath, content, _file_state_token(target))
+    expected = _confirm_token(
+        record.document_id,
+        record.revision,
+        relpath,
+        content,
+        _file_state_token(target),
+    )
     if request.writer_confirm_token != expected:
         raise TiptapMarkdownWriteConflictError(
             "stale writer confirm token; prepare file write again"
@@ -200,11 +273,21 @@ def commit_tiptap_markdown_write(
         error.status_code = 500
         raise error from exc
 
+    try:
+        committed_record = mark_workspace_document_committed(
+            root,
+            record.document_id,
+            expected_revision=record.revision,
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise _map_registry_error(exc) from exc
+
     return TiptapMarkdownWriteCommitResponse(
-        document_id=request.document_id,
-        title=request.title,
+        document_id=committed_record.document_id,
+        title=committed_record.title,
         target_relpath=relpath,
         target_display_path=relpath,
+        registry_revision=committed_record.revision,
         writer_ok=True,
         writer_phase="commit",
         bytes_written=len(content.encode()),

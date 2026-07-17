@@ -197,7 +197,7 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Existing object" }));
     expect(screen.getByText("Search existing objects")).toBeInTheDocument();
     expect(
-      screen.getByLabelText(/Link to recap pill: Alden/i),
+      screen.getByLabelText(/Link recap text to existing object: Alden/i),
     ).toBeInTheDocument();
     expect(
       screen.queryByText("Modify or link an existing object"),
