@@ -1,0 +1,40 @@
+{
+  "merge": {
+    "accepted_assertion_ids": [
+      "assertion:3b4a4791b30358bf",
+      "assertion:31f83df11a7a04b4",
+      "assertion:1161fdb614f1c500"
+    ],
+    "contribution_ids": [
+      "contribution:0f601c77bd6c4341"
+    ],
+    "diagnostics": [
+      "parent_revision_id:rev:5cadc9798562862cdde22350d8a3b56c",
+      "scorer_matched:0",
+      "scorer_ambiguity:0",
+      "identity:obj_session22_vial:created_new:obj_session22_vial",
+      "identity:mystery_session22_magic_puddles_delayed_reflections:created_new:mystery_session22_magic_puddles_delayed_reflections",
+      "accepted_for_merge:3",
+      "parent_revision_id:rev:5cadc9798562862cdde22350d8a3b56c"
+    ],
+    "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+    "published": true,
+    "rejected_assertion_ids": [],
+    "retracted_assertion_ids": [],
+    "revision_id": "rev:8ee983888c844775e776434704baf251",
+    "superseded_contribution_ids": [],
+    "world_id": "eldyrwild"
+  },
+  "parent_revision_id": "rev:5cadc9798562862cdde22350d8a3b56c",
+  "projection_node_count": 14,
+  "projection_relationship_count": 12,
+  "projection_revision_id": "rev:8ee983888c844775e776434704baf251",
+  "rebuild_diagnostics": [
+    "rebuild_equivalent_to_pre_publish_head",
+    "rebuild_equivalent_to_head"
+  ],
+  "rebuild_equivalent_to_head": true,
+  "schema": "dmb_promote_extract_proof_v1",
+  "world_id": "eldyrwild",
+  "world_root": "/tmp/eldyrwild-promote-V0pBfC"
+}

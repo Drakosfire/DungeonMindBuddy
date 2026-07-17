@@ -1,0 +1,277 @@
+{
+  "canon_boundary": {
+    "non_canon_artifacts": [
+      "phase1/current_state.json",
+      "phase1/source_family_batch_manifest.json",
+      "phase1/prompt_cache_probe.json",
+      "phase2_frozen_benchmark/**",
+      "phase2_frozen_benchmark_mirathorn_repair/**",
+      "phase2_mini_medium_session1/**",
+      "phase2_luna_medium_session1/**",
+      "phase2_luna_high_session1/**",
+      "phase2_model_max_reasoning*/**",
+      "phase3_representative_shadow/**",
+      "phase4_portable_object_demo_candidate.json",
+      "phase6_publish_path/**"
+    ],
+    "portable_candidate_status": "blocked_before_publication_at_phase4; publish_path_proven_on_tmp_world_in_phase6",
+    "published_material": [],
+    "live_eldyrwild_head": {
+      "exists": true,
+      "path": "out/graph_memory/worlds/eldyrwild/head.json",
+      "head_revision_id_at_phase6_proof": "rev:5cadc9798562862cdde22350d8a3b56c",
+      "note": "Phase4/5 'no head' claim was stale; bootstrap head existed. Live head not mutated by phase6 proof."
+    }
+  },
+  "first_publication_batch": {
+    "reason": "Publish path proven on tmp Eldyrwild copy; live C2 recap batch still requires operator review + explicit --allow-live-world.",
+    "recommended_family": "c2_canonical_recaps",
+    "status": "path_ready_tmp_proven_live_not_authorized"
+  },
+  "frozen_benchmark": {
+    "aggregate_mean": {
+      "gpt-5.4-mini": {
+        "anchor_quote_coverage": 0.888952,
+        "beat_recall": 0.261908,
+        "cache_rate": 0.437804,
+        "cached_tokens": 21504.0,
+        "cost_usd": 0.074588,
+        "edge_precision_proxy": 0.147717,
+        "edge_recall": 0.258642,
+        "evidence_coverage": 0.888952,
+        "input_tokens": 45380.25,
+        "latency_ms_sum": 79669.544167,
+        "node_precision_proxy": 0.302017,
+        "node_recall": 0.614958,
+        "output_tokens": 12237.416667,
+        "safety_gate_score": 1.0
+      },
+      "gpt-5.6-luna": {
+        "anchor_quote_coverage": 0.863772,
+        "beat_recall": 0.266667,
+        "cache_rate": 0.415471,
+        "cached_tokens": 19899.166667,
+        "cost_usd": 0.114431,
+        "edge_precision_proxy": 0.224517,
+        "edge_recall": 0.329008,
+        "evidence_coverage": 0.863772,
+        "input_tokens": 44515.5,
+        "latency_ms_sum": 86812.825,
+        "node_precision_proxy": 0.357608,
+        "node_recall": 0.602133,
+        "output_tokens": 14637.5,
+        "safety_gate_score": 1.0
+      },
+      "luna_minus_gpt5_4_mini": {
+        "beat_recall": 0.004759,
+        "cache_rate": -0.022333,
+        "cost_usd": 0.039843,
+        "edge_precision_proxy": 0.0768,
+        "edge_recall": 0.070366,
+        "evidence_coverage": -0.02518,
+        "latency_ms_sum": 7143.280833,
+        "node_precision_proxy": 0.055591,
+        "node_recall": -0.012825
+      }
+    },
+    "artifact": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase2_frozen_benchmark/benchmark_report.json",
+    "dataset_revision": "sha256:b0a96e3c25978caba544cd39f2f144111fe3996caeb9d6596204d38c192643ae",
+    "fixtures": 4,
+    "publication_enabled": false,
+    "trials_per_model_fixture": 3
+  },
+  "generated_at": "2026-07-17T21:40:00Z",
+  "infrastructure_gaps": [
+    "unsupported-assertion and operator-review-burden metrics",
+    "source-domain-aware runner semantics for dossiers and prep, rather than recap-named artifacts for all input types",
+    "Ingest UI promote-to-world-supergraph control (CLI path exists)",
+    "live C2 canonical recap batch publication after operator review"
+  ],
+  "infrastructure_gaps_closed_phase6": [
+    "identity suitability scorer with fixed candidate-node set and unresolved ambiguity outcomes",
+    "candidate-graph to GraphContribution mapping with evidence-span and source-revision validation",
+    "Kernel publication/replay/projection on Eldyrwild head (tmp copy proof; live untouched)"
+  ],
+  "phase6_publish_path": {
+    "modules": [
+      "src/graph_memory/candidate_graph_to_contribution.py",
+      "src/graph_memory/extract_identity_gate.py",
+      "scripts/promote_extract_contribution.py"
+    ],
+    "proof_artifacts": [
+      "phase6_publish_path/review_package_vial.json",
+      "phase6_publish_path/promote_proof_vial.json",
+      "phase6_publish_path/summary.json"
+    ]
+  },
+  "model_resolution": {
+    "gpt5_mini": {
+      "identifier": "gpt-5.4-mini",
+      "policy_action": "graph_memory_category_extraction",
+      "provider": "OpenAI API",
+      "default_reasoning_effort": "none",
+      "selection": "explicit user choice for the primary comparison; retained as production conviction"
+    },
+    "gpt_luna": {
+      "identifier": "gpt-5.6-luna",
+      "default_reasoning_effort": "medium",
+      "pricing_columns": "Input, Cached input, Cache writes, Output",
+      "pricing_per_1m_usd": {
+        "cache_write": 1.25,
+        "cached_input": 0.1,
+        "input": 1.0,
+        "output": 6.0
+      },
+      "provider": "OpenAI API"
+    }
+  },
+  "pipeline_resolution": {
+    "best_quality_profile": "category_baseline (same runtime options as current_default in this checkout)",
+    "comparison_profile": "current_default; category_baseline recorded as equivalent alias",
+    "production": "apps/live_control_server/services/recap_graph_preview_ingest.py -> evals/graph_memory_layer/graph_preview_runner.py -> src/graph_memory/extraction/category_candidate_graph_extractor.py",
+    "production_profile": "current_default",
+    "structured_contract": "OpenAI Responses API text.format json_schema strict=true"
+  },
+  "reasoning_ablation_session1": {
+    "caveat": "Single-trial treatments vs n=3 unset means are signals, not promotion gates. Max/xhigh abandoned after multi-minute per-pass stalls.",
+    "mini_none_to_medium": {
+      "artifacts": [
+        "phase2_frozen_benchmark/benchmark_report.json",
+        "phase2_mini_medium_session1/benchmark_report.json"
+      ],
+      "baseline": "gpt-5.4-mini unset/none session-1 mean n=3",
+      "treatment": "gpt-5.4-mini medium session-1 n=1",
+      "node_recall": {"baseline": 0.6914, "treatment": 0.6296},
+      "node_precision_proxy": {"baseline": 0.3814, "treatment": 0.6071},
+      "cost_usd": {"baseline": 0.047605, "treatment": 0.097396},
+      "latency_s": {"baseline": 52.153, "treatment": 108.366},
+      "candidate_nodes": {"baseline": 49.0, "treatment": 28},
+      "reading": "Real setting change. Precision up; recall/evidence down; ~2x cost/latency. Not a free quality upgrade."
+    },
+    "luna_unset_to_medium": {
+      "artifacts": [
+        "phase2_frozen_benchmark/benchmark_report.json",
+        "phase2_luna_medium_session1/benchmark_report.json"
+      ],
+      "baseline": "gpt-5.6-luna unset session-1 mean n=3",
+      "treatment": "gpt-5.6-luna explicit medium session-1 n=1",
+      "node_recall": {"baseline": 0.5679, "treatment": 0.6667},
+      "node_precision_proxy": {"baseline": 0.4419, "treatment": 0.4865},
+      "cost_usd": {"baseline": 0.075218, "treatment": 0.079639},
+      "latency_s": {"baseline": 69.98, "treatment": 61.463},
+      "candidate_nodes": {"baseline": 34.7, "treatment": 37},
+      "reading": "Near-duplicate of baseline; Luna unset already defaults to medium."
+    },
+    "luna_medium_to_high": {
+      "artifacts": [
+        "phase2_luna_medium_session1/benchmark_report.json",
+        "phase2_luna_high_session1/benchmark_report.json"
+      ],
+      "baseline": "gpt-5.6-luna medium session-1 n=1",
+      "treatment": "gpt-5.6-luna high session-1 n=1",
+      "node_recall": {"baseline": 0.6667, "treatment": 0.5926},
+      "node_precision_proxy": {"baseline": 0.4865, "treatment": 0.4},
+      "cost_usd": {"baseline": 0.079639, "treatment": 0.159034},
+      "latency_s": {"baseline": 61.463, "treatment": 148.656},
+      "candidate_nodes": {"baseline": 37, "treatment": 40},
+      "reading": "Pays ~2x cost/latency; recall and precision both dropped vs medium."
+    }
+  },
+  "recommendation": {
+    "decision": "retain_gpt_5_4_mini_production_at_none_reasoning; defer_luna_promotion",
+    "conviction": "gpt-5.4-mini is well suited for category graph extraction at provider-default (none) reasoning.",
+    "production_reasoning_effort": "none",
+    "why": [
+      "Mini is competitive with Luna on frozen gold node recall and superior on evidence coverage while costing less.",
+      "Luna's frozen edge-recall/precision gains do not justify higher mean cost/latency or weaker node/evidence metrics for the default ingest job.",
+      "Mini none→medium roughly doubles cost/latency for a selective precision bump and recall drop; not the production setpoint.",
+      "Luna unset already approximates medium; Luna medium→high pays ~2x for worse recall and precision.",
+      "Mini is already the graph_memory_category_extraction policy model and matches the Live Control category extraction path.",
+      "Identity attachment, ambiguity handling, unsupported-assertion risk, and operator review burden remain unmeasured gates before any Luna promotion."
+    ]
+  },
+  "representative_shadow": {
+    "aggregate": {
+      "gpt-5.4-mini": {
+        "cache_observation": {
+          "runs_with_cached_tokens": 9,
+          "total_cached_tokens": 17152
+        },
+        "completed_count": 24,
+        "exact_graph_hash_stability_by_fixture": {
+          "shadow:c1-canonical-recaps:session-2": 0.0,
+          "shadow:c1-dossiers:kirfan": 0.0,
+          "shadow:c2-canonical-recaps:session-8": 0.0,
+          "shadow:c2-dossiers:factions-readme": 0.0,
+          "shadow:items-events-mechanics:festival-events": 0.0,
+          "shadow:session-prep:session-22-knobs": 0.0,
+          "shadow:shared-world-locations:upriver-kirfan": 0.0,
+          "shadow:shared-world-misc:torbin": 0.0
+        },
+        "failed_count": 0,
+        "mean": {
+          "anchor_quote_coverage": 1.0,
+          "cache_rate": 0.075737,
+          "cached_tokens": 714.666667,
+          "candidate_beats_count": 3.583333,
+          "candidate_deferred_items_count": 0.958333,
+          "candidate_edges_count": 10.708333,
+          "candidate_ignored_items_count": 0.916667,
+          "candidate_nodes_count": 14.833333,
+          "candidate_proposed_writes_count": 0.0,
+          "cost_usd": 0.021475,
+          "evidence_coverage": 1.0,
+          "input_tokens": 8583.5,
+          "latency_ms_sum": 27253.702917,
+          "output_tokens": 3448.833333
+        },
+        "run_count": 24
+      },
+      "gpt-5.6-luna": {
+        "cache_observation": {
+          "runs_with_cached_tokens": 10,
+          "total_cached_tokens": 38380
+        },
+        "completed_count": 24,
+        "exact_graph_hash_stability_by_fixture": {
+          "shadow:c1-canonical-recaps:session-2": 0.0,
+          "shadow:c1-dossiers:kirfan": 0.0,
+          "shadow:c2-canonical-recaps:session-8": 0.0,
+          "shadow:c2-dossiers:factions-readme": 0.0,
+          "shadow:items-events-mechanics:festival-events": 0.0,
+          "shadow:session-prep:session-22-knobs": 0.0,
+          "shadow:shared-world-locations:upriver-kirfan": 0.0,
+          "shadow:shared-world-misc:torbin": 0.0
+        },
+        "failed_count": 0,
+        "mean": {
+          "anchor_quote_coverage": 0.958333,
+          "cache_rate": 0.161623,
+          "cached_tokens": 1599.166667,
+          "candidate_beats_count": 3.625,
+          "candidate_deferred_items_count": 0.541667,
+          "candidate_edges_count": 8.625,
+          "candidate_ignored_items_count": 1.0,
+          "candidate_nodes_count": 10.083333,
+          "candidate_proposed_writes_count": 0.0,
+          "cost_usd": 0.033541,
+          "evidence_coverage": 0.958333,
+          "input_tokens": 7997.916667,
+          "latency_ms_sum": 35402.649583,
+          "output_tokens": 4497.041667
+        },
+        "run_count": 24
+      }
+    },
+    "artifact": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase3_representative_shadow/benchmark_report.json",
+    "documents": 8,
+    "publication_enabled": false,
+    "source_families": 8,
+    "trials_per_model_document": 3
+  },
+  "schema": "dmb_corpus_expansion_luna_decision_record_v1",
+  "source_family_observation": {
+    "frozen": "Luna edge gains were strongest on the Campaign 2 recap/world-doc fixtures; node behavior varied by fixture.",
+    "shadow": "Luna emitted fewer candidate nodes/edges in most source-family samples, with higher per-run cost/latency; shadow has no gold quality adjudication."
+  }
+}

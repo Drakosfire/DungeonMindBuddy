@@ -1,0 +1,452 @@
+{
+  "schema": "dmb_corpus_expansion_phase1_inventory_v1",
+  "generated_at": "2026-07-17T20:10:52Z",
+  "code_sha": "37abd5b5678898c3a38937c433093b53fa824728",
+  "publication_enabled": false,
+  "corpus_root": "corpus/eldyrwild-markdown",
+  "corpus_root_fingerprint": "sha256:0bfc9edfffdd7754c54b7d042c5d34f58b3dff642608fe1e89512436d636c0ed",
+  "counts": {
+    "all_markdown_files": 431,
+    "canonical_batch_eligible_files": 345,
+    "excluded_derived_or_staging_files": 86,
+    "eligible_bytes": 1704774
+  },
+  "source_family_manifest_path": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase1/source_family_batch_manifest.json",
+  "source_family_counts": {
+    "shared_world_misc": 24,
+    "shared_world_locations": 78,
+    "items_events_mechanics": 53,
+    "c1_dossiers": 69,
+    "c1_canonical_recaps": 18,
+    "excluded_derived": 86,
+    "c2_dossiers": 59,
+    "session_prep_noncanon": 19,
+    "c2_canonical_recaps": 25
+  },
+  "production_path": {
+    "orchestrator": "apps/live_control_server/services/recap_graph_preview_ingest.py",
+    "runner": "evals/graph_memory_layer/graph_preview_runner.py::run_graph_preview_extraction",
+    "extractor": "src/graph_memory/extraction/category_candidate_graph_extractor.py::extract_category_candidate_graph",
+    "profile": "current_default",
+    "pipeline": [
+      "source span bundle",
+      "actor/location/collective/object/thread passes",
+      "beat pass",
+      "edge pass",
+      "deterministic consolidation",
+      "candidate validation",
+      "preview union materialization"
+    ],
+    "model_policy_path": "/home/drakosfire/Projects/DungeonOverMind/MODEL_POLICY.json",
+    "model_policy_sha256": "sha256:482afb857c855710e233f87b424102cd15ba021f21a906f9e1fa23375bcaf92b",
+    "model_policy_action": "graph_memory_category_extraction",
+    "resolved_model": "gpt-5.4-mini",
+    "publication": "not performed; preview/candidate path only"
+  },
+  "best_quality_path": {
+    "proven_harness": "evals/graph_memory_layer/category_graph_model_study.py::run_category_pipeline",
+    "profile": "category_baseline",
+    "proven_fixture": "graph-memory:session-22-candidate-graph-gold:v0",
+    "proven_variant": "anchor_quote_n3; five category node passes + beat + edge; n=3",
+    "historical_model": "gpt-5.4-mini",
+    "important_caveat": "The historical evaluator uses a legacy prompt-only JSON caller; the runtime category client uses strict Responses text.format schemas. Do not treat historical scores as a fair Luna comparison until the harness is upgraded or the runtime runner is used."
+  },
+  "benchmark_harness_current": {
+    "historical_category_study": "evals/graph_memory_layer/run_category_graph_model_study.py",
+    "historical_scope": "Session 22 only; model list and n are CLI-configurable; artifacts include raw pass outputs, telemetry, validation, comparison, and cohort summary.",
+    "runtime_runner": "evals/graph_memory_layer/graph_preview_runner.py",
+    "runtime_runner_scope": "Explicit normalized recap; category-decomposed extraction; strict structured output; candidate validation; publication remains outside runner.",
+    "missing_for_handoff": [
+      "identity suitability scorer",
+      "unsupported-assertion and review-burden metrics",
+      "portable-object publication candidate"
+    ],
+    "strict_runtime_benchmark_runner": "evals/graph_memory_layer/run_corpus_expansion_luna_benchmark.py"
+  },
+  "model_resolution": {
+    "provider": "OpenAI API",
+    "models_api_snapshot": [
+      {
+        "id": "gpt-5-mini",
+        "owned_by": "system",
+        "created": 1754425928
+      },
+      {
+        "id": "gpt-5.4-mini",
+        "owned_by": "system",
+        "created": 1773451123
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "owned_by": "system",
+        "created": 1782228658
+      }
+    ],
+    "models_api_snapshot_error": null,
+    "luna": {
+      "label": "GPT Luna",
+      "exact_identifier": "gpt-5.6-luna",
+      "policy_configured": false,
+      "direct_baseline_profile": "current_default / category_baseline",
+      "provider": "OpenAI API"
+    },
+    "gpt5_mini_candidates": [
+      {
+        "identifier": "gpt-5.4-mini",
+        "status": "current repository policy and production graph extractor"
+      },
+      {
+        "identifier": "gpt-5-mini",
+        "status": "provider-listed conversational label candidate; not current repository policy"
+      }
+    ],
+    "selection_blocker": null,
+    "gpt5_mini_selection": {
+      "identifier": "gpt-5.4-mini",
+      "selection": "explicit user choice for the primary GPT-5 mini comparison",
+      "policy_action": "graph_memory_category_extraction"
+    }
+  },
+  "structured_contract": {
+    "api": "OpenAI Responses API",
+    "format_builder": "src/graph_memory/extraction/category_candidate_graph_schema.py::category_pass_text_format",
+    "strict": true,
+    "parameters": {
+      "temperature": "unset",
+      "reasoning": "unset",
+      "retry_policy": "no retry in OpenAICategoryGraphPassClient; failure closes the pass",
+      "concurrency": "sequential pass calls"
+    },
+    "refusal_behavior": "explicit extraction failure",
+    "incomplete_behavior": "explicit extraction failure with raw diagnostics",
+    "pricing": {
+      "gpt-5.4-mini": {
+        "input": 0.75,
+        "cached_input": 0.075,
+        "output": 4.5
+      },
+      "gpt-5.6-luna": {
+        "input": 1.0,
+        "cached_input": 0.1,
+        "cache_write": 1.25,
+        "output": 6.0,
+        "provider_columns": "Input, Cached input, Cache writes, Output"
+      }
+    }
+  },
+  "gold_fixtures": [
+    {
+      "fixture_id": "graph-memory:session-1-candidate-graph-gold:v1",
+      "manifest": "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/session_1_candidate_graph_gold_manifest.json",
+      "graph": "evals/graph_memory_layer/examples/session_1_candidate_graph_gold/candidate_graph_gold.json",
+      "manifest_sha256": "sha256:174abdc4ed0bf19e4706c37b7a9f8b0388a174f5f0c118078ee06de5b6789eee",
+      "graph_sha256": "sha256:8a27bb1f86b78e1fbed0306415b0d2700d1a87ce78deedb23b67a64f00ff3a62",
+      "graph_counts": {
+        "nodes": 27,
+        "edges": 30,
+        "beats": 5,
+        "proposed_writes": 2,
+        "ignored_items": 3,
+        "deferred_items": 3
+      }
+    },
+    {
+      "fixture_id": "graph-memory:session-22-candidate-graph-gold:v0",
+      "manifest": "evals/graph_memory_layer/examples/session_22_candidate_graph_gold/session_22_candidate_graph_gold_manifest.json",
+      "graph": "evals/graph_memory_layer/examples/session_22_candidate_graph_gold/candidate_graph_gold.json",
+      "manifest_sha256": "sha256:c76a57f729df0da639de60660ec3f4f298f901d9dd9afad14b6cd82e9ea9036b",
+      "graph_sha256": "sha256:5134ff082c573593262a2526a502303d17c3c83c3fc939fba5e651a45859304a",
+      "graph_counts": {
+        "nodes": 25,
+        "edges": 16,
+        "beats": 10,
+        "proposed_writes": 12,
+        "ignored_items": 3,
+        "deferred_items": 6
+      }
+    },
+    {
+      "fixture_id": "graph-memory:session-23-candidate-graph-gold:v0",
+      "manifest": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold/session_23_candidate_graph_gold_manifest.json",
+      "graph": "evals/graph_memory_layer/examples/session_23_candidate_graph_gold/candidate_graph_gold.json",
+      "manifest_sha256": "sha256:db216c3a21c87d85f46678ff81364429fa3fd5f824c5b37564b3cfabe0624970",
+      "graph_sha256": "sha256:c6789222947f858c91bc6850d03e4e2399ac6f7a90e49e02fa566e42530ba007",
+      "graph_counts": {
+        "nodes": 42,
+        "edges": 21,
+        "beats": 14,
+        "proposed_writes": 16,
+        "ignored_items": 3,
+        "deferred_items": 6
+      }
+    },
+    {
+      "fixture_id": "graph-memory:mirathorn-city-candidate-graph-gold:v0",
+      "manifest": "evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold/mirathorn_city_candidate_graph_gold_manifest.json",
+      "graph": "evals/graph_memory_layer/examples/mirathorn_city_candidate_graph_gold/candidate_graph_gold.json",
+      "manifest_sha256": "sha256:c1711e4cc0fc1bdddd8192da7a9b1ae8a5c8d60ec99f23d2bf79810096d73aca",
+      "graph_sha256": "sha256:a10fda591f1e90075e9c21ff0db8f27e24e87b00f6a502f393166f4331f72916",
+      "graph_counts": {
+        "nodes": 28,
+        "edges": 26,
+        "beats": 0,
+        "proposed_writes": 2,
+        "ignored_items": 1,
+        "deferred_items": 3
+      }
+    }
+  ],
+  "source_family_batches": [
+    {
+      "source_family": "c2_canonical_recaps",
+      "priority": 1,
+      "description": "Played Campaign 2 chronology; highest identity and temporal-update risk.",
+      "eligible_file_count": 25,
+      "all_file_count": 25,
+      "eligible_bytes": 184324,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 8 - Recap.md",
+          "source_revision": "sha256:f62cfae78793590a732b13de389be31c1299270d3823b65bd0d8d325e9c96840"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 14 - Recap.md",
+          "source_revision": "sha256:99ea4cce27aca2db6670fdfab3bc76e495bbf8a886733441a93416ab7a503823"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+          "source_revision": "sha256:0263725f40f846b0c731d5e28688a119582a948e05373f6d1c17e92f9a630832"
+        }
+      ],
+      "publication_status": "not_selected"
+    },
+    {
+      "source_family": "c2_dossiers",
+      "priority": 2,
+      "description": "Campaign 2 NPC, PC, faction, artifact, and statblock dossiers; duplicate and title-variation risk.",
+      "eligible_file_count": 59,
+      "all_file_count": 59,
+      "eligible_bytes": 306197,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Factions/README.md",
+          "source_revision": "sha256:0066dc269336c518668a0b3668c28dde80e600e0332fa02ba3b95339a316ebb2"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/PCs/caelynn/caelynn_statblock_dnd_beyond_level5.md",
+          "source_revision": "sha256:82988efaa8ab7fea0db8318a36ba902f5c9602c9d4f00f54113c2d334bd5a0e6"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Factions/Raucous_Saints_of_the_Rolling_Longhouse.md",
+          "source_revision": "sha256:c423e1cbb8a88dae51863695047ef8ebd206994720e2e79624d9a271f54439ee"
+        }
+      ],
+      "publication_status": "not_selected"
+    },
+    {
+      "source_family": "shared_world_locations",
+      "priority": 3,
+      "description": "Elderwyld cities, towns, nested locations, and roads; containment and cross-campaign identity risk.",
+      "eligible_file_count": 78,
+      "all_file_count": 78,
+      "eligible_bytes": 436044,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [
+        {
+          "corpus_relative_path": "Elderwyld/Cities and Towns/Upriver River Route/NPCs/kirfan/character_seed.md",
+          "source_revision": "sha256:571f7238f0abad9775df84c616ad7034814e677bdcf3362c8305940ce4f10a79"
+        },
+        {
+          "corpus_relative_path": "Elderwyld/Cities and Towns/Mossford/NPCs/stacey_brambleback/character_seed.md",
+          "source_revision": "sha256:c072a3516998835797e7eb5af8e2a8c6521806b5ecdd05117b644b9f663e0896"
+        },
+        {
+          "corpus_relative_path": "Elderwyld/Cities and Towns/Mireward/Mireward_PLACE_BUILD_SCAFFOLD.md",
+          "source_revision": "sha256:c02514f8463734e565904632abd4c7e9736962bf1e76e262f374ff1acc2c8430"
+        }
+      ],
+      "publication_status": "not_selected"
+    },
+    {
+      "source_family": "c1_canonical_recaps",
+      "priority": 4,
+      "description": "Played Campaign 1 chronology; cross-campaign identity and shared-world scope risk.",
+      "eligible_file_count": 18,
+      "all_file_count": 18,
+      "eligible_bytes": 84856,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+          "source_revision": "sha256:12aac2b0f386248deb4928a4b629d207338bd48c3c52dd69355e1235f4a11355"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+          "source_revision": "sha256:f8b6c8bb7b7be185fb4372df708f7e5ef5c6fde4152c84e5b56b24cf71ab3a4d"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 1/Session Recaps/Session 14 - Into the Meat Grinder.md",
+          "source_revision": "sha256:e10679f7fe09d7f8a267730684702157ca08caa928bdfc246a4b8d03573f8e96"
+        }
+      ],
+      "publication_status": "not_selected"
+    },
+    {
+      "source_family": "c1_dossiers",
+      "priority": 5,
+      "description": "Campaign 1 locations, NPCs, and PCs; legacy aliases and cross-campaign collision risk.",
+      "eligible_file_count": 69,
+      "all_file_count": 69,
+      "eligible_bytes": 122724,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 1/NPCs/kirfan/kirfan_character_dossier.md",
+          "source_revision": "sha256:edacb9fed52b5850c9490a237bd85af3176b94e03dff922fd1fdcfb2b1f285da"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 1/PCs/stafl/README.md",
+          "source_revision": "sha256:ee0bf3393fd1e3848e4cf7ce92ec7f3f5662688672095a36b0b4aa7483e5d953"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 1/Locations/hempholm/README.md",
+          "source_revision": "sha256:d1d4ef25cfdb10af561ff638a46086768df24abb3487322f90f783d07d3b5204"
+        }
+      ],
+      "publication_status": "not_selected"
+    },
+    {
+      "source_family": "items_events_mechanics",
+      "priority": 6,
+      "description": "Items, shops, events, and statblocks; mechanics/prose divergence and version-identity risk.",
+      "eligible_file_count": 53,
+      "all_file_count": 53,
+      "eligible_bytes": 186150,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [
+        {
+          "corpus_relative_path": "Elderwyld/Events/The Festival of Expansion/Events Mechanics.md",
+          "source_revision": "sha256:aa1188f99595e51b04d43cf2738208dbb5c9a43e19583602528ca8321f139cc0"
+        },
+        {
+          "corpus_relative_path": "Elderwyld/Inns and Shops/The Copper & Quartz Inn.md",
+          "source_revision": "sha256:c0b2216efb156a599672a479193b01b2e8ed4fbf72f7e53fddaed1038e9f33bc"
+        },
+        {
+          "corpus_relative_path": "Elderwyld/Events/The Festival of Expansion/The Festival of Expansion.md",
+          "source_revision": "sha256:ce343a373ec16cad78ff9ff3f355bf7956f93621f324e51c766d1ff993edb909"
+        }
+      ],
+      "publication_status": "not_selected"
+    },
+    {
+      "source_family": "shared_world_misc",
+      "priority": 7,
+      "description": "Shared worldbuilding and uncategorized source material; authority classification must remain explicit.",
+      "eligible_file_count": 24,
+      "all_file_count": 24,
+      "eligible_bytes": 198553,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [
+        {
+          "corpus_relative_path": "Longmont Campaign/NPCs/Torbin Jove/README.md",
+          "source_revision": "sha256:ccdda4c3cbc35328036af681b5e3d7d00487587598fbb262de205a1794d72dba"
+        },
+        {
+          "corpus_relative_path": "Elderwyld/Wilderness/geomantic_drake_juvenile_statblock.md",
+          "source_revision": "sha256:95b798a33860f05edd594651ab3493a7203ea8604c098f672f16ec35dd06e2a0"
+        },
+        {
+          "corpus_relative_path": "Elderwyld/The Stonebridge Flood.md",
+          "source_revision": "sha256:d94961b9469291baa57b773c86e7e8f7fe403e0da513fef54730b07d9b82ece1"
+        }
+      ],
+      "publication_status": "not_selected"
+    },
+    {
+      "source_family": "session_prep_noncanon",
+      "priority": 8,
+      "description": "Session prep; proposed/unplayed material and false-canonization risk.",
+      "eligible_file_count": 19,
+      "all_file_count": 19,
+      "eligible_bytes": 185926,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Prep/Session 22 - open GM knobs.md",
+          "source_revision": "sha256:45909bd4b781a56225078299253f93700080d8d7c1ab7d386d5ba38db9f349fc"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Prep/Session 21 - Session intro.md",
+          "source_revision": "sha256:1029fb2b3e8d202f0f4d1279ecce8b044e2e23349535343a774828ebb45d9e3c"
+        },
+        {
+          "corpus_relative_path": "Longmont Campaign/Campaign 2/Session Prep/session_22/session_22_travel_to_mireward_runbook.md",
+          "source_revision": "sha256:53ef1e1e9fb9393529fafe3b0ebfc2cbea41f4af4fc1e0a55044d857dbbe1853"
+        }
+      ],
+      "publication_status": "not_selected"
+    },
+    {
+      "source_family": "excluded_derived",
+      "priority": null,
+      "description": "Archives, normalized/breadcrumb/session-memory derivatives, and staging; excluded from canonical source batches.",
+      "eligible_file_count": 0,
+      "all_file_count": 86,
+      "eligible_bytes": 0,
+      "shadow_sample_policy": "smallest, median-sized, and largest eligible file by bytes; sorted deterministic tie-break",
+      "shadow_sample": [],
+      "publication_status": "not_selected"
+    }
+  ],
+  "entry_count": 431,
+  "prompt_cache_probe": {
+    "artifact": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase1/prompt_cache_probe.json",
+    "strategy": "stable common instructions prefix with pass-specific suffix",
+    "api_key_limit": 64,
+    "latest_observation": "Both models reported cached input on the latest warm probe; the earlier cold probe showed gpt-5.4-mini warm on trial 2 and gpt-5.6-luna cold on both trials. Cache state is provider/model/run-state dependent."
+  },
+  "code_identity_current": {
+    "head_sha": "37abd5b5678898c3a38937c433093b53fa824728",
+    "working_tree_diff_sha256": "sha256:a567d3b3fe5cf07769a1118d9136e16c7f18be58ce47ff370cb815dda75245d6",
+    "model_policy_sha256": "sha256:482afb857c855710e233f87b424102cd15ba021f21a906f9e1fa23375bcaf92b"
+  },
+  "execution_artifacts": {
+    "frozen_benchmark_report": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase2_frozen_benchmark/benchmark_report.json",
+    "frozen_benchmark_manifest": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase2_frozen_benchmark/benchmark_manifest.json",
+    "representative_shadow_report": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase3_representative_shadow/benchmark_report.json",
+    "portable_object_candidate": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase4_portable_object_demo_candidate.json",
+    "decision_record": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase5_decision_record.json"
+  },
+  "execution_status": {
+    "phase1_reanchor_inventory": "complete",
+    "phase2_frozen_benchmark": "complete_24_of_24",
+    "phase3_representative_shadow": "complete_48_of_48",
+    "phase4_portable_object": "blocked_before_publication",
+    "phase5_decision_record": "complete",
+    "phase6_publish_path": "tmp_world_proven_live_untouched",
+    "graph_mutation": false
+  },
+  "recommendation": {
+    "production_model": "gpt-5.4-mini",
+    "production_reasoning_effort": "none",
+    "conviction": "gpt-5.4-mini is well suited for category graph extraction at provider-default (none) reasoning.",
+    "luna_status": "defer promotion; unset already ≈ medium; high regresses quality for ~2x cost",
+    "first_publication_family": "c2_canonical_recaps",
+    "publish_path": "candidate_graph_to_contribution + extract_identity_gate + scripts/promote_extract_contribution.py",
+    "publish_path_status": "proven on tmp Eldyrwild copy; live head unchanged",
+    "published_material": [],
+    "decision_record": "evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase5_decision_record.md",
+    "evidence": [
+      "phase2_frozen_benchmark/benchmark_report.json",
+      "phase3_representative_shadow/benchmark_report.json",
+      "phase2_mini_medium_session1/benchmark_report.json",
+      "phase2_luna_medium_session1/benchmark_report.json",
+      "phase2_luna_high_session1/benchmark_report.json",
+      "phase6_publish_path/promote_proof_vial.json",
+      "phase6_publish_path/summary.json"
+    ]
+  }
+}
