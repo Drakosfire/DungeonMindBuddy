@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-16 — Rung 5 DONE; Rung 6 PASS; Rung 7 DOING (coverage-gap gate amended to deterministic contracts; remaining merge gates); PR010B DOING; PR011 BLOCKED
+**Updated:** 2026-07-17 — Rungs 5–7 DONE/PASS; PR010B DONE (merged `main` `129a4c40`, PR #356); PR011 READY
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -42,20 +42,26 @@ DONE    PR007A        Revision-pinned projection/read snapshot
 DONE    PR008A        Plan World Graph migration
 DONE    PR008B        Agent Interaction graph query-context attachment
 DONE    PR010A        Graph retrieval contract + source-anchor admission
-DOING   PR010B        Hermes graph-retrieval dogfood
-BLOCKED PR011         Agent Context + governed tool runtime
+DONE    PR010B        Hermes graph-retrieval dogfood
+READY   PR011         Agent Context + governed tool runtime
 READY   PR009         Play projection migration (parallel product lane)
 BLOCKED PR012         Leftover cleanup safety net
 ```
 
 PR010 is intentionally split into PR010A and PR010B. Do not renumber PR011 or PR012.
 
-PR010B Rungs 5–6 are accepted on the current Hermes branch (not yet merged into
-`main`). Rung 7 demolition and Turns 1–2/reload evidence are present, but
-cumulative acceptance remains `DOING` until remaining merge gates clear and
-verification provenance stays clearly local/manual (no CI status checks
-attached). Hermes is the only Plan Agent Interaction backend; Live remains for
-`/surface` ChatModule. Evidence: [`HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md).
+PR010B Rungs 5–7 are all accepted and merged into `main` as `129a4c40` (PR #356,
+2026-07-17). The merge also carries three rounds of external-critique
+hardening that landed on the same branch before merge: closing claim-authority
+escape hatches, preserving natural model prose as the frontstage answer while
+labeling it honestly (`graph_context_synthesis`), and making the
+`expand_graph_retrieval` tool schema, claim hydration, and pointer-store
+concurrency contract match what the executor actually does (see Rung 7
+evidence report addendum below). Hermes is the only Plan Agent Interaction
+backend; Live remains for `/surface` ChatModule. Verification provenance is
+still local/manual `pytest`/`vitest` runs — this repo has no CI status checks
+attached to PRs; that is a standing, accepted limitation, not a Rung 7 blocker.
+Evidence: [`HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md).
 
 ## Completed foundation
 
@@ -147,7 +153,7 @@ Broader Plan polish may continue as independent product slices, but it does not 
 
 ## PR010B — Hermes graph-retrieval dogfood
 
-**Status:** `DOING` — Rungs 5–6 accepted; Rung 7 still open
+**Status:** `DONE` — Rungs 5–7 all accepted; merged `main` `129a4c40` (PR #356) on 2026-07-17
 **Phase:** 7 / read-only agent dogfood
 
 **Active rungs:**
@@ -161,7 +167,7 @@ DONE    PR010B Rung 4B — single-turn backend product cutover (#354)
 DONE    PR010B Rung 4C — Plan evidence presentation and completed-turn persistence (#355)
 DONE    PR010B Rung 5 — same-thread object continuity through bounded visible-prose replay
 PASS    PR010B Rung 6 — durable Hermes session-pointer and reload/process lifecycle
-DOING   PR010B Rung 7 — cumulative product acceptance and replaced-path demolition
+PASS    PR010B Rung 7 — cumulative product acceptance and replaced-path demolition (#356)
 ```
 
 - **PR010B Rung 1 — graph-only Hermes read-tool executor** (`DONE` via #350): exact internal dispatch from the five PR010A tool names to the merged live-control retrieval service.
@@ -175,7 +181,7 @@ DOING   PR010B Rung 7 — cumulative product acceptance and replaced-path demoli
 
 - **PR010B Rung 5 — same-thread object continuity through bounded visible-prose replay** (`DONE`, planned GitHub `#356`): accepted across three live trials. Each trial showed bounded prior role/content replay resolving the shorthand referent, followed by fresh `expand_graph_retrieval` at the pinned revision supplying the factual result. `unreadable_source_anchors` remains a separate source-evidence gate on the backlog. Evidence: [`HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md).
 - **Rung 6 (PASS) — durable Hermes session-pointer and reload/process lifecycle:** server-authoritative opaque pointer, thread binding, durable store, and deterministic recovery contracts accepted. Live dogfood after full shutdown/reload showed `accepted` pointer continuation, `worker_pid_changed`, and fresh graph retrieval; Thread B isolation passed; invalid/expired recovery proven by contract tests (not UI dogfood). [`HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md)
-- **Rung 7 (DOING) — cumulative product acceptance and Plan Hermes-only demolition:** demolition and Turns 1–2/reload evidence are present; coverage-gap authority is proven by deterministic contract tests (live stochastic coverage-gap prose is not required — see Required dogfood). Cumulative `PASS` remains open until remaining merge gates clear. Verification provenance is local/manual (no CI status checks attached). [`HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md)
+- **Rung 7 (PASS) — cumulative product acceptance and Plan Hermes-only demolition:** demolition and Turns 1–2/reload evidence are present; coverage-gap authority is proven by deterministic contract tests (live stochastic coverage-gap prose is not required — see Required dogfood). The remaining merge gate cleared with the 2026-07-17 merge of `agent/pr010b5-plan-hermes-thread-continuity` to `main` (`129a4c40`, PR #356). Three external-critique rounds landed on the branch before merge (claim-authority hardening, natural-prose preservation with `graph_context_synthesis` labeling, expand-tool/hydration/pointer-store honesty — see commits `2db5da67`, `293fdf43`, `09898467`, `6db1e18a`, `c92e5a02`). Verification provenance remains local/manual (no CI status checks attached to this repo). [`HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md)
 
 **Purpose:** Make Hermes the actual conversational agent for Plan prep, using PR010A graph retrieval, graph-admitted source anchors, and the narrow server-owned registry-admitted latest-recap exception for disclosed memory lag.
 
@@ -241,7 +247,7 @@ Required deletion PR:
 
 ## PR011 — Agent Context + Tool Runtime
 
-**Status:** `BLOCKED` on PR010B Rung 7 cumulative acceptance
+**Status:** `READY` — PR010B Rung 7 cumulative acceptance cleared (merged `main` `129a4c40`, PR #356)
 **Phase:** 8
 
 **Purpose:** Productionize the graph-grounded Hermes runtime and implement the complete typed capability model from PR005B.

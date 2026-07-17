@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 **Scope:** Hermes workstream and current implementation branch
-**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 DONE; Rung 6 PASS; Rung 7 DOING; PR010B DOING; PR011 BLOCKED
+**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 DONE; Rung 6 PASS; Rung 7 PASS; PR010B DONE (merged `main` `129a4c40`, PR #356, 2026-07-17); PR011 READY
 **Related plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md)
 **Active design index:** [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md)
 
@@ -42,13 +42,20 @@ statblock promotion are complete.
   [`../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md).
   The real `AIAgent` wire-start environment failure remains a separate open item.
 - Rung 7 Plan Hermes-only demolition and Turns 1–2/reload evidence are present
-  (DOING, not yet cumulative PASS): Hermes is the only Plan Agent Interaction
-  backend; legacy Live Plan threads migrate on load; coverage-gap abstention /
-  no Live fallback are proven by product-path contracts after an explicit
-  tracker amendment that accepts deterministic proof in place of a required live
-  stochastic coverage-gap turn. The record is
+  (PASS): Hermes is the only Plan Agent Interaction backend; legacy Live Plan
+  threads migrate on load; coverage-gap abstention / no Live fallback are
+  proven by product-path contracts after an explicit tracker amendment that
+  accepts deterministic proof in place of a required live stochastic
+  coverage-gap turn. The record is
   [`../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md).
-  PR011 remains BLOCKED on Rung 7 cumulative acceptance.
+  The remaining merge gate cleared 2026-07-17: `agent/pr010b5-plan-hermes-thread-continuity`
+  merged into `main` as `129a4c40` (PR #356). Three external-critique
+  hardening rounds landed on the branch before merge — commits `2db5da67`
+  (close claim-authority escape hatches), `293fdf43` (keep natural answers
+  with coarse graph authority), `09898467` (honest expand ops, authority
+  docs, store/hydrate hardening), `6db1e18a` (fail-closed expand schema and
+  claim hydration), and `c92e5a02` (reject dishonest expand target
+  fallbacks) — and are therefore on `main`. PR011 is now `READY`.
 
 ## Re-anchor decisions
 
@@ -155,18 +162,19 @@ are cleanup rather than product blockers:
 - replacement-owner decisions for deferred Live, planner, and Graph Review paths;
 - merge/landing of the continuity integration branch to `main`.
 
-The current branch is therefore **re-anchored for direction, initial cleanup,
-S1 acceptance, Rung 5 DONE, Rung 6 PASS, and Rung 7 DOING**. Phase 2 creative
-primitives may proceed; PR011 infrastructure remains blocked on Rung 7
-cumulative acceptance. Merge/landing of this continuity branch to `main`
-remains a Phase 0 follow-up.
+`main` is therefore **re-anchored for direction, initial cleanup, S1
+acceptance, and Rung 5/6/7 all accepted (DONE/PASS/PASS)**. Phase 2 creative
+primitives may proceed; PR011 infrastructure is unblocked (`READY`).
+Merge/landing of the continuity branch to `main` is complete
+(`129a4c40`, PR #356, 2026-07-17).
 
 ## Next gate
 
-Close Rung 7 cumulative acceptance after remaining merge gates and current-head
-verification confidence. Do not reopen the rejected empty-graph abstention
-path. Treat the real `AIAgent` wire-start environment failure and source-anchor
-readability as separate open items (not Rung 5/6 reopens). In parallel product
-work, construct the smallest independently falsifiable `CreativeOperationSession`
-kernel for the S2 statblock proving domain once the shared workflow boundary
-exists.
+Begin PR011 (Agent Context + governed tool runtime) or continue Phase 2
+creative-primitives design (S2 statblock proving domain). Do not reopen the
+rejected empty-graph abstention path. Treat the real `AIAgent` wire-start
+environment failure, source-anchor readability
+(`unreadable_source_anchors`), and the absence of CI status checks as
+separate standing open items — not Rung 5/6/7 reopens. Construct the smallest
+independently falsifiable `CreativeOperationSession` kernel for the S2
+statblock proving domain once the shared workflow boundary exists.

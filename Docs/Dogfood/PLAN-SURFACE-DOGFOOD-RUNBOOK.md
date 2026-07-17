@@ -20,7 +20,7 @@ save/recovery, Tripod continuity, graph-object cards, or statblock authoring.
 - Editing / saving Session Prep.md
 - Reload / localStorage recovery proofs
 - Tripod Null-Calf same-thread continuity (Rung 5 accepted — three live trials DONE)
-- Plan Hermes-only asks (Rung 7 DOING — demolition present; cumulative acceptance open; ChatModule retains Live)
+- Plan Hermes-only asks (Rung 7 PASS — merged `main` `129a4c40`/PR #356; ChatModule retains Live)
 - Graph object dogfood list
 - CreativeOperationSession / draft / promotion (Phase 2+)
 
