@@ -48,6 +48,9 @@ ExpansionOperation = Literal[
     "support",
 ]
 
+# Shared cap for search/neighborhood seed lists. object/support allow at most one.
+_MAX_EXPAND_TARGETS = 8
+
 
 class ExpandTarget(BaseModel):
     """Node-only targets until edge/assertion expand semantics exist."""
@@ -64,6 +67,11 @@ class ExpandGraphRetrievalRequest(BaseModel):
     Only fields the executor actually honors are admitted. Filtering
     (relationFamilies / claimPredicates) and client-supplied bounds are
     omitted until they have distinct tested semantics.
+
+    Target cardinality (enforced in the executor after session seed resolution):
+    - object / support: exactly one effective node
+    - neighborhood: 1–8 effective seeds (no silent search fallback)
+    - search: 0–8 seed nodes
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -74,7 +82,10 @@ class ExpandGraphRetrievalRequest(BaseModel):
     )
     retrieval_session_id: str = Field(min_length=1, alias="retrievalSessionId")
     operation: ExpansionOperation
-    targets: list[ExpandTarget] = Field(default_factory=list)
+    targets: list[ExpandTarget] = Field(
+        default_factory=list,
+        max_length=_MAX_EXPAND_TARGETS,
+    )
     query_text: str | None = Field(default=None, alias="queryText")
     depth: Literal[1, 2] = 1
     historical_revision_id: str | None = Field(
@@ -165,6 +176,109 @@ def _target_node_ids(request: ExpandGraphRetrievalRequest, session) -> list[str]
     return list(session.preflight_candidate_ids)
 
 
+def _target_cardinality_error(
+    *,
+    operation: ExpansionOperation,
+    requested_count: int,
+    effective_ids: list[str],
+) -> dict[str, Any] | None:
+    """Reject requests whose effective targets would be silently truncated."""
+    effective_count = len(effective_ids)
+    if operation in {"object", "support"}:
+        if requested_count > 1:
+            return {
+                "schema": "dmb_world_graph_retrieval_error_v1",
+                "code": "too_many_targets",
+                "message": f"{operation} expansion accepts at most one target node",
+                "statusCode": 422,
+                "diagnostics": [
+                    {
+                        "code": "too_many_targets",
+                        "message": f"requested {requested_count} targets; {operation} allows 1",
+                        "severity": "error",
+                    }
+                ],
+            }
+        if effective_count == 0:
+            return {
+                "schema": "dmb_world_graph_retrieval_error_v1",
+                "code": "ambiguous_target",
+                "message": f"{operation} expansion requires a target node",
+                "statusCode": 422,
+                "diagnostics": [],
+            }
+        if effective_count > 1:
+            return {
+                "schema": "dmb_world_graph_retrieval_error_v1",
+                "code": "ambiguous_target",
+                "message": (
+                    f"{operation} expansion requires exactly one target node; "
+                    f"session resolved {effective_count} seeds"
+                ),
+                "statusCode": 422,
+                "diagnostics": [
+                    {
+                        "code": "ambiguous_target",
+                        "message": f"effective seed count {effective_count} exceeds 1",
+                        "severity": "error",
+                    }
+                ],
+            }
+        return None
+
+    if operation == "neighborhood":
+        if effective_count == 0:
+            return {
+                "schema": "dmb_world_graph_retrieval_error_v1",
+                "code": "ambiguous_target",
+                "message": (
+                    "neighborhood expansion requires at least one seed node; "
+                    "use search when no targets or session seeds are available"
+                ),
+                "statusCode": 422,
+                "diagnostics": [],
+            }
+        if effective_count > _MAX_EXPAND_TARGETS:
+            return {
+                "schema": "dmb_world_graph_retrieval_error_v1",
+                "code": "too_many_targets",
+                "message": (
+                    f"neighborhood expansion accepts at most {_MAX_EXPAND_TARGETS} seed nodes"
+                ),
+                "statusCode": 422,
+                "diagnostics": [
+                    {
+                        "code": "too_many_targets",
+                        "message": (
+                            f"effective seed count {effective_count} exceeds "
+                            f"{_MAX_EXPAND_TARGETS}"
+                        ),
+                        "severity": "error",
+                    }
+                ],
+            }
+        return None
+
+    # search: zero seeds is valid (query-only); more than the cap is not.
+    if effective_count > _MAX_EXPAND_TARGETS:
+        return {
+            "schema": "dmb_world_graph_retrieval_error_v1",
+            "code": "too_many_targets",
+            "message": f"search expansion accepts at most {_MAX_EXPAND_TARGETS} seed nodes",
+            "statusCode": 422,
+            "diagnostics": [
+                {
+                    "code": "too_many_targets",
+                    "message": (
+                        f"effective seed count {effective_count} exceeds {_MAX_EXPAND_TARGETS}"
+                    ),
+                    "severity": "error",
+                }
+            ],
+        }
+    return None
+
+
 def _dispatch_expansion(
     *,
     request: ExpandGraphRetrievalRequest,
@@ -176,14 +290,6 @@ def _dispatch_expansion(
 ):
     del focus  # focus already embedded in ctx
     if request.operation == "object":
-        if not node_ids:
-            return {
-                "schema": "dmb_world_graph_retrieval_error_v1",
-                "code": "ambiguous_target",
-                "message": "object expansion requires a target node",
-                "statusCode": 422,
-                "diagnostics": [],
-            }
         obj_req = WorldGraphObjectRequest.model_validate(
             {
                 **ctx,
@@ -193,35 +299,16 @@ def _dispatch_expansion(
         )
         return retrieval_service.get_campaign_object(obj_req, root=root)
     if request.operation == "neighborhood":
-        seeds = node_ids or list(session.preflight_candidate_ids)
-        if not seeds:
-            search_req = WorldGraphSearchRequest.model_validate(
-                {
-                    **ctx,
-                    "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
-                    "queryText": request.query_text or session.question,
-                    "seedNodeIds": [],
-                }
-            )
-            return retrieval_service.search_campaign_graph(search_req, root=root)
         neigh_req = WorldGraphNeighborhoodRequest.model_validate(
             {
                 **ctx,
                 "schema": RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
-                "seedNodeIds": seeds[:8],
+                "seedNodeIds": node_ids,
                 "maxDepth": request.depth,
             }
         )
         return retrieval_service.get_object_neighborhood(neigh_req, root=root)
     if request.operation == "support":
-        if not node_ids:
-            return {
-                "schema": "dmb_world_graph_retrieval_error_v1",
-                "code": "ambiguous_target",
-                "message": "support expansion requires a target node",
-                "statusCode": 422,
-                "diagnostics": [],
-            }
         evidence_req = WorldGraphEvidenceRequest.model_validate(
             {
                 **ctx,
@@ -235,7 +322,7 @@ def _dispatch_expansion(
             **ctx,
             "schema": RETRIEVAL_SEARCH_REQUEST_SCHEMA,
             "queryText": request.query_text or session.question,
-            "seedNodeIds": node_ids[:8],
+            "seedNodeIds": node_ids,
         }
     )
     return retrieval_service.search_campaign_graph(search_req, root=root)
@@ -282,6 +369,13 @@ def execute_expand_graph_retrieval(
     focus = _focus_for_request(session.snapshot.focus)
     ctx = _request_context_payload(session, focus)
     node_ids = _target_node_ids(request, session)
+    cardinality_error = _target_cardinality_error(
+        operation=request.operation,
+        requested_count=len(request.targets),
+        effective_ids=node_ids,
+    )
+    if cardinality_error is not None:
+        return {**cardinality_error, "retrievalSessionId": session.id}
     operation: OperationName = request.operation  # type: ignore[assignment]
 
     try:
@@ -360,6 +454,7 @@ def execute_expand_graph_retrieval(
             operation=operation,
             inputs={
                 "targets": [t.model_dump(mode="json") for t in request.targets],
+                "effective_targets": [{"kind": "node", "id": nid} for nid in node_ids],
                 "query_text": request.query_text,
             },
             status=status,  # type: ignore[arg-type]

@@ -631,6 +631,106 @@ def test_expand_rejects_unimplemented_target_kinds_and_filters() -> None:
         assert result["statusCode"] == 422
 
 
+def test_expand_neighborhood_rejects_when_no_targets_or_seeds() -> None:
+    """Targetless neighborhood must not silently become search."""
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+            focus={"kind": "session", "session_id": "session-21"},
+        ),
+        question="Where is Tripod?",
+        preflight_candidate_ids=[],
+    )
+    create_session(session)
+    with patch(
+        "graph_memory.interaction.expansion_executor.retrieval_service.search_campaign_graph"
+    ) as search_mock:
+        result = execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": session.id,
+                "operation": "neighborhood",
+                "queryText": "Tripod",
+            }
+        )
+    assert result["code"] == "ambiguous_target"
+    assert result["statusCode"] == 422
+    assert "search" in result["message"].lower() or "seed" in result["message"].lower()
+    search_mock.assert_not_called()
+    assert session.operations == []
+
+
+def test_expand_rejects_multi_target_object_and_support() -> None:
+    session = _seed_expand_session()
+    targets = [
+        {"kind": "node", "id": "threat:tripod"},
+        {"kind": "node", "id": "location:mireward"},
+    ]
+    for operation in ("object", "support"):
+        result = execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": session.id,
+                "operation": operation,
+                "targets": targets,
+            }
+        )
+        assert result["code"] == "too_many_targets", operation
+        assert result["statusCode"] == 422
+
+
+def test_expand_rejects_more_than_eight_targets_for_search_and_neighborhood() -> None:
+    session = _seed_expand_session()
+    targets = [{"kind": "node", "id": f"node:{i}"} for i in range(9)]
+    for operation in ("search", "neighborhood"):
+        result = execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": session.id,
+                "operation": operation,
+                "targets": targets,
+            }
+        )
+        assert result["code"] == "invalid_arguments", operation
+        assert result["statusCode"] == 422
+
+
+def test_expand_records_effective_targets_matching_dispatch() -> None:
+    session = _seed_expand_session()
+    fake = _fake_retrieval_result(schema="dmb_world_graph_neighborhood_v1")
+    with patch(
+        "graph_memory.interaction.expansion_executor.retrieval_service.get_object_neighborhood",
+        return_value=fake,
+    ) as mocked:
+        result = execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": session.id,
+                "operation": "neighborhood",
+                "targets": [
+                    {"kind": "node", "id": "threat:tripod"},
+                    {"kind": "node", "id": "location:mireward"},
+                ],
+            }
+        )
+    assert result["schema"] == "dmb_world_graph_neighborhood_v1"
+    mocked.assert_called_once()
+    call_req = mocked.call_args.args[0]
+    assert call_req.seed_node_ids == ["threat:tripod", "location:mireward"]
+    from graph_memory.interaction.session_store import get_session
+
+    stored = get_session(session.id)
+    assert stored is not None
+    assert len(stored.operations) == 1
+    assert stored.operations[0].operation == "neighborhood"
+    assert stored.operations[0].inputs["effective_targets"] == [
+        {"kind": "node", "id": "threat:tripod"},
+        {"kind": "node", "id": "location:mireward"},
+    ]
+
+
 @pytest.mark.parametrize(
     ("operation", "patch_target", "expected_schema"),
     [
