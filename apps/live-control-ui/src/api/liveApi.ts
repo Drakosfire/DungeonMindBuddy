@@ -666,6 +666,9 @@ export async function postLiveQuery(
       text,
       agent_thread_id: options.agentThreadId ?? null,
       trace_requested: options.traceRequested ?? null,
+      ...(options.hermesSessionPointer
+        ? { hermes_session_pointer: options.hermesSessionPointer }
+        : {}),
       ...(options.worldGraphContext != null
         ? { world_graph_context: options.worldGraphContext }
         : {}),

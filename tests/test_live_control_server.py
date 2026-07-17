@@ -302,7 +302,8 @@ def test_query_can_route_through_hermes_backend(
         }
     ]
     assert body["context_packet"] is None
-    assert body["hermes_session"] is None
+    assert body["hermes_session"] is not None
+    assert body["hermes_session"]["sessionId"].startswith("hptr-")
     assert body["events_written"] == []
     assert body["jobs_queued"] == []
     assert body["agent_trace"]["runtime"] == "process_isolated"
@@ -1251,7 +1252,8 @@ def test_hermes_graph_host_path_ignores_legacy_lookup(
     assert body["world_graph_context"]["revision_id"] == "rev:honest"
     assert body["mode"] == "hermes_graph_agent"
     assert body["grounding"]["state"] == "grounded"
-    assert body["hermes_session"] is None
+    assert body["hermes_session"] is not None
+    assert body["hermes_session"]["sessionId"].startswith("hptr-")
     assert body["agent_trace"]["hermes_session_id"] == "obs-only"
     assert body["agent_trace"]["usage"]["available"] is False
     assert body["agent_trace"]["steps"] == []

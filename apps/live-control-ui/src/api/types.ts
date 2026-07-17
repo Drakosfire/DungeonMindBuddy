@@ -445,6 +445,18 @@ export interface AgentInteractionTraceArtifactRef {
   label?: string | null;
 }
 
+export interface HermesConversationTraceContext {
+  history_present: boolean;
+  message_count: number;
+  pair_count: number;
+  payload_shape: "role_content_only" | string;
+  graph_metadata_in_history: boolean;
+  hermes_session_pointer_in_request: boolean;
+  hermes_session_pointer_status?: "absent" | "accepted" | "rejected" | "recovered" | string;
+  worker_pid_changed?: boolean;
+  fresh_graph_revision_used?: boolean;
+}
+
 export interface AgentInteractionContextSummary {
   admitted_count?: number;
   rejected_count?: number;
@@ -515,6 +527,8 @@ export interface AgentInteractionTrace {
   evidence_event_count?: number | null;
   final_response_present?: boolean | null;
   validator_path?: string | null;
+  /** Server-derived request telemetry; prose and graph metadata are never echoed. */
+  conversation_context?: HermesConversationTraceContext | null;
   warnings: string[];
 }
 
@@ -699,6 +713,7 @@ export interface PersistedWorldGraphContextSummary {
 export interface LiveQueryOptions {
   agentThreadId?: string | null;
   hermesSessionId?: string | null;
+  hermesSessionPointer?: string | null;
   traceRequested?: boolean | null;
   worldGraphContext?: AgentWorldGraphQueryContextRequest | null;
   conversationHistory?: unknown;

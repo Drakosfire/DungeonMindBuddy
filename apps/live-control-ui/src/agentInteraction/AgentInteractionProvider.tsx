@@ -159,7 +159,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       updatedAt: new Date().toISOString(),
       activeBackend: backend,
       hermesSession: response.mode === "hermes_graph_agent"
-        ? null
+        ? (response.hermes_session ?? currentThread.hermesSession ?? null)
         : (response.hermes_session ?? currentThread.hermesSession ?? null),
       turns: nextTurns,
       uiState: {

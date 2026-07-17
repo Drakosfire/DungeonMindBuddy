@@ -340,6 +340,20 @@ Migrated items:
 **Surfaces when:** Explaining why a live `--scenario-json` run looked "too easy"; onboarding to perturbation fixtures.
 **Refs:** `tests/test_scope_b_perturbation_scenarios.py`, `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py`, cohort artifacts under `evals/session_recap_ingest_vertical_slice/artifacts/runs/2026-04-21/recap_ingest_summary--gpt-5.4-mini--N2--20260421T035422Z.md` (and sibling timestamps in the REPORT table).
 
+## [DONE] Recap-write — model leaves judgment fields empty under happy path despite SKILL guidance — completed 2026-04-21
+
+**Context:** Live Scope-B cohort N=3 on Session 20 (post B7/B9 wiring + post SKILL §6.5 addition guiding `unsure_queue` and `notes_for_gm` population) returned 0/3 PASS. The model emits `unsure_queue: null`, `notes_for_gm: ""` (or a single generic prep-doc sentence), AND `npc_audit.`* and `plot_artifacts` 0/0/0 across all 6 failing runs (zero attempts). The mechanical fields (`recap_preview`, `duplicate_paragraphs`, `prep_pointer_proposal`) are populated correctly.
+**Insight (2026-04-21 investigation):** Four questions answered:
+
+- **SKILL §6.5 does NOT reach the planner LLM.** `build_corpus_session_planner_instructions` concatenates only `_SESSION_PLANNER_INSTRUCTIONS_TEMPLATE + _UNSURE_QUEUE_ADDENDUM + _WRITE_TOOLS_ADDENDUM`. SKILL.md is a Cursor-IDE-layer artifact gating parent-agent skill activation; it never reaches `gpt-5.4-mini`. Every prior assumption that "editing the SKILL fixes planner behavior" was wrong.
+- **B9 tokens (*`*Sara`**,** `Tealeaf`**,** `allowlist`**) were unachievable.** `Sara`/`Tealeaf` appear only in `NPCs/<slug>/README.md` and dossier files which the dispatch guard hard-blocks for recap-write. `allowlist` appears in zero corpus files (only in `_WRITE_TOOLS_ADDENDUM` itself). The model could never satisfy B9 from permitted reads.
+- **B7 gold was content-rigid.** Exact verbatim IDs (`tower_blueprint_placement` etc.), specific question regex, specific `default_summary` substrings — a model surfacing the same ambiguities under different (equally valid) slugs always fails.
+- **Root cause of** `unsure_queue: null`**:** `_UNSURE_QUEUE_ADDENDUM` (the only text actually reaching the model about `unsure_queue`) says *"Sparse: at most 4 items per turn; prefer 0 when you can proceed with high confidence"* — actively biasing the model to emit the empty output we see on the happy path.
+**Status:** This commit (2026-04-21) makes B7/B9 **achievable in principle** by refactoring B7 to support `mode: "shape"` (no exact-ID rigidity) and replacing B9 tokens with names derivable from permitted reads (`Brambleback`, `Stuart`, `Stacey`, `Marla`). The canonical Session 20 scenario remains opted out (`require_unsure_queue: false`, `require_findings: false`) pending the architectural decisions in the two new READY entries below. The gold refactor does NOT re-enable the gates; it removes the blocks that made them permanently unachievable.
+**Next steps:** See new entries `Recap-write planner — SKILL.md body has no injection path…` (architectural) and `Recap-write planner — _UNSURE_QUEUE_ADDENDUM "prefer 0" line contradicts B7…` (addendum/gold fork).
+**Action:** DONE. The investigation is complete; the remaining architecture and addendum decisions are tracked in the two READY entries referenced above.
+**Refs:** `.cursor/skills/recap-write/SKILL.md` §6 + §6.5 (dead text for planner), `src/prompts/corpus_session_planner.py` lines 197-222 (`build_corpus_session_planner_instructions`), `src/prompts/corpus_session_planner.py` lines 76-98 (`_UNSURE_QUEUE_ADDENDUM`), `evals/session_recap_ingest_vertical_slice/gold/scope_b_session_20_unsure_queue.json` (now `mode: "exact"` explicit + shape-mode example), `evals/session_recap_ingest_vertical_slice/gold/scope_b_session_20_findings.json` (refactored tokens), `evals/session_recap_ingest_vertical_slice/step3_unsure_queue_grading.py` (new shape mode).
+
 ## [DONE] Session recap ingest benchmark — C4–C7 triage shipped (grounding P5) — captured 2026-04-20, completed 2026-04-21
 
 **Context:** STATUS listed C4–C7 as OPEN/PARTIAL with no clear "honest ledger" verdict per gate. Risk: permanent limbo between "promised benchmark work" and "actually covered elsewhere."
@@ -470,4 +484,10 @@ C6 + C7 split out into a new `[READY]` `Recap-ingest — wire C6 + C7` entry. De
 
 ## DROPPED
 
-_(none yet)_
+## [DROPPED] CLI ingest vs direct fact-extractor parity gap — dropped 2026-04-20
+
+**Original hypothesis (now falsified by Phase A measurement above; kept for traceability):** CLI ingest yields ~289 facts vs direct ~441 facts → CLI drops 22–34% on same input.
+**Why kept:** The current Phase A measurement contradicts the prior baseline numbers. Either (a) the corpus or extractor code drifted between the prior measurement and now, (b) the prior numbers came from a different model/version, or (c) the prior measurement counted something different (e.g. raw `extracted_facts.json` vs post-store). This entry documents the original observation so the historical record stays intact.
+**Action:** DROPPED. Superseded by the Phase A parity entry, which preserves the current measured anomalies and remaining B3/B2 work.
+**Surfaces when:** New ingest CLI work; D1 threshold updates; any user report that "the CLI loses information vs direct ingest."
+**Refs:** `evals/mirathorn_vertical_slice/eval_synthesis.py` (D1 baseline comment), `src/cli.py` ingest command, `src/ingestion/batch_pipeline.py`, `src/ingestion/fact_extractor.py` (`run_fact_extraction`), `evals/mirathorn_vertical_slice/output/phase_d_summary.json`, `evals/mirathorn_vertical_slice/output/extracted_facts.json`.

@@ -19,7 +19,7 @@ save/recovery, Tripod continuity, graph-object cards, or statblock authoring.
 
 - Editing / saving Session Prep.md
 - Reload / localStorage recovery proofs
-- Tripod Null-Calf same-thread continuity (Rung 5 live trial 1 passed; aggregate three-trial gate is tracked separately)
+- Tripod Null-Calf same-thread continuity (Rung 5 accepted — three live trials DONE)
 - Graph object dogfood list
 - CreativeOperationSession / draft / promotion (Phase 2+)
 

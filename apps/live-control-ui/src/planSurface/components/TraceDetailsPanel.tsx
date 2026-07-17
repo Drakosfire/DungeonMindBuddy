@@ -1,6 +1,10 @@
 import { useState } from "react";
 
-import type { AgentInteractionTrace, HermesGraphToolTraceEvent } from "../../api/types";
+import type {
+  AgentInteractionTrace,
+  HermesConversationTraceContext,
+  HermesGraphToolTraceEvent,
+} from "../../api/types";
 
 interface TraceDetailsPanelProps {
   trace: AgentInteractionTrace;
@@ -81,6 +85,88 @@ function formatIdList(ids: string[]): string {
   if (!ids.length) return "none";
   if (ids.length <= 3) return ids.join(", ");
   return `${ids.slice(0, 3).join(", ")} (+${ids.length - 3} more)`;
+}
+
+function formatYesNo(value: boolean): string {
+  return value ? "yes" : "no";
+}
+
+function normalizeConversationContext(raw: unknown): HermesConversationTraceContext | null {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.history_present !== "boolean") return null;
+  if (typeof raw.message_count !== "number") return null;
+  if (typeof raw.pair_count !== "number") return null;
+  if (typeof raw.payload_shape !== "string" || !raw.payload_shape.trim()) return null;
+  if (typeof raw.graph_metadata_in_history !== "boolean") return null;
+  if (typeof raw.hermes_session_pointer_in_request !== "boolean") return null;
+  return {
+    history_present: raw.history_present,
+    message_count: raw.message_count,
+    pair_count: raw.pair_count,
+    payload_shape: raw.payload_shape,
+    graph_metadata_in_history: raw.graph_metadata_in_history,
+    hermes_session_pointer_in_request: raw.hermes_session_pointer_in_request,
+    hermes_session_pointer_status: typeof raw.hermes_session_pointer_status === "string"
+      && raw.hermes_session_pointer_status.trim()
+      ? raw.hermes_session_pointer_status
+      : undefined,
+    worker_pid_changed: typeof raw.worker_pid_changed === "boolean"
+      ? raw.worker_pid_changed
+      : undefined,
+    fresh_graph_revision_used: typeof raw.fresh_graph_revision_used === "boolean"
+      ? raw.fresh_graph_revision_used
+      : undefined,
+  };
+}
+
+/** Collapsed summary fragment for Hermes request-context telemetry (Thread B isolation). */
+export function formatTraceConversationContextSummary(
+  conversationContext: HermesConversationTraceContext | null,
+  options: { isHermesGraphAgent: boolean },
+): string {
+  if (!options.isHermesGraphAgent || !conversationContext) return "";
+  const contextLabel = conversationContext.history_present
+    ? `ctx: ${conversationContext.message_count} msgs · ${conversationContext.pair_count} pairs · ${
+        conversationContext.graph_metadata_in_history
+          ? "graph meta in history"
+          : "graph meta excluded"
+      }`
+    : "ctx: no history";
+  const lifecycleLabels = [
+    conversationContext.hermes_session_pointer_status
+      ? `pointer: ${conversationContext.hermes_session_pointer_status}`
+      : null,
+    typeof conversationContext.worker_pid_changed === "boolean"
+      ? `worker: ${conversationContext.worker_pid_changed ? "changed" : "same"}`
+      : null,
+    typeof conversationContext.fresh_graph_revision_used === "boolean"
+      ? `graph: ${conversationContext.fresh_graph_revision_used ? "fresh" : "not fresh"}`
+      : null,
+  ].filter((label): label is string => label != null);
+  return [contextLabel, ...lifecycleLabels].join(" · ");
+}
+
+function formatConversationContextForClipboard(
+  conversationContext: HermesConversationTraceContext,
+): string[] {
+  return [
+    "Conversation context",
+    `history_present: ${formatYesNo(conversationContext.history_present)}`,
+    `message_count: ${conversationContext.message_count}`,
+    `pair_count: ${conversationContext.pair_count}`,
+    `payload_shape: ${conversationContext.payload_shape}`,
+    `graph_metadata_in_history: ${formatYesNo(conversationContext.graph_metadata_in_history)}`,
+    `hermes_session_pointer_in_request: ${formatYesNo(conversationContext.hermes_session_pointer_in_request)}`,
+    ...(conversationContext.hermes_session_pointer_status
+      ? [`hermes_session_pointer_status: ${conversationContext.hermes_session_pointer_status}`]
+      : []),
+    ...(typeof conversationContext.worker_pid_changed === "boolean"
+      ? [`worker_pid_changed: ${formatYesNo(conversationContext.worker_pid_changed)}`]
+      : []),
+    ...(typeof conversationContext.fresh_graph_revision_used === "boolean"
+      ? [`fresh_graph_revision_used: ${formatYesNo(conversationContext.fresh_graph_revision_used)}`]
+      : []),
+  ];
 }
 
 /** Collapsed summary fragment: tool names, or explicit none for Hermes graph turns. */
@@ -177,6 +263,11 @@ export function formatTraceForClipboard(
     if (displayOptionalString(trace.validator_path)) {
       lines.push(`validator_path: ${trace.validator_path}`);
     }
+    const conversationContext = normalizeConversationContext(trace.conversation_context);
+    if (conversationContext) {
+      lines.push("");
+      lines.push(...formatConversationContextForClipboard(conversationContext));
+    }
   }
 
   lines.push("");
@@ -247,7 +338,12 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
   const finalResponsePresent = typeof trace.final_response_present === "boolean" ? trace.final_response_present : null;
   const validatorPath = displayOptionalString(trace.validator_path);
   const toolSummary = formatTraceToolSummary(normalizedToolEvents, { isHermesGraphAgent });
-  const metaLine = [backend, runtime, status, `${elapsedMs}ms`, toolSummary]
+  const conversationContext = normalizeConversationContext(trace.conversation_context);
+  const conversationContextSummary = formatTraceConversationContextSummary(
+    conversationContext,
+    { isHermesGraphAgent },
+  );
+  const metaLine = [backend, runtime, status, `${elapsedMs}ms`, toolSummary, conversationContextSummary]
     .filter((part) => part.length > 0)
     .join(" · ");
 
@@ -432,6 +528,58 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
               ) : null}
               {context.verdict ? <li>Verdict: {context.verdict}</li> : null}
             </ul>
+          </div>
+        ) : null}
+
+        {isHermesGraphAgent && conversationContext ? (
+          <div className="plan-agent-trace-context" data-testid="plan-agent-trace-conversation-context">
+            <h5>Conversation context</h5>
+            <dl className="plan-agent-trace-grid">
+              <div>
+                <dt>History present</dt>
+                <dd>{formatYesNo(conversationContext.history_present)}</dd>
+              </div>
+              <div>
+                <dt>Message count</dt>
+                <dd>{conversationContext.message_count}</dd>
+              </div>
+              <div>
+                <dt>Pair count</dt>
+                <dd>{conversationContext.pair_count}</dd>
+              </div>
+              <div>
+                <dt>Payload shape</dt>
+                <dd>{conversationContext.payload_shape}</dd>
+              </div>
+              <div>
+                <dt>Graph metadata in history</dt>
+                <dd>{formatYesNo(conversationContext.graph_metadata_in_history)}</dd>
+              </div>
+              <div>
+                <dt>Hermes session pointer in request</dt>
+                <dd>{formatYesNo(conversationContext.hermes_session_pointer_in_request)}</dd>
+              </div>
+              <div>
+                <dt>Hermes session pointer status</dt>
+                <dd>{conversationContext.hermes_session_pointer_status ?? "not reported"}</dd>
+              </div>
+              <div>
+                <dt>Worker PID changed</dt>
+                <dd>
+                  {typeof conversationContext.worker_pid_changed === "boolean"
+                    ? formatYesNo(conversationContext.worker_pid_changed)
+                    : "not reported"}
+                </dd>
+              </div>
+              <div>
+                <dt>Fresh graph revision used</dt>
+                <dd>
+                  {typeof conversationContext.fresh_graph_revision_used === "boolean"
+                    ? formatYesNo(conversationContext.fresh_graph_revision_used)
+                    : "not reported"}
+                </dd>
+              </div>
+            </dl>
           </div>
         ) : null}
 

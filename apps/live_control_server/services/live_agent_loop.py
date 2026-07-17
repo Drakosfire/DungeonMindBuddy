@@ -159,6 +159,7 @@ def process_live_query(
     query_backend: str = "live",
     agent_thread_id: str | None = None,
     hermes_session_id: str | None = None,
+    hermes_session_pointer: str | None = None,
     trace_requested: bool | None = None,
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None,
     outer_campaign_id: str | None = None,
@@ -178,6 +179,7 @@ def process_live_query(
             world_graph_context=world_graph_context,
             request_manifest_path=request_manifest_path,
             hermes_session_id=hermes_session_id,
+            hermes_session_pointer=hermes_session_pointer,
             outer_campaign_id=campaign_id,
         )
         assert world_graph_context is not None  # validated above
@@ -220,6 +222,8 @@ def process_live_query(
             root=world_graph_root(),
             corpus_root=repo,
             conversation_history=normalized_history,
+            session_base=session_base,
+            hermes_session_pointer=hermes_session_pointer,
         )
 
     if query_backend not in LIVE_QUERY_BACKENDS:

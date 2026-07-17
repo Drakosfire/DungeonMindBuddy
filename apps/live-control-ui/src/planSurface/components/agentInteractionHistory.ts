@@ -264,7 +264,27 @@ function safeHermesGraphTraceForPersistence(
     context_summary: {},
     artifact_refs: [],
     tool_events: sanitizeHermesGraphToolEvents(trace.tool_events),
-    // Rung 5: never persist a Hermes session pointer. Rung 6 owns durable session ids.
+    conversation_context: isRecord(trace.conversation_context)
+      ? {
+          history_present: Boolean(trace.conversation_context.history_present),
+          message_count: typeof trace.conversation_context.message_count === "number"
+            ? trace.conversation_context.message_count
+            : 0,
+          pair_count: typeof trace.conversation_context.pair_count === "number"
+            ? trace.conversation_context.pair_count
+            : 0,
+          payload_shape: truncatePersistedString(trace.conversation_context.payload_shape) ?? "role_content_only",
+          graph_metadata_in_history: Boolean(trace.conversation_context.graph_metadata_in_history),
+          hermes_session_pointer_in_request: Boolean(trace.conversation_context.hermes_session_pointer_in_request),
+          hermes_session_pointer_status: truncatePersistedString(trace.conversation_context.hermes_session_pointer_status) ?? undefined,
+          worker_pid_changed: typeof trace.conversation_context.worker_pid_changed === "boolean"
+            ? trace.conversation_context.worker_pid_changed
+            : undefined,
+          fresh_graph_revision_used: typeof trace.conversation_context.fresh_graph_revision_used === "boolean"
+            ? trace.conversation_context.fresh_graph_revision_used
+            : undefined,
+        }
+      : undefined,
     process_isolation: truncatePersistedString(trace.process_isolation),
     warnings: warnings.slice(0, MAX_PERSISTED_WARNINGS),
   };

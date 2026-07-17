@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 **Scope:** Hermes workstream and current implementation branch
-**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 live trial 1 passed; aggregate Rung 5 gate pending
+**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 continuity DONE; Rung 6 session-pointer lifecycle PASS
 **Related plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md)
 **Active design index:** [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md)
 
@@ -29,12 +29,18 @@ statblock promotion are complete.
   [`../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`](../Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md).
   Live repair trials artifact:
   `evals/graph_memory_layer/artifacts/last_s1_live_repair_trials.json`.
-- The first live Rung 5 Tripod continuity trial passed: Turn 2 issued fresh
-  graph retrieval, resolved the shorthand referent from bounded prior prose,
-  and returned Tripod/Mireward relationships at the pinned revision. The
-  evidence record is
+- Rung 5 same-thread continuity is accepted (DONE) across three live trials:
+  each showed bounded prior-prose referent resolution followed by fresh graph
+  retrieval at the pinned revision as the factual authority. The acceptance
+  record is
   [`../Reports/HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG5-TRIPOD-DOGFOOD-2026-07-16.md).
-  Two more trials remain before aggregate Rung 5 acceptance.
+- The Rung 6 server-authoritative opaque pointer boundary, deterministic
+  contracts, and live lifecycle dogfood are accepted (PASS): accepted-pointer
+  continuation after full shutdown/reload, worker-PID change telemetry, fresh
+  graph retrieval, Thread B isolation, and invalid/expired recovery via
+  contract tests. The acceptance record is
+  [`../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md).
+  The real `AIAgent` wire-start environment failure remains a separate open item.
 
 ## Re-anchor decisions
 
@@ -141,12 +147,17 @@ are cleanup rather than product blockers:
 - replacement-owner decisions for deferred Live, planner, and Graph Review paths;
 - merge/landing of the continuity integration branch to `main`.
 
-The current branch is therefore **re-anchored for direction, initial cleanup, and
-S1 acceptance**. Phase 2 creative primitives are unblocked.
+The current branch is therefore **re-anchored for direction, initial cleanup,
+S1 acceptance, Rung 5 continuity DONE, and Rung 6 lifecycle PASS**. Phase 2
+creative primitives are unblocked; Rung 7 cumulative acceptance is the
+remaining PR010B infrastructure gate.
 
 ## Next gate
 
 Construct the smallest independently falsifiable `CreativeOperationSession`
 kernel for the S2 statblock proving domain. Do not reopen the rejected
 empty-graph abstention path, and do not add domain generators until the shared
-workflow boundary exists.
+workflow boundary exists. In parallel infrastructure work, take up Rung 7
+cumulative acceptance and replaced-path demolition; treat the real `AIAgent`
+wire-start environment failure and source-anchor readability as separate open
+items (not rung reopens).

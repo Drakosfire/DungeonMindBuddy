@@ -173,6 +173,7 @@ class LiveQueryRequest(BaseModel):
     manifest_path: str | None = None
     agent_thread_id: str | None = None
     hermes_session_id: str | None = None
+    hermes_session_pointer: str | None = None
     trace_requested: bool | None = None
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None
     conversation_history: Any | None = None
@@ -910,6 +911,7 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             query_backend=body.query_backend,
             agent_thread_id=body.agent_thread_id,
             hermes_session_id=body.hermes_session_id,
+            hermes_session_pointer=body.hermes_session_pointer,
             trace_requested=body.trace_requested,
             world_graph_context=body.world_graph_context,
             outer_campaign_id=body.campaign_id,

@@ -651,6 +651,7 @@ export function PlanAgentInteractionBar({
     const nextThread = agentInteraction.switchThread(threadId);
     if (!nextThread) return;
     activateThread(nextThread);
+    setThreadSwitcherOpen(false);
   }
 
   function saveRename() {
@@ -831,6 +832,7 @@ export function PlanAgentInteractionBar({
           ...(queryBackend === "hermes"
             ? {
                 conversationHistory: buildHermesConversationHistory(currentThread.turns),
+                hermesSessionPointer: currentThread.hermesSession?.sessionId ?? null,
               }
             : {}),
         },
@@ -847,7 +849,7 @@ export function PlanAgentInteractionBar({
         updatedAt: new Date().toISOString(),
         activeBackend: queryBackend,
         hermesSession: isHermesGraphAgentTurn
-          ? null
+          ? (response.hermes_session ?? currentThread.hermesSession ?? null)
           : (response.hermes_session ?? currentThread.hermesSession ?? null),
         turns: nextTurns,
         uiState: {

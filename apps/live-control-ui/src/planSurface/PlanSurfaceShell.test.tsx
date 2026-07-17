@@ -1011,6 +1011,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getAllByRole("button", { name: /Thread A question/i })[0]);
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
     expect(screen.queryByText("Answer for thread B")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "DungeonBuddy threads" })).not.toBeInTheDocument();
 
     const indexJson = localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID)) ?? "";
     expect(indexJson).toContain("Thread A question?");
@@ -1634,7 +1635,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText(/graph citations were dropped due to scope or revision mismatch/i)).toBeInTheDocument();
   });
 
-  it("clears stale hermesSession after Hermes graph submit and omits it from subsequent live asks", async () => {
+  it("persists the Hermes pointer after graph submit and forwards it on subsequent Hermes asks", async () => {
     const user = userEvent.setup();
     const staleSession = {
       sessionId: "stale-hermes-session-handle",
@@ -1642,7 +1643,7 @@ describe("PlanSurfaceShell", () => {
       title: "Stale Hermes session",
     };
     const seededThread = {
-      ...createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Stale session thread", FIXTURE_DOC_ID),
+      ...createAgentInteractionThread("longmont-c2", 22, "plan", "hermes", "Stale session thread", FIXTURE_DOC_ID),
       hermesSession: staleSession,
     };
     localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), seededThread.threadId);
@@ -1654,16 +1655,16 @@ describe("PlanSurfaceShell", () => {
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
           hermes_session: {
-            sessionId: "malformed-should-not-persist",
-            runtime: "api",
-            title: "Bad session from response",
+            sessionId: "hptr-server-approved",
+            runtime: "process_isolated",
+            title: null,
           },
         })),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({
-          answer: "Follow-up live answer.",
+          answer: "Follow-up Hermes answer.",
           classification: {},
           events_written: [],
           jobs_queued: [],
@@ -1687,15 +1688,16 @@ describe("PlanSurfaceShell", () => {
     const storedAfterGraph = JSON.parse(
       localStorage.getItem(threadStorageKey("longmont-c2", seededThread.threadId)) ?? "{}",
     );
-    expect(storedAfterGraph.hermesSession).toBeNull();
+    expect(storedAfterGraph.hermesSession.sessionId).toBe("hptr-server-approved");
 
-    await user.type(screen.getByLabelText("Question"), "Follow-up live question?");
+    await user.type(screen.getByLabelText("Question"), "Follow-up Hermes question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    expect(await screen.findByText("Follow-up live answer.")).toBeInTheDocument();
+    expect(await screen.findByText("Follow-up Hermes answer.")).toBeInTheDocument();
 
     const followUpCall = vi.mocked(globalThis.fetch).mock.calls[2];
     const followUpBody = JSON.parse(String(followUpCall[1]?.body));
-    expect(followUpBody.hermes_session_id).toBeNull();
+    expect(followUpBody.hermes_session_pointer).toBe("hptr-server-approved");
+    expect(followUpBody.hermes_session_id).toBeUndefined();
   });
 
   it("opens graph citations through the opaque source-anchor read route with pinned revision", async () => {

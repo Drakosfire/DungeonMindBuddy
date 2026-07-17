@@ -7,6 +7,41 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Steer Hermes away from thread-isolation / system-meta narration — captured 2026-07-16
+**Context:** Live Plan dogfood after Thread A/B isolation was proven. Hermes produced a response that was overly aware of thread boundaries / system mechanics instead of answering as a co-GM about campaign content.
+**Insight:** Thread isolation is a host/server invariant, not something the agent should narrate or reason about out loud. Over-awareness of “this thread,” “other conversations,” or continuity plumbing distracts from prep usefulness and leaks product internals into GM-facing prose.
+**Action:** When tuning Hermes prompts, add explicit steer: answer campaign questions from graph + admitted conversation history; do not discuss Agent Interaction threads, isolation, session pointers, or other system machinery unless the GM asks about the product itself. Prefer co-GM voice over meta-commentary.
+**Surfaces when:** Hermes prompt edits, Plan Agent Interaction dogfood, thread-switch isolation tests, answer-voice regressions, or co-GM tone review.
+**Refs:** `apps/live_control_server/services/hermes_graph_query.py`, Hermes graph-agent prompts/tools, `Docs/Design/UX-STORIES-hermes-campaign-authoring-foundation.md`, Plan-surface Thread A/B dogfood
+
+## [IDEA] Hermes prompt tuning + agent configuration deep dive — captured 2026-07-16
+**Context:** After Rung 5/6 dogfood and the thread-isolation meta-narration miss, Hermes product quality is gated as much by prompt/config as by retrieval contracts.
+**Insight:** Capability policy, tool instructions, system/prompt envelopes, answer-scope rules, and host configuration are currently under-audited relative to the graph/pointer work. A deliberate deep dive is needed before treating Hermes as a reliable co-GM.
+**Action:** Inventory Hermes agent configuration end-to-end (prompts, tool descriptions, capability policy, answer-scope / conversation-context rules, host/worker init knobs, model policy action). Propose a small prompt-tuning loop with falsifiable dogfood cases (including “no system-meta narration”) without expanding product scope into a second truth store.
+**Surfaces when:** Hermes answer quality feels off, editing Hermes prompts or capability policy, post-Rung dogfood tone issues, model-policy changes for Hermes, or planning the next Hermes usefulness slice after lifecycle gates.
+**Refs:** Hermes graph-agent host/worker, capability policy, `MODEL_POLICY.json`, `Docs/Design/ARCHITECTURE-hermes-campaign-authoring-foundation.md`, `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`
+
+## [IDEA] Benchmark Node ingestion with GPT-5.6 for cost comparison — captured 2026-07-16
+**Context:** Cost-consciousness discussion about comparing the Node-ingestion extraction path against GPT-5.6 without changing production defaults prematurely.
+**Insight:** A useful comparison needs the same corpus cohort, prompt/schema contract, retry policy, and trial count across models, with quality gates reported alongside input, output, cached-input, latency, and dollar costs.
+**Action:** Build a deterministic Node-ingestion benchmark that compares the current policy-selected model with the approved GPT-5.6 model identifier from `MODEL_POLICY.json`; emit per-run and aggregate extraction validity, semantic coverage, latency, token/cache usage, and estimated cost artifacts. Keep production model selection unchanged until the evidence is reviewed.
+**Surfaces when:** Node ingestion extraction, model-policy changes, cost benchmarking, structured-output regressions, or choosing a cheaper/faster extraction tier.
+**Refs:** `MODEL_POLICY.json`, `src/graph_memory`, `evals/graph_memory_layer`, `src/llm`
+
+## [IDEA] Audit prompt caching across the LLM pipeline — captured 2026-07-16
+**Context:** The GPT-5.6 cost comparison surfaced a broader need to inspect prompt-cache eligibility and cache-hit telemetry before judging model cost.
+**Insight:** Model price alone is incomplete: repeated stable instructions, schemas, and tool definitions should remain cacheable while dynamic corpus/session content is isolated to the changing suffix; unnecessary prompt-shape changes can silently erase cache savings.
+**Action:** Inventory every production LLM call from ingestion through Hermes/planner paths; record cache eligibility and cached-input usage, identify avoidable cache-busting fields, preserve stable-prefix ordering where supported, and add cost telemetry/tests without weakening prompts or leaking corpus data across scopes.
+**Surfaces when:** adding or changing an LLM call, reviewing model cost, changing prompt/schema/tool envelopes, or interpreting cached-token telemetry.
+**Refs:** `MODEL_POLICY.json`, `src/llm`, `src/graph_memory`, `apps/live_control_server`, `apps/live-control-ui`
+
+## [IDEA] Revision-aware evidence deduplication across graph turns — captured 2026-07-16
+**Context:** Hermes currently pins each turn and its tool events to a server-resolved graph revision. Claims are upserted by `claim_id` within one retrieval session, but there is no explicit cross-turn deduplication or telemetry keyed by conceptual identity plus revision.
+**Insight:** A stable `node_id` identifies a concept, not necessarily the same factual state. Evidence from the same node at a new revision must remain distinguishable so fresh retrieval is not mistaken for reuse.
+**Action:** Design server-side evidence identity and deduplication around `(object_id, revision_id)` where appropriate; preserve revision pinning and expose bounded decisions/counts such as new, reused-at-same-revision, and changed-revision evidence. Do not let deduplication turn prior graph context into current-turn authority.
+**Surfaces when:** implementing revision tracking, Hermes same-thread continuity, graph-reference presentation, retrieval-session claim ledgers, freshness telemetry, or cross-turn evidence reuse.
+**Refs:** `apps/live_control_server/services/hermes_graph_query.py`, `src/graph_memory/interaction/session.py`, `src/graph_memory/kernel/world_retrieval.py`, `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`
+
 ## [IDEA] Separate graph continuity from source-anchor readability in Hermes acceptance — captured 2026-07-16
 **Context:** Live Rung 5 Tripod trial 1. Hermes performed fresh `expand_graph_retrieval` after resolving “it,” but the response remained partial with `unreadable_source_anchors`.
 **Insight:** `unreadable_source_anchors` is an evidence-chain/readability signal, not proof that same-thread continuity or graph retrieval failed. Graph-native authored assertions may currently be marked unreadable because the source locator lacks the revision-bound digest authority required by the source reader.
@@ -114,7 +149,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Refs:** A10m PR E dogfood, `recap_projection.py` `_project_markdown_mentions`
 
-## [TODO] Graph Review relationship chips — make predicate copy GM-facing — captured 2026-07-08
+## [READY] Graph Review relationship chips — make predicate copy GM-facing — captured 2026-07-08
 
 **Context:** A10n selected-object dogfood showed merged survivor cards keep relationship context, but predicate labels still read like graph metadata (`travels_to`).
 
@@ -122,7 +157,7 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 **Refs:** A10n selected-object dogfood, `GraphReviewRelationshipChips.tsx`
 
-## [TODO] Graph Review selected object — open merged evidence from identity note — captured 2026-07-08
+## [READY] Graph Review selected object — open merged evidence from identity note — captured 2026-07-08
 
 **Context:** A10n dogfood showed the merged identity note explains that evidence was folded in, but there is no direct affordance from that note to Evidence / Source details.
 
@@ -139,6 +174,18 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Surfaces when:** Author Draft fullscreen workspace dogfood, relationship staging friction.
 
 **Refs:** A10h, `GraphReviewAuthoringRail.tsx`, `GraphReviewAuthorDraftWorkspace.tsx`
+
+## [READY] Graph Review inline hover/card consolidation — captured 2026-07-07
+
+**Context:** A10f moved selected-object actions into the node card and removed gold-fixture action copy from the normal selected-object path. The pill hover card and projected selected-object card still duplicate some summary content.
+
+**Insight:** Clicking a pill may still open an inline popover *and* a fuller selected-object dialog — two overlapping presentations of the same object. Actions and resolver ordering is improved, but hover vs projected card duplication remains.
+
+**Action:** Decide whether hover should become a tiny glance only, with the projected selected-object card as the sole full object surface.
+
+**Surfaces when:** `GraphReviewProjectionLane.tsx`, hover/popover components, any further Graph Review dogfood.
+
+**Refs:** `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`, A10f selected-object action card polish
 
 ## [IDEA] Editable recap draft mode — captured 2026-07-07
 
@@ -181,18 +228,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Action:** Mirror `HANDOFF-c1s1-candidate-graph-gold.md` for session 2 when compare-lane quality work needs a target.
 
 **Refs:** `Docs/Plans/HANDOFF-c1s1-candidate-graph-gold.md`, `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Stonebridge and Glowkindle Rats.md` (canonical filename mismatches its own subtitle "Finishing the Job" — likely copy-pasted from Session 1 during the dogfood; rename before treating as canon)
-
-## [READY] Graph Review inline hover/card consolidation — captured 2026-07-07
-
-**Context:** A10f moved selected-object actions into the node card and removed gold-fixture action copy from the normal selected-object path. The pill hover card and projected selected-object card still duplicate some summary content.
-
-**Insight:** Clicking a pill may still open an inline popover *and* a fuller selected-object dialog — two overlapping presentations of the same object. Actions and resolver ordering is improved, but hover vs projected card duplication remains.
-
-**Action:** Decide whether hover should become a tiny glance only, with the projected selected-object card as the sole full object surface.
-
-**Surfaces when:** `GraphReviewProjectionLane.tsx`, hover/popover components, any further Graph Review dogfood.
-
-**Refs:** `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`, A10f selected-object action card polish
 
 ## [IDEA] Tiptap-backed processed markdown reader with graph projection overlay — captured 2026-07-05
 
@@ -900,19 +935,6 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 
 **Refs:** `Docs/Experiments/STATUS-Session-Recap-Ingest-Benchmark.md` (C-gates table), `evals/session_recap_ingest_vertical_slice/step1_recap_ingest_run.py` (197–203, 228–232, 345–350), `src/agent/corpus_writer.py` (249–265, `new_corpus_fingerprint`), `evals/session_recap_ingest_vertical_slice/recap_ingest_run_report.py` (240–257), `evals/session_recap_ingest_vertical_slice/scope_b_grader.py`.
 
-## [INVESTIGATED] Recap-write — model leaves judgment fields empty under happy path despite SKILL guidance — captured 2026-04-21
-
-**Context:** Live Scope-B cohort N=3 on Session 20 (post B7/B9 wiring + post SKILL §6.5 addition guiding `unsure_queue` and `notes_for_gm` population) returned 0/3 PASS. The model emits `unsure_queue: null`, `notes_for_gm: ""` (or a single generic prep-doc sentence), AND `npc_audit.`* and `plot_artifacts` 0/0/0 across all 6 failing runs (zero attempts). The mechanical fields (`recap_preview`, `duplicate_paragraphs`, `prep_pointer_proposal`) are populated correctly.  
-**Insight (2026-04-21 investigation):** Four questions answered:
-
-- **SKILL §6.5 does NOT reach the planner LLM.** `build_corpus_session_planner_instructions` concatenates only `_SESSION_PLANNER_INSTRUCTIONS_TEMPLATE + _UNSURE_QUEUE_ADDENDUM + _WRITE_TOOLS_ADDENDUM`. SKILL.md is a Cursor-IDE-layer artifact gating parent-agent skill activation; it never reaches `gpt-5.4-mini`. Every prior assumption that "editing the SKILL fixes planner behavior" was wrong.
-- **B9 tokens (*`*Sara`**,** `Tealeaf`**,** `allowlist`**) were unachievable.** `Sara`/`Tealeaf` appear only in `NPCs/<slug>/README.md` and dossier files which the dispatch guard hard-blocks for recap-write. `allowlist` appears in zero corpus files (only in `_WRITE_TOOLS_ADDENDUM` itself). The model could never satisfy B9 from permitted reads.
-- **B7 gold was content-rigid.** Exact verbatim IDs (`tower_blueprint_placement` etc.), specific question regex, specific `default_summary` substrings — a model surfacing the same ambiguities under different (equally valid) slugs always fails.
-- **Root cause of** `unsure_queue: null`**:** `_UNSURE_QUEUE_ADDENDUM` (the only text actually reaching the model about `unsure_queue`) says *"Sparse: at most 4 items per turn; prefer 0 when you can proceed with high confidence"* — actively biasing the model to emit the empty output we see on the happy path.  
-**Status:** This commit (2026-04-21) makes B7/B9 **achievable in principle** by refactoring B7 to support `mode: "shape"` (no exact-ID rigidity) and replacing B9 tokens with names derivable from permitted reads (`Brambleback`, `Stuart`, `Stacey`, `Marla`). The canonical Session 20 scenario remains opted out (`require_unsure_queue: false`, `require_findings: false`) pending the architectural decisions in the two new READY entries below. The gold refactor does NOT re-enable the gates; it removes the blocks that made them permanently unachievable.  
-**Next steps:** See new entries `Recap-write planner — SKILL.md body has no injection path…` (architectural) and `Recap-write planner — _UNSURE_QUEUE_ADDENDUM "prefer 0" line contradicts B7…` (addendum/gold fork).  
-**Refs:** `.cursor/skills/recap-write/SKILL.md` §6 + §6.5 (dead text for planner), `src/prompts/corpus_session_planner.py` lines 197-222 (`build_corpus_session_planner_instructions`), `src/prompts/corpus_session_planner.py` lines 76-98 (`_UNSURE_QUEUE_ADDENDUM`), `evals/session_recap_ingest_vertical_slice/gold/scope_b_session_20_unsure_queue.json` (now `mode: "exact"` explicit + shape-mode example), `evals/session_recap_ingest_vertical_slice/gold/scope_b_session_20_findings.json` (refactored tokens), `evals/session_recap_ingest_vertical_slice/step3_unsure_queue_grading.py` (new shape mode).
-
 ## [READY] Recap-write planner — SKILL.md body has no injection path into planner instructions (architectural) — captured 2026-04-21
 
 **Context:** SKILL.md files in `.cursor/skills/<id>/SKILL.md` are read by the parent Cursor agent to gate skill activation but never reach the planner LLM (`gpt-5.4-mini`). The planner sees only `_SESSION_PLANNER_INSTRUCTIONS_TEMPLATE + _UNSURE_QUEUE_ADDENDUM + _WRITE_TOOLS_ADDENDUM` from `src/prompts/corpus_session_planner.py`. This means every prior assumption that "we can fix planner behavior by editing the SKILL" was wrong. Verified by reading `build_corpus_session_planner_instructions` (lines 197-222), `src/agent/skill_pipeline.py`, and `src/agent/planner_skill_dispatch_guards.py`.  
@@ -989,13 +1011,6 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Surfaces when:** any change to `_cmd_ingest`, `extract_facts_batch`, `OpenAIResponsesFactClient`, the fact extractor prompt, or D1 thresholds. Re-run `parity_experiment.py` after any such change.
 
 **Refs:** `evals/mirathorn_vertical_slice/parity_experiment.py`, `evals/mirathorn_vertical_slice/output/parity_experiment_20260420T214522Z/`, `src/cli.py:_cmd_ingest`, `src/ingestion/fact_extractor.py`, `src/ingestion/entity_extractor.py`, `evals/mirathorn_vertical_slice/eval_synthesis.py:33-44` (D1 floors).
-
-## [READY] CLI ingest vs direct fact-extractor parity gap — captured 2026-04-20 — SUPERSEDED BY ABOVE PHASE A ENTRY
-
-**Original hypothesis (now falsified by Phase A measurement above; kept for traceability):** CLI ingest yields ~289 facts vs direct ~441 facts → CLI drops 22–34% on same input.  
-**Why kept:** The current Phase A measurement contradicts the prior baseline numbers. Either (a) the corpus or extractor code drifted between the prior measurement and now, (b) the prior numbers came from a different model/version, or (c) the prior measurement counted something different (e.g. raw `extracted_facts.json` vs post-store). This entry documents the original observation so the historical record stays intact.  
-**Surfaces when:** New ingest CLI work; D1 threshold updates; any user report that "the CLI loses information vs direct ingest."  
-**Refs:** `evals/mirathorn_vertical_slice/eval_synthesis.py` (D1 baseline comment), `src/cli.py` ingest command, `src/ingestion/batch_pipeline.py`, `src/ingestion/fact_extractor.py` (`run_fact_extraction`), `evals/mirathorn_vertical_slice/output/phase_d_summary.json`, `evals/mirathorn_vertical_slice/output/extracted_facts.json`.
 
 ## [READY] Fact extractor batched call drops/duplicates `unit_index` slots — captured 2026-04-20
 

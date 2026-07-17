@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentInteractionTrace } from "../../api/types";
 import {
+  formatTraceConversationContextSummary,
   formatTraceForClipboard,
   formatTraceToolSummary,
   TraceDetailsPanel,
@@ -52,6 +53,18 @@ const pr354HermesTrace: AgentInteractionTrace = {
   warnings: [],
   prompt_preview: "RAW_PROMPT_SECRET should never render for graph agent traces",
 };
+
+const populatedConversationContext = {
+  history_present: true,
+  message_count: 6,
+  pair_count: 3,
+  payload_shape: "role_content_only",
+  graph_metadata_in_history: false,
+  hermes_session_pointer_in_request: true,
+  hermes_session_pointer_status: "accepted",
+  worker_pid_changed: false,
+  fresh_graph_revision_used: true,
+} as const;
 
 describe("TraceDetailsPanel", () => {
   afterEach(() => {
@@ -291,5 +304,138 @@ describe("TraceDetailsPanel", () => {
 
     expect(screen.getByText(/Prompt sent to Hermes/)).toBeInTheDocument();
     expect(screen.getByText("Legacy Hermes prompt body")).toBeInTheDocument();
+  });
+
+  it("shows Hermes conversation context telemetry in collapsed summary and expanded section", () => {
+    render(
+      <TraceDetailsPanel
+        trace={{
+          ...pr354HermesTrace,
+          conversation_context: populatedConversationContext,
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("plan-agent-trace-summary-meta")).toHaveTextContent(
+      /ctx: 6 msgs · 3 pairs · graph meta excluded · pointer: accepted · worker: same · graph: fresh/,
+    );
+    expect(screen.getByTestId("plan-agent-trace-conversation-context")).toBeInTheDocument();
+    expect(screen.getByText("Conversation context")).toBeInTheDocument();
+    expect(screen.getByText("History present")).toBeInTheDocument();
+    expect(screen.getByText("Message count")).toBeInTheDocument();
+    expect(screen.getByText("Pair count")).toBeInTheDocument();
+    expect(screen.getByText("Payload shape")).toBeInTheDocument();
+    expect(screen.getByText("Graph metadata in history")).toBeInTheDocument();
+    expect(screen.getByText("Hermes session pointer in request")).toBeInTheDocument();
+    expect(screen.getByText("Hermes session pointer status")).toBeInTheDocument();
+    expect(screen.getByText("Worker PID changed")).toBeInTheDocument();
+    expect(screen.getByText("Fresh graph revision used")).toBeInTheDocument();
+    expect(screen.getByText("accepted")).toBeInTheDocument();
+    expect(screen.getByText("role_content_only")).toBeInTheDocument();
+    const yesValues = screen.getAllByText("yes");
+    const noValues = screen.getAllByText("no");
+    expect(yesValues.length).toBeGreaterThanOrEqual(2);
+    expect(noValues.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows explicit no-history state in collapsed summary when history_present is false", () => {
+    render(
+      <TraceDetailsPanel
+        trace={{
+          ...pr354HermesTrace,
+          conversation_context: {
+            ...populatedConversationContext,
+            history_present: false,
+            message_count: 0,
+            pair_count: 0,
+            hermes_session_pointer_status: "absent",
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("plan-agent-trace-summary-meta")).toHaveTextContent(
+      /ctx: no history · pointer: absent · worker: same · graph: fresh/,
+    );
+    expect(screen.getByTestId("plan-agent-trace-conversation-context")).toBeInTheDocument();
+    expect(screen.getByText("History present")).toBeInTheDocument();
+    expect(screen.getAllByText("no").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("includes conversation context telemetry in clipboard output without prose", () => {
+    const text = formatTraceForClipboard(
+      {
+        ...pr354HermesTrace,
+        conversation_context: populatedConversationContext,
+      },
+      {
+        answer: "Tripod stands at the North Gate.",
+        toolEvents: pr354HermesTrace.tool_events ?? [],
+        skippedToolEvents: 0,
+      },
+    );
+
+    expect(text).toContain("Conversation context");
+    expect(text).toContain("history_present: yes");
+    expect(text).toContain("message_count: 6");
+    expect(text).toContain("pair_count: 3");
+    expect(text).toContain("payload_shape: role_content_only");
+    expect(text).toContain("graph_metadata_in_history: no");
+    expect(text).toContain("hermes_session_pointer_in_request: yes");
+    expect(text).toContain("hermes_session_pointer_status: accepted");
+    expect(text).toContain("worker_pid_changed: no");
+    expect(text).toContain("fresh_graph_revision_used: yes");
+    expect(text).not.toContain("RAW_PROMPT_SECRET");
+  });
+
+  it("formatTraceConversationContextSummary handles populated and no-history states", () => {
+    expect(
+      formatTraceConversationContextSummary(populatedConversationContext, {
+        isHermesGraphAgent: true,
+      }),
+    ).toBe("ctx: 6 msgs · 3 pairs · graph meta excluded · pointer: accepted · worker: same · graph: fresh");
+    expect(
+      formatTraceConversationContextSummary(
+        { ...populatedConversationContext, graph_metadata_in_history: true },
+        { isHermesGraphAgent: true },
+      ),
+    ).toBe("ctx: 6 msgs · 3 pairs · graph meta in history · pointer: accepted · worker: same · graph: fresh");
+    expect(
+      formatTraceConversationContextSummary(
+        { ...populatedConversationContext, history_present: false },
+        { isHermesGraphAgent: true },
+      ),
+    ).toBe("ctx: no history · pointer: accepted · worker: same · graph: fresh");
+    expect(formatTraceConversationContextSummary(null, { isHermesGraphAgent: true })).toBe("");
+    expect(
+      formatTraceConversationContextSummary(populatedConversationContext, {
+        isHermesGraphAgent: false,
+      }),
+    ).toBe("");
+  });
+
+  it("omits conversation context UI when telemetry is absent or malformed", () => {
+    const { rerender } = render(<TraceDetailsPanel trace={pr354HermesTrace} />);
+
+    expect(screen.getByTestId("plan-agent-trace-summary-meta")).toHaveTextContent(
+      /hermes · process_isolated · ok · 42ms · tools: search_campaign_graph/,
+    );
+    expect(screen.queryByTestId("plan-agent-trace-conversation-context")).not.toBeInTheDocument();
+    expect(screen.queryByText("Conversation context")).not.toBeInTheDocument();
+
+    rerender(
+      <TraceDetailsPanel
+        trace={{
+          ...pr354HermesTrace,
+          conversation_context: {
+            history_present: true,
+            message_count: "not-a-number",
+          } as never,
+        }}
+      />,
+    );
+
+    expect(screen.queryByTestId("plan-agent-trace-conversation-context")).not.toBeInTheDocument();
+    expect(screen.getByTestId("plan-agent-trace-summary-meta")).not.toHaveTextContent(/ctx:/);
   });
 });

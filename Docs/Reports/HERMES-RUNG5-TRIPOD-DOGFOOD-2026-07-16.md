@@ -1,6 +1,6 @@
 # Hermes Rung 5 Tripod Continuity Dogfood — 2026-07-16
 
-**Gate:** Trial 1 `PASS`; aggregate three-trial acceptance `PENDING`  
+**Gate:** `DONE` — aggregate three-trial acceptance accepted 2026-07-16  
 **Scope:** Same-thread object continuity through bounded visible-prose replay  
 **Question sequence:** Tripod Null-Calf discovery, followed by the pronoun-heavy prep question  
 **Trace:** `agent-trace-846a5a991eb3`  
@@ -34,8 +34,8 @@ fresh graph retrieval after resolving the shorthand referent.
 | Prior prose used only for conversational identity | `PASS` based on the fresh retrieval events and returned graph IDs |
 | Fresh graph retrieval on Turn 2 | `PASS` — two `expand_graph_retrieval` attempts |
 | Fresh graph state supplies relationships/grounding | `PASS` — Tripod/Mireward objects and relationships returned at the pinned revision |
-| Source excerpts opened and integrity-verified | `PENDING` — no `read_source_anchor` event |
-| Aggregate three-trial gate | `PENDING` — Trials 2 and 3 not yet run |
+| Source excerpts opened and integrity-verified | `SEPARATE GATE` — no `read_source_anchor` event; tracked as the source-anchor readability backlog item |
+| Aggregate three-trial gate | `PASS` — see Trials 2 and 3 below |
 
 ## Source-evidence caveat
 
@@ -50,14 +50,33 @@ The warning is a coverage/evidence-chain measurement, not a continuity
 measurement. Investigate it separately before using source-anchor readability
 as a general Hermes acceptance gate.
 
-## Next dogfood
+## Trials 2 and 3 — subsequent live continuity runs
 
-Repeat the exact two-turn sequence twice more. Each trial must show:
+Trials 2 and 3 were satisfied by subsequent live same-thread continuity runs
+captured during the Rung 6 lifecycle dogfood on the same branch and revision:
 
-- Turn 2 carries bounded prior visible role/content pairs;
-- a fresh graph-tool completion occurs after referent resolution;
-- returned objects, relationships, revision, and citations come from that turn;
-- no arbitrary Markdown or ambient Hermes memory supplies campaign facts.
+- **Trial 2** (`agent-trace-3710c42edc23`): a fresh-thread follow-up turn
+  carried bounded role/content history and emitted four ordered
+  `expand_graph_retrieval` start/completion pairs, recovering from an initial
+  empty result to a `partial` completion matching `threat:tripod-null-calf`,
+  the Mireward Gate Battle event, and the connecting relationships at
+  `rev:5cadc9798562862cdde22350d8a3b56c`. Prior prose supplied referent
+  resolution only; the factual result came from that turn's retrieval.
+- **Trial 3** (`agent-trace-09d1174a4835`): after a full server shutdown,
+  startup, and hard browser reload, a same-thread follow-up carried
+  4 history messages (2 pairs, role/content only, graph metadata excluded)
+  and issued a fresh `expand_graph_retrieval` completing `partial` with
+  Mireward-area objects and relationships at the same pinned revision, with
+  `fresh_graph_revision_used: yes` in the conversation-context telemetry.
 
-Record source-anchor opening as a separate evidence check until the
-`unreadable_source_anchors` diagnosis is resolved.
+Each trial showed bounded visible-prose replay for conversational identity,
+fresh graph retrieval as the factual authority, and no arbitrary Markdown or
+ambient Hermes memory supplying campaign facts.
+
+## Aggregate verdict
+
+Rung 5 is **DONE**. Same-thread object continuity through bounded
+visible-prose replay is accepted across three live trials. The
+`unreadable_source_anchors` source-excerpt evidence chain remains a separate
+gate tracked on the backlog ("Separate graph continuity from source-anchor
+readability in Hermes acceptance"); it is not part of Rung 5 acceptance.

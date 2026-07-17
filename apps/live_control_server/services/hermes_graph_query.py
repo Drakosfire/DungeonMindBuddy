@@ -25,6 +25,12 @@ from apps.live_control_server.services.hermes_graph_agent_host import (
     HermesGraphAgentHost,
     get_hermes_graph_agent_host,
 )
+from apps.live_control_server.services.hermes_session_store import (
+    HermesPointerResolution,
+    HermesSessionPointerBinding,
+    HermesSessionPointerError,
+    HermesSessionPointerStore,
+)
 from graph_memory.hermes_graph_plugin import HERMES_GRAPH_READ_TOOL_NAMES
 from graph_memory.interaction.answer_validator import (
     ABSTENTION_ANSWER as CLAIM_ABSTENTION_ANSWER,
@@ -207,6 +213,7 @@ def validate_hermes_query_inputs(
     world_graph_context: Any | None,
     request_manifest_path: str | None,
     hermes_session_id: str | None,
+    hermes_session_pointer: str | None = None,
     outer_campaign_id: str | None,
 ) -> None:
     """Reject Hermes-incompatible request fields before host access."""
@@ -234,8 +241,14 @@ def validate_hermes_query_inputs(
         )
     if hermes_session_id is not None:
         raise HermesGraphQueryRequestError(
-            "Hermes continuity (hermes_session_id) is not supported in this slice.",
+            "Hermes graph queries do not accept legacy hermes_session_id; "
+            "use hermes_session_pointer.",
             code="hermes_continuity_not_supported",
+        )
+    if hermes_session_pointer is not None and not str(hermes_session_pointer).strip():
+        raise HermesGraphQueryRequestError(
+            "hermes_session_pointer must be a non-empty string when provided.",
+            code="hermes_session_pointer_invalid",
         )
 
 
@@ -276,6 +289,7 @@ def build_hermes_graph_turn_request(
     corpus_root: Path | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
+    continuity_session_id: str | None = None,
 ) -> tuple[HermesGraphAgentTurnRequest, _DispatchedScope]:
     """Translate resolved World Graph context into one host turn request."""
     from apps.live_control_server.config import repo_root as default_repo_root
@@ -346,7 +360,7 @@ def build_hermes_graph_turn_request(
         admissibility=admissibility,
         revision_pin=revision_id,
         conversation_history=history_copy,
-        session_id=None,
+        session_id=(continuity_session_id or None),
         root=graph_root,
         capability_policy=None,
         retrieval_session_id=session.id,
@@ -879,6 +893,10 @@ def _agent_trace(
     elapsed_ms: int,
     scope: _DispatchedScope | None = None,
     validator_path: str | None = None,
+    conversation_history: Sequence[Mapping[str, str]] | None = None,
+    pointer_resolution: HermesPointerResolution | None = None,
+    worker_pid_changed: bool = False,
+    fresh_graph_revision_used: bool = True,
 ) -> dict[str, Any]:
     status = {
         "grounded": "ok",
@@ -893,6 +911,15 @@ def _agent_trace(
         if scope is not None
         else 0
     )
+    history_count = len(conversation_history or [])
+    resolution = pointer_resolution or HermesPointerResolution(
+        continuity_session_id=None,
+        pointer_status="absent",
+        pointer_in_request=False,
+    )
+    trace_warnings = list(warnings)
+    if resolution.recovery_message:
+        trace_warnings.append(resolution.recovery_message)
     return {
         "trace_id": _new_trace_id(),
         "runtime": RUNTIME,
@@ -911,12 +938,23 @@ def _agent_trace(
         "artifact_refs": [],
         # Additive for PR355 graph-trace presentation.
         "tool_events": list(tool_events),
-        "warnings": list(warnings),
+        "warnings": trace_warnings,
         "answer_scope": result.answer_scope,
         "tool_event_count": len(raw_events),
         "evidence_event_count": evidence_count,
         "final_response_present": bool((result.final_response or "").strip()),
         "validator_path": validator_path,
+        "conversation_context": {
+            "history_present": history_count > 0,
+            "message_count": history_count,
+            "pair_count": history_count // 2,
+            "payload_shape": "role_content_only",
+            "graph_metadata_in_history": False,
+            "hermes_session_pointer_in_request": resolution.pointer_in_request,
+            "hermes_session_pointer_status": resolution.pointer_status,
+            "worker_pid_changed": worker_pid_changed,
+            "fresh_graph_revision_used": fresh_graph_revision_used,
+        },
     }
 
 
@@ -926,6 +964,72 @@ def _top_level_status(state: GroundingState) -> str:
     if state in {"partial", "abstained"}:
         return "partial"
     return "error"
+
+
+def _hermes_session_handle(binding: HermesSessionPointerBinding | None) -> dict[str, Any] | None:
+    if binding is None:
+        return None
+    return {
+        "sessionId": binding.pointer_id,
+        "runtime": RUNTIME,
+        "title": None,
+        "createdAt": binding.created_at,
+        "updatedAt": binding.updated_at,
+    }
+
+
+def _host_worker_pid(host: HermesGraphAgentHost) -> int | None:
+    worker_pid = getattr(host, "worker_pid", None)
+    if callable(worker_pid):
+        pid = worker_pid()
+        return pid if isinstance(pid, int) else None
+    return worker_pid if isinstance(worker_pid, int) else None
+
+
+def _resolve_pointer_for_turn(
+    store: HermesSessionPointerStore | None,
+    *,
+    campaign_id: str,
+    agent_thread_id: str | None,
+    hermes_session_pointer: str | None,
+) -> HermesPointerResolution:
+    if store is None:
+        return HermesPointerResolution(
+            continuity_session_id=None,
+            pointer_status="absent",
+            pointer_in_request=bool(str(hermes_session_pointer or "").strip()),
+        )
+    try:
+        return store.resolve_for_request(
+            campaign_id=campaign_id,
+            agent_thread_id=agent_thread_id,
+            pointer_id=hermes_session_pointer,
+        )
+    except HermesSessionPointerError as exc:
+        raise HermesGraphQueryRequestError(str(exc), code=exc.code) from exc
+
+
+def _persist_pointer_after_turn(
+    store: HermesSessionPointerStore | None,
+    *,
+    campaign_id: str,
+    agent_thread_id: str | None,
+    hermes_session_id: str,
+    worker_pid: int | None,
+    existing_pointer_id: str | None,
+) -> HermesSessionPointerBinding | None:
+    if store is None or not agent_thread_id:
+        return None
+    normalized = str(hermes_session_id or "").strip()
+    if not normalized:
+        return None
+    return store.upsert_after_turn(
+        campaign_id=campaign_id,
+        agent_thread_id=agent_thread_id,
+        hermes_session_id=normalized,
+        worker_pid=worker_pid,
+        existing_pointer_id=existing_pointer_id,
+    )
 
 
 def _scope_from_unavailable_envelope(graph_envelope: Mapping[str, Any]) -> _DispatchedScope:
@@ -949,6 +1053,7 @@ def build_hermes_graph_unavailable_response(
     started_at: str | None = None,
     completed_at: str | None = None,
     elapsed_ms: int = 0,
+    conversation_history: Sequence[Mapping[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Typed product error when the resolved graph is unavailable — no host call."""
     started = started_at or _utc_now_z()
@@ -1011,6 +1116,7 @@ def build_hermes_graph_unavailable_response(
             completed_at=completed,
             elapsed_ms=elapsed_ms,
             validator_path="no_session_fallback",
+            conversation_history=conversation_history,
         ),
         "agent_thread_id": agent_thread_id,
         "turn_id": turn_id,
@@ -1032,6 +1138,10 @@ def build_hermes_graph_product_response(
     world_graph_context: Mapping[str, Any] | None = None,
     retrieval_session: GraphRetrievalSession | None = None,
     corpus_root: Path | None = None,
+    conversation_history: Sequence[Mapping[str, str]] | None = None,
+    pointer_resolution: HermesPointerResolution | None = None,
+    worker_pid_changed: bool = False,
+    pointer_binding: HermesSessionPointerBinding | None = None,
 ) -> dict[str, Any]:
     # Project once behind a safe boundary; reuse for classification and trace.
     projected_events, saw_mismatch, projection_ok = _safe_projected_tool_events(
@@ -1144,10 +1254,14 @@ def build_hermes_graph_product_response(
             elapsed_ms=elapsed_ms,
             scope=scope,
             validator_path=str(acceptance.get("validator_path") or "") or None,
+            conversation_history=conversation_history,
+            pointer_resolution=pointer_resolution,
+            worker_pid_changed=worker_pid_changed,
+            fresh_graph_revision_used=True,
         ),
         "agent_thread_id": agent_thread_id,
         "turn_id": turn_id,
-        "hermes_session": None,
+        "hermes_session": _hermes_session_handle(pointer_binding),
         "retrieval_session_id": result.retrieval_session_id,
     }
     if latest_recap_change is not None:
@@ -1190,6 +1304,8 @@ def run_hermes_graph_query(
     corpus_root: Path | None = None,
     host_factory: HostFactory | None = None,
     conversation_history: Any | None = None,
+    session_base: Path | None = None,
+    hermes_session_pointer: str | None = None,
 ) -> dict[str, Any]:
     """Execute one authoritative Hermes graph turn and return a product envelope.
 
@@ -1211,15 +1327,37 @@ def run_hermes_graph_query(
             graph_envelope=graph_envelope,
             agent_thread_id=agent_thread_id,
             turn_id=turn_id,
+            conversation_history=normalized_history,
         )
 
     resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
+    campaign_id = str(graph_envelope.get("campaign_id") or "").strip()
+    pointer_store = (
+        HermesSessionPointerStore(session_base)
+        if session_base is not None
+        else None
+    )
+    prior_binding = (
+        pointer_store.get_for_thread(
+            campaign_id=campaign_id,
+            agent_thread_id=agent_thread_id,
+        )
+        if pointer_store is not None and agent_thread_id
+        else None
+    )
+    pointer_resolution = _resolve_pointer_for_turn(
+        pointer_store,
+        campaign_id=campaign_id,
+        agent_thread_id=agent_thread_id,
+        hermes_session_pointer=hermes_session_pointer,
+    )
     request, scope = build_hermes_graph_turn_request(
         question=text,
         graph_envelope=graph_envelope,
         root=root,
         corpus_root=resolved_corpus_root,
         conversation_history=normalized_history,
+        continuity_session_id=pointer_resolution.continuity_session_id,
     )
     factory = host_factory or get_hermes_graph_agent_host
     host = factory()
@@ -1228,6 +1366,33 @@ def run_hermes_graph_query(
     result = host.execute(request)
     completed_at = _utc_now_z()
     elapsed_ms = max(0, int((time.monotonic() - started_mono) * 1000))
+    worker_pid = _host_worker_pid(host)
+    worker_pid_changed = (
+        pointer_store.worker_pid_changed(prior_binding, worker_pid)
+        if pointer_store is not None
+        else False
+    )
+    if (
+        pointer_store is not None
+        and agent_thread_id
+        and pointer_resolution.pointer_status == "recovered"
+    ):
+        pointer_store.clear_for_thread(
+            campaign_id=campaign_id,
+            agent_thread_id=agent_thread_id,
+        )
+    pointer_binding = _persist_pointer_after_turn(
+        pointer_store,
+        campaign_id=campaign_id,
+        agent_thread_id=agent_thread_id,
+        hermes_session_id=result.hermes_session_id,
+        worker_pid=worker_pid,
+        existing_pointer_id=(
+            prior_binding.pointer_id
+            if prior_binding is not None and pointer_resolution.pointer_status == "accepted"
+            else None
+        ),
+    )
     return build_hermes_graph_product_response(
         packet=packet,
         result=result,
@@ -1239,6 +1404,10 @@ def run_hermes_graph_query(
         elapsed_ms=elapsed_ms,
         world_graph_context=graph_envelope,
         corpus_root=resolved_corpus_root,
+        conversation_history=normalized_history,
+        pointer_resolution=pointer_resolution,
+        worker_pid_changed=worker_pid_changed,
+        pointer_binding=pointer_binding,
     )
 
 

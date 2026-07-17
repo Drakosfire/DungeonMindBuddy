@@ -653,6 +653,7 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
 
     await postLiveQuery("Who is Glowkindle?", "longmont-c2", 22, "hermes", {
       hermesSessionId: "hermes-session-should-not-send",
+      hermesSessionPointer: "hptr-should-send",
       agentThreadId: "thread-1",
       traceRequested: true,
     });
@@ -669,6 +670,7 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
       text: "Who is Glowkindle?",
       agent_thread_id: "thread-1",
       trace_requested: true,
+      hermes_session_pointer: "hptr-should-send",
     });
   });
 
