@@ -31,6 +31,7 @@ describe("ChatModule", () => {
         "Weather 7. Caelynn Nature 19.",
         "longmont-c2",
         22,
+        "live",
       );
     });
 

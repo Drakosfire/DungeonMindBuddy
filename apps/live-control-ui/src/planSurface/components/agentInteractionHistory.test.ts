@@ -14,6 +14,7 @@ import {
   deleteAgentThread,
   loadAgentThreadById,
   loadAgentThreadIndex,
+  normalizePlanAgentBackend,
   persistAgentThread,
   persistAgentThreadIndex,
   renameAgentThread,
@@ -104,6 +105,20 @@ describe("agentInteractionHistory", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
+  });
+
+  it("forces Plan threads to Hermes even when constructed or persisted as Live", () => {
+    const created = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Forced");
+    expect(created.activeBackend).toBe("hermes");
+
+    const legacy: AgentInteractionThread = {
+      ...created,
+      activeBackend: "live",
+    };
+    persistAgentThread({ ...legacy, threadId: "legacy-live" });
+    const loaded = loadAgentThreadById("longmont-c2", "legacy-live");
+    expect(loaded?.activeBackend).toBe("hermes");
+    expect(normalizePlanAgentBackend(legacy).activeBackend).toBe("hermes");
   });
 
   it("load empty index returns valid empty index", () => {

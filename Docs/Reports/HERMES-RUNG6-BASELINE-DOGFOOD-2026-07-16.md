@@ -86,4 +86,4 @@ These remain open but do **not** block the Rung 6 lifecycle gate:
 
 Rung 6 is **PASS** for the durable Hermes session-pointer and reload/process lifecycle gate.
 This remains distinct from Rung 4C display persistence and Rung 5 same-thread prose continuity.
-Rung 5 same-thread continuity is separately accepted (DONE); Rung 7 cumulative product acceptance remains open.
+Rung 5 same-thread continuity is separately accepted (DONE); Rung 7 cumulative product acceptance is separately accepted (PASS).

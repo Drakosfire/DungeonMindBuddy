@@ -10,6 +10,7 @@ export {
   loadAgentThread,
   loadAgentThreadById,
   loadAgentThreadIndex,
+  normalizePlanAgentBackend,
   persistAgentThread,
   persistAgentThreadIndex,
   renameAgentThread,

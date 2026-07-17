@@ -15,7 +15,6 @@ import type {
   HermesGraphGrounding,
   IngestionSourceBundle,
   LegacyPathCitation,
-  LiveQueryBackend,
   LiveQueryResponse,
   PlanViewProjection,
   SourceUnit,
@@ -459,7 +458,6 @@ export function PlanAgentInteractionBar({
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<IngestionSourceBundle | null>(null);
   const [question, setQuestion] = useState("");
-  const [queryBackend, setQueryBackend] = useState<LiveQueryBackend>("hermes");
   const [askStatus, setAskStatus] = useState<AskStatus>("idle");
   const [askError, setAskError] = useState<string | null>(null);
   const thread = agentInteraction.activeThread;
@@ -524,7 +522,6 @@ export function PlanAgentInteractionBar({
       return;
     }
     setActiveTurnId(thread.uiState?.scrollAnchorTurnId ?? thread.turns[0]?.turnId ?? null);
-    setQueryBackend(thread.activeBackend);
   }, [thread]);
 
   useEffect(() => {
@@ -568,7 +565,6 @@ export function PlanAgentInteractionBar({
 
   function activateThread(nextThread: AgentInteractionThread | null) {
     setActiveTurnId(nextThread?.uiState?.scrollAnchorTurnId ?? nextThread?.turns[0]?.turnId ?? null);
-    if (nextThread) setQueryBackend(nextThread.activeBackend);
     resetSourceReader();
     setTurnResponses({});
     setAskStatus("idle");
@@ -624,7 +620,7 @@ export function PlanAgentInteractionBar({
       sessionDescriptor.campaignId,
       querySession,
       "plan",
-      queryBackend,
+      "hermes",
       "New prep thread",
       planningDocumentId,
     );
@@ -659,7 +655,7 @@ export function PlanAgentInteractionBar({
       sessionDescriptor.campaignId,
       querySession,
       "plan",
-      queryBackend,
+      "hermes",
       "New prep thread",
       planningDocumentId,
     );
@@ -809,7 +805,7 @@ export function PlanAgentInteractionBar({
         sessionDescriptor.campaignId,
         querySession,
         "plan",
-        queryBackend,
+        "hermes",
         threadTitleFromQuestion(trimmed),
         planningDocumentId,
       );
@@ -817,27 +813,20 @@ export function PlanAgentInteractionBar({
         trimmed,
         sessionDescriptor.campaignId,
         querySession,
-        queryBackend,
+        "hermes",
         {
           agentThreadId: currentThread.threadId,
-          ...(queryBackend === "live"
-            ? { hermesSessionId: currentThread.hermesSession?.sessionId ?? null }
-            : {}),
           traceRequested: currentThread.uiState?.traceVisible ?? false,
           worldGraphContext: planWorldGraphContext && projectionState !== "loading"
             ? buildPlanAgentWorldGraphQueryContextRequest(planWorldGraphContext, {
                 revisionPin: projection?.snapshot.revisionId ?? null,
               })
             : null,
-          ...(queryBackend === "hermes"
-            ? {
-                conversationHistory: buildHermesConversationHistory(currentThread.turns),
-                hermesSessionPointer: currentThread.hermesSession?.sessionId ?? null,
-              }
-            : {}),
+          conversationHistory: buildHermesConversationHistory(currentThread.turns),
+          hermesSessionPointer: currentThread.hermesSession?.sessionId ?? null,
         },
       );
-      const nextTurn = turnFromResponse(trimmed, response, queryBackend);
+      const nextTurn = turnFromResponse(trimmed, response, "hermes");
       const nextTurns = [nextTurn, ...turns].slice(0, AGENT_TURN_HISTORY_CAP);
       const isHermesGraphAgentTurn = response.mode === "hermes_graph_agent"
         || response.agent_trace?.mode === "hermes_graph_agent";
@@ -847,7 +836,7 @@ export function PlanAgentInteractionBar({
         threadId: response.agent_thread_id ?? currentThread.threadId,
         title: currentThread.turns.length ? currentThread.title : threadTitleFromQuestion(trimmed),
         updatedAt: new Date().toISOString(),
-        activeBackend: queryBackend,
+        activeBackend: "hermes",
         hermesSession: isHermesGraphAgentTurn
           ? (response.hermes_session ?? currentThread.hermesSession ?? null)
           : (response.hermes_session ?? currentThread.hermesSession ?? null),
@@ -929,7 +918,7 @@ export function PlanAgentInteractionBar({
                     <li key={summary.threadId} data-active={summary.threadId === thread?.threadId}>
                       <button type="button" onClick={() => switchThread(summary.threadId)}>
                         <strong>{summary.title}</strong>
-                        <span>{summary.turnCount} turns · {summary.activeBackend} · updated {new Date(summary.updatedAt).toLocaleString()}</span>
+                        <span>{summary.turnCount} turns · updated {new Date(summary.updatedAt).toLocaleString()}</span>
                       </button>
                       <button type="button" onClick={() => deleteThread(summary.threadId)} aria-label={`Delete ${summary.title}`}>
                         Delete
@@ -1338,9 +1327,7 @@ export function PlanAgentInteractionBar({
             {hasSupportedGraphContext && projectionState === "error" ? (
               <p className="plan-agent-warning">
                 World graph projection error: {projectionError ?? "unknown error"}.
-                {queryBackend === "hermes"
-                  ? " The server will resolve the authoritative revision for Hermes graph queries."
-                  : " Query will continue with an unpinned revision."}
+                The server will resolve the authoritative revision for Hermes graph queries.
               </p>
             ) : null}
             <button
@@ -1358,7 +1345,7 @@ export function PlanAgentInteractionBar({
                   sessionDescriptor.campaignId,
                   querySession,
                   "plan",
-                  queryBackend,
+                  "hermes",
                   "New prep thread",
                   planningDocumentId,
                 );

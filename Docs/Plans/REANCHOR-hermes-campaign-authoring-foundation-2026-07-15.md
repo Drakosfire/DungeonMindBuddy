@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 **Scope:** Hermes workstream and current implementation branch
-**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 continuity DONE; Rung 6 session-pointer lifecycle PASS
+**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5–7 PASS; PR010B cumulatively accepted; PR011 READY
 **Related plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md)
 **Active design index:** [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md)
 
@@ -41,6 +41,13 @@ statblock promotion are complete.
   contract tests. The acceptance record is
   [`../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG6-BASELINE-DOGFOOD-2026-07-16.md).
   The real `AIAgent` wire-start environment failure remains a separate open item.
+- Rung 7 cumulative Plan Hermes acceptance and Plan Hermes-only demolition are
+  accepted (PASS): Hermes is the only Plan Agent Interaction backend; legacy
+  Live Plan threads migrate on load; coverage-gap abstention / no Live fallback
+  are proven by product-path contracts; Turns 1–2 and reload harvest Rung 5/6
+  live evidence. The acceptance record is
+  [`../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md`](../Reports/HERMES-RUNG7-CUMULATIVE-DOGFOOD-2026-07-16.md).
+  PR011 is unblocked.
 
 ## Re-anchor decisions
 
@@ -148,16 +155,16 @@ are cleanup rather than product blockers:
 - merge/landing of the continuity integration branch to `main`.
 
 The current branch is therefore **re-anchored for direction, initial cleanup,
-S1 acceptance, Rung 5 continuity DONE, and Rung 6 lifecycle PASS**. Phase 2
-creative primitives are unblocked; Rung 7 cumulative acceptance is the
-remaining PR010B infrastructure gate.
+S1 acceptance, and PR010B Rungs 5–7 PASS**. Phase 2 creative primitives and
+PR011 infrastructure are unblocked. Merge/landing of this continuity branch to
+`main` remains a Phase 0 follow-up.
 
 ## Next gate
 
 Construct the smallest independently falsifiable `CreativeOperationSession`
 kernel for the S2 statblock proving domain. Do not reopen the rejected
 empty-graph abstention path, and do not add domain generators until the shared
-workflow boundary exists. In parallel infrastructure work, take up Rung 7
-cumulative acceptance and replaced-path demolition; treat the real `AIAgent`
+workflow boundary exists. In parallel infrastructure work, begin PR011
+(app-level context + governed tool runtime); treat the real `AIAgent`
 wire-start environment failure and source-anchor readability as separate open
 items (not rung reopens).

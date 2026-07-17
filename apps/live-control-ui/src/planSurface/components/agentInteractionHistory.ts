@@ -68,6 +68,16 @@ export function threadTitleFromQuestion(question: string): string {
   return trimmed.length > 56 ? `${trimmed.slice(0, 53)}…` : trimmed;
 }
 
+/** Plan Agent Interaction is Hermes-only (Rung 7). Live remains for /surface ChatModule. */
+export function normalizePlanAgentBackend(
+  thread: AgentInteractionThread,
+): AgentInteractionThread {
+  if (thread.surfaceId !== "plan" || thread.activeBackend === "hermes") {
+    return thread;
+  }
+  return { ...thread, activeBackend: "hermes" };
+}
+
 export function createAgentInteractionThread(
   campaignId: string,
   session: number,
@@ -77,6 +87,7 @@ export function createAgentInteractionThread(
   documentId?: string | null,
 ): AgentInteractionThread {
   const now = new Date().toISOString();
+  const resolvedBackend: LiveQueryBackend = surfaceId === "plan" ? "hermes" : backend;
   return {
     threadId: newId("agent-thread"),
     title,
@@ -86,7 +97,7 @@ export function createAgentInteractionThread(
     session,
     documentId: documentId ?? null,
     surfaceId,
-    activeBackend: backend,
+    activeBackend: resolvedBackend,
     hermesSession: null,
     turns: [],
     uiState: { traceVisible: true, scrollAnchorTurnId: null, newThreadSuggestionDismissed: false },
@@ -109,14 +120,15 @@ function emptyThreadIndex(
 }
 
 function summarizeThread(thread: AgentInteractionThread): AgentInteractionThreadSummary {
+  const normalized = normalizePlanAgentBackend(thread);
   return {
-    threadId: thread.threadId,
-    title: thread.title || "New prep thread",
-    createdAt: thread.createdAt,
-    updatedAt: thread.updatedAt,
-    turnCount: thread.turns.length,
-    activeBackend: thread.activeBackend,
-    hermesSessionId: thread.hermesSession?.sessionId ?? null,
+    threadId: normalized.threadId,
+    title: normalized.title || "New prep thread",
+    createdAt: normalized.createdAt,
+    updatedAt: normalized.updatedAt,
+    turnCount: normalized.turns.length,
+    activeBackend: normalized.activeBackend,
+    hermesSessionId: normalized.hermesSession?.sessionId ?? null,
   };
 }
 
@@ -601,13 +613,13 @@ export function loadAgentThread(
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AgentInteractionThread;
     if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
-    return {
+    return normalizePlanAgentBackend({
       ...parsed,
       turns: parsed.turns
         .slice(0, AGENT_TURN_HISTORY_CAP)
         .map((turn) => sanitizePersistedTurnSafe(turn))
         .filter((turn): turn is AgentInteractionTurn => turn !== null),
-    };
+    });
   } catch {
     return null;
   }
@@ -619,13 +631,13 @@ export function loadAgentThreadById(campaignId: string, threadId: string): Agent
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AgentInteractionThread;
     if (!parsed || parsed.campaignId !== campaignId || !Array.isArray(parsed.turns)) return null;
-    return {
+    return normalizePlanAgentBackend({
       ...parsed,
       turns: parsed.turns
         .slice(0, AGENT_TURN_HISTORY_CAP)
         .map((turn) => sanitizePersistedTurnSafe(turn))
         .filter((turn): turn is AgentInteractionTurn => turn !== null),
-    };
+    });
   } catch {
     return null;
   }

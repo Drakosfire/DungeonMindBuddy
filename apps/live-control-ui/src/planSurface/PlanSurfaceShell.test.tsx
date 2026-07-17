@@ -210,9 +210,10 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByLabelText("Suggested prep questions")).not.toBeInTheDocument();
   });
 
-  it("asks prep memory through live query using the live packet session", async () => {
+  it("migrates legacy Live Plan threads to Hermes-only asks", async () => {
     const user = userEvent.setup();
-    const liveThread = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Live retrieval thread", FIXTURE_DOC_ID);
+    const liveThread = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Legacy live thread", FIXTURE_DOC_ID);
+    liveThread.activeBackend = "live";
     localStorage.setItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID), liveThread.threadId);
     localStorage.setItem(threadStorageKey("longmont-c2", liveThread.threadId), JSON.stringify(liveThread));
 
@@ -225,55 +226,37 @@ describe("PlanSurfaceShell", () => {
         ok: true,
         text: async () =>
           JSON.stringify({
-            answer: "Raw synthesized answer should not be the primary result.",
-            classification: {},
+            answer: "Tripod stands at the North Gate.",
+            classification: {
+              intent: "hermes_graph_agent",
+              latency_mode: "hermes_graph_agent",
+              event_type: "hermes_graph_agent",
+            },
+            mode: "hermes_graph_agent",
+            status: "ok",
             events_written: [],
             jobs_queued: [],
             next_suggestions: [],
-            diagnostics: [],
-            provenance: {},
-            citations: [{ evidence_id: "e1", path: "corpus/test/session.md", line_start: 2, line_end: 2, source_role: "play_recap", authority: "canon_play" }],
-            retrieval_freshness: {
-              schema: "dmb_retrieval_freshness_decision_v1",
-              decision: "fresh_retrieval",
-              used_fresh_retrieval: true,
-              used_thread_context: false,
-              admitted_evidence_count: 1,
-              rejected_evidence_count: 1,
-              prior_turn_count: 0,
-              reason: "Fresh corpus evidence was admitted for this turn.",
+            diagnostics: {},
+            provenance: { backend: "hermes" },
+            citations: [],
+            hermes_session: { sessionId: "hptr-rung7-migrated", status: "active" },
+            agent_trace: {
+              trace_id: "agent-trace-rung7-migrate",
+              runtime: "process_isolated",
+              backend: "hermes",
+              mode: "hermes_graph_agent",
+              started_at: "2026-07-16T20:00:00Z",
+              completed_at: "2026-07-16T20:00:01Z",
+              elapsed_ms: 42,
+              status: "ok",
+              usage: { available: false, input_tokens: null, output_tokens: null, total_tokens: null },
+              steps: [],
+              context_summary: {},
+              artifact_refs: [],
+              tool_events: [],
               warnings: [],
             },
-            context_packet: {
-              admitted_evidence: [{
-                evidence_id: "e1",
-                path: "corpus/test/session.md",
-                source_role: "play_recap",
-                authority: "canon_play",
-                line_start: 2,
-                line_end: 2,
-                text_excerpt: "Stale packet excerpt should not be the reader body.",
-              }],
-              rejected_evidence: [{ reason_code: "authority_mismatch", evidence: { path: "y" } }],
-            },
-          }),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () =>
-          JSON.stringify({
-            schema_version: "dmb_citation_source_v1",
-            path: "corpus/test/session.md",
-            content_type: "text/markdown",
-            content: "# Session file\nCurrent source content has the Lysandro gate reveal.\nMore notes.",
-            truncated: false,
-            highlight: {
-              line_start: 2,
-              line_end: 2,
-              text_excerpt: "Current source content has the Lysandro gate reveal.",
-              match_source: "line_range",
-            },
-            diagnostics: ["read-only source lookup", "no events or jobs written"],
           }),
       } as Response);
 
@@ -282,45 +265,28 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await screen.findByText("World graph (all sessions)");
-    expect(screen.getByLabelText("Question")).toBeInTheDocument();
-    await user.type(
-      screen.getByLabelText("Question"),
-      "What changed after Session 22?",
-    );
+    expect(screen.getByRole("heading", { name: "Legacy live thread" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Question"), "What do we know about Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
-    expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
-    expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
-    expect(screen.getByRole("region", { name: "Hermes reply" })).toHaveTextContent("Raw synthesized answer should not be the primary result.");
-    expect(screen.getByRole("region", { name: "Context packet review" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Supporting sources" })).toHaveTextContent("play_recap · canon_play");
-    expect(screen.queryByRole("region", { name: "Source preview" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Open source" }));
-
-    const sourceReader = await screen.findByRole("region", { name: "Source preview" });
-    expect(sourceReader).toHaveTextContent("Current source content has the Lysandro gate reveal.");
-    expect(sourceReader).not.toHaveTextContent("Stale packet excerpt should not be the reader body.");
-    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan", FIXTURE_DOC_ID));
-    expect(storedThreadId).toBeTruthy();
-    expect(localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "").not.toContain("Current source content has the Lysandro gate reveal.");
-    expect(screen.getByRole("region", { name: "Retrieval freshness" })).toBeInTheDocument();
-    expect(screen.getAllByText("Fresh retrieval").length).toBeGreaterThan(0);
-    expect(screen.getByText("Fresh corpus evidence was admitted for this turn.")).toBeInTheDocument();
-    expect(screen.getByText("authority_mismatch: 1")).toBeInTheDocument();
-    expect(screen.queryByText("Grounded answer")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
-    expect(screen.getByText("Supporting sources")).toBeInTheDocument();
+    expect(await screen.findByText("Tripod stands at the North Gate.")).toBeInTheDocument();
     const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
-    expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({
+    const body = JSON.parse(String(queryCall[1]?.body));
+    expect(body).toMatchObject({
       campaign_id: "longmont-c2",
       session: 22,
-      query_backend: "live",
+      query_backend: "hermes",
       world_graph_context: expectedWorldGraphContextRequest,
     });
-    const sourceCall = vi.mocked(globalThis.fetch).mock.calls[2];
-    expect(String(sourceCall[0])).toContain("/api/live/citation-source");
-    expect(JSON.parse(String(sourceCall[1]?.body))).toMatchObject({ path: "corpus/test/session.md", line_start: 2, line_end: 2 });
+    expect(body).not.toHaveProperty("manifest_path");
+    expect(body.hermes_session_id).toBeUndefined();
+    // First turn: empty history and absent pointer are omitted from the Hermes serializer.
+    expect(body.hermes_session_pointer).toBeUndefined();
+    expect(body.conversation_history).toBeUndefined();
+
+    const storedThreadId = localStorage.getItem(activeThreadStorageKey(mockPlanView.campaign_id, "plan", FIXTURE_DOC_ID));
+    const stored = JSON.parse(localStorage.getItem(threadStorageKey(mockPlanView.campaign_id, storedThreadId ?? "")) ?? "{}");
+    expect(stored.activeBackend).toBe("hermes");
   });
 
 

@@ -77,7 +77,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     return thread;
   }, [refreshSummaries]);
 
-  const ensureThread = useCallback((title = "New prep thread", backend: LiveQueryBackend = "live") => {
+  const ensureThread = useCallback((title = "New prep thread", backend: LiveQueryBackend = "hermes") => {
     if (activeThread) return activeThread;
     if (!scope) throw new Error("Agent Interaction scope has not been published");
     const nextThread = createAgentInteractionThread(
@@ -97,14 +97,14 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       scope.campaignId,
       scope.sessionNumber,
       scope.surfaceId ?? "plan",
-      activeThread?.activeBackend ?? "live",
+      "hermes",
       title,
       scope.documentId,
     );
     setActiveAgentThread(scope.campaignId, scope.surfaceId ?? "plan", nextThread.threadId, scope.documentId);
     setSelectedSource(null);
     return updateThread(nextThread);
-  }, [activeThread?.activeBackend, scope, updateThread]);
+  }, [scope, updateThread]);
 
   const switchThread = useCallback((threadId: string) => {
     if (!scope) return null;
@@ -148,7 +148,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   }, [activeThread, updateThread]);
 
   const appendResponseTurn = useCallback((question: string, response: Parameters<typeof turnFromResponse>[1]) => {
-    const backend = activeThread?.activeBackend ?? "live";
+    const backend = activeThread?.activeBackend ?? "hermes";
     const currentThread = activeThread ?? ensureThread(threadTitleFromQuestion(question), backend);
     const nextTurn = turnFromResponse(question, response, backend);
     const nextTurns = [nextTurn, ...currentThread.turns].slice(0, AGENT_TURN_HISTORY_CAP);
