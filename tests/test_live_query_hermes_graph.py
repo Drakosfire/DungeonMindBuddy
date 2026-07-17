@@ -1417,8 +1417,8 @@ EMPTY_CLAIM_ENVELOPE = {
 }
 
 
-def test_zero_tool_calls_with_prose_is_conversation_context(tmp_path: Path) -> None:
-    """Hermes chose not to query the graph this turn — trust its prose, don't abstain."""
+def test_zero_tool_calls_with_prose_still_abstains(tmp_path: Path) -> None:
+    """Hermes must explicitly declare conversation context before prose is trusted."""
     host = _EchoRetrievalSessionHost(
         final_response="We covered Tripod Null-Calf's position and the siege timeline.",
         tool_events=[],
@@ -1433,14 +1433,12 @@ def test_zero_tool_calls_with_prose_is_conversation_context(tmp_path: Path) -> N
         host_factory=lambda: host,  # type: ignore[arg-type, return-value]
         conversation_history=VALID_HISTORY,
     )
-    assert response["grounding"]["state"] == "conversation_context"
-    assert response["status"] == "ok"
-    assert response["answer"] == (
-        "We covered Tripod Null-Calf's position and the siege timeline."
-    )
+    assert response["grounding"]["state"] == "abstained"
+    assert response["status"] == "partial"
+    assert response["answer"] == ABSTENTION_ANSWER
     assert response["citations"] == []
-    assert "conversation_context_no_tool_calls" in response["grounding"]["reason_codes"]
-    assert response["agent_trace"]["validator_path"] == "zero_tool_compatibility"
+    assert "conversation_context_no_tool_calls" not in response["grounding"]["reason_codes"]
+    assert response["agent_trace"]["validator_path"] == "claim_ledger_validation"
 
 
 def test_explicit_declare_conversation_context_turn(tmp_path: Path) -> None:

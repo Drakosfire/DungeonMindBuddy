@@ -21,7 +21,6 @@ from graph_memory.interaction.session import GraphRetrievalSession
 StatementKind = Literal["graph_fact", "source_detail", "inference", "suggestion", "gap"]
 ValidatorPath = Literal[
     "explicit_conversation_context",
-    "zero_tool_compatibility",
     "claim_ledger_validation",
 ]
 ExplicitAnswerScope = Literal["conversation_context"]
@@ -300,18 +299,17 @@ def synthesize_draft_from_session(
     model_prose: str | None = None,
     corpus_root: Path | None = None,
 ) -> StructuredAnswerDraft:
-    """Build a deterministic answer draft from factual claims when model prose lacks structure."""
+    """Build a deterministic draft without blessing unstructured model prose.
+
+    The Hermes wire result currently exposes free-form ``final_response`` text,
+    not a typed answer draft. Until a producer supplies ``AnswerSection`` rows
+    with claim IDs, the fallback must render the accepted ledger directly.
+    Attaching every accepted claim to arbitrary prose would turn unrelated
+    claims into apparent support for that prose.
+    """
     factual = [c for c in session.claims if c.may_state_as_campaign_fact()]
     sections: list[AnswerSection] = []
-    if model_prose and model_prose.strip() and factual:
-        sections.append(
-            AnswerSection(
-                text=model_prose.strip(),
-                statement_kind="graph_fact",
-                supporting_claim_ids=[c.claim_id for c in factual],
-            )
-        )
-    elif factual:
+    if factual:
         bullets = []
         for claim in factual[:12]:
             label = claim.subject_label or claim.subject_node_id or claim.claim_id
@@ -369,18 +367,9 @@ def validate_structured_answer(
     execution_error: bool = False,
     execution_error_code: str | None = None,
     corpus_root: Path | None = None,
-    tool_call_count: int | None = None,
     answer_scope: ExplicitAnswerScope | None = None,
 ) -> ValidatedAnswer:
     """Validate a Hermes turn's answer against the shared claim ledger.
-
-    ``tool_call_count`` is the number of graph-retrieval tool events Hermes
-    emitted *this turn* (graph retrieval tools only — start/completion/error
-    all count). It is ``None`` for callers that do not track this (legacy/direct
-    unit-test callers), which always preserves the strict abstain-on-no-claims
-    behavior below. Only an explicit ``0`` — meaning the agent itself chose
-    not to touch the graph, not that we guessed it didn't need to — can route
-    into the ``conversation_context`` outcome instead of abstention.
 
     ``answer_scope`` is set when Hermes completed ``declare_conversation_context``
     without graph retrieval this turn. Explicit ``conversation_context`` preserves
@@ -412,6 +401,20 @@ def validate_structured_answer(
         )
 
     by_id = _claims_by_id(session)
+
+    def current_factual_claim(claim_id: str) -> GraphClaim | None:
+        claim = by_id.get(claim_id)
+        if claim is None:
+            return None
+        if claim.revision_id != session.snapshot.revision_id:
+            rejected.append(claim_id)
+            reason_codes.append("claim_revision_mismatch")
+            return None
+        if not claim.may_state_as_campaign_fact():
+            rejected.append(claim_id)
+            return None
+        return claim
+
     accepted: list[GraphClaim] = []
     rejected: list[str] = []
     inferences: list[InferenceReference] = []
@@ -435,7 +438,9 @@ def validate_structured_answer(
             continue
         if section.statement_kind == "inference":
             valid_premises = [
-                cid for cid in section.supporting_claim_ids if cid in by_id and by_id[cid].may_state_as_campaign_fact()
+                claim.claim_id
+                for cid in section.supporting_claim_ids
+                if (claim := current_factual_claim(cid)) is not None
             ]
             if not valid_premises:
                 rejected.extend(section.supporting_claim_ids)
@@ -455,11 +460,9 @@ def validate_structured_answer(
         # graph_fact / source_detail
         section_claims: list[GraphClaim] = []
         for claim_id in section.supporting_claim_ids:
-            claim = by_id.get(claim_id)
-            if claim is None or not claim.may_state_as_campaign_fact():
-                rejected.append(claim_id)
-                continue
-            section_claims.append(claim)
+            claim = current_factual_claim(claim_id)
+            if claim is not None:
+                section_claims.append(claim)
         if section.statement_kind == "source_detail":
             if not any(rid in opened_reads for rid in section.source_read_ids):
                 warnings.append(PARTIAL_SOURCE_WARNING)
@@ -510,20 +513,6 @@ def validate_structured_answer(
                 diagnostic_codes=[],
                 reason_codes=["explicit_conversation_context", *reason_codes],
                 validator_path="explicit_conversation_context",
-            )
-        if tool_call_count == 0 and model_prose and model_prose.strip():
-            # The agent made zero graph-retrieval tool calls this turn and
-            # there is nothing already accepted to ground on — trust its own
-            # decision that this question didn't need the graph, rather than
-            # discarding its answer with the generic abstention text.
-            return ValidatedAnswer(
-                outcome="conversation_context",
-                answer_text=model_prose.strip(),
-                rejected_claim_ids=list(dict.fromkeys(rejected)),
-                warnings=list(dict.fromkeys(warnings)),
-                diagnostic_codes=[],
-                reason_codes=["conversation_context_no_tool_calls", *reason_codes],
-                validator_path="zero_tool_compatibility",
             )
         return ValidatedAnswer(
             outcome="abstained",
@@ -580,8 +569,12 @@ def validate_structured_answer(
         outcome = "graph_grounded"
 
     answer_text = "\n\n".join(text for text in accepted_texts if text.strip())
-    if not answer_text.strip() and model_prose and accepted_unique:
-        answer_text = model_prose.strip()
+    if not answer_text.strip() and accepted_unique:
+        answer_text = "Graph-grounded facts for this turn:\n" + "\n".join(
+            f"- {claim.subject_label or claim.subject_node_id or claim.claim_id}: "
+            f"{claim.predicate or claim.claim_kind} — {claim.value_text or ''}".strip(" —")
+            for claim in accepted_unique[:12]
+        )
     if model_prose and model_prose.strip() in accepted_texts:
         reason_codes.append("hermes_agent_answer")
 

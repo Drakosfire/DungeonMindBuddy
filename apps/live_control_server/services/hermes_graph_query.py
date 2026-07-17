@@ -765,7 +765,6 @@ def classify_hermes_graph_result(
             model_prose=(result.final_response or "").strip() or None,
             execution_error=False,
             corpus_root=corpus_root,
-            tool_call_count=_graph_tool_event_count(result.tool_events),
             answer_scope=explicit_scope,
         )
         replace_session(session)

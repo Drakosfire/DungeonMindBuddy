@@ -8,7 +8,11 @@ from unittest.mock import patch
 
 import pytest
 
-from graph_memory.interaction.answer_validator import validate_structured_answer
+from graph_memory.interaction.answer_validator import (
+    ABSTENTION_ANSWER,
+    validate_structured_answer,
+)
+from graph_memory.interaction.authority_classifier import classify_authority_for_attribute
 from graph_memory.interaction.claims import GraphClaim
 from graph_memory.interaction.digest_audit import (
     TRIPOD_CONTRIBUTION_ID,
@@ -81,6 +85,7 @@ def test_create_session_from_preflight_seeds_referents_and_claims() -> None:
                 "subject_node_id": "threat:tripod",
                 "predicate": "location",
                 "text_value": "North Gate",
+                "authority_class": "accepted_explicit_attribute",
             }
         ],
         "focus": {"kind": "session", "session_id": "session-21"},
@@ -124,14 +129,22 @@ def test_validate_structured_answer_partial_when_claims_and_unreadable_anchors()
     validated = validate_structured_answer(
         session,
         None,
-        model_prose="Tripod is at the North Gate.",
+        model_prose=(
+            "Tripod is at the North Gate, controls the Shepherd's army, and "
+            "can only be killed with fire."
+        ),
     )
 
     assert validated.outcome == "partial_coverage"
     assert validated.accepted_claim_ids == ["assertion:loc"]
     assert any("Source verification" in warning for warning in validated.warnings)
-    assert validated.answer_text == "Tripod is at the North Gate."
-    assert "hermes_agent_answer" in validated.reason_codes
+    assert validated.answer_text == (
+        "Graph-grounded facts for this turn:\n"
+        "- Tripod: location — North Gate"
+    )
+    assert "Shepherd's army" not in validated.answer_text
+    assert "killed with fire" not in validated.answer_text
+    assert "hermes_agent_answer" not in validated.reason_codes
     assert "Source verification" not in validated.answer_text
 
 
@@ -154,6 +167,57 @@ def test_validate_structured_answer_graph_grounded_without_unreadable_anchors() 
 
     assert validated.outcome == "graph_grounded"
     assert validated.source_citations == []
+    assert "Graph-grounded facts for this turn:" in validated.answer_text
+
+
+def test_validate_structured_answer_rejects_claim_from_foreign_revision() -> None:
+    foreign_claim = _accepted_claim().model_copy(
+        update={"revision_id": "revision:foreign"}
+    )
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            revision_id="revision:test",
+        ),
+        question="Where is Tripod?",
+        claims=[foreign_claim],
+    )
+
+    validated = validate_structured_answer(
+        session,
+        {
+            "sections": [
+                {
+                    "text": "Tripod is at the North Gate.",
+                    "statement_kind": "graph_fact",
+                    "supporting_claim_ids": ["assertion:loc"],
+                }
+            ]
+        },
+    )
+
+    assert validated.outcome == "abstained"
+    assert validated.answer_text == ABSTENTION_ANSWER
+    assert validated.rejected_claim_ids == ["assertion:loc"]
+    assert "claim_revision_mismatch" in validated.reason_codes
+
+
+def test_attribute_authority_requires_explicit_provenance() -> None:
+    assert classify_authority_for_attribute(
+        {
+            "assertion_id": "assertion:unknown",
+            "predicate": "location",
+            "text_value": "North Gate",
+        }
+    ) == "unknown"
+
+    assert classify_authority_for_attribute(
+        {
+            "assertion_id": "assertion:explicit",
+            "authority_class": "accepted_explicit_attribute",
+        }
+    ) == "accepted_explicit_attribute"
 
 
 def test_validate_structured_answer_emits_source_citations_only_for_open_reads() -> None:
@@ -338,8 +402,8 @@ def test_validate_empty_graph_without_latest_recap_still_abstains() -> None:
     assert "History prose should not answer this." not in validated.answer_text
 
 
-def test_validate_zero_tool_calls_with_prose_is_conversation_context() -> None:
-    """Agent made no graph-retrieval calls this turn — trust its own prose."""
+def test_validate_zero_tool_calls_with_prose_still_abstains() -> None:
+    """Absence of graph calls is not a trusted conversation declaration."""
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
             world_id="world:eldyrwild",
@@ -354,16 +418,12 @@ def test_validate_zero_tool_calls_with_prose_is_conversation_context() -> None:
         session,
         None,
         model_prose="We covered Tripod Null-Calf's position and the siege timeline.",
-        tool_call_count=0,
     )
 
-    assert validated.outcome == "conversation_context"
-    assert validated.answer_text == (
-        "We covered Tripod Null-Calf's position and the siege timeline."
-    )
-    assert "conversation_context_no_tool_calls" in validated.reason_codes
-    assert validated.validator_path == "zero_tool_compatibility"
-    assert validated.diagnostic_codes == []
+    assert validated.outcome == "abstained"
+    assert validated.answer_text == ABSTENTION_ANSWER
+    assert "conversation_context_no_tool_calls" not in validated.reason_codes
+    assert validated.validator_path == "claim_ledger_validation"
     assert validated.accepted_claim_ids == []
     assert validated.graph_references == []
     assert validated.source_citations == []
@@ -384,7 +444,6 @@ def test_validate_explicit_answer_scope_preserves_prose() -> None:
         session,
         None,
         model_prose="Earlier we talked about siege prep and Tripod.",
-        tool_call_count=0,
         answer_scope="conversation_context",
     )
 
@@ -410,7 +469,6 @@ def test_validate_zero_tool_calls_without_prose_still_abstains() -> None:
         session,
         None,
         model_prose=None,
-        tool_call_count=0,
     )
 
     assert validated.outcome == "abstained"
@@ -433,7 +491,6 @@ def test_validate_nonzero_tool_calls_with_no_claims_still_abstains() -> None:
         session,
         None,
         model_prose="Prose after an empty graph query should still be discarded.",
-        tool_call_count=1,
     )
 
     assert validated.outcome == "abstained"

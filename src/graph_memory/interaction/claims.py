@@ -18,6 +18,7 @@ ClaimAuthorityClass = Literal[
     "inferred_relationship",
     "provisional_or_disputed",
     "generated_prep_suggestion",
+    "unknown",
 ]
 
 ClaimSupportState = Literal[

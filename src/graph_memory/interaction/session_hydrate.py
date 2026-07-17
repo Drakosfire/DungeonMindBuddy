@@ -71,7 +71,7 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
                 value_text=None if item.get("value_text") is None else str(item.get("value_text")),
                 revision_id=str(item.get("revision_id") or snapshot.revision_id),
                 authority_class=str(
-                    item.get("authority_class") or "gm_authored_accepted_assertion"
+                    item.get("authority_class") or "unknown"
                 ),  # type: ignore[arg-type]
                 support=ClaimSupport(
                     state=str(support_raw.get("state") or "graph_accepted"),  # type: ignore[arg-type]

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 from graph_memory.interaction.claims import (
     ClaimAuthorityClass,
@@ -25,7 +25,12 @@ def _get(obj: Mapping[str, Any], *keys: str) -> Any:
 
 
 def classify_authority_for_attribute(attribute: Mapping[str, Any]) -> ClaimAuthorityClass:
-    """Classify an attribute/assertion row by available provenance signals."""
+    """Classify an attribute/assertion row without inventing authorship.
+
+    Explicit projection authority wins. Legacy provenance signals can classify
+    known graph-review and source-derived rows, but absent provenance is
+    ``unknown`` rather than accepted GM canon.
+    """
     source_kind = str(
         _get(attribute, "source_kind", "sourceKind", "epistemic_kind", "epistemicKind")
         or ""
@@ -33,15 +38,32 @@ def classify_authority_for_attribute(attribute: Mapping[str, Any]) -> ClaimAutho
     support_state = str(
         _get(attribute, "support_state", "supportState") or ""
     ).lower()
-    if "graph_review" in source_kind or "gm_authored" in source_kind:
-        return "gm_authored_accepted_assertion"
+    explicit_authority = str(
+        _get(attribute, "authority_class", "authorityClass") or ""
+    ).strip().lower()
+    known_authorities = {
+        "governed_identity_decision",
+        "gm_authored_accepted_assertion",
+        "source_derived_accepted_assertion",
+        "accepted_relationship",
+        "accepted_explicit_attribute",
+        "derived_summary",
+        "inferred_relationship",
+        "provisional_or_disputed",
+        "generated_prep_suggestion",
+        "unknown",
+    }
     if support_state in {"provisional", "disputed"}:
         return "provisional_or_disputed"
+    if explicit_authority in known_authorities:
+        return cast(ClaimAuthorityClass, explicit_authority)
+    if "graph_review" in source_kind or "gm_authored" in source_kind:
+        return "gm_authored_accepted_assertion"
     # Accepted attributes with evidence refs are treated as source-linked graph claims.
     evidence_ids = _get(attribute, "evidence_ref_ids", "evidenceRefIds") or []
     if evidence_ids:
         return "source_derived_accepted_assertion"
-    return "gm_authored_accepted_assertion"
+    return "unknown"
 
 
 def support_from_anchors(
