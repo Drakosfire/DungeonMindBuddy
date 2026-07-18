@@ -210,6 +210,7 @@ def _write_promotable_run(
     preview_union_store_valid: bool = True,
     digest_override: str | None = None,
     omit_candidate: bool = False,
+    omit_preview: bool = False,
     omit_source_artifact_id: bool = False,
     extraction_profile: str | None = "category_v1",
     runs_rel: str = "out/graph_memory/runs",
@@ -238,7 +239,8 @@ def _write_promotable_run(
             encoding="utf-8",
         )
     preview = run_dir / "preview_union_supergraph.json"
-    preview.write_text("{}\n", encoding="utf-8")
+    if not omit_preview:
+        preview.write_text("{}\n", encoding="utf-8")
 
     def rel(path: Path) -> str:
         return path.relative_to(repo).as_posix()
@@ -251,13 +253,14 @@ def _write_promotable_run(
             "exists": True,
             "preview_only": True,
         },
-        "preview_union_store": {
+    }
+    if not omit_preview:
+        artifacts["preview_union_store"] = {
             "kind": "preview_union_store",
             "uri": rel(preview),
             "exists": True,
             "preview_only": True,
-        },
-    }
+        }
     if not omit_candidate:
         artifacts["candidate_graph"] = {
             "kind": "candidate_graph",
@@ -680,6 +683,35 @@ def test_prepare_rejects_missing_candidate(world_client) -> None:
     missing_id = "graph-ingest:longmont-c2:session-22:no-candidate"
     _write_promotable_run(repo, run_id=missing_id, omit_candidate=True)
     response = client.post(PREPARE_URL, json=_prepare_body(missing_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
+
+
+def test_prepare_rejects_missing_preview_union_store(world_client) -> None:
+    """Ready flags alone are not enough — the preview store must exist on disk."""
+    client, _world, repo, *_rest = world_client
+    missing_id = "graph-ingest:longmont-c2:session-22:missing-preview"
+    _write_promotable_run(repo, run_id=missing_id, omit_preview=True)
+    response = client.post(PREPARE_URL, json=_prepare_body(missing_id))
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "run_not_promotable"
+    assert "preview_union_store" in body["message"]
+
+
+def test_prepare_rejects_deleted_preview_union_store(world_client) -> None:
+    """Stale ready manifests fail when the referenced preview store was deleted."""
+    client, _world, repo, *_rest = world_client
+    stale_id = "graph-ingest:longmont-c2:session-22:deleted-preview"
+    _write_promotable_run(repo, run_id=stale_id)
+    preview = (
+        repo
+        / "out/graph_memory/runs/longmont-c2/session-22/fixture-promote"
+        / "preview_union_supergraph.json"
+    )
+    assert preview.is_file()
+    preview.unlink()
+    response = client.post(PREPARE_URL, json=_prepare_body(stale_id))
     assert response.status_code == 422
     assert response.json()["code"] == "run_not_promotable"
 

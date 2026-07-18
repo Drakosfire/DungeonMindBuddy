@@ -38,6 +38,7 @@ def test_resolve_promotable_ingest_run_happy(tmp_path: Path, monkeypatch) -> Non
     assert resolved.extraction_profile == "category_v1"
     assert resolved.normalized_recap_path == source.resolve()
     assert resolved.candidate_graph_path.is_file()
+    assert resolved.preview_union_store_path.is_file()
     assert resolved.sealed_source_uri.startswith("repo://out/graph_memory/runs/")
     assert is_under_ingest_runs(resolved.normalized_recap_path, root=repo)
 
@@ -112,6 +113,37 @@ def test_resolve_rejects_missing_source_artifact_id(
         resolve_promotable_ingest_run(run_id, root=repo)
     assert exc.value.code == "run_not_promotable"
     assert "source_artifact_id" in str(exc.value)
+
+
+def test_resolve_rejects_missing_preview_union_store(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _digest, _source = _write_promotable_run(repo, omit_preview=True)
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+    assert "preview_union_store" in str(exc.value)
+
+
+def test_resolve_rejects_deleted_preview_union_store(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _digest, _source = _write_promotable_run(repo)
+    preview = (
+        repo
+        / "out/graph_memory/runs/longmont-c2/session-22/fixture-promote"
+        / "preview_union_supergraph.json"
+    )
+    preview.unlink()
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
 
 
 def test_resolve_and_admit_configured_registry_root(

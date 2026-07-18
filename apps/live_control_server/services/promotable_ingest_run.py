@@ -65,6 +65,7 @@ class PromotableIngestRun:
     source_revision_id: str
     normalized_recap_path: Path
     candidate_graph_path: Path
+    preview_union_store_path: Path
     manifest_path: Path
     run_dir: Path
     registry_root: Path
@@ -236,6 +237,13 @@ def resolve_promotable_ingest_run(
         kind=GraphIngestArtifactKind.CANDIDATE_GRAPH,
         fallback_uri=None,
     )
+    preview_path = _resolve_run_artifact_file(
+        repo,
+        run_dir,
+        manifest,
+        kind=GraphIngestArtifactKind.PREVIEW_UNION_STORE,
+        fallback_uri=None,
+    )
 
     if is_under_world_store(normalized_path, root=repo):
         raise PromotableIngestRunError(
@@ -246,6 +254,12 @@ def resolve_promotable_ingest_run(
     if is_under_world_store(candidate_path, root=repo):
         raise PromotableIngestRunError(
             "candidate graph must not reference the world graph store",
+            code="run_not_promotable",
+            status_code=422,
+        )
+    if is_under_world_store(preview_path, root=repo):
+        raise PromotableIngestRunError(
+            "preview union store must not reference the world graph store",
             code="run_not_promotable",
             status_code=422,
         )
@@ -277,6 +291,7 @@ def resolve_promotable_ingest_run(
     try:
         normalized_path.resolve().relative_to(registry_root.resolve())
         candidate_path.resolve().relative_to(registry_root.resolve())
+        preview_path.resolve().relative_to(registry_root.resolve())
     except ValueError as exc:
         raise PromotableIngestRunError(
             "graph-ingest run artifacts escape the matched registry root",
@@ -304,6 +319,7 @@ def resolve_promotable_ingest_run(
         source_revision_id=source_revision_id,
         normalized_recap_path=normalized_path,
         candidate_graph_path=candidate_path,
+        preview_union_store_path=preview_path,
         manifest_path=manifest_path,
         run_dir=run_dir,
         registry_root=registry_root.resolve(),
