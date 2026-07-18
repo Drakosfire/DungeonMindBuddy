@@ -15,6 +15,7 @@ CONFIRM_RESPONSE_SCHEMA = "dmb_extract_promote_confirm_v1"
 ERROR_SCHEMA = "dmb_extract_promote_error_v1"
 
 DiagnosticSeverity = Literal["error", "warning", "info"]
+WorldState = Literal["initialized", "uninitialized", "unreadable"]
 
 
 class _ExtractPromoteModel(BaseModel):
@@ -49,6 +50,7 @@ class ExtractPromoteStatusResponse(_ExtractPromoteModel):
     )
     world_id: str
     initialized: bool
+    world_state: WorldState = "uninitialized"
     head_revision_id: str | None = None
     diagnostics: list[str] = Field(default_factory=list)
 
@@ -127,3 +129,4 @@ class ExtractPromoteErrorResponse(_ExtractPromoteModel):
     message: str
     status_code: int
     diagnostics: list[ExtractPromoteDiagnostic] = Field(default_factory=list)
+    failure_result: dict[str, Any] | None = None

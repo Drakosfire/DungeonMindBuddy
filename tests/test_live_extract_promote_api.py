@@ -190,6 +190,11 @@ def _candidate_graph_payload() -> dict:
 def world_client(tmp_path: Path, loaded_bundle, monkeypatch: pytest.MonkeyPatch):
     _initialize(tmp_path, loaded_bundle)
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(tmp_path))
+    # Sandbox mutation root is distinct from the designated live root.
+    monkeypatch.setenv(
+        "DUNGEONMIND_LIVE_WORLD_GRAPH_ROOT",
+        str(tmp_path / "_designated_live_not_used"),
+    )
     source = tmp_path / "source_fixture.md"
     source.write_text("session 22 promote fixture\n", encoding="utf-8")
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
@@ -210,6 +215,7 @@ def test_status_reports_initialized_head(world_client) -> None:
     assert payload["schema"] == "dmb_extract_promote_status_v1"
     assert payload["worldId"] == WORLD_ID
     assert payload["initialized"] is True
+    assert payload["worldState"] == "initialized"
     assert payload["headRevisionId"].startswith("rev:")
     assert "head_revision_id" not in json.dumps(payload)
 
@@ -233,6 +239,8 @@ def test_prepare_confirm_success(world_client) -> None:
     assert prepared["acceptedProposalsCount"] >= 1
     assert prepared["proposalDigest"]
     package = prepared["reviewPackage"]
+    sealed_uri = package["effect"]["verified_source_uri"]
+    assert sealed_uri == str(source.resolve())
 
     head_before = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
     confirm = client.post(
@@ -248,7 +256,9 @@ def test_prepare_confirm_success(world_client) -> None:
     assert confirmed["ok"] is True
     assert confirmed["dryRun"] is False
     assert confirmed["result"]["ok"] is True
+    assert confirmed["result"]["published"] is True
     assert confirmed["result"]["merge"]["published"] is True
+    assert confirmed["result"]["post_publication_verification"] == "passed"
     head_after = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
     assert head_after != head_before
 
@@ -289,6 +299,9 @@ def test_confirm_refuses_live_world_without_allow(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, tmp_path, graph_path, source, digest = world_client
+    # Designate the configured mutation root as live.
+    monkeypatch.setenv("DUNGEONMIND_LIVE_WORLD_GRAPH_ROOT", str(tmp_path.resolve()))
+
     prepare = client.post(
         PREPARE_URL,
         json={
@@ -303,12 +316,6 @@ def test_confirm_refuses_live_world_without_allow(
     )
     assert prepare.status_code == 200, prepare.text
     package = prepare.json()["reviewPackage"]
-
-    # Make the configured world root appear as the live root.
-    monkeypatch.setattr(
-        "apps.live_control_server.services.extract_promote.default_live_root",
-        lambda *, repo_root: tmp_path.resolve(),
-    )
 
     confirm = client.post(
         CONFIRM_URL,
@@ -375,6 +382,145 @@ def test_confirm_published_false_returns_failure_proof(
     assert payload["code"] == "merge_did_not_publish"
     assert payload["failureResult"]["ok"] is False
     assert payload["failureResult"]["failure_reason"] == "merge_did_not_publish"
+
+
+def test_confirm_empty_assertion_ids_does_not_advance_head(world_client) -> None:
+    client, tmp_path, graph_path, source, digest = world_client
+    prepare = client.post(
+        PREPARE_URL,
+        json={
+            "schema": "dmb_extract_promote_prepare_request_v1",
+            "candidateGraphPath": str(graph_path),
+            "sourceUri": str(source),
+            "sourceRevisionId": digest,
+            "preparedBy": "gm@http-prepare",
+            "nodeIds": ["obj_session22_vial", "mystery_puddles"],
+        },
+    )
+    assert prepare.status_code == 200, prepare.text
+    package = prepare.json()["reviewPackage"]
+    head_before = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+
+    confirm = client.post(
+        CONFIRM_URL,
+        json={
+            "schema": "dmb_extract_promote_confirm_request_v1",
+            "reviewPackage": package,
+            "confirmingPrincipal": "gm@http-confirm",
+            "assertionIds": [],
+        },
+    )
+    assert confirm.status_code == 422
+    payload = confirm.json()
+    assert payload["code"] == "empty_assertion_selection"
+    head_after = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+    assert head_after == head_before
+
+
+def test_prepare_rejects_arbitrary_filesystem_source_and_hides_digest(
+    world_client, tmp_path: Path
+) -> None:
+    client, _world, graph_path, _source, _digest = world_client
+    outside = Path("/etc/passwd")
+    if not outside.is_file():
+        pytest.skip("/etc/passwd not available")
+
+    response = client.post(
+        PREPARE_URL,
+        json={
+            "schema": "dmb_extract_promote_prepare_request_v1",
+            "candidateGraphPath": str(graph_path),
+            "sourceUri": str(outside),
+            "sourceRevisionId": "sha256:deadbeef",
+            "preparedBy": "gm@http-prepare",
+        },
+    )
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "invalid_source_uri"
+    dumped = json.dumps(payload)
+    assert "computed=" not in dumped
+    assert "sha256:" not in dumped or "deadbeef" in dumped
+
+
+def test_prepare_source_mismatch_does_not_disclose_computed_digest(
+    world_client,
+) -> None:
+    client, _tmp, graph_path, source, _digest = world_client
+    response = client.post(
+        PREPARE_URL,
+        json={
+            "schema": "dmb_extract_promote_prepare_request_v1",
+            "candidateGraphPath": str(graph_path),
+            "sourceUri": str(source),
+            "sourceRevisionId": "sha256:" + ("0" * 64),
+            "preparedBy": "gm@http-prepare",
+        },
+    )
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["code"] == "source_revision_mismatch"
+    dumped = json.dumps(payload)
+    assert "computed=" not in dumped
+    # Must not leak the real file digest.
+    real = hashlib.sha256(source.read_bytes()).hexdigest()
+    assert real not in dumped
+
+
+def test_confirm_post_publication_verification_failure_reports_committed_revision(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, tmp_path, graph_path, source, digest = world_client
+    prepare = client.post(
+        PREPARE_URL,
+        json={
+            "schema": "dmb_extract_promote_prepare_request_v1",
+            "candidateGraphPath": str(graph_path),
+            "sourceUri": str(source),
+            "sourceRevisionId": digest,
+            "preparedBy": "gm@http-prepare",
+            "nodeIds": ["obj_session22_vial"],
+            "nodesOnly": True,
+        },
+    )
+    assert prepare.status_code == 200, prepare.text
+    package = prepare.json()["reviewPackage"]
+    head_before = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+
+    real_merge = ops.kernel.merge_contribution_to_revision
+
+    def _merge_then_break(*args, **kwargs):
+        result = real_merge(*args, **kwargs)
+        monkeypatch.setattr(
+            ops.kernel,
+            "rebuild_from_contributions",
+            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("audit boom")),
+        )
+        return result
+
+    monkeypatch.setattr(ops.kernel, "merge_contribution_to_revision", _merge_then_break)
+
+    confirm = client.post(
+        CONFIRM_URL,
+        json={
+            "schema": "dmb_extract_promote_confirm_request_v1",
+            "reviewPackage": package,
+            "confirmingPrincipal": "gm@http-confirm",
+        },
+    )
+    assert confirm.status_code == 200, confirm.text
+    payload = confirm.json()
+    assert payload["ok"] is False
+    assert payload["failureReason"] == "post_publication_verification_failed"
+    assert payload["result"]["published"] is True
+    assert payload["result"]["committed_revision_id"]
+    assert payload["result"]["post_publication_verification"] == "failed"
+    assert payload["result"]["retry_guidance"] == (
+        "reload_status_inspect_head_do_not_retry_confirm"
+    )
+    head_after = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+    assert head_after != head_before
+    assert head_after == payload["result"]["committed_revision_id"]
 
 
 def test_prepare_rejects_query_selectors(world_client) -> None:

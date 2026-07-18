@@ -6,7 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from apps.live_control_server.config import repo_root, world_graph_root
+from apps.live_control_server.config import (
+    live_world_graph_root,
+    repo_root,
+    world_graph_root,
+)
 from apps.live_control_server.models.extract_promote import (
     ExtractPromoteConfirmRequest,
     ExtractPromoteConfirmResponse,
@@ -19,14 +23,18 @@ from apps.live_control_server.models.extract_promote import (
 from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
 from graph_memory.extract_promote_ops import (
     DEFAULT_WORLD_ID,
+    ExtractPromoteEmptySelectionError,
     ExtractPromoteLiveWorldError,
     ExtractPromoteWorldError,
     confirm_extract_promote,
-    default_live_root,
     get_extract_promote_status,
     prepare_extract_promote,
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
+
+# Narrow server-owned roots for promote source evidence. Entire repo is NOT
+# allowed (would admit .env and other secrets).
+_SOURCE_ROOT_NAMES = ("corpus", "Docs", "evals", "tmp", "out")
 
 
 class ExtractPromoteError(ValueError):
@@ -53,6 +61,7 @@ class ExtractPromoteError(ValueError):
             message=str(self),
             status_code=self.status_code,
             diagnostics=self.diagnostics,
+            failure_result=self.failure_payload,
         )
 
 
@@ -60,7 +69,7 @@ def _diagnostic(code: str, message: str) -> ExtractPromoteDiagnostic:
     return ExtractPromoteDiagnostic(code=code, message=message, severity="error")
 
 
-def _allowed_roots() -> list[Path]:
+def _allowed_candidate_roots() -> list[Path]:
     roots = [
         repo_root().resolve(),
         world_graph_root().resolve(),
@@ -68,7 +77,6 @@ def _allowed_roots() -> list[Path]:
         (repo_root() / "evals").resolve(),
         (repo_root() / "tmp").resolve(),
     ]
-    # Deduplicate while preserving order.
     seen: set[Path] = set()
     unique: list[Path] = []
     for root in roots:
@@ -76,6 +84,30 @@ def _allowed_roots() -> list[Path]:
             seen.add(root)
             unique.append(root)
     return unique
+
+
+def _allowed_source_roots() -> list[Path]:
+    root = repo_root().resolve()
+    roots = [root / name for name in _SOURCE_ROOT_NAMES]
+    roots.append(world_graph_root().resolve())
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for item in roots:
+        resolved = item.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            unique.append(resolved)
+    return unique
+
+
+def _path_under_any(path: Path, roots: list[Path]) -> bool:
+    for root in roots:
+        try:
+            path.relative_to(root)
+            return True
+        except ValueError:
+            continue
+    return False
 
 
 def resolve_candidate_graph_path(raw_path: str) -> Path:
@@ -105,15 +137,7 @@ def resolve_candidate_graph_path(raw_path: str) -> Path:
                 )
             ],
         )
-    allowed = False
-    for root in _allowed_roots():
-        try:
-            path.relative_to(root)
-            allowed = True
-            break
-        except ValueError:
-            continue
-    if not allowed:
+    if not _path_under_any(path, _allowed_candidate_roots()):
         raise ExtractPromoteError(
             "candidateGraphPath is outside the allowlisted roots",
             code="invalid_request",
@@ -128,6 +152,99 @@ def resolve_candidate_graph_path(raw_path: str) -> Path:
     return path
 
 
+def resolve_promote_source_uri(raw_uri: str) -> str:
+    """Resolve a promote source URI under server-owned roots; seal a canonical form.
+
+    Client-supplied absolute paths outside the allowlist are rejected. Paths under
+    the repo root are sealed as ``repo://…`` so containment stays inspectable.
+    """
+    text = (raw_uri or "").strip()
+    if not text:
+        raise ExtractPromoteError(
+            "sourceUri is required",
+            code="invalid_request",
+            status_code=422,
+            diagnostics=[_diagnostic("invalid_request", "sourceUri is required")],
+        )
+
+    root = repo_root().resolve()
+    allowed = _allowed_source_roots()
+
+    if text.startswith("repo://"):
+        rel = text[len("repo://") :].lstrip("/")
+        if not rel or any(part in ("", ".", "..") for part in Path(rel).parts):
+            raise ExtractPromoteError(
+                "sourceUri repo path is invalid",
+                code="invalid_source_uri",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("invalid_source_uri", "sourceUri repo path is invalid")
+                ],
+            )
+        path = (root / rel).resolve()
+    else:
+        path = Path(text).expanduser()
+        if not path.is_absolute():
+            path = (root / path).resolve()
+        else:
+            path = path.resolve()
+
+    if not path.is_file():
+        raise ExtractPromoteError(
+            "sourceUri does not exist or is not a readable file under allowlisted roots",
+            code="invalid_source_uri",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_source_uri",
+                    "sourceUri does not exist or is not a readable file under allowlisted roots",
+                )
+            ],
+        )
+    if not _path_under_any(path, allowed):
+        raise ExtractPromoteError(
+            "sourceUri is outside the server-owned source roots",
+            code="invalid_source_uri",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_source_uri",
+                    "sourceUri is outside the server-owned source roots",
+                )
+            ],
+        )
+
+    try:
+        rel_posix = path.relative_to(root).as_posix()
+        return f"repo://{rel_posix}"
+    except ValueError:
+        # Under world_graph_root (or another allowlisted root outside the repo).
+        return str(path)
+
+
+def assert_sealed_source_uri_allowed(source_uri: str) -> None:
+    """Re-check a sealed source URI at confirm time (defense in depth)."""
+    resolve_promote_source_uri(source_uri)
+
+
+def _public_mapping_error(exc: CandidateGraphMappingError) -> ExtractPromoteError:
+    message = str(exc)
+    if "source_revision" in message or "mismatch" in message:
+        safe = "source_revision_id does not match the resolved source artifact"
+        return ExtractPromoteError(
+            safe,
+            code="source_revision_mismatch",
+            status_code=409,
+            diagnostics=[_diagnostic("source_revision_mismatch", safe)],
+        )
+    return ExtractPromoteError(
+        message,
+        code="mapping_error",
+        status_code=409,
+        diagnostics=[_diagnostic("mapping_error", message)],
+    )
+
+
 def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusResponse:
     result = get_extract_promote_status(
         world_root=world_graph_root(),
@@ -136,6 +253,7 @@ def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusRespo
     return ExtractPromoteStatusResponse(
         world_id=result.world_id,
         initialized=result.initialized,
+        world_state=result.world_state,  # type: ignore[arg-type]
         head_revision_id=result.head_revision_id,
         diagnostics=list(result.diagnostics),
     )
@@ -145,6 +263,7 @@ def prepare(
     request: ExtractPromotePrepareRequest,
 ) -> ExtractPromotePrepareResponse:
     path = resolve_candidate_graph_path(request.candidate_graph_path)
+    canonical_source_uri = resolve_promote_source_uri(request.source_uri)
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -170,7 +289,7 @@ def prepare(
         result = prepare_extract_promote(
             candidate_graph=payload,
             world_root=world_graph_root(),
-            source_uri=request.source_uri,
+            source_uri=canonical_source_uri,
             source_revision_id=request.source_revision_id,
             prepared_by=request.prepared_by,
             world_id=request.world_id,
@@ -180,19 +299,10 @@ def prepare(
             include_edges=not request.nodes_only,
             candidate_graph_path=str(path),
             repo_root=repo_root(),
+            disclose_source_digest=False,
         )
     except CandidateGraphMappingError as exc:
-        code = (
-            "source_revision_mismatch"
-            if "source_revision" in str(exc) or "mismatch" in str(exc)
-            else "mapping_error"
-        )
-        raise ExtractPromoteError(
-            str(exc),
-            code=code,
-            status_code=409,
-            diagnostics=[_diagnostic(code, str(exc))],
-        ) from exc
+        raise _public_mapping_error(exc) from exc
     except PromoteProposalError as exc:
         raise ExtractPromoteError(
             str(exc),
@@ -223,6 +333,13 @@ def prepare(
 def confirm(
     request: ExtractPromoteConfirmRequest,
 ) -> ExtractPromoteConfirmResponse:
+    sealed_uri = str(
+        ((request.review_package or {}).get("effect") or {}).get("verified_source_uri")
+        or ""
+    ).strip()
+    if sealed_uri:
+        assert_sealed_source_uri_allowed(sealed_uri)
+
     try:
         result = confirm_extract_promote(
             review_package=request.review_package,
@@ -232,9 +349,17 @@ def confirm(
             dry_run=request.dry_run,
             allow_live_world=request.allow_live_world,
             allow_idempotent_noop=request.allow_idempotent_noop,
-            live_root=default_live_root(repo_root=repo_root()),
+            live_root=live_world_graph_root(),
             repo_root=repo_root(),
+            disclose_source_digest=False,
         )
+    except ExtractPromoteEmptySelectionError as exc:
+        raise ExtractPromoteError(
+            str(exc),
+            code="empty_assertion_selection",
+            status_code=422,
+            diagnostics=[_diagnostic("empty_assertion_selection", str(exc))],
+        ) from exc
     except ExtractPromoteLiveWorldError as exc:
         raise ExtractPromoteError(
             str(exc),
@@ -257,20 +382,18 @@ def confirm(
             diagnostics=[_diagnostic("proposal_verification_failed", str(exc))],
         ) from exc
     except CandidateGraphMappingError as exc:
-        message = str(exc)
-        code = (
-            "source_revision_mismatch"
-            if "source_revision" in message or "mismatch" in message
-            else "mapping_error"
-        )
-        raise ExtractPromoteError(
-            message,
-            code=code,
-            status_code=409,
-            diagnostics=[_diagnostic(code, message)],
-        ) from exc
+        raise _public_mapping_error(exc) from exc
 
     if not result.ok:
+        # Published-but-audit-failed must remain a truthful confirm response so
+        # callers do not retry under the false impression nothing committed.
+        if result.payload.get("published") is True:
+            return ExtractPromoteConfirmResponse(
+                ok=False,
+                dry_run=result.dry_run,
+                failure_reason=result.failure_reason,
+                result=result.payload,
+            )
         raise ExtractPromoteError(
             "merge did not publish",
             code="merge_did_not_publish",

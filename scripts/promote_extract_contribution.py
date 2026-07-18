@@ -24,10 +24,12 @@ for path in (REPO_ROOT / "src", REPO_ROOT):
 from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
 from graph_memory.extract_promote_ops import (
     DEFAULT_WORLD_ID,
+    ExtractPromoteEmptySelectionError,
     ExtractPromoteLiveWorldError,
     ExtractPromoteWorldError,
     confirm_extract_promote,
     default_live_root,
+    normalize_assertion_selection,
     prepare_extract_promote,
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
@@ -97,17 +99,20 @@ def cmd_confirm(args: argparse.Namespace) -> int:
     )
 
     try:
+        selected = normalize_assertion_selection(args.assertion_ids)
         result = confirm_extract_promote(
             review_package=package,
             world_root=world_root,
             confirming_principal=args.confirming_principal,
-            assertion_ids=tuple(args.assertion_ids) if args.assertion_ids else None,
+            assertion_ids=selected,
             dry_run=bool(args.dry_run),
             allow_live_world=bool(args.allow_live_world),
             allow_idempotent_noop=bool(args.allow_idempotent_noop),
             live_root=DEFAULT_LIVE_ROOT,
             repo_root=REPO_ROOT,
         )
+    except ExtractPromoteEmptySelectionError as exc:
+        raise SystemExit(str(exc)) from exc
     except ExtractPromoteLiveWorldError as exc:
         raise SystemExit(str(exc)) from exc
     except ExtractPromoteWorldError as exc:
@@ -136,14 +141,17 @@ def cmd_confirm(args: argparse.Namespace) -> int:
     if not result.ok:
         merge = result.payload.get("merge") or {}
         print(
-            f"publication failed published={merge.get('published')} "
-            f"revision={merge.get('revision_id')} proof={out}"
+            f"publication incomplete published={result.payload.get('published')} "
+            f"revision={result.payload.get('committed_revision_id') or merge.get('revision_id')} "
+            f"verification={result.payload.get('post_publication_verification')} "
+            f"reason={result.failure_reason} "
+            f"retry={result.payload.get('retry_guidance')} proof={out}"
         )
         return 1
 
     merge = result.payload.get("merge") or {}
     print(
-        f"published revision={merge.get('revision_id')} "
+        f"published revision={result.payload.get('committed_revision_id') or merge.get('revision_id')} "
         f"accepted={len(merge.get('accepted_assertion_ids') or [])} "
         f"rebuild_ok={result.payload.get('rebuild_equivalent_to_head')} "
         f"proof={out}"

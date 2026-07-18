@@ -26,9 +26,7 @@ from apps.live_control_server.services.extract_promote import (
 
 
 def _error_response(exc: ExtractPromoteError) -> JSONResponse:
-    body = exc.response().model_dump(mode="json", by_alias=True)
-    if exc.failure_payload is not None:
-        body["failureResult"] = exc.failure_payload
+    body = exc.response().model_dump(mode="json", by_alias=True, exclude_none=True)
     return JSONResponse(status_code=exc.status_code, content=body)
 
 
