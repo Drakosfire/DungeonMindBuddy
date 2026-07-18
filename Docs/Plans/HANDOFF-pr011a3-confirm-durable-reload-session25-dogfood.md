@@ -4,10 +4,10 @@
 **Status:** ACTIVE — dispatch exactly one implementation capability after the pre-dispatch re-anchor is checked in.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`
 **Pre-dispatch anchor:** `cec9834f8667d2af31447540b5acb9dade0373aa` — merge of GitHub PR #365 / PR011A2
-**Implementation base:** `e2787c601910f4d8c63d821b35a5a429301861f8` — replace with the immutable SHA that checks in this handoff and the tracker/roadmap changes below.
+**Implementation base:** `e2787c601910f4d8c63d821b35a5a429301861f8` — docs re-anchor that checks in this handoff and the tracker/roadmap changes below.
 **Suggested branch:** `agent/pr011a3-confirm-durable-reload`
 
-Do not dispatch while `e2787c601910f4d8c63d821b35a5a429301861f8` remains unresolved.
+Dispatch is gated on this SHA being on `origin/main` (see § Dispatch gate).
 
 ---
 
@@ -86,7 +86,7 @@ Do not dispatch until all of the following are true:
 * this handoff exists at its canonical repository path;
 * the tracker records PR011A1 and PR011A2 as `DONE`;
 * the roadmap records PR011A3 as `NEXT`;
-* `e2787c601910f4d8c63d821b35a5a429301861f8` has been replaced with the immutable docs re-anchor SHA;
+* `e2787c601910f4d8c63d821b35a5a429301861f8` is the immutable docs re-anchor SHA;
 * `git rev-parse HEAD` and `git rev-parse origin/main` include that SHA;
 * the implementation agent has read the authorities listed in §2;
 * no implementation of PR011B, authored entity/statblock generation, Play migration, or generalized Graph Review authoring has begun in this branch.
