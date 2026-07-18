@@ -4,10 +4,10 @@
 **Status:** ACTIVE — dispatch exactly one implementation capability after the pre-dispatch re-anchor is checked in.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`
 **Pre-dispatch anchor:** `cec9834f8667d2af31447540b5acb9dade0373aa` — merge of GitHub PR #365 / PR011A2
-**Implementation base:** `<DOCS_REANCHOR_SHA>` — replace with the immutable SHA that checks in this handoff and the tracker/roadmap changes below.
+**Implementation base:** `e2787c601910f4d8c63d821b35a5a429301861f8` — replace with the immutable SHA that checks in this handoff and the tracker/roadmap changes below.
 **Suggested branch:** `agent/pr011a3-confirm-durable-reload`
 
-Do not dispatch while `<DOCS_REANCHOR_SHA>` remains unresolved.
+Do not dispatch while `e2787c601910f4d8c63d821b35a5a429301861f8` remains unresolved.
 
 ---
 
@@ -86,7 +86,7 @@ Do not dispatch until all of the following are true:
 * this handoff exists at its canonical repository path;
 * the tracker records PR011A1 and PR011A2 as `DONE`;
 * the roadmap records PR011A3 as `NEXT`;
-* `<DOCS_REANCHOR_SHA>` has been replaced with the immutable docs re-anchor SHA;
+* `e2787c601910f4d8c63d821b35a5a429301861f8` has been replaced with the immutable docs re-anchor SHA;
 * `git rev-parse HEAD` and `git rev-parse origin/main` include that SHA;
 * the implementation agent has read the authorities listed in §2;
 * no implementation of PR011B, authored entity/statblock generation, Play migration, or generalized Graph Review authoring has begun in this branch.
@@ -175,7 +175,7 @@ This is not one slice if implementation must also deliver:
 | Governed tool contract      | `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md`                                                                                                                                                                                    |
 | Surface boundary            | `Docs/Design/DESIGN-graph-object-authoring-surface.md`                                                                                                                                                                                                 |
 | Repository rules            | `AGENTS.md`, `.cursor/rules/external-agent-pr-loop.mdc`, `.cursor/skills/external-agent-pr-loop/SKILL.md`                                                                                                                                              |
-| Implementation base         | `<DOCS_REANCHOR_SHA>`, descending directly from `cec9834f8667d2af31447540b5acb9dade0373aa`                                                                                                                                                             |
+| Implementation base         | `e2787c601910f4d8c63d821b35a5a429301861f8`, descending directly from `cec9834f8667d2af31447540b5acb9dade0373aa`                                                                                                                                                             |
 | Predecessor implementation  | PR011A-foundation #363, PR011A1 #364, PR011A2 #365                                                                                                                                                                                                     |
 | Exact input consumed        | A PR011A2 `ExtractPromotePrepareResponse` containing the sealed `reviewPackage`, `proposalDigest`, `parentRevisionId`, `runId`, typed `reviewItems`, and a Kernel-valid selected assertion-ID set                                                      |
 | Commit authority            | Existing `confirm_extract_promote` → `GraphContribution` → Kernel publication → atomic World Graph head                                                                                                                                                |
@@ -667,7 +667,7 @@ A new durable publication-receipt file, browser operation log, or run-completion
 
 ```text
 Canonical checked-in Pydantic models and TypeScript contracts on
-<DOCS_REANCHOR_SHA>, plus owning API tests.
+e2787c601910f4d8c63d821b35a5a429301861f8, plus owning API tests.
 
 Do not construct a simplified fixture from memory.
 ```
@@ -892,7 +892,7 @@ If provider credentials, the real Session 25 run, or the live product environmen
 
 ### Baseline failure protocol
 
-For each required command already failing on `<DOCS_REANCHOR_SHA>`:
+For each required command already failing on `e2787c601910f4d8c63d821b35a5a429301861f8`:
 
 | Command           | Base result      | Head result      | New failure introduced? | Acceptance effect                 | Waiver                               |
 | ----------------- | ---------------- | ---------------- | ----------------------: | --------------------------------- | ------------------------------------ |
@@ -905,7 +905,7 @@ No result may be described as CI unless it came from an attached CI workflow. Au
 ```bash
 git diff --check
 
-git diff --stat <DOCS_REANCHOR_SHA>...HEAD -- \
+git diff --stat e2787c601910f4d8c63d821b35a5a429301861f8...HEAD -- \
   Docs/Plans/HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md \
   Docs/Plans/PR-TRACKER-campaign-supergraph.md \
   Docs/Roadmaps/ROADMAP-campaign-supergraph.md \
@@ -918,7 +918,7 @@ git diff --stat <DOCS_REANCHOR_SHA>...HEAD -- \
   apps/live-control-ui/src/api/types.ts \
   apps/live-control-ui/src/planSurface/graphReviewWorkbench/
 
-git diff --name-only <DOCS_REANCHOR_SHA>...HEAD
+git diff --name-only e2787c601910f4d8c63d821b35a5a429301861f8...HEAD
 ```
 
 ---
@@ -1124,7 +1124,7 @@ World Graph revision.
 
 ## Scope and verification
 
-- Base: `<DOCS_REANCHOR_SHA>`
+- Base: `e2787c601910f4d8c63d821b35a5a429301861f8`
 - Predecessors: #363, #364, #365
 - Product confirm request: sealed review package + selected assertion IDs only
 - Server-owned: principal, live-world policy, dry-run=false, idempotent retry
