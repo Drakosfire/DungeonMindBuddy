@@ -125,6 +125,18 @@ class UnionSupergraphMergeRecord(_UnionSupergraphModel):
     materialization_pass_id: str
 
 
+class ContributionReplayManifestEntry(_UnionSupergraphModel):
+    """Revision-bound contribution membership for pinned rebuild audits.
+
+    Lifecycle status is frozen at publish time so a later ledger supersession or
+    retraction cannot change how this revision is replayed.
+    """
+
+    contribution_id: str
+    status: Literal["active", "superseded", "retracted"]
+    source_payload_sha256: str
+
+
 class UnionSupergraphStore(_UnionSupergraphModel):
     schema_: str = Field(validation_alias="schema", serialization_alias="schema")
     version: str
@@ -147,6 +159,11 @@ class UnionSupergraphStore(_UnionSupergraphModel):
     assertion_support: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # Revision-bound contribution source-authority digests (lifecycle-neutral).
     contribution_source_payload_sha256: dict[str, str] = Field(default_factory=dict)
+    # Ordered contribution replay plan bound into this revision (membership +
+    # lifecycle status + source digest). Required for pinned rebuild audits.
+    contribution_replay_manifest: list[ContributionReplayManifestEntry] = Field(
+        default_factory=list
+    )
     initialization_contribution_ids: list[str] = Field(default_factory=list)
     initialization_plan_digest: str | None = None
     initialization_attestation_digest: str | None = None
