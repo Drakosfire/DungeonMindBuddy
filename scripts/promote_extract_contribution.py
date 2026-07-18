@@ -153,7 +153,7 @@ def cmd_confirm(args: argparse.Namespace) -> int:
     print(
         f"published revision={result.payload.get('committed_revision_id') or merge.get('revision_id')} "
         f"accepted={len(merge.get('accepted_assertion_ids') or [])} "
-        f"rebuild_ok={result.payload.get('rebuild_equivalent_to_head')} "
+        f"rebuild_ok={result.payload.get('rebuild_equivalent_to_committed_revision')} "
         f"proof={out}"
     )
     return 0

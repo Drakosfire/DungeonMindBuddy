@@ -368,7 +368,8 @@ def test_cli_prepare_confirm_success(tmp_path: Path, loaded_bundle) -> None:
     proof = json.loads(proof_path.read_text(encoding="utf-8"))
     assert proof["ok"] is True
     assert proof["merge"]["published"] is True
-    assert proof["rebuild_equivalent_to_head"] is True
+    assert proof["rebuild_equivalent_to_committed_revision"] is True
+    assert "rebuild_equivalent_to_head" not in proof
     assert "proposal_digest" in proof
     store = kernel.open_current_world_graph(world_root, WORLD_ID)[2]
     assert any("vial" in (n.label or "").lower() for n in store.nodes.values())

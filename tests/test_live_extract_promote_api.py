@@ -270,6 +270,8 @@ def test_prepare_confirm_success(world_client) -> None:
     assert head_after != head_before
     assert confirmed["result"]["committed_revision_id"] == head_after
     assert confirmed["result"]["projection_revision_id"] == head_after
+    assert confirmed["result"]["rebuild_equivalent_to_committed_revision"] is True
+    assert "rebuild_equivalent_to_head" not in confirmed["result"]
     assert confirmed["result"].get("head_advanced_before_verification") is False
 
 
@@ -679,3 +681,5 @@ def test_confirm_audit_pins_projection_to_committed_revision(
     assert seen["compare_revision_id"] == committed
     assert seen["revision_pin"] == committed
     assert confirm.json()["result"]["projection_revision_id"] == committed
+    assert confirm.json()["result"]["rebuild_equivalent_to_committed_revision"] is True
+    assert "rebuild_equivalent_to_head" not in confirm.json()["result"]

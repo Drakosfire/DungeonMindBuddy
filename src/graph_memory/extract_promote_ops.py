@@ -430,7 +430,6 @@ def confirm_extract_promote(
         rebuild_diagnostics = list(rebuild.diagnostics)
         rebuild_equivalent = (
             "rebuild_equivalent_to_pinned_revision" in rebuild.diagnostics
-            or "rebuild_equivalent_to_head" in rebuild.diagnostics
         )
         head_advanced_before_verification = any(
             d.startswith("head_advanced_past_compare_revision:")
@@ -501,7 +500,7 @@ def confirm_extract_promote(
             RETRY_GUIDANCE_DO_NOT_RETRY if not overall_ok else RETRY_GUIDANCE_NONE
         ),
         "rebuild_diagnostics": rebuild_diagnostics,
-        "rebuild_equivalent_to_head": rebuild_equivalent,
+        "rebuild_equivalent_to_committed_revision": rebuild_equivalent,
         "projection_revision_id": projection_revision_id,
         "projection_node_count": projection_node_count,
         "projection_relationship_count": projection_relationship_count,

@@ -158,13 +158,17 @@ def rebuild_from_contributions(
     """Replay active contributions (+ identity decisions) onto the baseline revision.
 
     Identity decisions are loaded from the durable identity-decision ledger, not
-    from the current head. The rebuilt payload is then compared to the head
-    (or to ``compare_revision_id`` when set) for equivalence reporting.
+    from the current head. The rebuilt payload is compared for equivalence:
 
-    When ``compare_revision_id`` is set, ``publish`` must be False. Comparison
-    uses that immutable revision rather than the mutable current head, so a
-    concurrent head advance cannot make this audit report success against a
-    different revision than the one just published.
+    - Always against the current head (``equivalent_to_head`` /
+      ``rebuild_equivalent_to_head``).
+    - Additionally against ``compare_revision_id`` when set
+      (``equivalent_to_pinned_revision`` /
+      ``rebuild_equivalent_to_pinned_revision``).
+
+    When ``compare_revision_id`` is set, ``publish`` must be False. The pin is
+    the audit target; head equivalence is reported separately so a concurrent
+    head advance cannot be mislabeled as pinned-audit success.
     """
     if compare_revision_id is not None and publish:
         raise ValueError(
@@ -318,6 +322,10 @@ def rebuild_from_contributions(
         _canonical_graph_fingerprint(working)
         == _canonical_graph_fingerprint(compared_store)
     )
+    equivalent_to_head_store = (
+        _canonical_graph_fingerprint(working)
+        == _canonical_graph_fingerprint(head_store)
+    )
     if equivalent_to_compared:
         diagnostics.append("rebuild_equivalent_to_pre_publish_head")
         if compare_revision_id is not None:
@@ -368,7 +376,9 @@ def rebuild_from_contributions(
             if compare_revision_id is not None
             else head_revision.revision_id
         )
-        if equivalent_to_compared:
+        # Head equivalence is always against the actual current head store —
+        # never aliased from a pinned compare revision.
+        if equivalent_to_head_store:
             diagnostics.append("rebuild_equivalent_to_head")
         else:
             diagnostics.append("rebuild_differs_from_head")
@@ -380,16 +390,19 @@ def rebuild_from_contributions(
         "current_head_revision_id": head.head_revision_id,
         "published_revision_id": published_revision_id,
         "published": published,
-        "head_revision_id": published_revision_id or compared_revision_id,
+        "head_revision_id": published_revision_id or head.head_revision_id,
         "contribution_ids": replay_ids,
         "identity_decision_ids": [d.decision_id for d in identity_decisions],
         "assertion_identity_rekeys": assertion_identity_rekeys,
         "equivalent_to_pre_publish_head": equivalent_to_compared,
+        "equivalent_to_pinned_revision": (
+            equivalent_to_compared if compare_revision_id is not None else None
+        ),
         "equivalent_to_published_head": equivalent_to_published_head,
         "equivalent_to_head": (
             equivalent_to_published_head
             if published
-            else equivalent_to_compared
+            else equivalent_to_head_store
         ),
         "diagnostics": diagnostics,
     }

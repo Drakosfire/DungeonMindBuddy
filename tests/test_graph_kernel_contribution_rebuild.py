@@ -402,3 +402,105 @@ def test_rebuild_migrates_legacy_provenance_split_without_rewriting_ledger(
     )
     assert verification.published is False
     assert "rebuild_equivalent_to_head" in verification.diagnostics
+
+
+def test_pinned_rebuild_does_not_mislabel_head_equivalence(seeded_root: Path) -> None:
+    """Pinned audit equivalence must not claim current-head equivalence after advance."""
+    root = seeded_root
+    first = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_pin_a",
+        label="Pin A",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Pin A"],
+        },
+        source_artifact_id="artifact:pin-a",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    contrib_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:pin-a",
+        source_revision_id="authored-pin-a",
+        authored_by="gm",
+        accepted_assertions=[first],
+    )
+    merge_a = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_a
+    )
+    assert merge_a.published is True
+    pinned_revision_id = merge_a.revision_id
+    assert pinned_revision_id
+
+    second = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_pin_b",
+        label="Pin B",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Pin B"],
+        },
+        source_artifact_id="artifact:pin-b",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    contrib_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:pin-b",
+        source_revision_id="authored-pin-b",
+        authored_by="gm",
+        accepted_assertions=[second],
+    )
+    merge_b = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_b
+    )
+    assert merge_b.published is True
+    current_head = merge_b.revision_id
+    assert current_head != pinned_revision_id
+
+    # Replay only the pinned contribution set so the rebuilt graph matches the
+    # older pin while the live head has already advanced.
+    result = kernel.rebuild_from_contributions(
+        root,
+        world_id=WORLD_ID,
+        publish=False,
+        contribution_ids=[contrib_a.contribution_id],
+        compare_revision_id=pinned_revision_id,
+    )
+    assert result.published is False
+    assert "rebuild_equivalent_to_pinned_revision" in result.diagnostics
+    assert "rebuild_differs_from_head" in result.diagnostics
+    assert "rebuild_equivalent_to_head" not in result.diagnostics
+    assert any(
+        d.startswith(f"head_advanced_past_compare_revision:{current_head}")
+        for d in result.diagnostics
+    )
+
+    report = json.loads(
+        (
+            root
+            / "graph_memory"
+            / "worlds"
+            / WORLD_ID
+            / "contribution_rebuild"
+            / "latest.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert report["compared_head_revision_id"] == pinned_revision_id
+    assert report["current_head_revision_id"] == current_head
+    assert report["head_revision_id"] == current_head
+    assert report["equivalent_to_pinned_revision"] is True
+    assert report["equivalent_to_head"] is False
