@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as extractPromoteApi from "../../api/extractPromoteApi";
-import { getUnionSupergraphProjection } from "../../api/liveApi";
+import { getUnionSupergraphProjection, postWorldGraphProjection } from "../../api/liveApi";
 import type {
+  ExtractPromoteConfirmReceipt,
   ExtractPromotePrepareResponse,
   GraphIngestRunSummary,
   UnionSupergraphProjectionResponse,
@@ -23,6 +24,7 @@ vi.mock("../../api/liveApi", async () => {
     ...actual,
     getUnionSupergraphProjection: vi.fn(),
     getGoldGraphProjection: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
   };
 });
 
@@ -35,6 +37,7 @@ vi.mock("../../api/extractPromoteApi", async () => {
     ...actual,
     getExtractPromoteStatus: vi.fn(),
     prepareExtractPromote: vi.fn(),
+    confirmExtractPromote: vi.fn(),
   };
 });
 
@@ -56,7 +59,19 @@ const projection: UnionSupergraphProjectionResponse = {
     focused_edge_ids: [],
     focused_node_ids: [],
   },
-  node_views: {},
+  node_views: {
+    "obj-hesta": {
+      node_id: "obj-hesta",
+      label: "Hesta",
+      kind: "npc",
+      role: "character",
+      summary: "Apothecary",
+      evidence_ref_ids: [],
+      edge_ids: [],
+      beat_ids: [],
+      source_span_ids: [],
+    },
+  },
   source_spans: [],
   mentions: [],
 };
@@ -146,6 +161,28 @@ function prepareResponse(
   };
 }
 
+function confirmReceipt(
+  overrides: Partial<ExtractPromoteConfirmReceipt> = {},
+): ExtractPromoteConfirmReceipt {
+  return {
+    schema: "dmb_extract_promote_confirm_v2",
+    outcome: "committed",
+    worldId: "eldyrwild",
+    proposalId: "prop-1",
+    proposalDigest: "digest-a",
+    parentRevisionId: "rev:parent",
+    committedRevisionId: "rev:committed",
+    headAdvanced: true,
+    selectedAssertionIds: ["a-hesta", "a-edge"],
+    acceptedAssertionIds: ["a-hesta", "a-edge"],
+    affectedObjectIds: ["obj-hesta"],
+    appliedAssertionCount: 2,
+    auditStatus: "ok",
+    warnings: [],
+    ...overrides,
+  };
+}
+
 function renderWithLiveRun(liveRun: GraphIngestRunSummary, children: ReactNode) {
   const config = createIngestSurfaceConfig(planContext);
   return render(
@@ -167,14 +204,50 @@ function renderWithLiveRun(liveRun: GraphIngestRunSummary, children: ReactNode) 
   );
 }
 
+function renderSheet(
+  prepared = prepareResponse(),
+  props: Partial<ComponentProps<typeof GraphReviewExtractPromoteSheet>> = {},
+) {
+  return renderWithLiveRun(
+    baseRun(),
+    <GraphReviewExtractPromoteSheet prepared={prepared} onClose={() => undefined} {...props} />,
+  );
+}
+
 describe("GraphReviewExtractPromoteSheet", () => {
-  it("cascades selection dependencies and omits a live merge CTA", () => {
-    render(
-      <GraphReviewExtractPromoteSheet
-        prepared={prepareResponse()}
-        onClose={() => undefined}
-      />,
-    );
+  beforeEach(() => {
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+    vi.mocked(postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev:committed",
+        headRevisionId: "rev:committed",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-25" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockReset();
+  });
+
+  it("cascades selection dependencies and disables merge CTA at zero selection", () => {
+    renderSheet();
 
     const hesta = screen.getByRole("checkbox", { name: "Select Hesta" });
     const edge = screen.getByRole("checkbox", {
@@ -187,10 +260,113 @@ describe("GraphReviewExtractPromoteSheet", () => {
     expect(hesta).not.toBeChecked();
     expect(edge).not.toBeChecked();
 
-    expect(screen.queryByTestId("graph-review-extract-promote-merge-cta")).toBeNull();
+    const mergeCta = screen.getByTestId("graph-review-extract-promote-merge-cta");
+    expect(mergeCta).toBeDisabled();
     const status = screen.getByTestId("graph-review-extract-promote-selection-status");
     expect(status).toHaveAttribute("data-selected-count", "0");
     expect(status).toHaveAttribute("data-review-package-digest", "digest-a");
+    expect(status).toHaveTextContent("Select at least one accepted change");
+  });
+
+  it("calls confirm with exact selected assertion ids", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
+
+    renderSheet();
+
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledWith({
+        reviewPackage: { schema: "dmb_extract_promote_proposal_v1" },
+        assertionIds: ["a-hesta", "a-edge"],
+      });
+    });
+    expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+  });
+
+  it("freezes selection during deferred confirm", async () => {
+    let resolveConfirm!: (value: ExtractPromoteConfirmReceipt) => void;
+    const deferred = new Promise<ExtractPromoteConfirmReceipt>((resolve) => {
+      resolveConfirm = resolve;
+    });
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockReturnValue(deferred);
+
+    renderSheet();
+
+    const hesta = screen.getByRole("checkbox", { name: "Select Hesta" });
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-merge-cta")).toHaveTextContent(
+        "Merging…",
+      );
+    });
+
+    fireEvent.click(hesta);
+    expect(hesta).toBeChecked();
+
+    resolveConfirm(confirmReceipt());
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    });
+  });
+
+  it("disables Close while confirming", async () => {
+    let resolveConfirm!: (value: ExtractPromoteConfirmReceipt) => void;
+    const deferred = new Promise<ExtractPromoteConfirmReceipt>((resolve) => {
+      resolveConfirm = resolve;
+    });
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockReturnValue(deferred);
+
+    renderSheet();
+
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+
+    resolveConfirm(confirmReceipt());
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Close" })).not.toBeDisabled();
+  });
+
+  it("does not offer confirm again after a degraded receipt", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
+      confirmReceipt({
+        outcome: "published_audit_degraded",
+        auditStatus: "degraded",
+        warnings: ["Audit publish degraded."],
+      }),
+    );
+
+    renderSheet();
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toHaveAttribute(
+        "data-outcome",
+        "published_audit_degraded",
+      );
+    });
+
+    expect(screen.queryByTestId("graph-review-extract-promote-merge-cta")).toBeNull();
+    expect(
+      screen.getByTestId("graph-review-extract-promote-reload-revision"),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves receipt when catalog refresh fails", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
+    const onCatalogRefresh = vi.fn().mockRejectedValue(new Error("catalog refresh failed"));
+
+    renderSheet(prepareResponse(), { onCatalogRefresh });
+
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(onCatalogRefresh).toHaveBeenCalled();
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    });
   });
 });
 

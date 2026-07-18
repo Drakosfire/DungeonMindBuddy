@@ -107,7 +107,7 @@ DONE   PR011A-foundation — extract/promote shared ops + HTTP boundary (#363, `
 DONE   PR011A1 — server-owned ingest-run → promotion binding (#364, `bcc874ed`)
 DONE   PR011A2 — Graph Review prepare / review panel (#365, `cec9834f`)
 
-NEXT   PR011A3 — confirm, durable reload, and end-to-end dogfood
+DOING  PR011A3 — confirm, durable reload, and end-to-end dogfood
 
 THEN   PR011B  — expose the same preview_write / confirm_commit capability
                  to Hermes without a second agent-specific write path

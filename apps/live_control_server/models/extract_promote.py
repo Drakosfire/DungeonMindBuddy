@@ -10,14 +10,18 @@ from pydantic.alias_generators import to_camel
 STATUS_SCHEMA = "dmb_extract_promote_status_v1"
 PREPARE_REQUEST_SCHEMA = "dmb_extract_promote_prepare_request_v2"
 PREPARE_RESPONSE_SCHEMA = "dmb_extract_promote_prepare_v1"
-CONFIRM_REQUEST_SCHEMA = "dmb_extract_promote_confirm_request_v1"
-CONFIRM_RESPONSE_SCHEMA = "dmb_extract_promote_confirm_v1"
+CONFIRM_REQUEST_SCHEMA = "dmb_extract_promote_confirm_request_v2"
+CONFIRM_RESPONSE_SCHEMA = "dmb_extract_promote_confirm_v2"
 ERROR_SCHEMA = "dmb_extract_promote_error_v1"
 
 DiagnosticSeverity = Literal["error", "warning", "info"]
 WorldState = Literal["initialized", "uninitialized", "unreadable"]
 
 SERVER_PREPARED_BY = "live_control:extract_promote"
+SERVER_CONFIRMING_PRINCIPAL = "live_control:graph_review_confirm"
+PRODUCT_CONFIRM_ALLOW_LIVE_WORLD = True
+PRODUCT_CONFIRM_DRY_RUN = False
+PRODUCT_CONFIRM_ALLOW_IDEMPOTENT_NOOP = True
 
 
 class _ExtractPromoteModel(BaseModel):
@@ -117,31 +121,50 @@ class ExtractPromotePrepareResponse(_ExtractPromoteModel):
     session_id: str | None = None
 
 
+ConfirmOutcome = Literal["committed", "already_applied", "published_audit_degraded"]
+ConfirmAuditStatus = Literal["ok", "degraded"]
+
+
 class ExtractPromoteConfirmRequest(_ExtractPromoteModel):
-    schema_: Literal["dmb_extract_promote_confirm_request_v1"] = Field(
+    schema_: Literal["dmb_extract_promote_confirm_request_v2"] = Field(
         default=CONFIRM_REQUEST_SCHEMA, alias="schema"
     )
     review_package: dict[str, Any]
-    confirming_principal: str
-    assertion_ids: list[str] | None = None
-    dry_run: bool = False
-    allow_live_world: bool = False
-    allow_idempotent_noop: bool = False
+    assertion_ids: list[str]
 
-    @field_validator("confirming_principal")
+    @field_validator("assertion_ids")
     @classmethod
-    def _principal(cls, value: str) -> str:
-        return _nonblank(value, field_name="confirming_principal")
+    def _assertion_ids(cls, value: list[str]) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            item = str(raw).strip()
+            if not item:
+                raise ValueError("assertion_ids must not contain blank entries")
+            if item in seen:
+                raise ValueError("assertion_ids must not contain duplicates")
+            seen.add(item)
+            normalized.append(item)
+        return normalized
 
 
-class ExtractPromoteConfirmResponse(_ExtractPromoteModel):
-    schema_: Literal["dmb_extract_promote_confirm_v1"] = Field(
+class ExtractPromoteConfirmReceipt(_ExtractPromoteModel):
+    schema_: Literal["dmb_extract_promote_confirm_v2"] = Field(
         default=CONFIRM_RESPONSE_SCHEMA, alias="schema"
     )
-    ok: bool
-    dry_run: bool
-    failure_reason: str | None = None
-    result: dict[str, Any]
+    outcome: ConfirmOutcome
+    world_id: str
+    proposal_id: str
+    proposal_digest: str
+    parent_revision_id: str
+    committed_revision_id: str
+    head_advanced: bool
+    selected_assertion_ids: list[str]
+    accepted_assertion_ids: list[str]
+    affected_object_ids: list[str]
+    applied_assertion_count: int
+    audit_status: ConfirmAuditStatus
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ExtractPromoteErrorResponse(_ExtractPromoteModel):

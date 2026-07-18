@@ -337,6 +337,22 @@ def _prepare_body(run_id: str, *, node_ids: list[str] | None = None) -> dict:
     return body
 
 
+def _selectable_assertion_ids(prepared: dict) -> list[str]:
+    return [
+        item["assertionId"]
+        for item in prepared["reviewItems"]
+        if item.get("selectable")
+    ]
+
+
+def _confirm_body(package: dict, assertion_ids: list[str]) -> dict:
+    return {
+        "schema": "dmb_extract_promote_confirm_request_v2",
+        "reviewPackage": package,
+        "assertionIds": assertion_ids,
+    }
+
+
 @pytest.fixture
 def world_client(tmp_path: Path, loaded_bundle, monkeypatch: pytest.MonkeyPatch):
     repo = tmp_path / "repo"
@@ -417,29 +433,39 @@ def test_prepare_confirm_success(world_client) -> None:
     assert "accepted_proposals" not in prepared
 
     head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assertion_ids = _selectable_assertion_ids(prepared)
     confirm = client.post(
         CONFIRM_URL,
-        json={
-            "schema": "dmb_extract_promote_confirm_request_v1",
-            "reviewPackage": package,
-            "confirmingPrincipal": "gm@http-confirm",
-        },
+        json=_confirm_body(package, assertion_ids),
     )
     assert confirm.status_code == 200, confirm.text
     confirmed = confirm.json()
-    assert confirmed["ok"] is True
-    assert confirmed["result"]["published"] is True
-    assert confirmed["result"]["outcome"] == "published"
-    assert confirmed["result"]["post_publication_verification"] == "passed"
+    assert confirmed["schema"] == "dmb_extract_promote_confirm_v2"
+    assert confirmed["outcome"] == "committed"
+    assert confirmed["headAdvanced"] is True
+    assert "ok" not in confirmed
+    assert "result" not in confirmed
+    assert "dryRun" not in confirmed
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after != head_before
-    assert confirmed["result"]["committed_revision_id"] == head_after
-    assert confirmed["result"]["rebuild_equivalent_to_committed_revision"] is True
-    assert "rebuild_equivalent_to_head" not in confirmed["result"]
-    assert any(
-        str(item).startswith("rebuild_replay_pinned_to_revision:")
-        for item in confirmed["result"].get("rebuild_diagnostics") or []
+    assert confirmed["committedRevisionId"] == head_after
+    assert confirmed["affectedObjectIds"]
+    assert confirmed["appliedAssertionCount"] >= 1
+
+    # Exact retry after head advanced: already_applied, no second revision.
+    retry = client.post(
+        CONFIRM_URL,
+        json=_confirm_body(package, assertion_ids),
     )
+    assert retry.status_code == 200, retry.text
+    retried = retry.json()
+    assert retried["schema"] == "dmb_extract_promote_confirm_v2"
+    assert retried["outcome"] == "already_applied"
+    assert retried["headAdvanced"] is False
+    assert retried["proposalDigest"] == confirmed["proposalDigest"]
+    head_retry = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_retry == head_after
+    assert retried["committedRevisionId"] == head_after
 
 
 def test_confirm_rejects_tampered_package(world_client) -> None:
@@ -454,17 +480,38 @@ def test_confirm_rejects_tampered_package(world_client) -> None:
 
     confirm = client.post(
         CONFIRM_URL,
-        json={
-            "schema": "dmb_extract_promote_confirm_request_v1",
-            "reviewPackage": package,
-            "confirmingPrincipal": "gm@http-confirm",
-        },
+        json=_confirm_body(
+            package,
+            _selectable_assertion_ids(prepare.json()),
+        ),
     )
     assert confirm.status_code == 409
     assert confirm.json()["code"] == "proposal_verification_failed"
 
 
-def test_confirm_refuses_live_world_without_allow(
+def test_confirm_rejects_forbidden_operator_fields(world_client) -> None:
+    client, _world, _repo, run_id, _digest, _source = world_client
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
+    )
+    assert prepare.status_code == 200, prepare.text
+    prepared = prepare.json()
+    package = prepared["reviewPackage"]
+    assertion_ids = _selectable_assertion_ids(prepared)
+
+    for forbidden in (
+        {"confirmingPrincipal": "gm@attacker"},
+        {"allowLiveWorld": True},
+    ):
+        body = _confirm_body(package, assertion_ids)
+        body.update(forbidden)
+        confirm = client.post(CONFIRM_URL, json=body)
+        assert confirm.status_code == 422, confirm.text
+        assert confirm.json()["code"] == "invalid_request"
+
+
+def test_confirm_succeeds_against_live_world_root(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, world_root, _repo, run_id, _digest, _source = world_client
@@ -475,19 +522,19 @@ def test_confirm_refuses_live_world_without_allow(
         json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
     )
     assert prepare.status_code == 200, prepare.text
-    package = prepare.json()["reviewPackage"]
+    prepared = prepare.json()
+    package = prepared["reviewPackage"]
+    assertion_ids = _selectable_assertion_ids(prepared)
 
     confirm = client.post(
         CONFIRM_URL,
-        json={
-            "schema": "dmb_extract_promote_confirm_request_v1",
-            "reviewPackage": package,
-            "confirmingPrincipal": "gm@http-confirm",
-            "allowLiveWorld": False,
-        },
+        json=_confirm_body(package, assertion_ids),
     )
-    assert confirm.status_code == 403
-    assert confirm.json()["code"] == "live_world_refused"
+    assert confirm.status_code == 200, confirm.text
+    payload = confirm.json()
+    assert payload["schema"] == "dmb_extract_promote_confirm_v2"
+    assert payload["outcome"] == "committed"
+    assert payload["headAdvanced"] is True
 
 
 def test_confirm_published_false_returns_failure_proof(
@@ -523,11 +570,10 @@ def test_confirm_published_false_returns_failure_proof(
 
     confirm = client.post(
         CONFIRM_URL,
-        json={
-            "schema": "dmb_extract_promote_confirm_request_v1",
-            "reviewPackage": package,
-            "confirmingPrincipal": "gm@http-confirm",
-        },
+        json=_confirm_body(
+            package,
+            _selectable_assertion_ids(prepare.json()),
+        ),
     )
     assert confirm.status_code == 409
     payload = confirm.json()
@@ -549,12 +595,7 @@ def test_confirm_empty_assertion_ids_does_not_advance_head(world_client) -> None
 
     confirm = client.post(
         CONFIRM_URL,
-        json={
-            "schema": "dmb_extract_promote_confirm_request_v1",
-            "reviewPackage": package,
-            "confirmingPrincipal": "gm@http-confirm",
-            "assertionIds": [],
-        },
+        json=_confirm_body(package, []),
     )
     assert confirm.status_code == 422
     assert confirm.json()["code"] == "empty_assertion_selection"
@@ -782,22 +823,21 @@ def test_confirm_post_publication_verification_failure_reports_committed_revisio
 
     confirm = client.post(
         CONFIRM_URL,
-        json={
-            "schema": "dmb_extract_promote_confirm_request_v1",
-            "reviewPackage": package,
-            "confirmingPrincipal": "gm@http-confirm",
-        },
+        json=_confirm_body(
+            package,
+            _selectable_assertion_ids(prepare.json()),
+        ),
     )
     assert confirm.status_code == 200, confirm.text
     payload = confirm.json()
-    assert payload["ok"] is False
-    assert payload["result"]["published"] is True
-    assert payload["result"]["retry_guidance"] == (
-        "reload_status_inspect_head_do_not_retry_confirm"
-    )
+    assert payload["schema"] == "dmb_extract_promote_confirm_v2"
+    assert payload["outcome"] == "published_audit_degraded"
+    assert payload["auditStatus"] == "degraded"
+    assert payload["committedRevisionId"]
+    assert payload["headAdvanced"] is True
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after != head_before
-    assert head_after == payload["result"]["committed_revision_id"]
+    assert head_after == payload["committedRevisionId"]
 
 
 def test_prepare_rejects_query_selectors(world_client) -> None:
@@ -853,18 +893,17 @@ def test_confirm_already_applied_keeps_published_false(
 
     confirm = client.post(
         CONFIRM_URL,
-        json={
-            "schema": "dmb_extract_promote_confirm_request_v1",
-            "reviewPackage": package,
-            "confirmingPrincipal": "gm@http-confirm",
-            "allowIdempotentNoop": True,
-        },
+        json=_confirm_body(
+            package,
+            _selectable_assertion_ids(prepare.json()),
+        ),
     )
     assert confirm.status_code == 200, confirm.text
     payload = confirm.json()
-    assert payload["ok"] is True
-    assert payload["result"]["published"] is False
-    assert payload["result"]["outcome"] == "already_applied"
+    assert payload["schema"] == "dmb_extract_promote_confirm_v2"
+    assert payload["outcome"] == "already_applied"
+    assert payload["headAdvanced"] is False
+    assert "published" not in payload
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after == head_before
 
@@ -897,18 +936,18 @@ def test_confirm_audit_pins_projection_to_committed_revision(
 
     confirm = client.post(
         CONFIRM_URL,
-        json={
-            "schema": "dmb_extract_promote_confirm_request_v1",
-            "reviewPackage": package,
-            "confirmingPrincipal": "gm@http-confirm",
-        },
+        json=_confirm_body(
+            package,
+            _selectable_assertion_ids(prepare.json()),
+        ),
     )
     assert confirm.status_code == 200, confirm.text
-    committed = confirm.json()["result"]["committed_revision_id"]
+    receipt = confirm.json()
+    committed = receipt["committedRevisionId"]
     assert committed
     assert seen["compare_revision_id"] == committed
     assert seen["revision_pin"] == committed
-    assert confirm.json()["result"]["rebuild_equivalent_to_committed_revision"] is True
+    assert receipt["outcome"] == "committed"
 
 
 def test_path_contract_still_rejects_world_store_sources(world_client) -> None:

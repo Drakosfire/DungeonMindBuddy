@@ -66,7 +66,7 @@ DONE  PR010B   Hermes graph-retrieval dogfood (Rungs 5–7 all accepted; merged 
 DONE  PR011A-foundation  Extract/promote shared ops + HTTP
 DONE  PR011A1            Server-owned ingest-run → promotion binding
 DONE  PR011A2            Graph Review prepare / review panel
-NEXT  PR011A3            Confirm, durable reload, Session 25 dogfood
+DOING PR011A3            Confirm, durable reload, Session 25 dogfood
 THEN  PR011B             Hermes preview_write / confirm_commit over the same path
 ```
 
@@ -295,7 +295,7 @@ registry (`read_only`, `draft_only`, `preview_write`, `confirm_commit`,
 DONE  PR011A-foundation  Extract/promote shared ops + HTTP
 DONE  PR011A1            Server-owned ingest-run → promotion binding
 DONE  PR011A2            Graph Review prepare / review panel
-NEXT  PR011A3            Confirm, durable reload, Session 25 dogfood
+DOING PR011A3            Confirm, durable reload, Session 25 dogfood
 THEN  PR011B             Hermes preview_write / confirm_commit over the same path
 ```
 

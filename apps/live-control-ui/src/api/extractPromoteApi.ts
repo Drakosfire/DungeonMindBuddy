@@ -1,10 +1,10 @@
 /**
- * Product client for extract → World Supergraph promote (PR011A2).
- *
- * A2 wires status + prepare. Confirm POST is deferred to PR011A3.
+ * Product client for extract → World Supergraph promote (PR011A2 + PR011A3).
  */
 
 import type {
+  ExtractPromoteConfirmReceipt,
+  ExtractPromoteConfirmRequest,
   ExtractPromoteErrorBody,
   ExtractPromotePrepareRequest,
   ExtractPromotePrepareResponse,
@@ -87,6 +87,22 @@ export async function prepareExtractPromote(
     ...(body.nodeIds != null ? { nodeIds: body.nodeIds } : {}),
   };
   return extractPromoteFetch<ExtractPromotePrepareResponse>("/api/live/extract-promote/prepare", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmExtractPromote(
+  body: Omit<ExtractPromoteConfirmRequest, "schema"> & {
+    schema?: ExtractPromoteConfirmRequest["schema"];
+  },
+): Promise<ExtractPromoteConfirmReceipt> {
+  const payload: ExtractPromoteConfirmRequest = {
+    schema: "dmb_extract_promote_confirm_request_v2",
+    reviewPackage: body.reviewPackage,
+    assertionIds: body.assertionIds,
+  };
+  return extractPromoteFetch<ExtractPromoteConfirmReceipt>("/api/live/extract-promote/confirm", {
     method: "POST",
     body: JSON.stringify(payload),
   });

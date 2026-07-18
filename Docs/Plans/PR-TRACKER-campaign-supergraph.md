@@ -48,7 +48,7 @@ DONE    PR011A1            Server-owned ingest-run → promotion binding
                            (#364, `bcc874ed`)
 DONE    PR011A2            Graph Review prepare / review panel
                            (#365, `cec9834f`)
-READY   PR011A3            Confirm, durable reload, Session 25 dogfood
+DOING   PR011A3            Confirm, durable reload, Session 25 dogfood
 BLOCKED PR011B             Hermes preview_write / confirm_commit (on A3)
 READY   PR009              Play projection migration (parallel product lane)
 BLOCKED PR012              Leftover cleanup safety net
@@ -347,8 +347,9 @@ review sheet (not a diagnostics dump).
 
 ### PR011A3 — Confirm, durable reload, Session 25 dogfood
 
-**Status:** `READY`  
+**Status:** `DOING`  
 **Depends on:** PR011A2 (`DONE`)
+**Handoff:** [`HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`](./HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md)
 
 **Purpose:** Explicit **Merge N changes into campaign memory**, then prove the
 object journey on Session 25 (Hesta / apothecary ↔ Mireward).

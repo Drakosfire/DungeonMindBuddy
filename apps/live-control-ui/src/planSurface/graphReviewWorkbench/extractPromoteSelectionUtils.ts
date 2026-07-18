@@ -59,3 +59,12 @@ export function countSelectableSelected(
   }
   return count;
 }
+
+export function selectedPromoteAssertionIds(
+  items: ExtractPromotionReviewItem[],
+  selected: Set<string>,
+): string[] {
+  return items
+    .filter((item) => item.selectable && selected.has(item.assertionId))
+    .map((item) => item.assertionId);
+}

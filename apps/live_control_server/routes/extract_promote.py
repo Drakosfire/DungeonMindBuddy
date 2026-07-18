@@ -10,8 +10,8 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
 from apps.live_control_server.models.extract_promote import (
+    ExtractPromoteConfirmReceipt,
     ExtractPromoteConfirmRequest,
-    ExtractPromoteConfirmResponse,
     ExtractPromoteDiagnostic,
     ExtractPromotePrepareRequest,
     ExtractPromotePrepareResponse,
@@ -129,7 +129,7 @@ def post_extract_promote_prepare(
     return response.model_dump(mode="json", by_alias=True)
 
 
-@router.post("/confirm", response_model=ExtractPromoteConfirmResponse)
+@router.post("/confirm", response_model=ExtractPromoteConfirmReceipt)
 def post_extract_promote_confirm(
     request_context: Request,
     request: ExtractPromoteConfirmRequest,
