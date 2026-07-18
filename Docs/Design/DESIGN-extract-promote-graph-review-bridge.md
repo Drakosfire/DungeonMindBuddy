@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE REFERENCE — product binding ladder for governed World Graph publication  
 **Date:** 2026-07-17  
-**Updated:** 2026-07-18 — PR011A1 landed on `main` (`bcc874ed`, #364); PR011A2 Graph Review panel is the active gate  
+**Updated:** 2026-07-18 — PR011A2 landed on `main` (`cec9834f`, #365); PR011A3 confirm / durable reload / Session 25 dogfood is the active gate  
 **Sequencing authority:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md) (PR011A*)  
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md) Phase 8  
 **Contracts:** [`CONTRACT-agent-tool-authored-prep-contributions-v0.md`](CONTRACT-agent-tool-authored-prep-contributions-v0.md) (`preview_write` / `confirm_commit`)  
@@ -105,8 +105,8 @@ Reframe Phase 8 write-path work as:
 ```text
 DONE   PR011A-foundation — extract/promote shared ops + HTTP boundary (#363, `fdd7ec82`)
 DONE   PR011A1 — server-owned ingest-run → promotion binding (#364, `bcc874ed`)
+DONE   PR011A2 — Graph Review prepare / review panel (#365, `cec9834f`)
 
-DOING  PR011A2 — Graph Review prepare / review panel
 NEXT   PR011A3 — confirm, durable reload, and end-to-end dogfood
 
 THEN   PR011B  — expose the same preview_write / confirm_commit capability

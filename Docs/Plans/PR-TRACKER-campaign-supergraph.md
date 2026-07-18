@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-18 — PR011A1 ingest-run → promotion binding on `main` (`bcc874ed`, #364); PR011A2 Graph Review prepare / review panel is the active gate
+**Updated:** 2026-07-18 — PR011A2 Graph Review prepare / review panel on `main` (`cec9834f`, #365); PR011A3 confirm / durable reload / Session 25 dogfood is the active gate
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -44,12 +44,14 @@ DONE    PR008B        Agent Interaction graph query-context attachment
 DONE    PR010A        Graph retrieval contract + source-anchor admission
 DONE    PR010B        Hermes graph-retrieval dogfood
 DONE    PR011A-foundation  Extract/promote shared ops + HTTP (#363, `fdd7ec82`)
-DONE    PR011A1       Server-owned ingest-run → promotion binding (#364, `bcc874ed`)
-DOING   PR011A2       Graph Review prepare / review panel
-BLOCKED PR011A3       Confirm, durable reload, Session 25 dogfood (on A2)
-BLOCKED PR011B        Hermes preview_write / confirm_commit (on A3)
-READY   PR009         Play projection migration (parallel product lane)
-BLOCKED PR012         Leftover cleanup safety net
+DONE    PR011A1            Server-owned ingest-run → promotion binding
+                           (#364, `bcc874ed`)
+DONE    PR011A2            Graph Review prepare / review panel
+                           (#365, `cec9834f`)
+READY   PR011A3            Confirm, durable reload, Session 25 dogfood
+BLOCKED PR011B             Hermes preview_write / confirm_commit (on A3)
+READY   PR009              Play projection migration (parallel product lane)
+BLOCKED PR012              Leftover cleanup safety net
 ```
 
 PR010 is intentionally split into PR010A and PR010B. PR011 is split into
@@ -291,7 +293,8 @@ acceptable for CLI bootstrap only.
 
 ### PR011A1 — Server-owned ingest-run → promotion binding
 
-**Status:** `DONE` — GitHub #364, merge `bcc874ed` (2026-07-18)  
+**Status:** `DONE` — GitHub #364, merge
+`bcc874ed0807b2df24e55724eddee81c541f9d2a`  
 **Depends on:** PR011A-foundation
 
 **Purpose:** Replace browser-supplied path prepare with server-owned
@@ -318,7 +321,8 @@ acceptable for CLI bootstrap only.
 
 ### PR011A2 — Graph Review prepare / review panel
 
-**Status:** `DOING`  
+**Status:** `DONE` — GitHub #365, merge
+`cec9834f8667d2af31447540b5acb9dade0373aa`  
 **Depends on:** PR011A1 (`DONE`)
 
 **Purpose:** Bind a selected ingest run to prepare and present a game-facing
@@ -343,8 +347,8 @@ review sheet (not a diagnostics dump).
 
 ### PR011A3 — Confirm, durable reload, Session 25 dogfood
 
-**Status:** `BLOCKED` on PR011A2  
-**Depends on:** PR011A2
+**Status:** `READY`  
+**Depends on:** PR011A2 (`DONE`)
 
 **Purpose:** Explicit **Merge N changes into campaign memory**, then prove the
 object journey on Session 25 (Hesta / apothecary ↔ Mireward).

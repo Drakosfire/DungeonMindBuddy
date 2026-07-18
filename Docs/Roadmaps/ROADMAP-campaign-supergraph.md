@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-18 — PR011A1 ingest-run → promotion binding on `main` (`bcc874ed`, #364); Phase 8 critical path is PR011A2 (Graph Review panel); see DESIGN-extract-promote-graph-review-bridge.md
+**Updated:** 2026-07-18 — PR011A2 Graph Review prepare / review panel on `main` (`cec9834f`, #365); Phase 8 critical path is PR011A3 (confirm / durable reload / Session 25 dogfood); see DESIGN-extract-promote-graph-review-bridge.md
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -63,11 +63,11 @@ DONE  PR008A   Plan World Graph object-card migration
 DONE  PR008B   Agent Interaction receives revision-pinned graph query context
 DONE  PR010A   Graph retrieval contract and source-anchor admission
 DONE  PR010B   Hermes graph-retrieval dogfood (Rungs 5–7 all accepted; merged main #356)
-DONE  PR011A-foundation  Extract/promote shared ops + HTTP prepare/confirm (#363, `fdd7ec82`)
-DONE  PR011A1  Server-owned ingest-run → promotion binding (#364, `bcc874ed`)
-DOING PR011A2  Graph Review prepare / review panel
-BLOCKED PR011A3  Confirm, durable reload, Session 25 dogfood (on A2)
-BLOCKED PR011B Hermes preview_write / confirm_commit over the same path (on A3)
+DONE  PR011A-foundation  Extract/promote shared ops + HTTP
+DONE  PR011A1            Server-owned ingest-run → promotion binding
+DONE  PR011A2            Graph Review prepare / review panel
+NEXT  PR011A3            Confirm, durable reload, Session 25 dogfood
+THEN  PR011B             Hermes preview_write / confirm_commit over the same path
 ```
 
 PR009 Play migration may proceed independently after PR008 lessons. Multi-source ingestion expansion can also continue without changing the graph-first Agent Interaction direction.
@@ -211,7 +211,7 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 ### PR010B — Hermes graph-retrieval dogfood
 
-**Status:** Done — Rungs 5–7 all accepted; merged to `main` as `129a4c40` (PR #356) on 2026-07-17. PR011A-foundation is DONE (#363, `fdd7ec82`); PR011A1 is DONE (#364, `bcc874ed`); next is PR011A2. PR009 remains an independent parallel lane.
+**Status:** Done — Rungs 5–7 all accepted; merged to `main` as `129a4c40` (PR #356) on 2026-07-17. PR011A-foundation is DONE (#363, `fdd7ec82`); PR011A1 is DONE (#364, `bcc874ed`); PR011A2 is DONE (#365, `cec9834f`); next is PR011A3. PR009 remains an independent parallel lane.
 
 **Purpose:** Run Hermes as the actual conversational agent over PR010A read tools and dogfood multi-turn graph-grounded prep in the existing Agent Interaction surface.
 
@@ -277,24 +277,26 @@ These tools are graph/revision scoped. `read_source_anchor` accepts an opaque an
 
 **Expected slices:** PR011A* (human Graph Review `confirm_commit` reference path), then PR011B (Hermes capability over the same path).
 
-**Current state (2026-07-18):** PR011A-foundation is `DONE` on `main` via GitHub #363
-(`fdd7ec82`): shared extract/promote ops + HTTP prepare/confirm/status with
-proposal seal, assertion selection, and truthful post-publication audit.
-PR011A1 is `DONE` via GitHub #364 (`bcc874ed`): server-owned
-`resolve_promotable_ingest_run(run_id)` and `runId`-only product prepare.
-The missing product work is the Graph Review prepare / review panel (PR011A2),
-then confirm/reload dogfood (A3) — not a second Kernel.
+**Current state (2026-07-18):** PR011A1 and PR011A2 are complete.
+
+Graph Review can select a server-validated promotable ingest run, prepare a
+head-pinned sealed promotion proposal, project game-facing review items, and
+maintain a Kernel-valid assertion selection.
+
+The missing product capability is explicit GM confirmation followed by truthful
+durable revision reload and end-to-end proof that the reviewed object has become
+campaign memory.
 
 PR011 umbrella still owns app-level context assembly, the typed capability
 registry (`read_only`, `draft_only`, `preview_write`, `confirm_commit`,
 `admin_diagnostic`), and cross-surface continuity. Delivery order is fixed:
 
 ```text
-DONE     PR011A-foundation (#363, `fdd7ec82`)
-DONE     PR011A1 — runId → server-resolved prepare (#364, `bcc874ed`)
-DOING    PR011A2 — Graph Review review panel + typed review projection
-THEN     PR011A3 — confirm, durable reload, Session 25 Hesta dogfood
-THEN     PR011B  — Hermes uses the same confirm_commit path
+DONE  PR011A-foundation  Extract/promote shared ops + HTTP
+DONE  PR011A1            Server-owned ingest-run → promotion binding
+DONE  PR011A2            Graph Review prepare / review panel
+NEXT  PR011A3            Confirm, durable reload, Session 25 dogfood
+THEN  PR011B             Hermes preview_write / confirm_commit over the same path
 ```
 
 **Exit criteria:**
