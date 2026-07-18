@@ -389,11 +389,11 @@ def test_rebuild_migrates_legacy_provenance_split_without_rewriting_ledger(
             supports[0]["assertion_id"],
         ),
     }
-    assert report["compared_head_revision_id"] == baseline.revision_id
+    assert report["compared_revision_id"] == baseline.revision_id
     assert report["published"] is True
     assert report["published_revision_id"] == revision.revision_id
     assert report["head_revision_id"] == revision.revision_id
-    assert report["equivalent_to_pre_publish_head"] is False
+    assert report["equivalent_to_compared_revision"] is False
     assert report["equivalent_to_published_head"] is True
     assert report["equivalent_to_head"] is True
 
@@ -402,3 +402,312 @@ def test_rebuild_migrates_legacy_provenance_split_without_rewriting_ledger(
     )
     assert verification.published is False
     assert "rebuild_equivalent_to_head" in verification.diagnostics
+
+
+def test_pinned_rebuild_does_not_mislabel_head_equivalence(seeded_root: Path) -> None:
+    """Pinned audit must pin replay inputs and not claim current-head equivalence."""
+    root = seeded_root
+    first = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_pin_a",
+        label="Pin A",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Pin A"],
+        },
+        source_artifact_id="artifact:pin-a",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    contrib_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:pin-a",
+        source_revision_id="authored-pin-a",
+        authored_by="gm",
+        accepted_assertions=[first],
+    )
+    merge_a = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_a
+    )
+    assert merge_a.published is True
+    pinned_revision_id = merge_a.revision_id
+    assert pinned_revision_id
+
+    second = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_pin_b",
+        label="Pin B",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Pin B"],
+        },
+        source_artifact_id="artifact:pin-b",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    contrib_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:pin-b",
+        source_revision_id="authored-pin-b",
+        authored_by="gm",
+        accepted_assertions=[second],
+    )
+    merge_b = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib_b
+    )
+    assert merge_b.published is True
+    current_head = merge_b.revision_id
+    assert current_head != pinned_revision_id
+
+    # Production path: pin only compare_revision_id. Replay membership must come
+    # from revision A even though the live index already contains contribution B.
+    result = kernel.rebuild_from_contributions(
+        root,
+        world_id=WORLD_ID,
+        publish=False,
+        compare_revision_id=pinned_revision_id,
+    )
+    assert result.published is False
+    assert contrib_a.contribution_id in result.contribution_ids
+    assert contrib_b.contribution_id not in result.contribution_ids
+    assert "rebuild_replay_pinned_to_revision:" + pinned_revision_id in result.diagnostics
+    assert "rebuild_equivalent_to_pinned_revision" in result.diagnostics
+    assert "rebuild_differs_from_head" in result.diagnostics
+    assert "rebuild_equivalent_to_head" not in result.diagnostics
+    assert any(
+        d.startswith(f"head_advanced_past_compare_revision:{current_head}")
+        for d in result.diagnostics
+    )
+
+    report = json.loads(
+        (
+            root
+            / "graph_memory"
+            / "worlds"
+            / WORLD_ID
+            / "contribution_rebuild"
+            / "latest.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert report["compared_revision_id"] == pinned_revision_id
+    assert report["current_head_revision_id"] == current_head
+    assert report["head_revision_id"] == current_head
+    assert report["equivalent_to_pinned_revision"] is True
+    assert report["equivalent_to_compared_revision"] is True
+    assert report["equivalent_to_head"] is False
+    assert contrib_b.contribution_id not in report["contribution_ids"]
+
+
+def test_pinned_rebuild_survives_later_retraction(seeded_root: Path) -> None:
+    """Pinned audit must ignore later ledger retraction of a contribution active at pin."""
+    root = seeded_root
+    assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_pin_retract",
+        label="Pin Retract",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Pin Retract"],
+        },
+        source_artifact_id="artifact:pin-retract",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    contrib = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:pin-retract",
+        source_revision_id="authored-pin-retract",
+        authored_by="gm",
+        accepted_assertions=[assertion],
+    )
+    merge = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib
+    )
+    assert merge.published is True
+    pinned_revision_id = merge.revision_id
+    assert pinned_revision_id
+
+    retract = kernel.retract_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        contribution_id=contrib.contribution_id,
+        reason="post-pin retract",
+    )
+    assert retract.published is True
+    assert retract.revision_id != pinned_revision_id
+
+    result = kernel.rebuild_from_contributions(
+        root,
+        world_id=WORLD_ID,
+        publish=False,
+        compare_revision_id=pinned_revision_id,
+    )
+    assert "rebuild_equivalent_to_pinned_revision" in result.diagnostics
+    assert "replayed_retracted_support_removal:" not in "\n".join(result.diagnostics)
+    assert "npc_pin_retract" in kernel.load_world_graph_revision(
+        root, WORLD_ID, pinned_revision_id
+    ).nodes
+
+
+def test_pinned_rebuild_survives_later_identity_supersession(
+    seeded_root: Path,
+) -> None:
+    """Pinned identity snapshot status must not follow later ledger mutations."""
+    root = seeded_root
+    assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_pin_identity",
+        label="Pin Identity",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Pin Identity"],
+        },
+        source_artifact_id="artifact:pin-identity",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    contrib = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:pin-identity",
+        source_revision_id="authored-pin-identity",
+        authored_by="gm",
+        accepted_assertions=[assertion],
+    )
+    merge = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib
+    )
+    assert merge.published is True
+
+    _head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    decision = kernel.build_identity_decision_record(
+        world_id=WORLD_ID,
+        decision_kind="human_override",
+        actor="gm",
+        reason="pin-time identity decision",
+        subject_node_id="npc_pin_identity",
+        source_candidate_id="candidate:pin-identity",
+    )
+    store = kernel.record_identity_decision(store, decision)
+    published = kernel.publish_world_revision(
+        root,
+        WORLD_ID,
+        store,
+        operation_ids=[decision.decision_id],
+        expected_parent_revision_id=merge.revision_id,
+    )
+    pinned_revision_id = published.revision.revision_id
+
+    # Mutate the durable ledger status after the pin without advancing a matching
+    # graph revision that would change the pin snapshot.
+    from graph_memory.world_supergraph.identity_decision_store import (
+        load_identity_decision_record,
+        write_identity_decision_record,
+    )
+
+    ledger = load_identity_decision_record(root, WORLD_ID, decision.decision_id)
+    write_identity_decision_record(
+        root,
+        WORLD_ID,
+        ledger.model_copy(update={"status": "superseded"}),
+    )
+
+    result = kernel.rebuild_from_contributions(
+        root,
+        world_id=WORLD_ID,
+        publish=False,
+        compare_revision_id=pinned_revision_id,
+    )
+    assert "rebuild_equivalent_to_pinned_revision" in result.diagnostics
+    report = json.loads(
+        (
+            root
+            / "graph_memory"
+            / "worlds"
+            / WORLD_ID
+            / "contribution_rebuild"
+            / "latest.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert decision.decision_id in report["identity_decision_ids"]
+
+
+def test_pinned_rebuild_fails_closed_without_replay_manifest(
+    seeded_root: Path, monkeypatch
+) -> None:
+    """Pinned audits must refuse digests-only revisions that lack a replay plan."""
+    root = seeded_root
+    assertion = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="npc_pin_legacy",
+        label="Pin Legacy",
+        value={
+            "kind": "npc",
+            "role": "npc",
+            "source_domains": ["manual_seed"],
+            "aliases": ["Pin Legacy"],
+        },
+        source_artifact_id="artifact:pin-legacy",
+        campaign_scope="longmont-c2",
+        epistemic_kind="fact",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    contrib = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:pin-legacy",
+        source_revision_id="authored-pin-legacy",
+        authored_by="gm",
+        accepted_assertions=[assertion],
+    )
+    merge = kernel.merge_contribution_to_revision(
+        root, world_id=WORLD_ID, contribution=contrib
+    )
+    assert merge.published is True
+    pinned_revision_id = merge.revision_id
+    assert pinned_revision_id
+
+    real_load = kernel.load_world_graph_revision
+
+    def _strip_manifest(root_path, world_id, revision_id):
+        store = real_load(root_path, world_id, revision_id)
+        if revision_id != pinned_revision_id:
+            return store
+        return store.model_copy(update={"contribution_replay_manifest": []})
+
+    monkeypatch.setattr(
+        "graph_memory.kernel.contribution_rebuild.load_world_graph_revision",
+        _strip_manifest,
+    )
+    with pytest.raises(ValueError, match="lacks contribution_replay_manifest"):
+        kernel.rebuild_from_contributions(
+            root,
+            world_id=WORLD_ID,
+            publish=False,
+            compare_revision_id=pinned_revision_id,
+        )

@@ -137,8 +137,13 @@ def verify_source_revision(
     source_uri: str,
     source_revision_id: str,
     repo_root: Path | None = None,
+    disclose_computed_digest: bool = True,
 ) -> str:
-    """Hash source bytes and require source_revision_id == sha256:{digest}."""
+    """Hash source bytes and require source_revision_id == sha256:{digest}.
+
+    When ``disclose_computed_digest`` is False (HTTP boundaries), mismatch
+    errors omit the computed digest so callers cannot oracle arbitrary files.
+    """
     raw = resolve_source_bytes(source_uri, repo_root=repo_root)
     digest = hashlib.sha256(raw).hexdigest()
     expected = f"sha256:{digest}"
@@ -146,8 +151,12 @@ def verify_source_revision(
     if not provided.startswith("sha256:"):
         provided = f"sha256:{provided}"
     if provided != expected:
+        if disclose_computed_digest:
+            raise CandidateGraphMappingError(
+                f"source_revision_id mismatch: provided={provided} computed={expected}"
+            )
         raise CandidateGraphMappingError(
-            f"source_revision_id mismatch: provided={provided} computed={expected}"
+            "source_revision_id does not match the resolved source artifact"
         )
     return expected
 

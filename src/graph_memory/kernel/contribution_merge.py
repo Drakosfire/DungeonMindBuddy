@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.kernel.contribution_models import (
@@ -27,6 +27,7 @@ from graph_memory.kernel.world_graph import (
     publish_world_graph_revision,
 )
 from graph_memory.union_supergraph.model import (
+    ContributionReplayManifestEntry,
     UnionSupergraphAdjacencyItem,
     UnionSupergraphEdge,
     UnionSupergraphEvidence,
@@ -67,14 +68,119 @@ def _with_support_map(
     )
 
 
+def _synthesize_replay_manifest_from_digests(
+    store: UnionSupergraphStore,
+) -> list[ContributionReplayManifestEntry]:
+    """Best-effort migration for revisions published before the replay manifest.
+
+    Digests alone do not record supersession/retraction. Synthesized entries are
+    treated as active so the next publish can carry a complete ordered plan.
+    """
+    return [
+        ContributionReplayManifestEntry(
+            contribution_id=contribution_id,
+            status="active",
+            source_payload_sha256=digest,
+        )
+        for contribution_id, digest in (store.contribution_source_payload_sha256 or {}).items()
+    ]
+
+
+def _copy_replay_manifest(
+    store: UnionSupergraphStore,
+) -> list[ContributionReplayManifestEntry]:
+    existing = list(store.contribution_replay_manifest or [])
+    if existing:
+        return [
+            entry
+            if isinstance(entry, ContributionReplayManifestEntry)
+            else ContributionReplayManifestEntry.model_validate(entry)
+            for entry in existing
+        ]
+    return _synthesize_replay_manifest_from_digests(store)
+
+
+def upsert_contribution_replay_entry(
+    store: UnionSupergraphStore,
+    *,
+    contribution_id: str,
+    status: Literal["active", "superseded", "retracted"],
+    source_payload_sha256: str,
+) -> UnionSupergraphStore:
+    """Insert or replace one revision-bound contribution replay entry."""
+    manifest = _copy_replay_manifest(store)
+    updated = False
+    for index, entry in enumerate(manifest):
+        if entry.contribution_id != contribution_id:
+            continue
+        if (
+            entry.source_payload_sha256 != source_payload_sha256
+            and entry.source_payload_sha256
+        ):
+            raise ValueError(
+                "contribution replay digest already bound with a different value: "
+                f"{contribution_id}"
+            )
+        manifest[index] = ContributionReplayManifestEntry(
+            contribution_id=contribution_id,
+            status=status,
+            source_payload_sha256=source_payload_sha256,
+        )
+        updated = True
+        break
+    if not updated:
+        manifest.append(
+            ContributionReplayManifestEntry(
+                contribution_id=contribution_id,
+                status=status,
+                source_payload_sha256=source_payload_sha256,
+            )
+        )
+    return store.model_copy(update={"contribution_replay_manifest": manifest})
+
+
+def mark_contribution_replay_status(
+    store: UnionSupergraphStore,
+    *,
+    contribution_id: str,
+    status: Literal["active", "superseded", "retracted"],
+) -> UnionSupergraphStore:
+    """Update lifecycle status for an existing replay-manifest contribution."""
+    manifest = _copy_replay_manifest(store)
+    for index, entry in enumerate(manifest):
+        if entry.contribution_id != contribution_id:
+            continue
+        manifest[index] = ContributionReplayManifestEntry(
+            contribution_id=entry.contribution_id,
+            status=status,
+            source_payload_sha256=entry.source_payload_sha256,
+        )
+        return store.model_copy(update={"contribution_replay_manifest": manifest})
+    digest = (store.contribution_source_payload_sha256 or {}).get(contribution_id)
+    if not digest:
+        raise ValueError(
+            "cannot mark contribution replay status; contribution is not bound "
+            f"into revision digests: {contribution_id}"
+        )
+    return upsert_contribution_replay_entry(
+        store,
+        contribution_id=contribution_id,
+        status=status,
+        source_payload_sha256=digest,
+    )
+
+
 def stamp_contribution_source_digest(
     store: UnionSupergraphStore,
     contribution: GraphContribution,
+    *,
+    status: Literal["active", "superseded", "retracted"] = "active",
 ) -> UnionSupergraphStore:
     """Bind a lifecycle-neutral contribution source digest into revision state.
 
     Digests are write-once per contribution ID. A later ledger lifecycle change
-    (status/diagnostics) must not alter an already stamped digest.
+    (status/diagnostics) must not alter an already stamped digest. Also upserts
+    the revision-bound contribution replay manifest entry used by pinned audits.
     """
     digest = compute_contribution_source_payload_sha256(contribution)
     payloads = dict(store.contribution_source_payload_sha256)
@@ -85,7 +191,13 @@ def stamp_contribution_source_digest(
             f"{contribution.contribution_id}"
         )
     payloads[contribution.contribution_id] = digest
-    return store.model_copy(update={"contribution_source_payload_sha256": payloads})
+    updated = store.model_copy(update={"contribution_source_payload_sha256": payloads})
+    return upsert_contribution_replay_entry(
+        updated,
+        contribution_id=contribution.contribution_id,
+        status=status,
+        source_payload_sha256=digest,
+    )
 
 
 def stamp_initialization_authority(
@@ -1255,6 +1367,11 @@ def supersede_graph_contribution(
             update={"adjacency": _rebuild_adjacency(proposed)}
         )
         proposed = stamp_contribution_source_digest(proposed, new_contribution)
+        proposed = mark_contribution_replay_status(
+            proposed,
+            contribution_id=superseded_contribution_id,
+            status="superseded",
+        )
         publish_result = publish_world_graph_revision(
             root,
             world_id,
@@ -1344,6 +1461,11 @@ def retract_graph_contribution(
     working = _with_support_map(current_store, support)
     working = _mark_graph_objects_unsupported(working, support, unsupported)
     working = working.model_copy(update={"adjacency": _rebuild_adjacency(working)})
+    working = mark_contribution_replay_status(
+        working,
+        contribution_id=contribution_id,
+        status="retracted",
+    )
 
     # Do not mutate the contribution ledger until publish succeeds. A failed
     # publish must leave the record active so ledger and graph head agree.
