@@ -63,30 +63,52 @@ promotable (registry flag): true
 warnings: registry promotable=true but prepare rejects candidate SemanticState (see Stage 2)
 ```
 
+## Typed SemanticState successor (2026-07-18) — operator-approved IR repair
+
+```text
+No runtime legacy adapter.
+Forward fix: category extractor + staged_edge DEFAULT SemanticState are typed
+  played_canon / candidate / source_evidence / system_derived / gm_private.
+Registry/prepare parity: load_typed_candidate_graph fail-closed in
+  promotable_ingest_run (aliases → not promotable).
+
+One-shot disk rewrite (semantic_state only; out/ gitignored; not committed):
+  11 live candidate_graph.json files under out/graph_memory/runs/
+  longmont-c1 session-1 (3), session-2 (2)
+  longmont-c2 session-23 (4), session-24 (2)
+  Empty stubs (3) left unchanged.
+  Eval/Mirathorn gold and evals/** left alone (no live worldbuilding registry runs).
+
+Post-repair Session 24 prepare
+  (runId graph-ingest:longmont-c2:session-24:20260713T182027Z):
+  mapping_error: CLEARED
+  new failure: HTTP 422 run_not_promotable —
+    candidate graph failed typed parse: 'source_ref_id'
+  Evidence refs on live extracts still use extractor-local
+    {source_span_ref_id, anchor_quotes} without full EvidenceRef
+    (source_ref_id / source_artifact_id / …).
+  Head unchanged: rev:5cadc9798562862cdde22350d8a3b56c
+  Confirm not attempted.
+
+Follow-up (not this PR): align live evidence_refs with CandidateGraphPreview
+  EvidenceRef IR (or a documented promote-path materializer), then resume
+  Session 24 closeout acceptance.
+```
+
 ## Stage 2 — Prepare / review (FAILED)
 
 ```text
 POST /api/live/extract-promote/prepare
   body: { schema: dmb_extract_promote_prepare_request_v2, runId: <above> }
 
-Results:
+Results (before SemanticState repair):
   20260713T182027Z → HTTP 409 mapping_error
   20260713T181901Z → HTTP 409 mapping_error
   20260629T035803Z → HTTP 422 run_scope_mismatch (missing campaign_id/session_id on candidate)
 
-mapping_error message:
-  candidate graph uses extractor semantic_state aliases
-  (canon_status/lifecycle/memory_status); promote requires typed
-  CandidateGraphPreview SemanticState
-  (canon_state/lifecycle_state/evidence_role/authority_state/visibility_state).
-
-Observed candidate semantic_state (Session 24 run 20260713T181934Z node sample):
-  { "canon_status": "preview_only", "lifecycle": "candidate", "memory_status": "uncommitted" }
-
-Gold IR / API tests use typed promote-eligible state, e.g.:
-  { "canon_state": "played_canon", "lifecycle_state": "candidate",
-    "evidence_role": "source_evidence", "authority_state": "system_derived",
-    "visibility_state": "gm_private" }
+Results (after SemanticState repair on disk + extractor defaults PR):
+  20260713T182027Z → HTTP 422 run_not_promotable (missing evidence source_ref_id)
+  mapping_error: no longer observed on repaired Session 24 candidate
 
 proposal ID: n/a
 selected assertion IDs: n/a
@@ -101,26 +123,11 @@ head advanced: no (still rev:5cadc9798562862cdde22350d8a3b56c)
 browser reload / server restart / Hermes: n/a
 ```
 
-## Why bounded hardening was not applied inside this closeout
-
-```text
-Owning defect: category extractor DEFAULT_SEMANTIC_STATE still emits aliases;
-promote path correctly fail-closes (test_load_typed_rejects_extractor_semantic_aliases).
-
-Fixing requires changing src/graph_memory/extraction/category_candidate_graph_extractor.py
-(and likely staged_edge defaults) — outside closeout §5 allowlist / discovery dirs.
-
-Silent rewrite of preview_only → played_canon at promote time is forbidden
-(re-opens discarded-semantics blocker from PR 362 hardening).
-
-Hand-editing the Session 24 candidate graph is forbidden by the closeout handoff.
-```
-
 ## Source-family readiness
 
 | Source family                  | Current UI entry contract                | Proven in this PR? | Ready? | Reason |
 | ------------------------------ | ---------------------------------------- | -----------------: | -----: | ------ |
-| Canonical session recap        | Campaign + session + recap text/artifact |                 No |     No | Prepare blocked on extractor SemanticState mismatch |
+| Canonical session recap        | Campaign + session + recap text/artifact |                 No |     No | SemanticState fixed; prepare still blocked on EvidenceRef `source_ref_id` |
 | Campaign NPC/location/faction  | No declared general contract on base     |                 No |     No | General source artifact intake required |
 | Session prep/plot artifact     | No declared general contract on base     |                 No |     No | Scope and canon semantics required |
 | Worldbuilding location/setting | No declared general contract on base     |                 No |     No | World-scoped source contract required |

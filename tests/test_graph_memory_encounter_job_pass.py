@@ -175,13 +175,21 @@ def test_encounter_job_pass_nodes_appear_in_candidate_graph_and_edge_prompt():
 
     try:
         preview = candidate_graph_preview_from_dict(result.candidate_graph)
-    except TypeError:
-        # The runtime extractor still emits legacy semantic_state keys; keep this
-        # prototype focused on proving the new node types are not invalid.
+    except (TypeError, KeyError, ValueError):
+        # Encounter-job prototype fixtures may still omit full EvidenceRef IR;
+        # this test owns node_type emission, not full promote readiness.
         assert node_types <= {"character", "quest", "combat_encounter"}
+        assert all(
+            "canon_status" not in (n.get("semantic_state") or {})
+            for n in result.candidate_graph["nodes"]
+        )
     else:
         report = validate_candidate_graph_preview(preview)
         assert not [issue for issue in report.issues if issue.field == "node_type"]
+        assert all(
+            "canon_status" not in (n.get("semantic_state") or {})
+            for n in result.candidate_graph["nodes"]
+        )
 
 
 def test_invalid_encounter_job_node_types_are_dropped_and_diagnosed():

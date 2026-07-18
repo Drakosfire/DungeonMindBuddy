@@ -98,9 +98,11 @@ EVIDENCE_RULE = (
 )
 
 DEFAULT_SEMANTIC_STATE = {
-    "lifecycle": "candidate",
-    "canon_status": "preview_only",
-    "memory_status": "uncommitted",
+    "canon_state": "played_canon",
+    "lifecycle_state": "candidate",
+    "evidence_role": "source_evidence",
+    "authority_state": "system_derived",
+    "visibility_state": "gm_private",
 }
 
 ENVELOPE_SCHEMA = "dmb_live_extractor_candidate_envelope_v0"
