@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-18 — PR011A2 Graph Review prepare / review panel on `main` (`cec9834f`, #365); PR011A3 confirm / durable reload / Session 25 dogfood is the active gate
+**Updated:** 2026-07-18 — PR011A3 implementation merged `#366` (`37c0a79d`); live Session 25 acceptance BLOCKED (source absent + no operator live-publish approval); see dogfood report
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -49,7 +49,11 @@ DONE    PR011A1            Server-owned ingest-run → promotion binding
 DONE    PR011A2            Graph Review prepare / review panel
                            (#365, `cec9834f`)
 DOING   PR011A3            Confirm, durable reload, Session 25 dogfood
-BLOCKED PR011B             Hermes preview_write / confirm_commit (on A3)
+                           implementation MERGED #366 (`37c0a79d`)
+                           live acceptance BLOCKED — see
+                           Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md
+                           closeout: HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md
+BLOCKED PR011B             Hermes preview_write / confirm_commit (on A3 acceptance)
 READY   PR009              Play projection migration (parallel product lane)
 BLOCKED PR012              Leftover cleanup safety net
 ```
@@ -347,9 +351,11 @@ review sheet (not a diagnostics dump).
 
 ### PR011A3 — Confirm, durable reload, Session 25 dogfood
 
-**Status:** `DOING`  
+**Status:** `DOING` — implementation `DONE` via GitHub #366 (`37c0a79d`); live acceptance `BLOCKED`  
 **Depends on:** PR011A2 (`DONE`)
-**Handoff:** [`HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`](./HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md)
+**Implementation handoff:** [`HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`](./HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md)
+**Closeout handoff:** [`HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md`](./HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md)
+**Acceptance report:** [`PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md`](../Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md)
 
 **Purpose:** Explicit **Merge N changes into campaign memory**, then prove the
 object journey on Session 25 (Hesta / apothecary ↔ Mireward).
@@ -357,18 +363,31 @@ object journey on Session 25 (Hesta / apothecary ↔ Mireward).
 **Deliverables:**
 
 - Product confirm sends sealed proposal + selected assertion IDs only;
-  confirming principal and live-world policy are server-owned.
+  confirming principal and live-world policy are server-owned. **Landed in #366.**
 - Post-confirm: reload committed revision, refresh catalog, open durable objects,
-  compact success receipt.
-- Explicit failure UX for stale / already_applied / publish failed / audit degraded.
+  compact success receipt. **Landed in #366.**
+- Explicit failure UX for stale / already_applied / publish failed / audit degraded. **Landed in #366.**
 - End-to-end dogfood proof recorded (ingest → review → merge → Plan/Hermes retrieve → reload).
+  **BLOCKED 2026-07-18:** no Session 25 recap/run in corpus/registry; no operator
+  live-publish approval. Head unchanged at `rev:5cadc9798562862cdde22350d8a3b56c`.
 
 **Success criteria:**
 
 - World Graph head advances; Hesta (or chosen Session 25 object) is durable and
   retrievable; evidence and relationships are openable; reload persists.
+  **Not yet met** — mark `DONE` only after live acceptance passes.
 
 **Non-goals:** Hermes capability registry (PR011B); autonomous merges.
+
+**OPERATOR DECISION REQUIRED**
+
+```text
+Choose one before re-dispatching closeout acceptance:
+- land real Session 25 canonical recap, then approve one live publish; or
+- explicitly waive Session 25 and name another real recap (e.g. Session 24)
+  as the representative source, then approve one live publish; or
+- defer acceptance and reprioritize (PR011B remains blocked; no backfill).
+```
 
 ### PR011B — Hermes `preview_write` / `confirm_commit`
 

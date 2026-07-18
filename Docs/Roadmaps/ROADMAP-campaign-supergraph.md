@@ -2,7 +2,7 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-18 — PR011A2 Graph Review prepare / review panel on `main` (`cec9834f`, #365); Phase 8 critical path is PR011A3 (confirm / durable reload / Session 25 dogfood); see DESIGN-extract-promote-graph-review-bridge.md
+**Updated:** 2026-07-18 — PR011A3 implementation on `main` via #366 (`37c0a79d`); live Session 25 acceptance BLOCKED (source absent + no operator live-publish approval); no corpus backfill until readiness verdict is earned
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -67,8 +67,17 @@ DONE  PR011A-foundation  Extract/promote shared ops + HTTP
 DONE  PR011A1            Server-owned ingest-run → promotion binding
 DONE  PR011A2            Graph Review prepare / review panel
 DOING PR011A3            Confirm, durable reload, Session 25 dogfood
+                         implementation #366 (`37c0a79d`) MERGED;
+                         live acceptance BLOCKED — operator must supply
+                         Session 25 (or waive) + approve one live publish
 THEN  PR011B             Hermes preview_write / confirm_commit over the same path
+                         (blocked until A3 live acceptance)
 ```
+
+**Operator hard stop (2026-07-18 closeout):** Do not begin canonical recap backfill,
+heterogeneous corpus UI ingestion, batch/queue work, or PR011B until the Session 25
+(or explicitly waived) live acceptance records a scoped readiness verdict. Recap-only
+proof must not be overclaimed as heterogeneous corpus readiness.
 
 PR009 Play migration may proceed independently after PR008 lessons. Multi-source ingestion expansion can also continue without changing the graph-first Agent Interaction direction.
 
@@ -296,6 +305,8 @@ DONE  PR011A-foundation  Extract/promote shared ops + HTTP
 DONE  PR011A1            Server-owned ingest-run → promotion binding
 DONE  PR011A2            Graph Review prepare / review panel
 DOING PR011A3            Confirm, durable reload, Session 25 dogfood
+                         implementation #366 (`37c0a79d`) MERGED;
+                         live acceptance BLOCKED (see dogfood report)
 THEN  PR011B             Hermes preview_write / confirm_commit over the same path
 ```
 
