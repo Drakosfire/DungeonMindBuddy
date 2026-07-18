@@ -119,6 +119,14 @@ the same GM review/confirmation surface.
 
 ### PR011A1 — Bind selected ingest run to promotion
 
+**HTTP prepare is `runId`-only** (`dmb_extract_promote_prepare_request_v2`).
+Source and candidate paths are resolved from the graph-ingest run manifest by
+`resolve_promotable_ingest_run`. Registry-gated evidence under
+`out/graph_memory/runs/` is allowed; durable world-graph trees
+(`out/graph_memory/worlds/`, configured `world_graph_root` when not the broad
+`out/` default) remain denied. Browser path fields are rejected (`extra=forbid`).
+CLI path-based prepare is unchanged.
+
 Promote the existing read-only graph-ingest run registry into a server-owned
 resolution seam:
 

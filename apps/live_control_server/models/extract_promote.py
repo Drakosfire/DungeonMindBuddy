@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 STATUS_SCHEMA = "dmb_extract_promote_status_v1"
-PREPARE_REQUEST_SCHEMA = "dmb_extract_promote_prepare_request_v1"
+PREPARE_REQUEST_SCHEMA = "dmb_extract_promote_prepare_request_v2"
 PREPARE_RESPONSE_SCHEMA = "dmb_extract_promote_prepare_v1"
 CONFIRM_REQUEST_SCHEMA = "dmb_extract_promote_confirm_request_v1"
 CONFIRM_RESPONSE_SCHEMA = "dmb_extract_promote_confirm_v1"
@@ -16,6 +16,8 @@ ERROR_SCHEMA = "dmb_extract_promote_error_v1"
 
 DiagnosticSeverity = Literal["error", "warning", "info"]
 WorldState = Literal["initialized", "uninitialized", "unreadable"]
+
+SERVER_PREPARED_BY = "live_control:extract_promote"
 
 
 class _ExtractPromoteModel(BaseModel):
@@ -56,23 +58,19 @@ class ExtractPromoteStatusResponse(_ExtractPromoteModel):
 
 
 class ExtractPromotePrepareRequest(_ExtractPromoteModel):
-    schema_: Literal["dmb_extract_promote_prepare_request_v1"] = Field(
+    """Product prepare: server resolves source/candidate from ``run_id`` only."""
+
+    schema_: Literal["dmb_extract_promote_prepare_request_v2"] = Field(
         default=PREPARE_REQUEST_SCHEMA, alias="schema"
     )
-    candidate_graph_path: str
-    source_uri: str
-    source_revision_id: str
-    prepared_by: str
+    run_id: str
     world_id: str = "eldyrwild"
-    source_artifact_id: str | None = None
-    campaign_scope: str | None = None
     node_ids: list[str] | None = None
-    nodes_only: bool = False
 
-    @field_validator("candidate_graph_path", "source_uri", "source_revision_id", "prepared_by")
+    @field_validator("run_id")
     @classmethod
-    def _required_nonblank(cls, value: str, info) -> str:  # type: ignore[no-untyped-def]
-        return _nonblank(value, field_name=info.field_name)
+    def _run_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="run_id")
 
     @field_validator("world_id")
     @classmethod
@@ -92,6 +90,9 @@ class ExtractPromotePrepareResponse(_ExtractPromoteModel):
     unresolved_mentions_count: int
     rejected_assertions_count: int
     review_package: dict[str, Any]
+    run_id: str | None = None
+    campaign_id: str | None = None
+    session_id: str | None = None
 
 
 class ExtractPromoteConfirmRequest(_ExtractPromoteModel):

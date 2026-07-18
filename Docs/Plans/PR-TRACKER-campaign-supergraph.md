@@ -44,7 +44,7 @@ DONE    PR008B        Agent Interaction graph query-context attachment
 DONE    PR010A        Graph retrieval contract + source-anchor admission
 DONE    PR010B        Hermes graph-retrieval dogfood
 DONE    PR011A-foundation  Extract/promote shared ops + HTTP (#363, `fdd7ec82`)
-READY   PR011A1       Server-owned ingest-run → promotion binding
+DOING   PR011A1       Server-owned ingest-run → promotion binding
 BLOCKED PR011A2       Graph Review prepare / review panel (on A1)
 BLOCKED PR011A3       Confirm, durable reload, Session 25 dogfood (on A2)
 BLOCKED PR011B        Hermes preview_write / confirm_commit (on A3)
@@ -291,7 +291,7 @@ acceptable for CLI bootstrap only.
 
 ### PR011A1 — Server-owned ingest-run → promotion binding
 
-**Status:** `READY` — next implementation slice  
+**Status:** `DOING`  
 **Depends on:** PR011A-foundation
 
 **Purpose:** Replace browser-supplied path prepare with server-owned

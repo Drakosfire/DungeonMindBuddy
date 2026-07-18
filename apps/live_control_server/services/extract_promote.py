@@ -13,6 +13,7 @@ from apps.live_control_server.config import (
     world_graph_root,
 )
 from apps.live_control_server.models.extract_promote import (
+    SERVER_PREPARED_BY,
     ExtractPromoteConfirmRequest,
     ExtractPromoteConfirmResponse,
     ExtractPromoteDiagnostic,
@@ -20,6 +21,12 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromotePrepareRequest,
     ExtractPromotePrepareResponse,
     ExtractPromoteStatusResponse,
+)
+from apps.live_control_server.services.promotable_ingest_run import (
+    PromotableIngestRunError,
+    is_under_ingest_runs,
+    is_under_world_store,
+    resolve_promotable_ingest_run,
 )
 from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
 from graph_memory.extract_promote_ops import (
@@ -33,9 +40,9 @@ from graph_memory.extract_promote_ops import (
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
 
-# Narrow server-owned roots for promote source evidence. Entire repo is NOT
-# allowed (would admit .env and other secrets). Graph store trees (out/ and
-# world_graph_root) are never source authority — they are the materialized model.
+# Narrow server-owned roots for non-run promote source evidence (confirm of
+# legacy/CLI seals, dedicated fixture roots). Product prepare never uses these
+# from the browser — run artifacts are registry-resolved only.
 _SOURCE_ROOT_NAMES = ("corpus", "Docs", "evals", "tmp")
 
 
@@ -71,47 +78,12 @@ def _diagnostic(code: str, message: str) -> ExtractPromoteDiagnostic:
     return ExtractPromoteDiagnostic(code=code, message=message, severity="error")
 
 
-def _allowed_candidate_roots() -> list[Path]:
-    roots = [
-        repo_root().resolve(),
-        world_graph_root().resolve(),
-        (repo_root() / "out").resolve(),
-        (repo_root() / "evals").resolve(),
-        (repo_root() / "tmp").resolve(),
-    ]
-    dedicated = extract_promote_source_root()
-    if dedicated is not None:
-        roots.append(dedicated)
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for root in roots:
-        if root not in seen:
-            seen.add(root)
-            unique.append(root)
-    return unique
-
-
 def _allowed_source_roots() -> list[Path]:
     root = repo_root().resolve()
     roots = [(root / name).resolve() for name in _SOURCE_ROOT_NAMES]
     dedicated = extract_promote_source_root()
     if dedicated is not None:
         roots.append(dedicated)
-    seen: set[Path] = set()
-    unique: list[Path] = []
-    for item in roots:
-        if item not in seen:
-            seen.add(item)
-            unique.append(item)
-    return unique
-
-
-def _graph_store_denied_roots() -> list[Path]:
-    """World graph storage is never evidentiary source authority."""
-    roots = [
-        world_graph_root().resolve(),
-        (repo_root() / "out").resolve(),
-    ]
     seen: set[Path] = set()
     unique: list[Path] = []
     for item in roots:
@@ -131,71 +103,16 @@ def _path_under_any(path: Path, roots: list[Path]) -> bool:
     return False
 
 
-def _is_under_graph_store(path: Path) -> bool:
-    return _path_under_any(path, _graph_store_denied_roots())
-
-
-def resolve_candidate_graph_path(raw_path: str) -> Path:
-    """Resolve a candidate-graph path under an allowlisted root."""
-    text = (raw_path or "").strip()
-    if not text:
-        raise ExtractPromoteError(
-            "candidateGraphPath is required",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[_diagnostic("invalid_request", "candidateGraphPath is required")],
-        )
-    path = Path(text).expanduser()
-    if not path.is_absolute():
-        path = (repo_root() / path).resolve()
-    else:
-        path = path.resolve()
-    if not path.is_file():
-        raise ExtractPromoteError(
-            "candidateGraphPath does not exist or is not a file",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[
-                _diagnostic(
-                    "invalid_request",
-                    "candidateGraphPath does not exist or is not a file",
-                )
-            ],
-        )
-    if not _path_under_any(path, _allowed_candidate_roots()):
-        raise ExtractPromoteError(
-            "candidateGraphPath is outside the allowlisted roots",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[
-                _diagnostic(
-                    "invalid_request",
-                    "candidateGraphPath is outside the allowlisted roots",
-                )
-            ],
-        )
-    return path
-
-
-def resolve_promote_source_uri(raw_uri: str) -> str:
-    """Resolve a promote source URI under server-owned roots; seal a canonical form.
-
-    Client-supplied absolute paths outside the allowlist are rejected. Paths under
-    the repo root are sealed as ``repo://…`` so containment stays inspectable.
-    Graph-store trees are always denied even when nested under a broader allowlist.
-    """
+def _parse_source_uri_to_path(raw_uri: str) -> Path:
     text = (raw_uri or "").strip()
     if not text:
         raise ExtractPromoteError(
             "sourceUri is required",
-            code="invalid_request",
+            code="invalid_source_uri",
             status_code=422,
-            diagnostics=[_diagnostic("invalid_request", "sourceUri is required")],
+            diagnostics=[_diagnostic("invalid_source_uri", "sourceUri is required")],
         )
-
     root = repo_root().resolve()
-    allowed = _allowed_source_roots()
-
     if text.startswith("repo://"):
         rel = text[len("repo://") :].lstrip("/")
         if not rel or any(part in ("", ".", "..") for part in Path(rel).parts):
@@ -207,23 +124,36 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
                     _diagnostic("invalid_source_uri", "sourceUri repo path is invalid")
                 ],
             )
-        path = (root / rel).resolve()
-    else:
-        path = Path(text).expanduser()
-        if not path.is_absolute():
-            path = (root / path).resolve()
-        else:
-            path = path.resolve()
+        return (root / rel).resolve()
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        return (root / path).resolve()
+    return path.resolve()
 
-    if _is_under_graph_store(path):
+
+def resolve_promote_source_uri(raw_uri: str) -> str:
+    """Resolve a non-run promote source URI under server-owned roots.
+
+    Browser clients must not call this for product prepare — prepare is
+    ``runId``-only. Kept for confirm defense and dedicated fixture roots.
+    Arbitrary ``out/`` paths (including ingest runs) are rejected here; sealed
+    run-artifact URIs are accepted only via ``assert_sealed_source_uri_allowed``.
+    """
+    path = _parse_source_uri_to_path(raw_uri)
+    root = repo_root().resolve()
+    allowed = _allowed_source_roots()
+
+    if is_under_world_store(path, root=root) or is_under_ingest_runs(path, root=root):
         raise ExtractPromoteError(
-            "sourceUri must not reference the world graph store",
+            "sourceUri must not reference the world graph store or ingest-run tree "
+            "via the path contract",
             code="invalid_source_uri",
             status_code=422,
             diagnostics=[
                 _diagnostic(
                     "invalid_source_uri",
-                    "sourceUri must not reference the world graph store",
+                    "sourceUri must not reference the world graph store or "
+                    "ingest-run tree via the path contract",
                 )
             ],
         )
@@ -235,7 +165,8 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
             diagnostics=[
                 _diagnostic(
                     "invalid_source_uri",
-                    "sourceUri does not exist or is not a readable file under allowlisted roots",
+                    "sourceUri does not exist or is not a readable file under "
+                    "allowlisted roots",
                 )
             ],
         )
@@ -256,12 +187,46 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
         rel_posix = path.relative_to(root).as_posix()
         return f"repo://{rel_posix}"
     except ValueError:
-        # Under a dedicated promote source root outside the repo tree.
         return str(path)
 
 
 def assert_sealed_source_uri_allowed(source_uri: str) -> None:
-    """Re-check a sealed source URI at confirm time (defense in depth)."""
+    """Re-check a sealed source URI at confirm time (defense in depth).
+
+    Accepts:
+    - registry-sealed ingest-run normalized_recap under ``out/graph_memory/runs/``
+    - traditional allowlisted roots (corpus/Docs/evals/tmp/dedicated)
+
+    Always denies durable world-graph store trees.
+    """
+    path = _parse_source_uri_to_path(source_uri)
+    root = repo_root().resolve()
+    if is_under_world_store(path, root=root):
+        raise ExtractPromoteError(
+            "sourceUri must not reference the world graph store",
+            code="invalid_source_uri",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_source_uri",
+                    "sourceUri must not reference the world graph store",
+                )
+            ],
+        )
+    if is_under_ingest_runs(path, root=root):
+        if not path.is_file():
+            raise ExtractPromoteError(
+                "sealed ingest-run sourceUri is missing",
+                code="invalid_source_uri",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "invalid_source_uri",
+                        "sealed ingest-run sourceUri is missing",
+                    )
+                ],
+            )
+        return
     resolve_promote_source_uri(source_uri)
 
 
@@ -283,6 +248,15 @@ def _public_mapping_error(exc: CandidateGraphMappingError) -> ExtractPromoteErro
     )
 
 
+def _promotable_run_error(exc: PromotableIngestRunError) -> ExtractPromoteError:
+    return ExtractPromoteError(
+        str(exc),
+        code=exc.code,
+        status_code=exc.status_code,
+        diagnostics=[_diagnostic(exc.code, item) for item in exc.diagnostics],
+    )
+
+
 def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusResponse:
     result = get_extract_promote_status(
         world_root=world_graph_root(),
@@ -300,8 +274,15 @@ def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusRespo
 def prepare(
     request: ExtractPromotePrepareRequest,
 ) -> ExtractPromotePrepareResponse:
-    path = resolve_candidate_graph_path(request.candidate_graph_path)
-    canonical_source_uri = resolve_promote_source_uri(request.source_uri)
+    try:
+        resolved = resolve_promotable_ingest_run(request.run_id, root=repo_root())
+    except PromotableIngestRunError as exc:
+        raise _promotable_run_error(exc) from exc
+
+    # Defense in depth: registry seal must still pass confirm-time rules.
+    assert_sealed_source_uri_allowed(resolved.sealed_source_uri)
+
+    path = resolved.candidate_graph_path
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -327,14 +308,14 @@ def prepare(
         result = prepare_extract_promote(
             candidate_graph=payload,
             world_root=world_graph_root(),
-            source_uri=canonical_source_uri,
-            source_revision_id=request.source_revision_id,
-            prepared_by=request.prepared_by,
+            source_uri=resolved.sealed_source_uri,
+            source_revision_id=resolved.source_revision_id,
+            prepared_by=SERVER_PREPARED_BY,
             world_id=request.world_id,
-            source_artifact_id=request.source_artifact_id,
-            campaign_scope=request.campaign_scope,
+            source_artifact_id=resolved.source_artifact_id,
+            campaign_scope=resolved.campaign_id,
             node_ids=request.node_ids,
-            include_edges=not request.nodes_only,
+            include_edges=True,
             candidate_graph_path=str(path),
             repo_root=repo_root(),
             disclose_source_digest=False,
@@ -365,6 +346,9 @@ def prepare(
         unresolved_mentions_count=result.unresolved_mentions_count,
         rejected_assertions_count=result.rejected_assertions_count,
         review_package=result.review_package,
+        run_id=resolved.run_id,
+        campaign_id=resolved.campaign_id,
+        session_id=resolved.session_id,
     )
 
 
@@ -446,3 +430,13 @@ def confirm(
         failure_reason=None,
         result=result.payload,
     )
+
+
+__all__ = [
+    "ExtractPromoteError",
+    "assert_sealed_source_uri_allowed",
+    "confirm",
+    "get_status",
+    "prepare",
+    "resolve_promote_source_uri",
+]
