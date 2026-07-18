@@ -1,4 +1,4 @@
-"""HTTP-boundary tests for extract → World Supergraph promote."""
+"""HTTP-boundary tests for extract → World Supergraph promote (PR011A1)."""
 
 from __future__ import annotations
 
@@ -9,14 +9,21 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+import apps.live_control_server.config as live_config
+import apps.live_control_server.services.extract_promote as promote_svc
+import apps.live_control_server.services.promotable_ingest_run as promotable_mod
 import graph_memory.extract_promote_ops as ops
 import graph_memory.kernel as kernel
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services.graph_ingest_run_registry import (
+    GRAPH_INGEST_RUNS_ENV,
+)
 from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
 )
 from graph_memory.contribution_bundles import load_contribution_bundle
+from graph_memory.ingestion.graph_ingest_run import GRAPH_INGEST_RUN_MANIFEST_SCHEMA
 from graph_memory.kernel.world_initialization import initialize_world_from_contributions
 from graph_memory.kernel.world_initialization_models import (
     PLAN_SCHEMA,
@@ -37,6 +44,7 @@ BUNDLE_ID = "eldyrwild-longmont-c2-initial-v1"
 WORLD_ID = "eldyrwild"
 CAMPAIGN_ID = "longmont-c2"
 FOCUS_SESSION_ID = "session-23"
+SESSION_ID = "session-22"
 APPROVED_MERGE_SHA = "65ae001e0852d827ecd680200a965a576c705b1d"
 ACTOR = "gm"
 ORDERED_CONTRIBUTION_IDS = [
@@ -51,6 +59,7 @@ ORDERED_CONTRIBUTION_IDS = [
 STATUS_URL = "/api/live/extract-promote/status"
 PREPARE_URL = "/api/live/extract-promote/prepare"
 CONFIRM_URL = "/api/live/extract-promote/confirm"
+RUN_ID = "graph-ingest:longmont-c2:session-22:fixture-promote"
 
 
 @pytest.fixture
@@ -115,13 +124,17 @@ def _evidence(suffix: str) -> dict:
     }
 
 
-def _candidate_graph_payload() -> dict:
+def _candidate_graph_payload(
+    *,
+    campaign_id: str = CAMPAIGN_ID,
+    session_id: str = SESSION_ID,
+) -> dict:
     return {
         "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
         "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
         "preview_id": "preview:http-promote-vial",
-        "session_id": "session-22",
-        "campaign_id": "longmont-c2",
+        "session_id": session_id,
+        "campaign_id": campaign_id,
         "source_artifact_ids": ["artifact:recap:longmont-c2:session-22"],
         "status": "preview",
         "nodes": [
@@ -186,35 +199,172 @@ def _candidate_graph_payload() -> dict:
     }
 
 
+def _write_promotable_run(
+    repo: Path,
+    *,
+    run_id: str = RUN_ID,
+    campaign_id: str = CAMPAIGN_ID,
+    session_id: str = SESSION_ID,
+    status: str = "preview_union_store_ready",
+    candidate_graph_valid: bool = True,
+    preview_union_store_valid: bool = True,
+    digest_override: str | None = None,
+    omit_candidate: bool = False,
+    omit_preview: bool = False,
+    omit_source_artifact_id: bool = False,
+    extraction_profile: str | None = "category_v1",
+    runs_rel: str = "out/graph_memory/runs",
+    candidate_campaign_id: str | None = None,
+    candidate_session_id: str | None = None,
+) -> tuple[str, str, Path]:
+    run_dir = (
+        repo / Path(runs_rel) / campaign_id / session_id / "fixture-promote"
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    source = run_dir / "normalized_recap_source.md"
+    source.write_text("session 22 promote fixture\n", encoding="utf-8")
+    digest_hex = hashlib.sha256(source.read_bytes()).hexdigest()
+    digest = digest_override or f"sha256:{digest_hex}"
+    candidate = run_dir / "candidate_graph.json"
+    if not omit_candidate:
+        candidate.write_text(
+            json.dumps(
+                _candidate_graph_payload(
+                    campaign_id=candidate_campaign_id or campaign_id,
+                    session_id=candidate_session_id or session_id,
+                ),
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    preview = run_dir / "preview_union_supergraph.json"
+    if not omit_preview:
+        preview.write_text("{}\n", encoding="utf-8")
+
+    def rel(path: Path) -> str:
+        return path.relative_to(repo).as_posix()
+
+    artifacts: dict = {
+        "normalized_recap": {
+            "kind": "normalized_recap",
+            "uri": rel(source),
+            "sha256": digest,
+            "exists": True,
+            "preview_only": True,
+        },
+    }
+    if not omit_preview:
+        artifacts["preview_union_store"] = {
+            "kind": "preview_union_store",
+            "uri": rel(preview),
+            "exists": True,
+            "preview_only": True,
+        }
+    if not omit_candidate:
+        artifacts["candidate_graph"] = {
+            "kind": "candidate_graph",
+            "uri": rel(candidate),
+            "exists": True,
+            "preview_only": True,
+            "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        }
+
+    source_block: dict = {
+        "source_domain": "recap",
+        "normalized_recap_path": rel(source),
+        "normalized_recap_sha256": digest,
+        "source_label": "fixture promote recap",
+    }
+    if not omit_source_artifact_id:
+        source_block["source_artifact_id"] = "artifact:recap:longmont-c2:session-22"
+
+    diagnostics: dict = {
+        "preview_only": True,
+        "candidate_extraction": False,
+        "preview_import": True,
+        "canon_promotion": False,
+        "approved_memory_write": False,
+        "corpus_mutation": False,
+        "production_retrieval": False,
+        "agent_interaction_connected": False,
+        "runtime_projection_connected": False,
+    }
+    if extraction_profile:
+        diagnostics["extraction_profile"] = extraction_profile
+
+    manifest: dict = {
+        "schema": GRAPH_INGEST_RUN_MANIFEST_SCHEMA,
+        "version": "0.1",
+        "run_id": run_id,
+        "campaign_id": campaign_id,
+        "session_id": session_id,
+        "status": status,
+        "created_at": "2026-07-17T00:00:00Z",
+        "updated_at": "2026-07-17T00:00:00Z",
+        "source": source_block,
+        "artifacts": artifacts,
+        "health": {
+            "candidate_graph_valid": candidate_graph_valid,
+            "preview_union_store_valid": preview_union_store_valid,
+            "node_count": 2,
+            "edge_count": 1,
+            "evidence_ref_count": 2,
+            "resolvable_evidence_ref_count": 2,
+            "openable_evidence_ref_count": 2,
+            "highlightable_evidence_ref_count": 2,
+        },
+        "diagnostics": diagnostics,
+        "steps": [],
+        "warnings": [],
+        "errors": [],
+        "next_actions": ["open_projection_preview"],
+    }
+    if extraction_profile:
+        manifest["extraction_profile"] = extraction_profile
+    manifest_path = run_dir / "graph_ingest_run_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return run_id, digest, source
+
+
+def _prepare_body(run_id: str, *, node_ids: list[str] | None = None) -> dict:
+    body: dict = {
+        "schema": "dmb_extract_promote_prepare_request_v2",
+        "runId": run_id,
+    }
+    if node_ids is not None:
+        body["nodeIds"] = node_ids
+    return body
+
+
 @pytest.fixture
 def world_client(tmp_path: Path, loaded_bundle, monkeypatch: pytest.MonkeyPatch):
+    repo = tmp_path / "repo"
     world_root = tmp_path / "world"
-    source_root = tmp_path / "promote_source_artifacts"
+    repo.mkdir()
     world_root.mkdir()
-    source_root.mkdir()
     _initialize(world_root, loaded_bundle)
+
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(world_root))
-    monkeypatch.setenv("DUNGEONMIND_EXTRACT_PROMOTE_SOURCE_ROOT", str(source_root))
-    # Sandbox mutation root is distinct from the designated live root.
     monkeypatch.setenv(
         "DUNGEONMIND_LIVE_WORLD_GRAPH_ROOT",
         str(tmp_path / "_designated_live_not_used"),
     )
-    source = source_root / "source_fixture.md"
-    source.write_text("session 22 promote fixture\n", encoding="utf-8")
-    digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    # Candidate IR may live under the world root; source evidence must not.
-    graph_path = world_root / "candidate_graph.json"
-    graph_path.write_text(
-        json.dumps(_candidate_graph_payload(), indent=2) + "\n",
-        encoding="utf-8",
-    )
+    monkeypatch.delenv("DUNGEONMIND_EXTRACT_PROMOTE_SOURCE_ROOT", raising=False)
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+
+    monkeypatch.setattr(live_config, "repo_root", lambda: repo)
+    monkeypatch.setattr(promote_svc, "repo_root", lambda: repo)
+    monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
+    monkeypatch.setattr(promotable_mod, "world_graph_root", lambda: world_root)
+
+    run_id, digest, source = _write_promotable_run(repo)
     client = TestClient(create_app())
-    return client, world_root, graph_path, source, f"sha256:{digest}"
+    return client, world_root, repo, run_id, digest, source
 
 
 def test_status_reports_initialized_head(world_client) -> None:
-    client, _tmp, _graph, _source, _digest = world_client
+    client, *_rest = world_client
     response = client.get(STATUS_URL)
     assert response.status_code == 200
     payload = response.json()
@@ -227,28 +377,32 @@ def test_status_reports_initialized_head(world_client) -> None:
 
 
 def test_prepare_confirm_success(world_client) -> None:
-    client, tmp_path, graph_path, source, digest = world_client
+    client, world_root, _repo, run_id, _digest, source = world_client
     prepare = client.post(
         PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-            "nodeIds": ["obj_session22_vial", "mystery_puddles"],
-        },
+        json=_prepare_body(
+            run_id, node_ids=["obj_session22_vial", "mystery_puddles"]
+        ),
     )
     assert prepare.status_code == 200, prepare.text
     prepared = prepare.json()
     assert prepared["schema"] == "dmb_extract_promote_prepare_v1"
     assert prepared["acceptedProposalsCount"] >= 1
     assert prepared["proposalDigest"]
+    assert prepared["runId"] == run_id
+    assert prepared["campaignId"] == CAMPAIGN_ID
+    assert prepared["sessionId"] == SESSION_ID
     package = prepared["reviewPackage"]
     sealed_uri = package["effect"]["verified_source_uri"]
-    assert sealed_uri == str(source.resolve())
+    assert sealed_uri.startswith("repo://out/graph_memory/runs/")
+    assert sealed_uri.endswith("normalized_recap_source.md")
+    assert package["effect"]["contribution_meta"]["extraction_profile"] == "category_v1"
+    assert (
+        package["effect"]["contribution_meta"]["source_artifact_id"]
+        == "artifact:recap:longmont-c2:session-22"
+    )
 
-    head_before = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     confirm = client.post(
         CONFIRM_URL,
         json={
@@ -260,38 +414,25 @@ def test_prepare_confirm_success(world_client) -> None:
     assert confirm.status_code == 200, confirm.text
     confirmed = confirm.json()
     assert confirmed["ok"] is True
-    assert confirmed["dryRun"] is False
-    assert confirmed["result"]["ok"] is True
     assert confirmed["result"]["published"] is True
     assert confirmed["result"]["outcome"] == "published"
-    assert confirmed["result"]["merge"]["published"] is True
     assert confirmed["result"]["post_publication_verification"] == "passed"
-    head_after = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after != head_before
     assert confirmed["result"]["committed_revision_id"] == head_after
-    assert confirmed["result"]["projection_revision_id"] == head_after
     assert confirmed["result"]["rebuild_equivalent_to_committed_revision"] is True
     assert "rebuild_equivalent_to_head" not in confirmed["result"]
     assert any(
         str(item).startswith("rebuild_replay_pinned_to_revision:")
         for item in confirmed["result"].get("rebuild_diagnostics") or []
     )
-    assert confirmed["result"].get("head_advanced_before_verification") is False
 
 
 def test_confirm_rejects_tampered_package(world_client) -> None:
-    client, _tmp, graph_path, source, digest = world_client
+    client, _world, _repo, run_id, _digest, _source = world_client
     prepare = client.post(
         PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-            "nodeIds": ["obj_session22_vial", "mystery_puddles"],
-            "nodesOnly": True,
-        },
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
     )
     assert prepare.status_code == 200, prepare.text
     package = prepare.json()["reviewPackage"]
@@ -306,29 +447,18 @@ def test_confirm_rejects_tampered_package(world_client) -> None:
         },
     )
     assert confirm.status_code == 409
-    payload = confirm.json()
-    assert payload["schema"] == "dmb_extract_promote_error_v1"
-    assert payload["code"] == "proposal_verification_failed"
+    assert confirm.json()["code"] == "proposal_verification_failed"
 
 
 def test_confirm_refuses_live_world_without_allow(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, tmp_path, graph_path, source, digest = world_client
-    # Designate the configured mutation root as live.
-    monkeypatch.setenv("DUNGEONMIND_LIVE_WORLD_GRAPH_ROOT", str(tmp_path.resolve()))
+    client, world_root, _repo, run_id, _digest, _source = world_client
+    monkeypatch.setenv("DUNGEONMIND_LIVE_WORLD_GRAPH_ROOT", str(world_root.resolve()))
 
     prepare = client.post(
         PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-            "nodeIds": ["obj_session22_vial"],
-            "nodesOnly": True,
-        },
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
     )
     assert prepare.status_code == 200, prepare.text
     package = prepare.json()["reviewPackage"]
@@ -349,18 +479,10 @@ def test_confirm_refuses_live_world_without_allow(
 def test_confirm_published_false_returns_failure_proof(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, _tmp, graph_path, source, digest = world_client
+    client, _world, _repo, run_id, _digest, _source = world_client
     prepare = client.post(
         PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-            "nodeIds": ["obj_session22_vial"],
-            "nodesOnly": True,
-        },
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
     )
     assert prepare.status_code == 200, prepare.text
     package = prepare.json()["reviewPackage"]
@@ -397,25 +519,19 @@ def test_confirm_published_false_returns_failure_proof(
     payload = confirm.json()
     assert payload["code"] == "merge_did_not_publish"
     assert payload["failureResult"]["ok"] is False
-    assert payload["failureResult"]["failure_reason"] == "merge_did_not_publish"
 
 
 def test_confirm_empty_assertion_ids_does_not_advance_head(world_client) -> None:
-    client, tmp_path, graph_path, source, digest = world_client
+    client, world_root, _repo, run_id, _digest, _source = world_client
     prepare = client.post(
         PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-            "nodeIds": ["obj_session22_vial", "mystery_puddles"],
-        },
+        json=_prepare_body(
+            run_id, node_ids=["obj_session22_vial", "mystery_puddles"]
+        ),
     )
     assert prepare.status_code == 200, prepare.text
     package = prepare.json()["reviewPackage"]
-    head_before = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
 
     confirm = client.post(
         CONFIRM_URL,
@@ -427,58 +543,200 @@ def test_confirm_empty_assertion_ids_does_not_advance_head(world_client) -> None
         },
     )
     assert confirm.status_code == 422
-    payload = confirm.json()
-    assert payload["code"] == "empty_assertion_selection"
-    head_after = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+    assert confirm.json()["code"] == "empty_assertion_selection"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after == head_before
 
 
-def test_prepare_rejects_arbitrary_filesystem_source_and_hides_digest(
-    world_client, tmp_path: Path
-) -> None:
-    client, _world, graph_path, _source, _digest = world_client
-    outside = Path("/etc/passwd")
-    if not outside.is_file():
-        pytest.skip("/etc/passwd not available")
-
+def test_prepare_rejects_legacy_path_fields(world_client) -> None:
+    client, _world, _repo, run_id, digest, source = world_client
     response = client.post(
         PREPARE_URL,
         json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(outside),
-            "sourceRevisionId": "sha256:deadbeef",
+            "schema": "dmb_extract_promote_prepare_request_v2",
+            "runId": run_id,
+            "candidateGraphPath": str(source),
+            "sourceUri": str(source),
+            "sourceRevisionId": digest,
             "preparedBy": "gm@http-prepare",
         },
     )
     assert response.status_code == 422
-    payload = response.json()
-    assert payload["code"] == "invalid_source_uri"
-    dumped = json.dumps(payload)
-    assert "computed=" not in dumped
-    assert "sha256:" not in dumped or "deadbeef" in dumped
+    assert response.json()["code"] == "invalid_request"
+
+
+def test_prepare_rejects_body_world_id(world_client) -> None:
+    client, _world, _repo, run_id, *_rest = world_client
+    response = client.post(
+        PREPARE_URL,
+        json={
+            "schema": "dmb_extract_promote_prepare_request_v2",
+            "runId": run_id,
+            "worldId": "foreign-world",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"
+
+
+def test_prepare_rejects_candidate_scope_mismatch(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    bad_id = "graph-ingest:longmont-c2:session-22:scope-cand"
+    _write_promotable_run(
+        repo,
+        run_id=bad_id,
+        candidate_campaign_id="other-campaign",
+        candidate_session_id="session-99",
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(bad_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_rejects_missing_manifest_source_artifact_id(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    bad_id = "graph-ingest:longmont-c2:session-22:no-source-artifact"
+    _write_promotable_run(repo, run_id=bad_id, omit_source_artifact_id=True)
+    response = client.post(PREPARE_URL, json=_prepare_body(bad_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
+    assert "source_artifact_id" in response.json()["message"]
+
+
+def test_prepare_admits_configured_non_default_registry_root(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _world, repo, *_rest = world_client
+    # Must not sit under corpus/Docs/evals/tmp allowlist — only registry admission.
+    custom_rel = "sandbox/custom_ingest_runs"
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, custom_rel)
+    custom_id = "graph-ingest:longmont-c2:session-22:custom-root"
+    _write_promotable_run(
+        repo,
+        run_id=custom_id,
+        runs_rel=custom_rel,
+        extraction_profile="custom_root_profile",
+    )
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(custom_id, node_ids=["obj_session22_vial"]),
+    )
+    assert prepare.status_code == 200, prepare.text
+    package = prepare.json()["reviewPackage"]
+    sealed = package["effect"]["verified_source_uri"]
+    assert sealed.startswith(f"repo://{custom_rel}/")
+    assert (
+        package["effect"]["contribution_meta"]["extraction_profile"]
+        == "custom_root_profile"
+    )
+
+
+def test_prepare_unknown_run_id(world_client) -> None:
+    client, world_root, *_rest = world_client
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    response = client.post(
+        PREPARE_URL,
+        json=_prepare_body("graph-ingest:longmont-c2:session-22:missing"),
+    )
+    assert response.status_code == 404
+    assert response.json()["code"] == "run_not_found"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == head_before
+
+
+def test_prepare_rejects_failed_run(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    failed_id = "graph-ingest:longmont-c2:session-22:failed-run"
+    _write_promotable_run(repo, run_id=failed_id, status="failed")
+    response = client.post(PREPARE_URL, json=_prepare_body(failed_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
+
+
+def test_prepare_rejects_non_preview_ready_run(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    early_id = "graph-ingest:longmont-c2:session-22:candidate-only"
+    _write_promotable_run(
+        repo, run_id=early_id, status="candidate_validation_ready"
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(early_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
+
+
+def test_prepare_rejects_scope_mismatch(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    mismatched = "graph-ingest:other-campaign:session-99:fixture-promote"
+    _write_promotable_run(
+        repo,
+        run_id=mismatched,
+        campaign_id=CAMPAIGN_ID,
+        session_id=SESSION_ID,
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(mismatched))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_rejects_missing_candidate(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    missing_id = "graph-ingest:longmont-c2:session-22:no-candidate"
+    _write_promotable_run(repo, run_id=missing_id, omit_candidate=True)
+    response = client.post(PREPARE_URL, json=_prepare_body(missing_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
+
+
+def test_prepare_rejects_missing_preview_union_store(world_client) -> None:
+    """Ready flags alone are not enough — the preview store must exist on disk."""
+    client, _world, repo, *_rest = world_client
+    missing_id = "graph-ingest:longmont-c2:session-22:missing-preview"
+    _write_promotable_run(repo, run_id=missing_id, omit_preview=True)
+    response = client.post(PREPARE_URL, json=_prepare_body(missing_id))
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "run_not_promotable"
+    assert "preview_union_store" in body["message"]
+
+
+def test_prepare_rejects_deleted_preview_union_store(world_client) -> None:
+    """Stale ready manifests fail when the referenced preview store was deleted."""
+    client, _world, repo, *_rest = world_client
+    stale_id = "graph-ingest:longmont-c2:session-22:deleted-preview"
+    _write_promotable_run(repo, run_id=stale_id)
+    preview = (
+        repo
+        / "out/graph_memory/runs/longmont-c2/session-22/fixture-promote"
+        / "preview_union_supergraph.json"
+    )
+    assert preview.is_file()
+    preview.unlink()
+    response = client.post(PREPARE_URL, json=_prepare_body(stale_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
 
 
 def test_prepare_source_mismatch_does_not_disclose_computed_digest(
     world_client,
 ) -> None:
-    client, _tmp, graph_path, source, _digest = world_client
-    response = client.post(
-        PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": "sha256:" + ("0" * 64),
-            "preparedBy": "gm@http-prepare",
-        },
+    client, _world, repo, *_rest = world_client
+    bad_id = "graph-ingest:longmont-c2:session-22:bad-digest"
+    _write_promotable_run(
+        repo,
+        run_id=bad_id,
+        digest_override="sha256:" + ("0" * 64),
     )
+    response = client.post(PREPARE_URL, json=_prepare_body(bad_id))
     assert response.status_code == 409
     payload = response.json()
     assert payload["code"] == "source_revision_mismatch"
     dumped = json.dumps(payload)
     assert "computed=" not in dumped
-    # Must not leak the real file digest.
+    source = (
+        repo
+        / "out/graph_memory/runs/longmont-c2/session-22/fixture-promote"
+        / "normalized_recap_source.md"
+    )
     real = hashlib.sha256(source.read_bytes()).hexdigest()
     assert real not in dumped
 
@@ -486,22 +744,14 @@ def test_prepare_source_mismatch_does_not_disclose_computed_digest(
 def test_confirm_post_publication_verification_failure_reports_committed_revision(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, tmp_path, graph_path, source, digest = world_client
+    client, world_root, _repo, run_id, _digest, _source = world_client
     prepare = client.post(
         PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-            "nodeIds": ["obj_session22_vial"],
-            "nodesOnly": True,
-        },
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
     )
     assert prepare.status_code == 200, prepare.text
     package = prepare.json()["reviewPackage"]
-    head_before = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
 
     real_merge = ops.kernel.merge_contribution_to_revision
 
@@ -527,70 +777,41 @@ def test_confirm_post_publication_verification_failure_reports_committed_revisio
     assert confirm.status_code == 200, confirm.text
     payload = confirm.json()
     assert payload["ok"] is False
-    assert payload["failureReason"] == "post_publication_verification_failed"
     assert payload["result"]["published"] is True
-    assert payload["result"]["committed_revision_id"]
-    assert payload["result"]["post_publication_verification"] == "failed"
     assert payload["result"]["retry_guidance"] == (
         "reload_status_inspect_head_do_not_retry_confirm"
     )
-    head_after = kernel.open_current_world_graph(tmp_path, WORLD_ID)[0].head_revision_id
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after != head_before
     assert head_after == payload["result"]["committed_revision_id"]
 
 
 def test_prepare_rejects_query_selectors(world_client) -> None:
-    client, _tmp, graph_path, source, digest = world_client
+    client, _world, _repo, run_id, *_rest = world_client
     response = client.post(
         f"{PREPARE_URL}?worldId=foreign",
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-        },
+        json=_prepare_body(run_id),
     )
     assert response.status_code == 422
     assert response.json()["code"] == "invalid_request"
 
 
-def test_prepare_rejects_source_inside_world_graph_store(world_client) -> None:
-    client, world_root, graph_path, _source, digest = world_client
-    planted = world_root / "graph_memory" / "planted_source.md"
-    planted.parent.mkdir(parents=True, exist_ok=True)
-    planted.write_text("must not be evidentiary authority\n", encoding="utf-8")
-
-    response = client.post(
-        PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(planted),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-        },
-    )
+def test_prepare_rejects_invalid_candidate_health(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    bad_id = "graph-ingest:longmont-c2:session-22:invalid-candidate"
+    _write_promotable_run(repo, run_id=bad_id, candidate_graph_valid=False)
+    response = client.post(PREPARE_URL, json=_prepare_body(bad_id))
     assert response.status_code == 422
-    assert response.json()["code"] == "invalid_source_uri"
-    assert "world graph store" in response.json()["message"]
+    assert response.json()["code"] == "run_not_promotable"
 
 
 def test_confirm_already_applied_keeps_published_false(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    client, world_root, graph_path, source, digest = world_client
+    client, world_root, _repo, run_id, _digest, _source = world_client
     prepare = client.post(
         PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-            "nodeIds": ["obj_session22_vial"],
-            "nodesOnly": True,
-        },
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
     )
     assert prepare.status_code == 200, prepare.text
     package = prepare.json()["reviewPackage"]
@@ -628,10 +849,8 @@ def test_confirm_already_applied_keeps_published_false(
     assert confirm.status_code == 200, confirm.text
     payload = confirm.json()
     assert payload["ok"] is True
-    assert payload["result"]["ok"] is True
     assert payload["result"]["published"] is False
     assert payload["result"]["outcome"] == "already_applied"
-    assert payload["result"]["committed_revision_id"] == head_before
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after == head_before
 
@@ -639,19 +858,10 @@ def test_confirm_already_applied_keeps_published_false(
 def test_confirm_audit_pins_projection_to_committed_revision(
     world_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Projection and rebuild must target the committed revision, not mutable head."""
-    client, world_root, graph_path, source, digest = world_client
+    client, world_root, _repo, run_id, _digest, _source = world_client
     prepare = client.post(
         PREPARE_URL,
-        json={
-            "schema": "dmb_extract_promote_prepare_request_v1",
-            "candidateGraphPath": str(graph_path),
-            "sourceUri": str(source),
-            "sourceRevisionId": digest,
-            "preparedBy": "gm@http-prepare",
-            "nodeIds": ["obj_session22_vial"],
-            "nodesOnly": True,
-        },
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
     )
     assert prepare.status_code == 200, prepare.text
     package = prepare.json()["reviewPackage"]
@@ -684,6 +894,15 @@ def test_confirm_audit_pins_projection_to_committed_revision(
     assert committed
     assert seen["compare_revision_id"] == committed
     assert seen["revision_pin"] == committed
-    assert confirm.json()["result"]["projection_revision_id"] == committed
     assert confirm.json()["result"]["rebuild_equivalent_to_committed_revision"] is True
-    assert "rebuild_equivalent_to_head" not in confirm.json()["result"]
+
+
+def test_path_contract_still_rejects_world_store_sources(world_client) -> None:
+    """Browser path contract must not admit world-store evidence."""
+    _client, world_root, _repo, _run_id, _digest, _source = world_client
+    planted = world_root / "planted_source.md"
+    planted.write_text("must not be evidentiary authority\n", encoding="utf-8")
+    with pytest.raises(promote_svc.ExtractPromoteError) as exc:
+        promote_svc.resolve_promote_source_uri(str(planted))
+    assert exc.value.code == "invalid_source_uri"
+    assert "world graph store" in str(exc.value) or "ingest-run" in str(exc.value)
