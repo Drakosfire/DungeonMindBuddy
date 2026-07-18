@@ -382,11 +382,17 @@ object journey on Session 25 (Hesta / apothecary ↔ Mireward).
 **OPERATOR DECISION REQUIRED**
 
 ```text
-Choose one before re-dispatching closeout acceptance:
-- land real Session 25 canonical recap, then approve one live publish; or
-- explicitly waive Session 25 and name another real recap (e.g. Session 24)
-  as the representative source, then approve one live publish; or
-- defer acceptance and reprioritize (PR011B remains blocked; no backfill).
+Session 25 waived → Session 24 (2026-07-18).
+Live acceptance still BLOCKED: Session 24 prepare fails mapping_error
+(extractor semantic_state aliases). Head unchanged.
+
+Choose one:
+- authorize successor to align category extractor SemanticState with promote IR,
+  then re-dispatch Session 24 closeout;
+- defer acceptance (PR011B + backfill remain blocked);
+- provide a typed promote-eligible Session 24 candidate without hand-editing.
+
+Do NOT start prior-recap or worldbuilding backfill from this closeout.
 ```
 
 ### PR011B — Hermes `preview_write` / `confirm_commit`

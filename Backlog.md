@@ -1092,3 +1092,23 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Surfaces when:** Building any d100/d20 table the user will roll on at the table; designing live-play tooling; corpus-search shortcuts.  
 **Refs:** `live-play-workflow-analysis.canvas.tsx` (DungeonMindBuddy canvas), corpus files under `corpus/eldyrwild-markdown/Elderwyld/Roads/` and `Elderwyld/Wilderness/`
 
+## [READY] Align category extractor SemanticState with promote IR — captured 2026-07-18
+**Context:** PR011A3 closeout Session 24 waiver; prepare failed `mapping_error` on all promotable longmont-c2 session-24 runs (`canon_status`/`lifecycle`/`memory_status` aliases). Gold IR uses typed `played_canon` SemanticState; extractor `DEFAULT_SEMANTIC_STATE` still emits aliases.
+**Insight:** UI ingest runs are advertised `promotable=true` but cannot prepare for World Graph publication until extractor output matches `CandidateGraphPreview.SemanticState` and promote matrix eligibility (`played_canon` + `source_evidence` + …). Silent alias→played_canon rewrite in promote would re-open the semantics-discard blocker.
+**Action:** Successor slice: change `category_candidate_graph_extractor.DEFAULT_SEMANTIC_STATE` (and staged_edge defaults) to typed promote-eligible fields for recap extracts; add regression that a fresh UI/recap candidate prepares; re-run Session 24 closeout acceptance. Do not hand-edit candidate graphs.
+**Surfaces when:** extract-promote prepare, corpus UI readiness, Session 24/25 dogfood, category extractor changes
+**Refs:** Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md, src/graph_memory/extraction/category_candidate_graph_extractor.py, src/graph_memory/candidate_graph_to_contribution.py, src/graph_memory/candidate_semantic_promote_matrix.py, PR #367
+
+## [IDEA] Canonical recap UI backfill after Session 24 acceptance — captured 2026-07-18
+**Context:** Operator said after Session 24 closeout passes, begin ingesting all prior recaps (then worldbuilding).
+**Insight:** Closeout hard-stop forbids the acceptance agent from starting backfill. Success verdict is `READY_FOR_CANONICAL_RECAP_BACKFILL` only; ordering/batch/review policy is a separate operator-planned runbook.
+**Action:** After readiness verdict lands, draft a recap backfill runbook (order, review burden, rollback) — do not auto-start from closeout.
+**Surfaces when:** READY_FOR_CANONICAL_RECAP_BACKFILL, corpus backfill, Session 24 acceptance
+**Refs:** Docs/Plans/HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md, PR #367
+
+## [IDEA] Heterogeneous corpus UI ingestion (worldbuilding/NPC/prep) — captured 2026-07-18
+**Context:** Operator wants worldbuilding docs after recaps; closeout forbids overclaiming heterogeneous readiness from recap-only proof.
+**Insight:** Requires General Source Artifact Ingest contract; not unlocked by recap acceptance.
+**Action:** Separate Phase 6 / successor design before any non-recap UI ingest.
+**Surfaces when:** worldbuilding ingest, NPC/location/faction ingest, READY_FOR_HETEROGENEOUS
+**Refs:** HANDOFF closeout §3 vocabulary, PR #367

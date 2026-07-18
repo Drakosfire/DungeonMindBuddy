@@ -1,122 +1,126 @@
-# PR011A3 — Session 25 durable memory dogfood
+# PR011A3 — Session 24 durable memory dogfood (Session 25 waived)
 
 **Status:** `BLOCKED`  
 **Terminal verdict:** `BLOCKED`  
-**Date/time:** 2026-07-18T09:58:14-06:00 (America/Denver)  
+**Date/time:** 2026-07-18T10:11–10:20 America/Denver  
 **Closeout branch:** `agent/pr011a3-closeout-corpus-ui-readiness`  
 **Base SHA:** `37c0a79ddf323ec073e18a345d902162c330be61` (merge of GitHub PR #366)  
-**Head SHA:** `a1f63ac5f0e233cb443eedf06e4ce8a17f21afec`  
+**Head SHA:** *(updated on push)*  
 **GitHub PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/367  
 **Closeout handoff:** `Docs/Plans/HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md`
+
+## Operator waiver
+
+```text
+Session 25 source: WAIVED
+Representative source: Campaign 2 Session 24 canonical recap / UI-produced graph-ingest run
+Live publish approval for one Session 24 publish: yes (operator directed continuation 2026-07-18)
+Post-pass operator intent (NOT executed by this agent):
+  - ingest prior recaps
+  - then worldbuilding docs
+Hard-stop reminder: this agent must not start that backfill even if acceptance later passes.
+Heterogeneous/worldbuilding readiness is a separate successor; recap proof must not unlock it.
+```
 
 ## Environment
 
 ```text
-date/time: 2026-07-18T09:58:14-06:00
+date/time: 2026-07-18
 base SHA: 37c0a79ddf323ec073e18a345d902162c330be61
-head SHA: a1f63ac5f0e233cb443eedf06e4ce8a17f21afec
-closeout PR: https://github.com/Drakosfire/DungeonMindBuddy/pull/367
-server configuration: live-control uvicorn on 127.0.0.1:8000; UI on 127.0.0.1:5173
-world graph root: /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/out
-  (resolved store): out/graph_memory/worlds/eldyrwild/
-campaign: longmont-c2 (Eldyrwild)
-session: session-25 (requested; not present in corpus or registry)
-provider/model: n/a (no ingest started)
-operator: pending explicit approval
-```
-
-## Preflight (Stage 0 — no mutation)
-
-```text
-main SHA / implementation base: 37c0a79ddf323ec073e18a345d902162c330be61
-  subject: Merge pull request #366 from Drakosfire/agent/pr011a3-confirm-durable-reload
-configured World Graph root: out/ (DUNGEONMIND_WORLD_GRAPH_ROOT unset; default)
-live World Graph root: same as world_graph_root (DUNGEONMIND_LIVE_WORLD_GRAPH_ROOT unset)
-current Eldyrwild head: rev:5cadc9798562862cdde22350d8a3b56c
-  head.json updated_at: 2026-07-15T13:09:11Z
-  extract-promote /status: initialized=true, worldState=initialized
+server: 127.0.0.1:8000 (uvicorn) + UI 127.0.0.1:5173
+world graph root: out/ → out/graph_memory/worlds/eldyrwild/
 campaign: longmont-c2
-session: session-25
-candidate source path or UI source origin: ABSENT
-  corpus Session Recaps max: Session 24 - Mireward Gate Battle.md
-  no file matching Session 25 / session-25 recap under corpus/
-run ID, if one already exists: none for session-25
-  registry sessions present: session-23, session-24 only (16 longmont-c2 runs)
-  session-25 run count: 0
-whether preferred Hesta/apothecary assertions are present: no
-  no "Hesta" / "apothecary" hit in out/graph_memory/worlds/eldyrwild/**/*.json
-  no Hesta corpus hub; "Evergreen Apothecary" appears only in Session 5 (not Session 25)
-whether chosen durable object is absent from current head: n/a (no Session 25 object to choose)
-operator approval status: no
+session: session-24 (waived representative)
+operator: directed Session 24 waiver + continue acceptance
 ```
 
-## Stop condition (handoff §18 / Mandatory stop)
+## Preflight
 
 ```text
-Stop condition: 1 + 3 (and preflight gate before mutation)
-Observed fact:
-  - Explicit operator approval for the one live mutation is absent.
-  - No canonical Session 25 recap exists in the repository corpus.
-  - No server-owned graph-ingest run for session-25 exists.
-  - Latest Campaign 2 session recap on disk is Session 24.
-  - Preferred Hesta/apothecary Session 25 material is not present as a real source.
-Why this mission cannot absorb it:
-  - The closeout invariant requires one real Session 25 source through /ingest
-    (or a UI-produced run of that source). Substituting Session 24, fabricating
-    Session 25, CLI publication, or path injection would falsify acceptance.
-  - Live confirm against the Eldyrwild head is forbidden without operator approval.
-Head mutation status: unchanged (no confirm attempted)
-  old/current head: rev:5cadc9798562862cdde22350d8a3b56c
-Source/run status: Session 25 source and run unresolved
-New public or durable contract required: no
-Affected source families: canonical session recap (unproven)
-Required paths outside scope: none
-Proposed successor / operator choices:
-  1. Provide or land the real Session 25 canonical recap, then re-dispatch closeout; or
-  2. Explicitly waive Session 25 and name a different real recap (e.g. Session 24)
-     as the representative source for this acceptance gate; and
-  3. Explicitly approve exactly one live World Graph publish.
-Tracker update required: yes — record #366 implementation merged; A3 acceptance BLOCKED
-Operator decision required: yes (source identity + live-publish approval)
+old revision: rev:5cadc9798562862cdde22350d8a3b56c
+target source: Session 24 (waived); corpus file present:
+  corpus/.../Session Recaps/Session 24 - Mireward Gate Battle.md
+target runs (promotable registry):
+  graph-ingest:longmont-c2:session-24:20260713T182027Z  (preferred; preview_union_store_ready)
+  graph-ingest:longmont-c2:session-24:20260713T181901Z
+  graph-ingest:longmont-c2:session-24:20260629T035803Z  (also fails scope on older candidate)
+target object absent from head: n/a (prepare never produced selectable assertions)
+operator approved one live publish: yes (Session 24 only)
 ```
 
-## Review / Publication / Reload / Retrieval
+## Stage 1 — Source / run binding
 
 ```text
+UI action: resume existing server-owned Session 24 graph-ingest runs
+  (originally under out/graph_memory/runs/longmont-c2/session-24/; no path injection)
+source origin: Session 24 normalized recap artifact inside run
+  (e.g. .../20260713T181934Z/normalized_recap_source.md)
+run ID tried: graph-ingest:longmont-c2:session-24:20260713T182027Z
+run status: preview_union_store_ready
+candidate graph valid (registry health): true
+preview store valid: true
+promotable (registry flag): true
+warnings: registry promotable=true but prepare rejects candidate SemanticState (see Stage 2)
+```
+
+## Stage 2 — Prepare / review (FAILED)
+
+```text
+POST /api/live/extract-promote/prepare
+  body: { schema: dmb_extract_promote_prepare_request_v2, runId: <above> }
+
+Results:
+  20260713T182027Z → HTTP 409 mapping_error
+  20260713T181901Z → HTTP 409 mapping_error
+  20260629T035803Z → HTTP 422 run_scope_mismatch (missing campaign_id/session_id on candidate)
+
+mapping_error message:
+  candidate graph uses extractor semantic_state aliases
+  (canon_status/lifecycle/memory_status); promote requires typed
+  CandidateGraphPreview SemanticState
+  (canon_state/lifecycle_state/evidence_role/authority_state/visibility_state).
+
+Observed candidate semantic_state (Session 24 run 20260713T181934Z node sample):
+  { "canon_status": "preview_only", "lifecycle": "candidate", "memory_status": "uncommitted" }
+
+Gold IR / API tests use typed promote-eligible state, e.g.:
+  { "canon_state": "played_canon", "lifecycle_state": "candidate",
+    "evidence_role": "source_evidence", "authority_state": "system_derived",
+    "visibility_state": "gm_private" }
+
 proposal ID: n/a
-proposal digest: n/a
-parent revision: n/a
-review items: n/a
 selected assertion IDs: n/a
-unresolved: n/a
-rejected: n/a
+```
 
-outcome: n/a (confirm not attempted)
+## Publication / Reload / Retrieval
+
+```text
+outcome: n/a — confirm not attempted
 committed revision: n/a
-head advanced: no
-affected durable object IDs: n/a
-audit status: n/a
-warnings: Stage 0 blocked before Stages 1–6
+head advanced: no (still rev:5cadc9798562862cdde22350d8a3b56c)
+browser reload / server restart / Hermes: n/a
+```
 
-requested revision: n/a
-returned revision: n/a
-opened object / relationship / evidence: n/a
-browser reload: n/a
-server restart: n/a
+## Why bounded hardening was not applied inside this closeout
 
-question: n/a
-tool calls: n/a
-result revision: n/a
-durable IDs: n/a
-source anchors: n/a
-latest-recap fallback used: n/a
+```text
+Owning defect: category extractor DEFAULT_SEMANTIC_STATE still emits aliases;
+promote path correctly fail-closes (test_load_typed_rejects_extractor_semantic_aliases).
+
+Fixing requires changing src/graph_memory/extraction/category_candidate_graph_extractor.py
+(and likely staged_edge defaults) — outside closeout §5 allowlist / discovery dirs.
+
+Silent rewrite of preview_only → played_canon at promote time is forbidden
+(re-opens discarded-semantics blocker from PR 362 hardening).
+
+Hand-editing the Session 24 candidate graph is forbidden by the closeout handoff.
 ```
 
 ## Source-family readiness
 
 | Source family                  | Current UI entry contract                | Proven in this PR? | Ready? | Reason |
 | ------------------------------ | ---------------------------------------- | -----------------: | -----: | ------ |
-| Canonical session recap        | Campaign + session + recap text/artifact |                 No |     No | Session 25 source absent; journey not completed |
+| Canonical session recap        | Campaign + session + recap text/artifact |                 No |     No | Prepare blocked on extractor SemanticState mismatch |
 | Campaign NPC/location/faction  | No declared general contract on base     |                 No |     No | General source artifact intake required |
 | Session prep/plot artifact     | No declared general contract on base     |                 No |     No | Scope and canon semantics required |
 | Worldbuilding location/setting | No declared general contract on base     |                 No |     No | World-scoped source contract required |
@@ -127,19 +131,23 @@ latest-recap fallback used: n/a
 
 ```text
 BLOCKED
-blocking stage: Stage 0 preflight (source intake + operator approval)
-observed failure: no real Session 25 recap/run; live publish not approved
+blocking stage: Stage 2 prepare (after Session 25 → Session 24 waiver)
+observed failure: mapping_error — extractor semantic_state aliases on all current Session 24 promotable runs
 whether head advanced: no
 whether source or preview artifacts changed: no
-safe retry condition: operator supplies Session 25 (or explicit session waiver) AND approves one live publish; then re-run Stages 1–8 on the same closeout invariant
-required follow-up capability: none for code; operator source + approval gate
+safe retry condition:
+  1) land successor that emits typed promote-eligible SemanticState from recap extraction;
+  2) produce one fresh Session 24 UI/run (or re-extract) under that contract;
+  3) re-run prepare → review → confirm → reload → Hermes on the same closeout invariant
+required follow-up capability:
+  Align category extractor SemanticState with CandidateGraphPreview + promote matrix
+  (Backlog READY entry; not implemented in this closeout)
 ```
 
 ```text
+NOT_READY_FOR_CANONICAL_RECAP_BACKFILL
 NOT_READY_FOR_HETEROGENEOUS_CORPUS_UI_INGESTION
 ```
-
-(Recap readiness was not achieved either; do not declare `READY_FOR_CANONICAL_RECAP_BACKFILL`.)
 
 ## Hard-stop attestation
 
@@ -147,13 +155,22 @@ NOT_READY_FOR_HETEROGENEOUS_CORPUS_UI_INGESTION
 No second source was ingested.
 No corpus traversal was started.
 No batch or queue was created.
-No successor capability was implemented.
+No prior-recap backfill was started.
+No worldbuilding ingest was started.
+No extractor/promote semantics rewrite was shipped in this closeout.
 No World Graph confirm/publish was attempted.
+Head unchanged: rev:5cadc9798562862cdde22350d8a3b56c
 The agent stopped after recording the readiness verdict (BLOCKED).
 ```
 
-## Prior implementation note
+## Operator decision required (next)
 
-Automated isolated-world prepare → confirm → exact-retry → reload proofs for the
-merged product confirm path remain covered by `tests/test_live_extract_promote_api.py`
-(author-local). Those proofs do **not** satisfy this live Session 25 acceptance gate.
+```text
+Choose one:
+A) Authorize a successor PR (outside this closeout allowlist) to align the category
+   extractor DEFAULT_SEMANTIC_STATE with typed promote-eligible SemanticState, then
+   re-dispatch Session 24 closeout acceptance; or
+B) Defer acceptance; keep PR011B and backfill blocked; or
+C) Provide a different already-typed promote-eligible Session 24 candidate produced
+   without hand-editing (e.g. gold-grade IR from an approved pipeline) — rare.
+```

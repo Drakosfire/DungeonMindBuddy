@@ -1,7 +1,7 @@
 # HANDOFF — PR011A3 Closeout: Live Session 25 Acceptance and Corpus UI Readiness Gate
 
 **Created:** 2026-07-18, America/Denver
-**Status:** BLOCKED at Stage 0 — Session 25 source absent; operator live-publish approval absent. See `Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md`.
+**Status:** BLOCKED at Stage 2 prepare — Session 25 waived to Session 24; all promotable Session 24 runs fail `mapping_error` (extractor semantic_state aliases). Head unchanged. See dogfood report.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md`
 **Implementation base:** `37c0a79ddf323ec073e18a345d902162c330be61` — merge of GitHub PR #366 / PR011A3 implementation
 **Suggested branch:** `agent/pr011a3-closeout-corpus-ui-readiness`
