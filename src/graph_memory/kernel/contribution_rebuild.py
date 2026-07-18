@@ -153,13 +153,24 @@ def rebuild_from_contributions(
     contribution_ids: list[str] | None = None,
     identity_decision_ids: list[str] | None = None,
     publish: bool = False,
+    compare_revision_id: str | None = None,
 ) -> ContributionMergeResult:
     """Replay active contributions (+ identity decisions) onto the baseline revision.
 
     Identity decisions are loaded from the durable identity-decision ledger, not
-    from the current head. The rebuilt payload is then compared to the head for
-    equivalence reporting.
+    from the current head. The rebuilt payload is then compared to the head
+    (or to ``compare_revision_id`` when set) for equivalence reporting.
+
+    When ``compare_revision_id`` is set, ``publish`` must be False. Comparison
+    uses that immutable revision rather than the mutable current head, so a
+    concurrent head advance cannot make this audit report success against a
+    different revision than the one just published.
     """
+    if compare_revision_id is not None and publish:
+        raise ValueError(
+            "compare_revision_id cannot be used with publish=True; "
+            "pin comparison only applies to audit rebuilds"
+        )
     index = load_contribution_index(root, world_id)
     diagnostics: list[str] = []
     if index.baseline_revision_id is None:
@@ -258,10 +269,25 @@ def rebuild_from_contributions(
         }
     )
 
-    head, head_revision, current = load_current_world_graph(root, world_id)
-    init_plan = current.initialization_plan_digest
-    init_attest = current.initialization_attestation_digest
-    init_contribs = list(current.initialization_contribution_ids)
+    head, head_revision, head_store = load_current_world_graph(root, world_id)
+    if compare_revision_id is not None:
+        pin = str(compare_revision_id).strip()
+        if not pin:
+            raise ValueError("compare_revision_id must be non-empty when provided")
+        compared_store = load_world_graph_revision(root, world_id, pin)
+        compared_revision_id = pin
+        if head.head_revision_id != pin:
+            diagnostics.append(
+                f"head_advanced_past_compare_revision:{head.head_revision_id}"
+            )
+        diagnostics.append(f"rebuild_compare_revision:{pin}")
+    else:
+        compared_store = head_store
+        compared_revision_id = head.head_revision_id
+
+    init_plan = compared_store.initialization_plan_digest
+    init_attest = compared_store.initialization_attestation_digest
+    init_contribs = list(compared_store.initialization_contribution_ids)
     if init_plan is None or init_attest is None or not init_contribs:
         # Lazy import avoids kernel circular import via world_initialization.
         from graph_memory.kernel.world_initialization import (
@@ -288,20 +314,24 @@ def rebuild_from_contributions(
                 "initialization_attestation_digest": init_attest,
             }
         )
-    compared_head_revision_id = head.head_revision_id
-    equivalent_to_pre_publish_head = (
-        _canonical_graph_fingerprint(working) == _canonical_graph_fingerprint(current)
+    equivalent_to_compared = (
+        _canonical_graph_fingerprint(working)
+        == _canonical_graph_fingerprint(compared_store)
     )
-    if equivalent_to_pre_publish_head:
+    if equivalent_to_compared:
         diagnostics.append("rebuild_equivalent_to_pre_publish_head")
+        if compare_revision_id is not None:
+            diagnostics.append("rebuild_equivalent_to_pinned_revision")
     else:
         diagnostics.append("rebuild_differs_from_pre_publish_head")
         diagnostics.append(
-            f"node_count_rebuild={len(working.nodes)} head={len(current.nodes)}"
+            f"node_count_rebuild={len(working.nodes)} compared={len(compared_store.nodes)}"
         )
         diagnostics.append(
-            f"edge_count_rebuild={len(working.edges)} head={len(current.edges)}"
+            f"edge_count_rebuild={len(working.edges)} compared={len(compared_store.edges)}"
         )
+        if compare_revision_id is not None:
+            diagnostics.append("rebuild_differs_from_pinned_revision")
 
     revision_id: str | None = None
     published = False
@@ -313,7 +343,7 @@ def rebuild_from_contributions(
             world_id,
             working,
             operation_ids=["rebuild:from_contributions", *replay_ids],
-            expected_parent_revision_id=compared_head_revision_id,
+            expected_parent_revision_id=head.head_revision_id,
         )
         published_revision_id = result.revision.revision_id
         revision_id = published_revision_id
@@ -333,8 +363,12 @@ def rebuild_from_contributions(
             diagnostics.append("rebuild_differs_from_published_head")
             diagnostics.append("rebuild_differs_from_head")
     else:
-        revision_id = head_revision.revision_id
-        if equivalent_to_pre_publish_head:
+        revision_id = (
+            compared_revision_id
+            if compare_revision_id is not None
+            else head_revision.revision_id
+        )
+        if equivalent_to_compared:
             diagnostics.append("rebuild_equivalent_to_head")
         else:
             diagnostics.append("rebuild_differs_from_head")
@@ -342,19 +376,20 @@ def rebuild_from_contributions(
     report: dict[str, Any] = {
         "world_id": world_id,
         "baseline_revision_id": index.baseline_revision_id,
-        "compared_head_revision_id": compared_head_revision_id,
+        "compared_head_revision_id": compared_revision_id,
+        "current_head_revision_id": head.head_revision_id,
         "published_revision_id": published_revision_id,
         "published": published,
-        "head_revision_id": published_revision_id or compared_head_revision_id,
+        "head_revision_id": published_revision_id or compared_revision_id,
         "contribution_ids": replay_ids,
         "identity_decision_ids": [d.decision_id for d in identity_decisions],
         "assertion_identity_rekeys": assertion_identity_rekeys,
-        "equivalent_to_pre_publish_head": equivalent_to_pre_publish_head,
+        "equivalent_to_pre_publish_head": equivalent_to_compared,
         "equivalent_to_published_head": equivalent_to_published_head,
         "equivalent_to_head": (
             equivalent_to_published_head
             if published
-            else equivalent_to_pre_publish_head
+            else equivalent_to_compared
         ),
         "diagnostics": diagnostics,
     }
@@ -362,7 +397,7 @@ def rebuild_from_contributions(
 
     return ContributionMergeResult(
         world_id=world_id,
-        parent_revision_id=compared_head_revision_id,
+        parent_revision_id=compared_revision_id,
         revision_id=revision_id,
         contribution_ids=replay_ids,
         accepted_assertion_ids=accepted_ids,

@@ -325,20 +325,38 @@ def confirm_extract_promote(
         expected_parent_revision_id=gate.parent_revision_id,
     )
 
-    published_ok = bool(result.published)
-    if (
-        not published_ok
-        and allow_idempotent_noop
-        and "idempotent_noop:contribution_already_applied" in (result.diagnostics or [])
-    ):
-        published_ok = True
-
+    published = bool(result.published)
     merge_receipt = result.model_dump(mode="json")
     committed_revision_id = getattr(result, "revision_id", None) or merge_receipt.get(
         "revision_id"
     )
 
-    if not published_ok:
+    is_already_applied = (
+        not published
+        and allow_idempotent_noop
+        and "idempotent_noop:contribution_already_applied" in (result.diagnostics or [])
+    )
+    if is_already_applied:
+        proof = {
+            "schema": "dmb_promote_extract_proof_v1",
+            "ok": True,
+            "published": False,
+            "outcome": "already_applied",
+            "world_root": str(root),
+            "world_id": gate.world_id,
+            "proposal_id": verified["proposal_id"],
+            "proposal_digest": verified["proposal_digest"],
+            "confirming_principal": verified["confirming_principal"],
+            "parent_revision_id": gate.parent_revision_id,
+            "committed_revision_id": committed_revision_id,
+            "contribution_id": contribution.contribution_id,
+            "merge": merge_receipt,
+            "post_publication_verification": "skipped",
+            "retry_guidance": RETRY_GUIDANCE_NONE,
+        }
+        return ExtractPromoteConfirmResult(ok=True, dry_run=False, payload=proof)
+
+    if not published:
         proof = {
             "schema": "dmb_promote_extract_proof_v1",
             "ok": False,
@@ -363,9 +381,35 @@ def confirm_extract_promote(
             failure_reason="merge_did_not_publish",
         )
 
+    if not committed_revision_id:
+        proof = {
+            "schema": "dmb_promote_extract_proof_v1",
+            "ok": False,
+            "published": True,
+            "world_root": str(root),
+            "world_id": gate.world_id,
+            "proposal_id": verified["proposal_id"],
+            "proposal_digest": verified["proposal_digest"],
+            "confirming_principal": verified["confirming_principal"],
+            "parent_revision_id": gate.parent_revision_id,
+            "committed_revision_id": None,
+            "contribution_id": contribution.contribution_id,
+            "merge": merge_receipt,
+            "failure_reason": "post_publication_verification_failed",
+            "post_publication_verification": "failed",
+            "verification_error": "missing_committed_revision_id",
+            "retry_guidance": RETRY_GUIDANCE_DO_NOT_RETRY,
+        }
+        return ExtractPromoteConfirmResult(
+            ok=False,
+            dry_run=False,
+            payload=proof,
+            failure_reason="post_publication_verification_failed",
+        )
+
     # Publication already advanced the head. Retain the merge receipt and treat
-    # rebuild/projection as audit — never convert their failures into a generic
-    # "nothing committed" error.
+    # rebuild/projection as audit pinned to the committed revision — never audit
+    # the mutable current head (a concurrent publish could advance past us).
     verification_status = "passed"
     verification_error: str | None = None
     rebuild_diagnostics: list[str] = []
@@ -373,16 +417,32 @@ def confirm_extract_promote(
     projection_revision_id: str | None = None
     projection_node_count: int | None = None
     projection_relationship_count: int | None = None
+    head_advanced_before_verification = False
+    verification_head_revision_id: str | None = None
 
     try:
         rebuild = kernel.rebuild_from_contributions(
-            root, world_id=gate.world_id, publish=False
+            root,
+            world_id=gate.world_id,
+            publish=False,
+            compare_revision_id=str(committed_revision_id),
         )
         rebuild_diagnostics = list(rebuild.diagnostics)
-        rebuild_equivalent = "rebuild_equivalent_to_head" in rebuild.diagnostics
+        rebuild_equivalent = (
+            "rebuild_equivalent_to_pinned_revision" in rebuild.diagnostics
+            or "rebuild_equivalent_to_head" in rebuild.diagnostics
+        )
+        head_advanced_before_verification = any(
+            d.startswith("head_advanced_past_compare_revision:")
+            for d in rebuild_diagnostics
+        )
+        for item in rebuild_diagnostics:
+            if item.startswith("head_advanced_past_compare_revision:"):
+                verification_head_revision_id = item.split(":", 1)[1]
+                break
         if not rebuild_equivalent:
             verification_status = "degraded"
-            verification_error = "rebuild_not_equivalent_to_head"
+            verification_error = "rebuild_not_equivalent_to_committed_revision"
 
         from graph_memory.projection.world_projection import (
             PROJECTION_REQUEST_SCHEMA,
@@ -398,11 +458,15 @@ def confirm_extract_promote(
                 campaign_id=contribution.campaign_scope or "longmont-c2",
                 focus=WorldGraphProjectionFocus(kind="none"),
                 admissibility="gm",
+                revision_pin=str(committed_revision_id),
             ),
         )
         projection_revision_id = projection.snapshot.revision_id
         projection_node_count = projection.summary.node_count
         projection_relationship_count = projection.summary.relationship_count
+        if projection_revision_id != committed_revision_id:
+            verification_status = "failed"
+            verification_error = "projection_revision_mismatch"
     except Exception as exc:  # noqa: BLE001 — audit failure must not hide publish
         verification_status = "failed"
         verification_error = f"{exc.__class__.__name__}"
@@ -419,6 +483,7 @@ def confirm_extract_promote(
         "schema": "dmb_promote_extract_proof_v1",
         "ok": overall_ok,
         "published": True,
+        "outcome": "published",
         "world_root": str(root),
         "world_id": gate.world_id,
         "proposal_id": verified["proposal_id"],
@@ -430,6 +495,8 @@ def confirm_extract_promote(
         "merge": merge_receipt,
         "post_publication_verification": verification_status,
         "verification_error": verification_error,
+        "head_advanced_before_verification": head_advanced_before_verification,
+        "verification_head_revision_id": verification_head_revision_id,
         "retry_guidance": (
             RETRY_GUIDANCE_DO_NOT_RETRY if not overall_ok else RETRY_GUIDANCE_NONE
         ),

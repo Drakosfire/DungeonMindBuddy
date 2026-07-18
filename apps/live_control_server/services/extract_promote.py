@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import (
+    extract_promote_source_root,
     live_world_graph_root,
     repo_root,
     world_graph_root,
@@ -33,8 +34,9 @@ from graph_memory.extract_promote_ops import (
 from graph_memory.extract_promote_proposal import PromoteProposalError
 
 # Narrow server-owned roots for promote source evidence. Entire repo is NOT
-# allowed (would admit .env and other secrets).
-_SOURCE_ROOT_NAMES = ("corpus", "Docs", "evals", "tmp", "out")
+# allowed (would admit .env and other secrets). Graph store trees (out/ and
+# world_graph_root) are never source authority — they are the materialized model.
+_SOURCE_ROOT_NAMES = ("corpus", "Docs", "evals", "tmp")
 
 
 class ExtractPromoteError(ValueError):
@@ -77,6 +79,9 @@ def _allowed_candidate_roots() -> list[Path]:
         (repo_root() / "evals").resolve(),
         (repo_root() / "tmp").resolve(),
     ]
+    dedicated = extract_promote_source_root()
+    if dedicated is not None:
+        roots.append(dedicated)
     seen: set[Path] = set()
     unique: list[Path] = []
     for root in roots:
@@ -88,15 +93,31 @@ def _allowed_candidate_roots() -> list[Path]:
 
 def _allowed_source_roots() -> list[Path]:
     root = repo_root().resolve()
-    roots = [root / name for name in _SOURCE_ROOT_NAMES]
-    roots.append(world_graph_root().resolve())
+    roots = [(root / name).resolve() for name in _SOURCE_ROOT_NAMES]
+    dedicated = extract_promote_source_root()
+    if dedicated is not None:
+        roots.append(dedicated)
     seen: set[Path] = set()
     unique: list[Path] = []
     for item in roots:
-        resolved = item.resolve()
-        if resolved not in seen:
-            seen.add(resolved)
-            unique.append(resolved)
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
+    return unique
+
+
+def _graph_store_denied_roots() -> list[Path]:
+    """World graph storage is never evidentiary source authority."""
+    roots = [
+        world_graph_root().resolve(),
+        (repo_root() / "out").resolve(),
+    ]
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for item in roots:
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
     return unique
 
 
@@ -108,6 +129,10 @@ def _path_under_any(path: Path, roots: list[Path]) -> bool:
         except ValueError:
             continue
     return False
+
+
+def _is_under_graph_store(path: Path) -> bool:
+    return _path_under_any(path, _graph_store_denied_roots())
 
 
 def resolve_candidate_graph_path(raw_path: str) -> Path:
@@ -157,6 +182,7 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
 
     Client-supplied absolute paths outside the allowlist are rejected. Paths under
     the repo root are sealed as ``repo://…`` so containment stays inspectable.
+    Graph-store trees are always denied even when nested under a broader allowlist.
     """
     text = (raw_uri or "").strip()
     if not text:
@@ -189,6 +215,18 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
         else:
             path = path.resolve()
 
+    if _is_under_graph_store(path):
+        raise ExtractPromoteError(
+            "sourceUri must not reference the world graph store",
+            code="invalid_source_uri",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_source_uri",
+                    "sourceUri must not reference the world graph store",
+                )
+            ],
+        )
     if not path.is_file():
         raise ExtractPromoteError(
             "sourceUri does not exist or is not a readable file under allowlisted roots",
@@ -218,7 +256,7 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
         rel_posix = path.relative_to(root).as_posix()
         return f"repo://{rel_posix}"
     except ValueError:
-        # Under world_graph_root (or another allowlisted root outside the repo).
+        # Under a dedicated promote source root outside the repo tree.
         return str(path)
 
 
