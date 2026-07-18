@@ -5,7 +5,8 @@
 **Date/time:** 2026-07-18T09:58:14-06:00 (America/Denver)  
 **Closeout branch:** `agent/pr011a3-closeout-corpus-ui-readiness`  
 **Base SHA:** `37c0a79ddf323ec073e18a345d902162c330be61` (merge of GitHub PR #366)  
-**Head SHA:** *(this closeout PR; docs-only until acceptance unblocks)*  
+**Head SHA:** `a1f63ac5f0e233cb443eedf06e4ce8a17f21afec`  
+**GitHub PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/367  
 **Closeout handoff:** `Docs/Plans/HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md`
 
 ## Environment
@@ -13,7 +14,8 @@
 ```text
 date/time: 2026-07-18T09:58:14-06:00
 base SHA: 37c0a79ddf323ec073e18a345d902162c330be61
-head SHA: (closeout PR; see GitHub after open)
+head SHA: a1f63ac5f0e233cb443eedf06e4ce8a17f21afec
+closeout PR: https://github.com/Drakosfire/DungeonMindBuddy/pull/367
 server configuration: live-control uvicorn on 127.0.0.1:8000; UI on 127.0.0.1:5173
 world graph root: /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/out
   (resolved store): out/graph_memory/worlds/eldyrwild/
