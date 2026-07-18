@@ -36,6 +36,7 @@ export function GraphReviewSessionToolbar() {
   const [preparing, setPreparing] = useState(false);
   const [prepareError, setPrepareError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<ExtractPromotePrepareResponse | null>(null);
+  const [confirmInFlight, setConfirmInFlight] = useState(false);
   const prepareGenerationRef = useRef(0);
   const liveRunIdRef = useRef<string | null>(liveRun?.run_id?.trim() || null);
 
@@ -64,21 +65,26 @@ export function GraphReviewSessionToolbar() {
   // Clear a prior sheet when the selected run changes; bump generation so
   // in-flight prepare responses for the previous run cannot repopulate it.
   useEffect(() => {
+    if (confirmInFlight) return;
     prepareGenerationRef.current += 1;
     setPrepared(null);
     setPrepareError(null);
     setPreparing(false);
-  }, [liveRun?.run_id, liveRun?.manifest_path]);
+  }, [confirmInFlight, liveRun?.run_id, liveRun?.manifest_path]);
 
   const canReviewAndMerge = useMemo(() => {
     if (projectionStatus !== "ready" || !projection) return false;
     if (!liveRun?.run_id || !liveRun.run_id.trim()) return false;
     if (liveRun.promotable !== true) return false;
     if (!worldInitialized) return false;
+    if (confirmInFlight) return false;
     return true;
-  }, [liveRun, projection, projectionStatus, worldInitialized]);
+  }, [confirmInFlight, liveRun, projection, projectionStatus, worldInitialized]);
 
   const disabledReason = useMemo(() => {
+    if (confirmInFlight) {
+      return "Merge confirmation is in progress.";
+    }
     if (projectionStatus !== "ready" || !projection) {
       return "Load a preview-ready run first.";
     }
@@ -95,11 +101,11 @@ export function GraphReviewSessionToolbar() {
       return "World Graph is not initialized.";
     }
     return null;
-  }, [liveRun, projection, projectionStatus, worldInitialized, worldStatusError]);
+  }, [confirmInFlight, liveRun, projection, projectionStatus, worldInitialized, worldStatusError]);
 
   const onReviewAndMerge = useCallback(async () => {
     const runId = liveRun?.run_id?.trim();
-    if (!runId || preparing) return;
+    if (!runId || preparing || confirmInFlight) return;
     const generation = prepareGenerationRef.current;
     setPreparing(true);
     setPrepareError(null);
@@ -126,7 +132,7 @@ export function GraphReviewSessionToolbar() {
         setPreparing(false);
       }
     }
-  }, [liveRun?.run_id, preparing]);
+  }, [confirmInFlight, liveRun?.run_id, preparing]);
 
   if (projectionStatus !== "ready" || !projection) {
     return null;
@@ -162,7 +168,11 @@ export function GraphReviewSessionToolbar() {
         <GraphReviewExtractPromoteSheet
           key={prepared.proposalDigest}
           prepared={prepared}
-          onClose={() => setPrepared(null)}
+          onClose={() => {
+            if (confirmInFlight) return;
+            setPrepared(null);
+          }}
+          onConfirmInFlightChange={setConfirmInFlight}
         />
       ) : null}
     </div>

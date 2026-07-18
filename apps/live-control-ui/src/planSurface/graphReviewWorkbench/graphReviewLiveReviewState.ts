@@ -4,6 +4,7 @@ import {
   getGoldGraphProjection,
   getGoldReviewEvidence,
   getUnionSupergraphProjection,
+  postWorldGraphProjection,
   verifyGraphGoldAuthoringCommit,
   LiveApiError,
 } from "../../api/liveApi";
@@ -18,7 +19,9 @@ import type {
   ManualReviewBedDetail,
   ManualReviewBedSummary,
   UnionSupergraphProjectionResponse,
+  WorldGraphProjection,
 } from "../../api/types";
+import { buildPlanWorldGraphProjectionRequest } from "../reference/planGraphContextRequest";
 import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
@@ -197,6 +200,33 @@ export function useGraphReviewLiveReviewState({
     return response;
   }, [campaignId, sessionId]);
 
+  const reloadCommittedWorldProjection = useCallback(
+    async (revisionId: string, worldId: string): Promise<WorldGraphProjection> => {
+      const trimmedRevision = revisionId.trim();
+      if (!trimmedRevision) {
+        throw new Error("Committed revision id is required to reload World Graph projection.");
+      }
+      const request = {
+        ...buildPlanWorldGraphProjectionRequest({
+          worldId,
+          campaignId,
+          focus: sessionId
+            ? { kind: "session" as const, sessionId }
+            : { kind: "none" as const, sessionId: null },
+        }),
+        revisionPin: trimmedRevision,
+      };
+      const response = await postWorldGraphProjection(request);
+      if (response.snapshot.revisionId !== trimmedRevision) {
+        throw new Error(
+          `World Graph projection revision mismatch: expected ${trimmedRevision}, got ${response.snapshot.revisionId}.`,
+        );
+      }
+      return response;
+    },
+    [campaignId, sessionId],
+  );
+
   useEffect(() => {
     let cancelled = false;
     setGoldProjection(null);
@@ -240,6 +270,28 @@ export function useGraphReviewLiveReviewState({
       return true;
     },
     [goldProjection],
+  );
+
+  const selectDurableObjectIds = useCallback(
+    (objectIds: string[]) => {
+      const firstId = objectIds.map((id) => id.trim()).find(Boolean);
+      if (!firstId) return;
+      if (selectGoldNodeCard(firstId)) return;
+      if (projection?.node_views[firstId]) {
+        setActiveLaneObject({ laneRole: "live", nodeId: firstId });
+        setSelectedDeltaNodeId(firstId);
+        setSelectedNode({ laneRole: "live", nodeId: firstId });
+        setSelectedRelationship(null);
+        setProjectedInteractionOpen(true);
+        return;
+      }
+      setActiveLaneObject({ laneRole: "live", nodeId: firstId });
+      setSelectedDeltaNodeId(firstId);
+      setSelectedNode({ laneRole: "live", nodeId: firstId });
+      setSelectedRelationship(null);
+      setProjectedInteractionOpen(true);
+    },
+    [projection?.node_views, selectGoldNodeCard],
   );
 
   const reloadGoldProjectionAndVerifyCommit = useCallback(
@@ -481,6 +533,7 @@ export function useGraphReviewLiveReviewState({
     projectionStatus,
     projectionError,
     reloadLiveProjection,
+    reloadCommittedWorldProjection,
     goldProjection,
     goldProjectionStatus,
     goldProjectionError,
@@ -513,6 +566,7 @@ export function useGraphReviewLiveReviewState({
     projectedInteractionOpen,
     setProjectedInteractionOpen,
     selectGoldNodeCard,
+    selectDurableObjectIds,
     authorDraft,
     stageNodeFromSelection,
     stageNodeAssertion,

@@ -2157,6 +2157,7 @@ export interface WorldGraphProjectionRequest {
   campaignId: string;
   focus: WorldGraphProjectionFocus;
   admissibility: "gm" | "player";
+  revisionPin?: string | null;
 }
 
 export interface WorldGraphProjectionSnapshot {
@@ -2945,6 +2946,29 @@ export interface ExtractPromotePrepareResponse {
   runId?: string | null;
   campaignId?: string | null;
   sessionId?: string | null;
+}
+
+export interface ExtractPromoteConfirmRequest {
+  schema: "dmb_extract_promote_confirm_request_v2";
+  reviewPackage: Record<string, unknown>;
+  assertionIds: string[];
+}
+
+export interface ExtractPromoteConfirmReceipt {
+  schema: "dmb_extract_promote_confirm_v2";
+  outcome: "committed" | "already_applied" | "published_audit_degraded";
+  worldId: string;
+  proposalId: string;
+  proposalDigest: string;
+  parentRevisionId: string;
+  committedRevisionId: string;
+  headAdvanced: boolean;
+  selectedAssertionIds: string[];
+  acceptedAssertionIds: string[];
+  affectedObjectIds: string[];
+  appliedAssertionCount: number;
+  auditStatus: "ok" | "degraded";
+  warnings: string[];
 }
 
 export interface ExtractPromoteErrorBody {
