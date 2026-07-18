@@ -1,7 +1,7 @@
 # HANDOFF — PR011A3 Closeout: Live Session 25 Acceptance and Corpus UI Readiness Gate
 
 **Created:** 2026-07-18, America/Denver
-**Status:** BLOCKED at Stage 2 prepare — Session 25 waived to Session 24; all promotable Session 24 runs fail `mapping_error` (extractor semantic_state aliases). Head unchanged. See dogfood report.
+**Status:** BLOCKED at Stage 2 prepare — Session 25 waived to Session 24; SemanticState + EvidenceRef CLEARED; prepare now fails on edge `predicate_family`. Head unchanged. See dogfood report.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md`
 **Implementation base:** `37c0a79ddf323ec073e18a345d902162c330be61` — merge of GitHub PR #366 / PR011A3 implementation
 **Suggested branch:** `agent/pr011a3-closeout-corpus-ui-readiness`
@@ -219,6 +219,22 @@ Head mutation status: unchanged (rev:5cadc9798562862cdde22350d8a3b56c)
 Source/run status: Session 24 runs exist and are registry-promotable but not prepare-eligible
 Required paths outside scope: category_candidate_graph_extractor.py SemanticState defaults
 Proposed successor: Align category extractor SemanticState with promote IR (Backlog READY)
+Operator decision required: authorize successor vs defer
+```
+
+Hard stop observed: no backfill; no confirm; no second source.
+
+## EvidenceRef IR repair record (2026-07-18)
+
+```text
+Stop condition: prepare integrity failure after EvidenceRef clear
+Observed fact: POST prepare Session 24 runs return run_not_promotable —
+  CandidateEdge unexpected keyword argument 'predicate_family'
+  (source_ref_id / EvidenceRef incompleteness CLEARED after assemble stamp
+   + one-shot repair of 11 live candidates / 1030 refs)
+Head mutation status: unchanged (rev:5cadc9798562862cdde22350d8a3b56c)
+Proposed successor: Align category extractor edges/diagnostics with promote IR
+  (Backlog READY)
 Operator decision required: authorize successor vs defer
 ```
 
