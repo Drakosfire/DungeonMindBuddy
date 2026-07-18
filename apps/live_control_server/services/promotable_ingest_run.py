@@ -123,40 +123,39 @@ def is_under_world_store(path: Path, *, root: Path | None = None) -> bool:
 
 
 def assess_manifest_promotability(
-    manifest: GraphIngestRunManifest,
     *,
-    preview_union_store_path: str | None,
+    repo: Path,
+    manifest_path: Path,
+    payload: dict[str, Any],
+    registry_root: Path,
+    include_eval_roots: bool = False,
 ) -> tuple[bool, str | None]:
-    """Lightweight server-owned promotability gate for run summaries.
+    """Server-owned promotability using the same seam as prepare.
 
-    Mirrors the early fail-closed checks in ``resolve_promotable_ingest_run``
-    without resolving artifact paths. Full prepare still re-validates.
-    Only ``preview_union_store_ready`` is promotable — other statuses
-    (including future superseded/merged) fail closed.
+    Runs the identical scope / artifact / containment validation as
+    ``resolve_promotable_ingest_run`` for this manifest, plus duplicate
+    ``run_id`` detection across the same search roots prepare uses.
     """
-    if manifest.status == GraphIngestRunStatus.FAILED:
-        return False, "run status is failed"
-    if manifest.status != GraphIngestRunStatus.PREVIEW_UNION_STORE_READY:
-        return (
-            False,
-            f"run status is {manifest.status.value}, not preview_union_store_ready",
-        )
-    if manifest.health.candidate_graph_valid is not True:
-        return False, "candidate graph is not valid"
-    if manifest.health.preview_union_store_valid is not True:
-        return False, "preview union store is not valid"
-    if not (preview_union_store_path or "").strip():
-        return False, "preview union store path is missing"
+    run_id = str(payload.get("run_id") or "").strip()
+    if not run_id:
+        return False, "runId is missing"
 
-    artifact = manifest.artifacts.get(GraphIngestArtifactKind.NORMALIZED_RECAP.value)
-    artifact_digest = artifact.sha256 if artifact is not None else None
-    source_revision_id = _normalize_digest(
-        manifest.source.normalized_recap_sha256 or artifact_digest
+    matches = _find_manifests_for_run_id(
+        repo.resolve(), run_id, include_eval_roots=include_eval_roots
     )
-    if not source_revision_id:
-        return False, "normalized recap digest is missing"
-    if not (manifest.source.source_artifact_id or "").strip():
-        return False, "source_artifact_id is missing"
+    if len(matches) > 1:
+        return False, "ambiguous graph-ingest runId"
+
+    try:
+        resolve_promotable_from_loaded_manifest(
+            repo=repo.resolve(),
+            manifest_path=manifest_path,
+            payload=payload,
+            registry_root=registry_root.resolve(),
+            run_id=run_id,
+        )
+    except PromotableIngestRunError as exc:
+        return False, str(exc)
     return True, None
 
 
@@ -213,6 +212,24 @@ def resolve_promotable_ingest_run(
         )
 
     manifest_path, payload, registry_root = matches[0]
+    return resolve_promotable_from_loaded_manifest(
+        repo=repo,
+        manifest_path=manifest_path,
+        payload=payload,
+        registry_root=registry_root,
+        run_id=text,
+    )
+
+
+def resolve_promotable_from_loaded_manifest(
+    *,
+    repo: Path,
+    manifest_path: Path,
+    payload: dict[str, Any],
+    registry_root: Path,
+    run_id: str,
+) -> PromotableIngestRun:
+    """Shared prepare/summary seam: validate one loaded manifest for promotion."""
     validation = validate_graph_ingest_run_manifest(payload)
     if validation.get("errors"):
         raise PromotableIngestRunError(
@@ -232,7 +249,7 @@ def resolve_promotable_ingest_run(
             diagnostics=[str(exc)],
         ) from exc
 
-    _assert_run_id_scope_matches(text, manifest)
+    _assert_run_id_scope_matches(run_id, manifest)
 
     if manifest.status == GraphIngestRunStatus.FAILED:
         raise PromotableIngestRunError(

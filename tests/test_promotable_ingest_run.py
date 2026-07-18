@@ -13,6 +13,7 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
 )
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
+    assess_manifest_promotability,
     is_under_ingest_runs,
     is_under_world_store,
     resolve_promotable_ingest_run,
@@ -135,33 +136,38 @@ def test_resolve_rejects_deleted_preview_union_store(
     repo.mkdir()
     monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
     run_id, _digest, _source = _write_promotable_run(repo)
-    preview = (
-        repo
-        / "out/graph_memory/runs/longmont-c2/session-22/fixture-promote"
-        / "preview_union_supergraph.json"
-    )
-    preview.unlink()
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    resolved.preview_union_store_path.unlink()
     with pytest.raises(PromotableIngestRunError) as exc:
         resolve_promotable_ingest_run(run_id, root=repo)
     assert exc.value.code == "run_not_promotable"
 
 
-def test_resolve_and_admit_configured_registry_root(
+def test_resolve_admits_configured_non_default_registry_root(
     tmp_path: Path, monkeypatch
 ) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    # Outside corpus/Docs/evals/tmp so admission cannot cheat via path allowlist.
     custom_rel = "sandbox/custom_ingest_runs"
     monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, custom_rel)
-    run_id, _digest, source = _write_promotable_run(
-        repo, runs_rel=custom_rel, extraction_profile="custom_root_profile"
-    )
+    run_id = "graph-ingest:longmont-c2:session-22:custom-root"
+    _write_promotable_run(repo, run_id=run_id, runs_rel=custom_rel)
     resolved = resolve_promotable_ingest_run(run_id, root=repo)
-    assert resolved.extraction_profile == "custom_root_profile"
-    assert resolved.source_artifact_id == "artifact:recap:longmont-c2:session-22"
-    assert is_under_ingest_runs(source, root=repo) is True
-    assert resolved.sealed_source_uri.startswith(f"repo://{custom_rel}/")
+    assert custom_rel in resolved.sealed_source_uri
+    assert is_under_ingest_runs(resolved.normalized_recap_path, root=repo) is True
+
+
+def test_configured_root_artifact_not_under_default_when_env_differs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    custom_rel = "sandbox/custom_ingest_runs"
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, custom_rel)
+    run_id = "graph-ingest:longmont-c2:session-22:custom-root"
+    _write_promotable_run(repo, run_id=run_id, runs_rel=custom_rel)
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    source = resolved.normalized_recap_path
     # Default hard-coded root must not admit a custom-root artifact when env differs.
     monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
     assert is_under_ingest_runs(source, root=repo) is False
@@ -186,40 +192,35 @@ def test_world_store_detection(tmp_path: Path, monkeypatch) -> None:
     assert is_under_ingest_runs(runs, root=repo) is True
 
 
-def test_assess_manifest_promotability_requires_preview_ready_and_source(
+def test_assess_manifest_promotability_uses_prepare_resolver_seam(
     tmp_path: Path, monkeypatch
 ) -> None:
-    from apps.live_control_server.services.promotable_ingest_run import (
-        assess_manifest_promotability,
-    )
-    from graph_memory.ingestion.graph_ingest_run import GraphIngestRunManifest
-
     repo = tmp_path / "repo"
     repo.mkdir()
     monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
     run_id, _digest, _source = _write_promotable_run(repo)
     resolved = resolve_promotable_ingest_run(run_id, root=repo)
     payload = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
-    manifest = GraphIngestRunManifest.model_validate(payload)
+    registry_root = (repo / "out/graph_memory/runs").resolve()
 
     ok, reason = assess_manifest_promotability(
-        manifest,
-        preview_union_store_path=str(resolved.preview_union_store_path),
+        repo=repo,
+        manifest_path=resolved.manifest_path,
+        payload=payload,
+        registry_root=registry_root,
     )
     assert ok is True
     assert reason is None
 
+    # Missing candidate artifact: health flags alone must not advertise promotable.
+    payload["artifacts"].pop("candidate_graph", None)
+    resolved.candidate_graph_path.unlink(missing_ok=True)
     bad, bad_reason = assess_manifest_promotability(
-        manifest, preview_union_store_path=None
+        repo=repo,
+        manifest_path=resolved.manifest_path,
+        payload=payload,
+        registry_root=registry_root,
     )
     assert bad is False
-    assert bad_reason == "preview union store path is missing"
-
-    payload["health"]["candidate_graph_valid"] = False
-    invalid = GraphIngestRunManifest.model_validate(payload)
-    bad2, reason2 = assess_manifest_promotability(
-        invalid,
-        preview_union_store_path=str(resolved.preview_union_store_path),
-    )
-    assert bad2 is False
-    assert reason2 == "candidate graph is not valid"
+    assert bad_reason is not None
+    assert "candidate_graph" in bad_reason

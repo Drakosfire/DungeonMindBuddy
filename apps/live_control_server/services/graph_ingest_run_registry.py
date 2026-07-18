@@ -118,7 +118,12 @@ def discover_graph_ingest_runs(
         if not search_root.exists():
             continue
         for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
-            summary = _summarize_manifest(repo, manifest_path)
+            summary = _summarize_manifest(
+                repo,
+                manifest_path,
+                registry_root=search_root,
+                include_eval_roots=include_eval_roots,
+            )
             if summary is None:
                 continue
             if campaign_id is not None and summary.campaign_id != campaign_id:
@@ -244,7 +249,11 @@ def _graph_ingest_search_roots(
 
 
 def _summarize_manifest(
-    repo: Path, manifest_path: Path
+    repo: Path,
+    manifest_path: Path,
+    *,
+    registry_root: Path,
+    include_eval_roots: bool = False,
 ) -> GraphIngestRunSummary | None:
     try:
         safe_manifest_path = _resolve_repo_contained_path(manifest_path, repo)
@@ -266,7 +275,11 @@ def _summarize_manifest(
     )
 
     promotable, promotable_reason = assess_manifest_promotability(
-        manifest, preview_union_store_path=preview_path
+        repo=repo,
+        manifest_path=safe_manifest_path,
+        payload=payload,
+        registry_root=registry_root.resolve(),
+        include_eval_roots=include_eval_roots,
     )
     return GraphIngestRunSummary(
         manifest_path=_repo_relative(safe_manifest_path, repo),
