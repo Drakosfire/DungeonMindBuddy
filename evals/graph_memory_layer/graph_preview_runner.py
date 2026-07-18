@@ -74,6 +74,7 @@ class GraphPreviewRunnerOptions:
     output_dir: Path
     source_label: str | None = None
     model_id: str | None = None
+    reasoning_effort: str | None = None
     allow_llm: bool = False
     comparison_mode: ComparisonMode = "none"
     gold_path: Path | None = None
@@ -491,6 +492,16 @@ def _write_validation_report(
         "approved_memory_write",
         "corpus_mutation",
         "production_retrieval",
+        # Typed PreviewDiagnostics dangerous flags (promote IR).
+        "extraction_performed",
+        "llm_used",
+        "runtime_connected",
+        "plan_connected",
+        "agent_interaction_connected",
+        "corpus_scanned",
+        "corpus_mutated",
+        "facts_promoted",
+        "canon_promoted",
     ):
         if isinstance(diagnostics, dict) and diagnostics.get(flag):
             errors.append(f"forbidden lifecycle flag is true: {flag}")
@@ -674,7 +685,9 @@ def run_graph_preview_extraction(
             safe_relative_artifact_uri(output_dir),
         )
         try:
-            category_client = options.category_client or OpenAICategoryGraphPassClient()
+            category_client = options.category_client or OpenAICategoryGraphPassClient(
+                reasoning_effort=options.reasoning_effort,
+            )
 
             def _progress(pass_name: str, state: str) -> None:
                 label = PASS_PROGRESS_LABELS.get(pass_name, pass_name)

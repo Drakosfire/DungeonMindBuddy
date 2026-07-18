@@ -11,6 +11,13 @@ Sort newest → oldest within each status.
 
 ## DONE
 
+## [DONE] Align category extractor edges/diagnostics with promote IR — completed 2026-07-18
+**Context:** Session 24 prepare blocked on predicate_family + PreviewDiagnostics shape after EvidenceRef stamp.
+**Insight:** Assemble must project promote-eligible IR: strip catalog fields; emit promote-safe diagnostics; keep telemetry on envelope sidecar.
+**Action:** Landed project_candidate_graph_for_promote; live rewrite; Session 24 prepare HTTP 200 then confirm head advance.
+**Surfaces when:** extract-promote prepare, category assemble
+**Refs:** PR #367, Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md
+
 ## [DONE] Align category extractor EvidenceRef with promote IR — completed 2026-07-18
 **Context:** After SemanticState repair, Session 24 prepare failed typed parse on missing `source_ref_id` (extractor span stubs only).
 **Insight:** LLM should keep emitting span+quotes; assemble must stamp full EvidenceRef from known `source_artifact_id`. No prepare-time adapter.

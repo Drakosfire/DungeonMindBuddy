@@ -110,13 +110,69 @@ ENVELOPE_VERSION = "0.1"
 CANDIDATE_GRAPH_SCHEMA = "dmb_candidate_graph_preview_v0"
 CANDIDATE_GRAPH_VERSION = "0.1"
 
-PREVIEW_DIAGNOSTICS = {
+# Promote-eligible CandidateGraphPreview.diagnostics (matches gold / load_typed).
+# Do not put extraction_mode / model_id / live LLM truth on the candidate graph.
+PROMOTE_SAFE_PREVIEW_DIAGNOSTICS = {
+    "preview_only": True,
+    "extraction_performed": False,
+    "llm_used": False,
+    "runtime_connected": False,
+    "plan_connected": False,
+    "agent_interaction_connected": False,
+    "corpus_scanned": False,
+    "corpus_mutated": False,
+    "facts_promoted": False,
+    "canon_promoted": False,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0,
+}
+
+# Result/envelope sidecar only — not written onto candidate_graph.diagnostics.
+EXTRACTOR_RESULT_DIAGNOSTICS = {
     "preview_only": True,
     "canon_promotion": False,
     "approved_memory_write": False,
     "corpus_mutation": False,
     "production_retrieval": False,
 }
+
+# Back-compat alias for callers that imported PREVIEW_DIAGNOSTICS as lifecycle stubs.
+PREVIEW_DIAGNOSTICS = EXTRACTOR_RESULT_DIAGNOSTICS
+
+
+_EDGE_PROMOTE_DROP_KEYS = frozenset({"predicate_family", "context_anchor"})
+_NODE_PROMOTE_DROP_KEYS = frozenset({"context_anchor"})
+
+
+def project_candidate_graph_for_promote(
+    graph: dict[str, Any],
+    *,
+    warning_count: int | None = None,
+) -> dict[str, Any]:
+    """Project extractor graph dict onto typed promote-eligible CandidateGraphPreview IR.
+
+    Strips catalog/telemetry fields that typed dataclasses reject, and forces
+    promote-safe PreviewDiagnostics (dangerous flags false).
+    """
+    for edge in graph.get("edges") or []:
+        if isinstance(edge, dict):
+            for key in _EDGE_PROMOTE_DROP_KEYS:
+                edge.pop(key, None)
+    for node in graph.get("nodes") or []:
+        if isinstance(node, dict):
+            for key in _NODE_PROMOTE_DROP_KEYS:
+                node.pop(key, None)
+    diag = dict(PROMOTE_SAFE_PREVIEW_DIAGNOSTICS)
+    if warning_count is not None:
+        diag["warning_count"] = int(warning_count)
+    elif isinstance(graph.get("diagnostics"), Mapping):
+        try:
+            diag["warning_count"] = int(graph["diagnostics"].get("warning_count") or 0)
+        except (TypeError, ValueError):
+            diag["warning_count"] = 0
+    graph["diagnostics"] = diag
+    return graph
 
 
 class CategoryGraphExtractionError(RuntimeError):
@@ -784,6 +840,9 @@ def assemble_envelope(
     source_artifact_id: str,
     model_id: str,
 ) -> dict[str, Any]:
+    warning_count = len(
+        consolidated.get("consolidation_diagnostics", {}).get("merged_nodes", [])
+    )
     graph = {
         "schema": CANDIDATE_GRAPH_SCHEMA,
         "version": CANDIDATE_GRAPH_VERSION,
@@ -798,19 +857,10 @@ def assemble_envelope(
         "proposed_writes": list(consolidated.get("proposed_writes") or []),
         "ignored_items": list(consolidated.get("ignored_items") or []),
         "deferred_items": list(consolidated.get("deferred_items") or []),
-        "diagnostics": {
-            **PREVIEW_DIAGNOSTICS,
-            "extraction_performed": True,
-            "llm_used": True,
-            "runtime_connected": True,
-            "extraction_mode": "category_decomposed",
-            "model_id": model_id,
-            "warning_count": len(
-                consolidated.get("consolidation_diagnostics", {}).get("merged_nodes", [])
-            ),
-        },
+        "diagnostics": dict(PROMOTE_SAFE_PREVIEW_DIAGNOSTICS),
     }
     stamp_graph_evidence_refs(graph, source_artifact_id=source_artifact_id)
+    project_candidate_graph_for_promote(graph, warning_count=warning_count)
     return {
         "schema": ENVELOPE_SCHEMA,
         "version": ENVELOPE_VERSION,
@@ -818,6 +868,8 @@ def assemble_envelope(
         "review_sidecar": {
             "high_risk_claims": [],
             "notes": ["assembled deterministically from category passes"],
+            "extraction_mode": "category_decomposed",
+            "model_id": model_id,
         },
     }
 
@@ -1058,12 +1110,30 @@ def render_encounter_job_pass_prompt(
 
 
 def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
-    """Return candidate graph payload suitable for graph_preview_runner artifacts."""
+    """Return candidate graph payload suitable for graph_preview_runner artifacts.
+
+    Always re-projects to promote-eligible IR so runner artifacts stay prepare-safe.
+    """
     graph = dict(envelope.get("candidate_graph") or envelope)
-    graph.setdefault("diagnostics", {})
-    diag = dict(graph["diagnostics"])
-    diag.update(PREVIEW_DIAGNOSTICS)
-    graph["diagnostics"] = diag
+    # Deep-copy mutable collections so we do not mutate the envelope in place.
+    for key in (
+        "nodes",
+        "edges",
+        "beats",
+        "proposed_writes",
+        "ignored_items",
+        "deferred_items",
+    ):
+        items = graph.get(key)
+        if isinstance(items, list):
+            graph[key] = [dict(x) if isinstance(x, dict) else x for x in items]
+    warning_count = None
+    if isinstance(graph.get("diagnostics"), Mapping):
+        try:
+            warning_count = int(graph["diagnostics"].get("warning_count") or 0)
+        except (TypeError, ValueError):
+            warning_count = 0
+    project_candidate_graph_for_promote(graph, warning_count=warning_count)
     return graph
 
 
@@ -1350,7 +1420,7 @@ def run_category_pipeline(
             "encounter_job_edge_guidance": encounter_job_edge_diag,
             "node_vocabulary_ablation": node_vocabulary_diag,
             "dynamic_node_vocabulary_packet": dynamic_node_vocabulary_diag,
-            **PREVIEW_DIAGNOSTICS,
+            **EXTRACTOR_RESULT_DIAGNOSTICS,
         },
     )
 

@@ -309,7 +309,11 @@ def test_runner_allow_llm_with_fake_client_writes_candidate_graph(
     assert manifest["diagnostics"]["candidate_extraction"] is True
     assert manifest["diagnostics"]["extraction_mode"] == "category_decomposed"
     graph = json.loads(result.candidate_graph_path.read_text())
-    assert graph["diagnostics"]["canon_promotion"] is False
+    assert graph["diagnostics"]["preview_only"] is True
+    assert graph["diagnostics"]["canon_promoted"] is False
+    assert graph["diagnostics"]["extraction_performed"] is False
+    assert "canon_promotion" not in graph["diagnostics"]
+    assert "predicate_family" not in (graph.get("edges") or [{}])[0]
     assert (result.output_dir / "pass_telemetry.json").exists()
 
 

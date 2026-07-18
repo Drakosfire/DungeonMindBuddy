@@ -1,8 +1,8 @@
 # PR011A3 — Session 24 durable memory dogfood (Session 25 waived)
 
-**Status:** `BLOCKED`  
-**Terminal verdict:** `BLOCKED`  
-**Date/time:** 2026-07-18T10:11–10:20 America/Denver  
+**Status:** `PARTIAL` — prepare+confirm published; projection integrity blocks UI reload  
+**Terminal verdict:** `PARTIAL` (NOT ready for backfill)  
+**Date/time:** 2026-07-18T10:11–11:35 America/Denver  
 **Closeout branch:** `agent/pr011a3-closeout-corpus-ui-readiness`  
 **Base SHA:** `37c0a79ddf323ec073e18a345d902162c330be61` (merge of GitHub PR #366)  
 **Head SHA:** *(updated on push)*  
@@ -115,11 +115,22 @@ Post-repair Session 24 prepare
   Head unchanged: rev:5cadc9798562862cdde22350d8a3b56c
   Confirm not attempted.
 
-Follow-up (not this slice): strip/map predicate_family (and PreviewDiagnostics
-  shape) so live candidates typed-parse end-to-end, then resume confirm/reload.
+Follow-up (landed below): IR projection (predicate_family + promote-safe diagnostics).
 ```
 
-## Stage 2 — Prepare / review (FAILED)
+## Promote IR projection successor (2026-07-18)
+
+```text
+Forward fix: project_candidate_graph_for_promote at assemble_envelope /
+  canonical_graph_for_runner:
+  - strip predicate_family / context_anchor from edges/nodes
+  - emit PROMOTE_SAFE_PREVIEW_DIAGNOSTICS (dangerous flags false)
+  - move extraction_mode/model_id to envelope review_sidecar
+One-shot disk rewrite of 11 live candidates (project + EvidenceRef already present).
+Session 24 typed load: PASS (both Jul13 runs).
+```
+
+## Stage 2 — Prepare / review (PASSED after IR projection)
 
 ```text
 POST /api/live/extract-promote/prepare
@@ -139,24 +150,79 @@ Results (after EvidenceRef stamp on disk + assemble_envelope stamp):
   20260713T181901Z → HTTP 422 run_not_promotable (predicate_family on CandidateEdge)
   source_ref_id / EvidenceRef incompleteness: no longer observed
 
-proposal ID: n/a
-selected assertion IDs: n/a
+Results (after promote IR projection + live rewrite):
+  20260713T182027Z → HTTP 200 — proposalId proposal:a3517f38…;
+    acceptedProposalsCount=59; unresolvedMentionsCount=1; rejectedAssertionsCount=1
+  20260713T181901Z → HTTP 200 — proposalId proposal:ce12fad5…;
+    acceptedProposalsCount=54
+  parentRevisionId: rev:5cadc9798562862cdde22350d8a3b56c
+
+proposal ID: proposal:a3517f38fba14ff886ffaef4e746b75c (preferred run)
+selected assertion IDs: 59 (selectedByDefault)
+```
+
+## Stage 3 — Confirm (PASSED with degraded audit)
+
+```text
+POST /api/live/extract-promote/confirm
+  schema: dmb_extract_promote_confirm_request_v2
+  assertionIds: 59 selectedByDefault from prepare reviewItems
+  reviewPackage: sealed from prepare (preferred run 182027Z)
+
+HTTP 200
+outcome: published_audit_degraded
+headAdvanced: true
+committedRevisionId: rev:dc988ccc2f37163da7d4de29ba276db2
+parentRevisionId: rev:5cadc9798562862cdde22350d8a3b56c
+appliedAssertionCount: 59
+affectedObjectIds: 37 (includes pc:karsemine, pc:stafl, npc_lysandra, …)
+warnings: post_publication_verification_failed / ValueError
+auditStatus: degraded
+```
+
+## Stage 4 — Exact reload (PARTIAL)
+
+```text
+POST /api/live/world-graph/projection
+  worldId=eldyrwild campaignId=longmont-c2 revisionPin=rev:dc988ccc…
+  → HTTP 409 projection_integrity_error
+  Active node assertions disagree on correction-sensitive semantics
+  (pc:baergrom: competing fingerprints role/summary vs prior head)
+
+Disk proof at committed revision (not preview-union):
+  out/graph_memory/worlds/eldyrwild/revisions/rev:dc988ccc…/graph.json exists
+  all 37 affectedObjectIds present in revision store nodes
+  extract-promote/status head == committedRevisionId
+
+UI revision-pinned projection open: BLOCKED by integrity conflict
+Durable store presence: PASS
+```
+
+## Stage 5 — Restart durability (PASS for head/store)
+
+```text
+Re-read extract-promote/status → head still rev:dc988ccc…
+Revision graph.json still present; 37/37 affected IDs still resolvable in store
+Hermes write: not in scope (PR011B)
+Hermes/UI projection read: blocked by same integrity error until identity conflict resolved
 ```
 
 ## Publication / Reload / Retrieval
 
 ```text
-outcome: n/a — confirm not attempted
-committed revision: n/a
-head advanced: no (still rev:5cadc9798562862cdde22350d8a3b56c)
-browser reload / server restart / Hermes: n/a
+outcome: published_audit_degraded (confirm HTTP 200; head advanced)
+committed revision: rev:dc988ccc2f37163da7d4de29ba276db2
+head advanced: yes (from rev:5cadc9798562862cdde22350d8a3b56c)
+revision store: 37/37 affectedObjectIds present
+projection API: 409 projection_integrity_error (pc:baergrom conflict)
+browser reload / Hermes projection: blocked until integrity resolved
 ```
 
 ## Source-family readiness
 
 | Source family                  | Current UI entry contract                | Proven in this PR? | Ready? | Reason |
 | ------------------------------ | ---------------------------------------- | -----------------: | -----: | ------ |
-| Canonical session recap        | Campaign + session + recap text/artifact |                 No |     No | EvidenceRef stamped; prepare still blocked on edge `predicate_family` |
+| Canonical session recap        | Campaign + session + recap text/artifact |            Partial |     No | Prepare+confirm worked; projection integrity blocks UI reload; audit degraded |
 | Campaign NPC/location/faction  | No declared general contract on base     |                 No |     No | General source artifact intake required |
 | Session prep/plot artifact     | No declared general contract on base     |                 No |     No | Scope and canon semantics required |
 | Worldbuilding location/setting | No declared general contract on base     |                 No |     No | World-scoped source contract required |
@@ -166,20 +232,19 @@ browser reload / server restart / Hermes: n/a
 ## Terminal verdict
 
 ```text
-BLOCKED
-blocking stage: Stage 2 prepare (after Session 25 → Session 24 waiver)
-observed failure: run_not_promotable — CandidateEdge unexpected keyword
-  'predicate_family' (EvidenceRef source_ref_id CLEARED; SemanticState CLEARED)
-whether head advanced: no
-whether source or preview artifacts changed: yes (operator-approved one-shot
-  IR repairs under out/graph_memory/runs for SemanticState + EvidenceRef only)
-safe retry condition:
-  1) land successor that strips/maps predicate_family (and PreviewDiagnostics)
-     so live candidates typed-parse end-to-end;
-  2) re-run prepare → review → confirm → reload → Hermes on the same closeout invariant
+PARTIAL — Stages 2–3 PASS; Stage 4 projection API FAIL; store durability PASS
+blocking stage: Stage 4 exact UI/API projection reload
+observed failure: projection_integrity_error on pc:baergrom competing assertions
+  (confirm outcome published_audit_degraded; verification warning)
+whether head advanced: yes → rev:dc988ccc2f37163da7d4de29ba276db2
+whether source or preview artifacts changed: yes (IR projection repairs under out/)
+safe retry / follow-up:
+  1) resolve identity/semantic conflict for pc:baergrom (or suppress duplicate assert)
+     so revision-pinned projection succeeds;
+  2) then re-prove UI reload + optional Hermes read
 required follow-up capability:
-  Align category extractor edges/diagnostics with CandidateGraphPreview
-  (Backlog READY entry; not implemented in this EvidenceRef slice)
+  World Graph projection integrity for overlapping PC identity on promote
+NOT declared READY_FOR_CANONICAL_RECAP_BACKFILL (projection/UI reload incomplete)
 ```
 
 ```text
@@ -195,20 +260,18 @@ No corpus traversal was started.
 No batch or queue was created.
 No prior-recap backfill was started.
 No worldbuilding ingest was started.
-No extractor/promote semantics rewrite was shipped in this closeout.
-No World Graph confirm/publish was attempted.
-Head unchanged: rev:5cadc9798562862cdde22350d8a3b56c
-The agent stopped after recording the readiness verdict (BLOCKED).
+One Session 24 live confirm was executed under operator waiver.
+Head advanced once: rev:5cadc979… → rev:dc988ccc…
+The agent stopped after recording the readiness verdict (PARTIAL / not ready for backfill).
 ```
 
 ## Operator decision required (next)
 
 ```text
 Choose one:
-A) Authorize a successor PR (outside this closeout allowlist) to align the category
-   extractor DEFAULT_SEMANTIC_STATE with typed promote-eligible SemanticState, then
-   re-dispatch Session 24 closeout acceptance; or
-B) Defer acceptance; keep PR011B and backfill blocked; or
-C) Provide a different already-typed promote-eligible Session 24 candidate produced
-   without hand-editing (e.g. gold-grade IR from an approved pipeline) — rare.
+A) Authorize successor to fix projection integrity (pc:baergrom competing
+   assertions) so revision-pinned UI reload succeeds, then declare readiness; or
+B) Accept PARTIAL closeout (head advanced; store durable; UI projection blocked)
+   and still keep backfill gated; or
+C) Revert/investigate the degraded audit before any further live publishes.
 ```

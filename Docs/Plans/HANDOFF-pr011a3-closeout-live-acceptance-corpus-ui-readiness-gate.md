@@ -1,7 +1,7 @@
 # HANDOFF — PR011A3 Closeout: Live Session 25 Acceptance and Corpus UI Readiness Gate
 
 **Created:** 2026-07-18, America/Denver
-**Status:** BLOCKED at Stage 2 prepare — Session 25 waived to Session 24; SemanticState + EvidenceRef CLEARED; prepare now fails on edge `predicate_family`. Head unchanged. See dogfood report.
+**Status:** PARTIAL — Session 24 prepare+confirm published (rev:dc988ccc…); projection integrity blocks UI reload (pc:baergrom). NOT ready for backfill. See dogfood report.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md`
 **Implementation base:** `37c0a79ddf323ec073e18a345d902162c330be61` — merge of GitHub PR #366 / PR011A3 implementation
 **Suggested branch:** `agent/pr011a3-closeout-corpus-ui-readiness`

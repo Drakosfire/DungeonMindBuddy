@@ -1092,12 +1092,12 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Surfaces when:** Building any d100/d20 table the user will roll on at the table; designing live-play tooling; corpus-search shortcuts.  
 **Refs:** `live-play-workflow-analysis.canvas.tsx` (DungeonMindBuddy canvas), corpus files under `corpus/eldyrwild-markdown/Elderwyld/Roads/` and `Elderwyld/Wilderness/`
 
-## [READY] Align category extractor edges/diagnostics with promote IR — captured 2026-07-18
-**Context:** After SemanticState + EvidenceRef IR repairs, Session 24 prepare fails typed parse on `CandidateEdge` unexpected kwarg `predicate_family` (extractor edges carry catalog metadata). Live diagnostics also diverge from `PreviewDiagnostics` (extra/missing keys; `extraction_performed`/`llm_used` would trip dangerous_diagnostic_flag if present).
-**Insight:** Category assemble still emits promote-adjacent fields the typed CandidateGraphPreview dataclass rejects. EvidenceRef stamp alone is not sufficient for end-to-end prepare.
-**Action:** Successor: drop or relocate `predicate_family` before typed IR (keep for review sidecar if needed); emit PreviewDiagnostics-compatible diagnostics with promote-safe flags; one-shot repair live candidates; re-run Session 24 prepare → confirm.
-**Surfaces when:** extract-promote prepare, Session 24/25 dogfood, category extractor assemble, CandidateEdge parse
-**Refs:** Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md, src/graph_memory/extraction/category_candidate_graph_extractor.py, src/graph_memory/candidate_graph_preview.py, PR #367
+## [READY] Resolve World Graph projection integrity after Session 24 promote — captured 2026-07-18
+**Context:** Session 24 confirm advanced head to rev:dc988ccc… with outcome published_audit_degraded; POST world-graph/projection at that pin returns 409 projection_integrity_error — pc:baergrom has competing active assertions (role/summary fingerprints disagree).
+**Insight:** Durable store contains all 37 affectedObjectIds, but GM UI reload/Hermes projection cannot open the committed revision until identity/semantic conflict is resolved. Blocks READY_FOR_CANONICAL_RECAP_BACKFILL.
+**Action:** Diagnose competing assertions for pc:baergrom; decide merge/supersede/reject policy for promote when connecting to existing PCs; prove revision-pinned projection succeeds; then re-evaluate readiness.
+**Surfaces when:** extract-promote confirm audit degraded, world-graph projection, Session 24 dogfood, identity resolution on promote
+**Refs:** Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md, PR #367, rev:dc988ccc2f37163da7d4de29ba276db2
 
 ## [IDEA] Canonical recap UI backfill after Session 24 acceptance — captured 2026-07-18
 **Context:** Operator said after Session 24 closeout passes, begin ingesting all prior recaps (then worldbuilding).
