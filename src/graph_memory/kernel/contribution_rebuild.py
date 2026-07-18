@@ -146,6 +146,42 @@ def _collect_identity_decisions(
     return decisions
 
 
+def _identity_decision_ids_from_store(store: UnionSupergraphStore) -> list[str]:
+    """Stable decision-id list bound into a revision payload."""
+    ids: list[str] = []
+    seen: set[str] = set()
+    for item in store.identity_decisions or []:
+        if not isinstance(item, dict):
+            continue
+        decision_id = item.get("decision_id")
+        if not isinstance(decision_id, str) or not decision_id or decision_id in seen:
+            continue
+        seen.add(decision_id)
+        ids.append(decision_id)
+    return ids
+
+
+def _pinned_contribution_replay_ids(
+    *,
+    index_all_contribution_ids: list[str],
+    pinned_store: UnionSupergraphStore,
+) -> list[str]:
+    """Contribution replay set represented by a pinned revision.
+
+    Uses the revision-bound ``contribution_source_payload_sha256`` keys — not the
+    mutable live contribution index — so a concurrent later publish cannot expand
+    the audit replay set past the compared revision.
+    """
+    pinned_ids = set(pinned_store.contribution_source_payload_sha256 or {})
+    replay_ids = [cid for cid in index_all_contribution_ids if cid in pinned_ids]
+    seen = set(replay_ids)
+    for cid in pinned_store.contribution_source_payload_sha256 or {}:
+        if cid not in seen:
+            replay_ids.append(cid)
+            seen.add(cid)
+    return replay_ids
+
+
 def rebuild_from_contributions(
     root: Path,
     *,
@@ -167,8 +203,10 @@ def rebuild_from_contributions(
       ``rebuild_equivalent_to_pinned_revision``).
 
     When ``compare_revision_id`` is set, ``publish`` must be False. The pin is
-    the audit target; head equivalence is reported separately so a concurrent
-    head advance cannot be mislabeled as pinned-audit success.
+    the audit target for both the comparison graph and — unless explicit replay
+    lists are supplied — the contribution/identity-decision replay set bound into
+    that revision. Head equivalence is reported separately so a concurrent head
+    advance cannot be mislabeled as pinned-audit success.
     """
     if compare_revision_id is not None and publish:
         raise ValueError(
@@ -198,17 +236,43 @@ def rebuild_from_contributions(
         rebuild_adjacency,
     )
 
+    pinned_store: UnionSupergraphStore | None = None
+    pinned_revision_id: str | None = None
+    if compare_revision_id is not None:
+        pinned_revision_id = str(compare_revision_id).strip()
+        if not pinned_revision_id:
+            raise ValueError("compare_revision_id must be non-empty when provided")
+        pinned_store = load_world_graph_revision(root, world_id, pinned_revision_id)
+        diagnostics.append(f"rebuild_compare_revision:{pinned_revision_id}")
+
     if contribution_ids is None:
-        # Full historical replay: apply each non-failed contribution, then
-        # remove support for superseded/retracted ones so unsupported objects
-        # remain inspectable (matching head semantics).
-        replay_ids = [
-            cid
-            for cid in index.all_contribution_ids
-            if cid not in set(index.failed_contribution_ids)
-        ]
+        if pinned_store is not None:
+            # Pin replay inputs to the compared revision — do not read the live
+            # mutable contribution index as the audit membership set.
+            replay_ids = _pinned_contribution_replay_ids(
+                index_all_contribution_ids=list(index.all_contribution_ids),
+                pinned_store=pinned_store,
+            )
+            diagnostics.append(
+                f"rebuild_replay_pinned_to_revision:{pinned_revision_id}"
+            )
+        else:
+            # Full historical replay: apply each non-failed contribution, then
+            # remove support for superseded/retracted ones so unsupported objects
+            # remain inspectable (matching head semantics).
+            replay_ids = [
+                cid
+                for cid in index.all_contribution_ids
+                if cid not in set(index.failed_contribution_ids)
+            ]
     else:
         replay_ids = list(contribution_ids)
+
+    if identity_decision_ids is None and pinned_store is not None:
+        identity_decision_ids = _identity_decision_ids_from_store(pinned_store)
+        diagnostics.append(
+            f"rebuild_identity_decisions_pinned_to_revision:{pinned_revision_id}"
+        )
 
     accepted_ids: list[str] = []
     assertion_identity_rekeys: list[dict[str, str]] = []
@@ -274,17 +338,14 @@ def rebuild_from_contributions(
     )
 
     head, head_revision, head_store = load_current_world_graph(root, world_id)
-    if compare_revision_id is not None:
-        pin = str(compare_revision_id).strip()
-        if not pin:
-            raise ValueError("compare_revision_id must be non-empty when provided")
-        compared_store = load_world_graph_revision(root, world_id, pin)
-        compared_revision_id = pin
-        if head.head_revision_id != pin:
+    if pinned_store is not None:
+        compared_store = pinned_store
+        compared_revision_id = pinned_revision_id
+        assert compared_revision_id is not None
+        if head.head_revision_id != compared_revision_id:
             diagnostics.append(
                 f"head_advanced_past_compare_revision:{head.head_revision_id}"
             )
-        diagnostics.append(f"rebuild_compare_revision:{pin}")
     else:
         compared_store = head_store
         compared_revision_id = head.head_revision_id

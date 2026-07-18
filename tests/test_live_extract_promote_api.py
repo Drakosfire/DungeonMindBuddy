@@ -272,6 +272,10 @@ def test_prepare_confirm_success(world_client) -> None:
     assert confirmed["result"]["projection_revision_id"] == head_after
     assert confirmed["result"]["rebuild_equivalent_to_committed_revision"] is True
     assert "rebuild_equivalent_to_head" not in confirmed["result"]
+    assert any(
+        str(item).startswith("rebuild_replay_pinned_to_revision:")
+        for item in confirmed["result"].get("rebuild_diagnostics") or []
+    )
     assert confirmed["result"].get("head_advanced_before_verification") is False
 
 

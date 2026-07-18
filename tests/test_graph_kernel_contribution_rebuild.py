@@ -405,7 +405,7 @@ def test_rebuild_migrates_legacy_provenance_split_without_rewriting_ledger(
 
 
 def test_pinned_rebuild_does_not_mislabel_head_equivalence(seeded_root: Path) -> None:
-    """Pinned audit equivalence must not claim current-head equivalence after advance."""
+    """Pinned audit must pin replay inputs and not claim current-head equivalence."""
     root = seeded_root
     first = kernel.build_assertion(
         assertion_kind="node",
@@ -471,16 +471,18 @@ def test_pinned_rebuild_does_not_mislabel_head_equivalence(seeded_root: Path) ->
     current_head = merge_b.revision_id
     assert current_head != pinned_revision_id
 
-    # Replay only the pinned contribution set so the rebuilt graph matches the
-    # older pin while the live head has already advanced.
+    # Production path: pin only compare_revision_id. Replay membership must come
+    # from revision A even though the live index already contains contribution B.
     result = kernel.rebuild_from_contributions(
         root,
         world_id=WORLD_ID,
         publish=False,
-        contribution_ids=[contrib_a.contribution_id],
         compare_revision_id=pinned_revision_id,
     )
     assert result.published is False
+    assert contrib_a.contribution_id in result.contribution_ids
+    assert contrib_b.contribution_id not in result.contribution_ids
+    assert "rebuild_replay_pinned_to_revision:" + pinned_revision_id in result.diagnostics
     assert "rebuild_equivalent_to_pinned_revision" in result.diagnostics
     assert "rebuild_differs_from_head" in result.diagnostics
     assert "rebuild_equivalent_to_head" not in result.diagnostics
@@ -504,3 +506,4 @@ def test_pinned_rebuild_does_not_mislabel_head_equivalence(seeded_root: Path) ->
     assert report["head_revision_id"] == current_head
     assert report["equivalent_to_pinned_revision"] is True
     assert report["equivalent_to_head"] is False
+    assert contrib_b.contribution_id not in report["contribution_ids"]
