@@ -90,9 +90,33 @@ Post-repair Session 24 prepare
   Head unchanged: rev:5cadc9798562862cdde22350d8a3b56c
   Confirm not attempted.
 
-Follow-up (not this PR): align live evidence_refs with CandidateGraphPreview
-  EvidenceRef IR (or a documented promote-path materializer), then resume
-  Session 24 closeout acceptance.
+Follow-up (landed below): EvidenceRef stamp + live IR repair.
+```
+
+## Typed EvidenceRef successor (2026-07-18) — operator-approved IR repair
+
+```text
+No runtime prepare adapter.
+Forward fix: assemble_envelope stamps promote-eligible EvidenceRef from span stubs
+  (source_ref_id / source_artifact_id / can_open_source / can_highlight_span / …).
+LLM schema unchanged: still emits {source_span_ref_id, anchor_quotes} only.
+
+One-shot disk rewrite (evidence_refs only; out/ gitignored; not committed):
+  11 live candidate_graph.json files under out/graph_memory/runs/
+  1030 stub refs → full EvidenceRef (same set as SemanticState repair)
+  Empty stubs (3) left unchanged.
+
+Post-repair Session 24 prepare
+  (runId graph-ingest:longmont-c2:session-24:20260713T182027Z / 181901Z):
+  source_ref_id KeyError: CLEARED
+  new failure: HTTP 422 run_not_promotable —
+    CandidateEdge unexpected keyword argument 'predicate_family'
+  Extractor edges still carry predicate_family; typed CandidateEdge IR rejects it.
+  Head unchanged: rev:5cadc9798562862cdde22350d8a3b56c
+  Confirm not attempted.
+
+Follow-up (not this slice): strip/map predicate_family (and PreviewDiagnostics
+  shape) so live candidates typed-parse end-to-end, then resume confirm/reload.
 ```
 
 ## Stage 2 — Prepare / review (FAILED)
@@ -109,6 +133,11 @@ Results (before SemanticState repair):
 Results (after SemanticState repair on disk + extractor defaults PR):
   20260713T182027Z → HTTP 422 run_not_promotable (missing evidence source_ref_id)
   mapping_error: no longer observed on repaired Session 24 candidate
+
+Results (after EvidenceRef stamp on disk + assemble_envelope stamp):
+  20260713T182027Z → HTTP 422 run_not_promotable (predicate_family on CandidateEdge)
+  20260713T181901Z → HTTP 422 run_not_promotable (predicate_family on CandidateEdge)
+  source_ref_id / EvidenceRef incompleteness: no longer observed
 
 proposal ID: n/a
 selected assertion IDs: n/a
@@ -127,7 +156,7 @@ browser reload / server restart / Hermes: n/a
 
 | Source family                  | Current UI entry contract                | Proven in this PR? | Ready? | Reason |
 | ------------------------------ | ---------------------------------------- | -----------------: | -----: | ------ |
-| Canonical session recap        | Campaign + session + recap text/artifact |                 No |     No | SemanticState fixed; prepare still blocked on EvidenceRef `source_ref_id` |
+| Canonical session recap        | Campaign + session + recap text/artifact |                 No |     No | EvidenceRef stamped; prepare still blocked on edge `predicate_family` |
 | Campaign NPC/location/faction  | No declared general contract on base     |                 No |     No | General source artifact intake required |
 | Session prep/plot artifact     | No declared general contract on base     |                 No |     No | Scope and canon semantics required |
 | Worldbuilding location/setting | No declared general contract on base     |                 No |     No | World-scoped source contract required |
@@ -139,16 +168,18 @@ browser reload / server restart / Hermes: n/a
 ```text
 BLOCKED
 blocking stage: Stage 2 prepare (after Session 25 → Session 24 waiver)
-observed failure: mapping_error — extractor semantic_state aliases on all current Session 24 promotable runs
+observed failure: run_not_promotable — CandidateEdge unexpected keyword
+  'predicate_family' (EvidenceRef source_ref_id CLEARED; SemanticState CLEARED)
 whether head advanced: no
-whether source or preview artifacts changed: no
+whether source or preview artifacts changed: yes (operator-approved one-shot
+  IR repairs under out/graph_memory/runs for SemanticState + EvidenceRef only)
 safe retry condition:
-  1) land successor that emits typed promote-eligible SemanticState from recap extraction;
-  2) produce one fresh Session 24 UI/run (or re-extract) under that contract;
-  3) re-run prepare → review → confirm → reload → Hermes on the same closeout invariant
+  1) land successor that strips/maps predicate_family (and PreviewDiagnostics)
+     so live candidates typed-parse end-to-end;
+  2) re-run prepare → review → confirm → reload → Hermes on the same closeout invariant
 required follow-up capability:
-  Align category extractor SemanticState with CandidateGraphPreview + promote matrix
-  (Backlog READY entry; not implemented in this closeout)
+  Align category extractor edges/diagnostics with CandidateGraphPreview
+  (Backlog READY entry; not implemented in this EvidenceRef slice)
 ```
 
 ```text
