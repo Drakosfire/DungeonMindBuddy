@@ -407,6 +407,10 @@ def test_prepare_confirm_success(world_client) -> None:
     assert selectable
     assert all(item["selectedByDefault"] is True for item in selectable)
     assert all("assertionId" in item and "summary" in item for item in review_items)
+    assert all("dependsOnAssertionIds" in item for item in review_items)
+    relationships = [item for item in selectable if item["kind"] == "relationship"]
+    if relationships:
+        assert any("—" in item["label"] and "→" in item["label"] for item in relationships)
     summary = prepared["reviewSummary"]
     assert summary["newObjectCount"] + summary["connectExistingCount"] >= 1
     # Presentation model must not require clients to parse sealed effect internals.

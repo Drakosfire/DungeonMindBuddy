@@ -103,9 +103,67 @@ def test_project_promote_review_defaults_and_counts() -> None:
     assert accepted[0].action == "create"
     assert accepted[0].kind == "object"
     assert accepted[1].kind == "relationship"
+    assert accepted[1].label == "Hesta —works_at→ loc_apothecary"
+    assert accepted[1].summary == "Add relationship: Hesta —works_at→ loc_apothecary"
+    assert accepted[1].depends_on_assertion_ids == ["a-node"]
 
     blocked = [i for i in items if not i.selectable]
     assert len(blocked) == 2
     assert all(not i.selected_by_default for i in blocked)
     assert blocked[0].assertion_id.startswith("unresolved:")
     assert blocked[1].assertion_id.startswith("rejected:")
+
+
+def test_project_promote_review_relationship_labels_prefer_endpoint_names() -> None:
+    """Edge.label/predicate alone must not hide who is connected."""
+    contribution = GraphContribution(
+        contribution_id="contrib:test",
+        world_id="eldyrwild",
+        source_kind="source_extraction",
+        produced_at="2026-07-18T00:00:00Z",
+        accepted_assertions=[],
+        candidate_assertions=[],
+    )
+    gate = IdentityGateResult(
+        parent_revision_id="rev:parent",
+        world_id="eldyrwild",
+        contribution=contribution,
+        accepted_proposals=[
+            _assertion(
+                assertion_id="a-hesta",
+                kind="node",
+                label="Hesta",
+                outcome="created_new",
+                subject="npc_hesta",
+            ),
+            _assertion(
+                assertion_id="a-shop",
+                kind="node",
+                label="Apothecary",
+                outcome="resolved_existing",
+                subject="loc_apothecary",
+            ),
+            _assertion(
+                assertion_id="a-edge",
+                kind="edge",
+                label="works at",
+                outcome="created_new",
+                subject="npc_hesta",
+                target="loc_apothecary",
+                predicate="works_at",
+            ),
+        ],
+        identity_outcome_snapshot={
+            "npc_hesta": "created_new",
+            "loc_apothecary": "resolved_existing",
+        },
+        node_id_map={"npc_hesta": "npc_hesta", "loc_apothecary": "loc_apothecary"},
+    )
+
+    items, _summary = project_promote_review(gate)
+    edge = next(i for i in items if i.assertion_id == "a-edge")
+    assert edge.label == "Hesta —works_at→ Apothecary"
+    assert "Hesta" in edge.summary and "Apothecary" in edge.summary
+    assert edge.depends_on_assertion_ids == ["a-hesta"]
+    # Existing endpoint is already on the pinned head — no create dependency.
+    assert "a-shop" not in edge.depends_on_assertion_ids

@@ -71,6 +71,9 @@ class GraphIngestRunSummary(BaseModel):
         default_factory=dict
     )
     preview_union_available: bool = False
+    # Server-owned product gate for Graph Review "Review & merge" (PR011A2).
+    promotable: bool = False
+    promotable_reason: str | None = None
 
 
 class GraphIngestRunsResponse(BaseModel):
@@ -257,6 +260,14 @@ def _summarize_manifest(
     metadata = _extract_graph_run_metadata(
         manifest, payload, safe_manifest_path, repo, preview_path
     )
+    # Lazy import avoids circular dependency with promotable_ingest_run.
+    from apps.live_control_server.services.promotable_ingest_run import (
+        assess_manifest_promotability,
+    )
+
+    promotable, promotable_reason = assess_manifest_promotability(
+        manifest, preview_union_store_path=preview_path
+    )
     return GraphIngestRunSummary(
         manifest_path=_repo_relative(safe_manifest_path, repo),
         run_dir=_repo_relative(safe_manifest_path.parent, repo),
@@ -271,6 +282,8 @@ def _summarize_manifest(
         edge_count=manifest.health.edge_count,
         evidence_ref_count=manifest.health.evidence_ref_count,
         next_actions=list(manifest.next_actions),
+        promotable=promotable,
+        promotable_reason=promotable_reason,
         **metadata,
     )
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ExtractPromoteApiError,
@@ -36,6 +36,10 @@ export function GraphReviewSessionToolbar() {
   const [preparing, setPreparing] = useState(false);
   const [prepareError, setPrepareError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<ExtractPromotePrepareResponse | null>(null);
+  const prepareGenerationRef = useRef(0);
+  const liveRunIdRef = useRef<string | null>(liveRun?.run_id?.trim() || null);
+
+  liveRunIdRef.current = liveRun?.run_id?.trim() || null;
 
   useEffect(() => {
     let cancelled = false;
@@ -57,16 +61,19 @@ export function GraphReviewSessionToolbar() {
     };
   }, [liveRun?.run_id, liveRun?.manifest_path]);
 
-  // Clear a prior sheet when the selected run changes.
+  // Clear a prior sheet when the selected run changes; bump generation so
+  // in-flight prepare responses for the previous run cannot repopulate it.
   useEffect(() => {
+    prepareGenerationRef.current += 1;
     setPrepared(null);
     setPrepareError(null);
+    setPreparing(false);
   }, [liveRun?.run_id, liveRun?.manifest_path]);
 
   const canReviewAndMerge = useMemo(() => {
     if (projectionStatus !== "ready" || !projection) return false;
-    if (!liveRun?.preview_union_available) return false;
-    if (!liveRun.run_id || !liveRun.run_id.trim()) return false;
+    if (!liveRun?.run_id || !liveRun.run_id.trim()) return false;
+    if (liveRun.promotable !== true) return false;
     if (!worldInitialized) return false;
     return true;
   }, [liveRun, projection, projectionStatus, worldInitialized]);
@@ -75,11 +82,11 @@ export function GraphReviewSessionToolbar() {
     if (projectionStatus !== "ready" || !projection) {
       return "Load a preview-ready run first.";
     }
-    if (!liveRun?.preview_union_available) {
-      return "Selected run is not preview-ready.";
-    }
-    if (!liveRun.run_id || !liveRun.run_id.trim()) {
+    if (!liveRun?.run_id || !liveRun.run_id.trim()) {
       return "Selected run is missing a server run id.";
+    }
+    if (liveRun.promotable !== true) {
+      return liveRun.promotable_reason?.trim() || "Selected run is not promotable.";
     }
     if (worldStatusError) {
       return worldStatusError;
@@ -93,16 +100,31 @@ export function GraphReviewSessionToolbar() {
   const onReviewAndMerge = useCallback(async () => {
     const runId = liveRun?.run_id?.trim();
     if (!runId || preparing) return;
+    const generation = prepareGenerationRef.current;
     setPreparing(true);
     setPrepareError(null);
     try {
       const response = await prepareExtractPromote({ runId });
+      const stillCurrent =
+        generation === prepareGenerationRef.current &&
+        liveRunIdRef.current === runId &&
+        (response.runId == null || response.runId === runId);
+      if (!stillCurrent) {
+        return;
+      }
       setPrepared(response);
     } catch (error) {
+      const stillCurrent =
+        generation === prepareGenerationRef.current && liveRunIdRef.current === runId;
+      if (!stillCurrent) {
+        return;
+      }
       setPrepared(null);
       setPrepareError(promoteErrorMessage(error));
     } finally {
-      setPreparing(false);
+      if (generation === prepareGenerationRef.current) {
+        setPreparing(false);
+      }
     }
   }, [liveRun?.run_id, preparing]);
 
@@ -138,6 +160,7 @@ export function GraphReviewSessionToolbar() {
       ) : null}
       {prepared ? (
         <GraphReviewExtractPromoteSheet
+          key={prepared.proposalDigest}
           prepared={prepared}
           onClose={() => setPrepared(null)}
         />

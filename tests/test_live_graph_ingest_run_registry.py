@@ -524,6 +524,8 @@ def test_registry_summary_exposes_graph_review_run_metadata(
     assert run.diagnostics_summary["warnings_count"] == 1
     assert run.diagnostics_summary["next_actions_count"] == 1
     assert run.preview_union_available is True
+    assert run.promotable is True
+    assert run.promotable_reason is None
     assert (
         run.run_label
         == "Session 24 recap · anchor_quote_n3 · vocab:node · gpt-test · preview_union_store_ready"
@@ -550,6 +552,8 @@ def test_registry_summary_defaults_missing_metadata_to_unknown(
     assert run.vocabulary_mode.value == "unknown"
     assert run.runner_options_summary == {}
     assert run.preview_union_available is False
+    assert run.promotable is False
+    assert run.promotable_reason is not None
     assert "None" not in run.run_label
 
 

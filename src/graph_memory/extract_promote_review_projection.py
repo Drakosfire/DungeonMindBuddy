@@ -31,6 +31,9 @@ class PromoteReviewItem:
     warnings: list[str] = field(default_factory=list)
     selectable: bool = False
     selected_by_default: bool = False
+    # Assertion IDs that must remain selected when this item is selected
+    # (e.g. newly created endpoint nodes required by a relationship).
+    depends_on_assertion_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -51,11 +54,16 @@ def project_promote_review(
     connect_existing = 0
     relationships = 0
 
+    label_by_node_id = _label_map_from_accepted(gate.accepted_proposals)
+    create_node_assertion_ids = _create_node_assertion_ids(gate.accepted_proposals)
+
     for assertion in gate.accepted_proposals:
         item = _item_from_accepted_assertion(
             assertion,
             identity_outcome_snapshot=gate.identity_outcome_snapshot,
             node_id_map=gate.node_id_map,
+            label_by_node_id=label_by_node_id,
+            create_node_assertion_ids=create_node_assertion_ids,
         )
         items.append(item)
         if item.kind == "relationship":
@@ -69,7 +77,12 @@ def project_promote_review(
         items.append(_item_from_unresolved_mention(mention))
 
     for assertion in gate.rejected_assertions:
-        items.append(_item_from_rejected_assertion(assertion))
+        items.append(
+            _item_from_rejected_assertion(
+                assertion,
+                label_by_node_id=label_by_node_id,
+            )
+        )
 
     summary = PromoteReviewSummary(
         new_object_count=new_objects,
@@ -109,6 +122,7 @@ def _item_to_dict(item: PromoteReviewItem) -> dict[str, Any]:
         "warnings": list(item.warnings),
         "selectable": item.selectable,
         "selected_by_default": item.selected_by_default,
+        "depends_on_assertion_ids": list(item.depends_on_assertion_ids),
     }
 
 
@@ -142,14 +156,96 @@ def _evidence_summary(assertion: GraphContributionAssertion) -> str | None:
     return None
 
 
-def _label_for_assertion(assertion: GraphContributionAssertion) -> str:
+def _label_map_from_accepted(
+    assertions: list[GraphContributionAssertion],
+) -> dict[str, str]:
+    labels: dict[str, str] = {}
+    for assertion in assertions:
+        if assertion.assertion_kind != "node":
+            continue
+        subject = (assertion.subject_node_id or "").strip()
+        if not subject:
+            continue
+        label = (assertion.label or "").strip() or subject
+        labels[subject] = label
+    return labels
+
+
+def _create_node_assertion_ids(
+    assertions: list[GraphContributionAssertion],
+) -> dict[str, str]:
+    """Map newly created node subject IDs → their accepted assertion IDs."""
+    create_ids: dict[str, str] = {}
+    for assertion in assertions:
+        if assertion.assertion_kind != "node":
+            continue
+        subject = (assertion.subject_node_id or "").strip()
+        if not subject:
+            continue
+        outcome = (assertion.identity_resolution_outcome or "").strip()
+        if outcome in {"created_new", "provisional_new"}:
+            create_ids[subject] = assertion.assertion_id
+    return create_ids
+
+
+def _depends_on_for_edge(
+    assertion: GraphContributionAssertion,
+    *,
+    create_node_assertion_ids: dict[str, str],
+) -> list[str]:
+    deps: list[str] = []
+    for endpoint in (
+        (assertion.subject_node_id or "").strip(),
+        (assertion.target_node_id or "").strip(),
+    ):
+        dep = create_node_assertion_ids.get(endpoint)
+        if dep and dep not in deps:
+            deps.append(dep)
+    return deps
+
+
+def _relationship_endpoint_label(
+    node_id: str | None,
+    *,
+    label_by_node_id: dict[str, str],
+) -> str:
+    text = (node_id or "").strip()
+    if not text:
+        return "?"
+    return label_by_node_id.get(text, text)
+
+
+def _relationship_display(
+    assertion: GraphContributionAssertion,
+    *,
+    label_by_node_id: dict[str, str],
+) -> str:
+    """Always identify both endpoints; never rely on predicate-only edge.label."""
+    predicate = (
+        (assertion.predicate or "").strip()
+        or (assertion.label or "").strip()
+        or "related_to"
+    )
+    left = _relationship_endpoint_label(
+        assertion.subject_node_id, label_by_node_id=label_by_node_id
+    )
+    right = _relationship_endpoint_label(
+        assertion.target_node_id, label_by_node_id=label_by_node_id
+    )
+    return f"{left} —{predicate}→ {right}"
+
+
+def _label_for_assertion(
+    assertion: GraphContributionAssertion,
+    *,
+    label_by_node_id: dict[str, str] | None = None,
+) -> str:
+    if assertion.assertion_kind == "edge":
+        return _relationship_display(
+            assertion, label_by_node_id=label_by_node_id or {}
+        )
     if (assertion.label or "").strip():
         return str(assertion.label).strip()
-    if assertion.assertion_kind == "edge":
-        predicate = (assertion.predicate or "related_to").strip()
-        left = (assertion.subject_node_id or "?").strip()
-        right = (assertion.target_node_id or "?").strip()
-        return f"{left} —{predicate}→ {right}"
     subject = (assertion.subject_node_id or "").strip()
     if subject:
         return subject
@@ -162,11 +258,12 @@ def _summary_for_accepted(
     action: ReviewItemAction,
     identity_outcome: str,
     node_id_map: dict[str, str],
+    label_by_node_id: dict[str, str],
 ) -> str:
-    label = _label_for_assertion(assertion)
     kind = _kind_from_assertion(assertion)
     if kind == "relationship":
-        return f"Add relationship: {label}"
+        return f"Add relationship: {_relationship_display(assertion, label_by_node_id=label_by_node_id)}"
+    label = _label_for_assertion(assertion, label_by_node_id=label_by_node_id)
     if action == "create":
         return f"Create new {kind}: {label}"
     if action == "connect_existing":
@@ -188,6 +285,8 @@ def _item_from_accepted_assertion(
     *,
     identity_outcome_snapshot: dict[str, str],
     node_id_map: dict[str, str],
+    label_by_node_id: dict[str, str],
+    create_node_assertion_ids: dict[str, str],
 ) -> PromoteReviewItem:
     subject = (assertion.subject_node_id or "").strip()
     outcome = (
@@ -197,16 +296,21 @@ def _item_from_accepted_assertion(
     )
     action = _action_from_outcome(outcome)
     kind = _kind_from_assertion(assertion)
+    depends_on: list[str] = []
     # Edges rarely carry identity outcomes; treat as create relationship.
     if kind == "relationship" and action == "update" and not (
         assertion.identity_resolution_outcome or ""
     ).strip():
         action = "create"
         outcome = outcome or "created_new"
+    if kind == "relationship":
+        depends_on = _depends_on_for_edge(
+            assertion, create_node_assertion_ids=create_node_assertion_ids
+        )
     return PromoteReviewItem(
         assertion_id=assertion.assertion_id,
         kind=kind,
-        label=_label_for_assertion(assertion),
+        label=_label_for_assertion(assertion, label_by_node_id=label_by_node_id),
         action=action,
         identity_outcome=outcome,
         summary=_summary_for_accepted(
@@ -214,11 +318,13 @@ def _item_from_accepted_assertion(
             action=action,
             identity_outcome=outcome,
             node_id_map=node_id_map,
+            label_by_node_id=label_by_node_id,
         ),
         evidence_summary=_evidence_summary(assertion),
         warnings=[],
         selectable=True,
         selected_by_default=True,
+        depends_on_assertion_ids=depends_on,
     )
 
 
@@ -250,15 +356,18 @@ def _item_from_unresolved_mention(
 
 def _item_from_rejected_assertion(
     assertion: GraphContributionAssertion,
+    *,
+    label_by_node_id: dict[str, str],
 ) -> PromoteReviewItem:
     outcome = (assertion.identity_resolution_outcome or "rejected").strip()
+    label = _label_for_assertion(assertion, label_by_node_id=label_by_node_id)
     return PromoteReviewItem(
         assertion_id=f"rejected:{assertion.assertion_id}",
         kind=_kind_from_assertion(assertion),
-        label=_label_for_assertion(assertion),
+        label=label,
         action="update",
         identity_outcome=outcome,
-        summary=f"Rejected: {_label_for_assertion(assertion)} ({outcome})",
+        summary=f"Rejected: {label} ({outcome})",
         evidence_summary=_evidence_summary(assertion),
         warnings=[],
         selectable=False,

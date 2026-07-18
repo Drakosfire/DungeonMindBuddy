@@ -5,6 +5,11 @@ import type {
   ExtractPromotionReviewItem,
   ExtractPromoteReviewSummary,
 } from "../../api/types";
+import {
+  countSelectableSelected,
+  initialPromoteSelection,
+  togglePromoteSelection,
+} from "./extractPromoteSelectionUtils";
 
 export interface GraphReviewExtractPromoteSheetProps {
   prepared: ExtractPromotePrepareResponse;
@@ -52,55 +57,39 @@ function actionLabel(action: ExtractPromotionReviewItem["action"]): string {
   }
 }
 
-function initialSelection(items: ExtractPromotionReviewItem[]): Set<string> {
-  return new Set(
-    items.filter((item) => item.selectable && item.selectedByDefault).map((item) => item.assertionId),
-  );
-}
-
 /**
  * Game-facing promote review sheet (PR011A2).
  *
  * Holds sealed reviewPackage + selected assertion ids for PR011A3 confirm.
- * Merge CTA does not POST confirm in this slice.
+ * Confirm CTA is intentionally omitted until A3 — selection count stays visible.
  */
 export function GraphReviewExtractPromoteSheet({
   prepared,
   onClose,
 }: GraphReviewExtractPromoteSheetProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
-    initialSelection(prepared.reviewItems),
+    initialPromoteSelection(prepared.reviewItems),
   );
 
-  const selectedCount = useMemo(() => {
-    let count = 0;
-    for (const item of prepared.reviewItems) {
-      if (item.selectable && selectedIds.has(item.assertionId)) {
-        count += 1;
-      }
-    }
-    return count;
-  }, [prepared.reviewItems, selectedIds]);
+  const selectedCount = useMemo(
+    () => countSelectableSelected(prepared.reviewItems, selectedIds),
+    [prepared.reviewItems, selectedIds],
+  );
 
   const summaryLines = formatSummaryLines(prepared.reviewSummary);
 
   const toggle = (item: ExtractPromotionReviewItem) => {
     if (!item.selectable) return;
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(item.assertionId)) {
-        next.delete(item.assertionId);
-      } else {
-        next.add(item.assertionId);
-      }
-      return next;
-    });
+    setSelectedIds((prev) =>
+      togglePromoteSelection(prepared.reviewItems, prev, item.assertionId),
+    );
   };
 
   return (
     <section
       className="graph-review-extract-promote-sheet"
       data-testid="graph-review-extract-promote-sheet"
+      data-proposal-digest={prepared.proposalDigest}
       aria-label="Review proposed campaign memory changes"
     >
       <header className="graph-review-extract-promote-sheet-header">
@@ -170,26 +159,16 @@ export function GraphReviewExtractPromoteSheet({
       </ul>
 
       <footer className="graph-review-extract-promote-sheet-footer">
-        <p className="graph-review-extract-promote-confirm-note">
-          Confirmation that advances the World Graph head lands in the next slice (PR011A3).
-        </p>
-        <button
-          type="button"
-          className="primary"
-          disabled={selectedCount === 0}
-          title={
-            selectedCount === 0
-              ? "Select at least one accepted change"
-              : "Confirm merge arrives in PR011A3"
-          }
-          data-testid="graph-review-extract-promote-merge-cta"
+        <p
+          className="graph-review-extract-promote-confirm-note"
+          data-testid="graph-review-extract-promote-selection-status"
           data-selected-count={selectedCount}
           data-review-package-digest={prepared.proposalDigest}
-          // Sealed package + selection retained for A3; no confirm POST here.
-          onClick={() => undefined}
         >
-          {`Merge ${selectedCount} change${selectedCount === 1 ? "" : "s"} into campaign memory`}
-        </button>
+          {selectedCount === 0
+            ? "Select at least one accepted change to enable confirmation in PR011A3."
+            : `${selectedCount} change${selectedCount === 1 ? "" : "s"} selected. Confirmation that advances the World Graph head lands in PR011A3.`}
+        </p>
       </footer>
     </section>
   );

@@ -1804,6 +1804,9 @@ export interface GraphIngestRunSummary {
   runner_options_summary: Record<string, string | number | boolean | null>;
   diagnostics_summary: Record<string, string | number | boolean | null>;
   preview_union_available: boolean;
+  /** Server-owned product gate for Review & merge (PR011A2). */
+  promotable?: boolean;
+  promotable_reason?: string | null;
 }
 
 export interface GraphIngestRunsResponse {
@@ -2900,6 +2903,8 @@ export interface ExtractPromotionReviewItem {
   warnings: string[];
   selectable: boolean;
   selectedByDefault: boolean;
+  /** Newly created endpoint assertions that must stay selected with this item. */
+  dependsOnAssertionIds?: string[];
 }
 
 export interface ExtractPromoteReviewSummary {

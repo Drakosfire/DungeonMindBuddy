@@ -184,3 +184,42 @@ def test_world_store_detection(tmp_path: Path, monkeypatch) -> None:
     assert is_under_world_store(worlds, root=repo) is True
     assert is_under_world_store(runs, root=repo) is False
     assert is_under_ingest_runs(runs, root=repo) is True
+
+
+def test_assess_manifest_promotability_requires_preview_ready_and_source(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from apps.live_control_server.services.promotable_ingest_run import (
+        assess_manifest_promotability,
+    )
+    from graph_memory.ingestion.graph_ingest_run import GraphIngestRunManifest
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _digest, _source = _write_promotable_run(repo)
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    payload = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    manifest = GraphIngestRunManifest.model_validate(payload)
+
+    ok, reason = assess_manifest_promotability(
+        manifest,
+        preview_union_store_path=str(resolved.preview_union_store_path),
+    )
+    assert ok is True
+    assert reason is None
+
+    bad, bad_reason = assess_manifest_promotability(
+        manifest, preview_union_store_path=None
+    )
+    assert bad is False
+    assert bad_reason == "preview union store path is missing"
+
+    payload["health"]["candidate_graph_valid"] = False
+    invalid = GraphIngestRunManifest.model_validate(payload)
+    bad2, reason2 = assess_manifest_promotability(
+        invalid,
+        preview_union_store_path=str(resolved.preview_union_store_path),
+    )
+    assert bad2 is False
+    assert reason2 == "candidate graph is not valid"

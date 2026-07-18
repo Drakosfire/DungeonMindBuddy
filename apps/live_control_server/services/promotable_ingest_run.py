@@ -122,6 +122,44 @@ def is_under_world_store(path: Path, *, root: Path | None = None) -> bool:
     return False
 
 
+def assess_manifest_promotability(
+    manifest: GraphIngestRunManifest,
+    *,
+    preview_union_store_path: str | None,
+) -> tuple[bool, str | None]:
+    """Lightweight server-owned promotability gate for run summaries.
+
+    Mirrors the early fail-closed checks in ``resolve_promotable_ingest_run``
+    without resolving artifact paths. Full prepare still re-validates.
+    Only ``preview_union_store_ready`` is promotable — other statuses
+    (including future superseded/merged) fail closed.
+    """
+    if manifest.status == GraphIngestRunStatus.FAILED:
+        return False, "run status is failed"
+    if manifest.status != GraphIngestRunStatus.PREVIEW_UNION_STORE_READY:
+        return (
+            False,
+            f"run status is {manifest.status.value}, not preview_union_store_ready",
+        )
+    if manifest.health.candidate_graph_valid is not True:
+        return False, "candidate graph is not valid"
+    if manifest.health.preview_union_store_valid is not True:
+        return False, "preview union store is not valid"
+    if not (preview_union_store_path or "").strip():
+        return False, "preview union store path is missing"
+
+    artifact = manifest.artifacts.get(GraphIngestArtifactKind.NORMALIZED_RECAP.value)
+    artifact_digest = artifact.sha256 if artifact is not None else None
+    source_revision_id = _normalize_digest(
+        manifest.source.normalized_recap_sha256 or artifact_digest
+    )
+    if not source_revision_id:
+        return False, "normalized recap digest is missing"
+    if not (manifest.source.source_artifact_id or "").strip():
+        return False, "source_artifact_id is missing"
+    return True, None
+
+
 def is_under_ingest_runs(
     path: Path, *, root: Path | None = None, include_eval_roots: bool = False
 ) -> bool:

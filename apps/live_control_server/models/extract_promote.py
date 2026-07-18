@@ -85,6 +85,7 @@ class ExtractPromotionReviewItem(_ExtractPromoteModel):
     warnings: list[str] = Field(default_factory=list)
     selectable: bool = False
     selected_by_default: bool = False
+    depends_on_assertion_ids: list[str] = Field(default_factory=list)
 
 
 class ExtractPromoteReviewSummary(_ExtractPromoteModel):
