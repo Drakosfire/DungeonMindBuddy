@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-17 — PR363 extract/promote foundation on `main` (`fdd7ec82`); PR011 split into PR011A* (Graph Review bridge) + PR011B (Hermes capability); PR011A1 READY
+**Updated:** 2026-07-18 — PR011A1 ingest-run → promotion binding on `main` (`bcc874ed`, #364); PR011A2 Graph Review prepare / review panel is the active gate
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -44,8 +44,8 @@ DONE    PR008B        Agent Interaction graph query-context attachment
 DONE    PR010A        Graph retrieval contract + source-anchor admission
 DONE    PR010B        Hermes graph-retrieval dogfood
 DONE    PR011A-foundation  Extract/promote shared ops + HTTP (#363, `fdd7ec82`)
-DOING   PR011A1       Server-owned ingest-run → promotion binding
-BLOCKED PR011A2       Graph Review prepare / review panel (on A1)
+DONE    PR011A1       Server-owned ingest-run → promotion binding (#364, `bcc874ed`)
+DOING   PR011A2       Graph Review prepare / review panel
 BLOCKED PR011A3       Confirm, durable reload, Session 25 dogfood (on A2)
 BLOCKED PR011B        Hermes preview_write / confirm_commit (on A3)
 READY   PR009         Play projection migration (parallel product lane)
@@ -291,7 +291,7 @@ acceptable for CLI bootstrap only.
 
 ### PR011A1 — Server-owned ingest-run → promotion binding
 
-**Status:** `DOING`  
+**Status:** `DONE` — GitHub #364, merge `bcc874ed` (2026-07-18)  
 **Depends on:** PR011A-foundation
 
 **Purpose:** Replace browser-supplied path prepare with server-owned
@@ -318,8 +318,8 @@ acceptable for CLI bootstrap only.
 
 ### PR011A2 — Graph Review prepare / review panel
 
-**Status:** `BLOCKED` on PR011A1  
-**Depends on:** PR011A1
+**Status:** `DOING`  
+**Depends on:** PR011A1 (`DONE`)
 
 **Purpose:** Bind a selected ingest run to prepare and present a game-facing
 review sheet (not a diagnostics dump).

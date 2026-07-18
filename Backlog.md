@@ -7,6 +7,13 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Model-specific prompt-cache capability and cache-write telemetry — captured 2026-07-17
+**Context:** The corpus-expansion Luna benchmark cache probe proved that the same Responses API `prompt_cache_key` contract can yield cache hits for one model and no hits for another; the provider also requires keys to be at most 64 characters.
+**Insight:** Prompt composition and provider cache support are separate variables. A model cost comparison must record cold/warm cache state, cached input tokens, and any provider-reported cache-write tokens instead of assuming stable-prefix eligibility implies savings.
+**Action:** Extend the benchmark and production telemetry to classify cache state per model/profile, capture cache-write usage when the provider exposes it, and keep cache-key length/schema validation as a tested boundary.
+**Surfaces when:** Adding a model variant, interpreting ingestion cost, changing prompt caching, or diagnosing a model-specific cache miss.
+**Refs:** `src/graph_memory/extraction/category_candidate_graph_extractor.py`, `src/agent/planner_pricing.py`, `evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase1/prompt_cache_probe.json`
+
 ## [IDEA] Steer Hermes away from thread-isolation / system-meta narration — captured 2026-07-16
 **Context:** Live Plan dogfood after Thread A/B isolation was proven. Hermes produced a response that was overly aware of thread boundaries / system mechanics instead of answering as a co-GM about campaign content.
 **Insight:** Thread isolation is a host/server invariant, not something the agent should narrate or reason about out loud. Over-awareness of “this thread,” “other conversations,” or continuity plumbing distracts from prep usefulness and leaks product internals into GM-facing prose.
@@ -51,9 +58,9 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ## [READY] No UI path to promote session extract into World Graph head — captured 2026-07-15
 **Priority:** high — blocks durable Session 24+ memory; S1 must compensate with admitted-recap reads until this exists.
-**Context:** S1 dogfood 2026-07-15. Session 24 recap + extract/preview felt “done,” but Eldyrwild head still lacked ongoing ingest publish. Updated 2026-07-17: Kernel + HTTP extract/promote prepare/confirm landed on `main` via #363 (`fdd7ec82` = PR011A-foundation). Missing work is product binding in Graph Review, not another Kernel.
+**Context:** S1 dogfood 2026-07-15. Session 24 recap + extract/preview felt “done,” but Eldyrwild head still lacked ongoing ingest publish. Updated 2026-07-17: Kernel + HTTP extract/promote prepare/confirm landed on `main` via #363 (`fdd7ec82` = PR011A-foundation). Updated 2026-07-18: PR011A1 shipped via #364 (`bcc874ed`) — server-owned `runId` → prepare binding. Missing work is Graph Review review panel (PR011A2), not another Kernel.
 **Insight:** Recap admission and preview extract are not World Graph promotion. Ingest owns creating proposed memory; Graph Review owns judging and committing via proposal-bound `confirm_commit`. The human button is the reference path; Hermes (PR011B) must reuse it.
-**Action:** Execute the anchored ladder in `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` and the PR tracker: **PR011A1** (`runId` → server-resolved prepare), **PR011A2** (Review & merge panel + review projection), **PR011A3** (confirm/reload + Session 25 Hesta dogfood). Do not auto-publish from IngestionModule. Until A3 lands, keep S1 admitted-recap source reads for sensemaking.
+**Action:** Execute the anchored ladder in `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` and the PR tracker: **PR011A2** (Review & merge panel + review projection) is the active gate, then **PR011A3** (confirm/reload + Session 25 Hesta dogfood). PR011A1 (`runId` → server-resolved prepare) is DONE (#364). Do not auto-publish from IngestionModule. Until A3 lands, keep S1 admitted-recap source reads for sensemaking.
 **Surfaces when:** Session 24+ ingest dogfood, “promote to world graph,” memory lag / `latest_recap_not_in_graph_head`, Ingest readiness graph-ready chip, Graph Review commit, PR011A1–A3, Phase 6 contribution merge, S1 latest-recap answers empty on focus session-N
 **Refs:** `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md`, `Docs/Plans/PR-TRACKER-campaign-supergraph.md` PR011A*, `out/graph_memory/worlds/eldyrwild/head.json`, `apps/live-control-ui/src/modules/ingestReadiness.ts`, `src/graph_memory/extract_promote_ops.py`, `Docs/Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`
 

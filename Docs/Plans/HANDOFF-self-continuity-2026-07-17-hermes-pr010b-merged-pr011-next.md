@@ -11,10 +11,12 @@ the three canonical sources it points to before touching code.
 
 `PR010B` (Hermes graph-retrieval dogfood, Rungs 1–7) is **DONE** (`129a4c40`,
 #356). `PR011A-foundation` (extract/promote shared ops + HTTP prepare/confirm)
-is **DONE** on `main` as **`fdd7ec82`** (GitHub PR **#363**). The next
-infrastructure slice is **PR011A1** — server-owned ingest-run → promotion
-binding — then Graph Review review panel (A2) and confirm/reload dogfood (A3).
-Design anchor: [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md).
+is **DONE** on `main` as **`fdd7ec82`** (GitHub PR **#363**). `PR011A1`
+(server-owned ingest-run → promotion binding) is **DONE** on `main` as
+**`bcc874ed`** (GitHub PR **#364**). The next infrastructure slice is
+**PR011A2** — Graph Review prepare / review panel — then confirm/reload dogfood
+(A3). Design anchor:
+[`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md).
 Do not start Hermes `confirm_commit` (PR011B) before the human reference path.
 
 ## 1. Verify this before doing anything else
@@ -22,8 +24,8 @@ Do not start Hermes `confirm_commit` (PR011B) before the human reference path.
 ```bash
 git fetch origin main
 git rev-parse HEAD          # should equal:
-git rev-parse origin/main   # at least fdd7ec82309a10ac6a06e7310424d9b2b396cb9c (#363)
-                            # (earlier PR010B tip 129a4c40 is ancestor)
+git rev-parse origin/main   # at least bcc874ed (PR011A1, #364)
+                            # (PR011A-foundation fdd7ec82 / PR010B 129a4c40 are ancestors)
 ```
 
 If `HEAD` is **behind** that hash, someone hasn't pulled — pull `main` first.
@@ -125,12 +127,11 @@ merge):**
 - `[IDEA]` Separate graph continuity from source-anchor readability in Hermes acceptance
 - `[READY]` Hermes backend = in-process agent LLM (not CLI oneshot) — already true post-Rung-4A; verify this entry is stale/completable-as-DONE before starting new work on it.
 
-## 6. Next gate — PR011A1 (then A2/A3; PR011B later)
+## 6. Next gate — PR011A2 (then A3; PR011B later)
 
-**Purpose:** Bind a selected graph-ingest run to the #363 extract/promote
-boundary so Graph Review can Review & merge → confirm without browser
-filesystem paths. Human Graph Review is the reference `confirm_commit` path;
-Hermes (PR011B) reuses it later.
+**Purpose:** Add Graph Review **Review & merge** prepare/review panel wired to
+the #364 server-owned `runId` prepare boundary. Human Graph Review is the
+reference `confirm_commit` path; Hermes (PR011B) reuses it later.
 
 Ladder + UX contract:
 [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md).
