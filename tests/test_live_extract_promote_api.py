@@ -401,6 +401,20 @@ def test_prepare_confirm_success(world_client) -> None:
         package["effect"]["contribution_meta"]["source_artifact_id"]
         == "artifact:recap:longmont-c2:session-22"
     )
+    review_items = prepared["reviewItems"]
+    assert isinstance(review_items, list) and review_items
+    selectable = [item for item in review_items if item["selectable"]]
+    assert selectable
+    assert all(item["selectedByDefault"] is True for item in selectable)
+    assert all("assertionId" in item and "summary" in item for item in review_items)
+    assert all("dependsOnAssertionIds" in item for item in review_items)
+    relationships = [item for item in selectable if item["kind"] == "relationship"]
+    if relationships:
+        assert any("—" in item["label"] and "→" in item["label"] for item in relationships)
+    summary = prepared["reviewSummary"]
+    assert summary["newObjectCount"] + summary["connectExistingCount"] >= 1
+    # Presentation model must not require clients to parse sealed effect internals.
+    assert "accepted_proposals" not in prepared
 
     head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     confirm = client.post(

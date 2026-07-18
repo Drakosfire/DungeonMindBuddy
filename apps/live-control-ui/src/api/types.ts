@@ -1804,6 +1804,9 @@ export interface GraphIngestRunSummary {
   runner_options_summary: Record<string, string | number | boolean | null>;
   diagnostics_summary: Record<string, string | number | boolean | null>;
   preview_union_available: boolean;
+  /** Server-owned product gate for Review & merge (PR011A2). */
+  promotable?: boolean;
+  promotable_reason?: string | null;
 }
 
 export interface GraphIngestRunsResponse {
@@ -2882,4 +2885,73 @@ export interface GraphMergeReconciliationApplyResponse {
   summary: GraphMergeReconciliationApplySummary;
   diagnostics: GraphMergeReconciliationDiagnostic[];
   no_mutation_guarantees: string[];
+}
+
+// --- Extract → World Graph promote (PR011A2) ---
+
+export type ExtractPromotionReviewItemKind = "object" | "relationship" | "attribute" | "alias";
+export type ExtractPromotionReviewItemAction = "create" | "connect_existing" | "update";
+
+export interface ExtractPromotionReviewItem {
+  assertionId: string;
+  kind: ExtractPromotionReviewItemKind;
+  label: string;
+  action: ExtractPromotionReviewItemAction;
+  identityOutcome: string;
+  summary: string;
+  evidenceSummary?: string | null;
+  warnings: string[];
+  selectable: boolean;
+  selectedByDefault: boolean;
+  /** Newly created endpoint assertions that must stay selected with this item. */
+  dependsOnAssertionIds?: string[];
+}
+
+export interface ExtractPromoteReviewSummary {
+  newObjectCount: number;
+  connectExistingCount: number;
+  relationshipCount: number;
+  unresolvedMentionCount: number;
+  rejectedAssertionCount: number;
+}
+
+export interface ExtractPromoteStatusResponse {
+  schema: "dmb_extract_promote_status_v1";
+  worldId: string;
+  initialized: boolean;
+  worldState: "initialized" | "uninitialized" | "unreadable";
+  headRevisionId?: string | null;
+  diagnostics: string[];
+}
+
+export interface ExtractPromotePrepareRequest {
+  schema: "dmb_extract_promote_prepare_request_v2";
+  runId: string;
+  nodeIds?: string[] | null;
+}
+
+export interface ExtractPromotePrepareResponse {
+  schema: "dmb_extract_promote_prepare_v1";
+  proposalId: string;
+  proposalDigest: string;
+  parentRevisionId: string;
+  worldId: string;
+  acceptedProposalsCount: number;
+  unresolvedMentionsCount: number;
+  rejectedAssertionsCount: number;
+  reviewPackage: Record<string, unknown>;
+  reviewItems: ExtractPromotionReviewItem[];
+  reviewSummary: ExtractPromoteReviewSummary;
+  runId?: string | null;
+  campaignId?: string | null;
+  sessionId?: string | null;
+}
+
+export interface ExtractPromoteErrorBody {
+  schema?: "dmb_extract_promote_error_v1";
+  code?: string;
+  message?: string;
+  statusCode?: number;
+  diagnostics?: Array<{ code: string; message: string; severity?: string }>;
+  failureResult?: Record<string, unknown> | null;
 }

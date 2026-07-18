@@ -524,6 +524,8 @@ def test_registry_summary_exposes_graph_review_run_metadata(
     assert run.diagnostics_summary["warnings_count"] == 1
     assert run.diagnostics_summary["next_actions_count"] == 1
     assert run.preview_union_available is True
+    assert run.promotable is True
+    assert run.promotable_reason is None
     assert (
         run.run_label
         == "Session 24 recap · anchor_quote_n3 · vocab:node · gpt-test · preview_union_store_ready"
@@ -550,6 +552,8 @@ def test_registry_summary_defaults_missing_metadata_to_unknown(
     assert run.vocabulary_mode.value == "unknown"
     assert run.runner_options_summary == {}
     assert run.preview_union_available is False
+    assert run.promotable is False
+    assert run.promotable_reason is not None
     assert "None" not in run.run_label
 
 
@@ -655,3 +659,69 @@ def _read_manifest(manifest_path: Path) -> dict[str, object]:
 
 def _write_manifest(manifest_path: Path, payload: dict[str, object]) -> None:
     manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_registry_summary_not_promotable_when_candidate_artifact_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ready health flags alone must not advertise promotable without a candidate file."""
+    from tests.test_live_extract_promote_api import _write_promotable_run
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id = "graph-ingest:longmont-c2:session-22:missing-candidate"
+    _write_promotable_run(repo, run_id=run_id, omit_candidate=True)
+
+    runs = discover_graph_ingest_runs(repo, require_preview_union_store=True)
+    assert runs
+    assert runs[0].run_id == run_id
+    assert runs[0].preview_union_available is True
+    assert runs[0].promotable is False
+    assert runs[0].promotable_reason is not None
+    assert "candidate_graph" in runs[0].promotable_reason
+
+
+def test_registry_summary_not_promotable_when_normalized_recap_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.test_live_extract_promote_api import _write_promotable_run
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id = "graph-ingest:longmont-c2:session-22:missing-source"
+    _write_promotable_run(repo, run_id=run_id)
+    source = (
+        repo
+        / "out/graph_memory/runs/longmont-c2/session-22/fixture-promote"
+        / "normalized_recap_source.md"
+    )
+    assert source.is_file()
+    source.unlink()
+
+    runs = discover_graph_ingest_runs(repo, require_preview_union_store=True)
+    assert runs
+    assert runs[0].run_id == run_id
+    assert runs[0].promotable is False
+    assert runs[0].promotable_reason is not None
+    assert "normalized_recap" in runs[0].promotable_reason
+
+
+def test_registry_summary_not_promotable_on_run_id_scope_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.test_live_extract_promote_api import _write_promotable_run
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    mismatched = "graph-ingest:other-campaign:session-1:scope-mismatch"
+    _write_promotable_run(repo, run_id=mismatched)
+
+    runs = discover_graph_ingest_runs(repo, require_preview_union_store=True)
+    assert runs
+    assert runs[0].run_id == mismatched
+    assert runs[0].promotable is False
+    assert runs[0].promotable_reason is not None
+    assert "campaign/session" in runs[0].promotable_reason

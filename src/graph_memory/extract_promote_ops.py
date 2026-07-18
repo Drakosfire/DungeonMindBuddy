@@ -25,6 +25,9 @@ from graph_memory.extract_promote_proposal import (
     PromoteProposalError,
     verify_promote_proposal,
 )
+from graph_memory.extract_promote_review_projection import (
+    project_promote_review_as_dicts,
+)
 from graph_memory.kernel.contributions import create_graph_contribution
 
 DEFAULT_WORLD_ID = "eldyrwild"
@@ -56,6 +59,8 @@ class ExtractPromotePrepareResult:
     accepted_proposals_count: int
     unresolved_mentions_count: int
     rejected_assertions_count: int
+    review_items: list[dict[str, Any]] = field(default_factory=list)
+    review_summary: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -231,6 +236,7 @@ def prepare_extract_promote(
         world_root=str(root),
         candidate_graph_path=candidate_graph_path,
     )
+    review_items, review_summary = project_promote_review_as_dicts(gate)
     return ExtractPromotePrepareResult(
         review_package=package,
         proposal_id=str(package["proposal_id"]),
@@ -240,6 +246,8 @@ def prepare_extract_promote(
         accepted_proposals_count=len(gate.accepted_proposals),
         unresolved_mentions_count=len(gate.unresolved_mentions),
         rejected_assertions_count=len(gate.rejected_assertions),
+        review_items=review_items,
+        review_summary=review_summary,
     )
 
 

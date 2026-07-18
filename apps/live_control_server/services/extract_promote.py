@@ -20,6 +20,8 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromoteErrorResponse,
     ExtractPromotePrepareRequest,
     ExtractPromotePrepareResponse,
+    ExtractPromoteReviewSummary,
+    ExtractPromotionReviewItem,
     ExtractPromoteStatusResponse,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
@@ -398,6 +400,13 @@ def prepare(
         unresolved_mentions_count=result.unresolved_mentions_count,
         rejected_assertions_count=result.rejected_assertions_count,
         review_package=result.review_package,
+        review_items=[
+            ExtractPromotionReviewItem.model_validate(item)
+            for item in result.review_items
+        ],
+        review_summary=ExtractPromoteReviewSummary.model_validate(
+            result.review_summary or {}
+        ),
         run_id=resolved.run_id,
         campaign_id=resolved.campaign_id,
         session_id=resolved.session_id,

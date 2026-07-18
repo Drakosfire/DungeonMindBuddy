@@ -72,6 +72,30 @@ class ExtractPromotePrepareRequest(_ExtractPromoteModel):
         return _nonblank(value, field_name="run_id")
 
 
+class ExtractPromotionReviewItem(_ExtractPromoteModel):
+    """Game-facing presentation row; sealed package remains confirm authority."""
+
+    assertion_id: str
+    kind: Literal["object", "relationship", "attribute", "alias"]
+    label: str
+    action: Literal["create", "connect_existing", "update"]
+    identity_outcome: str
+    summary: str
+    evidence_summary: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    selectable: bool = False
+    selected_by_default: bool = False
+    depends_on_assertion_ids: list[str] = Field(default_factory=list)
+
+
+class ExtractPromoteReviewSummary(_ExtractPromoteModel):
+    new_object_count: int = 0
+    connect_existing_count: int = 0
+    relationship_count: int = 0
+    unresolved_mention_count: int = 0
+    rejected_assertion_count: int = 0
+
+
 class ExtractPromotePrepareResponse(_ExtractPromoteModel):
     schema_: Literal["dmb_extract_promote_prepare_v1"] = Field(
         default=PREPARE_RESPONSE_SCHEMA, alias="schema"
@@ -84,6 +108,10 @@ class ExtractPromotePrepareResponse(_ExtractPromoteModel):
     unresolved_mentions_count: int
     rejected_assertions_count: int
     review_package: dict[str, Any]
+    review_items: list[ExtractPromotionReviewItem] = Field(default_factory=list)
+    review_summary: ExtractPromoteReviewSummary = Field(
+        default_factory=ExtractPromoteReviewSummary
+    )
     run_id: str | None = None
     campaign_id: str | None = None
     session_id: str | None = None

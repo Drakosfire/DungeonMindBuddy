@@ -122,6 +122,43 @@ def is_under_world_store(path: Path, *, root: Path | None = None) -> bool:
     return False
 
 
+def assess_manifest_promotability(
+    *,
+    repo: Path,
+    manifest_path: Path,
+    payload: dict[str, Any],
+    registry_root: Path,
+    include_eval_roots: bool = False,
+) -> tuple[bool, str | None]:
+    """Server-owned promotability using the same seam as prepare.
+
+    Runs the identical scope / artifact / containment validation as
+    ``resolve_promotable_ingest_run`` for this manifest, plus duplicate
+    ``run_id`` detection across the same search roots prepare uses.
+    """
+    run_id = str(payload.get("run_id") or "").strip()
+    if not run_id:
+        return False, "runId is missing"
+
+    matches = _find_manifests_for_run_id(
+        repo.resolve(), run_id, include_eval_roots=include_eval_roots
+    )
+    if len(matches) > 1:
+        return False, "ambiguous graph-ingest runId"
+
+    try:
+        resolve_promotable_from_loaded_manifest(
+            repo=repo.resolve(),
+            manifest_path=manifest_path,
+            payload=payload,
+            registry_root=registry_root.resolve(),
+            run_id=run_id,
+        )
+    except PromotableIngestRunError as exc:
+        return False, str(exc)
+    return True, None
+
+
 def is_under_ingest_runs(
     path: Path, *, root: Path | None = None, include_eval_roots: bool = False
 ) -> bool:
@@ -175,6 +212,24 @@ def resolve_promotable_ingest_run(
         )
 
     manifest_path, payload, registry_root = matches[0]
+    return resolve_promotable_from_loaded_manifest(
+        repo=repo,
+        manifest_path=manifest_path,
+        payload=payload,
+        registry_root=registry_root,
+        run_id=text,
+    )
+
+
+def resolve_promotable_from_loaded_manifest(
+    *,
+    repo: Path,
+    manifest_path: Path,
+    payload: dict[str, Any],
+    registry_root: Path,
+    run_id: str,
+) -> PromotableIngestRun:
+    """Shared prepare/summary seam: validate one loaded manifest for promotion."""
     validation = validate_graph_ingest_run_manifest(payload)
     if validation.get("errors"):
         raise PromotableIngestRunError(
@@ -194,7 +249,7 @@ def resolve_promotable_ingest_run(
             diagnostics=[str(exc)],
         ) from exc
 
-    _assert_run_id_scope_matches(text, manifest)
+    _assert_run_id_scope_matches(run_id, manifest)
 
     if manifest.status == GraphIngestRunStatus.FAILED:
         raise PromotableIngestRunError(
