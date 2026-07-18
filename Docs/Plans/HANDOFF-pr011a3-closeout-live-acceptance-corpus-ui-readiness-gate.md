@@ -208,3 +208,18 @@ Operator decision required: yes
 ```
 
 Hard stop observed: no second source ingested; no batch/queue; no confirm attempted.
+
+## Stage 2 execution record (2026-07-18, Session 24 waiver)
+
+```text
+Stop condition: prepare integrity failure; owning fix outside §5 allowlist
+Observed fact: POST prepare for promotable session-24 runs returns mapping_error
+  (extractor semantic_state aliases) or run_scope_mismatch on older run
+Head mutation status: unchanged (rev:5cadc9798562862cdde22350d8a3b56c)
+Source/run status: Session 24 runs exist and are registry-promotable but not prepare-eligible
+Required paths outside scope: category_candidate_graph_extractor.py SemanticState defaults
+Proposed successor: Align category extractor SemanticState with promote IR (Backlog READY)
+Operator decision required: authorize successor vs defer
+```
+
+Hard stop observed: no backfill; no confirm; no second source.
