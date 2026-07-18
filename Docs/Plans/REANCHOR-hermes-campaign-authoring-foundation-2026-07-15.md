@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15
 **Scope:** Hermes workstream and current implementation branch
-**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 DONE; Rung 6 PASS; Rung 7 PASS; PR010B DONE (merged `main` `129a4c40`, PR #356, 2026-07-17); PR011 READY
+**Status:** PRODUCT DIRECTION ACCEPTED; UI baseline green; S1 gate accepted; Rung 5 DONE; Rung 6 PASS; Rung 7 PASS; PR010B DONE (merged `main` `129a4c40`, PR #356, 2026-07-17); PR011A-foundation DONE (#363, `fdd7ec82`); **next gate PR011A1** (ingest-run → promote binding)
 **Related plan:** [`PLAN-hermes-campaign-authoring-foundation-reset.md`](PLAN-hermes-campaign-authoring-foundation-reset.md)
 **Active design index:** [`../Design/INDEX-hermes-campaign-authoring-foundation.md`](../Design/INDEX-hermes-campaign-authoring-foundation.md)
 
@@ -170,10 +170,17 @@ Merge/landing of the continuity branch to `main` is complete
 
 ## Next gate
 
-Begin PR011 (Agent Context + governed tool runtime) or continue Phase 2
-creative-primitives design (S2 statblock proving domain). Do not reopen the
-rejected empty-graph abstention path. Treat the real `AIAgent` wire-start
-environment failure, source-anchor readability
+**Primary infrastructure gate:** PR011A1 — server-owned ingest-run → promotion
+binding, then PR011A2/A3 Graph Review Review & merge → confirm/reload dogfood.
+Design: [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md).
+Tracker: [`PR-TRACKER-campaign-supergraph.md`](PR-TRACKER-campaign-supergraph.md).
+
+PR011A-foundation (#363) already delivered extract/promote HTTP prepare/confirm.
+Do not invent a second write path for Hermes (PR011B reuses the human reference).
+
+Phase 2 creative-primitives design (S2 statblock proving domain) may proceed in
+parallel. Do not reopen the rejected empty-graph abstention path. Treat the real
+`AIAgent` wire-start environment failure, source-anchor readability
 (`unreadable_source_anchors`), and the absence of CI status checks as
 separate standing open items — not Rung 5/6/7 reopens. Construct the smallest
 independently falsifiable `CreativeOperationSession` kernel for the S2

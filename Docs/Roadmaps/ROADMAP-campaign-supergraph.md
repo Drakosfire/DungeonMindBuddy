@@ -2,10 +2,11 @@
 
 **Status:** Canonical implementation roadmap
 **Date:** 2026-07-10
-**Updated:** 2026-07-17 — Rungs 5–7 DONE/PASS; PR010B DONE (merged `main` `129a4c40`, PR #356); PR011 READY; authority model includes registry-admitted latest-recap exception
+**Updated:** 2026-07-17 — PR363 extract/promote foundation on `main` (`fdd7ec82`); Phase 8 critical path is PR011A1 (Graph Review bridge); see DESIGN-extract-promote-graph-review-bridge.md
 **Architecture authority:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **PR slices:** [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
+**Write-path product bridge:** [`Docs/Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
 
 This roadmap describes Campaign Supergraph infrastructure milestones. This
 document and the PR tracker remain sequencing authority for graph infrastructure.
@@ -62,10 +63,17 @@ DONE  PR008A   Plan World Graph object-card migration
 DONE  PR008B   Agent Interaction receives revision-pinned graph query context
 DONE  PR010A   Graph retrieval contract and source-anchor admission
 DONE  PR010B   Hermes graph-retrieval dogfood (Rungs 5–7 all accepted; merged main #356)
-READY PR011    Agent Context + governed tool runtime
+DONE  PR011A-foundation  Extract/promote shared ops + HTTP prepare/confirm (#363, `fdd7ec82`)
+READY PR011A1  Server-owned ingest-run → promotion binding (next)
+BLOCKED PR011A2  Graph Review prepare / review panel (on A1)
+BLOCKED PR011A3  Confirm, durable reload, Session 25 dogfood (on A2)
+BLOCKED PR011B Hermes preview_write / confirm_commit over the same path (on A3)
 ```
 
 PR009 Play migration may proceed independently after PR008 lessons. Multi-source ingestion expansion can also continue without changing the graph-first Agent Interaction direction.
+
+Product bridge design (Ingest proposes → Graph Review judges/commits):
+[`DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md).
 
 PR010B is decomposed into independently useful rungs:
 
@@ -203,7 +211,7 @@ Phase 6 may run alongside PR010 work. Missing coverage is repaired through inges
 
 ### PR010B — Hermes graph-retrieval dogfood
 
-**Status:** Done — Rungs 5–7 all accepted; merged to `main` as `129a4c40` (PR #356) on 2026-07-17. PR011 is READY. PR009 remains an independent parallel lane.
+**Status:** Done — Rungs 5–7 all accepted; merged to `main` as `129a4c40` (PR #356) on 2026-07-17. PR011A-foundation is DONE (#363, `fdd7ec82`); next is PR011A1. PR009 remains an independent parallel lane.
 
 **Purpose:** Run Hermes as the actual conversational agent over PR010A read tools and dogfood multi-turn graph-grounded prep in the existing Agent Interaction surface.
 
@@ -267,17 +275,35 @@ These tools are graph/revision scoped. `read_source_anchor` accepts an opaque an
 
 **Objective:** Productionize the graph-grounded Hermes agent and add governed operator tools.
 
-**Expected slice:** PR011.
+**Expected slices:** PR011A* (human Graph Review `confirm_commit` reference path), then PR011B (Hermes capability over the same path).
 
-PR011 builds on accepted PR010B behavior (currently blocked until Rung 7 cumulative acceptance). It adds app-level context assembly, cross-surface continuity, typed `read_only`, `draft_only`, `preview_write`, `confirm_commit`, and `admin_diagnostic` capabilities, and proposal-bound writes through Kernel paths.
+**Current state (2026-07-17):** PR011A-foundation is `DONE` on `main` via GitHub #363
+(`fdd7ec82`): shared extract/promote ops + HTTP prepare/confirm/status with
+proposal seal, assertion selection, and truthful post-publication audit.
+The missing product work is binding a selected ingest run to that boundary and
+placing Review & merge / Merge N changes into Graph Review — not a second Kernel.
+
+PR011 umbrella still owns app-level context assembly, the typed capability
+registry (`read_only`, `draft_only`, `preview_write`, `confirm_commit`,
+`admin_diagnostic`), and cross-surface continuity. Delivery order is fixed:
+
+```text
+DONE     PR011A-foundation
+NEXT     PR011A1 — runId → server-resolved prepare (replace path HTTP contract)
+THEN     PR011A2 — Graph Review review panel + typed review projection
+THEN     PR011A3 — confirm, durable reload, Session 25 Hesta dogfood
+THEN     PR011B  — Hermes uses the same confirm_commit path
+```
 
 **Exit criteria:**
 
 - Hermes reads current graph state and source anchors, not ambient memory.
 - Threads remain non-canonical continuity and see current graph head on fresh reads.
-- Durable writes require preview and explicit GM confirmation.
+- Durable writes require preview and explicit GM confirmation in Graph Review.
+- Ingest never auto-publishes; Graph Review owns judging and committing proposed memory.
 - Player-facing agents cannot receive GM-only assertions through adjacency or tool calls.
 - Transitional Agent Interaction drawers and duplicate runtime paths are retired when replaced.
+- No second agent-specific write protocol alongside the human reference path.
 
 ## Phase 9 — Living campaign memory and cleanup
 

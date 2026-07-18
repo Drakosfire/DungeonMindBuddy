@@ -153,6 +153,7 @@ No other document may invent a competing Campaign Supergraph PR sequence.
 | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` | Path boundaries runtime/eval | **ACTIVE REFERENCE** | Layout note; sequencing lives in tracker |
 | `Docs/Plans/JUMPSTART-docs-relevance-first.md` | Docs relevance / sync process | **ACTIVE REFERENCE** | Cannot invent PR sequence; defers to tracker |
 | `Docs/Design/DESIGN-graph-object-authoring-surface.md` | Graph Review write-path checkpoint | **ACTIVE REFERENCE** | Write-surface product; subordinate to architecture §4/§8 and tracker merge slices |
+| `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` | Ingest preview → Graph Review → World Graph promote ladder (PR011A*) | **ACTIVE REFERENCE** | Product binding design; sequencing lives in tracker PR011A1–A3/B |
 | `Docs/Plans/ROADMAP-graph-object-authoring-surface.md` | Authoring execution trail (paused) | **ACTIVE REFERENCE** | Paused trail; cannot invent parallel supergraph roadmap |
 | `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md` | Authored-memory spike closeout | **ACTIVE REFERENCE** | Proven invariants; not sequencing authority |
 | `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md` | `/plan` product checkpoint | **ACTIVE REFERENCE** | Plan product goals; graph sequencing → tracker |

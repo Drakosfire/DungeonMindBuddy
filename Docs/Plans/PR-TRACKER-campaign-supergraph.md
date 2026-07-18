@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-17 — Rungs 5–7 DONE/PASS; PR010B DONE (merged `main` `129a4c40`, PR #356); PR011 READY
+**Updated:** 2026-07-17 — PR363 extract/promote foundation on `main` (`fdd7ec82`); PR011 split into PR011A* (Graph Review bridge) + PR011B (Hermes capability); PR011A1 READY
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -43,12 +43,20 @@ DONE    PR008A        Plan World Graph migration
 DONE    PR008B        Agent Interaction graph query-context attachment
 DONE    PR010A        Graph retrieval contract + source-anchor admission
 DONE    PR010B        Hermes graph-retrieval dogfood
-READY   PR011         Agent Context + governed tool runtime
+DONE    PR011A-foundation  Extract/promote shared ops + HTTP (#363, `fdd7ec82`)
+READY   PR011A1       Server-owned ingest-run → promotion binding
+BLOCKED PR011A2       Graph Review prepare / review panel (on A1)
+BLOCKED PR011A3       Confirm, durable reload, Session 25 dogfood (on A2)
+BLOCKED PR011B        Hermes preview_write / confirm_commit (on A3)
 READY   PR009         Play projection migration (parallel product lane)
 BLOCKED PR012         Leftover cleanup safety net
 ```
 
-PR010 is intentionally split into PR010A and PR010B. Do not renumber PR011 or PR012.
+PR010 is intentionally split into PR010A and PR010B. PR011 is split into
+PR011A* (human Graph Review `confirm_commit` reference path) and PR011B
+(Hermes capability over the same path). Do not renumber PR011 or PR012.
+
+Product binding design: [`DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md).
 
 PR010B Rungs 5–7 are all accepted and merged into `main` as `129a4c40` (PR #356,
 2026-07-17). The merge also carries three rounds of external-critique
@@ -245,14 +253,17 @@ Required deletion PR:
 - PR012 only for leftovers with a named remaining consumer.
 ```
 
-## PR011 — Agent Context + Tool Runtime
+## PR011 — Agent Context + Tool Runtime (umbrella)
 
-**Status:** `READY` — PR010B Rung 7 cumulative acceptance cleared (merged `main` `129a4c40`, PR #356)
-**Phase:** 8
+**Status:** `DOING` via PR011A* first; PR011B after the human reference path exists  
+**Phase:** 8  
+**Design:** [`DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
 
-**Purpose:** Productionize the graph-grounded Hermes runtime and implement the complete typed capability model from PR005B.
+**Purpose:** Productionize governed writes (`preview_write` / `confirm_commit`) and
+the complete typed capability model from PR005B. Human Graph Review is the
+reference `confirm_commit` path; Hermes must not get a second write protocol.
 
-**Deliverables:**
+**Umbrella deliverables (still owned by PR011 overall):**
 
 - App-level context assembly over graph retrieval, source anchors, thread state, and surface context.
 - `read_only`, `draft_only`, `preview_write`, `confirm_commit`, and `admin_diagnostic` registry.
@@ -266,8 +277,104 @@ Required deletion PR:
 - No silent graph mutation.
 - Stale proposals fail closed.
 - Player-facing tools cannot leak GM-only assertions.
+- Ingest creates proposed memory; Graph Review owns judging and committing it.
 
 **Non-goals:** Fully autonomous campaign rewriting or replacing Graph Review.
+
+### PR011A-foundation — Extract/promote HTTP boundary
+
+**Status:** `DONE` — GitHub #363, merge `fdd7ec82` (2026-07-17/18)  
+**Outcome:** Shared `extract_promote_ops` + CLI + HTTP prepare/confirm/status;
+proposal seal; assertion selection; truthful post-publication audit; pinned
+rebuild with contribution replay manifest. Operator path-based prepare remains
+acceptable for CLI bootstrap only.
+
+### PR011A1 — Server-owned ingest-run → promotion binding
+
+**Status:** `READY` — next implementation slice  
+**Depends on:** PR011A-foundation
+
+**Purpose:** Replace browser-supplied path prepare with server-owned
+`resolve_promotable_ingest_run(run_id)`.
+
+**Deliverables:**
+
+- `resolve_promotable_ingest_run(run_id)` → validated manifest, source artifact +
+  digest, candidate graph, profile, campaign/session scope, promotability diagnostics.
+- Product HTTP prepare body becomes `{ runId, nodeIds? }` only (forward-only;
+  delete path fields from the product contract).
+- CLI may keep internal path-based ops.
+
+**Success criteria:**
+
+- Unknown / failed / invalid / non-preview-ready runs cannot prepare.
+- Campaign/session mismatches fail closed.
+- Source and candidate paths resolve from the run manifest only.
+- Graph store can never become evidence.
+- Proposal remains pinned to the current graph head.
+- No browser-supplied manifest, source, or candidate path is accepted.
+
+**Non-goals:** Graph Review UI panel; Hermes tools; automatic ingest publish.
+
+### PR011A2 — Graph Review prepare / review panel
+
+**Status:** `BLOCKED` on PR011A1  
+**Depends on:** PR011A1
+
+**Purpose:** Bind a selected ingest run to prepare and present a game-facing
+review sheet (not a diagnostics dump).
+
+**Deliverables:**
+
+- `extractPromoteApi.ts` + typed frontend contracts.
+- **Review & merge** in Graph Review toolbar/header; enable only for promotable
+  selected runs against an initialized World Graph.
+- Typed `ExtractPromotionReviewItem[]` review projection alongside the sealed package.
+- Selection UX: accepted items selected by default; zero-selection disables confirm;
+  unresolved/rejected visible but unselected.
+
+**Success criteria:**
+
+- Prepare opens a review sheet with game-facing object/relationship items.
+- UI does not parse Kernel proposal internals as the presentation model.
+- Sealed package remains confirmation authority.
+
+**Non-goals:** Durable confirm/reload dogfood (A3); operator `allowLiveWorld` UI.
+
+### PR011A3 — Confirm, durable reload, Session 25 dogfood
+
+**Status:** `BLOCKED` on PR011A2  
+**Depends on:** PR011A2
+
+**Purpose:** Explicit **Merge N changes into campaign memory**, then prove the
+object journey on Session 25 (Hesta / apothecary ↔ Mireward).
+
+**Deliverables:**
+
+- Product confirm sends sealed proposal + selected assertion IDs only;
+  confirming principal and live-world policy are server-owned.
+- Post-confirm: reload committed revision, refresh catalog, open durable objects,
+  compact success receipt.
+- Explicit failure UX for stale / already_applied / publish failed / audit degraded.
+- End-to-end dogfood proof recorded (ingest → review → merge → Plan/Hermes retrieve → reload).
+
+**Success criteria:**
+
+- World Graph head advances; Hesta (or chosen Session 25 object) is durable and
+  retrievable; evidence and relationships are openable; reload persists.
+
+**Non-goals:** Hermes capability registry (PR011B); autonomous merges.
+
+### PR011B — Hermes `preview_write` / `confirm_commit`
+
+**Status:** `BLOCKED` on PR011A3  
+**Depends on:** PR011A3 human reference path
+
+**Purpose:** Expose the same governed write capability to Hermes without creating
+a second agent-specific protocol. Hermes launches/prepares; GM confirmation still
+lands on the Graph Review confirmation surface (or an equivalent bound confirm).
+
+**Non-goals:** Autonomous durable writes; bypassing proposal digest / parent revision.
 
 ## PR012 — Obsolete-path cleanup safety net
 

@@ -8,6 +8,7 @@
 **Closeout:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`
 **Related docs:**
 
+- `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` — **active product bridge** from preview ingest run → Graph Review → World Graph head (PR011A*)
 - `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
 - `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md`
 - `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`
@@ -40,6 +41,14 @@ preview_write proposal
 → Kernel validation
 → atomic graph-head advancement
 ```
+
+**Progress (2026-07-17):** Kernel + HTTP extract/promote prepare/confirm is on
+`main` (#363). Product binding (server-owned `runId`, Graph Review Review & merge
+panel, confirm/reload dogfood) is sequenced as **PR011A1–A3** in
+[`DESIGN-extract-promote-graph-review-bridge.md`](DESIGN-extract-promote-graph-review-bridge.md).
+Ingest still creates proposed memory only; Graph Review owns judging and
+committing. The transitional authored-overlay path above remains until that
+bridge replaces it for extract promotion (and later for broader authoring).
 
 Graph Review/Ingest remains the primary correction cockpit. Plan is a **consumer surface** that may draft and launch preview_write but does not own durable commit semantics.
 

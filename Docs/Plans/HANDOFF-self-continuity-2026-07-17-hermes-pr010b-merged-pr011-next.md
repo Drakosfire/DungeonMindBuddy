@@ -9,22 +9,21 @@ the three canonical sources it points to before touching code.
 
 ## 0. One-paragraph state
 
-`PR010B` (Hermes graph-retrieval dogfood, Rungs 1–7) is **DONE**. The branch
-`agent/pr010b5-plan-hermes-thread-continuity` merged into `main` as
-**`129a4c40`** (GitHub PR **#356**) on 2026-07-17. `PR011` (Agent Context +
-governed tool runtime) is now **READY** and is the next infrastructure slice.
-No code work is currently in flight on this workstream; the last thing this
-session did was an atomic doc-sync to make the tracker/roadmap/reanchor docs
-match the merge (they had said "not yet merged" while three extra
-critique-hardening commits landed on the branch after the docs were last
-written).
+`PR010B` (Hermes graph-retrieval dogfood, Rungs 1–7) is **DONE** (`129a4c40`,
+#356). `PR011A-foundation` (extract/promote shared ops + HTTP prepare/confirm)
+is **DONE** on `main` as **`fdd7ec82`** (GitHub PR **#363**). The next
+infrastructure slice is **PR011A1** — server-owned ingest-run → promotion
+binding — then Graph Review review panel (A2) and confirm/reload dogfood (A3).
+Design anchor: [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md).
+Do not start Hermes `confirm_commit` (PR011B) before the human reference path.
 
 ## 1. Verify this before doing anything else
 
 ```bash
 git fetch origin main
 git rev-parse HEAD          # should equal:
-git rev-parse origin/main   # 129a4c40137d4a4b2ec483f28825dd53981cdcda (or later)
+git rev-parse origin/main   # at least fdd7ec82309a10ac6a06e7310424d9b2b396cb9c (#363)
+                            # (earlier PR010B tip 129a4c40 is ancestor)
 ```
 
 If `HEAD` is **behind** that hash, someone hasn't pulled — pull `main` first.
@@ -126,26 +125,27 @@ merge):**
 - `[IDEA]` Separate graph continuity from source-anchor readability in Hermes acceptance
 - `[READY]` Hermes backend = in-process agent LLM (not CLI oneshot) — already true post-Rung-4A; verify this entry is stale/completable-as-DONE before starting new work on it.
 
-## 6. Next gate — PR011
+## 6. Next gate — PR011A1 (then A2/A3; PR011B later)
 
-**Purpose:** Productionize the graph-grounded Hermes runtime; implement the
-full typed capability model from PR005B (`read_only`, `draft_only`,
-`preview_write`, `confirm_commit`, `admin_diagnostic` registry;
-proposal-bound/revision-bound preview + explicit GM confirmation for durable
-writes; cross-thread/current-head invalidation; escalation to Graph
-Review/Kernel for corrections).
+**Purpose:** Bind a selected graph-ingest run to the #363 extract/promote
+boundary so Graph Review can Review & merge → confirm without browser
+filesystem paths. Human Graph Review is the reference `confirm_commit` path;
+Hermes (PR011B) reuses it later.
 
-Full deliverables/success criteria/non-goals are in
-`Docs/Plans/PR-TRACKER-campaign-supergraph.md` § "PR011 — Agent Context +
-Tool Runtime". Do not start PR011 without re-reading that section plus the
-graph-first authority model in the roadmap — PR011 is exactly where a
-privileged-writer or fallback-authority regression would first show up.
+Ladder + UX contract:
+[`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md).
+
+Slice specs:
+`Docs/Plans/PR-TRACKER-campaign-supergraph.md` § PR011A*.
+
+Do not start PR011B (Hermes write tools) before A3. Do not auto-publish from
+Ingest. Do not keep a product HTTP path-based prepare alongside `runId`.
 
 **Alternative next thread (product, not infra):** Phase 2 creative
 primitives — the S2 statblock proving domain
 (`CreativeOperationSession`/`GenerationPacket`/`DraftArtifact`/
 `PromotionPlan`/`CommitReceipt`) per the REANCHOR record §"Proving sequence".
-This is independent of PR011 and can run in parallel.
+This is independent of PR011A and can run in parallel.
 
 ## 7. Anti-patterns already rejected in this workstream (don't reintroduce)
 
