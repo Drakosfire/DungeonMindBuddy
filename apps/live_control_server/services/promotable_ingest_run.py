@@ -61,26 +61,37 @@ class PromotableIngestRun:
     session_id: str
     status: str
     extraction_profile: str | None
-    source_artifact_id: str | None
+    source_artifact_id: str
     source_revision_id: str
     normalized_recap_path: Path
     candidate_graph_path: Path
     manifest_path: Path
     run_dir: Path
+    registry_root: Path
     sealed_source_uri: str
     diagnostics: list[str] = field(default_factory=list)
 
 
 def ingest_runs_artifact_root(root: Path | None = None) -> Path:
-    """Canonical repo-relative root for product ingest-run artifacts."""
+    """Default repo-relative root for product ingest-run artifacts."""
     return ((root or repo_root()).resolve() / "out" / "graph_memory" / "runs").resolve()
+
+
+def ingest_run_registry_roots(
+    root: Path | None = None, *, include_eval_roots: bool = False
+) -> list[Path]:
+    """Configured registry search roots (honors ``DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT``)."""
+    repo = (root or repo_root()).resolve()
+    return list(
+        _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots)
+    )
 
 
 def world_store_denied_roots(root: Path | None = None) -> list[Path]:
     """Durable world-graph trees that must never become evidentiary source.
 
     When ``world_graph_root()`` is the broad default ``<repo>/out``, only the
-    worlds subtree is denied so ``out/graph_memory/runs/`` can remain
+    worlds subtree is denied so configured ingest-run registry roots can remain
     registry-gated evidence. A more specific mutation root is denied wholesale.
     """
     repo = (root or repo_root()).resolve()
@@ -110,12 +121,20 @@ def is_under_world_store(path: Path, *, root: Path | None = None) -> bool:
     return False
 
 
-def is_under_ingest_runs(path: Path, *, root: Path | None = None) -> bool:
-    try:
-        path.resolve().relative_to(ingest_runs_artifact_root(root))
-        return True
-    except ValueError:
-        return False
+def is_under_ingest_runs(
+    path: Path, *, root: Path | None = None, include_eval_roots: bool = False
+) -> bool:
+    """True when ``path`` sits under any configured ingest-run registry root."""
+    resolved = path.resolve()
+    for registry_root in ingest_run_registry_roots(
+        root, include_eval_roots=include_eval_roots
+    ):
+        try:
+            resolved.relative_to(registry_root.resolve())
+            return True
+        except ValueError:
+            continue
+    return False
 
 
 def resolve_promotable_ingest_run(
@@ -150,11 +169,11 @@ def resolve_promotable_ingest_run(
             status_code=409,
             diagnostics=[
                 "multiple manifests share this run_id",
-                *[str(path) for path, _ in matches],
+                *[str(path) for path, _, _ in matches],
             ],
         )
 
-    manifest_path, payload = matches[0]
+    manifest_path, payload, registry_root = matches[0]
     validation = validate_graph_ingest_run_manifest(payload)
     if validation.get("errors"):
         raise PromotableIngestRunError(
@@ -247,6 +266,24 @@ def resolve_promotable_ingest_run(
             status_code=422,
         )
 
+    source_artifact_id = (manifest.source.source_artifact_id or "").strip()
+    if not source_artifact_id:
+        raise PromotableIngestRunError(
+            "graph-ingest run is missing source_artifact_id",
+            code="run_not_promotable",
+            status_code=422,
+        )
+
+    try:
+        normalized_path.resolve().relative_to(registry_root.resolve())
+        candidate_path.resolve().relative_to(registry_root.resolve())
+    except ValueError as exc:
+        raise PromotableIngestRunError(
+            "graph-ingest run artifacts escape the matched registry root",
+            code="run_not_promotable",
+            status_code=422,
+        ) from exc
+
     sealed_source_uri = _seal_repo_uri(repo, normalized_path)
     extraction_profile = _extraction_profile(payload)
     diagnostics = [
@@ -254,6 +291,7 @@ def resolve_promotable_ingest_run(
         f"campaign_id:{manifest.campaign_id}",
         f"session_id:{manifest.session_id}",
         f"status:{manifest.status.value}",
+        f"registry_root:{registry_root}",
     ]
 
     return PromotableIngestRun(
@@ -262,12 +300,13 @@ def resolve_promotable_ingest_run(
         session_id=manifest.session_id,
         status=manifest.status.value,
         extraction_profile=extraction_profile,
-        source_artifact_id=manifest.source.source_artifact_id,
+        source_artifact_id=source_artifact_id,
         source_revision_id=source_revision_id,
         normalized_recap_path=normalized_path,
         candidate_graph_path=candidate_path,
         manifest_path=manifest_path,
         run_dir=run_dir,
+        registry_root=registry_root.resolve(),
         sealed_source_uri=sealed_source_uri,
         diagnostics=diagnostics,
     )
@@ -278,8 +317,8 @@ def _find_manifests_for_run_id(
     run_id: str,
     *,
     include_eval_roots: bool,
-) -> list[tuple[Path, dict[str, Any]]]:
-    matches: list[tuple[Path, dict[str, Any]]] = []
+) -> list[tuple[Path, dict[str, Any], Path]]:
+    matches: list[tuple[Path, dict[str, Any], Path]] = []
     for search_root in _graph_ingest_search_roots(
         repo, include_eval_roots=include_eval_roots
     ):
@@ -295,7 +334,7 @@ def _find_manifests_for_run_id(
                 continue
             if str(payload.get("run_id") or "").strip() != run_id:
                 continue
-            matches.append((safe, payload))
+            matches.append((safe, payload, search_root.resolve()))
     return matches
 
 

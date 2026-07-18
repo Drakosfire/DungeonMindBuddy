@@ -34,6 +34,8 @@ def test_resolve_promotable_ingest_run_happy(tmp_path: Path, monkeypatch) -> Non
     assert resolved.campaign_id == CAMPAIGN_ID
     assert resolved.session_id == SESSION_ID
     assert resolved.source_revision_id == digest
+    assert resolved.source_artifact_id == "artifact:recap:longmont-c2:session-22"
+    assert resolved.extraction_profile == "category_v1"
     assert resolved.normalized_recap_path == source.resolve()
     assert resolved.candidate_graph_path.is_file()
     assert resolved.sealed_source_uri.startswith("repo://out/graph_memory/runs/")
@@ -95,6 +97,42 @@ def test_resolve_rejects_artifact_outside_run_dir(
     assert any("escapes" in d for d in exc.value.diagnostics) or "escapes" in str(
         exc.value
     )
+
+
+def test_resolve_rejects_missing_source_artifact_id(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _digest, _source = _write_promotable_run(
+        repo, omit_source_artifact_id=True
+    )
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+    assert "source_artifact_id" in str(exc.value)
+
+
+def test_resolve_and_admit_configured_registry_root(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    # Outside corpus/Docs/evals/tmp so admission cannot cheat via path allowlist.
+    custom_rel = "sandbox/custom_ingest_runs"
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, custom_rel)
+    run_id, _digest, source = _write_promotable_run(
+        repo, runs_rel=custom_rel, extraction_profile="custom_root_profile"
+    )
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.extraction_profile == "custom_root_profile"
+    assert resolved.source_artifact_id == "artifact:recap:longmont-c2:session-22"
+    assert is_under_ingest_runs(source, root=repo) is True
+    assert resolved.sealed_source_uri.startswith(f"repo://{custom_rel}/")
+    # Default hard-coded root must not admit a custom-root artifact when env differs.
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    assert is_under_ingest_runs(source, root=repo) is False
 
 
 def test_world_store_detection(tmp_path: Path, monkeypatch) -> None:

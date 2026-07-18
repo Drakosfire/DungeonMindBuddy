@@ -124,13 +124,17 @@ def _evidence(suffix: str) -> dict:
     }
 
 
-def _candidate_graph_payload() -> dict:
+def _candidate_graph_payload(
+    *,
+    campaign_id: str = CAMPAIGN_ID,
+    session_id: str = SESSION_ID,
+) -> dict:
     return {
         "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
         "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
         "preview_id": "preview:http-promote-vial",
-        "session_id": SESSION_ID,
-        "campaign_id": CAMPAIGN_ID,
+        "session_id": session_id,
+        "campaign_id": campaign_id,
         "source_artifact_ids": ["artifact:recap:longmont-c2:session-22"],
         "status": "preview",
         "nodes": [
@@ -206,15 +210,14 @@ def _write_promotable_run(
     preview_union_store_valid: bool = True,
     digest_override: str | None = None,
     omit_candidate: bool = False,
+    omit_source_artifact_id: bool = False,
+    extraction_profile: str | None = "category_v1",
+    runs_rel: str = "out/graph_memory/runs",
+    candidate_campaign_id: str | None = None,
+    candidate_session_id: str | None = None,
 ) -> tuple[str, str, Path]:
     run_dir = (
-        repo
-        / "out"
-        / "graph_memory"
-        / "runs"
-        / campaign_id
-        / session_id
-        / "fixture-promote"
+        repo / Path(runs_rel) / campaign_id / session_id / "fixture-promote"
     )
     run_dir.mkdir(parents=True, exist_ok=True)
     source = run_dir / "normalized_recap_source.md"
@@ -224,7 +227,14 @@ def _write_promotable_run(
     candidate = run_dir / "candidate_graph.json"
     if not omit_candidate:
         candidate.write_text(
-            json.dumps(_candidate_graph_payload(), indent=2) + "\n",
+            json.dumps(
+                _candidate_graph_payload(
+                    campaign_id=candidate_campaign_id or campaign_id,
+                    session_id=candidate_session_id or session_id,
+                ),
+                indent=2,
+            )
+            + "\n",
             encoding="utf-8",
         )
     preview = run_dir / "preview_union_supergraph.json"
@@ -257,7 +267,30 @@ def _write_promotable_run(
             "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
         }
 
-    manifest = {
+    source_block: dict = {
+        "source_domain": "recap",
+        "normalized_recap_path": rel(source),
+        "normalized_recap_sha256": digest,
+        "source_label": "fixture promote recap",
+    }
+    if not omit_source_artifact_id:
+        source_block["source_artifact_id"] = "artifact:recap:longmont-c2:session-22"
+
+    diagnostics: dict = {
+        "preview_only": True,
+        "candidate_extraction": False,
+        "preview_import": True,
+        "canon_promotion": False,
+        "approved_memory_write": False,
+        "corpus_mutation": False,
+        "production_retrieval": False,
+        "agent_interaction_connected": False,
+        "runtime_projection_connected": False,
+    }
+    if extraction_profile:
+        diagnostics["extraction_profile"] = extraction_profile
+
+    manifest: dict = {
         "schema": GRAPH_INGEST_RUN_MANIFEST_SCHEMA,
         "version": "0.1",
         "run_id": run_id,
@@ -266,13 +299,7 @@ def _write_promotable_run(
         "status": status,
         "created_at": "2026-07-17T00:00:00Z",
         "updated_at": "2026-07-17T00:00:00Z",
-        "source": {
-            "source_artifact_id": "artifact:recap:longmont-c2:session-22",
-            "source_domain": "recap",
-            "normalized_recap_path": rel(source),
-            "normalized_recap_sha256": digest,
-            "source_label": "fixture promote recap",
-        },
+        "source": source_block,
         "artifacts": artifacts,
         "health": {
             "candidate_graph_valid": candidate_graph_valid,
@@ -284,22 +311,14 @@ def _write_promotable_run(
             "openable_evidence_ref_count": 2,
             "highlightable_evidence_ref_count": 2,
         },
-        "diagnostics": {
-            "preview_only": True,
-            "candidate_extraction": False,
-            "preview_import": True,
-            "canon_promotion": False,
-            "approved_memory_write": False,
-            "corpus_mutation": False,
-            "production_retrieval": False,
-            "agent_interaction_connected": False,
-            "runtime_projection_connected": False,
-        },
+        "diagnostics": diagnostics,
         "steps": [],
         "warnings": [],
         "errors": [],
         "next_actions": ["open_projection_preview"],
     }
+    if extraction_profile:
+        manifest["extraction_profile"] = extraction_profile
     manifest_path = run_dir / "graph_ingest_run_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return run_id, digest, source
@@ -374,6 +393,11 @@ def test_prepare_confirm_success(world_client) -> None:
     sealed_uri = package["effect"]["verified_source_uri"]
     assert sealed_uri.startswith("repo://out/graph_memory/runs/")
     assert sealed_uri.endswith("normalized_recap_source.md")
+    assert package["effect"]["contribution_meta"]["extraction_profile"] == "category_v1"
+    assert (
+        package["effect"]["contribution_meta"]["source_artifact_id"]
+        == "artifact:recap:longmont-c2:session-22"
+    )
 
     head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     confirm = client.post(
@@ -536,6 +560,72 @@ def test_prepare_rejects_legacy_path_fields(world_client) -> None:
     )
     assert response.status_code == 422
     assert response.json()["code"] == "invalid_request"
+
+
+def test_prepare_rejects_body_world_id(world_client) -> None:
+    client, _world, _repo, run_id, *_rest = world_client
+    response = client.post(
+        PREPARE_URL,
+        json={
+            "schema": "dmb_extract_promote_prepare_request_v2",
+            "runId": run_id,
+            "worldId": "foreign-world",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"
+
+
+def test_prepare_rejects_candidate_scope_mismatch(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    bad_id = "graph-ingest:longmont-c2:session-22:scope-cand"
+    _write_promotable_run(
+        repo,
+        run_id=bad_id,
+        candidate_campaign_id="other-campaign",
+        candidate_session_id="session-99",
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(bad_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_rejects_missing_manifest_source_artifact_id(world_client) -> None:
+    client, _world, repo, *_rest = world_client
+    bad_id = "graph-ingest:longmont-c2:session-22:no-source-artifact"
+    _write_promotable_run(repo, run_id=bad_id, omit_source_artifact_id=True)
+    response = client.post(PREPARE_URL, json=_prepare_body(bad_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
+    assert "source_artifact_id" in response.json()["message"]
+
+
+def test_prepare_admits_configured_non_default_registry_root(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, _world, repo, *_rest = world_client
+    # Must not sit under corpus/Docs/evals/tmp allowlist — only registry admission.
+    custom_rel = "sandbox/custom_ingest_runs"
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, custom_rel)
+    custom_id = "graph-ingest:longmont-c2:session-22:custom-root"
+    _write_promotable_run(
+        repo,
+        run_id=custom_id,
+        runs_rel=custom_rel,
+        extraction_profile="custom_root_profile",
+    )
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(custom_id, node_ids=["obj_session22_vial"]),
+    )
+    assert prepare.status_code == 200, prepare.text
+    package = prepare.json()["reviewPackage"]
+    sealed = package["effect"]["verified_source_uri"]
+    assert sealed.startswith(f"repo://{custom_rel}/")
+    assert (
+        package["effect"]["contribution_meta"]["extraction_profile"]
+        == "custom_root_profile"
+    )
 
 
 def test_prepare_unknown_run_id(world_client) -> None:

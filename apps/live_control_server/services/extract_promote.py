@@ -194,7 +194,8 @@ def assert_sealed_source_uri_allowed(source_uri: str) -> None:
     """Re-check a sealed source URI at confirm time (defense in depth).
 
     Accepts:
-    - registry-sealed ingest-run normalized_recap under ``out/graph_memory/runs/``
+    - registry-sealed ingest-run normalized_recap under any configured
+      ``DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT`` / default registry root
     - traditional allowlisted roots (corpus/Docs/evals/tmp/dedicated)
 
     Always denies durable world-graph store trees.
@@ -257,6 +258,48 @@ def _promotable_run_error(exc: PromotableIngestRunError) -> ExtractPromoteError:
     )
 
 
+def _assert_candidate_scope_matches_run(
+    payload: dict[str, Any],
+    *,
+    campaign_id: str,
+    session_id: str,
+) -> None:
+    cand_campaign = str(payload.get("campaign_id") or "").strip()
+    cand_session = str(payload.get("session_id") or "").strip()
+    if not cand_campaign or not cand_session:
+        raise ExtractPromoteError(
+            "candidate graph is missing campaign_id or session_id",
+            code="run_scope_mismatch",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "run_scope_mismatch",
+                    "candidate graph is missing campaign_id or session_id",
+                ),
+                _diagnostic("candidate_campaign", cand_campaign or "<missing>"),
+                _diagnostic("candidate_session", cand_session or "<missing>"),
+                _diagnostic("manifest_campaign", campaign_id),
+                _diagnostic("manifest_session", session_id),
+            ],
+        )
+    if cand_campaign != campaign_id or cand_session != session_id:
+        raise ExtractPromoteError(
+            "candidate graph campaign/session does not match the run manifest",
+            code="run_scope_mismatch",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "run_scope_mismatch",
+                    "candidate graph campaign/session does not match the run manifest",
+                ),
+                _diagnostic("candidate_campaign", cand_campaign),
+                _diagnostic("candidate_session", cand_session),
+                _diagnostic("manifest_campaign", campaign_id),
+                _diagnostic("manifest_session", session_id),
+            ],
+        )
+
+
 def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusResponse:
     result = get_extract_promote_status(
         world_root=world_graph_root(),
@@ -304,6 +347,14 @@ def prepare(
             ],
         )
 
+    _assert_candidate_scope_matches_run(
+        payload,
+        campaign_id=resolved.campaign_id,
+        session_id=resolved.session_id,
+    )
+
+    extraction_profile = resolved.extraction_profile or "current_default"
+
     try:
         result = prepare_extract_promote(
             candidate_graph=payload,
@@ -311,9 +362,10 @@ def prepare(
             source_uri=resolved.sealed_source_uri,
             source_revision_id=resolved.source_revision_id,
             prepared_by=SERVER_PREPARED_BY,
-            world_id=request.world_id,
+            world_id=DEFAULT_WORLD_ID,
             source_artifact_id=resolved.source_artifact_id,
             campaign_scope=resolved.campaign_id,
+            extraction_profile=extraction_profile,
             node_ids=request.node_ids,
             include_edges=True,
             candidate_graph_path=str(path),

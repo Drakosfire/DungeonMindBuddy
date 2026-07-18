@@ -58,24 +58,18 @@ class ExtractPromoteStatusResponse(_ExtractPromoteModel):
 
 
 class ExtractPromotePrepareRequest(_ExtractPromoteModel):
-    """Product prepare: server resolves source/candidate from ``run_id`` only."""
+    """Product prepare: ``{runId, nodeIds?}`` only — world is server-owned."""
 
     schema_: Literal["dmb_extract_promote_prepare_request_v2"] = Field(
         default=PREPARE_REQUEST_SCHEMA, alias="schema"
     )
     run_id: str
-    world_id: str = "eldyrwild"
     node_ids: list[str] | None = None
 
     @field_validator("run_id")
     @classmethod
     def _run_id(cls, value: str) -> str:
         return _nonblank(value, field_name="run_id")
-
-    @field_validator("world_id")
-    @classmethod
-    def _world_id(cls, value: str) -> str:
-        return _nonblank(value, field_name="world_id")
 
 
 class ExtractPromotePrepareResponse(_ExtractPromoteModel):
