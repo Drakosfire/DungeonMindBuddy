@@ -5,7 +5,6 @@ import { PartyRegistryModule } from "../../modules/PartyRegistryModule";
 import { StatblockWorkbenchModule } from "../../surface/modules/StatblockWorkbenchModule";
 import { GraphPreviewModule } from "../graphPreview/GraphPreviewModule";
 import { GraphGoldReviewModule } from "../graphGoldReview/GraphGoldReviewModule";
-import { GraphReviewAuthorDraftToolPanel } from "../graphReviewWorkbench/GraphReviewAuthorDraftToolPanel";
 import { GraphReviewDiagnosticsToolPanel } from "../graphReviewWorkbench/GraphReviewDiagnosticsToolPanel";
 import { ManualReviewModule } from "../manualReview/ManualReviewModule";
 import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
@@ -45,9 +44,6 @@ export function renderToolProjection(toolId: string, context: PlanContextDescrip
   }
   if (toolId === "graph-review-diagnostics") {
     return <GraphReviewDiagnosticsToolPanel />;
-  }
-  if (toolId === "graph-review-author-draft") {
-    return <GraphReviewAuthorDraftToolPanel />;
   }
   if (toolId === "manual-review") {
     return <ManualReviewModule />;

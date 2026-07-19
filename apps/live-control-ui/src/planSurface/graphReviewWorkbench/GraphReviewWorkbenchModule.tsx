@@ -21,6 +21,7 @@ import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
+import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import {
   buildGraphReviewCatalog,
   catalogSessionToGoldLane,
@@ -384,74 +385,86 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
 
   const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
+  // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
+  // Ingest Recap remains reachable from the empty /ingest landing state.
+  const reviewCampaignId =
+    appliedSession?.campaignId ?? draftCampaignId ?? context.campaignId;
+  const reviewSessionId =
+    appliedSession?.sessionId || draftSessionId || fallbackSessionId;
 
   return (
     <ProjectionProvider config={toolboxConfig}>
-      <div className="graph-review-workbench-root">
-        <GraphReviewWorkbenchHeader
-          loaded={hasAppliedLoad}
-          sessionLabel={loadBarSummary}
-          onOpenLoad={openLoadDialog}
-        />
+      <GraphReviewLiveStateProvider
+        campaignId={reviewCampaignId}
+        sessionId={reviewSessionId}
+        liveRun={hasAppliedLoad ? appliedLiveRun : null}
+        hasGold={hasAppliedLoad ? Boolean(appliedSession?.hasGold) : false}
+        compare={hasAppliedLoad ? compare : null}
+        compareStatus={hasAppliedLoad ? compareStatus : "idle"}
+        compareError={hasAppliedLoad ? compareError : null}
+        goldLane={hasAppliedLoad ? goldLane : null}
+        liveLane={hasAppliedLoad ? liveLane : null}
+        manualBeds={manualBeds}
+        manualBedsStatus={manualBedsStatus}
+        manualBedsError={manualBedsError}
+        selectedManualBed={selectedManualBed}
+        selectedVariantLaneView={selectedVariantLaneView}
+        selectedManualVariant={
+          selectedManualBedId && selectedManualVariantName
+            ? { bedId: selectedManualBedId, variantName: selectedManualVariantName }
+            : null
+        }
+        onSelectManualBedId={setSelectedManualBedId}
+        onSelectManualVariantName={setSelectedManualVariantName}
+        selection={selection}
+        onSelectSelection={setSelection}
+      >
+        <div className="graph-review-workbench-root">
+          <GraphReviewWorkbenchHeader
+            loaded={hasAppliedLoad}
+            sessionLabel={loadBarSummary}
+            onOpenLoad={openLoadDialog}
+          />
 
-        {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
+          {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
 
-        {!hasCatalogSessions ? (
-          <p className="plan-projection-empty">
-            No preview-ready graph runs are available yet. Use Ingest Recap in the toolbox to
-            paste a recap, run extraction, and materialize a preview graph.
-          </p>
-        ) : !hasAppliedLoad ? (
-          <p className="plan-projection-empty graph-review-load-empty">
-            Load an ingested session to review extracted objects in recap prose.
-          </p>
-        ) : (
-          <GraphReviewLiveStateProvider
-            campaignId={appliedSession!.campaignId}
-            sessionId={appliedSession!.sessionId}
-            liveRun={appliedLiveRun}
-            hasGold={appliedSession!.hasGold}
-            compare={compare}
-            compareStatus={compareStatus}
-            compareError={compareError}
-            goldLane={goldLane}
-            liveLane={liveLane}
-            manualBeds={manualBeds}
-            manualBedsStatus={manualBedsStatus}
-            manualBedsError={manualBedsError}
-            selectedManualBed={selectedManualBed}
-            selectedVariantLaneView={selectedVariantLaneView}
-            selectedManualVariant={
-              selectedManualBedId && selectedManualVariantName
-                ? { bedId: selectedManualBedId, variantName: selectedManualVariantName }
-                : null
+          <GraphReviewAuthorNodeHost
+            onRequestLoad={openLoadDialog}
+            chrome={
+              !hasCatalogSessions ? (
+                <p className="plan-projection-empty">
+                  No preview-ready graph runs are available yet. Use Ingest Recap in the toolbox to
+                  paste a recap, run extraction, and materialize a preview graph.
+                </p>
+              ) : !hasAppliedLoad ? (
+                <p className="plan-projection-empty graph-review-load-empty">
+                  Load an ingested session to review extracted objects in recap prose.
+                </p>
+              ) : (
+                <GraphReviewSessionToolbar />
+              )
             }
-            onSelectManualBedId={setSelectedManualBedId}
-            onSelectManualVariantName={setSelectedManualVariantName}
-            selection={selection}
-            onSelectSelection={setSelection}
-          >
-            <GraphReviewSessionToolbar />
-            <GraphReviewLiveProjectionPanel />
-            <AdaptiveProjectionContainer config={toolboxConfig} />
-          </GraphReviewLiveStateProvider>
-        )}
+            projection={hasAppliedLoad ? <GraphReviewLiveProjectionPanel /> : null}
+          />
 
-        <GraphReviewLoadSurface
-          open={loadDialogOpen}
-          sessions={catalogSessions}
-          draftCampaignId={draftCampaignId}
-          draftSessionId={draftSessionId}
-          draftManifestPath={draftManifestPath}
-          draftSession={draftSession}
-          draftLiveRun={draftLiveRun}
-          onClose={() => setLoadDialogOpen(false)}
-          onLoad={handleApplyLoad}
-          onCampaignSelect={handleDraftCampaignSelect}
-          onSessionSelect={handleDraftSessionSelect}
-          onManifestSelect={setDraftManifestPath}
-        />
-      </div>
+          <AdaptiveProjectionContainer config={toolboxConfig} />
+
+          <GraphReviewLoadSurface
+            open={loadDialogOpen}
+            sessions={catalogSessions}
+            draftCampaignId={draftCampaignId}
+            draftSessionId={draftSessionId}
+            draftManifestPath={draftManifestPath}
+            draftSession={draftSession}
+            draftLiveRun={draftLiveRun}
+            onClose={() => setLoadDialogOpen(false)}
+            onLoad={handleApplyLoad}
+            onCampaignSelect={handleDraftCampaignSelect}
+            onSessionSelect={handleDraftSessionSelect}
+            onManifestSelect={setDraftManifestPath}
+          />
+        </div>
+      </GraphReviewLiveStateProvider>
     </ProjectionProvider>
   );
 }

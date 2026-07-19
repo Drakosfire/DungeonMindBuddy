@@ -7,6 +7,13 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Author Node left drawer (highlight→new-node) — captured 2026-07-18, done 2026-07-19
+**Context:** 2026-07-18 `/ingest` dogfood (C1 Session 3). Operator looked for the Edit bar used to highlight prose and make new graph nodes; on ingest the chrome Edit dock is absent (`MemoryIngestPage` never passes `editorTools`). Plan still wires `AppChrome` + `onEditorToolsChange` → `PlanSurfaceCanvas` (lock, World Graph object search/`PlanGraphRefSearch`, insert blocks). Graph Review main canvas is read-only (`readerMode`); selection→author actions live under Tools → Author Draft only.
+**Insight:** Two different “edit” surfaces got conflated. (1) `/plan` Edit dock = TipTap command board + search/insert **existing** World Graph refs as chips. (2) Highlight→**new** node authoring = Graph Review Author Draft / `authoringEnabled` selection bar — not the Plan Edit dock, and not on the main ingest canvas. After Graph Review / ingest surface splits, the create-node loop no longer appears where the GM looks while reviewing a loaded recap.
+**Action completed:** Removed Author Draft from Tools toolbox; added left-edge Author Node drawer hosting TipTap authorable recap + rail; hide read-only main projection while open; clearer empty-state Load guidance; legacy `tool=graph-review-author-draft` opens Author Node.
+**Surfaces when:** Edit toolbar missing, highlight text to create nodes, Author Draft, PlanGraphRefSearch, Graph Review authoring, `/plan` vs `/ingest` dogfood, graph object authoring loop
+**Refs:** `apps/live-control-ui/src/chrome/AppChrome.tsx`, `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`, `apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx`, `apps/live-control-ui/src/planSurface/components/PlanGraphRefSearch.tsx`, `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx`, `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodeDrawer.tsx`, `apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx`
+
 ## [DONE] Party-collective via standing_context promote seam — captured 2026-07-18, done 2026-07-19
 **Priority:** high — remaining C1S3 typed-load failure after aliases + creature: `node:heroes-party` missing evidence_refs.
 **Context:** Deterministic party-collective seed (`proposed_action: anchor`, type `group`) ships with `evidence_refs: []`; validate_candidate_graph_preview requires evidence on every node.

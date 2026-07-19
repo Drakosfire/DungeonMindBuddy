@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -12,7 +12,7 @@ import type {
   GraphIngestRunSummary,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
-import { GraphReviewAuthorDraftToolPanel } from "./GraphReviewAuthorDraftToolPanel";
+import { GraphReviewAuthorNodePanel } from "./GraphReviewAuthorNodePanel";
 import { GraphReviewAuthorDraftWorkspace } from "./GraphReviewAuthorDraftWorkspace";
 import { renderGraphReviewLiveHarness } from "./graphReviewLiveStateTestHarness";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
@@ -22,17 +22,32 @@ function AuthorModeProbe() {
   return <span data-testid="author-mode">{authorDraft.authorMode}</span>;
 }
 
-function AuthorDraftPanelHarness() {
+function AuthorNodePanelHarness() {
   const [showPanel, setShowPanel] = useState(true);
   return (
     <>
       <button type="button" onClick={() => setShowPanel(false)}>
-        Hide author draft panel
+        Hide author node panel
       </button>
-      {showPanel ? <GraphReviewAuthorDraftToolPanel /> : null}
+      {showPanel ? (
+        <AuthorNodeModeMount>
+          <GraphReviewAuthorNodePanel />
+        </AuthorNodeModeMount>
+      ) : null}
       <AuthorModeProbe />
     </>
   );
+}
+
+function AuthorNodeModeMount({ children }: { children: React.ReactNode }) {
+  const { authorDraft } = useGraphReviewLiveState();
+  useEffect(() => {
+    authorDraft.setAuthorMode("author_draft");
+    return () => {
+      authorDraft.setAuthorMode("review");
+    };
+  }, [authorDraft.setAuthorMode]);
+  return children;
 }
 
 vi.mock("../../api/liveApi", async () => {
@@ -380,7 +395,7 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
   });
 });
 
-describe("GraphReviewAuthorDraftToolPanel", () => {
+describe("GraphReviewAuthorNodePanel", () => {
   beforeEach(() => {
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
@@ -392,15 +407,15 @@ describe("GraphReviewAuthorDraftToolPanel", () => {
     });
   });
 
-  it("renders empty state when projection is not ready", () => {
+  it("renders load guidance when projection is not ready", () => {
     renderGraphReviewLiveHarness({
       liveRun: null,
-      children: <GraphReviewAuthorDraftToolPanel />,
+      children: <GraphReviewAuthorNodePanel />,
     });
 
     expect(
       screen.getByText(
-        "Select a live run with a projection before authoring draft corrections.",
+        "Load an ingested session to author graph nodes from the projected recap.",
       ),
     ).toBeInTheDocument();
   });
@@ -410,7 +425,7 @@ describe("GraphReviewAuthorDraftToolPanel", () => {
 
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
-      children: <GraphReviewAuthorDraftToolPanel />,
+      children: <GraphReviewAuthorNodePanel />,
     });
 
     await waitFor(() =>
@@ -423,19 +438,19 @@ describe("GraphReviewAuthorDraftToolPanel", () => {
     expect(screen.getByTestId("graph-object-authoring-surface")).toBeInTheDocument();
   });
 
-  it("returns to review mode when the author draft panel unmounts", async () => {
+  it("returns to review mode when the author node panel unmounts", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMentions);
 
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
-      children: <AuthorDraftPanelHarness />,
+      children: <AuthorNodePanelHarness />,
     });
 
     await waitFor(() =>
       expect(screen.getByTestId("author-mode")).toHaveTextContent("author_draft"),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide author draft panel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hide author node panel" }));
 
     await waitFor(() =>
       expect(screen.getByTestId("author-mode")).toHaveTextContent("review"),
