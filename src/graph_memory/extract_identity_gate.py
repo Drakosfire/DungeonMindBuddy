@@ -39,6 +39,7 @@ from graph_memory.kernel.world_graph import load_world_graph_revision
 from graph_memory.union_supergraph.model import UnionSupergraphStore
 
 _MUTATING_OUTCOMES = frozenset({"resolved_existing", "created_new", "human_override"})
+_CONNECT_EXISTING_OUTCOMES = frozenset({"resolved_existing", "human_override"})
 _NON_MUTATING_OUTCOMES = frozenset(
     {"ambiguous", "blocked_collision", "rejected", "provisional_new"}
 )
@@ -243,12 +244,14 @@ def gate_candidate_graph_against_head(
     authored_by: str | None = "extract-identity-gate",
     source_domain: str = "recap",
     source_uri: str | None = None,
+    source_kind: str = "source_extraction",
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
 ) -> IdentityGateResult:
     """Map + resolve identity against the pinned head; emit review proposals."""
     if not str(source_revision_id or "").strip():
         raise CandidateGraphMappingError("source_revision_id is required")
+    kind = (source_kind or "source_extraction").strip() or "source_extraction"
 
     head, _revision, store = open_current_world_graph(root, world_id)
     parent_revision_id = head.head_revision_id
@@ -296,6 +299,7 @@ def gate_candidate_graph_against_head(
         authored_by=authored_by,
         source_domain=source_domain,
         source_uri=source_uri,
+        source_kind=kind,
         node_ids=[n.node_id for n in nodes],
         include_edges=False,
     )
@@ -399,6 +403,15 @@ def gate_candidate_graph_against_head(
             continue
 
         node_id_map[extract_id] = durable_id
+        # Connect-existing must not emit a full node assertion: extract-derived
+        # role/summary/epistemic payloads disagree with seeded PC assertions and
+        # leave two active supports that projection refuses. Keep the durable id
+        # mapping so edges can attach; skip the competing node assert.
+        if resolution.outcome in _CONNECT_EXISTING_OUTCOMES:
+            diagnostics.append(
+                f"connect_existing_skip_node_assertion:{extract_id}->{durable_id}"
+            )
+            continue
         accepted_proposals.append(
             map_candidate_node_to_assertion(
                 node,
@@ -441,7 +454,7 @@ def gate_candidate_graph_against_head(
 
     gated_contribution = create_graph_contribution(
         world_id=world_id,
-        source_kind="source_extraction",
+        source_kind=kind,  # type: ignore[arg-type]
         source_artifact_id=artifact_id,
         source_revision_id=revision_id,
         extraction_profile=extraction_profile,

@@ -22,7 +22,7 @@ _PROMOTE_AUTHORITY = frozenset({"played_truth", "system_derived"})
 _PROMOTE_EVIDENCE_ROLE = frozenset({"source_evidence"})
 _PROMOTE_LIFECYCLE = frozenset({"candidate", "validated"})
 _PROMOTE_VISIBILITY = frozenset({"gm_private", "player_visible", "spoiler_sensitive"})
-_PROMOTE_ACTIONS = frozenset({"create"})
+_PROMOTE_ACTIONS = frozenset({"create", "anchor"})
 
 
 class CandidateSemanticPromoteError(ValueError):
@@ -77,7 +77,7 @@ def _require_promote_eligible(
     if proposed_action not in _PROMOTE_ACTIONS:
         raise CandidateSemanticPromoteError(
             f"{object_id}: proposed_action={proposed_action!r} is not promote-eligible "
-            f"(require create)"
+            f"(require create|anchor)"
         )
     # confidence / warnings are recorded but do not block played_canon promote.
     _ = confidence, warnings

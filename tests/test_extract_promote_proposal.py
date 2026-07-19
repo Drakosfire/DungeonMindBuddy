@@ -6,8 +6,11 @@ import pytest
 
 from graph_memory.extract_promote_proposal import (
     PromoteProposalError,
+    build_contribution_effect_slice,
     compute_proposal_digest,
     contribution_meta_from_contribution,
+    contribution_slices_from_effect,
+    seal_multi_contribution_promote_proposal,
     seal_promote_proposal,
     verify_promote_proposal,
 )
@@ -189,3 +192,104 @@ def test_verify_happy_path() -> None:
     # Digest is stable for same effect body.
     again = compute_proposal_digest(package["effect"])
     assert again == package["proposal_digest"]
+    # Default single-contribution seal stays on v2 flat effect shape.
+    assert package["proposal_version"] == 2
+    assert "contributions" not in package["effect"]
+
+
+def _standing_contribution():
+    return create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="standing_context",
+        source_artifact_id="artifact:party-registry:longmont-c1",
+        source_revision_id="sha256:registry",
+        extraction_profile="party_registry_standing",
+        campaign_scope="longmont-c1",
+        authored_by="tester",
+        candidate_assertions=[
+            build_assertion(
+                assertion_kind="node",
+                acceptance_state="accepted",
+                subject_node_id="node:heroes-party",
+                label="Heroes / party",
+                value={
+                    "kind": "group",
+                    "role": "party",
+                    "aliases": ["Heroes / party"],
+                    "source_domains": ["party_registry"],
+                    "canon_state": "canonical",
+                    "approval_state": "accepted",
+                },
+                evidence_ref_ids=["evidence:registry:standing"],
+                source_artifact_id="artifact:party-registry:longmont-c1",
+                source_revision_id="sha256:registry",
+                campaign_scope="longmont-c1",
+                epistemic_kind="source_derived_candidate",
+                visibility="gm",
+                identity_resolution_outcome="created_new",
+            )
+        ],
+    )
+
+
+def test_v3_multi_contribution_seal_and_v2_backcompat() -> None:
+    standing = _standing_contribution()
+    recap = _contribution()
+    standing_slice = build_contribution_effect_slice(
+        source_revision_id="sha256:registry",
+        source_artifact_id="artifact:party-registry:longmont-c1",
+        verified_source_uri="repo://corpus/_party_registry.json",
+        candidate_preview_id="preview:standing",
+        candidate_schema="dmb_candidate_graph_preview_v0",
+        candidate_version="0.1",
+        contribution_meta=contribution_meta_from_contribution(standing),
+        accepted_proposals=list(standing.candidate_assertions),
+        rejected_assertions=[],
+        unresolved_mentions=[],
+        node_id_map={},
+        identity_outcome_snapshot={},
+    )
+    recap_slice = build_contribution_effect_slice(
+        source_revision_id="sha256:abc",
+        source_artifact_id="artifact:a",
+        verified_source_uri="/tmp/source.md",
+        candidate_preview_id="preview:recap",
+        candidate_schema="dmb_candidate_graph_preview_v0",
+        candidate_version="0.1",
+        contribution_meta=contribution_meta_from_contribution(recap),
+        accepted_proposals=[_assertion()],
+        rejected_assertions=[],
+        unresolved_mentions=[],
+        node_id_map={"obj_session22_vial": "obj:vial"},
+        identity_outcome_snapshot={"obj_session22_vial": "created_new"},
+    )
+    package = seal_multi_contribution_promote_proposal(
+        world_id="eldyrwild",
+        parent_revision_id="rev:parent",
+        contribution_slices=[standing_slice, recap_slice],
+        prepared_by="gm@test",
+        proposal_id="proposal:v3-dual",
+    )
+    assert package["proposal_version"] == 3
+    slices = contribution_slices_from_effect(package["effect"])
+    assert len(slices) == 2
+    kinds = [s["contribution_meta"]["source_kind"] for s in slices]
+    assert kinds == ["standing_context", "source_extraction"]
+    verified = verify_promote_proposal(
+        package,
+        confirming_principal="gm@confirm",
+        expected_parent_revision_id="rev:parent",
+    )
+    assert verified["proposal_digest"] == package["proposal_digest"]
+    assert verified["verified_source_uri"] == "/tmp/source.md"
+
+    # v2 packages still verify via one-element normalization.
+    v2 = _sealed_package()
+    assert v2["proposal_version"] == 2
+    v2_verified = verify_promote_proposal(
+        v2,
+        confirming_principal="gm@confirm",
+        expected_parent_revision_id="rev:parent",
+    )
+    assert len(contribution_slices_from_effect(v2["effect"])) == 1
+    assert v2_verified["contribution_meta"]["source_kind"] == "source_extraction"

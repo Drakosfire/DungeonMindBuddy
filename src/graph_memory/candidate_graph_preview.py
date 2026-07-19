@@ -12,7 +12,7 @@ LIFECYCLE_STATES = {"candidate", "validated", "promoted", "rejected", "stale", "
 EVIDENCE_ROLES = {"source_evidence", "navigation_hint", "diagnostic_only", "not_evidence"}
 AUTHORITY_STATES = {"played_truth", "gm_prep", "system_derived", "llm_generated", "diagnostic", "unknown"}
 VISIBILITY_STATES = {"gm_private", "player_visible", "internal_diagnostic", "spoiler_sensitive", "unknown"}
-NODE_TYPES = {"character", "location", "item", "faction", "organization", "event", "session_beat", "clue", "thread", "mystery", "group", "warning", "promise", "debt", "rumor", "unknown_important", "combat_encounter", "quest", "landmark"}
+NODE_TYPES = {"character", "location", "item", "faction", "organization", "event", "session_beat", "clue", "thread", "mystery", "group", "warning", "promise", "debt", "rumor", "unknown_important", "combat_encounter", "quest", "landmark", "creature"}
 WRITE_TYPES = {"create_node", "update_node", "create_edge", "attach_fact", "mark_ignored", "defer"}
 WRITE_STATUSES = {"pending", "approved", "rejected", "deferred"}
 PREVIEW_STATUSES = {"preview", "approved", "partially_approved", "rejected", "deferred"}
@@ -72,6 +72,7 @@ class CandidateNode:
     confidence: str
     warnings: tuple[str, ...] = ()
     corpus_ref: CorpusRef | None = None
+    aliases: tuple[str, ...] = ()
 
 @dataclass(frozen=True)
 class CandidateEdge:
@@ -229,7 +230,7 @@ def candidate_graph_preview_from_dict(data: Mapping[str, Any]) -> CandidateGraph
         schema=data["schema"], version=data["version"], preview_id=data["preview_id"],
         campaign_id=data.get("campaign_id"), session_id=data.get("session_id"),
         source_artifact_ids=tuple(data.get("source_artifact_ids", ())), status=data["status"],
-        nodes=tuple(CandidateNode(**{**n, "semantic_state": semantic_state_from_dict(n["semantic_state"]), "evidence_refs": _refs(n.get("evidence_refs", ())), "warnings": tuple(n.get("warnings", ())), "corpus_ref": corpus_ref_from_dict(n.get("corpus_ref"))}) for n in data.get("nodes", ())),
+        nodes=tuple(CandidateNode(**{**n, "semantic_state": semantic_state_from_dict(n["semantic_state"]), "evidence_refs": _refs(n.get("evidence_refs", ())), "warnings": tuple(n.get("warnings", ())), "corpus_ref": corpus_ref_from_dict(n.get("corpus_ref")), "aliases": tuple(n.get("aliases", ()))}) for n in data.get("nodes", ())),
         edges=tuple(CandidateEdge(**{**e, "semantic_state": semantic_state_from_dict(e["semantic_state"]), "evidence_refs": _refs(e.get("evidence_refs", ())), "warnings": tuple(e.get("warnings", ()))}) for e in data.get("edges", ())),
         beats=tuple(SessionBeat(**{**b, "involved_node_ids": tuple(b.get("involved_node_ids", ())), "evidence_refs": _refs(b.get("evidence_refs", ())), "unresolved_thread_node_ids": tuple(b.get("unresolved_thread_node_ids", ())), "warnings": tuple(b.get("warnings", ()))}) for b in data.get("beats", ())),
         proposed_writes=tuple(ProposedWrite(**{**w, "evidence_refs": _refs(w.get("evidence_refs", ()))}) for w in data.get("proposed_writes", ())),

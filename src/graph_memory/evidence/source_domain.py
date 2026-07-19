@@ -13,6 +13,7 @@ SourceDomain = Literal[
     "session_memory",
     "manual_seed",
     "future_artifact",
+    "party_registry",
 ]
 
 KNOWN_SOURCE_DOMAINS: frozenset[str] = frozenset(
@@ -27,6 +28,7 @@ KNOWN_SOURCE_DOMAINS: frozenset[str] = frozenset(
         "session_memory",
         "manual_seed",
         "future_artifact",
+        "party_registry",
     }
 )
 

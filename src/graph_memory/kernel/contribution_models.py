@@ -29,6 +29,7 @@ ContributionAssertionStatus = Literal[
 
 ContributionSourceKind = Literal[
     "source_extraction",
+    "standing_context",
     "graph_review_authored_assertion",
     "identity_decision",
     "manual_import",

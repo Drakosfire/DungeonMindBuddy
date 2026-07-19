@@ -51,6 +51,7 @@ _NODE_TYPE_TO_KIND: dict[str, str] = {
     "quest": "job",
     "clue": "mystery",
     "landmark": "location",
+    "creature": "creature",
 }
 
 
@@ -350,10 +351,11 @@ def map_candidate_node_to_assertion(
     # Top-level source_artifact_id is the first evidence artifact (not a rewrite of all).
     primary_artifact = source_artifacts[0]["source_artifact_id"]
     summary = (node.description or "").strip() or None
+    aliases = [str(a).strip() for a in node.aliases if str(a).strip()]
     value: dict[str, Any] = {
         "kind": kind,
         "role": kind,
-        "aliases": [label],
+        "aliases": aliases if aliases else [label],
         "source_domains": [source_domain],
         "evidence": embedded_evidence,
         "source_artifacts": source_artifacts,
@@ -468,15 +470,17 @@ def candidate_graph_to_contribution(
     authored_by: str | None = "candidate-graph-mapper",
     source_domain: str = "recap",
     source_uri: str | None = None,
+    source_kind: str = "source_extraction",
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
     proposal_digest: str | None = None,
 ) -> GraphContribution:
-    """Map a typed CandidateGraphPreview into a source_extraction contribution."""
+    """Map a typed CandidateGraphPreview into a Kernel contribution."""
     world = _require_nonempty(world_id, field="world_id")
     revision_id = _require_nonempty(source_revision_id, field="source_revision_id")
     if not revision_id.startswith("sha256:"):
         revision_id = f"sha256:{revision_id}"
+    kind = _require_nonempty(source_kind, field="source_kind")
 
     artifact_id = _require_nonempty(
         source_artifact_id
@@ -547,7 +551,7 @@ def candidate_graph_to_contribution(
 
     return create_graph_contribution(
         world_id=world,
-        source_kind="source_extraction",
+        source_kind=kind,  # type: ignore[arg-type]
         source_artifact_id=artifact_id,
         source_revision_id=revision_id,
         extraction_profile=extraction_profile,
@@ -560,5 +564,6 @@ def candidate_graph_to_contribution(
             f"mapped_nodes:{len(node_assertions)}",
             f"mapped_edges:{len(edge_assertions)}",
             f"preview_id:{preview.preview_id}",
+            f"source_kind:{kind}",
         ],
     )

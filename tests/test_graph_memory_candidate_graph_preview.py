@@ -106,6 +106,17 @@ def test_quest_candidate_node_type_validates():
     assert _node_type_issues(report) == []
 
 
+def test_creature_candidate_node_type_validates():
+    preview = candidate_graph_preview_from_dict(
+        _preview_payload([_node("creature", "Bubbles the Float Goat")])
+    )
+
+    report = validate_candidate_graph_preview(preview)
+
+    assert report.issue_counts.get("invalid_semantic_state", 0) == 0
+    assert _node_type_issues(report) == []
+
+
 def test_rejected_encounter_job_adjacent_node_types_remain_invalid():
     for node_type in ("job", "adversary", "monster"):
         preview = candidate_graph_preview_from_dict(

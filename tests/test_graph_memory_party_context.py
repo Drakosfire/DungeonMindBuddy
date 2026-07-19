@@ -61,10 +61,37 @@ def test_campaign_1_session_1_roster_resolves_party_anchors():
     assert all(p.endswith("/README.md") for p in anchors)
 
 
-def test_session_23_missing_roster_warns_and_is_empty():
-    ctx = pc.build_party_context_for_campaign("longmont-c2", 23)
-    assert ctx.members == ()
-    assert any("session_pc_rosters['23']" in w for w in ctx.warnings)
+def test_session_without_roster_carries_forward_from_prior():
+    # C2 registry has 20/22/23 — session 21 should inherit session 20 PCs.
+    ctx = pc.build_party_context_for_campaign("longmont-c2", 21)
+    assert {m.slug for m in ctx.pcs()} == {
+        "baergrom",
+        "bonogo",
+        "caelynn",
+        "ephanna",
+        "karsemine",
+        "stafl",
+    }
+    assert any("roster_carry_forward" in w for w in ctx.warnings)
+
+
+def test_session_far_beyond_rosters_still_carries_latest():
+    ctx = pc.build_party_context_for_campaign("longmont-c2", 99)
+    assert {m.slug for m in ctx.pcs()}
+    assert any("roster_carry_forward" in w for w in ctx.warnings)
+
+
+def test_campaign_1_session_3_carries_forward_session_1_pcs():
+    ctx = pc.build_party_context_for_campaign("longmont-c1", 3)
+    assert {m.slug for m in ctx.pcs()} == {
+        "baergrom",
+        "bonogo",
+        "caelynn",
+        "ephanna",
+        "karsemine",
+        "stafl",
+    }
+    assert any("roster_carry_forward" in w for w in ctx.warnings)
 
 
 def test_companions_are_npc_kind_and_resolve():
@@ -89,10 +116,18 @@ def test_session_without_companion_roster_has_no_companions():
     assert ctx.companions() == ()
 
 
-def test_unknown_session_warns_and_is_empty():
+def test_unknown_session_carries_forward_latest_roster():
+    # Numeric sessions beyond the last roster key inherit the latest roster.
     ctx = pc.build_party_context(999)
-    assert ctx.members == ()
-    assert any("session_pc_rosters" in w for w in ctx.warnings)
+    assert {m.slug for m in ctx.pcs()} == {
+        "baergrom",
+        "bonogo",
+        "caelynn",
+        "ephanna",
+        "karsemine",
+        "stafl",
+    }
+    assert any("roster_carry_forward" in w for w in ctx.warnings)
 
 
 def test_resolve_campaign_corpus_uses_passed_corpus_root_without_campaign_rel(tmp_path: Path):

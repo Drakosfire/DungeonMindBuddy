@@ -368,6 +368,16 @@ def prepare(
 
     extraction_profile = resolved.extraction_profile or "current_default"
 
+    registry_payload = None
+    registry_sibling = path.parent / "registry_context_graph.json"
+    if registry_sibling.is_file():
+        try:
+            loaded = json.loads(registry_sibling.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict) and loaded.get("nodes"):
+                registry_payload = loaded
+        except (OSError, json.JSONDecodeError):
+            registry_payload = None
+
     try:
         result = prepare_extract_promote(
             candidate_graph=payload,
@@ -384,6 +394,7 @@ def prepare(
             candidate_graph_path=str(path),
             repo_root=repo_root(),
             disclose_source_digest=False,
+            registry_context_graph=registry_payload,
         )
     except CandidateGraphMappingError as exc:
         raise _public_mapping_error(exc) from exc

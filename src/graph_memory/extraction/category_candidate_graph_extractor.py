@@ -33,6 +33,29 @@ from src.graph_memory.session_graph_context import (
     merge_party_collective,
     party_anchors_markdown,
 )
+from src.graph_memory.standing_context_partition import (
+    ensure_standing_warning,
+    partition_candidate_parts_by_provenance,
+    party_registry_artifact_id,
+    stamp_standing_registry_evidence,
+)
+from src.graph_memory.extraction.known_entity_registry import (
+    KnownEntityRegistry,
+    build_known_entity_registry,
+    normalize_match_surface,
+)
+from src.graph_memory.extraction.known_entity_mention_matcher import (
+    attach_mention_evidence_to_anchors,
+    filter_observation_nodes_dropping_known_entities,
+    match_known_entities_in_spans,
+    render_known_entity_ledger_markdown,
+    validate_known_entity_ir_assertions,
+)
+from src.graph_memory.extraction.known_entity_mention_schema import (
+    KnownEntityMentionSidecar,
+    known_entity_ids,
+    known_entity_slugs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +250,8 @@ class CategoryGraphExtractionResult:
     model_id: str
     total_cost_usd: float
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    known_entity_mentions: dict[str, Any] | None = None
+    registry_context_graph: dict[str, Any] | None = None
 
 
 def _policy_paths() -> list[Path]:
@@ -299,13 +324,28 @@ def _party_anchors_block(party_ctx: PartyContext) -> str:
     return party_anchors_markdown(party_ctx)
 
 
+def _known_entity_block(
+    sidecar: KnownEntityMentionSidecar | None,
+    registry: KnownEntityRegistry | None = None,
+) -> str:
+    if sidecar is None:
+        return (
+            "## Known entity mentions (deterministic — do not recreate these as nodes)\n\n"
+            "_No known-entity mention pass ran for this extraction._"
+        )
+    return render_known_entity_ledger_markdown(sidecar, registry=registry)
+
+
 def render_category_pass_prompts(
     source_rows: Sequence[dict[str, Any]],
     *,
     party_ctx: PartyContext,
+    known_entity_sidecar: KnownEntityMentionSidecar | None = None,
+    known_entity_registry: KnownEntityRegistry | None = None,
 ) -> dict[str, str]:
     src = _source_packet_md(source_rows)
     anchors = _party_anchors_block(party_ctx)
+    known = _known_entity_block(known_entity_sidecar, known_entity_registry)
     safety = (
         "Preview-only graph memory extraction. "
         "Forbidden: approve memory, commit graph records, promote canon, execute writes."
@@ -319,7 +359,7 @@ def render_category_pass_prompts(
                 "Each item: `item_id`, `label`, `reason`, `evidence_refs`; deferred may include `suggested_next_step`."
             )
         prompts[_prompt_key(pass_name)] = (
-            f"# Category Graph Extraction — {pass_name}\n\n{safety}\n\n{anchors}\n\n"
+            f"# Category Graph Extraction — {pass_name}\n\n{safety}\n\n{anchors}\n\n{known}\n\n"
             f"## Task\n\n{instruction}\n\n"
             f"Default node_type for this pass: `{default_type}`.\n\n"
             f"Return JSON with key `observation_nodes` (array). Each node: "
@@ -327,17 +367,20 @@ def render_category_pass_prompts(
             f"{EVIDENCE_RULE}{extra}\n\n## Source Packet\n\n{src}\n"
         )
     prompts[_prompt_key(BEAT_PASS_NAME)] = (
-        f"# Category Graph Extraction — {BEAT_PASS_NAME}\n\n{safety}\n\n"
+        f"# Category Graph Extraction — {BEAT_PASS_NAME}\n\n{safety}\n\n{known}\n\n"
         "## Task\n\nExtract source-local beats (scenes, topic shifts, durable claims). "
         "Return JSON with key `observation_beats` (array). Each beat: "
         "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
+        "When a beat involves a known entity, use its canonical_entity_id from the known-entity ledger.\n"
         f"{EVIDENCE_RULE}\n\n## Source Packet\n\n{src}\n"
     )
     predicate_catalog = predicate_catalog_prompt_markdown()
     prompts[_prompt_key(EDGE_PASS_NAME)] = (
-        f"# Category Graph Extraction — {EDGE_PASS_NAME}\n\n{safety}\n\n"
+        f"# Category Graph Extraction — {EDGE_PASS_NAME}\n\n{safety}\n\n{known}\n\n"
         "## Task\n\nUsing ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
-        "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes. "
+        "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes "
+        "(including known-entity canonical_entity_id values). "
+        "Prefer edges that attach new session facts to known entities rather than inventing duplicate characters. "
         "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
         "do not stop after the first few obvious edges.\n\n"
         "## Relationship extraction sweep\n\n"
@@ -373,15 +416,22 @@ def parse_json_object(text: str) -> dict[str, Any]:
 def _usage_from_response(response: Any) -> dict[str, int]:
     usage = getattr(response, "usage", None)
     cached = 0
+    reasoning_tokens = 0
     if usage is not None:
         details = getattr(usage, "input_tokens_details", None)
         if details is not None:
             cached = int(getattr(details, "cached_tokens", 0) or 0)
-        return {
+        output_details = getattr(usage, "output_tokens_details", None)
+        if output_details is not None:
+            reasoning_tokens = int(getattr(output_details, "reasoning_tokens", 0) or 0)
+        out = {
             "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
             "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
             "cached_tokens": cached,
         }
+        if reasoning_tokens:
+            out["reasoning_tokens"] = reasoning_tokens
+        return out
     return {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0}
 
 
@@ -606,6 +656,8 @@ def consolidate_category_outputs(
     campaign_id: str,
     session: int,
     enable_party_participation_attachment: bool = False,
+    known_entity_sidecar: KnownEntityMentionSidecar | None = None,
+    known_entity_registry: KnownEntityRegistry | None = None,
 ) -> dict[str, Any]:
     party_ctx = build_party_context_for_campaign(campaign_id, session)
     per_pass_counts: dict[str, int] = {}
@@ -614,6 +666,20 @@ def consolidate_category_outputs(
     ignored: list[dict[str, Any]] = []
     deferred: list[dict[str, Any]] = []
     encounter_job_diag: dict[str, Any] = {"enabled": False}
+    known_ids = known_entity_ids(known_entity_sidecar.mentions) if known_entity_sidecar else set()
+    known_slugs = known_entity_slugs(known_entity_sidecar.mentions) if known_entity_sidecar else set()
+    if known_entity_registry is not None:
+        known_ids |= {e.canonical_entity_id for e in known_entity_registry.entities}
+        known_slugs |= {e.slug for e in known_entity_registry.entities}
+    known_labels_norm = {
+        normalize_match_surface(e.display_name)
+        for e in (known_entity_registry.entities if known_entity_registry else ())
+    }
+    known_labels_norm |= {
+        normalize_match_surface(m.surface_text)
+        for m in (known_entity_sidecar.mentions if known_entity_sidecar else ())
+    }
+    dropped_known_node_ids: list[str] = []
 
     for pass_name, default_type, _ in NODE_EXTRACTION_PASSES:
         payload = pass_outputs.get(pass_name, {})
@@ -629,6 +695,14 @@ def consolidate_category_outputs(
             for raw in payload.get("deferred_items") or []:
                 if isinstance(raw, Mapping):
                     deferred.append(_normalize_disposition(raw, "deferred"))
+
+    if known_ids or known_slugs or known_labels_norm:
+        nodes, dropped_known_node_ids = filter_observation_nodes_dropping_known_entities(
+            nodes,
+            known_ids=known_ids,
+            known_slugs=known_slugs,
+            known_labels_norm=known_labels_norm,
+        )
 
     encounter_payload = pass_outputs.get(ENCOUNTER_JOB_PASS_NAME)
     if encounter_payload is not None:
@@ -668,6 +742,12 @@ def consolidate_category_outputs(
         party_ctx,
         default_semantic_state=DEFAULT_SEMANTIC_STATE,
     )
+    mention_evidence_diag: dict[str, Any] = {"mention_evidence_attachments": 0}
+    if known_entity_sidecar is not None and known_entity_sidecar.mentions:
+        deduped_nodes, mention_evidence_diag = attach_mention_evidence_to_anchors(
+            deduped_nodes,
+            known_entity_sidecar,
+        )
     # One observation pass per node type means a single proper noun can surface
     # as both a place and a polity (e.g. "Mireward Reach" as location AND
     # organization). dedup_nodes keys on (type_class, label) and keeps both,
@@ -730,6 +810,38 @@ def consolidate_category_outputs(
         if any(str(w).startswith("predicate_validation:") for w in edge.get("warnings", []))
     ]
 
+    known_entity_ir = validate_known_entity_ir_assertions(
+        nodes=deduped_nodes,
+        edges=list(edge_dedup["kept"]),
+        beats=beats,
+        known_ids=known_ids,
+        known_slugs=known_slugs,
+        known_labels_norm=known_labels_norm,
+    )
+    if known_entity_ir["rejected_known_entity_node_assertions"]:
+        reject_ids = set(known_entity_ir["rejected_known_entity_node_assertions"])
+        deduped_nodes = [
+            n
+            for n in deduped_nodes
+            if str(n.get("node_id") or "") not in reject_ids
+            or n.get("context_anchor") is True
+            or str(n.get("proposed_action") or "") == "anchor"
+        ]
+        node_ids = {n["node_id"] for n in deduped_nodes}
+        kept_edges = []
+        for edge in edge_dedup["kept"]:
+            if edge["from_node_id"] in node_ids and edge["to_node_id"] in node_ids:
+                kept_edges.append(edge)
+            else:
+                dropped_edges.append(
+                    {
+                        "edge_id": edge["edge_id"],
+                        "from_node_id": edge["from_node_id"],
+                        "to_node_id": edge["to_node_id"],
+                    }
+                )
+        edge_dedup = {**edge_dedup, "kept": kept_edges}
+
     session_ctx = build_session_graph_context(campaign_id, session)
     diagnostics = {
         "per_pass_counts": per_pass_counts,
@@ -749,6 +861,25 @@ def consolidate_category_outputs(
         "registry_relpath": session_ctx.registry_relpath,
         "session_graph_context_warnings": list(session_ctx.warnings),
         ENCOUNTER_JOB_PASS_NAME: encounter_job_diag,
+        "known_entity_mentions": {
+            "mention_count": len(known_entity_sidecar.mentions) if known_entity_sidecar else 0,
+            "dropped_duplicate_node_ids": dropped_known_node_ids,
+            **mention_evidence_diag,
+            "ambiguous_surfaces": list(
+                known_entity_sidecar.ambiguous_surfaces if known_entity_sidecar else ()
+            ),
+            "roster_carry_forward": bool(
+                known_entity_registry.roster_carry_forward
+                if known_entity_registry is not None
+                else False
+            ),
+            "roster_session_key": (
+                known_entity_registry.roster_session_key
+                if known_entity_registry is not None
+                else None
+            ),
+            "ir_validation": known_entity_ir,
+        },
     }
     return {
         "nodes": deduped_nodes,
@@ -839,6 +970,7 @@ def assemble_envelope(
     session_id: str,
     source_artifact_id: str,
     model_id: str,
+    preview_suffix: str = "category",
 ) -> dict[str, Any]:
     warning_count = len(
         consolidated.get("consolidation_diagnostics", {}).get("merged_nodes", [])
@@ -846,7 +978,7 @@ def assemble_envelope(
     graph = {
         "schema": CANDIDATE_GRAPH_SCHEMA,
         "version": CANDIDATE_GRAPH_VERSION,
-        "preview_id": f"candidate-preview:{campaign_id}:{session_id}:category",
+        "preview_id": f"candidate-preview:{campaign_id}:{session_id}:{preview_suffix}",
         "campaign_id": campaign_id,
         "session_id": session_id,
         "source_artifact_ids": [source_artifact_id],
@@ -1138,6 +1270,23 @@ def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
 
 
 class OpenAICategoryGraphPassClient:
+    """Responses API client for category graph passes.
+
+    Optional constructor knobs are used by the live preview runner and Luna
+    benchmarks; default construction remains zero-arg for the Kernel path.
+    """
+
+    def __init__(
+        self,
+        *,
+        reasoning_effort: str | None = None,
+        max_retries: int | None = None,
+    ) -> None:
+        self._reasoning_effort = (
+            reasoning_effort.strip() if isinstance(reasoning_effort, str) and reasoning_effort.strip() else None
+        )
+        self._max_retries = max_retries
+
     def run_pass(
         self,
         pass_name: str,
@@ -1159,14 +1308,20 @@ class OpenAICategoryGraphPassClient:
 
         from src.agent.planner_pricing import usage_cost_usd
 
-        client = OpenAI()
+        openai_kwargs: dict[str, Any] = {}
+        if self._max_retries is not None:
+            openai_kwargs["max_retries"] = self._max_retries
+        client = OpenAI(**openai_kwargs)
+        create_kwargs: dict[str, Any] = {
+            "model": model_id.strip(),
+            "instructions": instructions,
+            "input": [{"type": "message", "role": "user", "content": user_content}],
+            "text": category_pass_text_format(pass_name),
+        }
+        if self._reasoning_effort is not None:
+            create_kwargs["reasoning"] = {"effort": self._reasoning_effort}
         t0 = time.perf_counter()
-        response = client.responses.create(
-            model=model_id.strip(),
-            instructions=instructions,
-            input=[{"type": "message", "role": "user", "content": user_content}],
-            text=category_pass_text_format(pass_name),
-        )
+        response = client.responses.create(**create_kwargs)
         elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
         refusal = getattr(response, "refusal", None)
         if refusal:
@@ -1197,7 +1352,7 @@ class OpenAICategoryGraphPassClient:
                 pass_name=pass_name,
                 raw_model_response=raw_text,
             ) from exc
-        return {
+        result: dict[str, Any] = {
             "parsed": parsed,
             "raw_text": raw_text,
             "usage": usage,
@@ -1206,6 +1361,9 @@ class OpenAICategoryGraphPassClient:
             "elapsed_ms": elapsed_ms,
             "response_id": str(getattr(response, "id", "") or ""),
         }
+        if self._reasoning_effort is not None:
+            result["reasoning_effort"] = self._reasoning_effort
+        return result
 
 
 class FixtureCategoryGraphPassClient:
@@ -1252,7 +1410,22 @@ def run_category_pipeline(
     party_ctx = build_party_context_for_campaign(
         options.campaign_id, options.session_number
     )
-    prompts = render_category_pass_prompts(source_rows, party_ctx=party_ctx)
+    known_entity_registry = build_known_entity_registry(
+        options.campaign_id,
+        options.session_number,
+        party_ctx=party_ctx,
+    )
+    known_entity_sidecar = match_known_entities_in_spans(
+        list(options.source_span_index.get("spans") or []),
+        known_entity_registry,
+        session_id=options.session_id,
+    )
+    prompts = render_category_pass_prompts(
+        source_rows,
+        party_ctx=party_ctx,
+        known_entity_sidecar=known_entity_sidecar,
+        known_entity_registry=known_entity_registry,
+    )
     pass_outputs: dict[str, dict[str, Any]] = {}
     pass_telemetry: dict[str, Any] = {}
     total_cost = 0.0
@@ -1313,6 +1486,8 @@ def run_category_pipeline(
         campaign_id=options.campaign_id,
         session=options.session_number,
         enable_party_participation_attachment=options.enable_party_participation_attachment,
+        known_entity_sidecar=known_entity_sidecar,
+        known_entity_registry=known_entity_registry,
     )
     if options.enable_encounter_job_pass:
         encounter_vocabulary_context = ""
@@ -1351,6 +1526,8 @@ def run_category_pipeline(
             campaign_id=options.campaign_id,
             session=options.session_number,
             enable_party_participation_attachment=options.enable_party_participation_attachment,
+            known_entity_sidecar=known_entity_sidecar,
+            known_entity_registry=known_entity_registry,
         )
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
         prompts[_prompt_key(EDGE_PASS_NAME)],
@@ -1380,23 +1557,46 @@ def run_category_pipeline(
         campaign_id=options.campaign_id,
         session=options.session_number,
         enable_party_participation_attachment=options.enable_party_participation_attachment,
+        known_entity_sidecar=known_entity_sidecar,
+        known_entity_registry=known_entity_registry,
     )
     repair_diag = repair_edge_evidence_refs(consolidated, allowed_span_refs)
     sanitized, sanitize_diag = sanitize_parts(consolidated, allowed_span_refs)
+    recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
+        sanitized
+    )
     merged_diag = {
         **consolidated["consolidation_diagnostics"],
         **repair_diag,
         **sanitize_diag,
+        "standing_context_partition": partition_diag,
     }
     source_artifact_id = f"artifact:recap:{options.campaign_id}:{options.session_id}"
+    registry_artifact_id = party_registry_artifact_id(options.campaign_id)
     envelope = assemble_envelope(
-        sanitized,
+        recap_parts,
         campaign_id=options.campaign_id,
         session_id=options.session_id,
         source_artifact_id=source_artifact_id,
         model_id=model_id,
     )
     candidate_graph = canonical_graph_for_runner(envelope)
+    registry_context_graph: dict[str, Any] | None = None
+    if standing_parts.get("nodes"):
+        ensure_standing_warning(standing_parts)
+        standing_envelope = assemble_envelope(
+            standing_parts,
+            campaign_id=options.campaign_id,
+            session_id=options.session_id,
+            source_artifact_id=registry_artifact_id,
+            model_id=model_id,
+            preview_suffix="standing",
+        )
+        registry_context_graph = canonical_graph_for_runner(standing_envelope)
+        stamp_standing_registry_evidence(
+            registry_context_graph, source_artifact_id=registry_artifact_id
+        )
+        ensure_standing_warning(registry_context_graph)
     node_vocabulary_enabled = effective_node_vocabulary_packet is not None
     node_vocabulary_diag: dict[str, Any] = {"enabled": False}
     if node_vocabulary_enabled:
@@ -1420,8 +1620,11 @@ def run_category_pipeline(
             "encounter_job_edge_guidance": encounter_job_edge_diag,
             "node_vocabulary_ablation": node_vocabulary_diag,
             "dynamic_node_vocabulary_packet": dynamic_node_vocabulary_diag,
+            "standing_context_partition": partition_diag,
             **EXTRACTOR_RESULT_DIAGNOSTICS,
         },
+        known_entity_mentions=known_entity_sidecar.to_dict(),
+        registry_context_graph=registry_context_graph,
     )
 
 
