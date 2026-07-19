@@ -2619,8 +2619,8 @@ body.plan-toolbox-open .plan-agent-shell {
   z-index: 6;
 }
 
-.recap-node-token-wrap:hover .recap-node-hover-card,
-.recap-node-token-wrap:focus-within .recap-node-hover-card {
+.recap-node-token-wrap:not(.recap-node-glance):hover .recap-node-hover-card,
+.recap-node-token-wrap:not(.recap-node-glance):focus-within .recap-node-hover-card {
   display: grid;
 }
 

@@ -1,5 +1,10 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
+import {
+  readBottomObstacleTop,
+  resolveGlancePlacement,
+  type GlancePlacement,
+} from "./glancePlacement";
 import { presentationForNodeId, roleClass } from "./presentation";
 import type { GraphNodeGlancePresentation } from "./types";
 import "./graphReference.css";
@@ -46,6 +51,24 @@ function truncateThreadLabel(label: string): string {
   return `${trimmed.slice(0, MAX_THREAD_LABEL_CHARS - 1).trimEnd()}…`;
 }
 
+function measureGlancePlacement(
+  wrap: HTMLElement,
+  card: HTMLElement,
+): GlancePlacement {
+  card.dataset.measuring = "true";
+  const tokenRect = wrap.getBoundingClientRect();
+  const cardHeight = card.getBoundingClientRect().height;
+  delete card.dataset.measuring;
+
+  return resolveGlancePlacement({
+    tokenTop: tokenRect.top,
+    tokenBottom: tokenRect.bottom,
+    cardHeight,
+    viewportHeight: window.innerHeight,
+    obstacleTop: readBottomObstacleTop(),
+  });
+}
+
 export interface GraphNodeHoverTokenProps {
   presentation: GraphNodeGlancePresentation;
   label: string;
@@ -80,6 +103,14 @@ export function GraphNodeHoverToken({
   onFocus,
   onBlur,
 }: GraphNodeHoverTokenProps) {
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const cardRef = useRef<HTMLSpanElement>(null);
+  const [glance, setGlance] = useState<{ open: boolean; placement: GlancePlacement }>({
+    open: false,
+    placement: "below",
+  });
+  const { open, placement } = glance;
+
   const role = presentation.role || presentation.kind || "node";
   const focusSession = presentation.planningChips.some((chip) => chip.tone === "evidence");
   const normalizedDeltaStatus = deltaStatus ?? "unclassified";
@@ -90,13 +121,67 @@ export function GraphNodeHoverToken({
   const glanceType = typeLabel(presentation.role, presentation.kind);
   const glanceThreads = presentation.threadHints.slice(0, MAX_GLANCE_THREADS);
 
+  const activate = () => {
+    const wrap = wrapRef.current;
+    const card = cardRef.current;
+    // Measure while hidden, then open already on the correct side — no below→above flash.
+    const nextPlacement =
+      wrap && card ? measureGlancePlacement(wrap, card) : "below";
+    setGlance({ open: true, placement: nextPlacement });
+  };
+
+  const deactivate = () => {
+    setGlance({ open: false, placement: "below" });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+    const wrap = wrapRef.current;
+    const card = cardRef.current;
+    if (!wrap || !card) {
+      return;
+    }
+
+    const recompute = () => {
+      setGlance((current) => ({
+        ...current,
+        placement: measureGlancePlacement(wrap, card),
+      }));
+    };
+
+    window.addEventListener("resize", recompute);
+    window.addEventListener("scroll", recompute, true);
+    return () => {
+      window.removeEventListener("resize", recompute);
+      window.removeEventListener("scroll", recompute, true);
+    };
+  }, [open]);
+
   return (
     <span
-      className="recap-node-token-wrap"
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      onFocus={onFocus}
-      onBlur={onBlur}
+      ref={wrapRef}
+      className={`recap-node-token-wrap recap-node-glance${
+        placement === "above" ? " recap-node-glance--above" : ""
+      }`}
+      data-open={open ? "true" : "false"}
+      onMouseEnter={() => {
+        activate();
+        onMouseEnter?.();
+      }}
+      onMouseLeave={() => {
+        deactivate();
+        onMouseLeave?.();
+      }}
+      onFocus={() => {
+        activate();
+        onFocus?.();
+      }}
+      onBlur={() => {
+        deactivate();
+        onBlur?.();
+      }}
     >
       <button
         type="button"
@@ -116,7 +201,12 @@ export function GraphNodeHoverToken({
           <span className="graph-review-pill-delta-badge">{deltaLabel ?? normalizedDeltaStatus}</span>
         ) : null}
       </button>
-      <span className="recap-node-hover-card recap-planning-card" role="tooltip">
+      <span
+        ref={cardRef}
+        className="recap-node-hover-card recap-planning-card"
+        role="tooltip"
+        data-placement={placement}
+      >
         {glanceType ? <span className="recap-node-kind">{glanceType}</span> : null}
         {presentation.summary ? (
           <small className="recap-planning-summary">{presentation.summary}</small>

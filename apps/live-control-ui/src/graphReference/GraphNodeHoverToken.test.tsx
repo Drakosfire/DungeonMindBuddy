@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GraphNodeHoverToken } from "./GraphNodeHoverToken";
 import type { GraphNodeGlancePresentation } from "./types";
@@ -37,6 +37,11 @@ const presentation: GraphNodeGlancePresentation = {
 };
 
 describe("GraphNodeHoverToken", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
   it("renders a lean CSS hover glance without duplicated name/type chrome", () => {
     render(
       <GraphNodeHoverToken
@@ -48,7 +53,9 @@ describe("GraphNodeHoverToken", () => {
     );
 
     expect(screen.getByRole("button", { name: /Bubbles the Float Goat/i })).toBeInTheDocument();
-    const glance = document.querySelector(".recap-node-hover-card");
+    const wrap = document.querySelector(".recap-node-token-wrap.recap-node-glance");
+    expect(wrap).toBeInTheDocument();
+    const glance = wrap?.querySelector(".recap-node-hover-card");
     expect(glance).toBeInTheDocument();
     expect(glance).toHaveAttribute("role", "tooltip");
 
@@ -87,5 +94,63 @@ describe("GraphNodeHoverToken", () => {
 
     const kind = document.querySelector(".recap-node-hover-card .recap-node-kind");
     expect(kind?.textContent).toBe("npc · creature");
+  });
+
+  it("flips the glance above when Ask DungeonBuddy would cover it", () => {
+    const shell = document.createElement("div");
+    shell.className = "plan-agent-shell closed";
+    document.body.appendChild(shell);
+    Object.defineProperty(shell, "getBoundingClientRect", {
+      value: () => ({
+        top: 620,
+        bottom: 800,
+        left: 0,
+        right: 400,
+        width: 400,
+        height: 180,
+      }),
+    });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 800 });
+
+    render(
+      <GraphNodeHoverToken
+        presentation={presentation}
+        label={presentation.label}
+        pinned={false}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const wrap = document.querySelector(".recap-node-glance");
+    const card = wrap?.querySelector(".recap-node-hover-card");
+    expect(wrap).toBeTruthy();
+    expect(card).toBeTruthy();
+
+    Object.defineProperty(wrap!, "getBoundingClientRect", {
+      value: () => ({
+        top: 520,
+        bottom: 540,
+        left: 40,
+        right: 180,
+        width: 140,
+        height: 20,
+      }),
+    });
+    Object.defineProperty(card!, "getBoundingClientRect", {
+      value: () => ({
+        top: 0,
+        bottom: 140,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: 140,
+      }),
+    });
+
+    fireEvent.mouseEnter(wrap!);
+
+    expect(wrap).toHaveAttribute("data-open", "true");
+    expect(wrap).toHaveClass("recap-node-glance--above");
+    expect(card).toHaveAttribute("data-placement", "above");
   });
 });
