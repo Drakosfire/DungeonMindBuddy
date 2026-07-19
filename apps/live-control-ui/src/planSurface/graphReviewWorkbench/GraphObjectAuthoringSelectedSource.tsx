@@ -113,7 +113,8 @@ export function GraphObjectAuthoringSelectedSource({
       {isManual ? null : <SelectedSourceContext selection={selection} />}
 
       <p className="graph-object-authoring-selected-source-lede">
-        Draft only. Create object saves it to authored memory immediately.
+        Prefer binding this phrase as an alias of an existing node when one
+        matches. Create object is for genuinely new nodes.
       </p>
 
       <SourceDetailsPanel selection={selection} />

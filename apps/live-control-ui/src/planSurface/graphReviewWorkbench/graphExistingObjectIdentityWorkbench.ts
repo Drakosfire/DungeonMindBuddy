@@ -81,12 +81,14 @@ export function resolveCandidateToProjectionNodeId(
 
 export function buildLinkExistingFormStateFromResolverCandidate(
   candidate: GraphReviewExistingObjectCandidate,
+  options?: { aliasText?: string | null },
 ): GraphObjectAuthoringLinkExistingFormState {
+  const aliasText = (options?.aliasText ?? "").trim() || candidate.label;
   return {
     ...createDefaultGraphObjectAuthoringLinkExistingFormState(),
     existingObjectRef: buildObjectRefFromExistingObjectCandidate(candidate),
     operation: "alias",
-    aliasText: candidate.label,
+    aliasText,
   };
 }
 

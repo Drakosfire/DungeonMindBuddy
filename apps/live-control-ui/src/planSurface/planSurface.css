@@ -5856,6 +5856,71 @@ body.plan-toolbox-open .plan-agent-shell {
   font-style: italic;
 }
 
+.graph-object-authoring-bind-existing {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.75rem 0 0.35rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 0.6rem;
+  background: rgba(22, 25, 34, 0.55);
+}
+
+.graph-object-authoring-bind-existing-header h4 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: 0.98rem;
+}
+
+.graph-object-authoring-bind-existing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.graph-object-authoring-bind-existing-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: rgba(12, 14, 20, 0.35);
+}
+
+.graph-object-authoring-bind-existing-meta {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.graph-object-authoring-bind-existing-label {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.graph-object-authoring-bind-existing-subline {
+  margin: 0;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.78rem;
+}
+
+.graph-object-authoring-create-new-section {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border, #2a3142);
+}
+
+.graph-object-authoring-create-new-header h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.98rem;
+}
+
 .graph-object-authoring-surface-actions {
   display: flex;
   justify-content: flex-start;

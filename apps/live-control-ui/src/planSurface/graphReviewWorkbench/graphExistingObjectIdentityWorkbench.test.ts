@@ -96,6 +96,17 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     });
   });
 
+  it("prefers highlighted selection text as the alias when provided", () => {
+    expect(
+      buildLinkExistingFormStateFromResolverCandidate(lysandraParty, {
+        aliasText: "Lysandra",
+      }),
+    ).toMatchObject({
+      operation: "alias",
+      aliasText: "Lysandra",
+    });
+  });
+
   it("tracks canonical and duplicate selection without self-overlap", () => {
     let state = createEmptyIdentitySelection();
     state = setCanonicalCandidate(state, lysandraParty);
