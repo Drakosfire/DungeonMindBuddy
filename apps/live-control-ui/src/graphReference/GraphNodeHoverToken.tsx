@@ -4,6 +4,10 @@ import { presentationForNodeId, roleClass } from "./presentation";
 import type { GraphNodeGlancePresentation } from "./types";
 import "./graphReference.css";
 
+/** Tiny CSS glance: keep thread list short so hover stays scannable. */
+const MAX_GLANCE_THREADS = 2;
+const MAX_THREAD_LABEL_CHARS = 72;
+
 function PlanningScanSection({
   title,
   children,
@@ -17,6 +21,29 @@ function PlanningScanSection({
       {children}
     </div>
   );
+}
+
+function typeLabel(role: string, kind: string): string | null {
+  const normalizedRole = role.trim();
+  const normalizedKind = kind.trim();
+  if (!normalizedRole && !normalizedKind) {
+    return null;
+  }
+  if (!normalizedRole) {
+    return normalizedKind;
+  }
+  if (!normalizedKind || normalizedRole.toLowerCase() === normalizedKind.toLowerCase()) {
+    return normalizedRole;
+  }
+  return `${normalizedRole} · ${normalizedKind}`;
+}
+
+function truncateThreadLabel(label: string): string {
+  const trimmed = label.trim();
+  if (trimmed.length <= MAX_THREAD_LABEL_CHARS) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, MAX_THREAD_LABEL_CHARS - 1).trimEnd()}…`;
 }
 
 export interface GraphNodeHoverTokenProps {
@@ -60,6 +87,8 @@ export function GraphNodeHoverToken({
     normalizedDeltaStatus !== "unknown"
     && normalizedDeltaStatus !== "matched"
     && normalizedDeltaStatus !== "unclassified";
+  const glanceType = typeLabel(presentation.role, presentation.kind);
+  const glanceThreads = presentation.threadHints.slice(0, MAX_GLANCE_THREADS);
 
   return (
     <span
@@ -88,10 +117,7 @@ export function GraphNodeHoverToken({
         ) : null}
       </button>
       <span className="recap-node-hover-card recap-planning-card" role="tooltip">
-        <strong>{presentation.label}</strong>
-        <span className="recap-node-kind">
-          {presentation.role} · {presentation.kind}
-        </span>
+        {glanceType ? <span className="recap-node-kind">{glanceType}</span> : null}
         {presentation.summary ? (
           <small className="recap-planning-summary">{presentation.summary}</small>
         ) : null}
@@ -100,33 +126,21 @@ export function GraphNodeHoverToken({
             <small>{presentation.whyNow}</small>
           </PlanningScanSection>
         ) : null}
-        {presentation.knownBefore ? (
-          <PlanningScanSection title="Known before">
-            <small>{presentation.knownBefore}</small>
-          </PlanningScanSection>
-        ) : null}
         {deltaStatus && showDeltaBadge ? (
           <PlanningScanSection title="Graph review delta">
             <small>{deltaSummary ?? deltaLabel ?? deltaStatus}</small>
           </PlanningScanSection>
         ) : null}
-        {presentation.threadHints.length ? (
+        {glanceThreads.length ? (
           <PlanningScanSection title="Threads">
             <ul className="recap-planning-thread-list">
-              {presentation.threadHints.map((hint) => (
-                <li key={`${presentation.nodeId}:${hint.nodeId}`}>{hint.edgeLabel}</li>
+              {glanceThreads.map((hint) => (
+                <li key={`${presentation.nodeId}:${hint.nodeId}`}>
+                  {truncateThreadLabel(hint.edgeLabel)}
+                </li>
               ))}
             </ul>
           </PlanningScanSection>
-        ) : null}
-        {presentation.planningChips.length ? (
-          <span className="recap-node-chip-row">
-            {presentation.planningChips.map((chip) => (
-              <em key={`${presentation.nodeId}:${chip.label}`} data-tone={chip.tone}>
-                {chip.label}
-              </em>
-            ))}
-          </span>
         ) : null}
       </span>
     </span>
