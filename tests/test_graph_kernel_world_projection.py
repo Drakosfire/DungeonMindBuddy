@@ -2168,6 +2168,62 @@ def test_alias_embedded_provenance_materializes_before_projection(
     assert artifact_id in tripod.source_artifact_ids
 
 
+def test_active_node_assertion_summary_projects_onto_node_and_related_summary(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Node summaries live on active assertions, not union ``description``.
+
+    Insertable Plan chips / GraphObjectCard read ``summary`` from world
+    projection; dropping assertion summaries makes chips look empty of
+    projected info even when promote succeeded.
+    """
+    _initialize(tmp_path, loaded_bundle)
+    original_payload = _load_tripod_contribution_json(tmp_path)
+    original_node = next(
+        assertion
+        for assertion in _assertions_from_contribution_json(original_payload)
+        if assertion.assertion_kind == "node" and assertion.subject_node_id == TRIPOD_ID
+    )
+    summary_text = "Assertion-backed summary for projection chips."
+    updated_value = {**dict(original_node.value), "summary": summary_text}
+    stage = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=original_payload["source_artifact_id"],
+        source_revision_id="node-summary-projection-1",
+        accepted_assertions=[
+            assertion.model_copy(update={"value": updated_value})
+            if assertion.assertion_id == original_node.assertion_id
+            else assertion
+            for assertion in _assertions_from_contribution_json(original_payload)
+        ],
+        supersedes_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    result = kernel.supersede_graph_contribution(
+        tmp_path,
+        world_id=WORLD_ID,
+        new_contribution=stage,
+        superseded_contribution_id=TRIPOD_CONTRIBUTION_ID,
+    )
+    assert result.published is True
+
+    tripod = next(
+        node
+        for node in kernel.project_world_graph(tmp_path, _request()).nodes
+        if node.node_id == TRIPOD_ID
+    )
+    assert tripod.summary == summary_text
+
+    neighbor = next(
+        node
+        for node in kernel.project_world_graph(tmp_path, _request()).nodes
+        if any(edge.node_id == TRIPOD_ID for edge in node.adjacency)
+    )
+    related = next(edge for edge in neighbor.adjacency if edge.node_id == TRIPOD_ID)
+    assert related.related_summary == summary_text
+
+
 def test_multiple_active_node_assertions_union_aliases_and_historical_pin(
     tmp_path: Path,
     loaded_bundle,
@@ -2282,6 +2338,109 @@ def test_session_scoped_relationship_remains_focus_anchored_without_session_evid
     )
     assert candidate.anchored_to_focus_session is True
     assert expansion.anchored_to_focus_session is True
+
+
+def test_active_edge_assertions_tolerating_session_stamp_drift_union_session_ids(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Standing edges may be re-attested with a later session stamp.
+
+    Distinct assertion_ids (identity includes session_ids / temporal_scope) can
+    remain active on the same edge_id when core semantics agree. Projection must
+    union session_ids rather than refuse the head.
+    """
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    original_payload = _load_tripod_contribution_json(tmp_path)
+    original_assertion = next(
+        assertion
+        for assertion in _assertions_from_contribution_json(original_payload)
+        if assertion.assertion_kind == "edge"
+        and str(assertion.value.get("edge_id") or "") == edge_id
+    )
+    reattest = original_assertion.model_copy(
+        update={
+            "temporal_scope": {"session_id": "session-99"},
+            "value": {
+                **dict(original_assertion.value),
+                "session_ids": ["session-99"],
+            },
+        }
+    )
+    reattest_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="graph-native:test:edge-session-reattest",
+        source_revision_id="edge-session-reattest-1",
+        accepted_assertions=[reattest],
+    )
+    assert reattest_contribution.accepted_assertions[0].assertion_id != (
+        original_assertion.assertion_id
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=reattest_contribution,
+    )
+    assert merged.published is True
+
+    relationship = next(
+        item
+        for item in kernel.project_world_graph(tmp_path, _request()).relationships
+        if item.edge_id == edge_id
+    )
+    assert "session-99" in relationship.session_ids
+    assert FOCUS_SESSION_ID in relationship.session_ids or len(relationship.session_ids) >= 1
+
+
+def test_active_edge_assertions_still_reject_core_semantic_divergence(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    edge_id = (
+        "edge:threat:tripod-null-calf:appeared_in:"
+        "event:longmont-c2:session-23:mireward-gate-battle"
+    )
+    original_payload = _load_tripod_contribution_json(tmp_path)
+    original_assertion = next(
+        assertion
+        for assertion in _assertions_from_contribution_json(original_payload)
+        if assertion.assertion_kind == "edge"
+        and str(assertion.value.get("edge_id") or "") == edge_id
+    )
+    divergent = original_assertion.model_copy(
+        update={
+            "label": "appeared elsewhere",
+            "temporal_scope": {"session_id": "session-99"},
+            "value": {
+                **dict(original_assertion.value),
+                "session_ids": ["session-99"],
+            },
+        }
+    )
+    divergent_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="graph-native:test:edge-core-divergence",
+        source_revision_id="edge-core-divergence-1",
+        accepted_assertions=[divergent],
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=divergent_contribution,
+    )
+    assert merged.published is True
+
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        kernel.project_world_graph(tmp_path, _request())
+    assert exc_info.value.code == "projection_integrity_error"
+    assert "Active edge assertions disagree" in str(exc_info.value)
 
 
 @pytest.mark.parametrize("head_state", ["missing", "malformed"])

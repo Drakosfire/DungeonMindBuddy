@@ -18,6 +18,7 @@ from graph_memory.candidate_graph_to_contribution import (
     candidate_graph_to_contribution,
     kernel_kind_for_node_type,
     load_typed_candidate_graph,
+    map_candidate_edge_to_assertion,
     map_candidate_node_to_assertion,
     verify_source_revision,
 )
@@ -377,7 +378,29 @@ def test_verify_source_revision_hashes_file(tmp_path: Path) -> None:
         )
 
 
-def test_candidate_graph_maps_nodes_and_in_scope_edges_only() -> None:
+def test_party_registry_source_artifact_omits_session_id() -> None:
+    from graph_memory.candidate_graph_to_contribution import _source_artifact_payload
+
+    party = _source_artifact_payload(
+        source_artifact_id="artifact:party-registry:longmont-c1",
+        source_revision_id="sha256:deadbeef",
+        source_domain="party_registry",
+        campaign_id="longmont-c1",
+        session_id="session-4",
+        source_uri="repo://corpus/_party_registry.json",
+    )
+    assert "session_id" not in party
+
+    recap = _source_artifact_payload(
+        source_artifact_id="artifact:recap:session-4",
+        source_revision_id="sha256:deadbeef",
+        source_domain="recap",
+        campaign_id="longmont-c1",
+        session_id="session-4",
+        source_uri="repo://corpus/recap.md",
+    )
+    assert recap.get("session_id") == "session-4"
+
     contribution = candidate_graph_to_contribution(
         candidate_graph_preview_from_dict(_minimal_graph()),
         world_id="eldyrwild",
@@ -400,3 +423,31 @@ def test_candidate_graph_maps_nodes_and_in_scope_edges_only() -> None:
         a for a in contribution.candidate_assertions if a.assertion_kind == "node"
     ]
     assert len(node_assertions) == 2
+
+
+def test_party_registry_edge_omits_session_stamp() -> None:
+    preview = candidate_graph_preview_from_dict(_minimal_graph())
+    edge = preview.edges[0]
+    party = map_candidate_edge_to_assertion(
+        edge,
+        source_revision_id="sha256:deadbeef",
+        verified_source_artifact_id="artifact:recap:longmont-c2:session-22",
+        campaign_scope="longmont-c2",
+        source_domain="party_registry",
+        session_id="session-4",
+        campaign_id="longmont-c2",
+    )
+    assert "session_ids" not in party.value
+    assert party.temporal_scope is None
+
+    recap = map_candidate_edge_to_assertion(
+        edge,
+        source_revision_id="sha256:deadbeef",
+        verified_source_artifact_id="artifact:recap:longmont-c2:session-22",
+        campaign_scope="longmont-c2",
+        source_domain="recap",
+        session_id="session-4",
+        campaign_id="longmont-c2",
+    )
+    assert recap.value.get("session_ids") == ["session-4"]
+    assert recap.temporal_scope == {"session_id": "session-4"}

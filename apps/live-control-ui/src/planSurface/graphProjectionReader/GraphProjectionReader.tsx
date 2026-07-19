@@ -4,10 +4,14 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
 import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../api/types";
+import {
+  GraphNodeChipRuntimeProvider,
+  type GraphNodeChipDeltaPresentation,
+} from "../../graphReference";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
-import { setRecapGraphNodeRuntimeState, type RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
+import type { RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
 import {
   graphAuthoringSelectionsEqual,
   type GraphAuthoringAction,
@@ -34,7 +38,7 @@ export interface GraphProjectionReaderProps {
   documentLabel?: string;
   documentScroll?: "contained" | "page";
   resetKey?: string | null;
-  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
+  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation | GraphNodeChipDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   selectedSourceSpanId?: string | null;
   onActiveNodeChange?: (nodeId: string | null) => void;
@@ -67,7 +71,7 @@ function ReadOnlyTiptapRecap({
   onSelectNode: (nodeId: string) => void;
   sourceSpans: RecapProjectionSourceSpan[];
   selectedEvidenceSpanId: string | null;
-  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation>;
+  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation | GraphNodeChipDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   authoringEnabled?: boolean;
   authoringContext?: GraphAuthoringContext;
@@ -102,9 +106,15 @@ function ReadOnlyTiptapRecap({
     editor?.commands.setContent(content, false);
   }, [content, editor]);
 
-  useEffect(() => {
-    setRecapGraphNodeRuntimeState({ nodeViews, activeNodeId, onSelectNode, deltaByNodeId: nodeDeltaPresentations ?? {} });
-  }, [nodeViews, activeNodeId, onSelectNode, nodeDeltaPresentations]);
+  const chipRuntime = useMemo(
+    () => ({
+      nodeViews,
+      activeNodeId,
+      onSelectNode,
+      deltaByNodeId: nodeDeltaPresentations ?? {},
+    }),
+    [nodeViews, activeNodeId, onSelectNode, nodeDeltaPresentations],
+  );
 
   useEffect(() => {
     const root = readerRef.current;
@@ -116,9 +126,11 @@ function ReadOnlyTiptapRecap({
   }, [content, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
 
   return (
-    <div className="union-supergraph-tiptap-reader" ref={readerRef}>
-      <EditorContent editor={editor} />
-    </div>
+    <GraphNodeChipRuntimeProvider value={chipRuntime}>
+      <div className="union-supergraph-tiptap-reader" ref={readerRef}>
+        <EditorContent editor={editor} />
+      </div>
+    </GraphNodeChipRuntimeProvider>
   );
 }
 

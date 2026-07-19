@@ -72,6 +72,10 @@ class ExpandGraphRetrievalRequest(BaseModel):
     - object / support: exactly one effective node
     - neighborhood: 1–8 effective seeds (no silent search fallback)
     - search: 0–8 seed nodes
+
+    Operation choice: neighborhood for relationships/connections/multi-entity;
+    object for one entity card; support for one entity's evidence; search for
+    discovery without a pinned node.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)

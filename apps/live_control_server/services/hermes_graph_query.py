@@ -90,6 +90,8 @@ PARTIAL_OUTCOMES = frozenset({"partial", "truncated"})
 UNAVAILABLE_OUTCOME = "unavailable"
 WORLD_GRAPH_UNAVAILABLE_CODE = "world_graph_unavailable"
 GRAPH_TOOL_ERROR_CODE = "hermes_graph_tool_error"
+# Cardinality/request-shape failures: soft when the claim ledger already has facts.
+RECOVERABLE_WHEN_CLAIMS_LANDED = frozenset({"too_many_targets", "ambiguous_target"})
 
 MAX_HERMES_HISTORY_MESSAGES = 12
 MAX_HERMES_HISTORY_MESSAGE_CHARS = 4000
@@ -683,6 +685,31 @@ def _error_code_from_tool_events(events: Sequence[HermesGraphToolEvent]) -> tupl
     return GRAPH_TOOL_ERROR_CODE, [GRAPH_TOOL_ERROR_CODE]
 
 
+def _has_landed_factual_claims(session: GraphRetrievalSession) -> bool:
+    return any(claim.may_state_as_campaign_fact() for claim in session.claims)
+
+
+def _is_recoverable_tool_error(event: HermesGraphToolEvent) -> bool:
+    code, _ = _error_code_from_tool_events([event])
+    return code in RECOVERABLE_WHEN_CLAIMS_LANDED
+
+
+def _hydrate_retrieval_session(
+    result: HermesGraphAgentTurnResult,
+    *,
+    retrieval_session: GraphRetrievalSession | None = None,
+) -> GraphRetrievalSession | None:
+    session = retrieval_session
+    if session is None and result.retrieval_session is not None:
+        try:
+            session = hydrate_session_from_packet(result.retrieval_session)
+        except Exception:
+            session = None
+    if session is None and result.retrieval_session_id:
+        session = get_session(result.retrieval_session_id)
+    return session
+
+
 def _graph_tool_event_count(events: Sequence[HermesGraphToolEvent]) -> int:
     return sum(1 for event in events if event.tool_name in HERMES_GRAPH_READ_TOOL_NAMES)
 
@@ -746,26 +773,34 @@ def classify_hermes_graph_result(
             {"state": "execution_error", "reason_codes": [error_code]},
         )
 
-    unrecovered_errors = _unrecovered_error_events(result.tool_events, scope)
-    if unrecovered_errors:
-        error_code, diagnostic_codes = _error_code_from_tool_events(unrecovered_errors)
-        return (
-            "error",
-            EXECUTION_ERROR_ANSWER,
-            [],
-            diagnostic_codes,
-            error_code,
-            {"state": "execution_error", "reason_codes": diagnostic_codes},
-        )
+    # Hydrate before unrecovered-error short-circuit so cardinality failures can
+    # soft-recover when the claim ledger already has factual claims.
+    session = _hydrate_retrieval_session(result, retrieval_session=retrieval_session)
 
-    session = retrieval_session
-    if session is None and result.retrieval_session is not None:
-        try:
-            session = hydrate_session_from_packet(result.retrieval_session)
-        except Exception:
-            session = None
-    if session is None and result.retrieval_session_id:
-        session = get_session(result.retrieval_session_id)
+    unrecovered_errors = _unrecovered_error_events(result.tool_events, scope)
+    recoverable_codes: list[str] = []
+    if unrecovered_errors:
+        if session is not None and _has_landed_factual_claims(session):
+            fatal_errors = [
+                event
+                for event in unrecovered_errors
+                if not _is_recoverable_tool_error(event)
+            ]
+            if not fatal_errors:
+                _, recoverable_codes = _error_code_from_tool_events(unrecovered_errors)
+                unrecovered_errors = []
+            else:
+                unrecovered_errors = fatal_errors
+        if unrecovered_errors:
+            error_code, diagnostic_codes = _error_code_from_tool_events(unrecovered_errors)
+            return (
+                "error",
+                EXECUTION_ERROR_ANSWER,
+                [],
+                diagnostic_codes,
+                error_code,
+                {"state": "execution_error", "reason_codes": diagnostic_codes},
+            )
 
     if session is not None:
         explicit_scope = (
@@ -805,11 +840,22 @@ def classify_hermes_graph_result(
                 "lag_disclosure": validated.support_lag_text,
                 "admitted_recap_excerpt": validated.support_excerpt_text,
             }
+        warnings = list(validated.warnings)
+        diagnostic_codes = list(
+            dict.fromkeys([*validated.diagnostic_codes, *recoverable_codes])
+        )
+        for code in recoverable_codes:
+            warning = (
+                f"Recovered past expand cardinality error ({code}); "
+                "answering from landed claims."
+            )
+            if warning not in warnings:
+                warnings.append(warning)
         return (
             legacy_state,
             validated.answer_text,
-            list(validated.warnings),
-            list(validated.diagnostic_codes),
+            warnings,
+            diagnostic_codes,
             None,
             acceptance,
         )

@@ -234,8 +234,32 @@ def candidate_graph_preview_from_dict(data: Mapping[str, Any]) -> CandidateGraph
         edges=tuple(CandidateEdge(**{**e, "semantic_state": semantic_state_from_dict(e["semantic_state"]), "evidence_refs": _refs(e.get("evidence_refs", ())), "warnings": tuple(e.get("warnings", ()))}) for e in data.get("edges", ())),
         beats=tuple(SessionBeat(**{**b, "involved_node_ids": tuple(b.get("involved_node_ids", ())), "evidence_refs": _refs(b.get("evidence_refs", ())), "unresolved_thread_node_ids": tuple(b.get("unresolved_thread_node_ids", ())), "warnings": tuple(b.get("warnings", ()))}) for b in data.get("beats", ())),
         proposed_writes=tuple(ProposedWrite(**{**w, "evidence_refs": _refs(w.get("evidence_refs", ()))}) for w in data.get("proposed_writes", ())),
-        ignored_items=tuple(IgnoredItem(**{**i, "evidence_refs": _refs(i.get("evidence_refs", ())), "warnings": tuple(i.get("warnings", ()))}) for i in data.get("ignored_items", ())),
-        deferred_items=tuple(DeferredItem(**{**d, "evidence_refs": _refs(d.get("evidence_refs", ())), "warnings": tuple(d.get("warnings", ()))}) for d in data.get("deferred_items", ())),
+        ignored_items=tuple(
+            IgnoredItem(
+                item_id=str(i.get("item_id") or ""),
+                label=str(i.get("label") or ""),
+                reason=str(i.get("reason") or ""),
+                evidence_refs=_refs(i.get("evidence_refs", ())),
+                warnings=tuple(i.get("warnings", ())),
+            )
+            for i in data.get("ignored_items", ())
+        ),
+        # Deferred may carry suggested_next_step; ignored must not — strip extras.
+        deferred_items=tuple(
+            DeferredItem(
+                item_id=str(d.get("item_id") or ""),
+                label=str(d.get("label") or ""),
+                reason=str(d.get("reason") or ""),
+                evidence_refs=_refs(d.get("evidence_refs", ())),
+                suggested_next_step=(
+                    None
+                    if d.get("suggested_next_step") is None
+                    else str(d.get("suggested_next_step"))
+                ),
+                warnings=tuple(d.get("warnings", ())),
+            )
+            for d in data.get("deferred_items", ())
+        ),
         diagnostics=PreviewDiagnostics(**data["diagnostics"]),
     )
 

@@ -1,4 +1,5 @@
 import { mergeAttributes, Node } from "@tiptap/core";
+import { ReactNodeViewRenderer } from "@tiptap/react";
 
 import {
   isSupportedRunbookReference,
@@ -6,6 +7,7 @@ import {
   runbookReferenceClasses,
   type RunbookReferenceAttrs,
 } from "../references/runbookReferences";
+import { RunbookReferenceView } from "./RunbookReferenceView";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -47,6 +49,10 @@ export const RunbookReferenceNode = Node.create({
       }),
       attrs.label,
     ];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(RunbookReferenceView);
   },
 
   addCommands() {

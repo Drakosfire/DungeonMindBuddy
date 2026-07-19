@@ -74,6 +74,8 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                     "that was provided for this turn. Scope/revision are server-enforced. "
                     "object/support require exactly one node target; neighborhood requires "
                     "1–8 seeds (no silent search fallback); search allows 0–8 seed nodes. "
+                    "For relationship or multi-entity questions, prefer neighborhood with "
+                    "1–8 seeds. Call object or support separately for each single node. "
                     "Use this instead of rediscovering objects independently. "
                     "Do not open Markdown or corpus files directly on a graph gap."
                 ),

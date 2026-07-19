@@ -1366,10 +1366,46 @@ describe("PlanSurfaceShell", () => {
     expect(within(projection).getByLabelText(/North Reach Gate corpus fallback object/i)).toBeInTheDocument();
     expect(within(projection).getByText(/Location reference resolved from corpus index/i)).toBeInTheDocument();
     expect(within(projection).queryByLabelText(/selected object/i)).not.toBeInTheDocument();
+    expect(document.querySelector(".plan-toolbox-backdrop")).toHaveAttribute("hidden");
     expect(fetchSpy).toHaveBeenCalledWith(
       "/api/live/world-graph/projection",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("keeps a modal backdrop for tool projections but not reference glances", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/live/recap-artifacts")) {
+        return { ok: true, json: async () => ({ records: [] }) } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          locations: [{
+            index_id: "north-reach-gate",
+            title: "North Reach Gate",
+            corpus_display_path: "corpus/locations/north_reach_gate.md",
+          }],
+        }),
+      } as Response;
+    });
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    expect(screen.getByRole("complementary", { name: /Recap projection/i })).toBeInTheDocument();
+    expect(document.querySelector(".plan-toolbox-backdrop")).not.toHaveAttribute("hidden");
+
+    const canvas = screen.getByTestId("plan-surface-canvas-editor");
+    const chip = canvas.querySelector(".md-ref-chip") as HTMLElement;
+    fireEvent.click(chip);
+
+    await waitFor(() => {
+      expect(screen.getByRole("complementary", { name: /North Reach Gate projection/i })).toBeInTheDocument();
+    });
+    expect(document.querySelector(".plan-toolbox-backdrop")).toHaveAttribute("hidden");
   });
 
   it("shows Markdown save control in the edit toolbar", async () => {

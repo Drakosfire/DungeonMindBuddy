@@ -150,3 +150,37 @@ def test_encounter_and_quest_candidate_preview_round_trips_and_validates():
     assert {node.node_type for node in round_tripped.nodes} == {"combat_encounter", "quest"}
     assert report.issue_counts == {}
     assert report.issues == ()
+
+
+def test_ignored_item_strips_suggested_next_step_on_load():
+    """LLM disposition schema may emit suggested_next_step on ignored items;
+    CandidateGraphPreview IR only admits it on deferred items."""
+    payload = _preview_payload([_node("creature", "Bubbles the Float Goat")])
+    payload["ignored_items"] = [
+        {
+            "item_id": "ignored:extra-step",
+            "label": "Stray NPC mention",
+            "reason": "Not in scope for this pass",
+            "evidence_refs": [_evidence_ref("ignored")],
+            "suggested_next_step": "Extract in character pass",
+            "warnings": [],
+        }
+    ]
+    payload["deferred_items"] = [
+        {
+            "item_id": "deferred:keep-step",
+            "label": "Open thread",
+            "reason": "Needs follow-up",
+            "evidence_refs": [_evidence_ref("deferred")],
+            "suggested_next_step": "Revisit next session",
+            "warnings": [],
+        }
+    ]
+
+    preview = candidate_graph_preview_from_dict(payload)
+
+    assert len(preview.ignored_items) == 1
+    assert not hasattr(preview.ignored_items[0], "suggested_next_step") or getattr(
+        preview.ignored_items[0], "suggested_next_step", None
+    ) is None
+    assert preview.deferred_items[0].suggested_next_step == "Revisit next session"

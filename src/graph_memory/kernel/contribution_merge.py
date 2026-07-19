@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.kernel.contribution_models import (
@@ -38,6 +38,7 @@ from graph_memory.union_supergraph.model import (
     UnionSupergraphStore,
 )
 from graph_memory.world_supergraph.contribution_store import (
+
     load_contribution_index,
     load_contribution_record,
     save_contribution_index,
@@ -410,6 +411,26 @@ def _ensure_evidence(
     evidence[evidence_ref_id] = UnionSupergraphEvidence.model_validate(payload)
 
 
+def _source_artifact_compatible(
+    existing: Mapping[str, Any],
+    incoming: Mapping[str, Any],
+) -> bool:
+    """True when artifacts match for merge, allowing session_id-only drift.
+
+    Campaign-stable registries (party_registry) may reappear on later session
+    promotes with a different session stamp but identical content digest.
+    """
+    if existing == incoming:
+        return True
+    if existing.get("content_sha256") != incoming.get("content_sha256"):
+        return False
+    if not existing.get("content_sha256"):
+        return False
+    existing_core = {k: v for k, v in existing.items() if k != "session_id"}
+    incoming_core = {k: v for k, v in incoming.items() if k != "session_id"}
+    return existing_core == incoming_core
+
+
 def _materialize_assertion_provenance(
     store: UnionSupergraphStore,
     assertion: GraphContributionAssertion,
@@ -454,13 +475,19 @@ def _materialize_assertion_provenance(
             )
         artifact = UnionSupergraphSourceArtifact.model_validate(artifact_payload)
         existing = artifacts.get(artifact_id)
-        if existing is not None and existing.model_dump(mode="json") != artifact.model_dump(
-            mode="json"
-        ):
-            raise ValueError(
-                f"{context} assertion {assertion.assertion_id} source artifact "
-                f"{artifact_id!r} disagrees with existing artifact"
-            )
+        if existing is not None:
+            existing_dump = existing.model_dump(mode="json")
+            incoming_dump = artifact.model_dump(mode="json")
+            if existing_dump != incoming_dump:
+                # Campaign-stable registries often re-promote with a new
+                # session_id stamp while content_sha256 is unchanged. Keep the
+                # existing record when that is the only disagreement.
+                if not _source_artifact_compatible(existing_dump, incoming_dump):
+                    raise ValueError(
+                        f"{context} assertion {assertion.assertion_id} source artifact "
+                        f"{artifact_id!r} disagrees with existing artifact"
+                    )
+                artifact = existing
         artifacts[artifact_id] = artifact
 
     for evidence_payload in value.get("evidence") or []:

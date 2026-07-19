@@ -203,14 +203,10 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 ## [READY] Graph Review inline hover/card consolidation — captured 2026-07-07
 
 **Context:** A10f moved selected-object actions into the node card and removed gold-fixture action copy from the normal selected-object path. The pill hover card and projected selected-object card still duplicate some summary content.
-
 **Insight:** Clicking a pill may still open an inline popover *and* a fuller selected-object dialog — two overlapping presentations of the same object. Actions and resolver ordering is improved, but hover vs projected card duplication remains.
-
-**Action:** Decide whether hover should become a tiny glance only, with the projected selected-object card as the sole full object surface.
-
+**Action:** Shared CSS hover glance now lives in `apps/live-control-ui/src/graphReference/` (Plan + Ingest TipTap). Remaining work: keep hover as tiny glance only; ensure Graph Review click path does not also open a redundant inline popover when the projected selected-object card is the sole full surface.
 **Surfaces when:** `GraphReviewProjectionLane.tsx`, hover/popover components, any further Graph Review dogfood.
-
-**Refs:** `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`, A10f selected-object action card polish
+**Refs:** `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`, A10f selected-object action card polish, `apps/live-control-ui/src/graphReference/`
 
 ## [IDEA] Editable recap draft mode — captured 2026-07-07
 

@@ -34,6 +34,10 @@ export interface UsePlanGraphReferenceResolverResult {
   projection: WorldGraphProjection | null;
   projectionState: PlanGraphProjectionState;
   projectionError: string | null;
+  /** Dogfood: last projection load duration in ms (null until a terminal outcome). */
+  lastProjectionLoadMs: number | null;
+  /** Dogfood: last projection load outcome. */
+  lastProjectionLoadOutcome: PlanGraphProjectionState | null;
   resolvePlanReference: (ref: RunbookReferenceAttrs) => Promise<PlanReferenceResolution>;
   resolvePlanRelationship: (
     relationship: GraphObjectRelationshipViewModel,
@@ -42,6 +46,54 @@ export interface UsePlanGraphReferenceResolverResult {
 
 const PlanGraphReferenceResolverContext =
   createContext<UsePlanGraphReferenceResolverResult | null>(null);
+
+let projectionLoadGeneration = 0;
+
+function markProjectionLoadStart(): string {
+  projectionLoadGeneration += 1;
+  const markName = `dmb:wg-projection:start:${projectionLoadGeneration}`;
+  if (typeof performance !== "undefined" && typeof performance.mark === "function") {
+    performance.mark(markName);
+  }
+  return markName;
+}
+
+function measureProjectionLoad(
+  startMark: string,
+  outcome: PlanGraphProjectionState,
+  meta: {
+    campaignId: string;
+    scopeMode: string;
+    focusSessionId: string | null;
+  },
+): number | null {
+  const endMark = `dmb:wg-projection:end:${projectionLoadGeneration}`;
+  const measureName = `dmb:wg-projection:load:${projectionLoadGeneration}`;
+  let durationMs: number | null = null;
+  if (typeof performance !== "undefined" && typeof performance.mark === "function") {
+    performance.mark(endMark);
+    try {
+      if (typeof performance.measure === "function") {
+        performance.measure(measureName, startMark, endMark);
+        const entries = performance.getEntriesByName(measureName);
+        const last = entries[entries.length - 1];
+        if (last) {
+          durationMs = Math.round(last.duration);
+        }
+      }
+    } catch {
+      durationMs = null;
+    }
+  }
+  console.debug("[dmb] world-graph projection", {
+    campaignId: meta.campaignId,
+    scopeMode: meta.scopeMode,
+    focusSessionId: meta.focusSessionId,
+    outcome,
+    durationMs,
+  });
+  return durationMs;
+}
 
 function isWorldGraphUnavailable(error: unknown): boolean {
   return (
@@ -193,6 +245,8 @@ function usePlanGraphReferenceResolverLoad(
   const [projection, setProjection] = useState<WorldGraphProjection | null>(null);
   const [projectionState, setProjectionState] = useState<PlanGraphProjectionState>("loading");
   const [projectionError, setProjectionError] = useState<string | null>(null);
+  const [lastProjectionLoadMs, setLastProjectionLoadMs] = useState<number | null>(null);
+  const [lastProjectionLoadOutcome, setLastProjectionLoadOutcome] = useState<PlanGraphProjectionState | null>(null);
   const [revisionEventBump, setRevisionEventBump] = useState(0);
   const graphLens = useOptionalPlanGraphLens();
 
@@ -226,12 +280,27 @@ function usePlanGraphReferenceResolverLoad(
         setProjection(null);
         setProjectionState("unavailable");
         setProjectionError(null);
+        setLastProjectionLoadMs(null);
+        setLastProjectionLoadOutcome("unavailable");
         return;
       }
 
       setProjection(null);
       setProjectionState("loading");
       setProjectionError(null);
+      const startMark = markProjectionLoadStart();
+      const focusSessionId =
+        context.focus.kind === "session" ? context.focus.sessionId : null;
+
+      const finish = (outcome: PlanGraphProjectionState) => {
+        const durationMs = measureProjectionLoad(startMark, outcome, {
+          campaignId: context.campaignId,
+          scopeMode: context.scopeMode,
+          focusSessionId,
+        });
+        setLastProjectionLoadMs(durationMs);
+        setLastProjectionLoadOutcome(outcome);
+      };
 
       try {
         const response = await postWorldGraphProjection(
@@ -240,16 +309,19 @@ function usePlanGraphReferenceResolverLoad(
         if (cancelled) return;
         setProjection(response);
         setProjectionState("ready");
+        finish("ready");
       } catch (error) {
         if (cancelled) return;
         setProjection(null);
         if (isWorldGraphUnavailable(error)) {
           setProjectionState("unavailable");
           setProjectionError(null);
+          finish("unavailable");
           return;
         }
         setProjectionState("error");
         setProjectionError(formatProjectionLoadError(error));
+        finish("error");
       }
     }
 
@@ -283,6 +355,8 @@ function usePlanGraphReferenceResolverLoad(
     projection,
     projectionState,
     projectionError,
+    lastProjectionLoadMs,
+    lastProjectionLoadOutcome,
     resolvePlanReference,
     resolvePlanRelationship,
   };

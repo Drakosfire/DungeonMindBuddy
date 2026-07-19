@@ -59,6 +59,44 @@ from graph_memory.kernel import create_graph_contribution
 _SOURCE_ROOT_NAMES = ("corpus", "Docs", "evals", "tmp")
 
 
+def _merge_refused_message(payload: Mapping[str, Any]) -> str:
+    """Prefer the kernel merge diagnostic over a generic publish refusal."""
+    merge = payload.get("merge")
+    diagnostics: list[Any] = []
+    if isinstance(merge, Mapping):
+        diagnostics = list(merge.get("diagnostics") or [])
+        last = merge.get("last")
+        if isinstance(last, Mapping) and not diagnostics:
+            diagnostics = list(last.get("diagnostics") or [])
+    for item in diagnostics:
+        text = str(item).strip()
+        if text.startswith("merge_failed:"):
+            return text.removeprefix("merge_failed:").strip() or text
+        if "disagrees with existing artifact" in text or "merge_failed" in text:
+            return text
+    if diagnostics:
+        return str(diagnostics[0])
+    return "merge did not publish"
+
+
+def _merge_refused_diagnostics(
+    payload: Mapping[str, Any],
+) -> list[ExtractPromoteDiagnostic]:
+    merge = payload.get("merge")
+    raw: list[Any] = []
+    if isinstance(merge, Mapping):
+        raw = list(merge.get("diagnostics") or [])
+        last = merge.get("last")
+        if isinstance(last, Mapping) and not raw:
+            raw = list(last.get("diagnostics") or [])
+    out: list[ExtractPromoteDiagnostic] = []
+    for item in raw[:8]:
+        text = str(item).strip()
+        if text:
+            out.append(_diagnostic("merge_refused", text))
+    return out
+
+
 class ExtractPromoteError(ValueError):
     """Stable, safe service error for API boundaries."""
 
@@ -536,10 +574,13 @@ def _confirm_outcome_from_ops(
         return "published_audit_degraded", True, "degraded", warnings
 
     raise ExtractPromoteError(
-        "merge did not publish",
+        _merge_refused_message(payload),
         code="merge_did_not_publish",
         status_code=409,
-        diagnostics=[_diagnostic("merge_did_not_publish", "merge did not publish")],
+        diagnostics=[
+            _diagnostic("merge_did_not_publish", _merge_refused_message(payload)),
+            *_merge_refused_diagnostics(payload),
+        ],
         failure_payload=dict(payload),
     )
 
@@ -743,10 +784,13 @@ def confirm(
 
     if not result.ok and not published and outcome_text != "already_applied":
         raise ExtractPromoteError(
-            "merge did not publish",
+            _merge_refused_message(payload),
             code="merge_did_not_publish",
             status_code=409,
-            diagnostics=[_diagnostic("merge_did_not_publish", "merge did not publish")],
+            diagnostics=[
+                _diagnostic("merge_did_not_publish", _merge_refused_message(payload)),
+                *_merge_refused_diagnostics(payload),
+            ],
             failure_payload=dict(payload),
         )
 

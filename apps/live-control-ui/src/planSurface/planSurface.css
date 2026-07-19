@@ -1347,6 +1347,12 @@
   display: none !important;
 }
 
+/* Defense in depth: reference content must never block canvas chip hit-testing. */
+.plan-toolbox.tool-reference .plan-toolbox-backdrop {
+  display: none !important;
+  pointer-events: none;
+}
+
 .plan-toolbox-nav {
   display: flex;
   flex-wrap: wrap;
@@ -3812,6 +3818,13 @@ body.plan-toolbox-open .plan-agent-shell {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.graph-review-extract-promote-disabled-reason {
+  margin: 0;
+  color: var(--plan-muted, #6b645c);
+  font-size: 0.9rem;
+  line-height: 1.35;
 }
 
 .graph-review-extract-promote-error {

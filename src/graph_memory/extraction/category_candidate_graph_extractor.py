@@ -645,7 +645,8 @@ def _normalize_disposition(raw: Mapping[str, Any], prefix: str) -> dict[str, Any
         "evidence_refs": _normalize_evidence_refs(raw.get("evidence_refs")),
         "warnings": list(raw.get("warnings") or []),
     }
-    if raw.get("suggested_next_step"):
+    # suggested_next_step is DeferredItem-only in CandidateGraphPreview IR.
+    if prefix == "deferred" and raw.get("suggested_next_step"):
         out["suggested_next_step"] = str(raw.get("suggested_next_step"))
     return out
 

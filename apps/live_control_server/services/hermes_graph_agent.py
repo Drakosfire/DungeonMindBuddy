@@ -104,6 +104,10 @@ Factual retrieval rules:
   When you use cross-campaign evidence, name the campaign and session provenance
   explicitly so the GM can see attribution.
 - Use expand_graph_retrieval for object/neighborhood/search/support.
+- For relationships, connections, or multi-entity questions, use neighborhood with
+  1–8 seed nodes. Use object or support for one node at a time; repeat the call
+  per node. Use search when discovering or anchoring without a pinned node
+  (0–8 seeds).
 - Use read_graph_source only for quotation, exact detail, conflict checks, or when
   claim policy requires source verification. Accepted graph claims may be stated as
   graph-grounded facts without a source read.

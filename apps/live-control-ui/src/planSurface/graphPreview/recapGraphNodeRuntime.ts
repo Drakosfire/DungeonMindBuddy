@@ -1,50 +1,33 @@
-import { useSyncExternalStore } from "react";
-
 import type { GraphProjectionNodeView } from "../../api/types";
+import {
+  setGraphNodeChipRuntimeState,
+  useGraphNodeChipRuntime,
+  type GraphNodeChipDeltaPresentation,
+  type GraphNodeChipRuntimeValue,
+} from "../../graphReference";
 
-export interface RecapGraphNodeDeltaPresentation {
-  status: "matched" | "live_only" | "comparator_uncertain" | "unclassified";
-  label: string;
-  summary?: string | null;
-}
+/** @deprecated Prefer GraphNodeChipDeltaPresentation from graphReference. */
+export type RecapGraphNodeDeltaPresentation = GraphNodeChipDeltaPresentation;
 
-export interface RecapGraphNodeRuntimeState {
-  nodeViews: Record<string, GraphProjectionNodeView>;
-  activeNodeId: string | null;
-  onSelectNode: (nodeId: string) => void;
-  deltaByNodeId?: Record<string, RecapGraphNodeDeltaPresentation>;
-}
+/** @deprecated Prefer GraphNodeChipRuntimeValue from graphReference. */
+export type RecapGraphNodeRuntimeState = GraphNodeChipRuntimeValue;
 
-const defaultState: RecapGraphNodeRuntimeState = {
-  nodeViews: {},
-  activeNodeId: null,
-  onSelectNode: () => undefined,
-  deltaByNodeId: {},
-};
-
-let runtimeState: RecapGraphNodeRuntimeState = defaultState;
-const listeners = new Set<() => void>();
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function emit() {
-  for (const listener of listeners) {
-    listener();
-  }
-}
-
+/** @deprecated Prefer GraphNodeChipRuntimeProvider / setGraphNodeChipRuntimeState. */
 export function setRecapGraphNodeRuntimeState(next: RecapGraphNodeRuntimeState): void {
-  runtimeState = next;
-  emit();
+  setGraphNodeChipRuntimeState(next);
 }
 
 export function getRecapGraphNodeRuntimeState(): RecapGraphNodeRuntimeState {
-  return runtimeState;
+  // Transitional: TipTap views should use useGraphNodeChipRuntime.
+  return {
+    nodeViews: {} as Record<string, GraphProjectionNodeView>,
+    activeNodeId: null,
+    onSelectNode: () => undefined,
+    deltaByNodeId: {},
+  };
 }
 
+/** @deprecated Prefer useGraphNodeChipRuntime from graphReference. */
 export function useRecapGraphNodeRuntimeState(): RecapGraphNodeRuntimeState {
-  return useSyncExternalStore(subscribe, getRecapGraphNodeRuntimeState, getRecapGraphNodeRuntimeState);
+  return useGraphNodeChipRuntime();
 }

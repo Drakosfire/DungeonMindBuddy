@@ -101,6 +101,9 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
   }, [close, isOpen]);
 
   const containerClass = projectionContainerClass(active?.size);
+  // Reference glances must leave the canvas interactive so chips stay clickable
+  // while a card is open. Modal backdrop stays for tool projections only.
+  const showModalBackdrop = isOpen && active?.kind === "tool";
   const rootClass = [
     "plan-toolbox",
     isOpen ? "open" : "",
@@ -124,7 +127,7 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
       </button>
       <div
         className="plan-toolbox-backdrop"
-        hidden={!isOpen}
+        hidden={!showModalBackdrop}
         onClick={close}
         aria-hidden="true"
       />

@@ -88,6 +88,22 @@ function outcomeLabel(outcome: ExtractPromoteConfirmReceipt["outcome"]): string 
 
 function confirmErrorMessage(error: unknown): string {
   if (error instanceof ExtractPromoteApiError) {
+    const diagnostics = error.body?.diagnostics;
+    if (Array.isArray(diagnostics) && diagnostics.length > 0) {
+      const detail = diagnostics
+        .map((item) => {
+          if (typeof item === "string") return item.trim();
+          if (item && typeof item === "object" && "message" in item) {
+            return String((item as { message?: unknown }).message ?? "").trim();
+          }
+          return "";
+        })
+        .filter(Boolean)
+        .find((message) => message !== "merge did not publish");
+      if (detail) {
+        return detail;
+      }
+    }
     return error.message;
   }
   if (error instanceof Error) {

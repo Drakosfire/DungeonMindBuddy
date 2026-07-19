@@ -1404,3 +1404,86 @@ def test_failed_retract_does_not_mark_contribution_retracted(
     )
     assert contribution.contribution_id in index["active_contribution_ids"]
     assert contribution.contribution_id not in index["retracted_contribution_ids"]
+
+
+def test_party_registry_source_artifact_session_id_drift_allows_merge(seeded_root) -> None:
+    """Re-promoting standing registry with a new session stamp must not refuse merge."""
+    root, parent = seeded_root
+    artifact_id = "artifact:party-registry:longmont-c1"
+    digest = "abc123digest"
+
+    def _party_attribute(*, session_id: str, contribution_rev: str, attribute: str):
+        evidence_ref_id = f"evidence:{artifact_id}:{attribute}"
+        assertion = kernel.build_assertion(
+            assertion_kind="attribute",
+            acceptance_state="accepted",
+            subject_node_id="loc_mirathorn",
+            value={
+                "attribute": attribute,
+                "text": f"value for {attribute}",
+                "source_domains": ["party_registry"],
+                "evidence": [
+                    {
+                        "evidence_ref_id": evidence_ref_id,
+                        "source_artifact_id": artifact_id,
+                        "source_domain": "party_registry",
+                        "session_id": session_id,
+                        "source_span_ref_id": f"{artifact_id}:standing",
+                    }
+                ],
+                "source_artifacts": [
+                    {
+                        "source_artifact_id": artifact_id,
+                        "source_domain": "party_registry",
+                        "campaign_id": "longmont-c1",
+                        "content_sha256": digest,
+                        "session_id": session_id,
+                        "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json",
+                    }
+                ],
+            },
+            evidence_ref_ids=[evidence_ref_id],
+            source_artifact_id=artifact_id,
+            source_revision_id=f"sha256:{digest}",
+            campaign_scope="longmont-c1",
+            epistemic_kind="fact",
+            visibility="gm",
+            identity_resolution_outcome="resolved_existing",
+        )
+        return kernel.create_graph_contribution(
+            world_id=WORLD_ID,
+            source_kind="standing_context",
+            source_artifact_id=artifact_id,
+            source_revision_id=contribution_rev,
+            extraction_profile="party_registry_standing",
+            campaign_scope="longmont-c1",
+            accepted_assertions=[assertion],
+        )
+
+    first = _party_attribute(
+        session_id="session-3",
+        contribution_rev="rev-party-s3",
+        attribute="party_roster_note",
+    )
+    first_result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=first,
+        expected_parent_revision_id=parent,
+    )
+    assert first_result.published is True, first_result.diagnostics
+
+    second = _party_attribute(
+        session_id="session-4",
+        contribution_rev="rev-party-s4",
+        attribute="party_roster_note_v2",
+    )
+    second_result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=second,
+        expected_parent_revision_id=first_result.revision_id,
+    )
+    assert second_result.published is True, second_result.diagnostics
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert store.source_artifacts[artifact_id].session_id == "session-3"

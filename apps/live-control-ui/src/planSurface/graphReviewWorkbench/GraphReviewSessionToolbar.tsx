@@ -155,6 +155,15 @@ export function GraphReviewSessionToolbar() {
           </button>
         </div>
       </div>
+      {!canReviewAndMerge && disabledReason ? (
+        <p
+          className="graph-review-extract-promote-disabled-reason"
+          data-testid="graph-review-extract-promote-disabled-reason"
+          role="status"
+        >
+          Review & merge unavailable: {disabledReason}
+        </p>
+      ) : null}
       {prepareError ? (
         <p
           className="graph-review-extract-promote-error"

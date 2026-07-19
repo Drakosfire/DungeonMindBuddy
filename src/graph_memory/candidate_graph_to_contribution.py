@@ -28,6 +28,10 @@ from graph_memory.candidate_semantic_promote_matrix import (
 from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
 from graph_memory.kernel.contribution_models import GraphContribution, GraphContributionAssertion
 
+# Source domains whose artifact id is campaign-stable (not session-scoped).
+# Stamping session_id onto these artifacts breaks cross-session promote merges.
+_CAMPAIGN_STABLE_SOURCE_DOMAINS = frozenset({"party_registry"})
+
 _NODE_TYPE_TO_KIND: dict[str, str] = {
     "character": "npc",
     "pc": "pc",
@@ -303,7 +307,10 @@ def _source_artifact_payload(
     }
     if campaign_id:
         payload["campaign_id"] = campaign_id
-    if session_id:
+    # Campaign-stable registries must not stamp the promoting session onto the
+    # artifact identity — session-N vs session-N+1 would fail merge equality
+    # even when content_sha256 is unchanged.
+    if session_id and source_domain not in _CAMPAIGN_STABLE_SOURCE_DOMAINS:
         payload["session_id"] = session_id
     return payload
 
@@ -438,7 +445,7 @@ def map_candidate_edge_to_assertion(
         "canon_state": mapping.canon_state,
         "approval_state": mapping.approval_state,
     }
-    if session_id:
+    if session_id and source_domain not in _CAMPAIGN_STABLE_SOURCE_DOMAINS:
         value["session_ids"] = [session_id]
     return build_assertion(
         assertion_kind="edge",
@@ -455,7 +462,11 @@ def map_candidate_edge_to_assertion(
         epistemic_kind=mapping.epistemic_kind,
         visibility=mapping.visibility,
         identity_resolution_outcome=identity_resolution_outcome,
-        temporal_scope={"session_id": session_id} if session_id else None,
+        temporal_scope=(
+            {"session_id": session_id}
+            if session_id and source_domain not in _CAMPAIGN_STABLE_SOURCE_DOMAINS
+            else None
+        ),
     )
 
 

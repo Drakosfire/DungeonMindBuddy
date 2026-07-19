@@ -1553,6 +1553,165 @@ def test_graph_context_synthesis_keeps_natural_answer_and_ledger_support(
     assert "assertion:loc" in response["grounding"]["accepted_claim_ids"]
 
 
+_FACTUAL_CLAIM_ENVELOPE = {
+    **READY_ENVELOPE,
+    "nodes": [{"node_id": "threat:tripod", "label": "Tripod"}],
+    "matched_node_ids": ["threat:tripod"],
+    "attributes": [
+        {
+            "assertion_id": "assertion:loc",
+            "subject_node_id": "threat:tripod",
+            "predicate": "location",
+            "text_value": "North Gate",
+            "authority_class": "accepted_explicit_attribute",
+        }
+    ],
+}
+
+
+def _cardinality_error_event(code: str) -> HermesGraphToolEvent:
+    return _tool_event(
+        state="error",
+        outcome=None,
+        source_anchor_ids=[],
+        matched_node_ids=[],
+        diagnostic_codes=[code],
+        retrieval_schema="dmb_world_graph_retrieval_error_v1",
+    )
+
+
+def test_too_many_targets_after_claims_landed_proceeds_to_validation(
+    tmp_path: Path,
+) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="Tripod is at the North Gate.",
+        tool_events=[
+            _tool_event(source_anchor_ids=["anchor:prior"]),
+            _cardinality_error_event("too_many_targets"),
+        ],
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod relative to Pippa?",
+        packet=PACKET,
+        graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-cardinality-recover",
+        turn_id="turn-cardinality-recover",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] != "error"
+    assert response["grounding"]["acceptance_state"] != "execution_error"
+    assert response["answer"] != EXECUTION_ERROR_ANSWER
+    assert response["answer"] == "Tripod is at the North Gate."
+    assert "too_many_targets" in response["grounding"]["diagnostic_codes"]
+    assert any("too_many_targets" in w for w in response["warnings"])
+    assert response["agent_trace"]["validator_path"] == "graph_context_synthesis"
+
+
+def test_ambiguous_target_with_preflight_claims_non_fatal(tmp_path: Path) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="Tripod is at the North Gate.",
+        tool_events=[_cardinality_error_event("ambiguous_target")],
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-ambiguous-recover",
+        turn_id="turn-ambiguous-recover",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] != "error"
+    assert response["grounding"]["acceptance_state"] != "execution_error"
+    assert response["answer"] != EXECUTION_ERROR_ANSWER
+    assert "ambiguous_target" in response["grounding"]["diagnostic_codes"]
+    assert response["agent_trace"]["validator_path"] == "graph_context_synthesis"
+
+
+def test_too_many_targets_without_claims_stays_execution_error(tmp_path: Path) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="Should not surface.",
+        tool_events=[_cardinality_error_event("too_many_targets")],
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-cardinality-fatal",
+        turn_id="turn-cardinality-fatal",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["grounding"]["acceptance_state"] == "execution_error"
+    assert response["answer"] == EXECUTION_ERROR_ANSWER
+    assert response["diagnostics"]["error_code"] == "too_many_targets"
+
+
+def test_integrity_failure_still_fatal_with_claims(tmp_path: Path) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="Should not surface.",
+        tool_events=[
+            _tool_event(source_anchor_ids=["anchor:prior"]),
+            _cardinality_error_event("integrity_failure"),
+        ],
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-integrity-fatal",
+        turn_id="turn-integrity-fatal",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["grounding"]["acceptance_state"] == "execution_error"
+    assert response["answer"] == EXECUTION_ERROR_ANSWER
+    assert response["diagnostics"]["error_code"] == "integrity_failure"
+
+
+def test_cardinality_error_recovered_by_later_evidence_still_works() -> None:
+    _, scope = build_hermes_graph_turn_request(
+        question="q",
+        graph_envelope=READY_ENVELOPE,
+        root=Path("/tmp"),
+    )
+    recovered_state, recovered_answer, *_ = classify_hermes_graph_result(
+        _ok_result(
+            events=[
+                _cardinality_error_event("too_many_targets"),
+                _tool_event(source_anchor_ids=["anchor:recovered"]),
+            ]
+        ),
+        scope=scope,
+    )
+    assert recovered_state == "grounded"
+    assert recovered_answer.startswith("Tripod")
+
+
+def test_expand_steer_mentions_neighborhood_for_multi_entity() -> None:
+    from apps.live_control_server.services.hermes_graph_agent import _GRAPH_SYSTEM_POLICY
+    from apps.live_control_server.services.hermes_graph_interaction_tools import (
+        hermes_graph_interaction_tool_definitions,
+    )
+
+    assert "neighborhood" in _GRAPH_SYSTEM_POLICY
+    assert "multi-entity" in _GRAPH_SYSTEM_POLICY
+    assert "one node at a time" in _GRAPH_SYSTEM_POLICY
+    expand = next(
+        item
+        for item in hermes_graph_interaction_tool_definitions()
+        if item["function"]["name"] == "expand_graph_retrieval"
+    )
+    description = expand["function"]["description"]
+    assert "prefer neighborhood" in description
+    assert "separately for each single node" in description
+    schema_desc = expand["function"]["parameters"].get("description") or ""
+    assert "neighborhood for relationships" in schema_desc
+
+
 def test_zero_tool_calls_without_prose_still_abstains(tmp_path: Path) -> None:
     """Zero tool calls and an empty final_response — still nothing to answer with."""
     host = _EchoRetrievalSessionHost(final_response="", tool_events=[])

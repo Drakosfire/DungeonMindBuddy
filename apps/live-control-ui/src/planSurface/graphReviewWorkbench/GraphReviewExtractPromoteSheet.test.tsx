@@ -412,6 +412,9 @@ describe("GraphReviewSessionToolbar", () => {
     const button = await screen.findByTestId("graph-review-review-and-merge");
     await waitFor(() => expect(button).toBeDisabled());
     expect(button).toHaveAttribute("title", "candidate graph is not valid");
+    expect(
+      screen.getByTestId("graph-review-extract-promote-disabled-reason"),
+    ).toHaveTextContent("Review & merge unavailable: candidate graph is not valid");
   });
 
   it("ignores a stale prepare response after the selected run changes", async () => {

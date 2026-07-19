@@ -406,6 +406,31 @@ def _node_core_semantic_fingerprint(
     )
 
 
+def _edge_core_semantic_fingerprint(
+    assertion: GraphContributionAssertion,
+) -> tuple[Any, ...]:
+    """Fingerprint correction-sensitive edge semantics, excluding session stamps.
+
+    ``session_ids`` / ``temporal_scope.session_id`` are additive observation
+    provenance for the same edge (e.g. standing party membership re-attested
+    on a later session promote). They must not fail projection when endpoints,
+    predicate, label, and other core semantics agree.
+    """
+    value = dict(semantic_assertion_value(assertion.value))
+    value.pop("session_ids", None)
+    return (
+        assertion.assertion_kind,
+        assertion.subject_node_id,
+        assertion.target_node_id,
+        assertion.predicate,
+        assertion.label,
+        _canonicalize_json_value(value),
+        assertion.epistemic_kind,
+        assertion.visibility,
+        assertion.campaign_scope,
+    )
+
+
 def _assert_active_node_assertions_agree(
     assertions: list[GraphContributionAssertion],
     *,
@@ -420,6 +445,26 @@ def _assert_active_node_assertions_agree(
     raise _integrity_error(
         "Active node assertions disagree on correction-sensitive semantics.",
         detail=f"node_id={node_id!r} assertion_fingerprints={fingerprints!r}",
+    )
+
+
+def _assert_active_edge_assertions_agree(
+    assertions: list[GraphContributionAssertion],
+    *,
+    edge_id: str,
+) -> None:
+    fingerprints = {
+        assertion.assertion_id: _edge_core_semantic_fingerprint(assertion)
+        for assertion in assertions
+    }
+    if len(set(fingerprints.values())) <= 1:
+        return
+    raise _integrity_error(
+        "Active edge assertions disagree on semantic fields.",
+        detail=(
+            f"edge_id={edge_id!r} "
+            f"assertion_fingerprints={fingerprints!r}"
+        ),
     )
 
 
@@ -1007,7 +1052,13 @@ def _aggregate_active_edge_support(
     edge_id: str,
     edge: UnionSupergraphEdge,
     active_supports: list[DurableAssertionSupport],
-) -> tuple[list[str], list[str], list[str], GraphContributionAssertion | None]:
+) -> tuple[
+    list[str],
+    list[str],
+    list[str],
+    GraphContributionAssertion | None,
+    list[GraphContributionAssertion],
+]:
     evidence_ids: set[str] = set()
     artifact_ids: set[str] = set()
     active_contribution_ids: set[str] = set()
@@ -1030,16 +1081,16 @@ def _aggregate_active_edge_support(
         )
         evidence_ids.update(support_evidence)
         artifact_ids.update(support_artifacts)
-    _assert_active_object_assertions_agree(
+    _assert_active_edge_assertions_agree(
         active_assertions,
-        object_kind="edge",
-        graph_object_id=edge_id,
+        edge_id=edge_id,
     )
     return (
         sorted(active_contribution_ids),
         sorted(evidence_ids),
         sorted(artifact_ids),
         representative_assertion,
+        active_assertions,
     )
 
 
@@ -1110,6 +1161,7 @@ def _convert_node_view(
     role: str | None = None,
     aliases: list[str] | None = None,
     source_domains: list[str] | None = None,
+    summary: str | None = None,
     evidence_ref_ids: list[str],
     source_artifact_ids: list[str],
     adjacency: list[GraphProjectionAdjacencyCandidate] | None = None,
@@ -1127,7 +1179,7 @@ def _convert_node_view(
         source_domains=list(
             source_domains if source_domains is not None else view.source_domains
         ),
-        summary=view.summary,
+        summary=summary if summary is not None else view.summary,
         anchored_to_focus_session=(
             view.anchored_to_focus_session
             if anchored_to_focus_session is None
@@ -1307,6 +1359,7 @@ def _build_relationship_views(
                 evidence_ref_ids,
                 source_artifact_ids,
                 representative_assertion,
+                active_assertions,
             ) = _aggregate_active_edge_support(
                 root,
                 world_id,
@@ -1336,12 +1389,15 @@ def _build_relationship_views(
                         label_override = nested_label
                 if label_override is not None:
                     relationship_label = label_override
-                if "session_ids" in assertion_value:
-                    nested_session_ids = assertion_value.get("session_ids")
-                    if isinstance(nested_session_ids, list):
-                        relationship_session_ids = [
-                            str(item) for item in nested_session_ids
-                        ]
+                unioned_session_ids: list[str] = list(edge.session_ids)
+                for assertion in active_assertions:
+                    nested = dict(assertion.value or {}).get("session_ids")
+                    if isinstance(nested, list):
+                        for item in nested:
+                            text = str(item).strip()
+                            if text and text not in unioned_session_ids:
+                                unioned_session_ids.append(text)
+                relationship_session_ids = unioned_session_ids
         elif edge.evidence_ref_ids:
             evidence_ref_ids = list(edge.evidence_ref_ids)
             source_artifact_ids = _source_artifact_ids_for_evidence(store, evidence_ref_ids)
@@ -1499,6 +1555,20 @@ def _active_node_campaign_scope(
     )
 
 
+def _union_node_description_summary(node: UnionSupergraphNode) -> str | None:
+    description = (node.model_extra or {}).get("description")
+    if isinstance(description, str) and description.strip():
+        return description.strip()
+    return None
+
+
+def _assertion_value_summary(value: Mapping[str, Any] | None) -> str | None:
+    raw = dict(value or {}).get("summary")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
 def _active_node_semantics(
     root: Path,
     world_id: str,
@@ -1506,7 +1576,7 @@ def _active_node_semantics(
     node_id: str,
     fallback: UnionSupergraphNode,
     identity_context: UnionProjectionIdentityContext,
-) -> tuple[str, str, str, list[str]]:
+) -> tuple[str, str, str, list[str], str | None]:
     node_supports = [
         support
         for support in _active_supports_for_graph_object(store, node_id)
@@ -1516,7 +1586,13 @@ def _active_node_semantics(
         aliases = _active_node_aliases(
             root, world_id, store, node_id, identity_context, list(fallback.aliases)
         )
-        return fallback.label, fallback.kind, fallback.role, aliases
+        return (
+            fallback.label,
+            fallback.kind,
+            fallback.role,
+            aliases,
+            _union_node_description_summary(fallback),
+        )
     assertions = [
         _resolve_assertion_from_support(root, world_id, store, support)
         for support in node_supports
@@ -1527,6 +1603,7 @@ def _active_node_semantics(
     label = representative.label or str(value.get("label") or fallback.label)
     kind = str(value.get("kind") or fallback.kind)
     role = str(value.get("role") or kind)
+    summary = _assertion_value_summary(value) or _union_node_description_summary(fallback)
     base_aliases = [
         alias
         for assertion in assertions
@@ -1537,7 +1614,7 @@ def _active_node_semantics(
     aliases = _active_node_aliases(
         root, world_id, store, node_id, identity_context, base_aliases
     )
-    return label, kind, role, aliases
+    return label, kind, role, aliases, summary
 
 
 def _endpoint_relative_direction(
@@ -1567,7 +1644,7 @@ def _normalized_adjacency_candidate(
     *,
     store: UnionSupergraphStore,
     source_node_id: str,
-    node_metadata: dict[str, tuple[str, str, str, list[str]]],
+    node_metadata: dict[str, tuple[str, str, str, list[str], str | None]],
     focus_session_id: str | None,
     focus_campaign_id: str | None = None,
 ) -> GraphProjectionAdjacencyCandidate:
@@ -1576,9 +1653,11 @@ def _normalized_adjacency_candidate(
         if relationship.source_node_id == source_node_id
         else relationship.source_node_id
     )
-    related_label, related_kind, _related_role, _related_aliases = node_metadata.get(
-        related_node_id,
-        (candidate.label, candidate.kind, "", []),
+    related_label, related_kind, _related_role, _related_aliases, related_summary = (
+        node_metadata.get(
+            related_node_id,
+            (candidate.label, candidate.kind, "", [], candidate.related_summary),
+        )
     )
     return GraphProjectionAdjacencyCandidate(
         edge_id=relationship.edge_id,
@@ -1597,7 +1676,7 @@ def _normalized_adjacency_candidate(
         evidence_ref_ids=list(relationship.evidence_ref_ids),
         edge_label=relationship.label,
         session_ids=list(relationship.session_ids),
-        related_summary=candidate.related_summary,
+        related_summary=related_summary if related_summary is not None else candidate.related_summary,
         source_excerpt=None,
         source_excerpt_is_full_paragraph=False,
         source_excerpt_highlight_spans=[],
@@ -1689,9 +1768,9 @@ def _build_node_views(
                 edge_id=edge_id,
                 node_id=related_node_id,
                 label=node_metadata.get(
-                    related_node_id, (related_node_id, "unknown", "", [])
+                    related_node_id, (related_node_id, "unknown", "", [], None)
                 )[0],
-                kind=node_metadata.get(related_node_id, ("", "unknown", "", []))[1],
+                kind=node_metadata.get(related_node_id, ("", "unknown", "", [], None))[1],
                 predicate=relationship.predicate,
                 direction="",
             )
@@ -1778,6 +1857,7 @@ def _build_node_views(
                 kind=node_metadata[node_id][1],
                 role=node_metadata[node_id][2],
                 aliases=node_metadata[node_id][3],
+                summary=node_metadata[node_id][4],
                 source_domains=_source_domains_from_active_provenance(
                     store,
                     evidence_ref_ids,

@@ -7,6 +7,18 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Plan chip hydration latency telemetry — captured 2026-07-19, done 2026-07-19
+**Context:** Plan dogfood after Session 4 promote; operator asked whether we measure page load → chips hydrated.
+**Insight:** Only a loading/ready state machine existed; no client timing.
+**Action completed:** `performance.mark`/`measure` + `console.debug` in `usePlanGraphReferenceResolver` with campaign/scope/focus/outcome/durationMs (no corpus prose); exposed `lastProjectionLoadMs` / `lastProjectionLoadOutcome`.
+**Refs:** `apps/live-control-ui/src/planSurface/reference/usePlanGraphReferenceResolver.ts`
+
+## [DONE] Shared graph chip CSS hover glance (Plan + Ingest) — captured 2026-07-19, done 2026-07-19
+**Context:** Hover lived under ingest/Graph Review (`GraphNodeToken`); Plan TipTap `md-ref-chip`s were click-only.
+**Insight:** Overlay ladder wants surface-agnostic hover; click remains the full object surface.
+**Action completed:** Lifted to `apps/live-control-ui/src/graphReference/` (`GraphNodeHoverToken`, chip runtime provider); wired Plan `RunbookReferenceNode` NodeView + PlanSurfaceCanvas runtime publish; ingest `GraphProjectionReader` uses provider.
+**Refs:** `apps/live-control-ui/src/graphReference/`, `apps/live-control-ui/src/tiptap/extensions/RunbookReferenceView.tsx`, `apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx`
+
 ## [DONE] Author Node left drawer (highlight→new-node) — captured 2026-07-18, done 2026-07-19
 **Context:** 2026-07-18 `/ingest` dogfood (C1 Session 3). Operator looked for the Edit bar used to highlight prose and make new graph nodes; on ingest the chrome Edit dock is absent (`MemoryIngestPage` never passes `editorTools`). Plan still wires `AppChrome` + `onEditorToolsChange` → `PlanSurfaceCanvas` (lock, World Graph object search/`PlanGraphRefSearch`, insert blocks). Graph Review main canvas is read-only (`readerMode`); selection→author actions live under Tools → Author Draft only.
 **Insight:** Two different “edit” surfaces got conflated. (1) `/plan` Edit dock = TipTap command board + search/insert **existing** World Graph refs as chips. (2) Highlight→**new** node authoring = Graph Review Author Draft / `authoringEnabled` selection bar — not the Plan Edit dock, and not on the main ingest canvas. After Graph Review / ingest surface splits, the create-node loop no longer appears where the GM looks while reviewing a loaded recap.
