@@ -143,8 +143,13 @@ def _normalize_interaction_arguments(arguments: Mapping[str, Any]) -> dict[str, 
 
 def _focus_for_request(focus: Mapping[str, Any]) -> WorldGraphRetrievalFocus:
     kind = str(focus.get("kind") or "none")
-    session_id = focus.get("session_id")
-    payload: dict[str, Any] = {"kind": kind, "sessionId": session_id}
+    session_id = focus.get("session_id", focus.get("sessionId"))
+    campaign_id = focus.get("campaign_id", focus.get("campaignId"))
+    payload: dict[str, Any] = {
+        "kind": kind,
+        "sessionId": session_id,
+        "campaignId": campaign_id,
+    }
     return WorldGraphRetrievalFocus.model_validate(payload)
 
 
@@ -156,6 +161,7 @@ def _request_context_payload(session, focus: WorldGraphRetrievalFocus) -> dict[s
         "focus": focus.model_dump(mode="json", by_alias=True),
         "admissibility": session.snapshot.admissibility,
         "revisionPin": session.snapshot.revision_id,
+        "scopeMode": getattr(session.snapshot, "scope_mode", "campaign") or "campaign",
     }
 
 

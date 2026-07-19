@@ -703,7 +703,7 @@ function buildToastForResult(
         : `Ingestion ${result.status}`,
     detail,
     nextSteps: uniqueNextSteps.slice(0, 4),
-    sticky: tone === "error" || (stagedRawConflict && result.status !== "ready_for_planning_activation"),
+    sticky: tone === "error" || tone === "warning" || (stagedRawConflict && result.status !== "ready_for_planning_activation"),
   };
 }
 
@@ -1328,6 +1328,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
                 : "Category graph extraction and preview union materialization completed from the loaded normalized recap."
               : "Graph extraction finished; review the status panel for the next step.",
           nextSteps: [],
+          sticky: graphBlocked,
         });
         jumpToStep(3);
       } else {
@@ -1414,6 +1415,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
               ? "Recap memory was generated from the existing staged notes. The pasted text was not written."
             : "Recap memory generated and preview graph materialized. Open Recap View to inspect graph-backed chips.",
           nextSteps: [],
+          sticky: graphBlocked || stagedRawConflict,
         });
         jumpToStep(3);
       } else {
@@ -2437,7 +2439,11 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
                 re-inspect status.
               </p>
             ) : null}
-            {graphPreview?.blocked_reason ? <p className="module-muted">{graphPreview.blocked_reason}</p> : null}
+            {graphPreview?.blocked_reason ? (
+              <p className="module-error" role="alert">
+                Graph projection blocked: {graphPreview.blocked_reason}
+              </p>
+            ) : null}
             {graphPreview?.manifest_path ? <p><code>{graphPreview.manifest_path}</code></p> : null}
             {graphPreview?.preview_union_store_path ? <p><code>{graphPreview.preview_union_store_path}</code></p> : null}
           </section>

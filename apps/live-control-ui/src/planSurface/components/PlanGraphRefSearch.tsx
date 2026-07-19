@@ -7,7 +7,16 @@ import {
   searchGraphProjectionNodes,
   sortGraphProjectionNodes,
 } from "../reference/searchGraphProjectionNodes";
+import { formatReviewCampaignLabel } from "../sessionCampaignContext";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+
+function nodeCampaignProvenanceLabel(node: GraphProjectionNodeView): string {
+  const scope = node.campaign_scope?.trim();
+  if (!scope) {
+    return "world";
+  }
+  return formatReviewCampaignLabel(scope);
+}
 
 export interface PlanGraphRefSearchProps {
   nodes: GraphProjectionNodeView[];
@@ -89,6 +98,7 @@ export function PlanGraphRefSearch({
                     <span className="plan-graph-ref-search__meta">
                       {node.kind}
                       {node.role ? ` · ${node.role}` : ""}
+                      {` · ${nodeCampaignProvenanceLabel(node)}`}
                     </span>
                   </div>
                   <div className="plan-graph-ref-search__actions">

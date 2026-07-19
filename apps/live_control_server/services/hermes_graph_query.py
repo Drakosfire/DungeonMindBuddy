@@ -225,14 +225,24 @@ def validate_hermes_query_inputs(
     nested_campaign = getattr(world_graph_context, "campaign_id", None)
     if nested_campaign is None and isinstance(world_graph_context, Mapping):
         nested_campaign = world_graph_context.get("campaign_id")
+    nested_scope_mode = getattr(world_graph_context, "scope_mode", None)
+    if nested_scope_mode is None and isinstance(world_graph_context, Mapping):
+        nested_scope_mode = world_graph_context.get("scope_mode")
+    scope_mode = str(nested_scope_mode or "campaign").strip() or "campaign"
     if (
-        outer_campaign_id is not None
+        scope_mode == "campaign"
+        and outer_campaign_id is not None
         and nested_campaign is not None
         and str(nested_campaign) != str(outer_campaign_id)
     ):
         raise HermesGraphQueryRequestError(
             "world_graph_context.campaign_id must equal the outer live-query campaign_id",
             code="campaign_scope_mismatch",
+        )
+    if scope_mode not in {"campaign", "world"}:
+        raise HermesGraphQueryRequestError(
+            "world_graph_context.scope_mode must be 'campaign' or 'world'",
+            code="invalid_request",
         )
     if request_manifest_path is not None:
         raise HermesGraphQueryRequestError(
@@ -254,20 +264,24 @@ def validate_hermes_query_inputs(
 
 def _api_focus_to_host_focus(focus: Mapping[str, Any] | None) -> dict[str, str | None]:
     if focus is None:
-        return {"kind": "none", "sessionId": None}
+        return {"kind": "none", "sessionId": None, "campaignId": None}
     kind = str(focus.get("kind") or "none")
     session_id = focus.get("session_id")
     if session_id is not None:
         session_id = str(session_id)
-    return {"kind": kind, "sessionId": session_id}
+    campaign_id = focus.get("campaign_id")
+    if campaign_id is not None:
+        campaign_id = str(campaign_id)
+    return {"kind": kind, "sessionId": session_id, "campaignId": campaign_id}
 
 
 def _focus_for_grounding(focus: Mapping[str, Any] | None) -> dict[str, Any]:
     if focus is None:
-        return {"kind": "none", "session_id": None}
+        return {"kind": "none", "session_id": None, "campaign_id": None}
     return {
         "kind": str(focus.get("kind") or "none"),
         "session_id": focus.get("session_id"),
+        "campaign_id": focus.get("campaign_id"),
     }
 
 

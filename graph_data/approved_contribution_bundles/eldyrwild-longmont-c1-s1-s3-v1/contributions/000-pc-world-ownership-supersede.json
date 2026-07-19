@@ -1,0 +1,628 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e43e22317e459bac",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:questionable-company"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Questionable Company",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Questionable Company"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:questionable-company",
+            "locator": "jsonptr:/accepted_assertions/0",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "party",
+        "role": "adventuring-party",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:09c73869bd54695a",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:bonogo"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Bonogo",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Bonogo"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:bonogo",
+            "locator": "jsonptr:/accepted_assertions/1",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "pc",
+        "role": "player-character",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a91ad62e13a88300",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:baergrom"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Baergrom",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:baergrom",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Baergrom"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:baergrom",
+            "locator": "jsonptr:/accepted_assertions/2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "pc",
+        "role": "player-character",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2f3d2b97335eeffa",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:ephanna"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Ephanna",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:ephanna",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Ephanna"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:ephanna",
+            "locator": "jsonptr:/accepted_assertions/3",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "pc",
+        "role": "player-character",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e5db50cc083f946f",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:caelynn"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Caelynn",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Caelynn"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:caelynn",
+            "locator": "jsonptr:/accepted_assertions/4",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "pc",
+        "role": "player-character",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3d400ce198070c3f",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:stafl"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Stafl",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Stafl"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:stafl",
+            "locator": "jsonptr:/accepted_assertions/5",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "pc",
+        "role": "player-character",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e7da277cf55125c5",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:karsemine"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Karsemine",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Karsemine"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:karsemine",
+            "locator": "jsonptr:/accepted_assertions/6",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "pc",
+        "role": "player-character",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:276c54562daef301",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:bonogo:member_of"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "member of",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": "party:questionable-company",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:bonogo:member_of:party:questionable-company",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:bonogo:member_of",
+            "locator": "jsonptr:/accepted_assertions/7",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:55442b9b11b7d6cc",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:baergrom:member_of"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "member of",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:baergrom",
+      "target_node_id": "party:questionable-company",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:baergrom:member_of:party:questionable-company",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:baergrom:member_of",
+            "locator": "jsonptr:/accepted_assertions/8",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c7c2e97d8aadef36",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:ephanna:member_of"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "member of",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:ephanna",
+      "target_node_id": "party:questionable-company",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:ephanna:member_of:party:questionable-company",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:ephanna:member_of",
+            "locator": "jsonptr:/accepted_assertions/9",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:382b0ef576b93b3e",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:caelynn:member_of"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "member of",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": "party:questionable-company",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:caelynn:member_of:party:questionable-company",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:caelynn:member_of",
+            "locator": "jsonptr:/accepted_assertions/10",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:23c5576eb603720e",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:stafl:member_of"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "member of",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": "party:questionable-company",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:stafl:member_of:party:questionable-company",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:stafl:member_of",
+            "locator": "jsonptr:/accepted_assertions/11",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c4304ead16925f80",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c2",
+      "contribution_id": "contribution:b978465948b6923a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:v1:manual_seed:pc:karsemine:member_of"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "member of",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": "party:questionable-company",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:karsemine:member_of:party:questionable-company",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:v1:manual_seed:pc:karsemine:member_of",
+            "locator": "jsonptr:/accepted_assertions/12",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "source_artifact_id": "graph-native:eldyrwild-c2-initial-v1:003-questionable-company-roster",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c2-initial-v1/contributions/003-questionable-company-roster.json"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "approved-bundle:eldyrwild-longmont-c1-s1-s3-v1",
+  "campaign_scope": null,
+  "candidate_assertions": [],
+  "contribution_id": "contribution:b978465948b6923a",
+  "diagnostics": [
+    "pc_world_ownership_supersede"
+  ],
+  "extraction_profile": null,
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-18T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:000-pc-world-ownership-supersede",
+  "source_kind": "manual_import",
+  "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+  "status": "active",
+  "supersedes_contribution_id": "contribution:33d7cdb0ff623f28",
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Literal
 
@@ -18,6 +19,7 @@ from graph_memory.kernel.contributions import (
     explicit_assertion_evidence_ref_ids,
     explicit_assertion_source_artifact_ids,
     normalize_assertion_provenance,
+    semantic_assertion_value,
 )
 from graph_memory.kernel.world_graph import (
     WorldGraphNotFoundError,
@@ -66,6 +68,79 @@ def _with_support_map(
             }
         }
     )
+
+
+def _canonicalize_json_value(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _node_core_semantic_fingerprint(
+    assertion: GraphContributionAssertion,
+) -> tuple[Any, ...]:
+    """Match world_projection correction-sensitive fingerprint (aliases excluded)."""
+    value = dict(semantic_assertion_value(assertion.value))
+    value.pop("aliases", None)
+    return (
+        assertion.assertion_kind,
+        assertion.subject_node_id,
+        assertion.target_node_id,
+        assertion.predicate,
+        assertion.label,
+        _canonicalize_json_value(value),
+        assertion.epistemic_kind,
+        assertion.visibility,
+        assertion.campaign_scope,
+        _canonicalize_json_value(assertion.temporal_scope),
+    )
+
+
+def _load_assertion_from_support(
+    root: Path,
+    world_id: str,
+    support: DurableAssertionSupport,
+) -> GraphContributionAssertion:
+    for contribution_id in support.active_contribution_ids:
+        contribution = load_contribution_record(root, world_id, contribution_id)
+        for candidate in contribution.accepted_assertions:
+            if candidate.assertion_id == support.assertion_id:
+                return candidate
+    raise ValueError(
+        f"assertion {support.assertion_id!r} not found in active contributions "
+        f"{list(support.active_contribution_ids)}"
+    )
+
+
+def _refuse_disagreeing_active_node_assertion(
+    *,
+    root: Path,
+    world_id: str,
+    support: dict[str, DurableAssertionSupport],
+    assertion: GraphContributionAssertion,
+) -> None:
+    """Fail closed before adding a second disagreeing active node support."""
+    if assertion.assertion_kind != "node":
+        return
+    node_id = (assertion.subject_node_id or "").strip()
+    if not node_id:
+        return
+    new_fp = _node_core_semantic_fingerprint(assertion)
+    for existing in support.values():
+        if existing.assertion_kind != "node":
+            continue
+        if existing.support_state != "supported" or not existing.active_contribution_ids:
+            continue
+        if existing.graph_object_id != node_id:
+            continue
+        if existing.assertion_id == assertion.assertion_id:
+            continue
+        prior = _load_assertion_from_support(root, world_id, existing)
+        prior_fp = _node_core_semantic_fingerprint(prior)
+        if prior_fp != new_fp:
+            raise ValueError(
+                "refusing node assertion that disagrees with an already-active "
+                f"correction-sensitive fingerprint for {node_id!r}: "
+                f"existing={existing.assertion_id!r} new={assertion.assertion_id!r}"
+            )
 
 
 def _synthesize_replay_manifest_from_digests(
@@ -911,8 +986,16 @@ def _apply_attribute_assertion(
 def apply_accepted_assertions(
     store: UnionSupergraphStore,
     contribution: GraphContribution,
+    *,
+    root: Path | None = None,
+    world_id: str | None = None,
 ) -> tuple[UnionSupergraphStore, dict[str, DurableAssertionSupport], list[str]]:
-    """Apply accepted assertions; return updated store, support map, accepted ids."""
+    """Apply accepted assertions; return updated store, support map, accepted ids.
+
+    When ``root`` and ``world_id`` are supplied, refuse node assertions whose
+    correction-sensitive fingerprint disagrees with an already-active support
+    for the same subject (projection integrity contract).
+    """
     support = _support_map(store)
     accepted_ids: list[str] = []
     working = store
@@ -920,6 +1003,18 @@ def apply_accepted_assertions(
     for assertion in contribution.accepted_assertions:
         if not _is_graph_mutating_accepted_assertion(assertion):
             continue
+
+        if (
+            root is not None
+            and world_id is not None
+            and assertion.assertion_kind == "node"
+        ):
+            _refuse_disagreeing_active_node_assertion(
+                root=root,
+                world_id=world_id,
+                support=support,
+                assertion=assertion,
+            )
 
         graph_object_id: str | None = None
         if assertion.assertion_kind == "node":
@@ -1219,7 +1314,7 @@ def merge_contribution_to_revision(
 
     try:
         proposed, _support, accepted_ids = apply_accepted_assertions(
-            current_store, to_store
+            current_store, to_store, root=root, world_id=world_id
         )
         # Ensure adjacency covers all nodes even when only nodes were added.
         proposed = proposed.model_copy(
@@ -1361,7 +1456,7 @@ def supersede_graph_contribution(
 
     try:
         proposed, _support2, accepted_ids = apply_accepted_assertions(
-            working, new_contribution
+            working, new_contribution, root=root, world_id=world_id
         )
         proposed = proposed.model_copy(
             update={"adjacency": _rebuild_adjacency(proposed)}

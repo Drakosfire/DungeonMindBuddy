@@ -374,14 +374,29 @@ def test_search_unsupported_admissibility_raises_422(
     assert exc_info.value.status_code == 422
 
 
-def test_search_campaign_mismatch_raises_409(tmp_path: Path, loaded_bundle) -> None:
+def test_search_foreign_campaign_excludes_c2_scoped_matches(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
     _initialize(tmp_path, loaded_bundle)
-    with pytest.raises(WorldGraphRetrievalError) as exc_info:
-        kernel.search_campaign_graph(
-            tmp_path,
-            _search_request("anything", campaign_id="foreign-campaign"),
-        )
-    assert exc_info.value.status_code == 409
+    result = kernel.search_campaign_graph(
+        tmp_path,
+        _search_request("positional controller", campaign_id="longmont-c1"),
+    )
+    assert result.snapshot.campaign_id == "longmont-c1"
+    assert TRIPOD_ID not in result.matched_node_ids
+
+
+def test_search_c2_campaign_still_matches_tripod(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    result = kernel.search_campaign_graph(
+        tmp_path,
+        _search_request("positional controller"),
+    )
+    assert TRIPOD_ID in result.matched_node_ids
 
 
 def test_search_extra_field_is_rejected_by_model() -> None:

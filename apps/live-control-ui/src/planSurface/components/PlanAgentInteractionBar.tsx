@@ -43,6 +43,12 @@ import {
   buildPlanAgentWorldGraphQueryContextRequest,
   getPlanWorldGraphContext,
 } from "../reference/planGraphContextRequest";
+import { usePlanGraphLens } from "../PlanGraphLensContext";
+import {
+  REVIEW_CAMPAIGN_IDS,
+  formatReviewCampaignLabel,
+  type ReviewCampaignId,
+} from "../sessionCampaignContext";
 import {
   hasGrounding,
   isConversationContext,
@@ -431,7 +437,7 @@ function representativeUnits(bundle: IngestionSourceBundle, activeSession: numbe
 
 function sessionNumbers(bundle: IngestionSourceBundle): number[] {
   const sessions = new Set<number>();
-  for (const unit of bundle.units) {
+  for (const unit of bundle.units ?? []) {
     const session = numberField(unit.fields.sessionNumber);
     if (session !== null) sessions.add(session);
   }
@@ -449,9 +455,17 @@ export function PlanAgentInteractionBar({
 }: PlanAgentInteractionBarProps) {
   const agentInteraction = useAgentInteraction();
   const { projection, projectionState, projectionError } = usePlanGraphReferenceResolver();
-  const planWorldGraphContext = getPlanWorldGraphContext(sessionDescriptor);
+  const {
+    lens,
+    derived,
+    summaryLabel,
+    toggleCampaign,
+    setFocus,
+  } = usePlanGraphLens();
+  const planWorldGraphContext = getPlanWorldGraphContext(sessionDescriptor, { lens });
   const hasSupportedGraphContext = planWorldGraphContext != null;
   const graphContextInitializing = hasSupportedGraphContext && projectionState === "loading";
+  const lensAllowsAsk = derived != null;
   const open = agentInteraction.paneState.isOpen;
   const setOpen = agentInteraction.setPaneOpen;
   const [status, setStatus] = useState<BundleStatus>("idle");
@@ -478,6 +492,7 @@ export function PlanAgentInteractionBar({
   const [graphReadWarnings, setGraphReadWarnings] = useState<string[]>([]);
   const threadSummaries = agentInteraction.threadSummaries;
   const [threadSwitcherOpen, setThreadSwitcherOpen] = useState(false);
+  const [configMenuOpen, setConfigMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [freshnessChecking, setFreshnessChecking] = useState(false);
@@ -532,7 +547,28 @@ export function PlanAgentInteractionBar({
   }, [thread?.uiState?.scrollAnchorTurnId, turns.length]);
 
   const chronologicalTurns = useMemo(() => [...turns].reverse(), [turns]);
-  const newestTurnId = turns[0]?.turnId ?? null;
+
+  const lensFocusOptions = useMemo(() => {
+    if (!bundle) return [] as Array<{
+      campaignId: ReviewCampaignId;
+      sessionNumber: number;
+      label: string;
+    }>;
+    const planCampaignId = sessionDescriptor.campaignId;
+    if (!REVIEW_CAMPAIGN_IDS.includes(planCampaignId as ReviewCampaignId)) {
+      return [];
+    }
+    if (!lens.selectedCampaignIds.includes(planCampaignId as ReviewCampaignId)) {
+      return [];
+    }
+    const sessions = sessionNumbers(bundle);
+    const campaignId = planCampaignId as ReviewCampaignId;
+    return sessions.map((sessionNumber) => ({
+      campaignId,
+      sessionNumber,
+      label: `${formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "")} · Session ${sessionNumber}`,
+    }));
+  }, [bundle, lens.selectedCampaignIds, sessionDescriptor.campaignId]);
 
   const activeTurn = useMemo(
     () => turns.find((turn) => turn.turnId === activeTurnId) ?? turns[0] ?? null,
@@ -797,7 +833,7 @@ export function PlanAgentInteractionBar({
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = question.trim();
-    if (!trimmed || askStatus === "asking") return;
+    if (!trimmed || askStatus === "asking" || !derived || !planWorldGraphContext) return;
     setAskStatus("asking");
     setAskError(null);
     try {
@@ -811,13 +847,13 @@ export function PlanAgentInteractionBar({
       );
       const response = await askCorpus(
         trimmed,
-        sessionDescriptor.campaignId,
+        derived.campaignId,
         querySession,
         "hermes",
         {
           agentThreadId: currentThread.threadId,
           traceRequested: currentThread.uiState?.traceVisible ?? false,
-          worldGraphContext: planWorldGraphContext && projectionState !== "loading"
+          worldGraphContext: projectionState !== "loading"
             ? buildPlanAgentWorldGraphQueryContextRequest(planWorldGraphContext, {
                 revisionPin: projection?.snapshot.revisionId ?? null,
               })
@@ -861,8 +897,8 @@ export function PlanAgentInteractionBar({
   }
 
   const coverage = bundle?.coverage ?? {};
-  const unitCount = numberField(coverage.unitCount) ?? bundle?.units.length ?? 0;
-  const artifactCount = numberField(coverage.artifactCount) ?? bundle?.artifacts.length ?? 0;
+  const unitCount = numberField(coverage.unitCount) ?? bundle?.units?.length ?? 0;
+  const artifactCount = numberField(coverage.artifactCount) ?? bundle?.artifacts?.length ?? 0;
   const routesOnDisk = numberField(coverage.ingestRoutesOnDisk);
   const dogfoodRoutes = numberField(coverage.ingestRoutesInDogfoodFullManifest);
   const slimRoutes = numberField(coverage.ingestRoutesInC2S23Manifest);
@@ -876,6 +912,7 @@ export function PlanAgentInteractionBar({
     <section
       className={`plan-agent-shell ${open ? "open" : "closed"}`}
       aria-label="Ask DungeonBuddy"
+      data-expanded={open ? "true" : "false"}
     >
       {open ? (
         <div className="plan-agent-pane" role="complementary" aria-label="DungeonBuddy drawer">
@@ -893,17 +930,150 @@ export function PlanAgentInteractionBar({
               ) : (
                 <h2>{threadTitle}</h2>
               )}
-              <p>{memorySessionLabel}</p>
+              <p>{summaryLabel}</p>
             </div>
             <div className="plan-agent-pane-actions">
-              <button type="button" onClick={() => {
-                setTitleDraft(threadTitle);
-                setRenaming(true);
-              }}>
-                Rename
-              </button>
-              <button type="button" onClick={createNewThread}>New prep thread</button>
-              <button type="button" onClick={() => setThreadSwitcherOpen((value) => !value)}>Prep threads</button>
+              <div className="plan-agent-config-menu">
+                <button
+                  type="button"
+                  aria-expanded={configMenuOpen}
+                  aria-controls="plan-agent-config-panel"
+                  onClick={() => setConfigMenuOpen((value) => !value)}
+                >
+                  Config
+                </button>
+                {configMenuOpen ? (
+                  <div
+                    id="plan-agent-config-panel"
+                    className="plan-agent-config-panel"
+                    role="region"
+                    aria-label="Agent configuration"
+                  >
+                    <div className="plan-agent-graph-lens" aria-label="Graph campaign union">
+                      <p className="plan-agent-muted">Graph campaigns</p>
+                      <div className="plan-agent-graph-lens-campaigns">
+                        {REVIEW_CAMPAIGN_IDS.map((campaignId) => {
+                          const checked = lens.selectedCampaignIds.includes(campaignId);
+                          return (
+                            <label key={campaignId} className="plan-agent-graph-lens-campaign">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleCampaign(campaignId)}
+                              />
+                              <span>{formatReviewCampaignLabel(campaignId)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <label className="plan-agent-graph-lens-focus">
+                        <span>Focus session</span>
+                        <select
+                          value={
+                            lens.focus
+                              ? `${lens.focus.campaignId}:${lens.focus.sessionNumber}`
+                              : ""
+                          }
+                          onChange={(event) => {
+                            const value = event.currentTarget.value;
+                            if (!value) {
+                              setFocus(null);
+                              return;
+                            }
+                            const [campaignId, sessionRaw] = value.split(":");
+                            const sessionNumber = Number.parseInt(sessionRaw ?? "", 10);
+                            if (
+                              !REVIEW_CAMPAIGN_IDS.includes(campaignId as ReviewCampaignId)
+                              || !Number.isFinite(sessionNumber)
+                            ) {
+                              setFocus(null);
+                              return;
+                            }
+                            setFocus({
+                              campaignId: campaignId as ReviewCampaignId,
+                              sessionNumber,
+                            });
+                          }}
+                          disabled={lens.selectedCampaignIds.length === 0}
+                        >
+                          <option value="">None (plain union)</option>
+                          {lensFocusOptions.map((option) => (
+                            <option
+                              key={`${option.campaignId}:${option.sessionNumber}`}
+                              value={`${option.campaignId}:${option.sessionNumber}`}
+                            >
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {!lensAllowsAsk ? (
+                        <p className="plan-agent-warning">Select at least one campaign.</p>
+                      ) : null}
+                    </div>
+                    <div className="plan-agent-config-actions">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTitleDraft(threadTitle);
+                          setRenaming(true);
+                          setConfigMenuOpen(false);
+                        }}
+                      >
+                        Rename thread
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          createNewThread();
+                          setConfigMenuOpen(false);
+                        }}
+                      >
+                        New prep thread
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setThreadSwitcherOpen((value) => !value);
+                          setConfigMenuOpen(false);
+                        }}
+                      >
+                        Prep threads
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const baseThread = thread ?? createAgentInteractionThread(
+                            sessionDescriptor.campaignId,
+                            querySession,
+                            "plan",
+                            "hermes",
+                            "New prep thread",
+                            planningDocumentId,
+                          );
+                          const nextThread = {
+                            ...baseThread,
+                            uiState: {
+                              ...baseThread.uiState,
+                              traceVisible: !traceVisible,
+                            },
+                          };
+                          setThread(nextThread);
+                        }}
+                      >
+                        {traceVisible ? "Trace On" : "Trace Off"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearHistory}
+                        disabled={!turns.length}
+                      >
+                        Clear history
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close DungeonBuddy drawer">
                 Close
               </button>
@@ -971,7 +1141,6 @@ export function PlanAgentInteractionBar({
                     const turnCorpusSignalStatus = turnCorpusFreshness?.status
                       ?? (turn.evidenceSnapshots?.length ? "unknown" : "unknown");
                     const isInspectedTurn = activeTurnId === turn.turnId;
-                    const isNewestTurn = turn.turnId === newestTurnId;
 
                     return (
                       <article
@@ -993,7 +1162,7 @@ export function PlanAgentInteractionBar({
                           <p className="plan-agent-chat-answer">{turn.answer}</p>
                         </div>
                         {turnS1Support ? (
-                          <details className="plan-agent-s1-support" open={isNewestTurn}>
+                          <details className="plan-agent-s1-support">
                             <summary>Latest-recap comparison support</summary>
                             {turnS1Support.lagDisclosure ? (
                               <p className="plan-agent-s1-support-lag">{turnS1Support.lagDisclosure}</p>
@@ -1007,7 +1176,7 @@ export function PlanAgentInteractionBar({
                         ) : null}
                         <details
                           className="plan-agent-turn-inspection"
-                          open={!turnIsConversationContext && (isInspectedTurn || isNewestTurn)}
+                          open={false}
                         >
                           <summary>Evidence and diagnostics</summary>
                           <div className="plan-agent-answer">
@@ -1052,7 +1221,11 @@ export function PlanAgentInteractionBar({
                               </ul>
                             ) : null}
                             {turn.trace && traceVisible ? (
-                              <TraceDetailsPanel trace={turn.trace} answer={null} />
+                              <TraceDetailsPanel
+                                trace={turn.trace}
+                                question={turn.question}
+                                answer={turn.answer}
+                              />
                             ) : null}
                             <RetrievalFreshnessPanel decision={turnAnswer.retrieval_freshness} />
                             <WorldGraphQueryContextPanel
@@ -1318,7 +1491,7 @@ export function PlanAgentInteractionBar({
                 value={question}
                 onChange={(event) => setQuestion(event.currentTarget.value)}
                 placeholder="Ask about campaign memory…"
-                rows={2}
+                rows={1}
               />
             </label>
             {graphContextInitializing ? (
@@ -1330,32 +1503,23 @@ export function PlanAgentInteractionBar({
                 The server will resolve the authoritative revision for Hermes graph queries.
               </p>
             ) : null}
+            {!lensAllowsAsk ? (
+              <p className="plan-agent-warning">Select at least one campaign in Config.</p>
+            ) : null}
             <button
               type="submit"
-              disabled={!question.trim() || askStatus === "asking" || graphContextInitializing}
+              disabled={
+                !question.trim()
+                || askStatus === "asking"
+                || graphContextInitializing
+                || !lensAllowsAsk
+              }
             >
               {askStatus === "asking" ? "Asking…" : "Ask DungeonBuddy"}
             </button>
             {askStatus === "error" ? (
               <p className="plan-agent-error">{askError ?? "Unable to ask corpus."}</p>
             ) : null}
-            <div className="plan-agent-ask-controls">
-              <button type="button" onClick={() => {
-                const baseThread = thread ?? createAgentInteractionThread(
-                  sessionDescriptor.campaignId,
-                  querySession,
-                  "plan",
-                  "hermes",
-                  "New prep thread",
-                  planningDocumentId,
-                );
-                const nextThread = { ...baseThread, uiState: { ...baseThread.uiState, traceVisible: !traceVisible } };
-                setThread(nextThread);
-              }}>{traceVisible ? "Trace On" : "Trace Off"}</button>
-              <button type="button" onClick={clearHistory} disabled={!turns.length}>
-                Clear history
-              </button>
-            </div>
           </form>
         </div>
       ) : null}

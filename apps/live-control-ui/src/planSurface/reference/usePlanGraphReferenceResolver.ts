@@ -14,6 +14,7 @@ import type { WorldGraphProjection } from "../../api/types";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { PlanSessionDescriptor } from "../types";
+import { useOptionalPlanGraphLens } from "../PlanGraphLensContext";
 import {
   isCorpusFallbackAllowed,
   isGraphNativeReference,
@@ -26,6 +27,7 @@ import { resolvePlanRelationshipTarget } from "./resolvePlanRelationshipTarget";
 import {
   buildPlanWorldGraphProjectionRequest,
   getPlanWorldGraphContext,
+  WORLD_GRAPH_REVISION_COMMITTED_EVENT,
 } from "./planGraphContextRequest";
 
 export interface UsePlanGraphReferenceResolverResult {
@@ -186,15 +188,35 @@ export async function resolvePlanReferenceWithFallback(
 
 function usePlanGraphReferenceResolverLoad(
   sessionDescriptor: PlanSessionDescriptor | null | undefined,
+  revisionRefreshToken?: string | number | null,
 ): UsePlanGraphReferenceResolverResult {
   const [projection, setProjection] = useState<WorldGraphProjection | null>(null);
   const [projectionState, setProjectionState] = useState<PlanGraphProjectionState>("loading");
   const [projectionError, setProjectionError] = useState<string | null>(null);
+  const [revisionEventBump, setRevisionEventBump] = useState(0);
+  const graphLens = useOptionalPlanGraphLens();
 
   const context = useMemo(
-    () => getPlanWorldGraphContext(sessionDescriptor),
-    [sessionDescriptor],
+    () =>
+      getPlanWorldGraphContext(
+        sessionDescriptor,
+        graphLens ? { lens: graphLens.lens } : undefined,
+      ),
+    [sessionDescriptor, graphLens?.lens],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onRevisionCommitted = () => {
+      setRevisionEventBump((previous) => previous + 1);
+    };
+    window.addEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onRevisionCommitted);
+    return () => {
+      window.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onRevisionCommitted);
+    };
+  }, []);
+
+  const projectionRefreshKey = `${revisionRefreshToken ?? ""}:${revisionEventBump}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -236,7 +258,7 @@ function usePlanGraphReferenceResolverLoad(
     return () => {
       cancelled = true;
     };
-  }, [context]);
+  }, [context, projectionRefreshKey]);
 
   const resolvePlanReference = useCallback(
     async (ref: RunbookReferenceAttrs) =>
@@ -268,12 +290,14 @@ function usePlanGraphReferenceResolverLoad(
 
 export function PlanGraphReferenceResolverProvider({
   sessionDescriptor,
+  revisionRefreshToken,
   children,
 }: {
   sessionDescriptor: PlanSessionDescriptor | null | undefined;
+  revisionRefreshToken?: string | number | null;
   children: ReactNode;
 }) {
-  const resolver = usePlanGraphReferenceResolverLoad(sessionDescriptor);
+  const resolver = usePlanGraphReferenceResolverLoad(sessionDescriptor, revisionRefreshToken);
   return createElement(
     PlanGraphReferenceResolverContext.Provider,
     { value: resolver },

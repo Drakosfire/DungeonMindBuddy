@@ -83,7 +83,12 @@ describe("usePlanGraphReferenceResolver", () => {
       schema: "dmb_world_graph_projection_request_v1",
       worldId: "eldyrwild",
       campaignId: "longmont-c2",
-      focus: { kind: "session", sessionId: "session-21" },
+      scopeMode: "world",
+      focus: {
+        kind: "session",
+        sessionId: "session-21",
+        campaignId: "longmont-c2",
+      },
       admissibility: "gm",
     });
   });

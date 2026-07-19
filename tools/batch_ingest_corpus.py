@@ -175,6 +175,13 @@ _PRICING_PER_1M: dict[str, dict[str, float]] = {
     "gpt-5.4-mini": {"input": 0.75, "cached_input": 0.075, "output": 4.50},
     "gpt-5.4-pro": {"input": 30.00, "cached_input": 30.00, "output": 180.00},
     "gpt-5.4": {"input": 2.50, "cached_input": 0.25, "output": 15.00},
+    # Provider table columns: Input, Cached input, Cache writes, Output.
+    "gpt-5.6-luna": {
+        "input": 1.00,
+        "cached_input": 0.10,
+        "cache_write": 1.25,
+        "output": 6.00,
+    },
     "gpt-5.3-codex": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
     "gpt-5.3-chat": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
     "gpt-5.2": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
@@ -195,7 +202,7 @@ _PRICING_PER_1M: dict[str, dict[str, float]] = {
 
 def _pricing_rates_for_model(model_name: str) -> dict[str, float]:
     if not model_name or not str(model_name).strip():
-        return {"input": 0.0, "cached_input": 0.0, "output": 0.0}
+        return {"input": 0.0, "cached_input": 0.0, "cache_write": 0.0, "output": 0.0}
     mn = str(model_name).lower().strip()
     best: dict[str, float] | None = None
     best_len = 0
@@ -203,7 +210,7 @@ def _pricing_rates_for_model(model_name: str) -> dict[str, float]:
         if mn.startswith(prefix.lower()) and len(prefix) > best_len:
             best = dict(rates)
             best_len = len(prefix)
-    return best if best is not None else {"input": 0.0, "cached_input": 0.0, "output": 0.0}
+    return best if best is not None else {"input": 0.0, "cached_input": 0.0, "cache_write": 0.0, "output": 0.0}
 
 
 def _usage_int(mc: dict[str, Any], key: str) -> int:

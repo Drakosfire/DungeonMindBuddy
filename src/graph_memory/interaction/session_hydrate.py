@@ -68,6 +68,9 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
         admissibility=str(snapshot_raw.get("admissibility") or packet.get("admissibility") or "gm"),
         revision_id=str(snapshot_raw.get("revision_id") or packet.get("revision_id") or ""),
         is_head=snapshot_raw.get("is_head") if isinstance(snapshot_raw.get("is_head"), bool) else None,
+        scope_mode=str(
+            snapshot_raw.get("scope_mode") or packet.get("scope_mode") or "campaign"
+        ),  # type: ignore[arg-type]
     )
     referents: list[GraphReferent] = []
     for item in packet.get("candidates") or packet.get("referents") or []:

@@ -628,9 +628,14 @@ export interface AgentWorldGraphQueryContextRequest {
   schema: "dmb_agent_world_graph_query_context_request_v1";
   world_id: string;
   campaign_id: string;
-  focus: { kind: "none" | "session"; session_id: string | null };
+  focus: {
+    kind: "none" | "session";
+    session_id: string | null;
+    campaign_id?: string | null;
+  };
   admissibility: "gm";
   revision_pin: string | null;
+  scope_mode?: "campaign" | "world";
 }
 
 export type AgentWorldGraphQueryContextStatus = "ready" | "empty" | "unavailable";
@@ -643,17 +648,23 @@ export interface AgentWorldGraphQueryContext {
   revision_id: string | null;
   head_revision_id: string | null;
   is_head: boolean | null;
-  focus: { kind: "none" | "session"; session_id: string | null };
+  focus: {
+    kind: "none" | "session";
+    session_id: string | null;
+    campaign_id?: string | null;
+  };
   admissibility: "gm";
   query_text: string;
   matched_node_ids: string[];
+  scope_mode?: "campaign" | "world";
   nodes: Array<{
     node_id: string;
-    label: string;
     kind: string;
     role: string;
     summary: string | null;
     anchored_to_focus_session: boolean;
+    label: string;
+    campaign_scope?: string | null;
   }>;
   relationships: Array<{
     edge_id: string;
@@ -690,6 +701,7 @@ export interface PersistedWorldGraphContextSummary {
   isHead: boolean | null;
   focus: { kind: "none" | "session"; sessionId: string | null };
   admissibility: "gm";
+  scopeMode?: "campaign" | "world";
   matchedNodeIds: string[];
   projectionTruncated: boolean;
   warningCodes: string[];
@@ -2096,6 +2108,8 @@ export interface GraphProjectionNodeView {
   suggested_expansions?: GraphProjectionSuggestedExpansion[];
   anchored_to_focus_session: boolean;
   summary?: string | null;
+  /** Cross-campaign provenance when projection scopeMode is world. */
+  campaign_scope?: string | null;
   /** Authored overlay metadata (A6+) */
   source?: string | null;
   authored?: boolean;
@@ -2149,6 +2163,7 @@ export interface UnionSupergraphProjectionResponse {
 export interface WorldGraphProjectionFocus {
   kind: "none" | "session";
   sessionId: string | null;
+  campaignId?: string | null;
 }
 
 export interface WorldGraphProjectionRequest {
@@ -2158,6 +2173,7 @@ export interface WorldGraphProjectionRequest {
   focus: WorldGraphProjectionFocus;
   admissibility: "gm" | "player";
   revisionPin?: string | null;
+  scopeMode?: "campaign" | "world";
 }
 
 export interface WorldGraphProjectionSnapshot {
@@ -2168,6 +2184,7 @@ export interface WorldGraphProjectionSnapshot {
   isHead: boolean;
   focus: WorldGraphProjectionFocus;
   admissibility: "gm" | "player";
+  scopeMode?: "campaign" | "world";
 }
 
 export interface WorldGraphProjectionEvidenceBadge {
@@ -2211,6 +2228,7 @@ export interface WorldGraphProjectionNodeView {
   role: string;
   aliases: string[];
   sourceDomains: string[];
+  campaignScope?: string | null;
   summary?: string | null;
   anchoredToFocusSession: boolean;
   evidenceBadges: WorldGraphProjectionEvidenceBadge[];

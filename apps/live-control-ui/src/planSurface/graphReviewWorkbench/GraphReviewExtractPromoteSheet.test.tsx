@@ -16,6 +16,7 @@ import { ProjectionProvider } from "../projection/projectionContext";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
+import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../reference/planGraphContextRequest";
 
 vi.mock("../../api/liveApi", async () => {
   const actual =
@@ -270,6 +271,8 @@ describe("GraphReviewExtractPromoteSheet", () => {
 
   it("calls confirm with exact selected assertion ids", async () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
+    const revisionListener = vi.fn();
+    window.addEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, revisionListener);
 
     renderSheet();
 
@@ -282,6 +285,17 @@ describe("GraphReviewExtractPromoteSheet", () => {
       });
     });
     expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(revisionListener).toHaveBeenCalledTimes(1);
+    });
+    const event = revisionListener.mock.calls[0][0] as CustomEvent;
+    expect(event.detail).toEqual({
+      revisionId: "rev:committed",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      affectedNodeIds: ["obj-hesta"],
+    });
+    window.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, revisionListener);
   });
 
   it("freezes selection during deferred confirm", async () => {

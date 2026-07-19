@@ -226,6 +226,17 @@ def test_validate_rejects_missing_context_and_legacy_fields() -> None:
         )
     assert mismatch.value.code == "campaign_scope_mismatch"  # type: ignore[attr-defined]
 
+    # World scope allows a same-world narrative anchor that differs from outer.
+    validate_hermes_query_inputs(
+        world_graph_context=SimpleNamespace(
+            campaign_id="longmont-c1",
+            scope_mode="world",
+        ),
+        request_manifest_path=None,
+        hermes_session_id=None,
+        outer_campaign_id="longmont-c2",
+    )
+
     with pytest.raises(Exception) as manifest:
         validate_hermes_query_inputs(
             world_graph_context=SimpleNamespace(campaign_id="campaign:c1"),

@@ -10,6 +10,13 @@ _PRICING_PER_1M: dict[str, dict[str, float]] = {
     "gpt-5.4-mini": {"input": 0.75, "cached_input": 0.075, "output": 4.50},
     "gpt-5.4-pro": {"input": 30.00, "cached_input": 30.00, "output": 180.00},
     "gpt-5.4": {"input": 2.50, "cached_input": 0.25, "output": 15.00},
+    # Provider table columns: Input, Cached input, Cache writes, Output.
+    "gpt-5.6-luna": {
+        "input": 1.00,
+        "cached_input": 0.10,
+        "cache_write": 1.25,
+        "output": 6.00,
+    },
     "gpt-5.3-codex": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
     "gpt-5.3-chat": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
     "gpt-5.2": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
@@ -31,7 +38,7 @@ _PRICING_PER_1M: dict[str, dict[str, float]] = {
 def pricing_rates_for_model(model_name: str) -> dict[str, float]:
     """Longest-prefix match on ``model_name`` (lowercased)."""
     if not model_name or not str(model_name).strip():
-        return {"input": 0.0, "cached_input": 0.0, "output": 0.0}
+        return {"input": 0.0, "cached_input": 0.0, "cache_write": 0.0, "output": 0.0}
     mn = str(model_name).lower().strip()
     best: dict[str, float] | None = None
     best_len = 0
@@ -39,7 +46,7 @@ def pricing_rates_for_model(model_name: str) -> dict[str, float]:
         if mn.startswith(prefix.lower()) and len(prefix) > best_len:
             best = dict(rates)
             best_len = len(prefix)
-    return best if best is not None else {"input": 0.0, "cached_input": 0.0, "output": 0.0}
+    return best if best is not None else {"input": 0.0, "cached_input": 0.0, "cache_write": 0.0, "output": 0.0}
 
 
 def usage_cost_usd(
@@ -48,6 +55,7 @@ def usage_cost_usd(
     input_tokens: int,
     output_tokens: int,
     cached_tokens: int,
+    cache_write_tokens: int = 0,
 ) -> dict[str, Any]:
     """
     Bill **uncached** input at list input rate and **cached** input at cached_input rate.
@@ -59,20 +67,24 @@ def usage_cost_usd(
     inp = int(input_tokens)
     out_t = int(output_tokens)
     cached = int(cached_tokens)
+    cache_writes = int(cache_write_tokens)
     uncached = max(0, inp - cached)
     c_in = uncached / 1_000_000.0 * rates["input"]
     c_cached = cached / 1_000_000.0 * rates["cached_input"]
+    c_cache_write = cache_writes / 1_000_000.0 * rates.get("cache_write", 0.0)
     c_out = out_t / 1_000_000.0 * rates["output"]
-    total = c_in + c_cached + c_out
+    total = c_in + c_cached + c_cache_write + c_out
     matched = rates["input"] > 0.0 or rates["cached_input"] > 0.0 or rates["output"] > 0.0
     return {
         "total_usd": total,
         "uncached_input_tokens": uncached,
         "cached_tokens": cached,
+        "cache_write_tokens": cache_writes,
         "output_tokens": out_t,
         "input_tokens_reported": inp,
         "input_usd": c_in,
         "cached_input_usd": c_cached,
+        "cache_write_usd": c_cache_write,
         "output_usd": c_out,
         "rates_per_1m_usd": rates,
         "pricing_table_matched": matched,

@@ -1,6 +1,6 @@
 # Corpus Anchor — Eldyrwild / Longmont Markdown
 
-Generated: `2026-06-29T22:06:45Z` · schema `dmb_corpus_index_v1` v1.0
+Generated: `2026-07-17T18:46:17Z` · schema `dmb_corpus_index_v1` v1.0
 
 Regenerate:
 
@@ -21,7 +21,7 @@ Paths below are **repo-relative** from the DungeonMindBuddy root.
 
 | Root | Path | Role |
 |------|------|------|
-| Primary markdown | `corpus/eldyrwild-markdown` | Canonical Eldyrwild + Longmont markdown corpus (read/write target for recap ingest and worldbuilding). (428 `.md` files) |
+| Primary markdown | `corpus/eldyrwild-markdown` | Canonical Eldyrwild + Longmont markdown corpus (read/write target for recap ingest and worldbuilding). (431 `.md` files) |
 | Unprocessed pipeline | `corpus/Eldyrwild and Campaign Unprocessed` | Pipeline stage artifacts (Stage A/B surfaces, evaluation reports). Not primary markdown source. |
 | Drafts | `corpus/_drafts` | Scratch / in-progress corpus drafts. |
 
@@ -51,7 +51,7 @@ Base: `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps`
 - `Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.breadcrumbed.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.frontmatter_seed.md`
 
-### _normalized (17)
+### _normalized (18)
 
 - `Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge and Glowkindle Rats.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 02 - Finishing the Job.md`
@@ -70,8 +70,9 @@ Base: `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps`
 - `Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 15 - Cult Tunnels and Captain Idris.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 16 - Peacemaker Fiddle Meat Pile.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 17 - Festival Aftermath Loose Ends.md`
+- `Longmont Campaign/Campaign 1/Session Recaps/_normalized/_archive/Session 02 - Stonebridge and Glowkindle Rats__20260706T023942Z.md`
 
-### canonical (17)
+### canonical (18)
 
 - `Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/Session 10 - Battle with the Meat Monsters.md`
@@ -83,6 +84,7 @@ Base: `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps`
 - `Longmont Campaign/Campaign 1/Session Recaps/Session 16 - Recap.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/Session 17 - Recap.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md`
+- `Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Stonebridge and Glowkindle Rats.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/Session 4 - The Grotesque Tree of Hempholm.md`
 - `Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md`
@@ -196,7 +198,8 @@ Base: `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps`
 - `Longmont Campaign/Campaign 1/Locations/` — 10 markdown files
 - `Longmont Campaign/Campaign 1/NPCs/` — 40 markdown files
 - `Longmont Campaign/Campaign 1/PCs/` — 18 markdown files
-- `Longmont Campaign/Campaign 1/Session Recaps/` — 39 markdown files
+- `Longmont Campaign/Campaign 1/Session Recaps/` — 41 markdown files
+- `Longmont Campaign/Campaign 1/_ingest_staging/` — 1 markdown files
 
 ### Campaign 2
 

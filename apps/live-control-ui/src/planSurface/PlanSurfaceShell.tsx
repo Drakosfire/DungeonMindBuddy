@@ -11,6 +11,7 @@ import { resolvePlanningDocument } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
 import { ProjectionProvider } from "./projection/projectionContext";
+import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "./types";
 import "./planSurface.css";
@@ -85,34 +86,36 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   return (
     <EditCapabilityProvider>
       <ProjectionProvider config={config}>
-        <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
-          <div
-            className="plan-surface-root"
-            data-surface={config.id}
-            data-md-theme={config.theme.themeId}
-            style={themeStyle(config)}
-          >
-            {dogfoodMode ? (
-              <PlanDogfoodPanel
-                sessionDescriptor={config.sessionDescriptor}
-                saveStatusLabel={saveStatusLabel}
-              />
-            ) : null}
-            <div className="plan-surface-layout">
-              <div className="plan-surface-main">
-                <PlanSurfaceCanvas
+        <PlanGraphLensProvider planCampaignId={config.sessionDescriptor.campaignId}>
+          <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
+            <div
+              className="plan-surface-root"
+              data-surface={config.id}
+              data-md-theme={config.theme.themeId}
+              style={themeStyle(config)}
+            >
+              {dogfoodMode ? (
+                <PlanDogfoodPanel
                   sessionDescriptor={config.sessionDescriptor}
-                  theme={config.theme}
-                  onEditorToolsChange={onEditorToolsChange}
-                  onSaveStatusChange={setSaveStatusLabel}
-                  onPlanningDocumentCommitted={setPlanningDocument}
+                  saveStatusLabel={saveStatusLabel}
                 />
+              ) : null}
+              <div className="plan-surface-layout">
+                <div className="plan-surface-main">
+                  <PlanSurfaceCanvas
+                    sessionDescriptor={config.sessionDescriptor}
+                    theme={config.theme}
+                    onEditorToolsChange={onEditorToolsChange}
+                    onSaveStatusChange={setSaveStatusLabel}
+                    onPlanningDocumentCommitted={setPlanningDocument}
+                  />
+                </div>
+                <AdaptiveProjectionContainer config={config} />
               </div>
-              <AdaptiveProjectionContainer config={config} />
+              <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
             </div>
-            <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
-          </div>
-        </PlanGraphReferenceResolverProvider>
+          </PlanGraphReferenceResolverProvider>
+        </PlanGraphLensProvider>
       </ProjectionProvider>
     </EditCapabilityProvider>
   );

@@ -211,6 +211,7 @@ def _load_projection_and_store(
     focus: WorldGraphProjectionFocus,
     admissibility: str,
     revision_pin: str | None,
+    scope_mode: str = "campaign",
 ) -> tuple[WorldGraphProjection, UnionSupergraphStore] | None:
     """Load one revision-pinned projection + its store through the PR007A path.
 
@@ -225,6 +226,7 @@ def _load_projection_and_store(
         focus=focus,
         admissibility=admissibility,
         revision_pin=revision_pin,
+        scope_mode=scope_mode,  # type: ignore[arg-type]
     )
     try:
         resolve_projection_admissibility(admissibility)
@@ -254,6 +256,7 @@ def _snapshot_from_projection(projection: WorldGraphProjection) -> WorldGraphRet
         is_head=snapshot.is_head,
         focus=snapshot.focus,
         admissibility=snapshot.admissibility,
+        scope_mode=getattr(snapshot, "scope_mode", "campaign") or "campaign",
     )
 
 
@@ -970,6 +973,7 @@ def search_campaign_graph(
         focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
+        scope_mode=request.scope_mode,
     )
     if loaded is None:
         return _unavailable_result("search", request)
@@ -1082,6 +1086,7 @@ def get_campaign_object(
         focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
+        scope_mode=request.scope_mode,
     )
     if loaded is None:
         return _unavailable_result("object", request, requested_node_id=request.node_id)
@@ -1202,6 +1207,7 @@ def get_object_neighborhood(
         focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
+        scope_mode=request.scope_mode,
     )
     if loaded is None:
         return _unavailable_result("neighborhood", request)
@@ -1356,6 +1362,7 @@ def get_object_evidence(
         focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
+        scope_mode=request.scope_mode,
     )
     if loaded is None:
         return _unavailable_result("evidence", request)
@@ -1480,6 +1487,7 @@ def read_source_anchor(
         focus=request.focus.to_projection_focus(),
         admissibility=request.admissibility,
         revision_pin=request.revision_pin,
+        scope_mode=request.scope_mode,
     )
     if loaded is None:
         return WorldGraphSourceAnchorReadResult(

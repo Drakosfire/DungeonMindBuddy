@@ -304,6 +304,90 @@ def test_merge_contribution_publishes_world_revision(seeded_root) -> None:
     assert store.nodes["npc_hester"].label == "Hester"
 
 
+def test_merge_refuses_disagreeing_active_node_fingerprint(seeded_root) -> None:
+    root, parent = seeded_root
+    first = _node_assertion(
+        node_id="pc:baergrom_test",
+        label="Baergrom",
+        source_artifact_id="artifact:seed:baergrom",
+    )
+    # Force seed-like role that differs from default npc/npc.
+    first = first.model_copy(
+        update={
+            "value": {
+                **dict(first.value),
+                "kind": "pc",
+                "role": "player-character",
+            },
+            "epistemic_kind": "fact",
+        }
+    )
+    seed = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="graph_review_authored_assertion",
+        source_artifact_id="artifact:seed:baergrom",
+        source_revision_id="src-rev-seed",
+        extraction_profile="test_profile",
+        campaign_scope="longmont-c2",
+        accepted_assertions=[first],
+    )
+    seed_result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=seed,
+        expected_parent_revision_id=parent,
+    )
+    assert seed_result.published is True
+
+    conflicting = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id="pc:baergrom_test",
+        label="Baergrom",
+        value={
+            "kind": "pc",
+            "role": "pc",
+            "summary": "Recap-derived combat summary",
+            "source_domains": ["recap"],
+            "aliases": ["Baergrom"],
+            "canon_state": "canonical",
+        },
+        evidence_ref_ids=[],
+        source_artifact_id="artifact:recap:session-24",
+        source_revision_id="src-rev-recap",
+        campaign_scope="longmont-c2",
+        epistemic_kind="source_derived_candidate",
+        visibility="gm",
+        identity_resolution_outcome="resolved_existing",
+    )
+    extract = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:recap:session-24",
+        source_revision_id="src-rev-recap",
+        extraction_profile="test_profile",
+        campaign_scope="longmont-c2",
+        accepted_assertions=[conflicting],
+    )
+    result = kernel.merge_contribution_to_revision(
+        root,
+        world_id=WORLD_ID,
+        contribution=extract,
+        expected_parent_revision_id=seed_result.revision_id,
+    )
+    assert result.published is False
+    assert any("disagrees with an already-active" in d for d in result.diagnostics)
+    head, _rev, store = kernel.open_current_world_graph(root, WORLD_ID)
+    assert head.head_revision_id == seed_result.revision_id
+    supports = [
+        s
+        for s in (store.assertion_support or {}).values()
+        if (s.get("graph_object_id") if isinstance(s, dict) else s.graph_object_id)
+        == "pc:baergrom_test"
+    ]
+    assert len(supports) == 1
+
+
 def test_failed_contribution_merge_leaves_prior_head_readable(seeded_root) -> None:
     root, parent = seeded_root
     # Edge endpoints do not exist → merge fails validation/value error path.

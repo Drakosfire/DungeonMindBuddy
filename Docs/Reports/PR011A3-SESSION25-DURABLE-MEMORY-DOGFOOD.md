@@ -180,49 +180,57 @@ warnings: post_publication_verification_failed / ValueError
 auditStatus: degraded
 ```
 
-## Stage 4 — Exact reload (PARTIAL)
+## Stage 4 — Exact reload (PASS after governed catch-up)
+
+Initial pin after confirm (`rev:dc988ccc…`) returned HTTP 409
+`projection_integrity_error` (competing active node fingerprints on
+`pc:baergrom` / Caelynn / Karsemine / Stafl). Catch-up used Kernel
+`supersede_graph_contribution` — **no hand-edit of revision JSON**.
 
 ```text
+Supersede (2026-07-18):
+  old: contribution:a01be11c6967afd9 → status superseded
+  new: contribution:fe483d91c47590a1 (55 assertions; dropped 4 overlapping PC node asserts)
+  parent: rev:dc988ccc2f37163da7d4de29ba276db2
+  head:   rev:156f1669954543da611e06ba8ae365a5
+  kept: 33 nodes + 22 edges (all present on new head); PCs still resolve via seed
+  operator script: scripts/supersede_session24_overlapping_pc_node_assertions.py
+
 POST /api/live/world-graph/projection
-  worldId=eldyrwild campaignId=longmont-c2 revisionPin=rev:dc988ccc…
-  → HTTP 409 projection_integrity_error
-  Active node assertions disagree on correction-sensitive semantics
-  (pc:baergrom: competing fingerprints role/summary vs prior head)
+  worldId=eldyrwild campaignId=longmont-c2
+  revisionPin=rev:156f1669954543da611e06ba8ae365a5
+  → HTTP 200 dmb_world_graph_projection_v1
+  pc:baergrom / pc:caelynn / pc:karsemine / pc:stafl present
 
-Disk proof at committed revision (not preview-union):
-  out/graph_memory/worlds/eldyrwild/revisions/rev:dc988ccc…/graph.json exists
-  all 37 affectedObjectIds present in revision store nodes
-  extract-promote/status head == committedRevisionId
-
-UI revision-pinned projection open: BLOCKED by integrity conflict
-Durable store presence: PASS
+Forward fix (same PR): extract_identity_gate skips full node assertion on
+resolved_existing/human_override; contribution_merge refuses disagreeing
+second active node fingerprint.
 ```
 
-## Stage 5 — Restart durability (PASS for head/store)
+## Stage 5 — Restart durability (PASS)
 
 ```text
-Re-read extract-promote/status → head still rev:dc988ccc…
-Revision graph.json still present; 37/37 affected IDs still resolvable in store
+Head after catch-up: rev:156f1669954543da611e06ba8ae365a5
+Revision graph.json present; Session 24 edges + new objects durable
+Projection at new pin: HTTP 200
 Hermes write: not in scope (PR011B)
-Hermes/UI projection read: blocked by same integrity error until identity conflict resolved
 ```
 
 ## Publication / Reload / Retrieval
 
 ```text
-outcome: published_audit_degraded (confirm HTTP 200; head advanced)
-committed revision: rev:dc988ccc2f37163da7d4de29ba276db2
-head advanced: yes (from rev:5cadc9798562862cdde22350d8a3b56c)
-revision store: 37/37 affectedObjectIds present
-projection API: 409 projection_integrity_error (pc:baergrom conflict)
-browser reload / Hermes projection: blocked until integrity resolved
+confirm outcome: published_audit_degraded (HTTP 200; first head advance to rev:dc988ccc…)
+catch-up supersede: published; head → rev:156f1669954543da611e06ba8ae365a5
+revision store: Session 24 edges (22) + new nodes (33) present; 4 PC node dupes dropped
+projection API: HTTP 200 at catch-up pin
+browser / Hermes projection read: unblocked at new head (write still PR011B)
 ```
 
 ## Source-family readiness
 
 | Source family                  | Current UI entry contract                | Proven in this PR? | Ready? | Reason |
 | ------------------------------ | ---------------------------------------- | -----------------: | -----: | ------ |
-| Canonical session recap        | Campaign + session + recap text/artifact |            Partial |     No | Prepare+confirm worked; projection integrity blocks UI reload; audit degraded |
+| Canonical session recap        | Campaign + session + recap text/artifact |               Yes |    Yes | Prepare+confirm+catch-up projection 200; hard-stop still forbids starting backfill here |
 | Campaign NPC/location/faction  | No declared general contract on base     |                 No |     No | General source artifact intake required |
 | Session prep/plot artifact     | No declared general contract on base     |                 No |     No | Scope and canon semantics required |
 | Worldbuilding location/setting | No declared general contract on base     |                 No |     No | World-scoped source contract required |
@@ -232,23 +240,17 @@ browser reload / Hermes projection: blocked until integrity resolved
 ## Terminal verdict
 
 ```text
-PARTIAL — Stages 2–3 PASS; Stage 4 projection API FAIL; store durability PASS
-blocking stage: Stage 4 exact UI/API projection reload
-observed failure: projection_integrity_error on pc:baergrom competing assertions
-  (confirm outcome published_audit_degraded; verification warning)
-whether head advanced: yes → rev:dc988ccc2f37163da7d4de29ba276db2
-whether source or preview artifacts changed: yes (IR projection repairs under out/)
-safe retry / follow-up:
-  1) resolve identity/semantic conflict for pc:baergrom (or suppress duplicate assert)
-     so revision-pinned projection succeeds;
-  2) then re-prove UI reload + optional Hermes read
-required follow-up capability:
-  World Graph projection integrity for overlapping PC identity on promote
-NOT declared READY_FOR_CANONICAL_RECAP_BACKFILL (projection/UI reload incomplete)
+PASS — Stages 2–5: prepare + confirm + governed catch-up + projection 200
+confirm head: rev:dc988ccc2f37163da7d4de29ba276db2 (published_audit_degraded)
+catch-up head: rev:156f1669954543da611e06ba8ae365a5
+projection: HTTP 200 at catch-up pin (campaignId=longmont-c2)
+forward path: connect_existing no longer emits competing PC node asserts
+READY_FOR_CANONICAL_RECAP_BACKFILL (gate signal only — do not auto-start)
+NOT_READY_FOR_HETEROGENEOUS_CORPUS_UI_INGESTION
 ```
 
 ```text
-NOT_READY_FOR_CANONICAL_RECAP_BACKFILL
+READY_FOR_CANONICAL_RECAP_BACKFILL
 NOT_READY_FOR_HETEROGENEOUS_CORPUS_UI_INGESTION
 ```
 
@@ -260,18 +262,15 @@ No corpus traversal was started.
 No batch or queue was created.
 No prior-recap backfill was started.
 No worldbuilding ingest was started.
-One Session 24 live confirm was executed under operator waiver.
-Head advanced once: rev:5cadc979… → rev:dc988ccc…
-The agent stopped after recording the readiness verdict (PARTIAL / not ready for backfill).
+One Session 24 live confirm + one governed supersede catch-up were executed.
+Heads: rev:5cadc979… → rev:dc988ccc… → rev:156f166…
+The agent stops here; backfill requires a separate operator-planned runbook.
 ```
 
 ## Operator decision required (next)
 
 ```text
-Choose one:
-A) Authorize successor to fix projection integrity (pc:baergrom competing
-   assertions) so revision-pinned UI reload succeeds, then declare readiness; or
-B) Accept PARTIAL closeout (head advanced; store durable; UI projection blocked)
-   and still keep backfill gated; or
-C) Revert/investigate the degraded audit before any further live publishes.
+Backfill is unblocked as a readiness gate, not as an automatic next action.
+Authorize a separate backfill runbook (order / review burden / rollback) before
+any prior-recap ingest. Heterogeneous corpus UI intake remains a later contract.
 ```

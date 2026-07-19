@@ -93,13 +93,17 @@ class WorldGraphRetrievalFocus(_RetrievalRequestModel):
 
     kind: FocusKind = "none"
     session_id: str | None = None
+    campaign_id: str | None = None
 
     @model_validator(mode="after")
     def _validate_session_id(self) -> WorldGraphRetrievalFocus:
         if self.kind == "session" and not self.session_id:
             raise ValueError("sessionId is required when focus.kind is session")
-        if self.kind == "none" and self.session_id is not None:
-            raise ValueError("sessionId must be null when focus.kind is none")
+        if self.kind == "none":
+            if self.session_id is not None:
+                raise ValueError("sessionId must be null when focus.kind is none")
+            if self.campaign_id is not None:
+                raise ValueError("campaignId must be null when focus.kind is none")
         return self
 
     def to_projection_focus(self) -> WorldGraphProjectionFocus:
@@ -116,6 +120,9 @@ class WorldGraphRetrievalRequestContext(_RetrievalRequestModel):
     focus: WorldGraphRetrievalFocus = Field(default_factory=WorldGraphRetrievalFocus)
     admissibility: str = "gm"
     revision_pin: str | None = None
+    # campaign: narrative campaign only (+ world-owned null).
+    # world: all campaign scopes in the same world (GM cross-campaign lens).
+    scope_mode: Literal["campaign", "world"] = "campaign"
 
 
 def _reject_blank_ids(value: list[str]) -> list[str]:
@@ -186,6 +193,7 @@ class WorldGraphRetrievalSnapshot(_RetrievalResponseModel):
     is_head: bool
     focus: WorldGraphProjectionFocus
     admissibility: str
+    scope_mode: Literal["campaign", "world"] = "campaign"
 
 
 class WorldGraphRetrievalTrustBoundary(_RetrievalResponseModel):

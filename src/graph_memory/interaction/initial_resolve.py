@@ -19,12 +19,14 @@ from graph_memory.interaction.session_store import create_session
 
 def _focus_dict(focus: Any) -> dict[str, Any]:
     if not isinstance(focus, Mapping):
-        return {"kind": "none", "session_id": None}
+        return {"kind": "none", "session_id": None, "campaign_id": None}
     kind = str(focus.get("kind") or "none")
     session_id = focus.get("session_id", focus.get("sessionId"))
+    campaign_id = focus.get("campaign_id", focus.get("campaignId"))
     return {
         "kind": kind,
         "session_id": None if session_id is None else str(session_id),
+        "campaign_id": None if campaign_id is None else str(campaign_id),
     }
 
 
@@ -122,6 +124,7 @@ def create_session_from_preflight(
             admissibility=str(envelope.get("admissibility") or "gm"),
             revision_id=revision_id,
             is_head=envelope.get("is_head") if isinstance(envelope.get("is_head"), bool) else None,
+            scope_mode=str(envelope.get("scope_mode") or "campaign"),  # type: ignore[arg-type]
         ),
         question=question,
         intent_hint=_infer_intent_hint(question),

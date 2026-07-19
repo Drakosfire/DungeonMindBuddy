@@ -13,6 +13,7 @@ PROJECTION_RESPONSE_SCHEMA = "dmb_world_graph_projection_v1"
 PROJECTION_ERROR_SCHEMA = "dmb_world_graph_projection_error_v1"
 
 FocusKind = Literal["none", "session"]
+ScopeMode = Literal["campaign", "world"]
 AdmissibilityPolicy = str
 
 SEARCH_MAX_NODES = 12
@@ -52,15 +53,27 @@ class WorldGraphProjectionDiagnostic(_ProjectionModel):
 
 
 class WorldGraphProjectionFocus(_ProjectionModel):
+    """Temporal focus for ranking/anchoring — not a visibility wall.
+
+    When ``kind`` is ``session``, ``session_id`` is required. ``campaign_id``
+    qualifies the session so ``session-3`` cannot ambiguously match C1 and C2.
+    When omitted, callers should treat the request's narrative ``campaign_id``
+    as the effective focus campaign (backward-compatible wire).
+    """
+
     kind: FocusKind = "none"
     session_id: str | None = None
+    campaign_id: str | None = None
 
     @model_validator(mode="after")
     def _validate_session_id(self) -> WorldGraphProjectionFocus:
         if self.kind == "session" and not self.session_id:
             raise ValueError("session_id is required when focus.kind is session")
-        if self.kind == "none" and self.session_id is not None:
-            raise ValueError("session_id must be null when focus.kind is none")
+        if self.kind == "none":
+            if self.session_id is not None:
+                raise ValueError("session_id must be null when focus.kind is none")
+            if self.campaign_id is not None:
+                raise ValueError("campaign_id must be null when focus.kind is none")
         return self
 
 
@@ -72,6 +85,9 @@ class WorldGraphProjectionRequest(_ProjectionModel):
     admissibility: AdmissibilityPolicy = "gm"
     revision_pin: str | None = None
     query_text: str | None = None
+    # campaign: narrative campaign only (+ world-owned null).
+    # world: all campaign scopes in the same world (GM cross-campaign lens).
+    scope_mode: ScopeMode = "campaign"
 
 
 class WorldGraphProjectionSnapshot(_ProjectionModel):
@@ -82,6 +98,7 @@ class WorldGraphProjectionSnapshot(_ProjectionModel):
     is_head: bool
     focus: WorldGraphProjectionFocus
     admissibility: AdmissibilityPolicy
+    scope_mode: ScopeMode = "campaign"
 
 
 class WorldGraphProjectionSummary(_ProjectionModel):
@@ -145,6 +162,9 @@ class WorldGraphProjectionNodeView(_ProjectionModel):
     source_domains: list[str] = Field(default_factory=list)
     summary: str | None = None
     anchored_to_focus_session: bool = False
+    # Effective campaign tenancy (null = world-universal). Surfaced so
+    # cross-campaign world-scope results remain attributable.
+    campaign_scope: str | None = None
     evidence_badges: list[WorldGraphProjectionEvidenceBadge] = Field(default_factory=list)
     adjacency: list[WorldGraphProjectionAdjacencyCandidate] = Field(default_factory=list)
     suggested_expansions: list[WorldGraphProjectionSuggestedExpansion] = Field(
@@ -193,6 +213,7 @@ class WorldGraphProjectionEvidenceView(_ProjectionModel):
     source_artifact_id: str
     source_domain: str
     session_id: str | None = None
+    campaign_id: str | None = None
     locator: str | None = None
     source_span_ref_id: str | None = None
     locator_status: Literal["unverified"] = "unverified"

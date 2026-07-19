@@ -18,6 +18,10 @@ import {
 } from "./extractPromoteSelectionUtils";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "./graphReviewWorkbenchUtils";
+import {
+  WORLD_GRAPH_REVISION_COMMITTED_EVENT,
+  type WorldGraphRevisionCommittedDetail,
+} from "../reference/planGraphContextRequest";
 
 export interface GraphReviewExtractPromoteSheetProps {
   prepared: ExtractPromotePrepareResponse;
@@ -95,6 +99,37 @@ function confirmErrorMessage(error: unknown): string {
 async function defaultCatalogRefresh(): Promise<void> {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
+}
+
+function emitWorldGraphRevisionCommitted(
+  receipt: ExtractPromoteConfirmReceipt,
+  campaignId: string,
+): void {
+  if (typeof window === "undefined") return;
+  const detail: WorldGraphRevisionCommittedDetail = {
+    revisionId: receipt.committedRevisionId,
+    worldId: receipt.worldId,
+    campaignId,
+    affectedNodeIds: receipt.affectedObjectIds,
+  };
+  window.dispatchEvent(
+    new CustomEvent(WORLD_GRAPH_REVISION_COMMITTED_EVENT, { detail }),
+  );
+}
+
+function buildAnchoredPlanHref(options: {
+  campaignId: string;
+  sessionId?: string | null;
+  revisionId: string;
+}): string {
+  const params = new URLSearchParams();
+  params.set("campaign", options.campaignId);
+  params.set("scopeMode", "world");
+  if (options.sessionId) {
+    params.set("session", options.sessionId);
+  }
+  params.set("revision", options.revisionId);
+  return `/plan?${params.toString()}`;
 }
 
 /**
@@ -185,6 +220,10 @@ export function GraphReviewExtractPromoteSheet({
         }
         if (nextReceipt.outcome !== "published_audit_degraded") {
           await applyCommittedRevision(nextReceipt);
+          emitWorldGraphRevisionCommitted(
+            nextReceipt,
+            prepared.campaignId ?? nextReceipt.worldId,
+          );
         }
       } catch (error) {
         if (error instanceof ExtractPromoteApiError) {
@@ -200,7 +239,12 @@ export function GraphReviewExtractPromoteSheet({
         );
       }
     },
-    [applyCommittedRevision, onCatalogRefresh, prepared.reviewPackage],
+    [
+      applyCommittedRevision,
+      onCatalogRefresh,
+      prepared.campaignId,
+      prepared.reviewPackage,
+    ],
   );
 
   const onMergeClick = () => {
@@ -283,6 +327,23 @@ export function GraphReviewExtractPromoteSheet({
               ))}
             </ul>
           ) : null}
+          <p className="graph-review-extract-promote-receipt-continue">
+            <a
+              data-testid="graph-review-extract-promote-open-plan"
+              href={buildAnchoredPlanHref({
+                campaignId: prepared.campaignId ?? receipt.worldId,
+                sessionId: prepared.sessionId ?? null,
+                revisionId: receipt.committedRevisionId,
+              })}
+            >
+              Continue in Plan (world scope)
+            </a>
+            {" · "}
+            revision {receipt.committedRevisionId}
+            {receipt.affectedObjectIds.length
+              ? ` · ${receipt.affectedObjectIds.length} object${receipt.affectedObjectIds.length === 1 ? "" : "s"}`
+              : ""}
+          </p>
         </div>
       ) : null}
 

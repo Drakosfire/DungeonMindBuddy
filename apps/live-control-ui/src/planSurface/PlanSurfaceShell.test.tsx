@@ -55,7 +55,8 @@ const expectedWorldGraphContextRequest = {
   schema: "dmb_agent_world_graph_query_context_request_v1",
   world_id: "eldyrwild",
   campaign_id: "longmont-c2",
-  focus: { kind: "none", session_id: null },
+  scope_mode: "world",
+  focus: { kind: "none", session_id: null, campaign_id: null },
   admissibility: "gm",
   revision_pin: "rev-1",
 };
@@ -119,6 +120,14 @@ async function waitForPlanSurfaceReady() {
     expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
   });
 }
+
+async function openAgentConfig(user: { click: (el: Element) => Promise<void> }) {
+  if (!screen.queryByLabelText("Agent configuration")) {
+    await user.click(screen.getByRole("button", { name: "Config" }));
+    await screen.findByLabelText("Agent configuration");
+  }
+}
+
 
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
@@ -199,7 +208,7 @@ describe("PlanSurfaceShell", () => {
     expect(
       await screen.findByRole("complementary", { name: "DungeonBuddy drawer" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("World graph (all sessions)")).toBeInTheDocument();
+    expect(screen.getByText("Union · C1+C2 · no session focus")).toBeInTheDocument();
     expect(screen.getByLabelText("Question")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
     expect(screen.getByText("Memory coverage diagnostics")).toBeInTheDocument();
@@ -264,7 +273,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     expect(screen.getByRole("heading", { name: "Legacy live thread" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "What do we know about Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -423,7 +432,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -478,7 +487,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("First answer")).toBeInTheDocument();
@@ -532,7 +541,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Who is Lysandro?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -588,7 +597,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
 
     await user.type(screen.getByLabelText("Question"), "Empty graph question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -618,7 +627,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     expect(await screen.findByText("Initializing world graph context…")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Ask before projection is ready?");
@@ -660,7 +669,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What should I remember about the gate?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -701,7 +710,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -785,7 +794,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -795,6 +804,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText("not reported")).toBeInTheDocument();
     expect(screen.getByText("hermes_graph_agent")).toBeInTheDocument();
     // Default new-thread UI keeps trace visible ("Trace On"); panel must not crash on PR354 shell.
+    await openAgentConfig(user);
     expect(screen.getByRole("button", { name: /Trace (On|Off)/ })).toBeInTheDocument();
   });
 
@@ -838,7 +848,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
 
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -866,6 +876,7 @@ describe("PlanSurfaceShell", () => {
     expect(storedThread).not.toMatch(/Retrieved evidence excerpts/);
     expect(storedThread).not.toMatch(/\/tmp\/hermes/);
 
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Clear history" }));
     expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
     const clearedThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
@@ -907,12 +918,14 @@ describe("PlanSurfaceShell", () => {
     await screen.findByText("Session 24 inn prep");
     expect(screen.getByText("The inn has Mireward rumors.")).toBeInTheDocument();
 
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     const switcher = screen.getByRole("region", { name: "DungeonBuddy threads" });
     expect(switcher).toHaveTextContent("Session 24 inn prep");
     expect(localStorage.getItem(threadIndexStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID))).toContain("Session 24 inn prep");
 
-    await user.click(screen.getByRole("button", { name: "Rename" }));
+    await openAgentConfig(user);
+    await user.click(screen.getByRole("button", { name: "Rename thread" }));
     await user.clear(screen.getByLabelText("Prep thread title"));
     await user.type(screen.getByLabelText("Prep thread title"), "Mireward inn prep");
     await user.click(screen.getByRole("button", { name: "Save title" }));
@@ -959,13 +972,14 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Thread A question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open source" }));
     expect(await screen.findByRole("region", { name: "Source preview" })).toHaveTextContent("Thread A source body");
 
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "New prep thread" }));
     expect(screen.queryByText("Answer for thread A")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Source preview" })).not.toBeInTheDocument();
@@ -973,6 +987,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for thread B")).toBeInTheDocument();
 
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     await user.click(screen.getAllByRole("button", { name: /Thread A question/i })[0]);
     expect(await screen.findByText("Answer for thread A")).toBeInTheDocument();
@@ -1012,7 +1027,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       await user.type(screen.getByLabelText("Question"), `Question ${index}?`);
@@ -1053,7 +1068,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `Before clear ${index}?` } });
@@ -1063,6 +1078,7 @@ describe("PlanSurfaceShell", () => {
 
     await user.click(screen.getByRole("button", { name: "Keep going" }));
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Clear history" }));
     expect(screen.queryByRole("region", { name: "Conversation transcript" })).not.toBeInTheDocument();
 
@@ -1090,7 +1106,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
@@ -1119,14 +1135,16 @@ describe("PlanSurfaceShell", () => {
     const rendered = renderPlanSurface();
     await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Restore thread A?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "New prep thread" }));
     await user.type(screen.getByLabelText("Question"), "Restore thread B?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     expect(await screen.findByText("Answer for restore B")).toBeInTheDocument();
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     await user.click(screen.getAllByRole("button", { name: /Restore thread A\?/i })[0]);
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
@@ -1136,6 +1154,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     const switcher = screen.getByRole("region", { name: "DungeonBuddy threads" });
     expect(switcher).toHaveTextContent("Restore thread A?");
@@ -1154,7 +1173,8 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
     expect(screen.getByText("No saved prep threads yet.")).toBeInTheDocument();
   });
@@ -1197,7 +1217,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What happened at bootstrap?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -1250,7 +1270,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await screen.findByText("World graph (all sessions)");
+    await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What carried over from prior sessions?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -1304,6 +1324,7 @@ describe("PlanSurfaceShell", () => {
           schema: "dmb_world_graph_projection_request_v1",
           worldId: "eldyrwild",
           campaignId: "longmont-c2",
+          scopeMode: "world",
           focus: { kind: "none", sessionId: null },
           admissibility: "gm",
         });
@@ -1524,6 +1545,7 @@ describe("PlanSurfaceShell", () => {
     expect(await screen.findByLabelText("Question")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: "Trace On" }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
@@ -1559,6 +1581,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), `${state} question?`);
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toHaveTextContent(`${state} answer`);
@@ -1592,6 +1615,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Scope mismatch question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toHaveTextContent(
@@ -1648,6 +1672,7 @@ describe("PlanSurfaceShell", () => {
     await screen.findByText("Stale session thread");
     await user.type(screen.getByLabelText("Question"), "Hermes graph question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
 
@@ -2007,6 +2032,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await screen.findByText("Tripod stands at the North Gate.");
 
+    await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "New prep thread" }));
     await user.type(
       screen.getByLabelText("Question"),
@@ -2095,6 +2121,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(await screen.findByText("Graph tool activity (1)")).toBeInTheDocument();
     expect(screen.getByText("search_campaign_graph")).toBeInTheDocument();
+    await openAgentConfig(user);
     expect(screen.getByRole("button", { name: /Trace On/i })).toBeInTheDocument();
   });
 
@@ -2119,6 +2146,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
     expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
@@ -2142,6 +2170,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
     expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
@@ -2181,6 +2210,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText(/hermes · process_isolated · ok · 88ms/)).toBeInTheDocument();
     expect(screen.getByText("bounded string warning")).toBeInTheDocument();
     expect(screen.queryByText(/unexpected object/)).not.toBeInTheDocument();
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
   });
@@ -2212,6 +2242,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
     expect(await screen.findByText("Hermes grounding contract error")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Graph evidence" })).not.toBeInTheDocument();
@@ -2399,6 +2430,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await openAgentConfig(user);
     await user.click(await screen.findByRole("button", { name: /Trace On/i }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();

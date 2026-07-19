@@ -87,12 +87,18 @@ def build_plan_union_supergraph_projection(
         if graph_run_manifest_path is not None
         else {}
     )
+    known_entity_mentions = (
+        _load_manifest_known_entity_mentions(graph_run_manifest_path)
+        if graph_run_manifest_path is not None
+        else None
+    )
     return build_recap_graph_projection(
         store,
         session_id=session_id,
         markdown=markdown or "",
         source_spans=source_spans,
         paragraph_text_by_span_id=paragraph_text_by_span_id,
+        known_entity_mentions=known_entity_mentions,
     )
 
 
@@ -174,6 +180,34 @@ def _load_manifest_source_span_full_text_index(
         if isinstance(span_id, str) and isinstance(text, str) and text.strip():
             full_text_by_span_id[span_id] = text
     return full_text_by_span_id
+
+
+def _load_manifest_known_entity_mentions(
+    graph_run_manifest_path: Path,
+) -> dict[str, Any] | None:
+    """Load the deterministic known-entity mention sidecar for a graph-ingest run."""
+    root = repo_root().resolve()
+    payload = json.loads(
+        _resolve_repo_contained_path(graph_run_manifest_path, root).read_text(encoding="utf-8")
+    )
+    artifacts = payload.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return None
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if not isinstance(artifact, dict):
+        # Older runs may have stashed the sidecar under a telemetry-shaped key.
+        artifact = artifacts.get("known_entity_mentions")
+    if not isinstance(artifact, dict):
+        return None
+    uri = artifact.get("uri")
+    if not isinstance(uri, str) or not uri.strip():
+        return None
+    mentions_path = _resolve_repo_contained_path(Path(uri), root)
+    if not mentions_path.is_file():
+        return None
+    data = json.loads(mentions_path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else None
+
 
 def load_preview_union_store_from_graph_run_manifest(
     graph_run_manifest_path: Path,

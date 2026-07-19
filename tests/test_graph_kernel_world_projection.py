@@ -151,8 +151,14 @@ def _request(
     query_text: str | None = None,
     focus_kind: str = "none",
     session_id: str | None = None,
+    focus_campaign_id: str | None = None,
+    scope_mode: str = "campaign",
 ) -> WorldGraphProjectionRequest:
-    focus = WorldGraphProjectionFocus(kind=focus_kind, session_id=session_id)
+    focus = WorldGraphProjectionFocus(
+        kind=focus_kind,
+        session_id=session_id,
+        campaign_id=focus_campaign_id,
+    )
     return WorldGraphProjectionRequest(
         schema=PROJECTION_REQUEST_SCHEMA,
         world_id=WORLD_ID,
@@ -161,6 +167,7 @@ def _request(
         admissibility=admissibility,
         revision_pin=revision_pin,
         query_text=query_text,
+        scope_mode=scope_mode,  # type: ignore[arg-type]
     )
 
 
@@ -1576,14 +1583,109 @@ def test_unsupported_admissibility_fails_closed(
     assert exc_info.value.code == "unsupported_admissibility"
 
 
-def test_campaign_mismatch_fails_closed(tmp_path: Path, loaded_bundle) -> None:
+def test_foreign_campaign_filters_to_world_universal_only(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Requesting another campaign no longer 409s; C2-scoped objects are hidden."""
     _initialize(tmp_path, loaded_bundle)
-    with pytest.raises(WorldGraphProjectionError) as exc_info:
-        kernel.project_world_graph(
-            tmp_path,
-            _request(campaign_id="foreign-campaign"),
-        )
-    assert exc_info.value.code == "campaign_scope_mismatch"
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(campaign_id="longmont-c1"),
+    )
+    assert projection.snapshot.campaign_id == "longmont-c1"
+    node_ids = {node.node_id for node in projection.nodes}
+    # World hubs are campaign_scope null.
+    assert "location:mirathorn" in node_ids
+    assert "location:mireward" in node_ids
+    # C2-scoped party / events / PCs are excluded until PC supersede + C1 bundle.
+    assert "party:questionable-company" not in node_ids
+    assert EVENT_ID not in node_ids
+    assert TRIPOD_ID not in node_ids
+    assert not any(
+        rel.target_node_id == EVENT_ID or rel.source_node_id == EVENT_ID
+        for rel in projection.relationships
+    )
+
+
+def test_c2_campaign_projection_still_sees_tripod(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    projection = kernel.project_world_graph(tmp_path, _request())
+    assert TRIPOD_ID in {node.node_id for node in projection.nodes}
+    assert "party:questionable-company" in {node.node_id for node in projection.nodes}
+
+
+def test_world_scope_projection_includes_c2_objects_from_c1_anchor(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """GM world lens sees campaign-scoped assertions across the world."""
+    _initialize(tmp_path, loaded_bundle)
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(campaign_id="longmont-c1", scope_mode="world"),
+    )
+    assert projection.snapshot.scope_mode == "world"
+    assert projection.snapshot.campaign_id == "longmont-c1"
+    node_ids = {node.node_id for node in projection.nodes}
+    assert TRIPOD_ID in node_ids
+    assert "party:questionable-company" in node_ids
+    tripod = next(node for node in projection.nodes if node.node_id == TRIPOD_ID)
+    assert tripod.campaign_scope == "longmont-c2"
+
+
+def test_campaign_scope_mode_still_isolates_foreign_campaign(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(campaign_id="longmont-c1", scope_mode="campaign"),
+    )
+    assert projection.snapshot.scope_mode == "campaign"
+    node_ids = {node.node_id for node in projection.nodes}
+    assert TRIPOD_ID not in node_ids
+    assert "party:questionable-company" not in node_ids
+
+
+def test_qualified_session_focus_does_not_match_bare_session_across_campaigns(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Focus campaign qualifies session-N so C1 session-23 != C2 session-23."""
+    _initialize(tmp_path, loaded_bundle)
+    # Store evidence/events are C2 session-23; request a C1-qualified same session id.
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _request(
+            campaign_id="longmont-c1",
+            scope_mode="world",
+            focus_kind="session",
+            session_id=FOCUS_SESSION_ID,
+            focus_campaign_id="longmont-c1",
+        ),
+    )
+    assert projection.snapshot.focus.campaign_id == "longmont-c1"
+    event = next(node for node in projection.nodes if node.node_id == EVENT_ID)
+    # C2 session-23 event must not count as focus-anchored under a C1 focus.
+    assert event.anchored_to_focus_session is False
+
+    c2_focus = kernel.project_world_graph(
+        tmp_path,
+        _request(
+            campaign_id="longmont-c2",
+            scope_mode="world",
+            focus_kind="session",
+            session_id=FOCUS_SESSION_ID,
+            focus_campaign_id="longmont-c2",
+        ),
+    )
+    event_c2 = next(node for node in c2_focus.nodes if node.node_id == EVENT_ID)
+    assert event_c2.anchored_to_focus_session is True
 
 
 def test_integrity_failure_when_contribution_missing(

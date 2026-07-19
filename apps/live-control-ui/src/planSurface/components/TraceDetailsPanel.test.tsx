@@ -75,6 +75,7 @@ describe("TraceDetailsPanel", () => {
     render(
       <TraceDetailsPanel
         trace={pr354HermesTrace}
+        question="Where is Tripod?"
         answer="Tripod stands at the North Gate."
       />,
     );
@@ -85,6 +86,10 @@ describe("TraceDetailsPanel", () => {
     );
     expect(screen.getByText("not reported")).toBeInTheDocument();
     expect(screen.getByText("hermes_graph_agent")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-agent-trace-prose")).toHaveTextContent("Where is Tripod?");
+    expect(screen.getByTestId("plan-agent-trace-prose")).toHaveTextContent(
+      "Tripod stands at the North Gate.",
+    );
   });
 
   it("renders bounded graph tool activity for Hermes graph agent traces", () => {
@@ -129,6 +134,7 @@ describe("TraceDetailsPanel", () => {
     render(
       <TraceDetailsPanel
         trace={pr354HermesTrace}
+        question="Where is Tripod?"
         answer="Tripod stands at the North Gate."
       />,
     );
@@ -137,9 +143,10 @@ describe("TraceDetailsPanel", () => {
     expect(writeText).toHaveBeenCalledTimes(1);
     const copied = String(writeText.mock.calls[0]?.[0] ?? "");
     expect(copied).toContain("Agent trace");
+    expect(copied).toMatch(/You\nWhere is Tripod\?/);
+    expect(copied).toMatch(/Hermes\nTripod stands at the North Gate\./);
     expect(copied).toContain("search_campaign_graph");
     expect(copied).toContain("node-tripod");
-    expect(copied).toContain("Tripod stands at the North Gate.");
     expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
   });
 
@@ -151,10 +158,13 @@ describe("TraceDetailsPanel", () => {
     expect(formatTraceToolSummary([], { isHermesGraphAgent: true })).toBe("tools: none");
 
     const text = formatTraceForClipboard(pr354HermesTrace, {
+      question: "Where is Tripod?",
       answer: "Tripod stands at the North Gate.",
       toolEvents: events,
       skippedToolEvents: 0,
     });
+    expect(text).toMatch(/You\nWhere is Tripod\?/);
+    expect(text).toMatch(/Hermes\nTripod stands at the North Gate\./);
     expect(text).toContain("Graph tool activity (1)");
     expect(text).toContain("revision: rev-1");
     expect(text).not.toContain("RAW_PROMPT_SECRET");

@@ -172,6 +172,7 @@ Compared alternatives:
 3. **Campaign-scoped truth is explicit.** Played events, campaign-only relationships, secrets, and chronology carry campaign scope (and often session/temporal scope). They are not silently promoted to world-universal facts.
 4. **Cross-campaign identity is supported** for world entities. Cross-campaign *consequence* edges may exist when evidenced; they remain inspectable and scoped.
 5. **Migration path away from B** would be Model C composition — not a return to per-campaign copied graphs — if future products need stronger campaign isolation than scoping provides.
+6. **Projection tenancy is assertion/object `campaign_scope`.** Include an object when its effective scope is `null` (world-universal) **or** equals the request `campaignId`. The store may retain a legacy `campaign_id` label; that label must not 409 solely because it differs from the request. Shared PCs (`pc:*`) are world-owned (`campaign_scope=null`); campaign parties and session chronology stay campaign-scoped. See `Docs/Reports/C1-HERMES-WORLD-GRAPH-ENABLEMENT-2026-07-18.md`.
 
 ### Storage and context keys
 
@@ -181,7 +182,7 @@ Graph head:         per worldId
 Projection context: worldId + campaignId + focus + admissibility
 ```
 
-v0 may physically store one world (Eldyrwild) with one active campaign scope emphasized in dogfood. The **model** must still be world-owned so Campaign 2 does not fork Mirathorn from Campaign 1.
+One world (`eldyrwild`) holds both `longmont-c1` and `longmont-c2` scopes. Campaign 2 does not fork Mirathorn from Campaign 1; the same shared `pc:*` nodes appear under both campaign projections via world-owned scope.
 
 ---
 

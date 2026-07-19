@@ -21,6 +21,16 @@ def test_usage_cost_splits_cached_input() -> None:
     assert c["total_usd"] > 0
 
 
+def test_luna_pricing_uses_provider_column_order() -> None:
+    rates = pricing_rates_for_model("gpt-5.6-luna")
+    assert rates == {
+        "input": 1.00,
+        "cached_input": 0.10,
+        "cache_write": 1.25,
+        "output": 6.00,
+    }
+
+
 def test_unknown_model_zero_rates() -> None:
     c = usage_cost_usd(model_id="unknown-model-xyz", input_tokens=1000, output_tokens=100, cached_tokens=0)
     assert c["pricing_table_matched"] is False
