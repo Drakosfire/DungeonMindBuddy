@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Literal
 
 from graph_memory.interaction.authority_classifier import claims_from_preflight_envelope
 from graph_memory.interaction.session import (
@@ -19,13 +19,24 @@ from graph_memory.interaction.session_store import create_session
 
 def _focus_dict(focus: Any) -> dict[str, Any]:
     if not isinstance(focus, Mapping):
-        return {"kind": "none", "session_id": None}
+        return {"kind": "none", "session_id": None, "campaign_id": None}
     kind = str(focus.get("kind") or "none")
     session_id = focus.get("session_id", focus.get("sessionId"))
+    campaign_id = focus.get("campaign_id", focus.get("campaignId"))
+    if kind == "none":
+        return {"kind": "none", "session_id": None, "campaign_id": None}
     return {
         "kind": kind,
         "session_id": None if session_id is None else str(session_id),
+        "campaign_id": None if campaign_id is None else str(campaign_id),
     }
+
+
+def _scope_mode(envelope: Mapping[str, Any]) -> Literal["campaign", "world"]:
+    raw = str(envelope.get("scope_mode") or envelope.get("scopeMode") or "campaign").strip()
+    if raw not in {"campaign", "world"}:
+        return "campaign"
+    return raw  # type: ignore[return-value]
 
 
 def _infer_intent_hint(question: str) -> str:
@@ -122,6 +133,7 @@ def create_session_from_preflight(
             admissibility=str(envelope.get("admissibility") or "gm"),
             revision_id=revision_id,
             is_head=envelope.get("is_head") if isinstance(envelope.get("is_head"), bool) else None,
+            scope_mode=_scope_mode(envelope),
         ),
         question=question,
         intent_hint=_infer_intent_hint(question),

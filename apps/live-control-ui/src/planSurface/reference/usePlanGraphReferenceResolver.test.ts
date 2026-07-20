@@ -83,9 +83,57 @@ describe("usePlanGraphReferenceResolver", () => {
       schema: "dmb_world_graph_projection_request_v1",
       worldId: "eldyrwild",
       campaignId: "longmont-c2",
-      focus: { kind: "session", sessionId: "session-21" },
+      scopeMode: "world",
+      focus: {
+        kind: "session",
+        sessionId: "session-21",
+        campaignId: "longmont-c2",
+      },
       admissibility: "gm",
     });
+  });
+
+  it("records projection-load telemetry without corpus prose", async () => {
+    const marks: string[] = [];
+    const measures: string[] = [];
+    const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    vi.spyOn(performance, "mark").mockImplementation((name: string) => {
+      marks.push(String(name));
+      return {} as PerformanceMark;
+    });
+    vi.spyOn(performance, "measure").mockImplementation((name: string) => {
+      measures.push(String(name));
+      return { duration: 42 } as PerformanceMeasure;
+    });
+    vi.spyOn(performance, "getEntriesByName").mockReturnValue([
+      { duration: 42 } as PerformanceEntry,
+    ]);
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(projection);
+
+    const { result } = renderHook(() => usePlanGraphReferenceResolver(), { wrapper: resolverWrapper });
+
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+    await waitFor(() => expect(result.current.lastProjectionLoadOutcome).toBe("ready"));
+
+    expect(result.current.lastProjectionLoadMs).toBe(42);
+    expect(marks.some((name) => name.startsWith("dmb:wg-projection:start:"))).toBe(true);
+    expect(measures.some((name) => name.startsWith("dmb:wg-projection:load:"))).toBe(true);
+    expect(debugSpy).toHaveBeenCalledWith(
+      "[dmb] world-graph projection",
+      expect.objectContaining({
+        campaignId: "longmont-c2",
+        scopeMode: "world",
+        focusSessionId: "session-21",
+        outcome: "ready",
+        durationMs: 42,
+      }),
+    );
+    const payload = debugSpy.mock.calls.find(
+      (call) => call[0] === "[dmb] world-graph projection",
+    )?.[1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("summary");
+    expect(payload).not.toHaveProperty("label");
+    expect(JSON.stringify(payload)).not.toMatch(/Glowkindle|friendly merchant/i);
   });
 
   it("resolves relationship targetId through resolvePlanRelationship", async () => {

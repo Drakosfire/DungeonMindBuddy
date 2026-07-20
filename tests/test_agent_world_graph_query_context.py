@@ -150,6 +150,7 @@ def test_ready_match_returns_tripod_and_connected_battle(tmp_path: Path) -> None
             "role",
             "summary",
             "anchored_to_focus_session",
+            "campaign_scope",
         }
     for attribute in envelope["attributes"]:
         assert "active_contribution_ids" not in attribute
@@ -159,6 +160,7 @@ def test_ready_match_returns_tripod_and_connected_battle(tmp_path: Path) -> None
             "predicate",
             "label",
             "text_value",
+            "campaign_scope",
         }
 
 
@@ -189,16 +191,17 @@ def test_world_graph_unavailable_is_nonfatal(tmp_path: Path) -> None:
     assert "world_graph_unavailable" in envelope["warning_codes"]
 
 
-def test_campaign_mismatch_is_fatal() -> None:
-    with pytest.raises(AgentWorldGraphQueryContextError) as exc_info:
-        resolve_agent_world_graph_query_context(
-            _nested(campaign_id="other-campaign"),
-            outer_text="Tripod?",
-            outer_campaign_id=CAMPAIGN_ID,
-            root=Path("/tmp"),
-        )
-    assert exc_info.value.code == "invalid_request"
-    assert exc_info.value.status_code == 422
+def test_outer_packet_campaign_may_differ_from_graph_lens(tmp_path: Path) -> None:
+    """Plan packet campaign (outer) is independent of nested graph-lens campaign."""
+    _initialize(tmp_path)
+    envelope = resolve_agent_world_graph_query_context(
+        _nested(campaign_id=CAMPAIGN_ID),
+        outer_text="Tripod?",
+        outer_campaign_id="longmont-c1",
+        root=tmp_path,
+    )
+    assert envelope["status"] in {"ready", "empty"}
+    assert envelope["campaign_id"] == CAMPAIGN_ID
 
 
 def test_historical_pin_reports_is_head_false(tmp_path: Path) -> None:
@@ -298,6 +301,44 @@ def test_fatal_projection_errors_propagate() -> None:
         )
     assert exc_info.value.code == "revision_not_found"
     assert exc_info.value.status_code == 404
+
+
+def test_campaign_scope_rejects_mismatched_focus_campaign() -> None:
+    nested = AgentWorldGraphQueryContextRequest.model_validate(
+        {
+            "schema": "dmb_agent_world_graph_query_context_request_v1",
+            "world_id": WORLD_ID,
+            "campaign_id": CAMPAIGN_ID,
+            "scope_mode": "campaign",
+            "focus": {
+                "kind": "session",
+                "session_id": FOCUS_SESSION_ID,
+                "campaign_id": "longmont-c1",
+            },
+            "admissibility": "gm",
+            "revision_pin": None,
+        }
+    )
+    with pytest.raises(AgentWorldGraphQueryContextError) as exc_info:
+        build_projection_request(nested, query_text="Tripod?")
+    assert exc_info.value.code == "invalid_request"
+    assert "focus.campaign_id" in str(exc_info.value)
+
+
+def test_campaign_scope_qualifies_focus_with_lens_campaign() -> None:
+    nested = AgentWorldGraphQueryContextRequest.model_validate(
+        {
+            "schema": "dmb_agent_world_graph_query_context_request_v1",
+            "world_id": WORLD_ID,
+            "campaign_id": CAMPAIGN_ID,
+            "scope_mode": "campaign",
+            "focus": {"kind": "session", "session_id": FOCUS_SESSION_ID},
+            "admissibility": "gm",
+            "revision_pin": None,
+        }
+    )
+    request = build_projection_request(nested, query_text="Tripod?")
+    assert request.focus.campaign_id == CAMPAIGN_ID
 
 
 def test_adapt_empty_query_context_is_empty_status(tmp_path: Path) -> None:

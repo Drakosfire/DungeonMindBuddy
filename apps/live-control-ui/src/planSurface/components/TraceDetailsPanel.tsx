@@ -8,6 +8,7 @@ import type {
 
 interface TraceDetailsPanelProps {
   trace: AgentInteractionTrace;
+  question?: string | null;
   answer?: string | null;
 }
 
@@ -214,6 +215,7 @@ function formatToolEventForClipboard(event: HermesGraphToolTraceEvent, index: nu
 export function formatTraceForClipboard(
   trace: AgentInteractionTrace,
   options: {
+    question?: string | null;
     answer?: string | null;
     toolEvents: HermesGraphToolTraceEvent[];
     skippedToolEvents: number;
@@ -223,16 +225,31 @@ export function formatTraceForClipboard(
   const isHermesGraphAgent = mode === "hermes_graph_agent";
   const lines: string[] = [
     "Agent trace",
+  ];
+
+  if (options.question?.trim()) {
+    lines.push("");
+    lines.push("You");
+    lines.push(options.question.trim());
+  }
+  if (options.answer?.trim()) {
+    lines.push("");
+    lines.push("Hermes");
+    lines.push(options.answer.trim());
+  }
+
+  lines.push("");
+  lines.push(
     [
       displayString(trace.backend),
       displayString(trace.runtime),
       displayString(trace.status, "unknown"),
       `${typeof trace.elapsed_ms === "number" ? trace.elapsed_ms : 0}ms`,
     ].filter(Boolean).join(" · "),
-    `mode: ${mode || "n/a"}`,
-    `trace_id: ${displayString(trace.trace_id) || "n/a"}`,
-    `started_at: ${displayString(trace.started_at) || "n/a"}`,
-  ];
+  );
+  lines.push(`mode: ${mode || "n/a"}`);
+  lines.push(`trace_id: ${displayString(trace.trace_id) || "n/a"}`);
+  lines.push(`started_at: ${displayString(trace.started_at) || "n/a"}`);
 
   const provider = displayOptionalString(trace.provider);
   const model = displayOptionalString(trace.model);
@@ -292,16 +309,10 @@ export function formatTraceForClipboard(
     }
   }
 
-  if (options.answer?.trim()) {
-    lines.push("");
-    lines.push("Answer");
-    lines.push(options.answer.trim());
-  }
-
   return `${lines.join("\n")}\n`;
 }
 
-export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
+export function TraceDetailsPanel({ trace, question, answer }: TraceDetailsPanelProps) {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const context = isRecord(trace.context_summary) ? trace.context_summary : {};
   const steps = Array.isArray(trace.steps) ? trace.steps : [];
@@ -349,6 +360,7 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
 
   const handleCopyTrace = async () => {
     const text = formatTraceForClipboard(trace, {
+      question,
       answer,
       toolEvents: normalizedToolEvents,
       skippedToolEvents,
@@ -389,6 +401,23 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
             {metaLine}
           </span>
         </summary>
+
+        {(question?.trim() || answer?.trim()) ? (
+          <div className="plan-agent-trace-prose" data-testid="plan-agent-trace-prose">
+            {question?.trim() ? (
+              <div className="plan-agent-trace-prose-turn">
+                <h5>You</h5>
+                <p>{question.trim()}</p>
+              </div>
+            ) : null}
+            {answer?.trim() ? (
+              <div className="plan-agent-trace-prose-turn">
+                <h5>Hermes</h5>
+                <p>{answer.trim()}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <dl className="plan-agent-trace-grid">
           <div>
@@ -718,12 +747,6 @@ export function TraceDetailsPanel({ trace, answer }: TraceDetailsPanelProps) {
           </div>
         ) : null}
 
-        {answer ? (
-          <div className="plan-agent-trace-answer">
-            <h5>Answer</h5>
-            <p>{answer}</p>
-          </div>
-        ) : null}
       </details>
     </section>
   );

@@ -90,6 +90,8 @@ PARTIAL_OUTCOMES = frozenset({"partial", "truncated"})
 UNAVAILABLE_OUTCOME = "unavailable"
 WORLD_GRAPH_UNAVAILABLE_CODE = "world_graph_unavailable"
 GRAPH_TOOL_ERROR_CODE = "hermes_graph_tool_error"
+# Cardinality/request-shape failures: soft when the claim ledger already has facts.
+RECOVERABLE_WHEN_CLAIMS_LANDED = frozenset({"too_many_targets", "ambiguous_target"})
 
 MAX_HERMES_HISTORY_MESSAGES = 12
 MAX_HERMES_HISTORY_MESSAGE_CHARS = 4000
@@ -222,17 +224,17 @@ def validate_hermes_query_inputs(
             "Hermes queries require world_graph_context.",
             code="world_graph_context_required",
         )
-    nested_campaign = getattr(world_graph_context, "campaign_id", None)
-    if nested_campaign is None and isinstance(world_graph_context, Mapping):
-        nested_campaign = world_graph_context.get("campaign_id")
-    if (
-        outer_campaign_id is not None
-        and nested_campaign is not None
-        and str(nested_campaign) != str(outer_campaign_id)
-    ):
+    # Outer campaign binds the live packet; nested campaign_id is the graph lens
+    # and may differ (Plan C2 packet + C1-only campaign lens is a supported path).
+    _ = outer_campaign_id
+    nested_scope_mode = getattr(world_graph_context, "scope_mode", None)
+    if nested_scope_mode is None and isinstance(world_graph_context, Mapping):
+        nested_scope_mode = world_graph_context.get("scope_mode")
+    scope_mode = str(nested_scope_mode or "campaign").strip() or "campaign"
+    if scope_mode not in {"campaign", "world"}:
         raise HermesGraphQueryRequestError(
-            "world_graph_context.campaign_id must equal the outer live-query campaign_id",
-            code="campaign_scope_mismatch",
+            "world_graph_context.scope_mode must be 'campaign' or 'world'",
+            code="invalid_request",
         )
     if request_manifest_path is not None:
         raise HermesGraphQueryRequestError(
@@ -254,20 +256,24 @@ def validate_hermes_query_inputs(
 
 def _api_focus_to_host_focus(focus: Mapping[str, Any] | None) -> dict[str, str | None]:
     if focus is None:
-        return {"kind": "none", "sessionId": None}
+        return {"kind": "none", "sessionId": None, "campaignId": None}
     kind = str(focus.get("kind") or "none")
     session_id = focus.get("session_id")
     if session_id is not None:
         session_id = str(session_id)
-    return {"kind": kind, "sessionId": session_id}
+    campaign_id = focus.get("campaign_id")
+    if campaign_id is not None:
+        campaign_id = str(campaign_id)
+    return {"kind": kind, "sessionId": session_id, "campaignId": campaign_id}
 
 
 def _focus_for_grounding(focus: Mapping[str, Any] | None) -> dict[str, Any]:
     if focus is None:
-        return {"kind": "none", "session_id": None}
+        return {"kind": "none", "session_id": None, "campaign_id": None}
     return {
         "kind": str(focus.get("kind") or "none"),
         "session_id": focus.get("session_id"),
+        "campaign_id": focus.get("campaign_id"),
     }
 
 
@@ -669,6 +675,31 @@ def _error_code_from_tool_events(events: Sequence[HermesGraphToolEvent]) -> tupl
     return GRAPH_TOOL_ERROR_CODE, [GRAPH_TOOL_ERROR_CODE]
 
 
+def _has_landed_factual_claims(session: GraphRetrievalSession) -> bool:
+    return any(claim.may_state_as_campaign_fact() for claim in session.claims)
+
+
+def _is_recoverable_tool_error(event: HermesGraphToolEvent) -> bool:
+    code, _ = _error_code_from_tool_events([event])
+    return code in RECOVERABLE_WHEN_CLAIMS_LANDED
+
+
+def _hydrate_retrieval_session(
+    result: HermesGraphAgentTurnResult,
+    *,
+    retrieval_session: GraphRetrievalSession | None = None,
+) -> GraphRetrievalSession | None:
+    session = retrieval_session
+    if session is None and result.retrieval_session is not None:
+        try:
+            session = hydrate_session_from_packet(result.retrieval_session)
+        except Exception:
+            session = None
+    if session is None and result.retrieval_session_id:
+        session = get_session(result.retrieval_session_id)
+    return session
+
+
 def _graph_tool_event_count(events: Sequence[HermesGraphToolEvent]) -> int:
     return sum(1 for event in events if event.tool_name in HERMES_GRAPH_READ_TOOL_NAMES)
 
@@ -732,26 +763,34 @@ def classify_hermes_graph_result(
             {"state": "execution_error", "reason_codes": [error_code]},
         )
 
-    unrecovered_errors = _unrecovered_error_events(result.tool_events, scope)
-    if unrecovered_errors:
-        error_code, diagnostic_codes = _error_code_from_tool_events(unrecovered_errors)
-        return (
-            "error",
-            EXECUTION_ERROR_ANSWER,
-            [],
-            diagnostic_codes,
-            error_code,
-            {"state": "execution_error", "reason_codes": diagnostic_codes},
-        )
+    # Hydrate before unrecovered-error short-circuit so cardinality failures can
+    # soft-recover when the claim ledger already has factual claims.
+    session = _hydrate_retrieval_session(result, retrieval_session=retrieval_session)
 
-    session = retrieval_session
-    if session is None and result.retrieval_session is not None:
-        try:
-            session = hydrate_session_from_packet(result.retrieval_session)
-        except Exception:
-            session = None
-    if session is None and result.retrieval_session_id:
-        session = get_session(result.retrieval_session_id)
+    unrecovered_errors = _unrecovered_error_events(result.tool_events, scope)
+    recoverable_codes: list[str] = []
+    if unrecovered_errors:
+        if session is not None and _has_landed_factual_claims(session):
+            fatal_errors = [
+                event
+                for event in unrecovered_errors
+                if not _is_recoverable_tool_error(event)
+            ]
+            if not fatal_errors:
+                _, recoverable_codes = _error_code_from_tool_events(unrecovered_errors)
+                unrecovered_errors = []
+            else:
+                unrecovered_errors = fatal_errors
+        if unrecovered_errors:
+            error_code, diagnostic_codes = _error_code_from_tool_events(unrecovered_errors)
+            return (
+                "error",
+                EXECUTION_ERROR_ANSWER,
+                [],
+                diagnostic_codes,
+                error_code,
+                {"state": "execution_error", "reason_codes": diagnostic_codes},
+            )
 
     if session is not None:
         explicit_scope = (
@@ -791,11 +830,22 @@ def classify_hermes_graph_result(
                 "lag_disclosure": validated.support_lag_text,
                 "admitted_recap_excerpt": validated.support_excerpt_text,
             }
+        warnings = list(validated.warnings)
+        diagnostic_codes = list(
+            dict.fromkeys([*validated.diagnostic_codes, *recoverable_codes])
+        )
+        for code in recoverable_codes:
+            warning = (
+                f"Recovered past expand cardinality error ({code}); "
+                "answering from landed claims."
+            )
+            if warning not in warnings:
+                warnings.append(warning)
         return (
             legacy_state,
             validated.answer_text,
-            list(validated.warnings),
-            list(validated.diagnostic_codes),
+            warnings,
+            diagnostic_codes,
             None,
             acceptance,
         )
@@ -985,6 +1035,22 @@ def _host_worker_pid(host: HermesGraphAgentHost) -> int | None:
         pid = worker_pid()
         return pid if isinstance(pid, int) else None
     return worker_pid if isinstance(worker_pid, int) else None
+
+
+def _continuity_campaign_id(packet: Mapping[str, Any]) -> str:
+    """Campaign key for Hermes pointer continuity.
+
+    Bound to the outer live packet / Plan thread identity — not the nested
+    graph-lens campaign — so switching C2 → C1-only within one thread keeps
+    the same opaque pointer.
+    """
+    campaign_id = str(packet.get("campaign_id") or "").strip()
+    if not campaign_id:
+        raise HermesGraphQueryRequestError(
+            "Live packet is missing campaign_id for Hermes session continuity.",
+            code="hermes_session_pointer_rejected",
+        )
+    return campaign_id
 
 
 def _resolve_pointer_for_turn(
@@ -1336,7 +1402,8 @@ def run_hermes_graph_query(
         )
 
     resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
-    campaign_id = str(graph_envelope.get("campaign_id") or "").strip()
+    # Pointer continuity keys off the live packet, not the graph-lens campaign.
+    continuity_campaign_id = _continuity_campaign_id(packet)
     pointer_store = (
         HermesSessionPointerStore(session_base)
         if session_base is not None
@@ -1344,7 +1411,7 @@ def run_hermes_graph_query(
     )
     prior_binding = (
         pointer_store.get_for_thread(
-            campaign_id=campaign_id,
+            campaign_id=continuity_campaign_id,
             agent_thread_id=agent_thread_id,
         )
         if pointer_store is not None and agent_thread_id
@@ -1352,7 +1419,7 @@ def run_hermes_graph_query(
     )
     pointer_resolution = _resolve_pointer_for_turn(
         pointer_store,
-        campaign_id=campaign_id,
+        campaign_id=continuity_campaign_id,
         agent_thread_id=agent_thread_id,
         hermes_session_pointer=hermes_session_pointer,
     )
@@ -1383,12 +1450,12 @@ def run_hermes_graph_query(
         and pointer_resolution.pointer_status == "recovered"
     ):
         pointer_store.clear_for_thread(
-            campaign_id=campaign_id,
+            campaign_id=continuity_campaign_id,
             agent_thread_id=agent_thread_id,
         )
     pointer_binding = _persist_pointer_after_turn(
         pointer_store,
-        campaign_id=campaign_id,
+        campaign_id=continuity_campaign_id,
         agent_thread_id=agent_thread_id,
         hermes_session_id=result.hermes_session_id,
         worker_pid=worker_pid,

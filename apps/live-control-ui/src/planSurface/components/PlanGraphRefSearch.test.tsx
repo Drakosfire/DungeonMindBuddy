@@ -17,6 +17,7 @@ const nodes: GraphProjectionNodeView[] = [
     adjacency: [],
     anchored_to_focus_session: true,
     summary: "A friendly merchant.",
+    campaign_scope: "longmont-c1",
   },
   {
     node_id: "location-inn",
@@ -29,6 +30,7 @@ const nodes: GraphProjectionNodeView[] = [
     adjacency: [],
     anchored_to_focus_session: true,
     summary: "Meeting place.",
+    campaign_scope: null,
   },
 ];
 
@@ -57,6 +59,27 @@ describe("PlanGraphRefSearch", () => {
       refId: "npc-glowkindle",
       label: "Glowkindle",
     });
+  });
+
+  it("shows cross-campaign provenance on search results", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <PlanGraphRefSearch
+        nodes={nodes}
+        projectionState="ready"
+        onInsert={() => undefined}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Find objects"), "glow");
+    const results = screen.getByTestId("plan-graph-ref-search-results");
+    expect(within(results).getByText(/Longmont C1/i)).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText("Find objects"));
+    await user.type(screen.getByLabelText("Find objects"), "inn");
+    const innResults = screen.getByTestId("plan-graph-ref-search-results");
+    expect(within(innResults).getByText(/world/i)).toBeInTheDocument();
   });
 
   it("keeps search and view available while insert is locked", async () => {

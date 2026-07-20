@@ -106,6 +106,38 @@ def test_create_session_from_preflight_seeds_referents_and_claims() -> None:
         "assertion:loc",
     }
     assert session.question == "Where is Tripod?"
+    assert session.snapshot.scope_mode == "campaign"
+    assert session.snapshot.focus.get("campaign_id") is None
+
+
+def test_create_session_from_preflight_preserves_world_scope_and_focus_campaign() -> None:
+    envelope = {
+        "world_id": "world:eldyrwild",
+        "campaign_id": "longmont-c2",
+        "revision_id": "revision:test",
+        "matched_node_ids": ["threat:tripod"],
+        "nodes": [{"node_id": "threat:tripod", "label": "Tripod Null-Calf"}],
+        "attributes": [],
+        "focus": {
+            "kind": "session",
+            "session_id": "session-3",
+            "campaign_id": "longmont-c1",
+        },
+        "admissibility": "gm",
+        "scope_mode": "world",
+    }
+
+    session = create_session_from_preflight(envelope, question="Who crossed campaigns?")
+
+    assert session.snapshot.scope_mode == "world"
+    assert session.snapshot.focus == {
+        "kind": "session",
+        "session_id": "session-3",
+        "campaign_id": "longmont-c1",
+    }
+    packet = session.project_for_hermes()
+    assert packet["snapshot"]["scope_mode"] == "world"
+    assert packet["snapshot"]["focus"]["campaign_id"] == "longmont-c1"
 
 
 def test_validate_structured_answer_partial_when_claims_and_unreadable_anchors() -> None:
@@ -695,6 +727,49 @@ def test_expand_rejects_more_than_eight_targets_for_search_and_neighborhood() ->
         )
         assert result["code"] == "invalid_arguments", operation
         assert result["statusCode"] == 422
+
+
+def test_expand_rebuilds_retrieval_with_session_scope_mode_and_focus_campaign() -> None:
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:eldyrwild",
+            campaign_id="longmont-c2",
+            revision_id="revision:test",
+            focus={
+                "kind": "session",
+                "session_id": "session-3",
+                "campaign_id": "longmont-c1",
+            },
+            scope_mode="world",
+        ),
+        question="Who crossed campaigns?",
+        preflight_candidate_ids=["threat:tripod"],
+    )
+    create_session(session)
+    captured: dict[str, object] = {}
+
+    def _capture(request, *, root=None):
+        del root
+        captured["request"] = request
+        return _fake_retrieval_result(schema="dmb_world_graph_search_v1")
+
+    with patch(
+        "graph_memory.interaction.expansion_executor.retrieval_service.search_campaign_graph",
+        side_effect=_capture,
+    ):
+        result = execute_expand_graph_retrieval(
+            {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": session.id,
+                "operation": "search",
+                "queryText": "Tripod",
+            }
+        )
+    assert result.get("schema") != "dmb_world_graph_retrieval_error_v1"
+    request = captured["request"]
+    assert request.scope_mode == "world"
+    assert request.focus.session_id == "session-3"
+    assert request.focus.campaign_id == "longmont-c1"
 
 
 def test_expand_records_effective_targets_matching_dispatch() -> None:
