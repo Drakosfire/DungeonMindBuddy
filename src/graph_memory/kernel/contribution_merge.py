@@ -918,10 +918,17 @@ def _apply_edge_assertion(
         for domain in source_domains:
             if domain not in merged_domains:
                 merged_domains.append(domain)
+        # session_ids are additive observation provenance (same edge re-attested
+        # across sessions). Merge like evidence/domains; do not replace.
+        merged_sessions = list(existing.session_ids)
+        for session_id in session_ids:
+            if session_id not in merged_sessions:
+                merged_sessions.append(session_id)
         edges[edge_id] = existing.model_copy(
             update={
                 "evidence_ref_ids": merged_evidence,
                 "source_domains": merged_domains,
+                "session_ids": merged_sessions,
                 "state": {
                     **dict(existing.state),
                     "support_state": "supported",

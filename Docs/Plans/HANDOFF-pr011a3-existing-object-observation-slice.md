@@ -33,18 +33,20 @@ Live A3 acceptance remains **PARTIAL / NOT_READY_FOR_CANONICAL_RECAP_BACKFILL** 
 | Action | Path | Purpose |
 |---|---|---|
 | Create | `src/graph_memory/source_artifact_domains.py` | Neutral `CAMPAIGN_STABLE_SOURCE_DOMAINS` constant |
-| Modify | `src/graph_memory/kernel/contribution_merge.py` | Stable-domain import; alias hijack refuse in `_apply_alias_assertion` |
+| Modify | `src/graph_memory/kernel/contribution_merge.py` | Stable-domain import; alias hijack refuse; merge `session_ids` on existing edges |
 | Modify | `src/graph_memory/candidate_graph_to_contribution.py` | Connect-existing alias emit + foreign-owner skip; revert creature/source_kind creep |
 | Modify | `src/graph_memory/extract_identity_gate.py` | `_candidate_aliases`; alias owners passed to connect-existing emit |
-| Modify | `src/graph_memory/kernel/world_projection.py` | Edge fingerprint temporal_scope policy |
+| Modify | `src/graph_memory/kernel/world_projection.py` | Edge fingerprint temporal_scope policy; union `session_ids` across active edge supports |
 | Modify | `src/graph_memory/candidate_graph_preview.py` | `CandidateNode.aliases` + dict parse |
 | Modify | `scripts/supersede_session24_overlapping_pc_node_assertions.py` | Exact accepted-assertion payload fingerprint guards |
 | Modify | `tests/test_source_artifact_compatible_stable_domains.py` | Neutral import + import-order smoke |
 | Modify | `tests/test_extract_identity_gate.py` | Publish + projection proof; cross-kind alias collision |
 | Create | `tests/test_edge_core_semantic_fingerprint.py` | Edge fingerprint agree/disagree cases |
+| Create | `tests/test_multi_session_edge_session_ids.py` | E2E: same edge from two sessions → both session IDs on store + projection |
 | Create | `tests/test_supersede_session24_repair_guards.py` | Repair validation unit tests |
 | Create | `tests/test_alias_ownership_guards.py` | Emit skip + kernel `_apply_alias_assertion` refuse-hijack |
 | Create | `Docs/Plans/HANDOFF-pr011a3-existing-object-observation-slice.md` | This handoff |
+| Modify | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | Point slice 2 / PR #370 in tracker authority |
 
 **Bounded discovery exception:** Not applicable — paths enumerated above.
 
@@ -70,12 +72,14 @@ Input:
 Output:
   Support-only attribute + alias assertions on durable ids (foreign-owned aliases skipped)
   Edge fingerprints that ignore session stamps only
+  Multi-session edge supports accumulate session_ids on merge and projection
   Repair script refuses wrong contribution before filtering
 
 Invariant:
   No competing node assert for connect-existing
   No alias hijack across durable nodes
   temporal_scope.as_of (etc.) still disagrees across active edge asserts
+  Same edge from two sessions → projected relationship contains both session IDs
 
 Failure behavior:
   Repair script exits nonzero on campaign/source/assertion-fingerprint/drop-subject mismatch
@@ -92,6 +96,7 @@ Replay / idempotency:
 |---|---|---|---|
 | Import cycle broken | neutral module + merge import | import-order smoke + stable-domain tests | both import orders succeed |
 | Edge session-stamp fingerprint | world_projection | `test_edge_core_semantic_fingerprint.py` | agree on session_id drift; disagree on as_of |
+| Multi-session edge provenance | merge + projection | `test_multi_session_edge_session_ids.py` | store + projected relationship both contain session-22 and session-25 |
 | Alias publish proof | identity gate + kernel merge | `test_extract_identity_gate.py` alias publish test | alias + attribute at pinned revision |
 | Alias ownership | emit + kernel merge | `test_alias_ownership_guards.py` | skip foreign-owned; refuse hijack |
 | Repair guards | supersede script | `test_supersede_session24_repair_guards.py` | ValueError on mismatch |
@@ -104,6 +109,7 @@ python -m pytest \
   tests/test_candidate_graph_to_contribution.py \
   tests/test_supersede_session24_repair_guards.py \
   tests/test_edge_core_semantic_fingerprint.py \
+  tests/test_multi_session_edge_session_ids.py \
   tests/test_alias_ownership_guards.py \
   -q --tb=short
 
