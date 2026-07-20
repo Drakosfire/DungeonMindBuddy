@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
-from graph_memory.candidate_graph_to_contribution import CAMPAIGN_STABLE_SOURCE_DOMAINS
+from graph_memory.source_artifact_domains import CAMPAIGN_STABLE_SOURCE_DOMAINS
 from graph_memory.evidence.assertion_support import DurableAssertionSupport
 from graph_memory.kernel.contribution_models import (
     ContributionMergeResult,

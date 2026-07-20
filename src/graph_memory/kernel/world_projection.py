@@ -411,13 +411,17 @@ def _edge_core_semantic_fingerprint(
 ) -> tuple[Any, ...]:
     """Fingerprint correction-sensitive edge semantics, excluding session stamps.
 
-    ``session_ids`` / ``temporal_scope.session_id`` are additive observation
-    provenance for the same edge (e.g. standing party membership re-attested
-    on a later session promote). They must not fail projection when endpoints,
-    predicate, label, and other core semantics agree.
+    ``value.session_ids`` and ``temporal_scope.session_id`` are additive
+    observation provenance for the same edge (e.g. standing party membership
+    re-attested on a later session promote). They must not fail projection when
+    endpoints, predicate, label, and other core semantics agree. Other
+    ``temporal_scope`` qualifiers (e.g. ``as_of``) still participate in the
+    fingerprint.
     """
     value = dict(semantic_assertion_value(assertion.value))
     value.pop("session_ids", None)
+    temporal_scope = dict(assertion.temporal_scope or {})
+    temporal_scope.pop("session_id", None)
     return (
         assertion.assertion_kind,
         assertion.subject_node_id,
@@ -428,6 +432,7 @@ def _edge_core_semantic_fingerprint(
         assertion.epistemic_kind,
         assertion.visibility,
         assertion.campaign_scope,
+        _canonicalize_json_value(temporal_scope or None),
     )
 
 

@@ -27,13 +27,9 @@ from graph_memory.candidate_semantic_promote_matrix import (
 )
 from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
 from graph_memory.kernel.contribution_models import GraphContribution, GraphContributionAssertion
+from graph_memory.source_artifact_domains import CAMPAIGN_STABLE_SOURCE_DOMAINS
 
-# Source domains whose artifact id is campaign-stable (not session-scoped).
-# Stamping session_id onto these artifacts breaks cross-session promote merges.
-# Exported so Kernel merge code (contribution_merge.py) can restrict the
-# session_id-only drift allowance in ``_source_artifact_compatible`` to the
-# same domain set — session-scoped domains must still require exact equality.
-CAMPAIGN_STABLE_SOURCE_DOMAINS = frozenset({"party_registry"})
+# Re-export for back-compat with callers that imported from this module.
 
 _NODE_TYPE_TO_KIND: dict[str, str] = {
     "character": "npc",
@@ -463,7 +459,7 @@ def map_connect_existing_support_assertions(
     ]
 
     seen_aliases = {label.casefold()}
-    for raw_alias in getattr(node, "aliases", ()) or ():
+    for raw_alias in node.aliases:
         alias = str(raw_alias).strip()
         if not alias or alias.casefold() in seen_aliases:
             continue

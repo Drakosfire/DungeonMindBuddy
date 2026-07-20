@@ -6,7 +6,9 @@ not additive re-promotion, and must still be rejected.
 
 from __future__ import annotations
 
-from graph_memory.candidate_graph_to_contribution import CAMPAIGN_STABLE_SOURCE_DOMAINS
+from pathlib import Path
+
+from graph_memory.source_artifact_domains import CAMPAIGN_STABLE_SOURCE_DOMAINS
 from graph_memory.kernel.contribution_merge import _source_artifact_compatible
 
 
@@ -67,3 +69,24 @@ def test_missing_content_digest_rejects_even_for_stable_domain() -> None:
     existing = _artifact(source_domain="party_registry", session_id="session-1", content_sha256="")
     incoming = _artifact(source_domain="party_registry", session_id="session-2", content_sha256="")
     assert _source_artifact_compatible(existing, incoming) is False
+
+
+def test_kernel_and_candidate_graph_import_orders_both_succeed() -> None:
+    import subprocess
+    import sys
+
+    repo_root = Path(__file__).resolve().parents[1]
+    env = {"PYTHONPATH": f"{repo_root / 'src'}:{repo_root}"}
+    for code in (
+        "import graph_memory.kernel; import graph_memory.candidate_graph_to_contribution",
+        "import graph_memory.candidate_graph_to_contribution; import graph_memory.kernel",
+    ):
+        completed = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=repo_root,
+            env={**dict(**__import__("os").environ), **env},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr

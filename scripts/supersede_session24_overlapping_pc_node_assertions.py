@@ -27,6 +27,7 @@ for path in (REPO_ROOT / "src", REPO_ROOT):
         sys.path.insert(0, str(path))
 
 import graph_memory.kernel as kernel
+from graph_memory.kernel.contribution_models import GraphContribution
 from graph_memory.world_supergraph.contribution_store import (
     list_contribution_records,
     load_contribution_record,
@@ -35,6 +36,11 @@ from graph_memory.world_supergraph.contribution_store import (
 DEFAULT_ROOT = REPO_ROOT / "out"
 DEFAULT_WORLD_ID = "eldyrwild"
 DEFAULT_OLD_CONTRIBUTION_ID = "contribution:a01be11c6967afd9"
+EXPECTED_CAMPAIGN_SCOPE = "longmont-c2"
+EXPECTED_SOURCE_ARTIFACT_ID = "artifact:recap:longmont-c2:session-24"
+EXPECTED_SOURCE_REVISION_ID = (
+    "sha256:603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95"
+)
 REPAIR_DIAGNOSTIC_MARKER = "catchup:drop_overlapping_pc_node_assertions"
 DROP_SUBJECTS = frozenset(
     {
@@ -85,6 +91,43 @@ def _repair_successor_contribution_id(
     return None
 
 
+def _validate_repair_target(
+    old: GraphContribution,
+    *,
+    expected_campaign_scope: str,
+    expected_source_artifact_id: str,
+    expected_source_revision_id: str,
+    drop_subjects: frozenset[str],
+) -> None:
+    """Fail closed when ``old`` is not the Session 24 repair target."""
+    if old.campaign_scope != expected_campaign_scope:
+        raise ValueError(
+            "campaign_scope mismatch: "
+            f"expected {expected_campaign_scope!r}, got {old.campaign_scope!r}"
+        )
+    if old.source_artifact_id != expected_source_artifact_id:
+        raise ValueError(
+            "source_artifact_id mismatch: "
+            f"expected {expected_source_artifact_id!r}, got {old.source_artifact_id!r}"
+        )
+    if old.source_revision_id != expected_source_revision_id:
+        raise ValueError(
+            "source_revision_id mismatch: "
+            f"expected {expected_source_revision_id!r}, got {old.source_revision_id!r}"
+        )
+    present_subjects = {
+        assertion.subject_node_id
+        for assertion in old.accepted_assertions
+        if assertion.assertion_kind == "node" and assertion.subject_node_id
+    }
+    missing = sorted(drop_subjects - present_subjects)
+    if missing:
+        raise ValueError(
+            "expected node assertions missing for drop subjects: "
+            + ", ".join(missing)
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
@@ -92,6 +135,21 @@ def main() -> int:
     parser.add_argument(
         "--old-contribution-id",
         default=DEFAULT_OLD_CONTRIBUTION_ID,
+    )
+    parser.add_argument(
+        "--expect-campaign-scope",
+        default=EXPECTED_CAMPAIGN_SCOPE,
+        help="Required campaign_scope on the contribution being repaired.",
+    )
+    parser.add_argument(
+        "--expect-source-artifact-id",
+        default=EXPECTED_SOURCE_ARTIFACT_ID,
+        help="Required source_artifact_id on the contribution being repaired.",
+    )
+    parser.add_argument(
+        "--expect-source-revision-id",
+        default=EXPECTED_SOURCE_REVISION_ID,
+        help="Required source_revision_id on the contribution being repaired.",
     )
     parser.add_argument(
         "--allow-live-world",
@@ -128,6 +186,18 @@ def main() -> int:
             )
         )
         return 0
+
+    try:
+        _validate_repair_target(
+            old,
+            expected_campaign_scope=args.expect_campaign_scope,
+            expected_source_artifact_id=args.expect_source_artifact_id,
+            expected_source_revision_id=args.expect_source_revision_id,
+            drop_subjects=DROP_SUBJECTS,
+        )
+    except ValueError as exc:
+        print(f"Refusing repair: {exc}", file=sys.stderr)
+        return 1
 
     kept = []
     dropped = []
