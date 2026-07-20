@@ -1,0 +1,363 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:b4d6ce7916ee4dc5",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:c426972739dcc766",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:party:heroes-party"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Heroes / Party",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:001-heroes-party-roster",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "party:heroes-party",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Heroes / Party",
+          "Heroes",
+          "the party"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:party:heroes-party",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "party",
+        "role": "adventuring-party",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:f80cf5692fe04714",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:c426972739dcc766",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:pc:baergrom:member_of:party:heroes-party"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Baergrom is part of Heroes / Party",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:001-heroes-party-roster",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:baergrom",
+      "target_node_id": "party:heroes-party",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:pc:baergrom:member_of:party:heroes-party",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:pc:baergrom:member_of:party:heroes-party",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Baergrom is part of Heroes / Party",
+        "predicate": "member_of",
+        "session_ids": [],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "pc:baergrom",
+        "target_node_id": "party:heroes-party"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:f40428f330a86d49",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:c426972739dcc766",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:pc:bonogo:member_of:party:heroes-party"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bonogo is part of Heroes / Party",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:001-heroes-party-roster",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": "party:heroes-party",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:pc:bonogo:member_of:party:heroes-party",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:pc:bonogo:member_of:party:heroes-party",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Bonogo is part of Heroes / Party",
+        "predicate": "member_of",
+        "session_ids": [],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "pc:bonogo",
+        "target_node_id": "party:heroes-party"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:fb9d649031e7ef0e",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:c426972739dcc766",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:pc:caelynn:member_of:party:heroes-party"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Caelynn is part of Heroes / Party",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:001-heroes-party-roster",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": "party:heroes-party",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:pc:caelynn:member_of:party:heroes-party",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:pc:caelynn:member_of:party:heroes-party",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Caelynn is part of Heroes / Party",
+        "predicate": "member_of",
+        "session_ids": [],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "pc:caelynn",
+        "target_node_id": "party:heroes-party"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2ef34e695e68d2f3",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:c426972739dcc766",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:pc:ephanna:member_of:party:heroes-party"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Ephanna is part of Heroes / Party",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:001-heroes-party-roster",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:ephanna",
+      "target_node_id": "party:heroes-party",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:pc:ephanna:member_of:party:heroes-party",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:pc:ephanna:member_of:party:heroes-party",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Ephanna is part of Heroes / Party",
+        "predicate": "member_of",
+        "session_ids": [],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "pc:ephanna",
+        "target_node_id": "party:heroes-party"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:9e3bfc1f58e0bf5c",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:c426972739dcc766",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:pc:karsemine:member_of:party:heroes-party"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Karsemine is part of Heroes / Party",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:001-heroes-party-roster",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": "party:heroes-party",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:pc:karsemine:member_of:party:heroes-party",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:pc:karsemine:member_of:party:heroes-party",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Karsemine is part of Heroes / Party",
+        "predicate": "member_of",
+        "session_ids": [],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "pc:karsemine",
+        "target_node_id": "party:heroes-party"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:f3f325d3af7f0408",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:c426972739dcc766",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:pc:stafl:member_of:party:heroes-party"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Stafl is part of Heroes / Party",
+      "predicate": "member_of",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:001-heroes-party-roster",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": "party:heroes-party",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:pc:stafl:member_of:party:heroes-party",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:pc:stafl:member_of:party:heroes-party",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Stafl is part of Heroes / Party",
+        "predicate": "member_of",
+        "session_ids": [],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "pc:stafl",
+        "target_node_id": "party:heroes-party"
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "approved-bundle:eldyrwild-longmont-c1-s1-s3-v1",
+  "campaign_scope": "longmont-c1",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:c426972739dcc766",
+  "diagnostics": [],
+  "extraction_profile": null,
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-18T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:001-heroes-party-roster",
+  "source_kind": "manual_import",
+  "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

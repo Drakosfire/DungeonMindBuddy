@@ -1,0 +1,172 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:5032d3af139a7961",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:516aa36afa3139e7",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:event:longmont-c1:session-2:stonebridge-aftermath"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Stonebridge aftermath",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:003-session-2-stonebridge-aftermath",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "event:longmont-c1:session-2:stonebridge-aftermath",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Stonebridge aftermath"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:event:longmont-c1:session-2:stonebridge-aftermath",
+            "session_id": "session-2",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "event",
+        "role": "session-event",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:8a567e5cf8fe0a6c",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:516aa36afa3139e7",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:party:heroes-party:participated_in:event:longmont-c1:session-2:stonebridge-aftermath"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Heroes / Party participated in Stonebridge aftermath",
+      "predicate": "participated_in",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:003-session-2-stonebridge-aftermath",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "party:heroes-party",
+      "target_node_id": "event:longmont-c1:session-2:stonebridge-aftermath",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:party:heroes-party:participated_in:event:longmont-c1:session-2:stonebridge-aftermath",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:party:heroes-party:participated_in:event:longmont-c1:session-2:stonebridge-aftermath",
+            "session_id": "session-2",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Heroes / Party participated in Stonebridge aftermath",
+        "predicate": "participated_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "party:heroes-party",
+        "target_node_id": "event:longmont-c1:session-2:stonebridge-aftermath"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6a538df04e76d024",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:516aa36afa3139e7",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:event:longmont-c1:session-2:stonebridge-aftermath:occurred_at:location:stonebridge"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Stonebridge aftermath occurred at Stonebridge",
+      "predicate": "occurred_at",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:003-session-2-stonebridge-aftermath",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "event:longmont-c1:session-2:stonebridge-aftermath",
+      "target_node_id": "location:stonebridge",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:event:longmont-c1:session-2:stonebridge-aftermath:occurred_at:location:stonebridge",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:event:longmont-c1:session-2:stonebridge-aftermath:occurred_at:location:stonebridge",
+            "session_id": "session-2",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Stonebridge aftermath occurred at Stonebridge",
+        "predicate": "occurred_at",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "event:longmont-c1:session-2:stonebridge-aftermath",
+        "target_node_id": "location:stonebridge"
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "approved-bundle:eldyrwild-longmont-c1-s1-s3-v1",
+  "campaign_scope": "longmont-c1",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:516aa36afa3139e7",
+  "diagnostics": [],
+  "extraction_profile": null,
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-18T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:003-session-2-stonebridge-aftermath",
+  "source_kind": "manual_import",
+  "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

@@ -1,0 +1,317 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7eea114bf0c7e5f1",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:6cabb0aff854ce86",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:location:stonebridge"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Stonebridge",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:002-session-1-stonebridge-glowkindle",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "location:stonebridge",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Stonebridge",
+          "Stone Bridge"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:location:stonebridge",
+            "session_id": "session-1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "location",
+        "role": "town",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:559f4f169a52f8f2",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:6cabb0aff854ce86",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:event:longmont-c1:session-1:glowkindle-rats"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Glowkindle rats at Stonebridge",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:002-session-1-stonebridge-glowkindle",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "event:longmont-c1:session-1:glowkindle-rats",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Glowkindle rats at Stonebridge"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:event:longmont-c1:session-1:glowkindle-rats",
+            "session_id": "session-1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "event",
+        "role": "session-event",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:06d502c9ff40cb99",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:6cabb0aff854ce86",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:npc:grishna"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Grishna",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:002-session-1-stonebridge-glowkindle",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "npc:grishna",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Grishna"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:npc:grishna",
+            "session_id": "session-1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "npc",
+        "role": "named-npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:d33478126ddf204c",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:6cabb0aff854ce86",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:location:wizards-tower-brewing-co"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Wizard's Tower Brewing Co",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:002-session-1-stonebridge-glowkindle",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "location:wizards-tower-brewing-co",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Wizard's Tower Brewing Co"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:location:wizards-tower-brewing-co",
+            "session_id": "session-1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "location",
+        "role": "business",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:9e3a7cd4ed151ad2",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:6cabb0aff854ce86",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:party:heroes-party:participated_in:event:longmont-c1:session-1:glowkindle-rats"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Heroes / Party participated in Glowkindle rats at Stonebridge",
+      "predicate": "participated_in",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:002-session-1-stonebridge-glowkindle",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "party:heroes-party",
+      "target_node_id": "event:longmont-c1:session-1:glowkindle-rats",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:party:heroes-party:participated_in:event:longmont-c1:session-1:glowkindle-rats",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:party:heroes-party:participated_in:event:longmont-c1:session-1:glowkindle-rats",
+            "session_id": "session-1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Heroes / Party participated in Glowkindle rats at Stonebridge",
+        "predicate": "participated_in",
+        "session_ids": [
+          "session-1"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "party:heroes-party",
+        "target_node_id": "event:longmont-c1:session-1:glowkindle-rats"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:00bea0f78c4f0c90",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:6cabb0aff854ce86",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:event:longmont-c1:session-1:glowkindle-rats:occurred_at:location:stonebridge"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Glowkindle rats occurred at Stonebridge",
+      "predicate": "occurred_at",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:002-session-1-stonebridge-glowkindle",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "event:longmont-c1:session-1:glowkindle-rats",
+      "target_node_id": "location:stonebridge",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:event:longmont-c1:session-1:glowkindle-rats:occurred_at:location:stonebridge",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:event:longmont-c1:session-1:glowkindle-rats:occurred_at:location:stonebridge",
+            "session_id": "session-1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Glowkindle rats occurred at Stonebridge",
+        "predicate": "occurred_at",
+        "session_ids": [
+          "session-1"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "event:longmont-c1:session-1:glowkindle-rats",
+        "target_node_id": "location:stonebridge"
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "approved-bundle:eldyrwild-longmont-c1-s1-s3-v1",
+  "campaign_scope": "longmont-c1",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:6cabb0aff854ce86",
+  "diagnostics": [],
+  "extraction_profile": null,
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-18T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:002-session-1-stonebridge-glowkindle",
+  "source_kind": "manual_import",
+  "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}
