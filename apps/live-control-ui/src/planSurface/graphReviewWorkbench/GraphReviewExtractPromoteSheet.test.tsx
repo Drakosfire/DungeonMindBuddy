@@ -124,6 +124,7 @@ function prepareResponse(
     reviewItems: [
       {
         assertionId: "a-hesta",
+        sliceQualifiedId: "0:source_extraction::a-hesta",
         kind: "object",
         label: "Hesta",
         action: "create",
@@ -133,9 +134,11 @@ function prepareResponse(
         selectable: true,
         selectedByDefault: true,
         dependsOnAssertionIds: [],
+        dependsOnSliceQualifiedIds: [],
       },
       {
         assertionId: "a-edge",
+        sliceQualifiedId: "0:source_extraction::a-edge",
         kind: "relationship",
         label: "Hesta —works_at→ Apothecary",
         action: "create",
@@ -145,6 +148,7 @@ function prepareResponse(
         selectable: true,
         selectedByDefault: true,
         dependsOnAssertionIds: ["a-hesta"],
+        dependsOnSliceQualifiedIds: ["0:source_extraction::a-hesta"],
       },
     ],
     reviewSummary: {
@@ -268,7 +272,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
     expect(status).toHaveTextContent("Select at least one accepted change");
   });
 
-  it("calls confirm with exact selected assertion ids", async () => {
+  it("calls confirm with exact selected slice-qualified assertion ids", async () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
 
     renderSheet();
@@ -278,7 +282,10 @@ describe("GraphReviewExtractPromoteSheet", () => {
     await waitFor(() => {
       expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledWith({
         reviewPackage: { schema: "dmb_extract_promote_proposal_v1" },
-        assertionIds: ["a-hesta", "a-edge"],
+        assertionIds: [
+          "0:source_extraction::a-hesta",
+          "0:source_extraction::a-edge",
+        ],
       });
     });
     expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();

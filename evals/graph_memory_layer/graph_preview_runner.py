@@ -738,23 +738,6 @@ def run_graph_preview_extraction(
             write_json(pass_telemetry_path, extraction.pass_telemetry)
             consolidation_path = output_dir / "consolidation_diagnostics.json"
             write_json(consolidation_path, extraction.consolidation_diagnostics)
-            known_entity_mentions_path = output_dir / "known_entity_mentions.json"
-            write_json(
-                known_entity_mentions_path,
-                extraction.known_entity_mentions
-                or {
-                    "schema": "dmb_known_entity_mention_sidecar_v0",
-                    "version": "0.1",
-                    "campaign_id": campaign_id,
-                    "session_id": session_id,
-                    "mentions": [],
-                },
-            )
-            artifacts["known_entity_mentions"] = _artifact(
-                GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
-                known_entity_mentions_path,
-                "dmb_known_entity_mention_sidecar_v0",
-            )
             validation = _write_validation_report(
                 output_dir=output_dir,
                 campaign_id=campaign_id,

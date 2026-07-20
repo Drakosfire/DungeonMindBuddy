@@ -600,6 +600,19 @@ def _gated_slice_pair(tmp_path: Path):
     return gate_a, gate_b
 
 
+def _multi_slice_args(*entries):
+    """Attach sealed contribution_slice_id coordinates for multi-slice builds."""
+    out = []
+    for index, entry in enumerate(entries):
+        if len(entry) == 3:
+            out.append(entry)
+            continue
+        gate, ids = entry
+        kind = gate.contribution.source_kind or "source_extraction"
+        out.append((gate, ids, f"{index}:{kind}"))
+    return out
+
+
 def test_multi_slice_contribution_unions_selected_slices_atomically(
     tmp_path: Path, loaded_bundle
 ) -> None:
@@ -610,7 +623,7 @@ def test_multi_slice_contribution_unions_selected_slices_atomically(
     assert gate_b.parent_revision_id == parent
 
     contribution = build_accepted_contribution_from_multi_slice_proposals(
-        [(gate_a, None), (gate_b, None)],
+        _multi_slice_args((gate_a, None), (gate_b, None)),
         root=tmp_path,
         proposal_digest="digest-multislice",
     )
@@ -662,10 +675,10 @@ def test_multi_slice_contribution_rejects_bad_edge_before_any_merge(
 
     with pytest.raises(CandidateGraphMappingError, match="target endpoint"):
         build_accepted_contribution_from_multi_slice_proposals(
-            [
+            _multi_slice_args(
                 (gate_a, [vial.assertion_id, edge_a.assertion_id]),
                 (gate_b, None),
-            ],
+            ),
             root=tmp_path,
             proposal_digest="digest-multislice-bad-edge",
         )
@@ -696,17 +709,17 @@ def test_multi_slice_contribution_retry_after_failure_succeeds(
 
     with pytest.raises(CandidateGraphMappingError):
         build_accepted_contribution_from_multi_slice_proposals(
-            [
+            _multi_slice_args(
                 (gate_a, [vial.assertion_id, edge_a.assertion_id]),
                 (gate_b, None),
-            ],
+            ),
             root=tmp_path,
             proposal_digest="digest-multislice-retry",
         )
 
     # Retry with the full slice A selection (both endpoints present) succeeds.
     contribution = build_accepted_contribution_from_multi_slice_proposals(
-        [(gate_a, None), (gate_b, None)],
+        _multi_slice_args((gate_a, None), (gate_b, None)),
         root=tmp_path,
         proposal_digest="digest-multislice-retry",
     )
@@ -727,19 +740,166 @@ def test_multi_slice_contribution_requires_shared_parent_and_world(
     mismatched_b = dataclasses.replace(gate_b, parent_revision_id="rev:other-parent")
     with pytest.raises(CandidateGraphMappingError, match="shared parent"):
         build_accepted_contribution_from_multi_slice_proposals(
-            [(gate_a, None), (mismatched_b, None)],
+            _multi_slice_args((gate_a, None), (mismatched_b, None)),
             root=tmp_path,
             proposal_digest="digest-multislice-mismatch",
         )
 
 
+def test_multi_slice_contribution_unions_cross_slice_assertion_provenance(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    """Selecting both colliding assertions unions evidence; digests differ."""
+    _initialize(tmp_path, loaded_bundle)
+    gate_a, gate_b = _gated_slice_pair(tmp_path)
+    vial = next(
+        a
+        for a in gate_a.accepted_proposals
+        if a.assertion_kind == "node"
+        and a.subject_node_id == gate_a.node_id_map["obj_session22_vial"]
+    )
+    recap_only_vial = vial.model_copy(
+        update={
+            "evidence_ref_ids": ["evidence:recap:vial"],
+            "source_artifact_id": "artifact:recap-slice",
+            "source_revision_id": "sha256:recap-slice",
+        }
+    )
+    standing_vial = vial.model_copy(
+        update={
+            "evidence_ref_ids": ["evidence:standing:vial"],
+            "source_artifact_id": "artifact:standing-slice",
+            "source_revision_id": "sha256:standing-slice",
+        }
+    )
+    assert standing_vial.assertion_id == recap_only_vial.assertion_id
+
+    gate_standing = dataclasses.replace(
+        gate_a,
+        accepted_proposals=[standing_vial],
+        contribution=gate_a.contribution.model_copy(
+            update={"source_kind": "standing_context"}
+        ),
+    )
+    gate_recap = dataclasses.replace(
+        gate_b,
+        accepted_proposals=[*gate_b.accepted_proposals, recap_only_vial],
+    )
+
+    both = build_accepted_contribution_from_multi_slice_proposals(
+        _multi_slice_args((gate_standing, None), (gate_recap, None)),
+        root=tmp_path,
+        proposal_digest="digest-multislice-both",
+    )
+    matching = [
+        a for a in both.accepted_assertions if a.assertion_id == vial.assertion_id
+    ]
+    assert len(matching) == 1
+    assert set(matching[0].evidence_ref_ids) >= {
+        "evidence:standing:vial",
+        "evidence:recap:vial",
+    }
+    assert any(
+        d.startswith(f"cross_slice_assertion_provenance_unioned:{vial.assertion_id}")
+        for d in both.diagnostics
+    )
+
+    recap_only = build_accepted_contribution_from_multi_slice_proposals(
+        [
+            (
+                gate_recap,
+                [recap_only_vial.assertion_id],
+                "1:source_extraction",
+            )
+        ],
+        root=tmp_path,
+        proposal_digest="digest-multislice-recap-only",
+    )
+    # selection_digest enters contribution_id — both-slices vs recap-only must
+    # not collapse to the same durable contribution identity.
+    assert both.contribution_id != recap_only.contribution_id
+    both_digest = next(
+        d.split(":", 1)[1]
+        for d in both.diagnostics
+        if d.startswith("selection_digest:")
+    )
+    recap_digest = next(
+        d.split(":", 1)[1]
+        for d in recap_only.diagnostics
+        if d.startswith("selection_digest:")
+    )
+    assert both_digest != recap_digest
+    assert "evidence:standing:vial" not in recap_only.accepted_assertions[0].evidence_ref_ids
+
+
+def test_multi_slice_orders_earlier_edge_after_later_slice_node(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    """Edge in slice 0 targeting a node created only in slice 1 must reorder."""
+    from graph_memory.kernel.contributions import build_assertion
+
+    init = _initialize(tmp_path, loaded_bundle)
+    parent = init.current_head_revision_id or init.initial_head_revision_id
+    gate_a, gate_b = _gated_slice_pair(tmp_path)
+
+    later_node = next(
+        a
+        for a in gate_b.accepted_proposals
+        if a.assertion_kind == "node"
+        and a.subject_node_id == gate_b.node_id_map["node:whisper-charm"]
+    )
+    vial = next(
+        a
+        for a in gate_a.accepted_proposals
+        if a.assertion_kind == "node"
+        and a.subject_node_id == gate_a.node_id_map["obj_session22_vial"]
+    )
+    early_edge = build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id=vial.subject_node_id,
+        target_node_id=later_node.subject_node_id,
+        predicate="related_to",
+        label="cross-slice order probe",
+        value={"source_domains": ["manual_seed"]},
+        evidence_ref_ids=[],
+        source_artifact_id="artifact:order-probe",
+        source_revision_id="sha256:order-probe",
+        campaign_scope="longmont-c1",
+        epistemic_kind="source_derived_candidate",
+        visibility="gm",
+        identity_resolution_outcome="created_new",
+    )
+    gate_early = dataclasses.replace(
+        gate_a,
+        accepted_proposals=[vial, early_edge],
+    )
+    gate_later = dataclasses.replace(
+        gate_b,
+        accepted_proposals=[later_node],
+    )
+
+    contribution = build_accepted_contribution_from_multi_slice_proposals(
+        _multi_slice_args((gate_early, None), (gate_later, None)),
+        root=tmp_path,
+        proposal_digest="digest-edge-order",
+    )
+    kinds = [a.assertion_kind for a in contribution.accepted_assertions]
+    assert kinds.index("edge") > max(i for i, k in enumerate(kinds) if k == "node")
+
+    result = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+        expected_parent_revision_id=parent,
+    )
+    assert result.published is True
+
+
 def test_multi_slice_contribution_deduplicates_identical_cross_slice_assertion(
     tmp_path: Path, loaded_bundle
 ) -> None:
-    """Slice-qualified selection support: when both slices legitimately carry
-    the identical (content-hashed) assertion id, the merged contribution
-    keeps exactly one copy and records the collision in diagnostics.
-    """
+    """Legacy name retained: collision keeps one body and unions provenance."""
     _initialize(tmp_path, loaded_bundle)
     gate_a, gate_b = _gated_slice_pair(tmp_path)
     vial = next(
@@ -755,13 +915,13 @@ def test_multi_slice_contribution_deduplicates_identical_cross_slice_assertion(
         gate_b, accepted_proposals=[*gate_b.accepted_proposals, vial]
     )
     contribution = build_accepted_contribution_from_multi_slice_proposals(
-        [(gate_a, None), (gate_b_with_duplicate, None)],
+        _multi_slice_args((gate_a, None), (gate_b_with_duplicate, None)),
         root=tmp_path,
         proposal_digest="digest-multislice-dup",
     )
     matching = [a for a in contribution.accepted_assertions if a.assertion_id == vial.assertion_id]
     assert len(matching) == 1
     assert any(
-        d.startswith(f"cross_slice_duplicate_assertion_skipped:{vial.assertion_id}")
+        d.startswith(f"cross_slice_assertion_provenance_unioned:{vial.assertion_id}")
         for d in contribution.diagnostics
     )

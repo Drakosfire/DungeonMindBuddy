@@ -6,7 +6,7 @@ export function initialPromoteSelection(
   return new Set(
     items
       .filter((item) => item.selectable && item.selectedByDefault)
-      .map((item) => item.assertionId),
+      .map((item) => item.sliceQualifiedId),
   );
 }
 
@@ -18,32 +18,32 @@ export function initialPromoteSelection(
 export function togglePromoteSelection(
   items: ExtractPromotionReviewItem[],
   selected: Set<string>,
-  assertionId: string,
+  sliceQualifiedId: string,
 ): Set<string> {
-  const item = items.find((candidate) => candidate.assertionId === assertionId);
+  const item = items.find((candidate) => candidate.sliceQualifiedId === sliceQualifiedId);
   if (!item || !item.selectable) {
     return selected;
   }
 
   const next = new Set(selected);
-  if (next.has(assertionId)) {
-    next.delete(assertionId);
+  if (next.has(sliceQualifiedId)) {
+    next.delete(sliceQualifiedId);
     for (const other of items) {
-      const deps = other.dependsOnAssertionIds ?? [];
-      if (deps.includes(assertionId)) {
-        next.delete(other.assertionId);
+      const deps = other.dependsOnSliceQualifiedIds ?? [];
+      if (deps.includes(sliceQualifiedId)) {
+        next.delete(other.sliceQualifiedId);
       }
     }
     return next;
   }
 
-  for (const depId of item.dependsOnAssertionIds ?? []) {
-    const dep = items.find((candidate) => candidate.assertionId === depId);
+  for (const depId of item.dependsOnSliceQualifiedIds ?? []) {
+    const dep = items.find((candidate) => candidate.sliceQualifiedId === depId);
     if (dep?.selectable) {
       next.add(depId);
     }
   }
-  next.add(assertionId);
+  next.add(sliceQualifiedId);
   return next;
 }
 
@@ -53,18 +53,19 @@ export function countSelectableSelected(
 ): number {
   let count = 0;
   for (const item of items) {
-    if (item.selectable && selected.has(item.assertionId)) {
+    if (item.selectable && selected.has(item.sliceQualifiedId)) {
       count += 1;
     }
   }
   return count;
 }
 
+/** Slice-qualified selectors posted to confirm (assertionIds payload). */
 export function selectedPromoteAssertionIds(
   items: ExtractPromotionReviewItem[],
   selected: Set<string>,
 ): string[] {
   return items
-    .filter((item) => item.selectable && selected.has(item.assertionId))
-    .map((item) => item.assertionId);
+    .filter((item) => item.selectable && selected.has(item.sliceQualifiedId))
+    .map((item) => item.sliceQualifiedId);
 }

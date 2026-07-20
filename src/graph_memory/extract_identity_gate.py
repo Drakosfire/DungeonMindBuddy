@@ -23,6 +23,7 @@ from graph_memory.candidate_graph_to_contribution import (
     require_single_verified_source_artifact,
 )
 from graph_memory.extract_promote_proposal import (
+    SLICE_SELECTOR_DELIMITER,
     compute_selection_digest,
     contribution_meta_from_contribution,
     seal_promote_proposal,
@@ -535,6 +536,47 @@ def _endpoint_available(
     return node_id in pinned_store.nodes
 
 
+def _union_assertion_provenance(
+    existing: GraphContributionAssertion,
+    incoming: GraphContributionAssertion,
+) -> GraphContributionAssertion:
+    """Merge observation provenance when two slices select the same semantic id.
+
+    ``assertion_id`` is content-hashed over semantic fields only, so standing
+    and recap may legitimately share an id while carrying distinct
+    ``evidence_ref_ids`` / artifact / revision stamps. Keep one assertion body
+    and union evidence so both selected sources remain retrievable.
+    """
+    merged_evidence = list(existing.evidence_ref_ids)
+    for ref in incoming.evidence_ref_ids:
+        text = str(ref or "").strip()
+        if text and text not in merged_evidence:
+            merged_evidence.append(text)
+    return existing.model_copy(update={"evidence_ref_ids": merged_evidence})
+
+
+def _order_assertions_nodes_before_edges(
+    assertions: Sequence[GraphContributionAssertion],
+) -> list[GraphContributionAssertion]:
+    """Stable partition so Kernel can apply endpoints before edges.
+
+    Cross-slice batches may place an edge in an earlier slice than the node it
+    targets. Preflight validates against the union of selected subjects, but
+    Kernel applies sequentially — nodes (then non-edges) must precede edges.
+    """
+    nodes: list[GraphContributionAssertion] = []
+    mid: list[GraphContributionAssertion] = []
+    edges: list[GraphContributionAssertion] = []
+    for assertion in assertions:
+        if assertion.assertion_kind == "node":
+            nodes.append(assertion)
+        elif assertion.assertion_kind == "edge":
+            edges.append(assertion)
+        else:
+            mid.append(assertion)
+    return [*nodes, *mid, *edges]
+
+
 def build_accepted_contribution_from_proposals(
     gate: IdentityGateResult,
     *,
@@ -631,7 +673,9 @@ def build_accepted_contribution_from_proposals(
 
 
 def build_accepted_contribution_from_multi_slice_proposals(
-    slice_selections: Sequence[tuple[IdentityGateResult, Sequence[str] | None]],
+    slice_selections: Sequence[
+        tuple[IdentityGateResult, Sequence[str] | None, str]
+    ],
     *,
     root: Path,
     proposal_digest: str | None = None,
@@ -646,14 +690,22 @@ def build_accepted_contribution_from_multi_slice_proposals(
     in this same batch (not only their own slice), since every slice is
     published together against the one pinned parent revision.
 
-    ``slice_selections`` is ordered (standing_context before source_extraction
-    by convention); entries with no selected assertions are ignored. Raises
+    ``slice_selections`` entries are
+    ``(gate, selected_assertion_ids|None, contribution_slice_id)`` ordered
+    standing_context before source_extraction by convention. The sealed
+    ``contribution_slice_id`` must match prepare-time projection so
+    ``selection_digest`` digests slice-qualified coordinates. Raises
     ``CandidateGraphMappingError`` when nothing is selected, when slices pin
     different parents/worlds, or when an edge endpoint cannot be resolved
     against the union of selected node subjects and the pinned parent.
     """
-    active: list[tuple[IdentityGateResult, list[GraphContributionAssertion]]] = []
-    for gate, ids in slice_selections:
+    active: list[tuple[str, IdentityGateResult, list[GraphContributionAssertion]]] = []
+    for gate, ids, contribution_slice_id in slice_selections:
+        slice_id = str(contribution_slice_id or "").strip()
+        if not slice_id:
+            raise CandidateGraphMappingError(
+                "contribution_slice_id is required for multi-slice merge"
+            )
         allow = set(ids) if ids is not None else None
         selected = [
             assertion
@@ -661,14 +713,14 @@ def build_accepted_contribution_from_multi_slice_proposals(
             if allow is None or assertion.assertion_id in allow
         ]
         if selected:
-            active.append((gate, selected))
+            active.append((slice_id, gate, selected))
 
     if not active:
         raise CandidateGraphMappingError("no accepted proposals selected for merge")
 
-    parent_revision_id = active[0][0].parent_revision_id
-    world_id = active[0][0].world_id
-    for gate, _selected in active[1:]:
+    parent_revision_id = active[0][1].parent_revision_id
+    world_id = active[0][1].world_id
+    for _slice_id, gate, _selected in active[1:]:
         if gate.parent_revision_id != parent_revision_id or gate.world_id != world_id:
             raise CandidateGraphMappingError(
                 "contribution slices disagree on parent_revision_id/world_id; "
@@ -678,19 +730,29 @@ def build_accepted_contribution_from_multi_slice_proposals(
     pinned_store = load_world_graph_revision(root, world_id, parent_revision_id)
     node_subjects = {
         assertion.subject_node_id
-        for _gate, selected in active
+        for _slice_id, _gate, selected in active
         for assertion in selected
         if assertion.assertion_kind == "node" and assertion.subject_node_id
     }
 
     diagnostics: list[str] = []
-    seen_assertion_ids: set[str] = set()
+    selection_coords: list[str] = []
+    index_by_assertion_id: dict[str, int] = {}
     filtered: list[GraphContributionAssertion] = []
-    for gate, selected in active:
+    for slice_id, _gate, selected in active:
         for assertion in selected:
-            if assertion.assertion_id in seen_assertion_ids:
+            selection_coords.append(
+                f"{slice_id}{SLICE_SELECTOR_DELIMITER}{assertion.assertion_id}"
+            )
+            if assertion.assertion_id in index_by_assertion_id:
+                idx = index_by_assertion_id[assertion.assertion_id]
+                prior = filtered[idx]
+                filtered[idx] = _union_assertion_provenance(prior, assertion)
                 diagnostics.append(
-                    f"cross_slice_duplicate_assertion_skipped:{assertion.assertion_id}"
+                    "cross_slice_assertion_provenance_unioned:"
+                    f"{assertion.assertion_id}:from_slice:{slice_id}"
+                    f":incoming_artifact:{assertion.source_artifact_id}"
+                    f":incoming_revision:{assertion.source_revision_id}"
                 )
                 continue
             if assertion.assertion_kind == "edge":
@@ -720,25 +782,32 @@ def build_accepted_contribution_from_multi_slice_proposals(
                         f"{target!r} is neither selected in this batch nor on "
                         f"pinned parent {parent_revision_id}"
                     )
-            seen_assertion_ids.add(assertion.assertion_id)
+            index_by_assertion_id[assertion.assertion_id] = len(filtered)
             filtered.append(assertion)
 
+    filtered = _order_assertions_nodes_before_edges(filtered)
+
     rejected: list[GraphContributionAssertion] = [
-        assertion for gate, _selected in active for assertion in gate.rejected_assertions
+        assertion
+        for _slice_id, gate, _selected in active
+        for assertion in gate.rejected_assertions
     ]
     unresolved: list[ContributionIdentityMention] = [
-        mention for gate, _selected in active for mention in gate.unresolved_mentions
+        mention
+        for _slice_id, gate, _selected in active
+        for mention in gate.unresolved_mentions
     ]
 
     slice_metas = [
-        contribution_meta_from_contribution(gate.contribution) for gate, _selected in active
+        contribution_meta_from_contribution(gate.contribution)
+        for _slice_id, gate, _selected in active
     ]
     meta = next(
         (m for m in slice_metas if str(m.get("source_kind") or "") == "source_extraction"),
         slice_metas[-1],
     )
 
-    selection_digest = compute_selection_digest([a.assertion_id for a in filtered])
+    selection_digest = compute_selection_digest(selection_coords)
     return create_graph_contribution(
         world_id=world_id,
         source_kind=str(meta["source_kind"]),  # type: ignore[arg-type]

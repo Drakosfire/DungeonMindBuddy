@@ -501,24 +501,24 @@ def resolve_merged_contribution_from_package(
     world_id = str(verified["world_id"]) or world_id_hint
     resolved_selection = verified.get("resolved_selection")
 
-    slice_gates: list[tuple[IdentityGateResult, tuple[str, ...] | None]] = []
+    slice_gates: list[tuple[IdentityGateResult, tuple[str, ...] | None, str]] = []
     for index, slice_body in enumerate(slices):
         slice_gate = _gate_from_contribution_slice(
             world_id=world_id,
             parent_revision_id=parent_revision_id,
             slice_body=slice_body,
         )
+        sealed_slice_id = contribution_slice_id_for(index, slice_body)
         if resolved_selection is None:
             slice_ids: tuple[str, ...] | None = None
             if not slice_gate.accepted_proposals:
                 continue
         else:
-            slice_id = contribution_slice_id_for(index, slice_body)
-            selected = resolved_selection.get(slice_id) or set()
+            selected = resolved_selection.get(sealed_slice_id) or set()
             if not selected:
                 continue
             slice_ids = tuple(selected)
-        slice_gates.append((slice_gate, slice_ids))
+        slice_gates.append((slice_gate, slice_ids, sealed_slice_id))
 
     if not slice_gates:
         raise CandidateGraphMappingError("no accepted proposals selected for merge")

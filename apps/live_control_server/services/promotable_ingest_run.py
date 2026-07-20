@@ -344,20 +344,34 @@ def resolve_promotable_from_loaded_manifest(
         partition_candidate_graph_by_provenance,
     )
 
-    registry_payload = None
-    try:
-        registry_path = _resolve_run_artifact_file(
-            repo,
-            run_dir,
-            manifest,
-            kind=GraphIngestArtifactKind.REGISTRY_CONTEXT_GRAPH,
-            fallback_uri=None,
-        )
-        registry_payload = json.loads(registry_path.read_text(encoding="utf-8"))
-    except (PromotableIngestRunError, OSError, json.JSONDecodeError, TypeError):
-        registry_payload = None
-
-    if registry_payload is None:
+    registry_kind = GraphIngestArtifactKind.REGISTRY_CONTEXT_GRAPH
+    registry_declared = manifest.artifacts.get(registry_kind.value) is not None
+    if registry_declared:
+        try:
+            registry_path = _resolve_run_artifact_file(
+                repo,
+                run_dir,
+                manifest,
+                kind=registry_kind,
+                fallback_uri=None,
+            )
+            loaded_registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        except (PromotableIngestRunError, OSError, json.JSONDecodeError, TypeError) as exc:
+            raise PromotableIngestRunError(
+                "registry context graph is declared but unreadable or invalid",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[str(exc)],
+            ) from exc
+        if not isinstance(loaded_registry, dict):
+            raise PromotableIngestRunError(
+                "registry context graph root must be a JSON object",
+                code="run_not_promotable",
+                status_code=422,
+            )
+        # Declared registry must be readable JSON; prepare loads the sibling for
+        # standing-context sealing. Candidate graph remains the recap IR.
+    else:
         candidate_payload, _standing, _diag = partition_candidate_graph_by_provenance(
             candidate_payload
         )

@@ -369,10 +369,32 @@ def prepare(
     if registry_sibling.is_file():
         try:
             loaded = json.loads(registry_sibling.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict) and loaded.get("nodes"):
-                registry_payload = loaded
-        except (OSError, json.JSONDecodeError):
-            registry_payload = None
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ExtractPromoteError(
+                f"registry context sibling is present but unreadable: {exc}",
+                code="invalid_request",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "invalid_request",
+                        f"registry context sibling is present but unreadable: {exc}",
+                    )
+                ],
+            ) from exc
+        if not isinstance(loaded, dict):
+            raise ExtractPromoteError(
+                "registry context sibling must be a JSON object",
+                code="invalid_request",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "invalid_request",
+                        "registry context sibling must be a JSON object",
+                    )
+                ],
+            )
+        if loaded.get("nodes"):
+            registry_payload = loaded
 
     try:
         result = prepare_extract_promote(

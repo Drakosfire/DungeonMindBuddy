@@ -142,7 +142,7 @@ export function GraphReviewExtractPromoteSheet({
   const toggle = (item: ExtractPromotionReviewItem) => {
     if (!item.selectable || selectionLocked) return;
     setSelectedIds((prev) =>
-      togglePromoteSelection(prepared.reviewItems, prev, item.assertionId),
+      togglePromoteSelection(prepared.reviewItems, prev, item.sliceQualifiedId),
     );
   };
 
@@ -309,10 +309,10 @@ export function GraphReviewExtractPromoteSheet({
       {!hasTerminalReceipt ? (
         <ul className="graph-review-extract-promote-items">
           {prepared.reviewItems.map((item) => {
-            const checked = item.selectable && effectiveSelectedIds.has(item.assertionId);
+            const checked = item.selectable && effectiveSelectedIds.has(item.sliceQualifiedId);
             return (
               <li
-                key={item.assertionId}
+                key={item.sliceQualifiedId}
                 className={
                   item.selectable
                     ? "graph-review-extract-promote-item"

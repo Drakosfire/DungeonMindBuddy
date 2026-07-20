@@ -339,9 +339,9 @@ def _prepare_body(run_id: str, *, node_ids: list[str] | None = None) -> dict:
 
 def _selectable_assertion_ids(prepared: dict) -> list[str]:
     return [
-        item["assertionId"]
+        item["sliceQualifiedId"]
         for item in prepared["reviewItems"]
-        if item.get("selectable")
+        if item.get("selectable") and item.get("sliceQualifiedId")
     ]
 
 
@@ -424,6 +424,14 @@ def test_prepare_confirm_success(world_client) -> None:
     assert all(item["selectedByDefault"] is True for item in selectable)
     assert all("assertionId" in item and "summary" in item for item in review_items)
     assert all("dependsOnAssertionIds" in item for item in review_items)
+    assert all("sliceQualifiedId" in item for item in review_items)
+    assert all("contributionSliceId" in item for item in review_items)
+    assert all("dependsOnSliceQualifiedIds" in item for item in review_items)
+    assert all(
+        item["sliceQualifiedId"].startswith(item["contributionSliceId"])
+        for item in selectable
+        if item.get("contributionSliceId")
+    )
     relationships = [item for item in selectable if item["kind"] == "relationship"]
     if relationships:
         assert any("—" in item["label"] and "→" in item["label"] for item in relationships)
@@ -740,6 +748,25 @@ def test_prepare_rejects_missing_candidate(world_client) -> None:
     response = client.post(PREPARE_URL, json=_prepare_body(missing_id))
     assert response.status_code == 422
     assert response.json()["code"] == "run_not_promotable"
+
+
+def test_prepare_rejects_malformed_registry_context_sibling(world_client) -> None:
+    """Present but invalid registry sibling must fail closed (not recap-only)."""
+    client, _world, repo, run_id, *_rest = world_client
+    run_dir = (
+        repo
+        / "out/graph_memory/runs"
+        / CAMPAIGN_ID
+        / SESSION_ID
+        / "fixture-promote"
+    )
+    sibling = run_dir / "registry_context_graph.json"
+    sibling.write_text("{not-json", encoding="utf-8")
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert "registry context sibling" in body["message"]
 
 
 def test_prepare_rejects_missing_preview_union_store(world_client) -> None:
