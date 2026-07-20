@@ -54,7 +54,6 @@ _NODE_TYPE_TO_KIND: dict[str, str] = {
     "quest": "job",
     "clue": "mystery",
     "landmark": "location",
-    "creature": "creature",
 }
 
 
@@ -357,9 +356,7 @@ def map_candidate_node_to_assertion(
     # Top-level source_artifact_id is the first evidence artifact (not a rewrite of all).
     primary_artifact = source_artifacts[0]["source_artifact_id"]
     summary = (node.description or "").strip() or None
-    # CandidateNode has no ``aliases`` field today; ``getattr`` keeps this
-    # forward-compatible if the IR ever grows one without depending on it.
-    aliases = [str(a).strip() for a in getattr(node, "aliases", ()) or () if str(a).strip()]
+    aliases = [str(a).strip() for a in node.aliases if str(a).strip()]
     value: dict[str, Any] = {
         "kind": kind,
         "role": kind,
@@ -403,7 +400,8 @@ def map_connect_existing_support_assertions(
     acceptance_state: str = "accepted",
     identity_resolution_outcome: str | None = "resolved_existing",
     predicate: str = "session_observation",
-) -> list[GraphContributionAssertion]:
+    alias_owners: Mapping[str, str] | None = None,
+) -> tuple[list[GraphContributionAssertion], tuple[str, ...]]:
     """Support-only assertions for identity resolutions that connect to an
     already-durable node (``resolved_existing`` / ``human_override``).
 
@@ -458,10 +456,16 @@ def map_connect_existing_support_assertions(
         )
     ]
 
+    owners = dict(alias_owners or {})
+    skip_diagnostics: list[str] = []
     seen_aliases = {label.casefold()}
     for raw_alias in node.aliases:
         alias = str(raw_alias).strip()
         if not alias or alias.casefold() in seen_aliases:
+            continue
+        owner = owners.get(alias.casefold())
+        if owner is not None and owner != durable_id:
+            skip_diagnostics.append(f"alias_ownership_skip:{alias}->{owner}")
             continue
         seen_aliases.add(alias.casefold())
         assertions.append(
@@ -482,7 +486,7 @@ def map_connect_existing_support_assertions(
                 identity_resolution_outcome=identity_resolution_outcome,
             )
         )
-    return assertions
+    return assertions, tuple(skip_diagnostics)
 
 
 def map_candidate_edge_to_assertion(
@@ -578,7 +582,6 @@ def candidate_graph_to_contribution(
     authored_by: str | None = "candidate-graph-mapper",
     source_domain: str = "recap",
     source_uri: str | None = None,
-    source_kind: str = "source_extraction",
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
     proposal_digest: str | None = None,
@@ -588,7 +591,6 @@ def candidate_graph_to_contribution(
     revision_id = _require_nonempty(source_revision_id, field="source_revision_id")
     if not revision_id.startswith("sha256:"):
         revision_id = f"sha256:{revision_id}"
-    kind = _require_nonempty(source_kind, field="source_kind")
 
     artifact_id = _require_nonempty(
         source_artifact_id
@@ -659,7 +661,7 @@ def candidate_graph_to_contribution(
 
     return create_graph_contribution(
         world_id=world,
-        source_kind=kind,  # type: ignore[arg-type]
+        source_kind="source_extraction",
         source_artifact_id=artifact_id,
         source_revision_id=revision_id,
         extraction_profile=extraction_profile,
@@ -672,6 +674,5 @@ def candidate_graph_to_contribution(
             f"mapped_nodes:{len(node_assertions)}",
             f"mapped_edges:{len(edge_assertions)}",
             f"preview_id:{preview.preview_id}",
-            f"source_kind:{kind}",
         ],
     )

@@ -967,6 +967,12 @@ def _apply_alias_assertion(
         update={"aliases": aliases_list, "evidence_ref_ids": node_evidence_ref_ids}
     )
     alias_map = dict(store.aliases)
+    existing_owner = alias_map.get(alias.casefold())
+    if existing_owner is not None and existing_owner != node_id:
+        raise ValueError(
+            f"alias assertion {assertion.assertion_id} would hijack alias "
+            f"{alias!r} owned by {existing_owner!r}"
+        )
     alias_map[alias.casefold()] = node_id
     return (
         store.model_copy(

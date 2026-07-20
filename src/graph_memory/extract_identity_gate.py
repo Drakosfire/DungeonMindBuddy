@@ -108,6 +108,23 @@ class IdentityGateResult:
         )
 
 
+def _candidate_aliases(node: CandidateNode) -> list[str]:
+    """Deduped surface terms: label first, then extract-only aliases."""
+    label = (node.label or node.node_id or "").strip()
+    result: list[str] = []
+    seen: set[str] = set()
+    for term in [label, *node.aliases]:
+        text = str(term).strip()
+        if not text:
+            continue
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(text)
+    return result
+
+
 def _head_nodes_as_match_dicts(store: UnionSupergraphStore) -> list[dict[str, Any]]:
     return [
         {
@@ -133,7 +150,7 @@ def build_fixed_candidate_scorer_report(
             "node_id": node.node_id,
             "label": node.label,
             "node_type": node.node_type,
-            "aliases": [node.label],
+            "aliases": _candidate_aliases(node),
         }
         for node in candidate_nodes
     ]
@@ -245,14 +262,12 @@ def gate_candidate_graph_against_head(
     authored_by: str | None = "extract-identity-gate",
     source_domain: str = "recap",
     source_uri: str | None = None,
-    source_kind: str = "source_extraction",
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
 ) -> IdentityGateResult:
     """Map + resolve identity against the pinned head; emit review proposals."""
     if not str(source_revision_id or "").strip():
         raise CandidateGraphMappingError("source_revision_id is required")
-    kind = (source_kind or "source_extraction").strip() or "source_extraction"
 
     head, _revision, store = open_current_world_graph(root, world_id)
     parent_revision_id = head.head_revision_id
@@ -300,7 +315,6 @@ def gate_candidate_graph_against_head(
         authored_by=authored_by,
         source_domain=source_domain,
         source_uri=source_uri,
-        source_kind=kind,
         node_ids=[n.node_id for n in nodes],
         include_edges=False,
     )
@@ -326,6 +340,7 @@ def gate_candidate_graph_against_head(
     for node in nodes:
         extract_id = node.node_id
         label = node.label or extract_id
+        node_aliases = _candidate_aliases(node)
         object_kind = _infer_object_kind(node, store)
         evidence_refs = [
             str(ref.source_span_ref_id or "")
@@ -337,7 +352,7 @@ def gate_candidate_graph_against_head(
             candidate_id=extract_id,
             label=label,
             object_kind=object_kind,
-            aliases=[label],
+            aliases=node_aliases,
             evidence_ref_ids=evidence_refs,
             campaign_scope=scope,
             source_artifact_id=artifact_id,
@@ -355,7 +370,7 @@ def gate_candidate_graph_against_head(
                     mention_id=extract_id,
                     label=label,
                     object_kind=object_kind,
-                    aliases=[label],
+                    aliases=node_aliases,
                     evidence_ref_ids=evidence_refs,
                     identity_resolution_outcome=resolution.outcome,
                     diagnostics=list(resolution.diagnostics),
@@ -394,7 +409,7 @@ def gate_candidate_graph_against_head(
                     mention_id=extract_id,
                     label=label,
                     object_kind=object_kind,
-                    aliases=[label],
+                    aliases=node_aliases,
                     evidence_ref_ids=evidence_refs,
                     identity_resolution_outcome=resolution.outcome or "unresolved",
                     diagnostics=[*resolution.diagnostics, "no_durable_node_id"],
@@ -413,7 +428,7 @@ def gate_candidate_graph_against_head(
             diagnostics.append(
                 f"connect_existing_support_only:{extract_id}->{durable_id}"
             )
-            accepted_proposals.extend(
+            support_assertions, alias_skip_diagnostics = (
                 map_connect_existing_support_assertions(
                     node,
                     durable_node_id=durable_id,
@@ -425,8 +440,11 @@ def gate_candidate_graph_against_head(
                     campaign_id=campaign_id,
                     source_uri=source_uri,
                     identity_resolution_outcome=resolution.outcome,
+                    alias_owners=dict(store.aliases),
                 )
             )
+            accepted_proposals.extend(support_assertions)
+            diagnostics.extend(alias_skip_diagnostics)
             continue
         accepted_proposals.append(
             map_candidate_node_to_assertion(
@@ -470,7 +488,7 @@ def gate_candidate_graph_against_head(
 
     gated_contribution = create_graph_contribution(
         world_id=world_id,
-        source_kind=kind,  # type: ignore[arg-type]
+        source_kind="source_extraction",  # type: ignore[arg-type]
         source_artifact_id=artifact_id,
         source_revision_id=revision_id,
         extraction_profile=extraction_profile,

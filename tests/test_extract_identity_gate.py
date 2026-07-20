@@ -485,3 +485,33 @@ def test_connect_existing_alias_and_support_survive_publish_and_projection(
     assert published_attributes
     assert published_attributes[0].value.get("evidence")
     assert published_attributes[0].evidence_ref_ids or published_attributes[0].source_artifact_ids
+
+
+def test_connect_existing_mireward_alias_blocks_collision(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    """Foreign-owned cross-kind alias in IdentityCandidate fails closed at resolve."""
+    _initialize(tmp_path, loaded_bundle)
+    graph = _candidate_graph()
+    graph["nodes"] = [
+        {
+            **_node("node:caelynn", "Caelynn", "character", "001", "PC"),
+            "aliases": ["Mireward"],
+        }
+    ]
+    graph["edges"] = []
+    gate = gate_candidate_graph_against_head(
+        candidate_graph_preview_from_dict(graph),
+        root=tmp_path,
+        world_id=WORLD_ID,
+        source_revision_id="sha256:testdigest-mireward-collision",
+        node_ids=["node:caelynn"],
+        include_edges=False,
+    )
+    assert gate.identity_outcome_snapshot["node:caelynn"] == "blocked_collision"
+    assert gate.accepted_proposals == []
+    assert len(gate.unresolved_mentions) == 1
+    assert not any(
+        a.assertion_kind == "alias" and a.label == "Mireward"
+        for a in gate.accepted_proposals
+    )

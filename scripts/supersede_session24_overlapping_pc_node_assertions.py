@@ -17,6 +17,7 @@ Live world root requires ``--allow-live-world``.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -28,6 +29,10 @@ for path in (REPO_ROOT / "src", REPO_ROOT):
 
 import graph_memory.kernel as kernel
 from graph_memory.kernel.contribution_models import GraphContribution
+from graph_memory.kernel.contributions import (
+    canonical_payload_sha256,
+    compute_assertion_id,
+)
 from graph_memory.world_supergraph.contribution_store import (
     list_contribution_records,
     load_contribution_record,
@@ -40,6 +45,12 @@ EXPECTED_CAMPAIGN_SCOPE = "longmont-c2"
 EXPECTED_SOURCE_ARTIFACT_ID = "artifact:recap:longmont-c2:session-24"
 EXPECTED_SOURCE_REVISION_ID = (
     "sha256:603c1590da3aca71d90c8b69abed59368219d5dc1e3d1adf83db1bf854b5cc95"
+)
+EXPECTED_ACCEPTED_ASSERTION_ID_SET_SHA256 = (
+    "4db10a0f169dcaffd63860a81d8fd15b580f4f198d60002f80a2256baaa4d6ef"
+)
+EXPECTED_ACCEPTED_ASSERTIONS_DUMP_SHA256 = (
+    "c6663166cbaec4bced8dcf1eb11c431c598e3c9318708a3fc64d57260bd7c650"
 )
 REPAIR_DIAGNOSTIC_MARKER = "catchup:drop_overlapping_pc_node_assertions"
 DROP_SUBJECTS = frozenset(
@@ -91,12 +102,51 @@ def _repair_successor_contribution_id(
     return None
 
 
+def accepted_assertion_id_set_sha256(assertions: list[kernel.GraphContributionAssertion]) -> str:
+    """SHA256 of sorted assertion_id lines (exact accepted set fingerprint)."""
+    ids = sorted(assertion.assertion_id for assertion in assertions)
+    return hashlib.sha256("\n".join(ids).encode("utf-8")).hexdigest()
+
+
+def accepted_assertions_dump_sha256(assertions: list[kernel.GraphContributionAssertion]) -> str:
+    """SHA256 of canonical JSON dump for the full accepted_assertions list."""
+    payload = [
+        assertion.model_dump(mode="json", by_alias=True) for assertion in assertions
+    ]
+    return canonical_payload_sha256(payload)
+
+
+def _validate_assertion_ids_match_bodies(
+    assertions: list[kernel.GraphContributionAssertion],
+) -> None:
+    for assertion in assertions:
+        computed = compute_assertion_id(
+            assertion_kind=assertion.assertion_kind,
+            subject_node_id=assertion.subject_node_id,
+            target_node_id=assertion.target_node_id,
+            predicate=assertion.predicate,
+            label=assertion.label,
+            value=dict(assertion.value),
+            campaign_scope=assertion.campaign_scope,
+            temporal_scope=assertion.temporal_scope,
+            epistemic_kind=assertion.epistemic_kind,
+            visibility=assertion.visibility,
+        )
+        if computed != assertion.assertion_id:
+            raise ValueError(
+                "assertion_id does not match body for "
+                f"{assertion.assertion_id!r}: computed {computed!r}"
+            )
+
+
 def _validate_repair_target(
     old: GraphContribution,
     *,
     expected_campaign_scope: str,
     expected_source_artifact_id: str,
     expected_source_revision_id: str,
+    expected_accepted_assertion_id_set_sha256: str,
+    expected_accepted_assertions_dump_sha256: str,
     drop_subjects: frozenset[str],
 ) -> None:
     """Fail closed when ``old`` is not the Session 24 repair target."""
@@ -114,6 +164,19 @@ def _validate_repair_target(
         raise ValueError(
             "source_revision_id mismatch: "
             f"expected {expected_source_revision_id!r}, got {old.source_revision_id!r}"
+        )
+    _validate_assertion_ids_match_bodies(list(old.accepted_assertions))
+    id_set_sha = accepted_assertion_id_set_sha256(list(old.accepted_assertions))
+    if id_set_sha != expected_accepted_assertion_id_set_sha256:
+        raise ValueError(
+            "accepted_assertion_id_set_sha256 mismatch: "
+            f"expected {expected_accepted_assertion_id_set_sha256!r}, got {id_set_sha!r}"
+        )
+    dump_sha = accepted_assertions_dump_sha256(list(old.accepted_assertions))
+    if dump_sha != expected_accepted_assertions_dump_sha256:
+        raise ValueError(
+            "accepted_assertions_dump_sha256 mismatch: "
+            f"expected {expected_accepted_assertions_dump_sha256!r}, got {dump_sha!r}"
         )
     present_subjects = {
         assertion.subject_node_id
@@ -150,6 +213,16 @@ def main() -> int:
         "--expect-source-revision-id",
         default=EXPECTED_SOURCE_REVISION_ID,
         help="Required source_revision_id on the contribution being repaired.",
+    )
+    parser.add_argument(
+        "--expect-accepted-assertion-id-set-sha256",
+        default=EXPECTED_ACCEPTED_ASSERTION_ID_SET_SHA256,
+        help="Required SHA256 of sorted accepted assertion_id lines.",
+    )
+    parser.add_argument(
+        "--expect-accepted-assertions-dump-sha256",
+        default=EXPECTED_ACCEPTED_ASSERTIONS_DUMP_SHA256,
+        help="Required canonical SHA256 of accepted_assertions JSON dump.",
     )
     parser.add_argument(
         "--allow-live-world",
@@ -193,6 +266,12 @@ def main() -> int:
             expected_campaign_scope=args.expect_campaign_scope,
             expected_source_artifact_id=args.expect_source_artifact_id,
             expected_source_revision_id=args.expect_source_revision_id,
+            expected_accepted_assertion_id_set_sha256=(
+                args.expect_accepted_assertion_id_set_sha256
+            ),
+            expected_accepted_assertions_dump_sha256=(
+                args.expect_accepted_assertions_dump_sha256
+            ),
             drop_subjects=DROP_SUBJECTS,
         )
     except ValueError as exc:
