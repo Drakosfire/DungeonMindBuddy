@@ -368,31 +368,35 @@ def prepare(
     extraction_profile = resolved.extraction_profile or "current_default"
 
     registry_payload = None
-    registry_sibling = path.parent / "registry_context_graph.json"
-    if registry_sibling.is_file():
+    registry_path = resolved.registry_context_graph_path
+    if registry_path is None:
+        sibling = path.parent / "registry_context_graph.json"
+        if sibling.is_file():
+            registry_path = sibling
+    if registry_path is not None:
         try:
-            loaded = json.loads(registry_sibling.read_text(encoding="utf-8"))
+            loaded = json.loads(registry_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ExtractPromoteError(
-                f"registry context sibling is present but unreadable: {exc}",
+                f"registry context graph is present but unreadable: {exc}",
                 code="invalid_request",
                 status_code=422,
                 diagnostics=[
                     _diagnostic(
                         "invalid_request",
-                        f"registry context sibling is present but unreadable: {exc}",
+                        f"registry context graph is present but unreadable: {exc}",
                     )
                 ],
             ) from exc
         if not isinstance(loaded, dict):
             raise ExtractPromoteError(
-                "registry context sibling must be a JSON object",
+                "registry context graph must be a JSON object",
                 code="invalid_request",
                 status_code=422,
                 diagnostics=[
                     _diagnostic(
                         "invalid_request",
-                        "registry context sibling must be a JSON object",
+                        "registry context graph must be a JSON object",
                     )
                 ],
             )
@@ -400,32 +404,44 @@ def prepare(
             typed_registry = load_typed_candidate_graph(loaded)
         except CandidateGraphMappingError as exc:
             raise ExtractPromoteError(
-                f"registry context sibling is present but invalid: {exc}",
+                f"registry context graph is present but invalid: {exc}",
                 code="invalid_request",
                 status_code=422,
                 diagnostics=[
                     _diagnostic(
                         "invalid_request",
-                        f"registry context sibling is present but invalid: {exc}",
+                        f"registry context graph is present but invalid: {exc}",
                     )
                 ],
             ) from exc
         if not typed_registry.nodes:
             raise ExtractPromoteError(
-                "registry context sibling must contain at least one node",
+                "registry context graph must contain at least one node",
                 code="invalid_request",
                 status_code=422,
                 diagnostics=[
                     _diagnostic(
                         "invalid_request",
-                        "registry context sibling must contain at least one node",
+                        "registry context graph must contain at least one node",
                     )
                 ],
             )
         registry_campaign = str(typed_registry.campaign_id or "").strip()
-        if registry_campaign and registry_campaign != resolved.campaign_id:
+        if not registry_campaign:
             raise ExtractPromoteError(
-                "registry context sibling campaign_id "
+                "registry context graph campaign_id is required",
+                code="invalid_request",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "invalid_request",
+                        "registry context graph campaign_id is required",
+                    )
+                ],
+            )
+        if registry_campaign != resolved.campaign_id:
+            raise ExtractPromoteError(
+                "registry context graph campaign_id "
                 f"{registry_campaign!r} disagrees with run campaign "
                 f"{resolved.campaign_id!r}",
                 code="invalid_request",
@@ -433,7 +449,7 @@ def prepare(
                 diagnostics=[
                     _diagnostic(
                         "invalid_request",
-                        "registry context sibling campaign_id disagrees with run",
+                        "registry context graph campaign_id disagrees with run",
                     )
                 ],
             )

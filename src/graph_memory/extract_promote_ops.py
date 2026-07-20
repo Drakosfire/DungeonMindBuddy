@@ -319,21 +319,17 @@ def prepare_extract_promote(
         requested_campaign = (
             campaign_scope or preview.campaign_id or ""
         ).strip()
-        if (
-            standing_campaign
-            and requested_campaign
-            and standing_campaign != requested_campaign
-        ):
+        if not standing_campaign:
+            raise CandidateGraphMappingError(
+                "registry_context_graph campaign_id is required"
+            )
+        if requested_campaign and standing_campaign != requested_campaign:
             raise CandidateGraphMappingError(
                 "standing_context campaign_id "
                 f"{standing_campaign!r} disagrees with requested campaign "
                 f"{requested_campaign!r}"
             )
-        campaign_id = standing_campaign or requested_campaign
-        if not campaign_id:
-            raise CandidateGraphMappingError(
-                "campaign_id is required to promote standing_context"
-            )
+        campaign_id = standing_campaign
         registry_path, registry_artifact_id, registry_uri = resolve_party_registry_uri(
             campaign_id, repo_root=repo_root
         )
