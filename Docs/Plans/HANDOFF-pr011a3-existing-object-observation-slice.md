@@ -3,7 +3,7 @@
 **Status:** `DOING` (GitHub PR #370)  
 **Base:** `main` @ `c8f436c4`  
 **Branch:** `agent/pr011a3-existing-object-observation`  
-**Tip:** `4d137f6a` (+ review fixes in working tree)  
+**Tip:** `6ef913b9e81acb61f99db6cd878c3a9e8c047fc0`
 **Umbrella:** #367 (DO NOT MERGE fat tip `eb509dae`)
 
 ## §1 Mission
