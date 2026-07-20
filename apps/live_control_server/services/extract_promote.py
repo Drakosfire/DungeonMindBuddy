@@ -37,10 +37,6 @@ from apps.live_control_server.services.promotable_ingest_run import (
     resolve_promotable_ingest_run,
 )
 from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
-from graph_memory.extract_identity_gate import (
-    IdentityGateResult,
-    build_accepted_contribution_from_proposals,
-)
 from graph_memory.extract_promote_ops import (
     DEFAULT_WORLD_ID,
     ExtractPromoteEmptySelectionError,
@@ -49,9 +45,9 @@ from graph_memory.extract_promote_ops import (
     confirm_extract_promote,
     get_extract_promote_status,
     prepare_extract_promote,
+    resolve_merged_contribution_from_package,
 )
-from graph_memory.extract_promote_proposal import PromoteProposalError, verify_promote_proposal
-from graph_memory.kernel import create_graph_contribution
+from graph_memory.extract_promote_proposal import PromoteProposalError
 
 # Narrow server-owned roots for non-run promote source evidence (confirm of
 # legacy/CLI seals, dedicated fixture roots). Product prepare never uses these
@@ -435,59 +431,32 @@ def prepare(
     )
 
 
-def _gate_from_verified(verified: Mapping[str, Any]) -> IdentityGateResult:
-    """Rebuild gate state solely from sealed verify() output (no envelope)."""
-    meta = verified["contribution_meta"]
-    placeholder = create_graph_contribution(
-        world_id=str(verified["world_id"]),
-        source_kind=meta["source_kind"],
-        source_artifact_id=meta["source_artifact_id"],
-        source_revision_id=meta["source_revision_id"],
-        extraction_profile=meta["extraction_profile"],
-        campaign_scope=meta.get("campaign_scope"),
-        authored_by=meta["authored_by"],
-    )
-    return IdentityGateResult(
-        parent_revision_id=str(verified["parent_revision_id"]),
-        world_id=str(verified["world_id"]),
-        contribution=placeholder,
-        accepted_proposals=list(verified["accepted_proposals"]),
-        unresolved_mentions=list(verified["unresolved_mentions"]),
-        rejected_assertions=list(verified["rejected_assertions"]),
-        scorer_report={},
-        node_id_map=dict(verified["node_id_map"]),
-        identity_outcome_snapshot=dict(verified["identity_outcome_snapshot"]),
-        diagnostics=[],
-        candidate_preview_id=str(verified["candidate_preview_id"]),
-        candidate_schema=str(verified["candidate_schema"]),
-        candidate_version=str(verified["candidate_version"]),
-        source_revision_id=str(verified["source_revision_id"]),
-        source_artifact_id=str(verified["source_artifact_id"]),
-        verified_source_uri=str(verified["verified_source_uri"]),
-    )
-
-
 def _project_assertion_fields(
     review_package: dict[str, Any],
     normalized_assertion_ids: tuple[str, ...],
     *,
     world_root: Path,
 ) -> tuple[list[str], list[str], list[str]]:
-    """Project accepted assertion and affected object ids from the sealed package."""
+    """Project accepted assertion and affected object ids from the sealed package.
+
+    Reuses ``resolve_merged_contribution_from_package`` — the same helper
+    ``confirm_extract_promote`` uses to build the ONE atomic contribution —
+    so a multi-slice (standing_context + source_extraction) selection is
+    projected identically here and at actual publish time (PR011A3 P0/P1).
+    """
     warnings: list[str] = []
     try:
-        verified = verify_promote_proposal(
-            review_package,
-            confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
-            selected_assertion_ids=normalized_assertion_ids,
+        world_id_hint = str(
+            ((review_package or {}).get("effect") or {}).get("world_id")
+            or DEFAULT_WORLD_ID
         )
-        gate = _gate_from_verified(verified)
-        contribution = build_accepted_contribution_from_proposals(
-            gate,
+        _verified, contribution = resolve_merged_contribution_from_package(
+            review_package=review_package,
+            confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
+            world_id_hint=world_id_hint,
             root=world_root,
-            accepted_assertion_ids=normalized_assertion_ids,
-            proposal_digest=verified["proposal_digest"],
-            contribution_meta=verified["contribution_meta"],
+            expected_parent_revision_id=None,
+            assertion_ids=normalized_assertion_ids,
         )
         accepted_assertion_ids = [item.assertion_id for item in contribution.accepted_assertions]
         affected_object_ids: list[str] = []
@@ -605,26 +574,26 @@ def _try_already_applied_after_stale_parent(
     import graph_memory.kernel as kernel
 
     try:
-        verified = verify_promote_proposal(
-            request.review_package,
+        world_id_hint = str(
+            ((request.review_package or {}).get("effect") or {}).get("world_id")
+            or DEFAULT_WORLD_ID
+        )
+        verified, contribution = resolve_merged_contribution_from_package(
+            review_package=request.review_package,
             confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
-            selected_assertion_ids=normalized_assertion_ids,
-        )
-        gate = _gate_from_verified(verified)
-        contribution = build_accepted_contribution_from_proposals(
-            gate,
+            world_id_hint=world_id_hint,
             root=world_root,
-            accepted_assertion_ids=normalized_assertion_ids,
-            proposal_digest=verified["proposal_digest"],
-            contribution_meta=verified["contribution_meta"],
+            expected_parent_revision_id=None,
+            assertion_ids=normalized_assertion_ids,
         )
-        head, _rev, _store = kernel.open_current_world_graph(world_root, gate.world_id)
-        index = load_contribution_index(world_root, gate.world_id)
+        world_id = str(verified["world_id"])
+        head, _rev, _store = kernel.open_current_world_graph(world_root, world_id)
+        index = load_contribution_index(world_root, world_id)
         if contribution.contribution_id not in index.active_contribution_ids:
             return None
         try:
             existing = load_contribution_record(
-                world_root, gate.world_id, contribution.contribution_id
+                world_root, world_id, contribution.contribution_id
             )
         except FileNotFoundError:
             return None
@@ -640,10 +609,10 @@ def _try_already_applied_after_stale_parent(
         "ok": True,
         "published": False,
         "outcome": "already_applied",
-        "world_id": gate.world_id,
+        "world_id": world_id,
         "proposal_id": verified["proposal_id"],
         "proposal_digest": verified["proposal_digest"],
-        "parent_revision_id": gate.parent_revision_id,
+        "parent_revision_id": str(verified["parent_revision_id"]),
         "committed_revision_id": head.head_revision_id,
         "contribution_id": contribution.contribution_id,
         "post_publication_verification": "skipped",

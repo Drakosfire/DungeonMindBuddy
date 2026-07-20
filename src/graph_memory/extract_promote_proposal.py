@@ -24,6 +24,10 @@ PROMOTE_PROPOSAL_SCHEMA = "dmb_extract_promote_proposal_v1"
 PROMOTE_PROPOSAL_VERSION = 3
 PROMOTE_PROPOSAL_VERSION_V2 = 2
 
+# Delimiter for slice-qualified selection keys: f"{contribution_slice_id}{DELIM}{assertion_id}".
+# Chosen because assertion/contribution ids never contain a double colon.
+SLICE_SELECTOR_DELIMITER = "::"
+
 
 class PromoteProposalError(ValueError):
     """Raised when a promote proposal cannot be sealed or verified."""
@@ -159,6 +163,115 @@ def build_effect_body(
     }
 
 
+def contribution_slice_id_for(index: int, slice_body: Mapping[str, Any]) -> str:
+    """Stable slice identity derived from position + source_kind (not stored).
+
+    Recomputed identically at prepare-review-projection time and at
+    confirm time from the same ordered ``slices`` list, so it never needs to
+    ride inside the sealed digest. Selection keys are
+    ``f"{contribution_slice_id}{SLICE_SELECTOR_DELIMITER}{assertion_id}"``.
+    """
+    meta = dict(slice_body.get("contribution_meta") or {})
+    source_kind = str(meta.get("source_kind") or "unknown").strip() or "unknown"
+    return f"{index}:{source_kind}"
+
+
+def primary_contribution_meta_from_slices(
+    slices: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Pick the mirrored top-level contribution_meta for a multi-slice effect.
+
+    Prefers ``source_extraction`` (the recap slice is the human-facing
+    primary); falls back to the last slice when no source_extraction slice
+    is present.
+    """
+    if not slices:
+        raise PromoteProposalError("contributions must be non-empty")
+    primary = slices[-1]
+    for item in slices:
+        meta = dict(item.get("contribution_meta") or {})
+        if str(meta.get("source_kind") or "") == "source_extraction":
+            primary = item
+            break
+    return dict(primary.get("contribution_meta") or {})
+
+
+def parse_slice_qualified_selector(selector: str) -> tuple[str | None, str]:
+    """Split a selection key into ``(contribution_slice_id, assertion_id)``.
+
+    Bare selectors (no delimiter) return ``(None, selector)`` — the caller
+    must resolve them against sealed slices and refuse ambiguous matches.
+    """
+    text = str(selector or "").strip()
+    if SLICE_SELECTOR_DELIMITER in text:
+        slice_id, _, assertion_id = text.partition(SLICE_SELECTOR_DELIMITER)
+        slice_id = slice_id.strip()
+        assertion_id = assertion_id.strip()
+        if not slice_id or not assertion_id:
+            raise PromoteProposalError(
+                f"malformed slice-qualified selector: {selector!r}"
+            )
+        return slice_id, assertion_id
+    return None, text
+
+
+def resolve_slice_qualified_selection(
+    slices: Sequence[Mapping[str, Any]],
+    selectors: Sequence[str],
+) -> dict[str, set[str]]:
+    """Resolve selection selectors into ``{contribution_slice_id: {assertion_id}}``.
+
+    Selectors may be slice-qualified (``sliceId::assertionId``) or a bare
+    ``assertionId`` when it identifies exactly one sealed slice's accepted
+    proposal. A bare id present in more than one slice is refused — this is
+    the fix for P1 (assertion ids are content-hashed and can legitimately
+    collide across independently-sourced slices, e.g. a standing_context
+    registry fact re-asserted by the recap extraction with different
+    evidence). Raises ``PromoteProposalError`` for unknown or ambiguous ids.
+    """
+    slice_ids = [contribution_slice_id_for(i, s) for i, s in enumerate(slices)]
+    assertions_by_slice: dict[str, set[str]] = {}
+    assertion_locations: dict[str, list[str]] = {}
+    for slice_id, slice_body in zip(slice_ids, slices):
+        ids = {
+            str(a.get("assertion_id") or "").strip()
+            for a in (slice_body.get("accepted_proposals") or [])
+            if str(a.get("assertion_id") or "").strip()
+        }
+        assertions_by_slice[slice_id] = ids
+        for assertion_id in ids:
+            assertion_locations.setdefault(assertion_id, []).append(slice_id)
+
+    resolved: dict[str, set[str]] = {}
+    for raw in selectors:
+        slice_id, assertion_id = parse_slice_qualified_selector(raw)
+        if slice_id is not None:
+            if slice_id not in assertions_by_slice:
+                raise PromoteProposalError(
+                    f"selected slice {slice_id!r} is not in sealed contribution slices"
+                )
+            if assertion_id not in assertions_by_slice[slice_id]:
+                raise PromoteProposalError(
+                    f"selected assertion {assertion_id!r} is not in sealed "
+                    f"contribution slice {slice_id!r}"
+                )
+            resolved.setdefault(slice_id, set()).add(assertion_id)
+            continue
+        locations = assertion_locations.get(assertion_id) or []
+        if not locations:
+            raise PromoteProposalError(
+                f"selected assertion {assertion_id!r} is not in sealed accepted_proposals"
+            )
+        if len(locations) > 1:
+            raise PromoteProposalError(
+                f"selected assertion {assertion_id!r} is ambiguous across "
+                f"contribution slices {locations!r}; use a slice-qualified "
+                f"selector '{{contributionSliceId}}{SLICE_SELECTOR_DELIMITER}{{assertionId}}'"
+            )
+        resolved.setdefault(locations[0], set()).add(assertion_id)
+    return resolved
+
+
 def build_multi_contribution_effect_body(
     *,
     world_id: str,
@@ -169,13 +282,15 @@ def build_multi_contribution_effect_body(
     if not contributions:
         raise PromoteProposalError("contributions must be non-empty")
     slices = [dict(c) for c in contributions]
-    # Prefer source_extraction as the primary mirror; else last slice.
-    primary = slices[-1]
-    for item in slices:
-        meta = dict(item.get("contribution_meta") or {})
-        if str(meta.get("source_kind") or "") == "source_extraction":
-            primary = item
-            break
+    primary_meta = primary_contribution_meta_from_slices(slices)
+    primary = next(
+        (
+            item
+            for item in slices
+            if dict(item.get("contribution_meta") or {}) == primary_meta
+        ),
+        slices[-1],
+    )
     accepted: list[Any] = []
     rejected: list[Any] = []
     unresolved: list[Any] = []
@@ -507,13 +622,11 @@ def verify_promote_proposal(
             )
 
     accepted = _parse_assertions(effect.get("accepted_proposals"))
-    by_id = {a.assertion_id: a for a in accepted}
+    resolved_selection: dict[str, set[str]] | None = None
     if selected_assertion_ids is not None:
-        for assertion_id in selected_assertion_ids:
-            if assertion_id not in by_id:
-                raise PromoteProposalError(
-                    f"selected assertion {assertion_id!r} is not in sealed accepted_proposals"
-                )
+        resolved_selection = resolve_slice_qualified_selection(
+            slices, selected_assertion_ids
+        )
 
     snapshot = {
         str(k): str(v)
@@ -553,6 +666,7 @@ def verify_promote_proposal(
         "confirming_principal": principal,
         "effect": effect,
         "contribution_slices": slices,
+        "resolved_selection": resolved_selection,
         "accepted_proposals": accepted,
         "rejected_assertions": _parse_assertions(effect.get("rejected_assertions")),
         "unresolved_mentions": _parse_mentions(effect.get("unresolved_mentions")),

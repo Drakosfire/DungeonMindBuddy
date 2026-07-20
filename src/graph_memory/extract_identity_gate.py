@@ -625,3 +625,140 @@ def build_accepted_contribution_from_proposals(
             ),
         ],
     )
+
+
+def build_accepted_contribution_from_multi_slice_proposals(
+    slice_selections: Sequence[tuple[IdentityGateResult, Sequence[str] | None]],
+    *,
+    root: Path,
+    proposal_digest: str | None = None,
+) -> GraphContribution:
+    """Build ONE merge-ready contribution spanning every verified slice.
+
+    This is the atomic-publication fix (PR011A3 review P0): a multi-slice
+    promote (standing_context + source_extraction) must land as a single
+    Kernel contribution merged in a single call, never as sequential
+    per-slice merges that could advance the head partway through. Edge
+    endpoints may reference node subjects created by *any* selected slice
+    in this same batch (not only their own slice), since every slice is
+    published together against the one pinned parent revision.
+
+    ``slice_selections`` is ordered (standing_context before source_extraction
+    by convention); entries with no selected assertions are ignored. Raises
+    ``CandidateGraphMappingError`` when nothing is selected, when slices pin
+    different parents/worlds, or when an edge endpoint cannot be resolved
+    against the union of selected node subjects and the pinned parent.
+    """
+    active: list[tuple[IdentityGateResult, list[GraphContributionAssertion]]] = []
+    for gate, ids in slice_selections:
+        allow = set(ids) if ids is not None else None
+        selected = [
+            assertion
+            for assertion in gate.accepted_proposals
+            if allow is None or assertion.assertion_id in allow
+        ]
+        if selected:
+            active.append((gate, selected))
+
+    if not active:
+        raise CandidateGraphMappingError("no accepted proposals selected for merge")
+
+    parent_revision_id = active[0][0].parent_revision_id
+    world_id = active[0][0].world_id
+    for gate, _selected in active[1:]:
+        if gate.parent_revision_id != parent_revision_id or gate.world_id != world_id:
+            raise CandidateGraphMappingError(
+                "contribution slices disagree on parent_revision_id/world_id; "
+                "atomic multi-contribution merge requires one shared parent"
+            )
+
+    pinned_store = load_world_graph_revision(root, world_id, parent_revision_id)
+    node_subjects = {
+        assertion.subject_node_id
+        for _gate, selected in active
+        for assertion in selected
+        if assertion.assertion_kind == "node" and assertion.subject_node_id
+    }
+
+    diagnostics: list[str] = []
+    seen_assertion_ids: set[str] = set()
+    filtered: list[GraphContributionAssertion] = []
+    for gate, selected in active:
+        for assertion in selected:
+            if assertion.assertion_id in seen_assertion_ids:
+                diagnostics.append(
+                    f"cross_slice_duplicate_assertion_skipped:{assertion.assertion_id}"
+                )
+                continue
+            if assertion.assertion_kind == "edge":
+                subject = assertion.subject_node_id
+                target = assertion.target_node_id
+                if subject is None or target is None:
+                    raise CandidateGraphMappingError(
+                        f"edge assertion {assertion.assertion_id} missing endpoint ids"
+                    )
+                if not _endpoint_available(
+                    subject,
+                    selected_node_subjects=node_subjects,
+                    pinned_store=pinned_store,
+                ):
+                    raise CandidateGraphMappingError(
+                        f"edge assertion {assertion.assertion_id} subject endpoint "
+                        f"{subject!r} is neither selected in this batch nor on "
+                        f"pinned parent {parent_revision_id}"
+                    )
+                if not _endpoint_available(
+                    target,
+                    selected_node_subjects=node_subjects,
+                    pinned_store=pinned_store,
+                ):
+                    raise CandidateGraphMappingError(
+                        f"edge assertion {assertion.assertion_id} target endpoint "
+                        f"{target!r} is neither selected in this batch nor on "
+                        f"pinned parent {parent_revision_id}"
+                    )
+            seen_assertion_ids.add(assertion.assertion_id)
+            filtered.append(assertion)
+
+    rejected: list[GraphContributionAssertion] = [
+        assertion for gate, _selected in active for assertion in gate.rejected_assertions
+    ]
+    unresolved: list[ContributionIdentityMention] = [
+        mention for gate, _selected in active for mention in gate.unresolved_mentions
+    ]
+
+    slice_metas = [
+        contribution_meta_from_contribution(gate.contribution) for gate, _selected in active
+    ]
+    meta = next(
+        (m for m in slice_metas if str(m.get("source_kind") or "") == "source_extraction"),
+        slice_metas[-1],
+    )
+
+    selection_digest = compute_selection_digest([a.assertion_id for a in filtered])
+    return create_graph_contribution(
+        world_id=world_id,
+        source_kind=str(meta["source_kind"]),  # type: ignore[arg-type]
+        source_artifact_id=str(meta["source_artifact_id"]),
+        source_revision_id=str(meta["source_revision_id"]),
+        extraction_profile=str(meta["extraction_profile"]),
+        campaign_scope=meta.get("campaign_scope"),
+        authored_by=str(meta["authored_by"]),
+        accepted_assertions=filtered,
+        rejected_assertions=rejected,
+        unresolved_mentions=unresolved,
+        proposal_digest=proposal_digest,
+        selection_digest=selection_digest,
+        diagnostics=[
+            f"accepted_for_merge:{len(filtered)}",
+            f"contribution_slices_merged:{len(active)}",
+            f"parent_revision_id:{parent_revision_id}",
+            f"selection_digest:{selection_digest}",
+            *diagnostics,
+            *(
+                [f"proposal_digest:{proposal_digest}"]
+                if proposal_digest
+                else []
+            ),
+        ],
+    )
