@@ -197,7 +197,7 @@ describe("GraphReviewNodeGameCard", () => {
     expect(excerptBlock?.textContent).toContain(sharedExcerpt);
   });
 
-  it("renders relationships before summary and details in DOM order", () => {
+  it("renders summary before relationships and details in DOM order", () => {
     render(
       <GraphReviewNodeGameCard
         viewModel={viewModel()}
@@ -212,9 +212,9 @@ describe("GraphReviewNodeGameCard", () => {
       "The adventuring collective that cleared the tower basement.",
     );
     const detailsIndex = card.textContent!.indexOf("Details");
-    expect(relationshipIndex).toBeGreaterThanOrEqual(0);
-    expect(summaryIndex).toBeGreaterThan(relationshipIndex);
-    expect(detailsIndex).toBeGreaterThan(summaryIndex);
+    expect(summaryIndex).toBeGreaterThanOrEqual(0);
+    expect(relationshipIndex).toBeGreaterThan(summaryIndex);
+    expect(detailsIndex).toBeGreaterThan(relationshipIndex);
   });
 
   it("renders relationship section before details in DOM order", () => {

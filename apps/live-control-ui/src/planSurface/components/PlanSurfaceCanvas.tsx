@@ -4,6 +4,10 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
 import type { AppChromeTools } from "../../chrome/AppChrome";
+import {
+  GraphNodeChipRuntimeProvider,
+  type GraphNodeChipRuntimeValue,
+} from "../../graphReference";
 import { CalloutNode } from "../../tiptap/extensions/CalloutNode";
 import { RunbookReferenceNode } from "../../tiptap/extensions/RunbookReferenceNode";
 import {
@@ -12,7 +16,10 @@ import {
   tiptapJsonToSemanticMarkdown,
   type CalloutKind,
 } from "../../tiptap/markdown/calloutMarkdown";
-import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
+import {
+  GRAPH_NODE_REF_TYPE,
+  type RunbookReferenceAttrs,
+} from "../../tiptap/references/runbookReferences";
 import { createStarterContentForPlanDocument } from "../config/planSessionDescriptor";
 import {
   buildInitialWorkspaceDocumentLocalState,
@@ -133,7 +140,11 @@ export function PlanSurfaceCanvas({
   );
 
   const projectionNodes = useMemo(
-    () => projection?.nodes.map(adaptWorldGraphNodeForPlanCard) ?? [],
+    () =>
+      projection?.nodes.map((node) => ({
+        ...adaptWorldGraphNodeForPlanCard(node),
+        campaign_scope: node.campaignScope ?? null,
+      })) ?? [],
     [projection],
   );
 
@@ -202,6 +213,35 @@ export function PlanSurfaceCanvas({
     },
     [openContentFromChip, projectionState, resolvePlanReference],
   );
+
+  const openGraphNodeFromChip = useCallback(
+    async (nodeId: string) => {
+      const node = projection?.nodes.find((entry) => entry.nodeId === nodeId);
+      const ref: RunbookReferenceAttrs = {
+        kind: "ref",
+        refType: GRAPH_NODE_REF_TYPE,
+        refId: nodeId,
+        label: node?.label ?? nodeId,
+      };
+      const resolution = await resolvePlanReference(ref);
+      openContentFromChip(ref, resolution, true, projectionState);
+    },
+    [openContentFromChip, projection, projectionState, resolvePlanReference],
+  );
+
+  const chipRuntime = useMemo<GraphNodeChipRuntimeValue>(() => {
+    const nodeViews: Record<string, GraphProjectionNodeView> = {};
+    for (const node of projection?.nodes ?? []) {
+      nodeViews[node.nodeId] = adaptWorldGraphNodeForPlanCard(node);
+    }
+    return {
+      nodeViews,
+      activeNodeId: null,
+      onSelectNode: (nodeId) => {
+        void openGraphNodeFromChip(nodeId);
+      },
+    };
+  }, [openGraphNodeFromChip, projection?.nodes]);
 
   useEffect(() => {
     onEditorToolsChange?.({
@@ -316,7 +356,9 @@ export function PlanSurfaceCanvas({
           void handleChipActivate(event.target);
         }}
       >
-        <EditorContent editor={editor} />
+        <GraphNodeChipRuntimeProvider value={chipRuntime}>
+          <EditorContent editor={editor} />
+        </GraphNodeChipRuntimeProvider>
       </div>
 
       {(saveState.status === "committed" || saveState.error || saveState.warnings?.length || saveState.diagnostics?.length) && (

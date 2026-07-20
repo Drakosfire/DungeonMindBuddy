@@ -1,0 +1,204 @@
+/* Shared graph chip token + CSS hover glance (Plan, Ingest, Graph Review). */
+
+.recap-node-token-wrap {
+  display: inline-block;
+  position: relative;
+  vertical-align: baseline;
+}
+
+/* Shared glance: chip stays the title; body docks flush under/over it. */
+.recap-node-glance[data-open="true"] {
+  z-index: 40;
+}
+
+.recap-node-token {
+  border: 1px solid rgba(156, 163, 175, 0.35);
+  border-radius: 999px;
+  background: rgba(156, 163, 175, 0.12);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  display: inline;
+  font: inherit;
+  line-height: 1.15;
+  margin: 0 0.04rem;
+  padding: 0.05rem 0.38rem 0.08rem;
+  position: relative;
+  z-index: 2;
+}
+
+.recap-node-token:hover,
+.recap-node-token:focus-visible,
+.recap-node-token.pinned {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.25);
+}
+
+.recap-node-glance[data-open="true"]:not(.recap-node-glance--above) .recap-node-token {
+  border-bottom-color: transparent;
+  border-radius: 8px 8px 0 0;
+  box-shadow: none;
+}
+
+.recap-node-glance[data-open="true"].recap-node-glance--above .recap-node-token {
+  border-top-color: transparent;
+  border-radius: 0 0 8px 8px;
+  box-shadow: none;
+}
+
+.recap-node-token.role-npc,
+.recap-node-token.role-character,
+.recap-node-token.role-person {
+  border-color: rgba(251, 191, 36, 0.48);
+  background: rgba(251, 191, 36, 0.13);
+  color: #fde68a;
+}
+
+.recap-node-token.role-pc {
+  border-color: rgba(196, 181, 253, 0.55);
+  background: rgba(139, 92, 246, 0.14);
+  color: #ddd6fe;
+}
+
+.recap-node-token.session-active {
+  box-shadow: inset 0 0 0 1px rgba(122, 162, 247, 0.35);
+}
+
+.recap-planning-card {
+  gap: 0.4rem;
+  max-width: 280px;
+  min-width: 200px;
+}
+
+.recap-planning-scan-section {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.recap-planning-scan-kicker {
+  color: var(--accent, #7aa2f7);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.recap-planning-summary {
+  color: var(--fg, #e8eaef);
+  display: -webkit-box;
+  font-size: 0.82rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+.recap-planning-thread-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.recap-planning-thread-list li {
+  color: var(--fg-mute, #9aa3b5);
+  display: -webkit-box;
+  font-size: 0.76rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.35;
+  overflow: hidden;
+}
+
+.recap-planning-thread-list li + li {
+  margin-top: 0.2rem;
+}
+
+.recap-node-chip-row em[data-tone="evidence"],
+.recap-node-chips li[data-tone="evidence"] {
+  border-color: rgba(122, 162, 247, 0.45);
+  color: #bfdbfe;
+}
+
+.recap-node-token.role-location {
+  border-color: rgba(45, 212, 191, 0.48);
+  background: rgba(45, 212, 191, 0.12);
+  color: #99f6e4;
+}
+
+.recap-node-token.role-faction {
+  border-color: rgba(96, 165, 250, 0.48);
+  background: rgba(96, 165, 250, 0.12);
+  color: #bfdbfe;
+}
+
+.recap-node-token.role-item {
+  border-color: rgba(250, 204, 21, 0.48);
+  background: rgba(250, 204, 21, 0.12);
+  color: #fef08a;
+}
+
+.recap-node-glance .recap-node-hover-card {
+  background: linear-gradient(165deg, #151b28 0%, #0f141f 100%);
+  border: 1px solid rgba(122, 162, 247, 0.38);
+  border-radius: 0 10px 10px 10px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.4);
+  color: var(--fg, #e8eaef);
+  display: none;
+  gap: 0.4rem;
+  left: 0.04rem;
+  min-width: max(12.5rem, 100%);
+  padding: 0.45rem 0.65rem 0.62rem;
+  position: absolute;
+  top: calc(100% - 1px);
+  z-index: 1;
+}
+
+/* Stay hidden under CSS :hover until React finishes placement measure. */
+.recap-node-glance:not([data-open="true"]) .recap-node-hover-card:not([data-measuring="true"]) {
+  display: none !important;
+}
+
+.recap-node-glance .recap-node-hover-card[data-measuring="true"] {
+  display: grid !important;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* Visibility is React-driven so placement can be measured before first paint. */
+.recap-node-glance[data-open="true"] .recap-node-hover-card {
+  display: grid !important;
+}
+
+.recap-node-glance--above .recap-node-hover-card {
+  bottom: calc(100% - 1px);
+  border-radius: 10px 10px 10px 0;
+  box-shadow: 0 -14px 32px rgba(0, 0, 0, 0.4);
+  top: auto;
+}
+
+.recap-node-glance .recap-node-hover-card > .recap-node-kind {
+  color: var(--accent, #7aa2f7);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.recap-node-glance .recap-node-hover-card small {
+  line-height: 1.35;
+}
+
+.recap-node-chip-row,
+.recap-node-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.32rem;
+}
+
+.recap-node-chip-row em,
+.recap-node-chips li {
+  border: 1px solid rgba(122, 162, 247, 0.32);
+  border-radius: 999px;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.72rem;
+  font-style: normal;
+  padding: 0.16rem 0.42rem;
+}

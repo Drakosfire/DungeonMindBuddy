@@ -1,5 +1,11 @@
 import { useRef, type ReactNode, type RefObject } from "react";
 
+import {
+  humanizeRelationshipPredicate,
+  relationshipRowPrimaryCopy,
+  relationshipSessionStamp,
+  selectDefaultRelationshipRows,
+} from "./graphObjectDisplay";
 import type {
   GraphObjectActionViewModel,
   GraphObjectCardMode,
@@ -12,6 +18,11 @@ export interface GraphObjectCardProps {
   mode?: GraphObjectCardMode;
   /** When true, plan-mode details may show raw node identifiers. */
   showDebugIdentifiers?: boolean;
+  /**
+   * When true (Plan reference Expand), related rows show origin prose under each
+   * chronological pill. Compact click keeps pills scan-only.
+   */
+  showRelationshipProvenance?: boolean;
   /** When provided, related objects render as buttons and invoke this callback. */
   onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
   /** Optional highlight for the active relationship row. */
@@ -28,11 +39,43 @@ export interface GraphObjectCardProps {
   "aria-label"?: string;
 }
 
-function relationshipPrimaryCopy(relationship: GraphObjectRelationshipViewModel): string {
-  const parts = [relationship.label];
-  if (relationship.predicate) parts.push(relationship.predicate);
-  if (relationship.summary) parts.push(relationship.summary);
-  return parts.join(" · ");
+function RelationshipRowBody({
+  relationship,
+  showProvenance,
+}: {
+  relationship: GraphObjectRelationshipViewModel;
+  showProvenance: boolean;
+}) {
+  const predicate = humanizeRelationshipPredicate(relationship.predicate);
+  const session = relationshipSessionStamp(relationship.sessionIds);
+  const excerpt = relationship.sourceExcerpt?.trim() || null;
+  const domain = relationship.sourceDomains?.[0]?.trim() || null;
+
+  return (
+    <>
+      <span className="graph-object-card__relationship-pill-line">
+        {session ? (
+          <span className="graph-object-card__relationship-session">{session}</span>
+        ) : null}
+        <strong>{relationship.label}</strong>
+        {predicate ? ` · ${predicate}` : ""}
+      </span>
+      {showProvenance ? (
+        excerpt ? (
+          <p className="graph-object-card__relationship-provenance">
+            <span className="graph-object-card__relationship-excerpt">“{excerpt}”</span>
+            {domain ? (
+              <span className="graph-object-card__muted"> · {domain}</span>
+            ) : null}
+          </p>
+        ) : (
+          <p className="graph-object-card__muted graph-object-card__relationship-provenance">
+            No origin prose in graph memory yet.
+          </p>
+        )
+      ) : null}
+    </>
+  );
 }
 
 function DefaultRelationships({
@@ -40,38 +83,60 @@ function DefaultRelationships({
   onSelectRelationship,
   selectedRelationshipId,
   relationshipsDisabled,
+  showProvenance,
 }: {
   model: GraphObjectCardViewModel;
   onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
   selectedRelationshipId?: string | null;
   relationshipsDisabled?: boolean;
+  showProvenance: boolean;
 }) {
-  const relationships = model.relationships ?? [];
-  if (!relationships.length) return null;
+  const source = model.relationships ?? [];
+  if (!source.length) return null;
+
+  const { rows, omittedCount } = selectDefaultRelationshipRows(source);
 
   return (
     <section
       className="graph-object-card__relationships"
       aria-label="Connected objects and relationships"
+      data-provenance={showProvenance ? "expanded" : "compact"}
     >
       <h5>Related objects</h5>
       <ul className="graph-object-card__relationship-list">
-        {relationships.map((relationship) => {
-          const copy = (
-            <>
-              <strong>{relationship.label}</strong>
-              {relationship.predicate ? ` · ${relationship.predicate}` : ""}
-              {relationship.summary ? ` — ${relationship.summary}` : ""}
-            </>
+        {rows.map((relationship) => {
+          const body = (
+            <RelationshipRowBody
+              relationship={relationship}
+              showProvenance={showProvenance}
+            />
           );
 
           if (!onSelectRelationship) {
-            return <li key={relationship.id}>{copy}</li>;
+            return (
+              <li
+                key={relationship.id}
+                className={
+                  showProvenance
+                    ? "graph-object-card__relationship-item graph-object-card__relationship-item--provenance"
+                    : "graph-object-card__relationship-item"
+                }
+              >
+                {body}
+              </li>
+            );
           }
 
           const selected = selectedRelationshipId === relationship.id;
           return (
-            <li key={relationship.id}>
+            <li
+              key={relationship.id}
+              className={
+                showProvenance
+                  ? "graph-object-card__relationship-item graph-object-card__relationship-item--provenance"
+                  : "graph-object-card__relationship-item"
+              }
+            >
               <button
                 type="button"
                 className={
@@ -80,15 +145,18 @@ function DefaultRelationships({
                     : "graph-object-card__relationship-button"
                 }
                 disabled={relationshipsDisabled}
-                aria-label={`Open related object ${relationshipPrimaryCopy(relationship)}`}
+                aria-label={`Open related object ${relationshipRowPrimaryCopy(relationship)}`}
                 onClick={() => onSelectRelationship(relationship)}
               >
-                {copy}
+                {body}
               </button>
             </li>
           );
         })}
       </ul>
+      {omittedCount > 0 ? (
+        <p className="graph-object-card__muted">+{omittedCount} more</p>
+      ) : null}
     </section>
   );
 }
@@ -149,7 +217,40 @@ function resolveActionHandler(
   return undefined;
 }
 
-function DefaultActions({
+function ActionLinks({
+  actions,
+  rootRef,
+}: {
+  actions: GraphObjectActionViewModel[];
+  rootRef: RefObject<HTMLElement | null>;
+}) {
+  if (!actions.length) return null;
+
+  return (
+    <div className="graph-object-card__actions">
+      {actions.map((action) =>
+        action.href ? (
+          <a key={action.id} href={action.href} title={action.helpText}>
+            {action.label}
+          </a>
+        ) : (
+          <button
+            key={action.id}
+            type="button"
+            disabled={action.disabled}
+            title={action.helpText}
+            onClick={resolveActionHandler(action, rootRef)}
+          >
+            {action.label}
+          </button>
+        ),
+      )}
+    </div>
+  );
+}
+
+/** Plan-mode: curator links stay available but out of the primary scan path. */
+function PlanMemoryTools({
   model,
   rootRef,
 }: {
@@ -160,28 +261,10 @@ function DefaultActions({
   if (!actions.length) return null;
 
   return (
-    <section aria-label="Actions">
-      <h5>Actions</h5>
-      <div className="graph-object-card__actions">
-        {actions.map((action) =>
-          action.href ? (
-            <a key={action.id} href={action.href} title={action.helpText}>
-              {action.label}
-            </a>
-          ) : (
-            <button
-              key={action.id}
-              type="button"
-              disabled={action.disabled}
-              title={action.helpText}
-              onClick={resolveActionHandler(action, rootRef)}
-            >
-              {action.label}
-            </button>
-          ),
-        )}
-      </div>
-    </section>
+    <details className="graph-object-card__memory-tools">
+      <summary>Memory tools</summary>
+      <ActionLinks actions={actions} rootRef={rootRef} />
+    </details>
   );
 }
 
@@ -278,6 +361,7 @@ export function GraphObjectCard({
   model,
   mode = "plan",
   showDebugIdentifiers = false,
+  showRelationshipProvenance = false,
   onSelectRelationship,
   selectedRelationshipId = null,
   relationshipsDisabled = false,
@@ -297,16 +381,16 @@ export function GraphObjectCard({
       aria-label={ariaLabel ?? `${model.label} game card`}
     >
       <GraphObjectIdentityHeader model={model} />
+      <GraphObjectSummary model={model} />
       {relationshipsSlot ?? (
         <DefaultRelationships
           model={model}
           onSelectRelationship={onSelectRelationship}
           selectedRelationshipId={selectedRelationshipId}
           relationshipsDisabled={relationshipsDisabled}
+          showProvenance={showRelationshipProvenance}
         />
       )}
-      <GraphObjectSummary model={model} />
-      {actionsSlot ?? <DefaultActions model={model} rootRef={rootRef} />}
       {detailsSlot ?? (
         <DefaultDetails
           model={model}
@@ -314,6 +398,7 @@ export function GraphObjectCard({
           showDebugIdentifiers={showDebugIdentifiers}
         />
       )}
+      {actionsSlot ?? (mode === "plan" ? <PlanMemoryTools model={model} rootRef={rootRef} /> : null)}
     </article>
   );
 }

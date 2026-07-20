@@ -16,6 +16,11 @@ export {
   friendlyVisibilityCopy,
   graphObjectSecondaryRoleLabel,
   graphObjectTypeBadgeLabel,
+  humanizeRelationshipPredicate,
   isPlaceholderNodeSummary,
+  MAX_DEFAULT_RELATIONSHIP_ROWS,
   primaryGameSummaryForNode,
+  relationshipRowPrimaryCopy,
+  relationshipSessionStamp,
+  selectDefaultRelationshipRows,
 } from "./graphObjectDisplay";
