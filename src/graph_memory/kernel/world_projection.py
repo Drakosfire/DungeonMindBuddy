@@ -33,7 +33,11 @@ from graph_memory.projection.node_view import (
     GraphProjectionSuggestedExpansion,
     GraphProjectionTextHighlightSpan,
 )
-from graph_memory.projection.recap_projection import build_focus_overlay, build_node_view
+from graph_memory.projection.recap_projection import (
+    _resolve_evidence_source_excerpt,
+    build_focus_overlay,
+    build_node_view,
+)
 from graph_memory.projection.world_projection import (
     PROJECTION_RESPONSE_SCHEMA,
     SEARCH_MAX_ATTRIBUTES,
@@ -1638,6 +1642,86 @@ def _endpoint_relative_direction(
     return relationship.direction or ""
 
 
+def _resolve_repo_uri_file(uri: str, world_root: Path) -> Path | None:
+    """Resolve a ``repo://…`` artifact URI to an on-disk file under the repo.
+
+    ``world_root`` is typically ``<repo>/out`` (``world_graph_root()``). Artifact
+    URIs are repo-relative (``repo://out/graph_memory/runs/…``), so resolution
+    tries ``world_root.parent / <rel>`` first, then paths under ``world_root``.
+    """
+    if not isinstance(uri, str) or not uri.startswith("repo://"):
+        return None
+    rel = uri[len("repo://") :].lstrip("/")
+    if not rel or ".." in Path(rel).parts:
+        return None
+    world_root = world_root.resolve()
+    repo_root = world_root.parent
+    candidates = [
+        (repo_root / rel).resolve(),
+        (world_root / rel).resolve(),
+    ]
+    rel_path = Path(rel)
+    if rel_path.parts and rel_path.parts[0] == world_root.name:
+        candidates.insert(1, (world_root.joinpath(*rel_path.parts[1:])).resolve())
+    for path in candidates:
+        try:
+            path.relative_to(repo_root)
+        except ValueError:
+            continue
+        if path.is_file():
+            return path
+    return None
+
+
+def _load_source_span_paragraph_text_index(index_path: Path) -> dict[str, str]:
+    """Load span_id → full paragraph text from an ingest ``source_span_index.json``."""
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    spans = payload.get("spans")
+    if not isinstance(spans, list):
+        return {}
+    paragraph_text_by_span_id: dict[str, str] = {}
+    for span in spans:
+        if not isinstance(span, dict):
+            continue
+        if span.get("kind") != "paragraph":
+            continue
+        span_id = span.get("span_id") or span.get("source_span_ref_id")
+        # Prefer full ``text`` over truncated ``text_excerpt`` (240-char preview).
+        text = span.get("text") or span.get("text_excerpt")
+        if isinstance(span_id, str) and isinstance(text, str) and text.strip():
+            paragraph_text_by_span_id.setdefault(span_id, text)
+    return paragraph_text_by_span_id
+
+
+def _paragraph_text_by_span_id_from_source_artifacts(
+    root: Path,
+    store: UnionSupergraphStore,
+) -> dict[str, str]:
+    """Build span_id → paragraph text from source-artifact ingest run indexes.
+
+    World-graph evidence points at ``source_span_ref_id`` values but does not
+    embed paragraph prose. Ingest runs keep that prose in sibling
+    ``source_span_index.json`` files next to the artifact's ``normalized_recap``.
+    """
+    paragraph_text_by_span_id: dict[str, str] = {}
+    for artifact in store.source_artifacts.values():
+        uri = getattr(artifact, "uri", None)
+        if not isinstance(uri, str) or not uri.strip():
+            continue
+        artifact_path = _resolve_repo_uri_file(uri, root)
+        if artifact_path is None:
+            continue
+        index_path = artifact_path.parent / "source_span_index.json"
+        if not index_path.is_file():
+            continue
+        for span_id, text in _load_source_span_paragraph_text_index(index_path).items():
+            paragraph_text_by_span_id.setdefault(span_id, text)
+    return paragraph_text_by_span_id
+
+
 def _normalized_adjacency_candidate(
     candidate: GraphProjectionAdjacencyCandidate,
     relationship: WorldGraphProjectionRelationshipView,
@@ -1647,6 +1731,7 @@ def _normalized_adjacency_candidate(
     node_metadata: dict[str, tuple[str, str, str, list[str], str | None]],
     focus_session_id: str | None,
     focus_campaign_id: str | None = None,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
 ) -> GraphProjectionAdjacencyCandidate:
     related_node_id = (
         relationship.target_node_id
@@ -1659,6 +1744,18 @@ def _normalized_adjacency_candidate(
             (candidate.label, candidate.kind, "", [], candidate.related_summary),
         )
     )
+    source_excerpt = candidate.source_excerpt
+    source_excerpt_is_full_paragraph = candidate.source_excerpt_is_full_paragraph
+    source_excerpt_highlight_spans = list(candidate.source_excerpt_highlight_spans)
+    if not (isinstance(source_excerpt, str) and source_excerpt.strip()):
+        resolved = _resolve_evidence_source_excerpt(
+            store,
+            relationship.evidence_ref_ids,
+            paragraph_text_by_span_id=paragraph_text_by_span_id,
+        )
+        source_excerpt = resolved.text
+        source_excerpt_is_full_paragraph = resolved.is_full_paragraph
+        source_excerpt_highlight_spans = list(resolved.highlight_spans)
     return GraphProjectionAdjacencyCandidate(
         edge_id=relationship.edge_id,
         node_id=related_node_id,
@@ -1677,9 +1774,9 @@ def _normalized_adjacency_candidate(
         edge_label=relationship.label,
         session_ids=list(relationship.session_ids),
         related_summary=related_summary if related_summary is not None else candidate.related_summary,
-        source_excerpt=None,
-        source_excerpt_is_full_paragraph=False,
-        source_excerpt_highlight_spans=[],
+        source_excerpt=source_excerpt,
+        source_excerpt_is_full_paragraph=source_excerpt_is_full_paragraph,
+        source_excerpt_highlight_spans=source_excerpt_highlight_spans,
     )
 
 
@@ -1716,6 +1813,9 @@ def _build_node_views(
         for node_id, node in store.nodes.items()
         if not _is_unsupported_graph_object(node)
     }
+    paragraph_text_by_span_id = _paragraph_text_by_span_id_from_source_artifacts(
+        root, store
+    )
     nodes: list[WorldGraphProjectionNodeView] = []
     for node_id in sorted(projectable_node_ids(store, identity_context)):
         node = store.nodes[node_id]
@@ -1755,6 +1855,7 @@ def _build_node_views(
                 node_metadata=node_metadata,
                 focus_session_id=focus_session_id,
                 focus_campaign_id=focus_campaign_id,
+                paragraph_text_by_span_id=paragraph_text_by_span_id,
             )
 
         def _synthesize(edge_id: str) -> GraphProjectionAdjacencyCandidate:

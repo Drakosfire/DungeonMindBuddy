@@ -120,6 +120,9 @@ export function PlanReferenceObjectCard({
   const effectiveProjectionState =
     projectionState ?? resolution.graphProjectionState ?? resolverProjectionState ?? null;
   const onOpenStatblock = projection ? () => projection.openTool("statblock") : undefined;
+  // Compact chip open stays glance-only; Expand (or relationship navigation) unlocks provenance.
+  const showRelationshipProvenance =
+    projection?.active?.kind === "content" ? projection.active.glanceOnly !== true : true;
 
   const onSelectRelationship = useCallback(
     async (relationship: GraphObjectRelationshipViewModel) => {
@@ -166,6 +169,7 @@ export function PlanReferenceObjectCard({
         mode="plan"
         model={model}
         aria-label={`${model.label} graph object`}
+        showRelationshipProvenance={showRelationshipProvenance}
         onSelectRelationship={projection ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
         relationshipsDisabled={relationshipsDisabled}
@@ -195,6 +199,7 @@ export function PlanReferenceObjectCard({
             mode="plan"
             model={model}
             aria-label={`${model.label} corpus fallback object`}
+            showRelationshipProvenance={showRelationshipProvenance}
           />
         </div>
       );

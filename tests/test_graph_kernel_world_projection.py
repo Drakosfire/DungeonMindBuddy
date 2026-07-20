@@ -2459,3 +2459,52 @@ def test_invalid_revision_pin_precedes_head_loading(
             _request(revision_pin="rev:not-a-valid-revision-id"),
         )
     assert exc_info.value.code == "invalid_request"
+
+
+def test_adjacency_source_excerpt_resolves_from_source_span_index(tmp_path: Path) -> None:
+    """World projection fills relationship origin prose from ingest span indexes."""
+    from types import SimpleNamespace
+
+    from graph_memory.kernel.world_projection import (
+        _paragraph_text_by_span_id_from_source_artifacts,
+        _resolve_repo_uri_file,
+    )
+
+    world_root = tmp_path / "out"
+    run_dir = world_root / "graph_memory" / "runs" / "longmont-c1" / "session-3" / "run1"
+    run_dir.mkdir(parents=True)
+    recap_path = run_dir / "normalized_recap_source.md"
+    recap_path.write_text("Ready for some rest near Bubbles.\n", encoding="utf-8")
+    (run_dir / "source_span_index.json").write_text(
+        json.dumps(
+            {
+                "spans": [
+                    {
+                        "span_id": "session-3:recap:paragraph:017",
+                        "kind": "paragraph",
+                        "text": "Ready for some rest near Bubbles.",
+                        "text_excerpt": "Ready for some rest…",
+                    },
+                    {
+                        "span_id": "session-3:recap:full_text",
+                        "kind": "full_text",
+                        "text": "ignored full text",
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    uri = "repo://out/graph_memory/runs/longmont-c1/session-3/run1/normalized_recap_source.md"
+    assert _resolve_repo_uri_file(uri, world_root) == recap_path.resolve()
+
+    store = SimpleNamespace(
+        source_artifacts={
+            "artifact:recap:longmont-c1:session-3": SimpleNamespace(uri=uri),
+        }
+    )
+    index = _paragraph_text_by_span_id_from_source_artifacts(world_root, store)
+    assert index == {
+        "session-3:recap:paragraph:017": "Ready for some rest near Bubbles.",
+    }

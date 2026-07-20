@@ -139,7 +139,8 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
         <header className="plan-projection-header">
           <div>
             <p className="plan-surface-kicker">{active?.kind === "content" ? "Reference" : "Command Board"}</p>
-            <h2>{active?.kind === "content" ? active.title : "Toolbox"}</h2>
+            {/* Content references keep the object name on the card only — no duplicate header title. */}
+            <h2>{active?.kind === "content" ? "Reference" : "Toolbox"}</h2>
           </div>
           <div className="plan-projection-header-actions">
             {active?.kind === "content" && active.glanceOnly ? (
@@ -152,7 +153,11 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
             </button>
           </div>
         </header>
-        <nav className="plan-toolbox-nav" aria-label="Toolbox tools">
+        <nav
+          className="plan-toolbox-nav"
+          aria-label="Toolbox tools"
+          hidden={active?.kind === "content"}
+        >
           {config.tools.map((tool) => (
             <button
               key={tool.id}
