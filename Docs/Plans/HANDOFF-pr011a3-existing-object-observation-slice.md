@@ -3,7 +3,7 @@
 **Status:** `DOING` (GitHub PR #370)  
 **Base:** `main` @ `c8f436c4`  
 **Branch:** `agent/pr011a3-existing-object-observation`  
-**Tip:** `23e5270c` (alias ownership + exact assertion payload fingerprint; creature/source_kind reverted)
+**Tip:** `7ba6b9e5e93f52bd645a0ab0e0f02bbd1f54d16d` (review-fix tip; docs pin may follow)
 **Umbrella:** #367 (DO NOT MERGE fat tip `eb509dae`)
 
 ## §1 Mission
