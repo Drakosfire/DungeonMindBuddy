@@ -224,3 +224,43 @@ def test_assess_manifest_promotability_uses_prepare_resolver_seam(
     assert bad is False
     assert bad_reason is not None
     assert "candidate_graph" in bad_reason
+
+
+def test_resolve_rejects_alias_shaped_candidate_semantic_state(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _digest, _source = _write_promotable_run(repo)
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    payload = json.loads(resolved.candidate_graph_path.read_text(encoding="utf-8"))
+    for node in payload.get("nodes") or []:
+        node["semantic_state"] = {
+            "canon_status": "preview_only",
+            "lifecycle": "candidate",
+            "memory_status": "uncommitted",
+        }
+    for edge in payload.get("edges") or []:
+        edge["semantic_state"] = {
+            "canon_status": "preview_only",
+            "lifecycle": "candidate",
+            "memory_status": "uncommitted",
+        }
+    resolved.candidate_graph_path.write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+    assert "semantic_state" in str(exc.value).lower() or "typed" in str(exc.value).lower()
+
+    manifest_payload = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    ok, reason = assess_manifest_promotability(
+        repo=repo,
+        manifest_path=resolved.manifest_path,
+        payload=manifest_payload,
+        registry_root=(repo / "out/graph_memory/runs").resolve(),
+    )
+    assert ok is False
+    assert reason is not None
