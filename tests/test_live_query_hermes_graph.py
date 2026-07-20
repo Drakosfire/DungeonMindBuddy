@@ -217,14 +217,16 @@ def test_validate_rejects_missing_context_and_legacy_fields() -> None:
         )
     assert missing.value.code == "world_graph_context_required"  # type: ignore[attr-defined]
 
-    with pytest.raises(Exception) as mismatch:
-        validate_hermes_query_inputs(
-            world_graph_context=SimpleNamespace(campaign_id="other"),
-            request_manifest_path=None,
-            hermes_session_id=None,
-            outer_campaign_id="campaign:c1",
-        )
-    assert mismatch.value.code == "campaign_scope_mismatch"  # type: ignore[attr-defined]
+    # Campaign lens may differ from the outer live-packet campaign (C1-only on C2 Plan).
+    validate_hermes_query_inputs(
+        world_graph_context=SimpleNamespace(
+            campaign_id="longmont-c1",
+            scope_mode="campaign",
+        ),
+        request_manifest_path=None,
+        hermes_session_id=None,
+        outer_campaign_id="longmont-c2",
+    )
 
     # World scope allows a same-world narrative anchor that differs from outer.
     validate_hermes_query_inputs(
@@ -236,6 +238,18 @@ def test_validate_rejects_missing_context_and_legacy_fields() -> None:
         hermes_session_id=None,
         outer_campaign_id="longmont-c2",
     )
+
+    with pytest.raises(Exception) as bad_scope:
+        validate_hermes_query_inputs(
+            world_graph_context=SimpleNamespace(
+                campaign_id="longmont-c1",
+                scope_mode="galaxy",
+            ),
+            request_manifest_path=None,
+            hermes_session_id=None,
+            outer_campaign_id="longmont-c2",
+        )
+    assert bad_scope.value.code == "invalid_request"  # type: ignore[attr-defined]
 
     with pytest.raises(Exception) as manifest:
         validate_hermes_query_inputs(
@@ -615,7 +629,8 @@ def test_http_hermes_grounded_and_validation(
     assert continuity.status_code == 422
     assert continuity.json()["code"] == "hermes_continuity_not_supported"
 
-    mismatch = client.post(
+    # Product path: Plan packet stays C2/session 22 while graph lens is C1-only.
+    cross_campaign = client.post(
         "/api/live/query",
         json={
             "campaign_id": "longmont-c2",
@@ -623,11 +638,18 @@ def test_http_hermes_grounded_and_validation(
             "mode": "live",
             "query_backend": "hermes",
             "text": "Where is Tripod?",
-            "world_graph_context": {**GRAPH_NESTED, "campaign_id": "other-campaign"},
+            "world_graph_context": {
+                **GRAPH_NESTED,
+                "campaign_id": "longmont-c1",
+                "scope_mode": "campaign",
+                "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+            },
         },
     )
-    assert mismatch.status_code == 422
-    assert mismatch.json()["code"] == "campaign_scope_mismatch"
+    assert cross_campaign.status_code == 200
+    assert cross_campaign.json()["mode"] == "hermes_graph_agent"
+    assert len(host.calls) == 1
+    host.calls.clear()
 
     ok = client.post(
         "/api/live/query",

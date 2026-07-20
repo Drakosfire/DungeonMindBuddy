@@ -224,23 +224,13 @@ def validate_hermes_query_inputs(
             "Hermes queries require world_graph_context.",
             code="world_graph_context_required",
         )
-    nested_campaign = getattr(world_graph_context, "campaign_id", None)
-    if nested_campaign is None and isinstance(world_graph_context, Mapping):
-        nested_campaign = world_graph_context.get("campaign_id")
+    # Outer campaign binds the live packet; nested campaign_id is the graph lens
+    # and may differ (Plan C2 packet + C1-only campaign lens is a supported path).
+    _ = outer_campaign_id
     nested_scope_mode = getattr(world_graph_context, "scope_mode", None)
     if nested_scope_mode is None and isinstance(world_graph_context, Mapping):
         nested_scope_mode = world_graph_context.get("scope_mode")
     scope_mode = str(nested_scope_mode or "campaign").strip() or "campaign"
-    if (
-        scope_mode == "campaign"
-        and outer_campaign_id is not None
-        and nested_campaign is not None
-        and str(nested_campaign) != str(outer_campaign_id)
-    ):
-        raise HermesGraphQueryRequestError(
-            "world_graph_context.campaign_id must equal the outer live-query campaign_id",
-            code="campaign_scope_mismatch",
-        )
     if scope_mode not in {"campaign", "world"}:
         raise HermesGraphQueryRequestError(
             "world_graph_context.scope_mode must be 'campaign' or 'world'",

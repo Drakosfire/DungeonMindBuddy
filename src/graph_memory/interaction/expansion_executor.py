@@ -143,19 +143,28 @@ def _normalize_interaction_arguments(arguments: Mapping[str, Any]) -> dict[str, 
 
 def _focus_for_request(focus: Mapping[str, Any]) -> WorldGraphRetrievalFocus:
     kind = str(focus.get("kind") or "none")
-    session_id = focus.get("session_id")
-    payload: dict[str, Any] = {"kind": kind, "sessionId": session_id}
+    session_id = focus.get("session_id", focus.get("sessionId"))
+    campaign_id = focus.get("campaign_id", focus.get("campaignId"))
+    payload: dict[str, Any] = {
+        "kind": kind,
+        "sessionId": session_id,
+        "campaignId": None if kind == "none" else campaign_id,
+    }
     return WorldGraphRetrievalFocus.model_validate(payload)
 
 
 def _request_context_payload(session, focus: WorldGraphRetrievalFocus) -> dict[str, Any]:
     """Alias-only wire payload for PR010A request models (populate_by_name=False)."""
+    scope_mode = getattr(session.snapshot, "scope_mode", None) or "campaign"
+    if scope_mode not in {"campaign", "world"}:
+        scope_mode = "campaign"
     return {
         "worldId": session.snapshot.world_id,
         "campaignId": session.snapshot.campaign_id,
         "focus": focus.model_dump(mode="json", by_alias=True),
         "admissibility": session.snapshot.admissibility,
         "revisionPin": session.snapshot.revision_id,
+        "scopeMode": scope_mode,
     }
 
 

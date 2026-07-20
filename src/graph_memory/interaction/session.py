@@ -51,6 +51,8 @@ class SessionSnapshot(BaseModel):
     admissibility: str = "gm"
     revision_id: str
     is_head: bool | None = None
+    # Survives preflight → Hermes expansions so follow-up retrieval keeps the lens.
+    scope_mode: Literal["campaign", "world"] = "campaign"
 
 
 class GraphReferent(BaseModel):
@@ -170,6 +172,7 @@ class GraphRetrievalSession(BaseModel):
             "is_head": self.snapshot.is_head,
             "focus": dict(self.snapshot.focus),
             "admissibility": self.snapshot.admissibility,
+            "scope_mode": self.snapshot.scope_mode,
             "query_text": self.question,
             "matched_node_ids": list(self.preflight_candidate_ids),
             "selected_referent_ids": self.selected_referent_ids(),

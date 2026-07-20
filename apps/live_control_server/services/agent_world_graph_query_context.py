@@ -312,12 +312,45 @@ def adapt_projection_to_agent_envelope(
     }
 
 
+def _focus_campaign_for_projection(
+    nested: AgentWorldGraphQueryContextRequest,
+) -> str | None:
+    """Qualify session focus evidence under the active graph lens.
+
+    Campaign scope: focus.campaign_id must match the campaign lens (or be omitted).
+    World scope: an explicit focus campaign may differ from the narrative anchor.
+    """
+    if nested.focus.kind != "session":
+        return None
+    explicit = (nested.focus.campaign_id or "").strip() or None
+    if nested.scope_mode == "campaign":
+        if explicit is not None and explicit != nested.campaign_id:
+            raise AgentWorldGraphQueryContextError(
+                "focus.campaign_id must equal world_graph_context.campaign_id "
+                "when scope_mode is campaign",
+                code="invalid_request",
+                status_code=422,
+                diagnostics=[
+                    WorldGraphProjectionDiagnostic(
+                        code="invalid_request",
+                        message=(
+                            "focus.campaign_id must equal the campaign lens "
+                            "when scope_mode is campaign"
+                        ),
+                        severity="error",
+                    )
+                ],
+            )
+        return nested.campaign_id
+    return explicit or nested.campaign_id
+
+
 def build_projection_request(
     nested: AgentWorldGraphQueryContextRequest,
     *,
     query_text: str,
 ) -> WorldGraphProjectionRequest:
-    focus_campaign = nested.focus.campaign_id or nested.campaign_id
+    focus_campaign = _focus_campaign_for_projection(nested)
     return WorldGraphProjectionRequest(
         schema=PROJECTION_REQUEST_SCHEMA,
         world_id=nested.world_id,
@@ -325,7 +358,7 @@ def build_projection_request(
         focus=WorldGraphProjectionFocus(
             kind=nested.focus.kind,
             session_id=nested.focus.session_id,
-            campaign_id=focus_campaign if nested.focus.kind == "session" else None,
+            campaign_id=focus_campaign,
         ),
         admissibility=nested.admissibility,
         revision_pin=nested.revision_pin,
@@ -347,26 +380,11 @@ def resolve_agent_world_graph_query_context(
     ``world_graph_unavailable`` becomes nonfatal ``status: unavailable``.
     All other projection service errors remain fatal.
 
-    When ``scope_mode=world``, nested ``campaign_id`` is the narrative/temporal
-    anchor and may differ from the outer live-query campaign (same world).
-    When ``scope_mode=campaign``, nested campaign must equal the outer campaign.
+    Outer ``campaign_id`` binds the live packet; nested ``campaign_id`` is the
+    graph lens and may differ (e.g. Plan C2 packet with a C1-only campaign lens).
+    ``outer_campaign_id`` is retained for call-site compatibility / diagnostics.
     """
-    if nested.scope_mode == "campaign" and nested.campaign_id != outer_campaign_id:
-        raise AgentWorldGraphQueryContextError(
-            "world_graph_context.campaign_id must equal the outer live-query campaign_id",
-            code="invalid_request",
-            status_code=422,
-            diagnostics=[
-                WorldGraphProjectionDiagnostic(
-                    code="invalid_request",
-                    message=(
-                        "world_graph_context.campaign_id must equal the outer "
-                        "live-query campaign_id when scope_mode is campaign"
-                    ),
-                    severity="error",
-                )
-            ],
-        )
+    _ = outer_campaign_id  # packet identity; graph lens is nested.campaign_id
 
     query_text = outer_text
     projection_request = build_projection_request(nested, query_text=query_text)

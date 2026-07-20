@@ -29,6 +29,18 @@ def _packet_schema(packet: Mapping[str, Any]) -> str:
     return str(packet.get("schema") or "").strip()
 
 
+def _hydrate_scope_mode(snapshot_raw: Mapping[str, Any], packet: Mapping[str, Any]) -> str:
+    raw = (
+        snapshot_raw.get("scope_mode")
+        or snapshot_raw.get("scopeMode")
+        or packet.get("scope_mode")
+        or packet.get("scopeMode")
+        or "campaign"
+    )
+    text = str(raw).strip()
+    return text if text in {"campaign", "world"} else "campaign"
+
+
 def _hydrate_claim(
     item: Mapping[str, Any],
     *,
@@ -64,10 +76,11 @@ def hydrate_session_from_packet(packet: Mapping[str, Any]) -> GraphRetrievalSess
     snapshot = SessionSnapshot(
         world_id=str(snapshot_raw.get("world_id") or packet.get("world_id") or ""),
         campaign_id=str(snapshot_raw.get("campaign_id") or packet.get("campaign_id") or ""),
-        focus=dict(snapshot_raw.get("focus") or packet.get("focus") or {"kind": "none", "session_id": None}),
+        focus=dict(snapshot_raw.get("focus") or packet.get("focus") or {"kind": "none", "session_id": None, "campaign_id": None}),
         admissibility=str(snapshot_raw.get("admissibility") or packet.get("admissibility") or "gm"),
         revision_id=str(snapshot_raw.get("revision_id") or packet.get("revision_id") or ""),
         is_head=snapshot_raw.get("is_head") if isinstance(snapshot_raw.get("is_head"), bool) else None,
+        scope_mode=_hydrate_scope_mode(snapshot_raw, packet),
     )
     referents: list[GraphReferent] = []
     for item in packet.get("candidates") or packet.get("referents") or []:

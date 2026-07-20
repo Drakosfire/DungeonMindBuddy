@@ -845,9 +845,11 @@ export function PlanAgentInteractionBar({
         threadTitleFromQuestion(trimmed),
         planningDocumentId,
       );
+      // Outer campaign/session must match the loaded live packet (Plan descriptor).
+      // Graph lens campaign + scopeMode live only in worldGraphContext.
       const response = await askCorpus(
         trimmed,
-        derived.campaignId,
+        sessionDescriptor.campaignId,
         querySession,
         "hermes",
         {

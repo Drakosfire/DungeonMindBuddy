@@ -117,8 +117,10 @@ describe("PlanAgentInteractionBar graph lens", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     await waitFor(() => expect(askCorpus).toHaveBeenCalled());
-    const [, campaignId, , , options] = askCorpus.mock.calls[0];
-    expect(campaignId).toBe("longmont-c1");
+    const [, campaignId, session, , options] = askCorpus.mock.calls[0];
+    // Outer live-query campaign/session stay on the Plan packet; lens is nested only.
+    expect(campaignId).toBe("longmont-c2");
+    expect(session).toBe(22);
     expect(options.worldGraphContext).toMatchObject({
       campaign_id: "longmont-c1",
       scope_mode: "campaign",
