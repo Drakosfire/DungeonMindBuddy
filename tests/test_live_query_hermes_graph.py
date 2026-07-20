@@ -35,7 +35,7 @@ GRAPH_NESTED = {
     "schema": "dmb_agent_world_graph_query_context_request_v1",
     "world_id": "eldyrwild",
     "campaign_id": "longmont-c2",
-    "focus": {"kind": "session", "session_id": "session-21"},
+    "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
     "admissibility": "gm",
     "revision_pin": "rev:client-repeated",
 }
@@ -48,7 +48,7 @@ READY_ENVELOPE = {
     "revision_id": "revision:resolved-server",
     "head_revision_id": "revision:resolved-server",
     "is_head": True,
-    "focus": {"kind": "session", "session_id": "session-21"},
+    "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
     "admissibility": "gm",
     "query_text": "Where is Tripod?",
     "matched_node_ids": ["threat:tripod-null-calf"],
@@ -226,6 +226,17 @@ def test_validate_rejects_missing_context_and_legacy_fields() -> None:
         )
     assert mismatch.value.code == "campaign_scope_mismatch"  # type: ignore[attr-defined]
 
+    # World scope allows a same-world narrative anchor that differs from outer.
+    validate_hermes_query_inputs(
+        world_graph_context=SimpleNamespace(
+            campaign_id="longmont-c1",
+            scope_mode="world",
+        ),
+        request_manifest_path=None,
+        hermes_session_id=None,
+        outer_campaign_id="longmont-c2",
+    )
+
     with pytest.raises(Exception) as manifest:
         validate_hermes_query_inputs(
             world_graph_context=SimpleNamespace(campaign_id="campaign:c1"),
@@ -269,7 +280,7 @@ def test_turn_request_uses_resolved_revision_server_root_and_no_continuity(
     assert request.conversation_history is None
     assert request.session_id is None
     assert request.capability_policy is None
-    assert request.focus == {"kind": "session", "sessionId": "session-21"}
+    assert request.focus == {"kind": "session", "sessionId": "session-21", "campaignId": None}
     assert scope.revision_id == "revision:resolved-server"
 
 
@@ -439,7 +450,7 @@ def test_run_hermes_graph_query_preserves_tool_events_and_uses_fake_host(
             "anchor_id": "anchor:a1",
             "world_id": "world:eldyrwild",
             "campaign_id": "campaign:c1",
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "revision_id": "revision:resolved-server",
         },
@@ -449,7 +460,7 @@ def test_run_hermes_graph_query_preserves_tool_events_and_uses_fake_host(
             "anchor_id": "anchor:a2",
             "world_id": "world:eldyrwild",
             "campaign_id": "campaign:c1",
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "revision_id": "revision:resolved-server",
         },
@@ -551,7 +562,7 @@ def test_http_hermes_grounded_and_validation(
             "campaign_id": "longmont-c2",
             "world_id": "eldyrwild",
             "revision_id": "revision:http",
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
         },
     )
     monkeypatch.setattr(
@@ -970,7 +981,7 @@ def test_http_world_graph_unavailable_is_typed_not_422(
             "revision_id": None,
             "head_revision_id": None,
             "is_head": None,
-            "focus": {"kind": "session", "session_id": "session-21"},
+            "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
             "admissibility": "gm",
             "query_text": "Where is Tripod?",
             "matched_node_ids": [],
@@ -1051,7 +1062,7 @@ def test_graph_citations_shape_order_dedupe_and_scope() -> None:
         assert citation["kind"] == "world_graph_anchor"
         assert citation["world_id"] == "world:eldyrwild"
         assert citation["campaign_id"] == "campaign:c1"
-        assert citation["focus"] == {"kind": "session", "session_id": "session-21"}
+        assert citation["focus"] == {"kind": "session", "session_id": "session-21", "campaign_id": None}
         assert citation["admissibility"] == "gm"
         assert citation["revision_id"] == "revision:resolved-server"
         assert "path" not in citation
@@ -1542,6 +1553,167 @@ def test_graph_context_synthesis_keeps_natural_answer_and_ledger_support(
     assert "assertion:loc" in response["grounding"]["accepted_claim_ids"]
 
 
+_FACTUAL_CLAIM_ENVELOPE = {
+    **READY_ENVELOPE,
+    "nodes": [{"node_id": "threat:tripod", "label": "Tripod"}],
+    "matched_node_ids": ["threat:tripod"],
+    "attributes": [
+        {
+            "assertion_id": "assertion:loc",
+            "subject_node_id": "threat:tripod",
+            "predicate": "location",
+            "text_value": "North Gate",
+            "authority_class": "accepted_explicit_attribute",
+        }
+    ],
+}
+
+
+def _cardinality_error_event(code: str) -> HermesGraphToolEvent:
+    return _tool_event(
+        state="error",
+        outcome=None,
+        source_anchor_ids=[],
+        matched_node_ids=[],
+        diagnostic_codes=[code],
+        retrieval_schema="dmb_world_graph_retrieval_error_v1",
+    )
+
+
+def test_too_many_targets_after_claims_landed_proceeds_to_validation(
+    tmp_path: Path,
+) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="Tripod is at the North Gate.",
+        tool_events=[
+            _tool_event(source_anchor_ids=["anchor:prior"]),
+            _cardinality_error_event("too_many_targets"),
+        ],
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod relative to Pippa?",
+        packet=PACKET,
+        graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-cardinality-recover",
+        turn_id="turn-cardinality-recover",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] != "error"
+    assert response["grounding"]["acceptance_state"] != "execution_error"
+    assert response["answer"] != EXECUTION_ERROR_ANSWER
+    assert response["answer"] == "Tripod is at the North Gate."
+    assert "too_many_targets" in response["grounding"]["diagnostic_codes"]
+    assert any("too_many_targets" in w for w in response["warnings"])
+    assert response["agent_trace"]["validator_path"] == "graph_context_synthesis"
+
+
+def test_ambiguous_target_with_preflight_claims_non_fatal(tmp_path: Path) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="Tripod is at the North Gate.",
+        tool_events=[_cardinality_error_event("ambiguous_target")],
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-ambiguous-recover",
+        turn_id="turn-ambiguous-recover",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] != "error"
+    assert response["grounding"]["acceptance_state"] != "execution_error"
+    assert response["answer"] != EXECUTION_ERROR_ANSWER
+    assert "ambiguous_target" in response["grounding"]["diagnostic_codes"]
+    assert response["agent_trace"]["validator_path"] == "graph_context_synthesis"
+
+
+def test_too_many_targets_without_claims_stays_execution_error(tmp_path: Path) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="Should not surface.",
+        tool_events=[_cardinality_error_event("too_many_targets")],
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=EMPTY_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-cardinality-fatal",
+        turn_id="turn-cardinality-fatal",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["grounding"]["acceptance_state"] == "execution_error"
+    assert response["answer"] == EXECUTION_ERROR_ANSWER
+    assert response["diagnostics"]["error_code"] == "too_many_targets"
+
+
+def test_integrity_failure_still_fatal_with_claims(tmp_path: Path) -> None:
+    host = _EchoRetrievalSessionHost(
+        final_response="Should not surface.",
+        tool_events=[
+            _tool_event(source_anchor_ids=["anchor:prior"]),
+            _cardinality_error_event("integrity_failure"),
+        ],
+    )
+    response = run_hermes_graph_query(
+        text="Where is Tripod?",
+        packet=PACKET,
+        graph_envelope=_FACTUAL_CLAIM_ENVELOPE,
+        agent_thread_id="agent-thread-integrity-fatal",
+        turn_id="turn-integrity-fatal",
+        root=tmp_path,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    assert response["grounding"]["state"] == "error"
+    assert response["grounding"]["acceptance_state"] == "execution_error"
+    assert response["answer"] == EXECUTION_ERROR_ANSWER
+    assert response["diagnostics"]["error_code"] == "integrity_failure"
+
+
+def test_cardinality_error_recovered_by_later_evidence_still_works() -> None:
+    _, scope = build_hermes_graph_turn_request(
+        question="q",
+        graph_envelope=READY_ENVELOPE,
+        root=Path("/tmp"),
+    )
+    recovered_state, recovered_answer, *_ = classify_hermes_graph_result(
+        _ok_result(
+            events=[
+                _cardinality_error_event("too_many_targets"),
+                _tool_event(source_anchor_ids=["anchor:recovered"]),
+            ]
+        ),
+        scope=scope,
+    )
+    assert recovered_state == "grounded"
+    assert recovered_answer.startswith("Tripod")
+
+
+def test_expand_steer_mentions_neighborhood_for_multi_entity() -> None:
+    from apps.live_control_server.services.hermes_graph_agent import _GRAPH_SYSTEM_POLICY
+    from apps.live_control_server.services.hermes_graph_interaction_tools import (
+        hermes_graph_interaction_tool_definitions,
+    )
+
+    assert "neighborhood" in _GRAPH_SYSTEM_POLICY
+    assert "multi-entity" in _GRAPH_SYSTEM_POLICY
+    assert "one node at a time" in _GRAPH_SYSTEM_POLICY
+    expand = next(
+        item
+        for item in hermes_graph_interaction_tool_definitions()
+        if item["function"]["name"] == "expand_graph_retrieval"
+    )
+    description = expand["function"]["description"]
+    assert "prefer neighborhood" in description
+    assert "separately for each single node" in description
+    expand_schema = expand["function"]["parameters"]
+    schema_desc = expand_schema.get("description") or ""
+    if schema_desc:
+        assert "neighborhood" in schema_desc
+
+
 def test_zero_tool_calls_without_prose_still_abstains(tmp_path: Path) -> None:
     """Zero tool calls and an empty final_response — still nothing to answer with."""
     host = _EchoRetrievalSessionHost(final_response="", tool_events=[])
@@ -1866,7 +2038,7 @@ def test_invalid_history_fails_before_graph_resolution(
                     "schema": "dmb_agent_world_graph_query_context_request_v1",
                     "world_id": "eldyrwild",
                     "campaign_id": "longmont-c2",
-                    "focus": {"kind": "session", "session_id": "session-21"},
+                    "focus": {"kind": "session", "session_id": "session-21", "campaign_id": None},
                     "admissibility": "gm",
                 }
             ),

@@ -140,6 +140,14 @@ export function WorldGraphQueryContextPanel({
 
         <dl className="plan-agent-world-graph-context-grid">
         <div>
+          <dt>Anchor campaign</dt>
+          <dd>{context?.campaign_id ?? summary?.campaignId ?? "n/a"}</dd>
+        </div>
+        <div>
+          <dt>Scope</dt>
+          <dd>{context?.scope_mode ?? summary?.scopeMode ?? "n/a"}</dd>
+        </div>
+        <div>
           <dt>Revision</dt>
           <dd>{revisionId ?? "n/a"}</dd>
         </div>

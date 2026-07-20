@@ -1,37 +1,101 @@
-import type { AgentWorldGraphQueryContextRequest, WorldGraphProjectionRequest } from "../../api/types";
+import type { AgentWorldGraphQueryContextRequest, WorldGraphProjectionFocus, WorldGraphProjectionRequest } from "../../api/types";
 import type { PlanSessionDescriptor } from "../types";
+import {
+  deriveApiLens,
+  isReviewCampaignId,
+  resolvePlanGraphLens,
+  resolvePlanGraphScopeMode,
+  type PlanGraphLens,
+  type PlanGraphScopeMode,
+} from "../sessionCampaignContext";
 
 export interface PlanWorldGraphContext {
   worldId: string;
   campaignId: string;
+  scopeMode: PlanGraphScopeMode;
   focus:
     | { kind: "none"; sessionId: null }
-    | { kind: "session"; sessionId: string };
+    | { kind: "session"; sessionId: string; focusCampaignId: string };
+}
+
+export const WORLD_GRAPH_REVISION_COMMITTED_EVENT = "dmb:world-graph-revision-committed";
+
+export interface WorldGraphRevisionCommittedDetail {
+  revisionId: string;
+  worldId: string;
+  campaignId: string;
+  affectedNodeIds?: string[];
 }
 
 const WORLD_ID_BY_CAMPAIGN: Record<string, string> = {
+  "longmont-c1": "eldyrwild",
   "longmont-c2": "eldyrwild",
 };
 
+function buildProjectionFocus(context: PlanWorldGraphContext): WorldGraphProjectionFocus {
+  if (context.focus.kind === "none") {
+    return { kind: "none", sessionId: null };
+  }
+  return {
+    kind: "session",
+    sessionId: context.focus.sessionId,
+    campaignId: context.focus.focusCampaignId,
+  };
+}
+
 export function getPlanWorldGraphContext(
   sessionDescriptor: PlanSessionDescriptor | null | undefined,
+  options?: { scopeMode?: PlanGraphScopeMode; lens?: PlanGraphLens | null },
 ): PlanWorldGraphContext | null {
   if (!sessionDescriptor) return null;
 
-  const worldId = WORLD_ID_BY_CAMPAIGN[sessionDescriptor.campaignId];
+  let lens: PlanGraphLens;
+  if (options != null && "lens" in options && options.lens != null) {
+    lens = options.lens;
+  } else if (options != null && "lens" in options && options.lens == null) {
+    return null;
+  } else {
+    lens = resolvePlanGraphLens(
+      sessionDescriptor.campaignId,
+      typeof window !== "undefined" ? window.location.search : "",
+    );
+    if (
+      lens.focus == null
+      && sessionDescriptor.memorySession != null
+      && isReviewCampaignId(sessionDescriptor.campaignId)
+      && lens.selectedCampaignIds.includes(sessionDescriptor.campaignId)
+    ) {
+      lens = {
+        ...lens,
+        focus: {
+          campaignId: sessionDescriptor.campaignId,
+          sessionNumber: sessionDescriptor.memorySession,
+        },
+      };
+    }
+  }
+
+  const derived = deriveApiLens(lens, sessionDescriptor.campaignId);
+  if (!derived) return null;
+
+  const worldId = WORLD_ID_BY_CAMPAIGN[derived.campaignId];
   if (!worldId) return null;
 
+  const scopeMode = options?.scopeMode ?? derived.scopeMode ?? resolvePlanGraphScopeMode();
+
   const focus =
-    sessionDescriptor.memorySession == null
+    derived.focus == null
       ? ({ kind: "none", sessionId: null } as const)
       : ({
           kind: "session",
-          sessionId: `session-${sessionDescriptor.memorySession}`,
+          sessionId: `session-${derived.focus.sessionNumber}`,
+          focusCampaignId: derived.focus.campaignId,
         } as const);
 
   return {
     worldId,
-    campaignId: sessionDescriptor.campaignId,
+    campaignId: derived.campaignId,
+    scopeMode,
     focus,
   };
 }
@@ -43,7 +107,8 @@ export function buildPlanWorldGraphProjectionRequest(
     schema: "dmb_world_graph_projection_request_v1",
     worldId: context.worldId,
     campaignId: context.campaignId,
-    focus: context.focus,
+    scopeMode: context.scopeMode,
+    focus: buildProjectionFocus(context),
     admissibility: "gm",
   };
 }
@@ -56,9 +121,11 @@ export function buildPlanAgentWorldGraphQueryContextRequest(
     schema: "dmb_agent_world_graph_query_context_request_v1",
     world_id: context.worldId,
     campaign_id: context.campaignId,
+    scope_mode: context.scopeMode,
     focus: {
       kind: context.focus.kind,
       session_id: context.focus.sessionId,
+      campaign_id: context.focus.kind === "session" ? context.focus.focusCampaignId : null,
     },
     admissibility: "gm",
     revision_pin: options?.revisionPin ?? null,
