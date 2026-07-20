@@ -724,12 +724,37 @@ def run_graph_preview_extraction(
             candidate_graph = extraction.candidate_graph
             candidate_graph_path = output_dir / "candidate_graph.json"
             write_json(candidate_graph_path, candidate_graph)
+            if extraction.registry_context_graph:
+                registry_context_path = output_dir / "registry_context_graph.json"
+                write_json(registry_context_path, extraction.registry_context_graph)
+                artifacts["registry_context_graph"] = _artifact(
+                    GraphIngestArtifactKind.REGISTRY_CONTEXT_GRAPH,
+                    registry_context_path,
+                    "dmb_candidate_graph_preview_v0",
+                )
             pass_outputs_path = output_dir / "pass_outputs.json"
             write_json(pass_outputs_path, extraction.pass_outputs)
             pass_telemetry_path = output_dir / "pass_telemetry.json"
             write_json(pass_telemetry_path, extraction.pass_telemetry)
             consolidation_path = output_dir / "consolidation_diagnostics.json"
             write_json(consolidation_path, extraction.consolidation_diagnostics)
+            known_entity_mentions_path = output_dir / "known_entity_mentions.json"
+            write_json(
+                known_entity_mentions_path,
+                extraction.known_entity_mentions
+                or {
+                    "schema": "dmb_known_entity_mention_sidecar_v0",
+                    "version": "0.1",
+                    "campaign_id": campaign_id,
+                    "session_id": session_id,
+                    "mentions": [],
+                },
+            )
+            artifacts["known_entity_mentions"] = _artifact(
+                GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
+                known_entity_mentions_path,
+                "dmb_known_entity_mention_sidecar_v0",
+            )
             validation = _write_validation_report(
                 output_dir=output_dir,
                 campaign_id=campaign_id,

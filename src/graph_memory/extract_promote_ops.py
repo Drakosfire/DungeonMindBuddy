@@ -6,6 +6,7 @@ construction always goes through sealed proposal fields only.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -23,7 +24,16 @@ from graph_memory.extract_identity_gate import (
 )
 from graph_memory.extract_promote_proposal import (
     PromoteProposalError,
+    build_contribution_effect_slice,
+    contribution_meta_from_contribution,
+    seal_multi_contribution_promote_proposal,
+    seal_promote_proposal,
     verify_promote_proposal,
+)
+from graph_memory.standing_context_partition import (
+    partition_candidate_graph_by_provenance,
+    resolve_party_registry_uri,
+    stamp_standing_registry_evidence,
 )
 from graph_memory.extract_promote_review_projection import (
     project_promote_review_as_dicts,
@@ -134,6 +144,50 @@ def _gate_from_verified(verified: Mapping[str, Any]) -> IdentityGateResult:
     )
 
 
+def _gate_from_contribution_slice(
+    *,
+    world_id: str,
+    parent_revision_id: str,
+    slice_body: Mapping[str, Any],
+) -> IdentityGateResult:
+    """Rebuild a gate for one sealed contribution slice."""
+    from graph_memory.extract_promote_proposal import _parse_assertions, _parse_mentions
+
+    meta = dict(slice_body.get("contribution_meta") or {})
+    placeholder = create_graph_contribution(
+        world_id=world_id,
+        source_kind=str(meta["source_kind"]),  # type: ignore[arg-type]
+        source_artifact_id=str(meta["source_artifact_id"]),
+        source_revision_id=str(meta["source_revision_id"]),
+        extraction_profile=str(meta["extraction_profile"]),
+        campaign_scope=meta.get("campaign_scope"),
+        authored_by=str(meta["authored_by"]),
+    )
+    return IdentityGateResult(
+        parent_revision_id=parent_revision_id,
+        world_id=world_id,
+        contribution=placeholder,
+        accepted_proposals=_parse_assertions(slice_body.get("accepted_proposals")),
+        unresolved_mentions=_parse_mentions(slice_body.get("unresolved_mentions")),
+        rejected_assertions=_parse_assertions(slice_body.get("rejected_assertions")),
+        scorer_report={},
+        node_id_map={
+            str(k): str(v) for k, v in dict(slice_body.get("node_id_map") or {}).items()
+        },
+        identity_outcome_snapshot={
+            str(k): str(v)
+            for k, v in dict(slice_body.get("identity_outcome_snapshot") or {}).items()
+        },
+        diagnostics=[],
+        candidate_preview_id=str(slice_body.get("candidate_preview_id") or ""),
+        candidate_schema=str(slice_body.get("candidate_schema") or ""),
+        candidate_version=str(slice_body.get("candidate_version") or ""),
+        source_revision_id=str(slice_body.get("source_revision_id") or ""),
+        source_artifact_id=str(slice_body.get("source_artifact_id") or ""),
+        verified_source_uri=str(slice_body.get("verified_source_uri") or ""),
+    )
+
+
 def get_extract_promote_status(
     *,
     world_root: Path,
@@ -209,9 +263,27 @@ def prepare_extract_promote(
     candidate_graph_path: str | None = None,
     repo_root: Path,
     disclose_source_digest: bool = True,
+    registry_context_graph: Mapping[str, Any] | None = None,
 ) -> ExtractPromotePrepareResult:
-    """Gate + seal a typed candidate graph against the pinned world head."""
-    preview = load_typed_candidate_graph(candidate_graph)
+    """Gate + seal a typed candidate graph against the pinned world head.
+
+    When standing-context objects are present (sibling registry graph or
+    promote-time partition), seals a v3 multi-contribution package: standing
+    first, then recap source_extraction.
+    """
+    payload = dict(candidate_graph)
+    standing_payload: dict[str, Any] | None = (
+        dict(registry_context_graph) if registry_context_graph else None
+    )
+    if standing_payload is None:
+        recap_payload, maybe_standing, _diag = partition_candidate_graph_by_provenance(
+            payload
+        )
+        if maybe_standing.get("nodes"):
+            standing_payload = maybe_standing
+            payload = recap_payload
+
+    preview = load_typed_candidate_graph(payload)
     root = world_root.resolve()
     verified_revision = verify_source_revision(
         source_uri=source_uri,
@@ -228,24 +300,137 @@ def prepare_extract_promote(
         campaign_scope=campaign_scope,
         extraction_profile=extraction_profile,
         source_uri=source_uri,
+        source_kind="source_extraction",
+        source_domain="recap",
         node_ids=tuple(node_ids) if node_ids is not None else None,
         include_edges=include_edges,
     )
-    package = gate.to_review_package(
-        prepared_by=prepared_by,
-        world_root=str(root),
-        candidate_graph_path=candidate_graph_path,
+
+    contribution_slices: list[dict[str, Any]] = []
+    standing_gate: IdentityGateResult | None = None
+    if standing_payload and standing_payload.get("nodes"):
+        campaign_id = (
+            campaign_scope
+            or preview.campaign_id
+            or str(standing_payload.get("campaign_id") or "")
+        ).strip()
+        if not campaign_id:
+            raise CandidateGraphMappingError(
+                "campaign_id is required to promote standing_context"
+            )
+        registry_path, registry_artifact_id, registry_uri = resolve_party_registry_uri(
+            campaign_id, repo_root=repo_root
+        )
+        stamp_standing_registry_evidence(
+            standing_payload, source_artifact_id=registry_artifact_id
+        )
+        standing_payload["source_artifact_ids"] = [registry_artifact_id]
+        standing_preview = load_typed_candidate_graph(standing_payload)
+        registry_revision = verify_source_revision(
+            source_uri=registry_uri,
+            source_revision_id=(
+                f"sha256:{hashlib.sha256(registry_path.read_bytes()).hexdigest()}"
+            ),
+            repo_root=repo_root,
+            disclose_computed_digest=disclose_source_digest,
+        )
+        standing_gate = gate_candidate_graph_against_head(
+            standing_preview,
+            root=root,
+            world_id=world_id or DEFAULT_WORLD_ID,
+            source_artifact_id=registry_artifact_id,
+            source_revision_id=registry_revision,
+            campaign_scope=campaign_id,
+            extraction_profile=extraction_profile or "party_registry_standing",
+            source_uri=registry_uri,
+            source_kind="standing_context",
+            source_domain="party_registry",
+            include_edges=True,
+        )
+        contribution_slices.append(
+            build_contribution_effect_slice(
+                source_revision_id=standing_gate.source_revision_id,
+                source_artifact_id=standing_gate.source_artifact_id,
+                verified_source_uri=str(standing_gate.verified_source_uri),
+                candidate_preview_id=standing_gate.candidate_preview_id,
+                candidate_schema=standing_gate.candidate_schema,
+                candidate_version=standing_gate.candidate_version,
+                contribution_meta=contribution_meta_from_contribution(
+                    standing_gate.contribution
+                ),
+                accepted_proposals=standing_gate.accepted_proposals,
+                rejected_assertions=standing_gate.rejected_assertions,
+                unresolved_mentions=standing_gate.unresolved_mentions,
+                node_id_map=standing_gate.node_id_map,
+                identity_outcome_snapshot=standing_gate.identity_outcome_snapshot,
+            )
+        )
+
+    contribution_slices.append(
+        build_contribution_effect_slice(
+            source_revision_id=gate.source_revision_id,
+            source_artifact_id=gate.source_artifact_id,
+            verified_source_uri=str(gate.verified_source_uri),
+            candidate_preview_id=gate.candidate_preview_id,
+            candidate_schema=gate.candidate_schema,
+            candidate_version=gate.candidate_version,
+            contribution_meta=contribution_meta_from_contribution(gate.contribution),
+            accepted_proposals=gate.accepted_proposals,
+            rejected_assertions=gate.rejected_assertions,
+            unresolved_mentions=gate.unresolved_mentions,
+            node_id_map=gate.node_id_map,
+            identity_outcome_snapshot=gate.identity_outcome_snapshot,
+        )
     )
+
+    if standing_gate is not None:
+        package = seal_multi_contribution_promote_proposal(
+            world_id=gate.world_id,
+            parent_revision_id=gate.parent_revision_id,
+            contribution_slices=contribution_slices,
+            prepared_by=prepared_by,
+            scorer_report=gate.scorer_report,
+            diagnostics=[
+                *gate.diagnostics,
+                *(standing_gate.diagnostics if standing_gate else []),
+                "multi_contribution:standing_context+source_extraction",
+            ],
+            world_root=str(root),
+            candidate_graph_path=candidate_graph_path,
+        )
+    else:
+        package = gate.to_review_package(
+            prepared_by=prepared_by,
+            world_root=str(root),
+            candidate_graph_path=candidate_graph_path,
+        )
+
     review_items, review_summary = project_promote_review_as_dicts(gate)
+    if standing_gate is not None:
+        standing_items, standing_summary = project_promote_review_as_dicts(standing_gate)
+        for item in standing_items:
+            item["provenance"] = "standing_context"
+        for item in review_items:
+            item["provenance"] = "source_extraction"
+        review_items = [*standing_items, *review_items]
+        review_summary = {
+            **review_summary,
+            "standing_accepted_proposals_count": standing_summary.get(
+                "accepted_proposals_count", len(standing_gate.accepted_proposals)
+            ),
+        }
+
     return ExtractPromotePrepareResult(
         review_package=package,
         proposal_id=str(package["proposal_id"]),
         proposal_digest=str(package["proposal_digest"]),
         parent_revision_id=gate.parent_revision_id,
         world_id=gate.world_id,
-        accepted_proposals_count=len(gate.accepted_proposals),
-        unresolved_mentions_count=len(gate.unresolved_mentions),
-        rejected_assertions_count=len(gate.rejected_assertions),
+        accepted_proposals_count=len(package.get("effect", {}).get("accepted_proposals") or gate.accepted_proposals),
+        unresolved_mentions_count=len(gate.unresolved_mentions)
+        + (len(standing_gate.unresolved_mentions) if standing_gate else 0),
+        rejected_assertions_count=len(gate.rejected_assertions)
+        + (len(standing_gate.rejected_assertions) if standing_gate else 0),
         review_items=review_items,
         review_summary=review_summary,
     )
@@ -297,21 +482,109 @@ def confirm_extract_promote(
         selected_assertion_ids=accepted_ids,
     )
 
-    verify_source_revision(
-        source_uri=verified["verified_source_uri"],
-        source_revision_id=verified["source_revision_id"],
-        repo_root=repo_root,
-        disclose_computed_digest=disclose_source_digest,
-    )
+    slices = list(verified.get("contribution_slices") or [])
+    if not slices:
+        from graph_memory.extract_promote_proposal import contribution_slices_from_effect
 
-    gate = _gate_from_verified(verified)
-    contribution = build_accepted_contribution_from_proposals(
-        gate,
-        root=root,
-        accepted_assertion_ids=accepted_ids,
-        proposal_digest=verified["proposal_digest"],
-        contribution_meta=verified["contribution_meta"],
-    )
+        slices = contribution_slices_from_effect(verified["effect"])
+
+    for slice_body in slices:
+        verify_source_revision(
+            source_uri=str(slice_body["verified_source_uri"]),
+            source_revision_id=str(slice_body["source_revision_id"]),
+            repo_root=repo_root,
+            disclose_computed_digest=disclose_source_digest,
+        )
+
+    parent_revision_id = str(verified["parent_revision_id"])
+    world_id = str(verified["world_id"])
+    merged_contributions: list[Any] = []
+    merge_receipts: list[dict[str, Any]] = []
+    contribution = None
+    gate = None
+    committed_revision_id = parent_revision_id
+    any_published = False
+    all_already_applied = True
+
+    for slice_body in slices:
+        slice_gate = _gate_from_contribution_slice(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            slice_body=slice_body,
+        )
+        slice_accepted_ids = accepted_ids
+        if accepted_ids is not None:
+            slice_id_set = {a.assertion_id for a in slice_gate.accepted_proposals}
+            filtered_ids = tuple(aid for aid in accepted_ids if aid in slice_id_set)
+            if not filtered_ids:
+                continue
+            slice_accepted_ids = filtered_ids
+        elif not slice_gate.accepted_proposals:
+            continue
+
+        slice_contribution = build_accepted_contribution_from_proposals(
+            slice_gate,
+            root=root,
+            accepted_assertion_ids=slice_accepted_ids,
+            proposal_digest=verified["proposal_digest"],
+            contribution_meta=dict(slice_body.get("contribution_meta") or {}),
+        )
+        gate = slice_gate
+        contribution = slice_contribution
+        merged_contributions.append(slice_contribution)
+
+        if dry_run:
+            all_already_applied = False
+            continue
+
+        result = kernel.merge_contribution_to_revision(
+            root,
+            world_id=world_id,
+            contribution=slice_contribution,
+            expected_parent_revision_id=parent_revision_id,
+        )
+        merge_receipts.append(result.model_dump(mode="json"))
+        published = bool(result.published)
+        committed_revision_id = getattr(result, "revision_id", None) or merge_receipts[
+            -1
+        ].get("revision_id")
+        is_already_applied = (
+            not published
+            and allow_idempotent_noop
+            and "idempotent_noop:contribution_already_applied"
+            in (result.diagnostics or [])
+        )
+        if not published and not is_already_applied:
+            return ExtractPromoteConfirmResult(
+                ok=False,
+                dry_run=False,
+                payload={
+                    "schema": "dmb_promote_extract_proof_v1",
+                    "ok": False,
+                    "published": False,
+                    "outcome": "merge_refused",
+                    "world_root": str(root),
+                    "world_id": world_id,
+                    "proposal_id": verified["proposal_id"],
+                    "proposal_digest": verified["proposal_digest"],
+                    "merge": merge_receipts[-1],
+                    "contribution_id": slice_contribution.contribution_id,
+                },
+                failure_reason="merge_refused",
+            )
+        if published:
+            any_published = True
+            all_already_applied = False
+            if committed_revision_id:
+                parent_revision_id = str(committed_revision_id)
+        elif is_already_applied:
+            if committed_revision_id:
+                parent_revision_id = str(committed_revision_id)
+        else:
+            all_already_applied = False
+
+    if contribution is None or gate is None:
+        raise CandidateGraphMappingError("no accepted proposals selected for merge")
 
     if dry_run:
         payload = {
@@ -322,31 +595,21 @@ def confirm_extract_promote(
             "proposal_digest": verified["proposal_digest"],
             "confirming_principal": verified["confirming_principal"],
             "world_root": str(root),
-            "expected_parent_revision_id": gate.parent_revision_id,
+            "expected_parent_revision_id": str(verified["parent_revision_id"]),
             "contribution_id": contribution.contribution_id,
+            "contribution_ids": [c.contribution_id for c in merged_contributions],
             "contribution": contribution.model_dump(mode="json"),
+            "contributions": [c.model_dump(mode="json") for c in merged_contributions],
         }
         return ExtractPromoteConfirmResult(ok=True, dry_run=True, payload=payload)
 
-    result = kernel.merge_contribution_to_revision(
-        root,
-        world_id=gate.world_id,
-        contribution=contribution,
-        expected_parent_revision_id=gate.parent_revision_id,
-    )
+    merge_receipt = {
+        "merges": merge_receipts,
+        "contribution_ids": [c.contribution_id for c in merged_contributions],
+        "last": merge_receipts[-1] if merge_receipts else {},
+    }
 
-    published = bool(result.published)
-    merge_receipt = result.model_dump(mode="json")
-    committed_revision_id = getattr(result, "revision_id", None) or merge_receipt.get(
-        "revision_id"
-    )
-
-    is_already_applied = (
-        not published
-        and allow_idempotent_noop
-        and "idempotent_noop:contribution_already_applied" in (result.diagnostics or [])
-    )
-    if is_already_applied:
+    if all_already_applied and not any_published:
         proof = {
             "schema": "dmb_promote_extract_proof_v1",
             "ok": True,
@@ -357,39 +620,15 @@ def confirm_extract_promote(
             "proposal_id": verified["proposal_id"],
             "proposal_digest": verified["proposal_digest"],
             "confirming_principal": verified["confirming_principal"],
-            "parent_revision_id": gate.parent_revision_id,
+            "parent_revision_id": str(verified["parent_revision_id"]),
             "committed_revision_id": committed_revision_id,
             "contribution_id": contribution.contribution_id,
+            "contribution_ids": [c.contribution_id for c in merged_contributions],
             "merge": merge_receipt,
             "post_publication_verification": "skipped",
             "retry_guidance": RETRY_GUIDANCE_NONE,
         }
         return ExtractPromoteConfirmResult(ok=True, dry_run=False, payload=proof)
-
-    if not published:
-        proof = {
-            "schema": "dmb_promote_extract_proof_v1",
-            "ok": False,
-            "published": False,
-            "world_root": str(root),
-            "world_id": gate.world_id,
-            "proposal_id": verified["proposal_id"],
-            "proposal_digest": verified["proposal_digest"],
-            "confirming_principal": verified["confirming_principal"],
-            "parent_revision_id": gate.parent_revision_id,
-            "committed_revision_id": committed_revision_id,
-            "contribution_id": contribution.contribution_id,
-            "merge": merge_receipt,
-            "failure_reason": "merge_did_not_publish",
-            "post_publication_verification": "skipped",
-            "retry_guidance": RETRY_GUIDANCE_NONE,
-        }
-        return ExtractPromoteConfirmResult(
-            ok=False,
-            dry_run=False,
-            payload=proof,
-            failure_reason="merge_did_not_publish",
-        )
 
     if not committed_revision_id:
         proof = {
@@ -401,9 +640,10 @@ def confirm_extract_promote(
             "proposal_id": verified["proposal_id"],
             "proposal_digest": verified["proposal_digest"],
             "confirming_principal": verified["confirming_principal"],
-            "parent_revision_id": gate.parent_revision_id,
+            "parent_revision_id": str(verified["parent_revision_id"]),
             "committed_revision_id": None,
             "contribution_id": contribution.contribution_id,
+            "contribution_ids": [c.contribution_id for c in merged_contributions],
             "merge": merge_receipt,
             "failure_reason": "post_publication_verification_failed",
             "post_publication_verification": "failed",

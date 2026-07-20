@@ -7,9 +7,71 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Party-collective via standing_context promote seam — captured 2026-07-18, done 2026-07-19
+**Priority:** high — remaining C1S3 typed-load failure after aliases + creature: `node:heroes-party` missing evidence_refs.
+**Context:** Deterministic party-collective seed (`proposed_action: anchor`, type `group`) ships with `evidence_refs: []`; validate_candidate_graph_preview requires evidence on every node.
+**Insight:** Party collective is standing context from the registry, not session-novel extraction — evidence policy for anchors may need a deliberate exception or stamped registry/recap evidence.
+**Action completed:** Bundled dual-contribution Review & merge: partition standing (registry) vs recap; stamp registry evidence; seal v3 standing_context then source_extraction; prepare API admits provenance badge fields.
+**Refs:** `src/graph_memory/standing_context_partition.py`, `src/graph_memory/extract_promote_ops.py`, `apps/live_control_server/models/extract_promote.py`
+**Surfaces when:** heroes-party, party collective anchor, missing_evidence_ref, C1S3 Review & merge
+**Refs:** `src/graph_memory/session_graph_context.py` (party collective seed), `src/graph_memory/candidate_graph_preview.py` (evidence validation)
+
 ---
 
 ## DONE
+
+## [DONE] Admit `creature` on promote IR (+ kernel kind map) — captured 2026-07-18, done 2026-07-18
+**Context:** `actor_pass` emitted `node_type: creature` (Bubbles) but promote `NODE_TYPES` rejected it.
+**Insight:** Named plot-active creatures stay in actor_pass with type `creature`; ecology/species is a separate pass.
+**Action completed:** Added `creature` to `NODE_TYPES` and `_NODE_TYPE_TO_KIND` (passthrough); validation + typed-load/contribution tests.
+**Refs:** `src/graph_memory/candidate_graph_preview.py`, `src/graph_memory/candidate_graph_to_contribution.py`, `tests/test_graph_memory_candidate_graph_preview.py`, `tests/test_candidate_graph_to_contribution.py`
+
+## [DONE] Promote IR must admit party name-pass aliases — captured 2026-07-18, done 2026-07-18
+**Context:** Later C1S3 runs stamped `aliases` on party anchors; typed `CandidateNode` rejected them so Review & merge stayed disabled.
+**Insight:** Admitting aliases on preview IR (not stripping) preserves name-pass identity through contribution mapping.
+**Action completed:** `CandidateNode.aliases`; list→tuple coerce in `candidate_graph_preview_from_dict`; contribution prefers `node.aliases` else `[label]`; `proposed_action=anchor` promote-eligible; test `test_party_anchor_aliases_survive_typed_load_and_contribution`.
+**Refs:** `src/graph_memory/candidate_graph_preview.py`, `src/graph_memory/candidate_graph_to_contribution.py`, `src/graph_memory/candidate_semantic_promote_matrix.py`, `tests/test_candidate_graph_to_contribution.py`
+
+## [DONE] Campaign 1 as Hermes World Graph campaign scope — captured 2026-07-18, done 2026-07-18
+**Context:** C1 was treated as preview-only; user required Hermes World Graph access under Model B (`worldId=eldyrwild` + campaign scopes).
+**Insight:** v0 `store.campaign_id` exact-match blocked C1 projection; tenancy must be assertion/object `campaign_scope` (null = world-universal). Shared `pc:*` nodes need world-owned scope via governed supersede of the C2 QC roster contribution.
+**Action completed:** Multi-campaign projection filter; Plan `WORLD_ID_BY_CAMPAIGN` includes `longmont-c1`; approved additive bundle `eldyrwild-longmont-c1-s1-s3-v1` + `apply_eldyrwild_c1_additive_bundle.py` / `c1_world_graph_additive_apply.py`; agent-context falsification for C1S3.
+**Refs:** `src/graph_memory/kernel/world_projection.py`, `apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.ts`, `graph_data/approved_contribution_bundles/eldyrwild-longmont-c1-s1-s3-v1/`, `apps/live_control_server/services/c1_world_graph_additive_apply.py`, `tests/test_c1_world_graph_additive_apply.py`
+
+## [DONE] Resolve World Graph projection integrity after Session 24 promote — completed 2026-07-18
+**Context:** Session 24 confirm left competing active node fingerprints on pc:baergrom / Caelynn / Karsemine / Stafl (409 projection_integrity_error).
+**Insight:** Identity correctly resolved_existing, but the gate still emitted a full node assertion; merge added a second active support. Fix is skip node assert on connect_existing + merge fail-closed + governed supersede catch-up (not candidate IR rewrite, not hand-edited revision JSON).
+**Action:** Forward gate skip; merge fingerprint refuse; supersede contribution:a01be11c… → contribution:fe483d91… / head rev:156f166…; projection HTTP 200. Hard-stop: no backfill started.
+**Surfaces when:** extract-promote confirm, world-graph projection, Session 24 dogfood, connect_existing promote
+**Refs:** Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md, scripts/supersede_session24_overlapping_pc_node_assertions.py, PR #367, rev:156f1669954543da611e06ba8ae365a5
+
+## [DONE] Align category extractor edges/diagnostics with promote IR — completed 2026-07-18
+**Context:** Session 24 prepare blocked on predicate_family + PreviewDiagnostics shape after EvidenceRef stamp.
+**Insight:** Assemble must project promote-eligible IR: strip catalog fields; emit promote-safe diagnostics; keep telemetry on envelope sidecar.
+**Action:** Landed project_candidate_graph_for_promote; live rewrite; Session 24 prepare HTTP 200 then confirm head advance.
+**Surfaces when:** extract-promote prepare, category assemble
+**Refs:** PR #367, Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md
+
+## [DONE] Align category extractor EvidenceRef with promote IR — completed 2026-07-18
+**Context:** After SemanticState repair, Session 24 prepare failed typed parse on missing `source_ref_id` (extractor span stubs only).
+**Insight:** LLM should keep emitting span+quotes; assemble must stamp full EvidenceRef from known `source_artifact_id`. No prepare-time adapter.
+**Action:** Landed `materialize_promote_evidence_ref` + `stamp_graph_evidence_refs` in `assemble_envelope`; one-shot repaired 11 live candidates (1030 refs); tests for stamp + promotable stub reject.
+**Surfaces when:** extract-promote prepare, category assemble, EvidenceRef IR
+**Refs:** PR #367, Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md, src/graph_memory/extraction/category_candidate_graph_extractor.py
+
+## [DONE] Align category extractor SemanticState with promote IR — completed 2026-07-18
+**Context:** PR011A3 closeout Session 24 waiver; prepare failed `mapping_error` on alias SemanticState.
+**Insight:** Extractor defaults must emit typed promote-eligible SemanticState; fail-closed typed load in promotable assess; one-shot live IR repair; no runtime alias adapter.
+**Action:** Landed typed DEFAULT_SEMANTIC_STATE + staged_edge stamps; promotable fail-closed; repaired 11 live candidates; cleared mapping_error.
+**Surfaces when:** extract-promote prepare, Session 24 dogfood, category extractor
+**Refs:** PR #367, Docs/Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md
+
+## [DONE] Make ingestion benchmarks visibly report progress — completed 2026-07-17
+**Context:** The one-trial model-max ingestion benchmark was active but only printed a single fixture/model line for a long interval, making it unclear whether the process was progressing or hung.
+**Insight:** Long-running ingestion benchmarks need durable heartbeat output, per-pass progress, elapsed time, completed/total counts, and an explicit final summary so an operator can distinguish active work from a stalled process.
+**Action:** Implemented structured progress reporting in the benchmark runner, including run configuration, per-pass timing and token/cost telemetry, periodic API heartbeats, terminal summaries, and explicit benchmark no-retry configuration.
+**Surfaces when:** Running any corpus ingestion benchmark, shadow run, multi-trial model comparison, or other LLM workload expected to run longer than one minute.
+**Refs:** `evals/graph_memory_layer/run_corpus_expansion_luna_benchmark.py`, `evals/graph_memory_layer/graph_preview_runner.py`, `evals/graph_memory_layer/artifacts/corpus_expansion_luna_benchmark/2026-07-17/phase2_model_max_reasoning/`
 
 ## [DONE] Graph Review authored-memory pause-point consolidation (PR #305) — completed 2026-07-09
 

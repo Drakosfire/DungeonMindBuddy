@@ -7,6 +7,31 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Ecology/resource as its own extraction pass (not actor/object) — captured 2026-07-18
+**Priority:** medium — confirmed design; not the immediate C1S3 promote unblock.
+**Context:** Operator agreed (2026-07-18): named session creatures stay in `actor_pass` (`creature`); species / flora / fauna / products / habitat need a dedicated ecology/resource pass. C1S3 showed Bubbles correctly in actor_pass but also duplicated as `item` (object_pass) and scare-mystery (thread_pass). Mirathorn dogfood already recommended this pass for species+product explosion.
+**Insight:** Stuffing ecology into actor or object worsens cross-class duplicates. `fauna` is an ecology/hub-layer concept, not a substitute for `creature` on individuals.
+**Action:** Design `ecology_resource_pass` (species/entity, product/resource, produced_by, region, world-ref vs plot-active); tighten object_pass to refuse commodity/species explosion; optional/lighter on session recaps, fuller on worldbuilding docs. Do not conflate with `encounter_job_pass` adversaries.
+**Surfaces when:** flora/fauna taxonomy, Mirathorn products, Float Goat species vs Bubbles individual, object_pass commodity spam, ecology corpus hubs
+**Refs:** `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md` §9.4, `Docs/Plans/HANDOFF-prime-design-graph-memory-extraction-taxonomy.md` §4.3, `src/graph_memory/extraction/category_candidate_graph_extractor.py` (`NODE_EXTRACTION_PASSES`)
+
+
+## [READY] Restore Edit bar + highlight→new-node authoring path — captured 2026-07-18
+**Priority:** high — operator expects the previously dogfooded highlight / create-node loop; currently missing or undiscoverable on `/ingest`, and unclear whether `/plan` Edit dock still works end-to-end.
+**Context:** 2026-07-18 `/ingest` dogfood (C1 Session 3). Operator looked for the Edit bar used to highlight prose and make new graph nodes; on ingest the chrome Edit dock is absent (`MemoryIngestPage` never passes `editorTools`). Plan still wires `AppChrome` + `onEditorToolsChange` → `PlanSurfaceCanvas` (lock, World Graph object search/`PlanGraphRefSearch`, insert blocks). Graph Review main canvas is read-only (`readerMode`); selection→author actions live under Tools → Author Draft only.
+**Insight:** Two different “edit” surfaces got conflated. (1) `/plan` Edit dock = TipTap command board + search/insert **existing** World Graph refs as chips. (2) Highlight→**new** node authoring = Graph Review Author Draft / `authoringEnabled` selection bar — not the Plan Edit dock, and not on the main ingest canvas. After Graph Review / ingest surface splits, the create-node loop no longer appears where the GM looks while reviewing a loaded recap.
+**Action:** (1) Dogfood `/plan` Edit dock: confirm vertical Edit tab, World Graph search, chip insert still work with current lens/projection. (2) Restore a visible highlight→author-new-node path on the review surface the GM actually uses (either enable authoring on Graph Review live lane, or promote Author Draft into an always-visible Edit affordance — not buried as Tools→Author Draft only). (3) Document which surface owns chip-insert vs new-node authoring so naming stops colliding. Do not silently reintroduce Plan Edit chrome on `/ingest` without deciding product ownership.
+**Surfaces when:** Edit toolbar missing, highlight text to create nodes, Author Draft, PlanGraphRefSearch, Graph Review authoring, `/plan` vs `/ingest` dogfood, graph object authoring loop
+**Refs:** `apps/live-control-ui/src/chrome/AppChrome.tsx`, `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`, `apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx`, `apps/live-control-ui/src/planSurface/components/PlanGraphRefSearch.tsx`, `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx`, `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorDraftToolPanel.tsx`, `apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx`
+
+## [READY] Ingest session identity chaos + promote CTA undiscoverable — captured 2026-07-18
+**Priority:** high — blocks C1 backfill dogfood; GM cannot tell which session is authoritative or where promote lives.
+**Context:** Operator on `/ingest` with Session 3 extract work: "Load prior ingestion" dropdown showed Session 17, Live workspace session stayed 22, raw paste cleared on exit/reload of processed mode, and **Review & merge** (World Graph promote) was not findable from Ingest Recap.
+**Insight:** `/ingest` has three independent session numbers and two tools. (1) `planView.session` → "Live workspace session" (live-play home, often 22). (2) Ingest Recap `recapSession` + prior-artifact dropdown (defaults to latest artifact via `records.at(-1)`, not the active recap). (3) Graph Review applied load (`Load recap` / `?session=`). Promote is only on Graph Review after a preview-ready run is loaded (`Review & merge`), not inside Ingest Recap. Loading prior ingestion intentionally clears `rawText` and drafts are keyed by live workspace session, not recap session — so paste feels "lost."
+**Action:** Unify operator-facing session identity on `/ingest` (one primary "working session" label; demote or rename Live workspace). Sync prior-ingestion dropdown selection to `recapSession`. Persist processed-source identity across tool close. Make promote discoverable: after preview-ready, primary CTA "Review & merge into World Graph" that closes toolbox + loads that run, or rename "Review in workbench" and point at the toolbar button.
+**Surfaces when:** `/ingest` dogfood, C1/C2 backfill, Load prior ingestion, Review & merge, extract-promote, raw recap paste loss, session-N mismatch complaints
+**Refs:** `apps/live-control-ui/src/modules/IngestionModule.tsx`, `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewSessionToolbar.tsx`, `apps/live-control-ui/src/planSurface/config/ingestSurfaceConfig.ts`, `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md`
+
 ## [IDEA] Model-specific prompt-cache capability and cache-write telemetry — captured 2026-07-17
 **Context:** The corpus-expansion Luna benchmark cache probe proved that the same Responses API `prompt_cache_key` contract can yield cache hits for one model and no hits for another; the provider also requires keys to be at most 64 characters.
 **Insight:** Prompt composition and provider cache support are separate variables. A model cost comparison must record cold/warm cache state, cached input tokens, and any provider-reported cache-write tokens instead of assuming stable-prefix eligibility implies savings.
@@ -58,9 +83,9 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 
 ## [READY] No UI path to promote session extract into World Graph head — captured 2026-07-15
 **Priority:** high — blocks durable Session 24+ memory; S1 must compensate with admitted-recap reads until this exists.
-**Context:** S1 dogfood 2026-07-15. Session 24 recap + extract/preview felt “done,” but Eldyrwild head still lacked ongoing ingest publish. Updated 2026-07-17: Kernel + HTTP extract/promote prepare/confirm landed on `main` via #363 (`fdd7ec82` = PR011A-foundation). Updated 2026-07-18: PR011A1 shipped via #364 (`bcc874ed`); PR011A2 shipped via #365 (`cec9834f`) — Graph Review prepare / review panel. Missing work is confirm + durable reload dogfood (PR011A3), not another Kernel.
+**Context:** S1 dogfood 2026-07-15. Updated 2026-07-18: PR011A3 Session 24 prepare→confirm→catch-up projection 200 landed on PR #367 (head `rev:156f166…`; dogfood declares `READY_FOR_CANONICAL_RECAP_BACKFILL` as gate only). Hermes write path (PR011B) and heterogeneous intake remain open.
 **Insight:** Recap admission and preview extract are not World Graph promotion. Ingest owns creating proposed memory; Graph Review owns judging and committing via proposal-bound `confirm_commit`. The human button is the reference path; Hermes (PR011B) must reuse it.
-**Action:** Execute the anchored ladder in `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` and the PR tracker: **PR011A3** (confirm/reload + Session 25 Hesta dogfood) is the active gate. Handoff: `Docs/Plans/HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`. Do not auto-publish from IngestionModule. Until A3 lands, keep S1 admitted-recap source reads for sensemaking.
+**Action:** Treat Session 24 UI promote path as proven; next product gate is PR011B (Hermes write reuse) and operator-planned recap backfill — do not auto-start backfill from closeout. Keep S1 admitted-recap reads only where graph head still lacks coverage.
 **Surfaces when:** Session 24+ ingest dogfood, “promote to world graph,” memory lag / `latest_recap_not_in_graph_head`, Ingest readiness graph-ready chip, Graph Review commit, PR011A1–A3, Phase 6 contribution merge, S1 latest-recap answers empty on focus session-N
 **Refs:** `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md`, `Docs/Plans/PR-TRACKER-campaign-supergraph.md` PR011A*, `out/graph_memory/worlds/eldyrwild/head.json`, `apps/live-control-ui/src/modules/ingestReadiness.ts`, `src/graph_memory/extract_promote_ops.py`, `Docs/Reports/HERMES-S1-LATEST-RECAP-DOGFOOD-2026-07-15.md`
 
@@ -1092,3 +1117,16 @@ The Stage B C1 benchmark workaround landed in commit `0bccafb` — `evals/sessio
 **Surfaces when:** Building any d100/d20 table the user will roll on at the table; designing live-play tooling; corpus-search shortcuts.  
 **Refs:** `live-play-workflow-analysis.canvas.tsx` (DungeonMindBuddy canvas), corpus files under `corpus/eldyrwild-markdown/Elderwyld/Roads/` and `Elderwyld/Wilderness/`
 
+## [IDEA] Canonical recap UI backfill after Session 24 acceptance — captured 2026-07-18
+**Context:** Operator said after Session 24 closeout passes, begin ingesting all prior recaps (then worldbuilding).
+**Insight:** Closeout hard-stop forbids the acceptance agent from starting backfill. Success verdict is `READY_FOR_CANONICAL_RECAP_BACKFILL` only; ordering/batch/review policy is a separate operator-planned runbook.
+**Action:** After readiness verdict lands, draft a recap backfill runbook (order, review burden, rollback) — do not auto-start from closeout.
+**Surfaces when:** READY_FOR_CANONICAL_RECAP_BACKFILL, corpus backfill, Session 24 acceptance
+**Refs:** Docs/Plans/HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md, PR #367
+
+## [IDEA] Heterogeneous corpus UI ingestion (worldbuilding/NPC/prep) — captured 2026-07-18
+**Context:** Operator wants worldbuilding docs after recaps; closeout forbids overclaiming heterogeneous readiness from recap-only proof.
+**Insight:** Requires General Source Artifact Ingest contract; not unlocked by recap acceptance.
+**Action:** Separate Phase 6 / successor design before any non-recap UI ingest.
+**Surfaces when:** worldbuilding ingest, NPC/location/faction ingest, READY_FOR_HETEROGENEOUS
+**Refs:** HANDOFF closeout §3 vocabulary, PR #367

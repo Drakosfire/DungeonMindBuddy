@@ -200,14 +200,37 @@ def _session_key(session: int | str) -> str:
     return str(session).strip()
 
 
-def _roster_slugs(registry: dict, key: str, session_key: str) -> list[str]:
+def _roster_slugs(
+    registry: dict,
+    key: str,
+    session_key: str,
+    *,
+    allow_carry_forward: bool = True,
+) -> tuple[list[str], str | None, bool]:
+    """Return ``(slugs, resolved_session_key, carried_forward)``.
+
+    Exact session key wins. When missing and ``allow_carry_forward`` is true,
+    use the greatest numeric roster key ``<=`` the requested session.
+    """
     raw = registry.get(key)
     if not isinstance(raw, dict):
-        return []
+        return [], None, False
     entry = raw.get(session_key)
-    if not isinstance(entry, list):
-        return []
-    return [str(x).strip() for x in entry if str(x).strip()]
+    if isinstance(entry, list):
+        slugs = [str(x).strip() for x in entry if str(x).strip()]
+        return slugs, session_key, False
+    if not allow_carry_forward or not session_key.isdigit():
+        return [], None, False
+    target = int(session_key)
+    prior_keys = [int(k) for k in raw if str(k).isdigit() and int(k) <= target]
+    if not prior_keys:
+        return [], None, False
+    chosen = str(max(prior_keys))
+    chosen_entry = raw.get(chosen)
+    if not isinstance(chosen_entry, list):
+        return [], None, False
+    slugs = [str(x).strip() for x in chosen_entry if str(x).strip()]
+    return slugs, chosen, chosen != session_key
 
 
 def _read_frontmatter_and_body(path: Path) -> tuple[str | None, str]:
@@ -290,17 +313,72 @@ def build_party_context(
     campaign_id = registry.get("campaign_id")
     party_names = tuple(str(n) for n in (registry.get("pc_party_names") or []) if str(n).strip())
 
-    pc_slugs = _roster_slugs(registry, "session_pc_rosters", session_key)
-    companion_slugs = _roster_slugs(registry, "session_companion_rosters", session_key)
+    pc_slugs, pc_roster_key, pc_carried = _roster_slugs(
+        registry, "session_pc_rosters", session_key
+    )
+    companion_slugs, companion_roster_key, companion_carried = _roster_slugs(
+        registry, "session_companion_rosters", session_key
+    )
     if str(registry.get("schema") or "") == PARTY_REGISTRY_V2_SCHEMA:
         roster = (registry.get("session_rosters") or {}).get(session_key, {})
         if isinstance(roster, dict):
             if not pc_slugs and isinstance(roster.get("pcs"), list):
                 pc_slugs = [str(x).strip() for x in roster["pcs"] if str(x).strip()]
+                pc_roster_key = session_key
+                pc_carried = False
             if not companion_slugs and isinstance(roster.get("companions"), list):
-                companion_slugs = [str(x).strip() for x in roster["companions"] if str(x).strip()]
+                companion_slugs = [
+                    str(x).strip() for x in roster["companions"] if str(x).strip()
+                ]
+                companion_roster_key = session_key
+                companion_carried = False
+        if not pc_slugs:
+            # Carry-forward across v2 session_rosters numeric keys
+            session_rosters = registry.get("session_rosters") or {}
+            if isinstance(session_rosters, dict) and session_key.isdigit():
+                target = int(session_key)
+                prior = [
+                    int(k)
+                    for k in session_rosters
+                    if str(k).isdigit() and int(k) <= target
+                ]
+                if prior:
+                    chosen = str(max(prior))
+                    chosen_roster = session_rosters.get(chosen) or {}
+                    if isinstance(chosen_roster, dict) and isinstance(
+                        chosen_roster.get("pcs"), list
+                    ):
+                        pc_slugs = [
+                            str(x).strip()
+                            for x in chosen_roster["pcs"]
+                            if str(x).strip()
+                        ]
+                        pc_roster_key = chosen
+                        pc_carried = chosen != session_key
+                    if (
+                        not companion_slugs
+                        and isinstance(chosen_roster, dict)
+                        and isinstance(chosen_roster.get("companions"), list)
+                    ):
+                        companion_slugs = [
+                            str(x).strip()
+                            for x in chosen_roster["companions"]
+                            if str(x).strip()
+                        ]
+                        companion_roster_key = chosen
+                        companion_carried = chosen != session_key
     if not pc_slugs:
         warnings.append(f"no session_pc_rosters['{session_key}'] entry")
+    elif pc_carried and pc_roster_key:
+        warnings.append(
+            f"roster_carry_forward: session_pc_rosters['{session_key}'] "
+            f"using '{pc_roster_key}'"
+        )
+    if companion_carried and companion_roster_key:
+        warnings.append(
+            f"roster_carry_forward: session_companion_rosters['{session_key}'] "
+            f"using '{companion_roster_key}'"
+        )
 
     members: list[PartyMember] = []
     for slug in pc_slugs:

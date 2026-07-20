@@ -157,6 +157,7 @@ def test_kernel_kind_mapping() -> None:
     assert kernel_kind_for_node_type("character") == "npc"
     assert kernel_kind_for_node_type("item") == "item"
     assert kernel_kind_for_node_type("location") == "location"
+    assert kernel_kind_for_node_type("creature") == "creature"
 
 
 def test_load_typed_rejects_extractor_semantic_aliases() -> None:
@@ -192,11 +193,88 @@ def test_map_node_uses_kernel_value_shape() -> None:
     assert assertion.value["role"] == "item"
     assert assertion.value["canon_state"] == "canonical"
     assert assertion.visibility == "gm"
-    assert "aliases" in assertion.value
+    assert assertion.value["aliases"] == ["vial"]
     assert assertion.value["source_domains"] == ["recap"]
     assert assertion.evidence_ref_ids
     assert assertion.value["evidence"]
     assert "node_type" not in assertion.value
+
+
+def test_party_anchor_aliases_survive_typed_load_and_contribution() -> None:
+    """Party name-pass stamps aliases; promote IR must admit and carry them."""
+    payload = _minimal_graph()
+    payload["nodes"] = [
+        {
+            "node_id": "node:baergrom",
+            "label": "Baergrom",
+            "node_type": "character",
+            "description": "Party member (PC)",
+            "importance": "high",
+            "semantic_state": _semantic(),
+            "evidence_refs": [_evidence("pc-baergrom")],
+            "proposed_action": "anchor",
+            "confidence": "high",
+            "warnings": [],
+            "aliases": ["Baergrom", "Baer"],
+        }
+    ]
+    payload["edges"] = []
+    payload["source_artifact_ids"] = ["artifact:recap:longmont-c2:session-22"]
+
+    preview = load_typed_candidate_graph(payload)
+    assert preview.nodes[0].aliases == ("Baergrom", "Baer")
+
+    contribution = candidate_graph_to_contribution(
+        preview,
+        world_id="eldyrwild",
+        source_revision_id="sha256:deadbeef",
+        node_ids=["node:baergrom"],
+        include_edges=False,
+    )
+    node_assertions = [
+        a for a in contribution.candidate_assertions if a.assertion_kind == "node"
+    ]
+    assert len(node_assertions) == 1
+    assert node_assertions[0].value["aliases"] == ["Baergrom", "Baer"]
+    assert node_assertions[0].label == "Baergrom"
+
+
+def test_creature_node_survives_typed_load_and_contribution() -> None:
+    """Named plot-active creatures from actor_pass must promote with kind creature."""
+    payload = _minimal_graph()
+    payload["nodes"] = [
+        {
+            "node_id": "node:bubbles",
+            "label": "Bubbles the Float Goat",
+            "node_type": "creature",
+            "description": "The Float Goat rescued during the flood.",
+            "importance": "medium",
+            "semantic_state": _semantic(),
+            "evidence_refs": [_evidence("bubbles")],
+            "proposed_action": "create",
+            "confidence": "high",
+            "warnings": [],
+        }
+    ]
+    payload["edges"] = []
+
+    preview = load_typed_candidate_graph(payload)
+    assert preview.nodes[0].node_type == "creature"
+
+    contribution = candidate_graph_to_contribution(
+        preview,
+        world_id="eldyrwild",
+        source_revision_id="sha256:deadbeef",
+        node_ids=["node:bubbles"],
+        include_edges=False,
+    )
+    node_assertions = [
+        a for a in contribution.candidate_assertions if a.assertion_kind == "node"
+    ]
+    assert len(node_assertions) == 1
+    assert node_assertions[0].value["kind"] == "creature"
+    assert node_assertions[0].value["role"] == "creature"
+    assert node_assertions[0].value["aliases"] == ["Bubbles the Float Goat"]
 
 
 def test_map_fails_closed_without_evidence() -> None:
