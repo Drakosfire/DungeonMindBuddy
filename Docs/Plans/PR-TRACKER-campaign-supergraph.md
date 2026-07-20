@@ -2,7 +2,7 @@
 
 **Status:** Active implementation tracker — sole active sequencing authority
 **Date:** 2026-07-10
-**Updated:** 2026-07-18 — PR011A2 Graph Review prepare / review panel on `main` (`cec9834f`, #365); PR011A3 confirm / durable reload / Session 25 dogfood is the active gate
+**Updated:** 2026-07-19 — PR #367 fat tip held DO-NOT-MERGE; reconstituting A3 as slice PRs from `37c0a79d`. Live A3 dogfood remains PARTIAL / NOT_READY_FOR_CANONICAL_RECAP_BACKFILL until fresh exact-reload proof.
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Hermes goal anchor:** [`Docs/Design/ANCHOR-hermes-campaign-sensemaking-goal.md`](../Design/ANCHOR-hermes-campaign-sensemaking-goal.md)
@@ -49,6 +49,8 @@ DONE    PR011A1            Server-owned ingest-run → promotion binding
 DONE    PR011A2            Graph Review prepare / review panel
                            (#365, `cec9834f`)
 DOING   PR011A3            Confirm, durable reload, Session 25 dogfood
+                           (#366 impl on main; live acceptance PARTIAL —
+                           #367 split; promote-IR slice first)
 BLOCKED PR011B             Hermes preview_write / confirm_commit (on A3)
 READY   PR009              Play projection migration (parallel product lane)
 BLOCKED PR012              Leftover cleanup safety net
@@ -347,9 +349,10 @@ review sheet (not a diagnostics dump).
 
 ### PR011A3 — Confirm, durable reload, Session 25 dogfood
 
-**Status:** `DOING`  
+**Status:** `DOING` — implementation merged `#366` (`37c0a79d`); live acceptance **PARTIAL** (Session 25 waived → Session 24). Fat tip `#367` is DO-NOT-MERGE tracking; successor slices reconstitute from `37c0a79d`.  
 **Depends on:** PR011A2 (`DONE`)
-**Handoff:** [`HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`](./HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md)
+**Acceptance report:** [`PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md`](../Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md) — terminal `NOT_READY_FOR_CANONICAL_RECAP_BACKFILL` (repair ≠ forward exact-reload proof).
+**Handoff:** [`HANDOFF-pr011a3-promote-ir-slice.md`](./HANDOFF-pr011a3-promote-ir-slice.md) (slice 1); historical closeout handoff remains under umbrella #367.
 
 **Purpose:** Explicit **Merge N changes into campaign memory**, then prove the
 object journey on Session 25 (Hesta / apothecary ↔ Mireward).

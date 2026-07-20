@@ -28,6 +28,10 @@ from graph_memory.ingestion.graph_ingest_run import (
 from graph_memory.ingestion.graph_ingest_validate import (
     validate_graph_ingest_run_manifest,
 )
+from graph_memory.candidate_graph_to_contribution import (
+    CandidateGraphMappingError,
+    load_typed_candidate_graph,
+)
 
 # run_id forms that embed campaign/session for cross-check against the manifest.
 _RUN_ID_SCOPED = re.compile(
@@ -318,6 +322,31 @@ def resolve_promotable_from_loaded_manifest(
             code="run_not_promotable",
             status_code=422,
         )
+
+    try:
+        candidate_payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PromotableIngestRunError(
+            "candidate graph could not be read as JSON",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[str(exc)],
+        ) from exc
+    if not isinstance(candidate_payload, dict):
+        raise PromotableIngestRunError(
+            "candidate graph root must be a JSON object",
+            code="run_not_promotable",
+            status_code=422,
+        )
+    try:
+        load_typed_candidate_graph(candidate_payload)
+    except CandidateGraphMappingError as exc:
+        raise PromotableIngestRunError(
+            f"candidate graph is not typed CandidateGraphPreview IR: {exc}",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[str(exc)],
+        ) from exc
 
     artifact_digest = None
     normalized_artifact = manifest.artifacts.get(

@@ -491,6 +491,16 @@ def _write_validation_report(
         "approved_memory_write",
         "corpus_mutation",
         "production_retrieval",
+        # Typed PreviewDiagnostics dangerous flags (promote IR).
+        "extraction_performed",
+        "llm_used",
+        "runtime_connected",
+        "plan_connected",
+        "agent_interaction_connected",
+        "corpus_scanned",
+        "corpus_mutated",
+        "facts_promoted",
+        "canon_promoted",
     ):
         if isinstance(diagnostics, dict) and diagnostics.get(flag):
             errors.append(f"forbidden lifecycle flag is true: {flag}")

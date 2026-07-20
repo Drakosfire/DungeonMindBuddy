@@ -125,6 +125,14 @@ def test_assemble_staged_edges_emits_bound_candidate_and_drops_unbound():
     )
     assert len(edges) == 1
     assert edges[0]["relationship_type"] == "leads"
+    assert edges[0]["semantic_state"] == {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private",
+    }
+    assert "canon_status" not in edges[0]["semantic_state"]
     assert diag["assembled_edge_count"] == 1
     assert diag["drop_counts_by_reason"].get("unbound_subject") == 1
 
