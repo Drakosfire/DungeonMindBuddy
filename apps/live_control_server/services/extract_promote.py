@@ -36,7 +36,10 @@ from apps.live_control_server.services.promotable_ingest_run import (
     is_under_world_store,
     resolve_promotable_ingest_run,
 )
-from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
+from graph_memory.candidate_graph_to_contribution import (
+    CandidateGraphMappingError,
+    load_typed_candidate_graph,
+)
 from graph_memory.extract_promote_ops import (
     DEFAULT_WORLD_ID,
     ExtractPromoteEmptySelectionError,
@@ -393,8 +396,48 @@ def prepare(
                     )
                 ],
             )
-        if loaded.get("nodes"):
-            registry_payload = loaded
+        try:
+            typed_registry = load_typed_candidate_graph(loaded)
+        except CandidateGraphMappingError as exc:
+            raise ExtractPromoteError(
+                f"registry context sibling is present but invalid: {exc}",
+                code="invalid_request",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "invalid_request",
+                        f"registry context sibling is present but invalid: {exc}",
+                    )
+                ],
+            ) from exc
+        if not typed_registry.nodes:
+            raise ExtractPromoteError(
+                "registry context sibling must contain at least one node",
+                code="invalid_request",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "invalid_request",
+                        "registry context sibling must contain at least one node",
+                    )
+                ],
+            )
+        registry_campaign = str(typed_registry.campaign_id or "").strip()
+        if registry_campaign and registry_campaign != resolved.campaign_id:
+            raise ExtractPromoteError(
+                "registry context sibling campaign_id "
+                f"{registry_campaign!r} disagrees with run campaign "
+                f"{resolved.campaign_id!r}",
+                code="invalid_request",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "invalid_request",
+                        "registry context sibling campaign_id disagrees with run",
+                    )
+                ],
+            )
+        registry_payload = loaded
 
     try:
         result = prepare_extract_promote(

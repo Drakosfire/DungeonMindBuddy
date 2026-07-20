@@ -769,6 +769,45 @@ def test_prepare_rejects_malformed_registry_context_sibling(world_client) -> Non
     assert "registry context sibling" in body["message"]
 
 
+def test_prepare_rejects_empty_object_registry_context_sibling(world_client) -> None:
+    """Wrong-schema {} sibling must fail closed — not silent recap-only."""
+    client, _world, repo, run_id, *_rest = world_client
+    run_dir = (
+        repo
+        / "out/graph_memory/runs"
+        / CAMPAIGN_ID
+        / SESSION_ID
+        / "fixture-promote"
+    )
+    sibling = run_dir / "registry_context_graph.json"
+    sibling.write_text("{}\n", encoding="utf-8")
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert "registry context sibling" in body["message"]
+
+
+def test_prepare_rejects_wrong_campaign_registry_context_sibling(world_client) -> None:
+    """Typed registry with a foreign campaign_id must not be relabeled."""
+    client, _world, repo, run_id, *_rest = world_client
+    run_dir = (
+        repo
+        / "out/graph_memory/runs"
+        / CAMPAIGN_ID
+        / SESSION_ID
+        / "fixture-promote"
+    )
+    sibling = run_dir / "registry_context_graph.json"
+    wrong = _candidate_graph_payload(campaign_id="other-campaign")
+    sibling.write_text(json.dumps(wrong, indent=2) + "\n", encoding="utf-8")
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert "campaign_id" in body["message"]
+
+
 def test_prepare_rejects_missing_preview_union_store(world_client) -> None:
     """Ready flags alone are not enough — the preview store must exist on disk."""
     client, _world, repo, *_rest = world_client

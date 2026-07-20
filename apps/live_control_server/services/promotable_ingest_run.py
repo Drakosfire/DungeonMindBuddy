@@ -369,8 +369,32 @@ def resolve_promotable_from_loaded_manifest(
                 code="run_not_promotable",
                 status_code=422,
             )
-        # Declared registry must be readable JSON; prepare loads the sibling for
-        # standing-context sealing. Candidate graph remains the recap IR.
+        try:
+            typed_registry = load_typed_candidate_graph(loaded_registry)
+        except CandidateGraphMappingError as exc:
+            raise PromotableIngestRunError(
+                f"registry context graph is declared but not typed CandidateGraphPreview IR: {exc}",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[str(exc)],
+            ) from exc
+        if not typed_registry.nodes:
+            raise PromotableIngestRunError(
+                "registry context graph must contain at least one node",
+                code="run_not_promotable",
+                status_code=422,
+            )
+        registry_campaign = str(typed_registry.campaign_id or "").strip()
+        if registry_campaign and registry_campaign != manifest.campaign_id:
+            raise PromotableIngestRunError(
+                "registry context graph campaign_id disagrees with run manifest",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    f"registry_campaign={registry_campaign}",
+                    f"manifest_campaign={manifest.campaign_id}",
+                ],
+            )
     else:
         candidate_payload, _standing, _diag = partition_candidate_graph_by_provenance(
             candidate_payload

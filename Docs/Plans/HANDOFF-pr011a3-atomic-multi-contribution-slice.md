@@ -8,7 +8,7 @@
 
 ## §1 Mission
 
-Land one sealed multi-slice promote (standing_context + source_extraction) as a **single** Kernel merge, with product-boundary selection that can independently control colliding cross-slice assertion IDs.
+Land one sealed multi-slice promote (standing_context + source_extraction) as a **single** Kernel merge, with product-boundary selection that can independently control colliding cross-slice assertion IDs, and with selected provenance that survives Kernel materialization.
 
 ## §2 Invariant
 
@@ -18,39 +18,64 @@ Live A3 acceptance remains **PARTIAL / NOT_READY_FOR_CANONICAL_RECAP_BACKFILL** 
 
 - Prepare HTTP response validates review rows that include `sliceQualifiedId` / `contributionSliceId` / `dependsOnSliceQualifiedIds`.
 - Graph Review selection Set keys, React keys, dependency cascade, and confirm `assertionIds` use slice-qualified selectors.
-- Selecting both colliding semantic assertion IDs unions evidence provenance; standing-only / recap-only / both yield distinct `selection_digest` → distinct contribution identity.
+- Selecting both colliding semantic assertion IDs unions top-level refs **and** embedded `value.evidence` / `value.source_artifacts` / `value.source_domains`; merge + projection retain both sources.
 - Selected assertions are ordered nodes (then mid) before edges before Kernel merge.
-- Present but unreadable/malformed `registry_context_graph.json` sibling (or declared registry artifact) fails prepare closed — never silent recap-only.
+- Present registry sibling / declared registry artifact must be typed CandidateGraphPreview IR with ≥1 node and matching campaign — wrong-schema `{}`, empty nodes, or foreign campaign fail closed.
 - Extractor / preview runner do **not** import `known_entity_*` modules (owned by #376).
 
 ## §4 Files in scope (allowlist)
 
+Exact `git diff --name-only main...HEAD` inventory for this PR (45 paths). Every changed path must appear here.
+
 | Action | Path | Purpose |
 |---|---|---|
-| Modify | `src/graph_memory/extract_identity_gate.py` | Provenance union; nodes-before-edges; slice-id selection_digest |
-| Modify | `src/graph_memory/extract_promote_ops.py` | Pass sealed `contribution_slice_id` into multi-slice builder |
-| Modify | `src/graph_memory/extract_promote_proposal.py` | Slice-qualified selectors / seal (prior commits) |
-| Modify | `src/graph_memory/extract_promote_review_projection.py` | Emit qualified IDs (prior commits) |
-| Modify | `src/graph_memory/standing_context_partition.py` | Standing vs recap partition |
-| Modify | `src/graph_memory/party_context.py` | Standing registry context builder |
-| Modify | `src/graph_memory/extraction/category_candidate_graph_extractor.py` | Standing partition only; **no** known-entity |
-| Modify | `evals/graph_memory_layer/graph_preview_runner.py` | Registry artifact path; **no** known-entity sidecar |
-| Modify | `apps/live_control_server/models/extract_promote.py` | Strict model accepts qualified fields |
-| Modify | `apps/live_control_server/services/extract_promote.py` | Fail-closed registry sibling |
+| Modify | `apps/live_control_server/models/extract_promote.py` | Strict model accepts qualified selection fields |
+| Modify | `apps/live_control_server/services/extract_promote.py` | Fail-closed typed/campaign registry sibling |
 | Modify | `apps/live_control_server/services/promotable_ingest_run.py` | Fail-closed declared registry artifact |
 | Modify | `apps/live-control-ui/src/api/types.ts` | TS qualified selection fields |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/extractPromoteSelectionUtils.ts` | Select by `sliceQualifiedId` |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/extractPromoteSelectionUtils.test.ts` | Cross-slice select A/B/both |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewExtractPromoteSheet.tsx` | Key/toggle/confirm qualified |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewExtractPromoteSheet.test.tsx` | Sheet fixtures |
-| Modify | `tests/test_extract_identity_gate.py` | Provenance union + edge order proofs |
+| Modify | `Backlog.md` | Carry-forward backlog notes from reconstitution |
+| Modify | `Backlog-DONE.md` | Carry-forward backlog archive notes |
+| Create | `Docs/Plans/HANDOFF-pr011a3-atomic-multi-contribution-slice.md` | This handoff |
+| Modify | `Docs/Plans/HANDOFF-pr011a3-existing-object-observation-slice.md` | Tracker adjacency from stack |
+| Modify | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | Point #375 / this handoff |
+| Modify | `evals/graph_memory_layer/graph_preview_runner.py` | Registry artifact path; no known-entity sidecar |
+| Modify | `scripts/supersede_session24_overlapping_pc_node_assertions.py` | Stack carry from #370 lineage |
+| Modify | `src/graph_memory/candidate_graph_preview.py` | Candidate IR / aliases for multi-slice gate |
+| Modify | `src/graph_memory/candidate_graph_to_contribution.py` | `source_kind` + mapper for standing/recap |
+| Modify | `src/graph_memory/candidate_semantic_promote_matrix.py` | Promote matrix support for standing |
+| Modify | `src/graph_memory/evidence/source_domain.py` | Source-domain policy for dual provenance |
+| Modify | `src/graph_memory/extract_identity_gate.py` | Provenance union (embedded); nodes-before-edges; slice digest |
+| Modify | `src/graph_memory/extraction/category_candidate_graph_extractor.py` | Standing partition only; no known-entity |
+| Modify | `src/graph_memory/extract_promote_ops.py` | Multi-slice prepare/confirm; campaign equality |
+| Modify | `src/graph_memory/extract_promote_proposal.py` | Slice-qualified selectors / seal |
+| Modify | `src/graph_memory/extract_promote_review_projection.py` | Emit qualified IDs |
+| Modify | `src/graph_memory/ingestion/graph_ingest_run.py` | Registry artifact kind wiring |
+| Modify | `src/graph_memory/kernel/contribution_merge.py` | Stack carry (session_ids / alias guards) |
+| Modify | `src/graph_memory/kernel/contribution_models.py` | Contribution model support |
+| Modify | `src/graph_memory/kernel/world_projection.py` | Stack carry (edge session union) |
+| Modify | `src/graph_memory/party_context.py` | Standing registry context builder |
+| Modify | `src/graph_memory/session_graph_context.py` | Party/session context for standing |
+| Modify | `src/graph_memory/source_artifact_domains.py` | Stable-domain constant (stack) |
+| Modify | `src/graph_memory/standing_context_partition.py` | Standing vs recap partition |
+| Modify | `tests/test_alias_ownership_guards.py` | Stack carry |
+| Modify | `tests/test_candidate_graph_to_contribution.py` | Mapper / typed load |
+| Modify | `tests/test_edge_core_semantic_fingerprint.py` | Stack carry |
+| Modify | `tests/test_extract_identity_gate.py` | Provenance merge+project; edge order |
 | Modify | `tests/test_extract_promote_ops_atomic.py` | Atomic confirm path |
 | Modify | `tests/test_extract_promote_proposal.py` | Qualified selector resolution |
+| Modify | `tests/test_graph_memory_candidate_graph_preview.py` | Candidate IR |
+| Modify | `tests/test_graph_memory_party_context.py` | Party context |
+| Modify | `tests/test_live_extract_promote_api.py` | HTTP prepare qualified + registry fail-closed |
+| Modify | `tests/test_multi_session_edge_session_ids.py` | Stack carry |
+| Modify | `tests/test_source_artifact_compatible_stable_domains.py` | Stack carry |
 | Modify | `tests/test_standing_context_partition.py` | Partition unit tests |
-| Modify | `tests/test_graph_memory_party_context.py` | Party context unit tests |
-| Modify | `tests/test_live_extract_promote_api.py` | HTTP prepare qualified fields + malformed registry |
-| Create | `Docs/Plans/HANDOFF-pr011a3-atomic-multi-contribution-slice.md` | This handoff |
-| Modify | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | Point #375 / this handoff |
+| Modify | `tests/test_supersede_session24_repair_guards.py` | Stack carry |
+
+**Bounded discovery exception:** Not applicable — paths enumerated above match `main...HEAD`.
 
 ## §5 Files and capabilities explicitly out of scope
 
@@ -68,16 +93,18 @@ Live A3 acceptance remains **PARTIAL / NOT_READY_FOR_CANONICAL_RECAP_BACKFILL** 
 Input:
   Sealed multi-slice review package (standing_context + source_extraction)
   Operator selection as slice-qualified selectors
+  Optional present registry_context_graph sibling / declared artifact
 
 Output:
   ONE GraphContribution merged once
-  Unioned evidence when both colliding assertions selected
+  Unioned evidence_ref_ids + embedded evidence/source_artifacts/source_domains
   Nodes applied before edges
+  Prepare refuses malformed/wrong-campaign/empty registry graphs
 
 Invariant:
   No partial head advance across slices
-  No silent drop of selected provenance
-  No prepare success when declared/present registry is malformed
+  No silent drop of selected provenance at Kernel materialization
+  No prepare success when declared/present registry is invalid or mistyped
   No import of known_entity modules on this branch tip
 ```
 
@@ -86,7 +113,6 @@ Invariant:
 ```bash
 cd /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy-pr011a3-atomic
 
-# Known-entity must stay absent on this tip
 rg -n "known_entity|KnownEntity" \
   src/graph_memory/extraction/category_candidate_graph_extractor.py \
   evals/graph_memory_layer/graph_preview_runner.py \
@@ -107,7 +133,7 @@ cd apps/live-control-ui && npm test -- --run \
   src/api/extractPromoteApi.test.ts
 ```
 
-**Author-local proof (2026-07-20):** 82 pytest passed (scoped command above); 18 UI tests passed (selection + sheet + API). No GitHub Actions run attached until push.
+**Author-local proof:** 84 pytest passed (scoped command above); 18 UI tests passed (selection + sheet + API).
 
 ## §8 Remaining false capabilities
 

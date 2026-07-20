@@ -749,8 +749,9 @@ def test_multi_slice_contribution_requires_shared_parent_and_world(
 def test_multi_slice_contribution_unions_cross_slice_assertion_provenance(
     tmp_path: Path, loaded_bundle
 ) -> None:
-    """Selecting both colliding assertions unions evidence; digests differ."""
-    _initialize(tmp_path, loaded_bundle)
+    """Selecting both colliding assertions unions embedded evidence and survives merge."""
+    init = _initialize(tmp_path, loaded_bundle)
+    parent = init.current_head_revision_id or init.initial_head_revision_id
     gate_a, gate_b = _gated_slice_pair(tmp_path)
     vial = next(
         a
@@ -758,19 +759,62 @@ def test_multi_slice_contribution_unions_cross_slice_assertion_provenance(
         if a.assertion_kind == "node"
         and a.subject_node_id == gate_a.node_id_map["obj_session22_vial"]
     )
-    recap_only_vial = vial.model_copy(
-        update={
-            "evidence_ref_ids": ["evidence:recap:vial"],
-            "source_artifact_id": "artifact:recap-slice",
-            "source_revision_id": "sha256:recap-slice",
+
+    def _with_embedded_provenance(
+        base,
+        *,
+        evidence_id: str,
+        artifact_id: str,
+        domain: str,
+        revision: str,
+        session_id: str | None = None,
+    ):
+        value = dict(base.value or {})
+        evidence_payload: dict = {
+            "evidence_ref_id": evidence_id,
+            "source_artifact_id": artifact_id,
+            "source_domain": domain,
+            "source_span_ref_id": f"{artifact_id}:standing",
         }
+        if session_id:
+            evidence_payload["session_id"] = session_id
+        else:
+            evidence_payload["locator"] = f"{artifact_id}:standing"
+        value["evidence"] = [evidence_payload]
+        artifact_payload: dict = {
+            "source_artifact_id": artifact_id,
+            "source_domain": domain,
+            "content_sha256": revision.removeprefix("sha256:"),
+            "uri": f"repo://extract/{artifact_id}",
+            "campaign_id": CAMPAIGN_ID,
+        }
+        if session_id and domain not in {"party_registry"}:
+            artifact_payload["session_id"] = session_id
+        value["source_artifacts"] = [artifact_payload]
+        value["source_domains"] = [domain]
+        return base.model_copy(
+            update={
+                "evidence_ref_ids": [evidence_id],
+                "source_artifact_id": artifact_id,
+                "source_revision_id": revision,
+                "value": value,
+            }
+        )
+
+    standing_vial = _with_embedded_provenance(
+        vial,
+        evidence_id="evidence:standing:vial",
+        artifact_id="artifact:standing-slice",
+        domain="party_registry",
+        revision="sha256:standing-slice",
     )
-    standing_vial = vial.model_copy(
-        update={
-            "evidence_ref_ids": ["evidence:standing:vial"],
-            "source_artifact_id": "artifact:standing-slice",
-            "source_revision_id": "sha256:standing-slice",
-        }
+    recap_only_vial = _with_embedded_provenance(
+        vial,
+        evidence_id="evidence:recap:vial",
+        artifact_id="artifact:recap-slice",
+        domain="recap",
+        revision="sha256:recap-slice",
+        session_id="session-22",
     )
     assert standing_vial.assertion_id == recap_only_vial.assertion_id
 
@@ -783,7 +827,7 @@ def test_multi_slice_contribution_unions_cross_slice_assertion_provenance(
     )
     gate_recap = dataclasses.replace(
         gate_b,
-        accepted_proposals=[*gate_b.accepted_proposals, recap_only_vial],
+        accepted_proposals=[recap_only_vial],
     )
 
     both = build_accepted_contribution_from_multi_slice_proposals(
@@ -799,10 +843,52 @@ def test_multi_slice_contribution_unions_cross_slice_assertion_provenance(
         "evidence:standing:vial",
         "evidence:recap:vial",
     }
-    assert any(
-        d.startswith(f"cross_slice_assertion_provenance_unioned:{vial.assertion_id}")
-        for d in both.diagnostics
+    embedded_ids = {
+        str(item.get("evidence_ref_id"))
+        for item in (matching[0].value.get("evidence") or [])
+        if isinstance(item, dict)
+    }
+    assert embedded_ids >= {"evidence:standing:vial", "evidence:recap:vial"}
+    artifact_ids = {
+        str(item.get("source_artifact_id"))
+        for item in (matching[0].value.get("source_artifacts") or [])
+        if isinstance(item, dict)
+    }
+    assert artifact_ids >= {"artifact:standing-slice", "artifact:recap-slice"}
+    assert set(matching[0].value.get("source_domains") or []) >= {
+        "party_registry",
+        "recap",
+    }
+
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=both,
+        expected_parent_revision_id=parent,
     )
+    assert merged.published is True, merged.diagnostics
+    store = kernel.open_current_world_graph(tmp_path, WORLD_ID)[2]
+    assert "evidence:standing:vial" in store.evidence
+    assert "evidence:recap:vial" in store.evidence
+    assert "artifact:standing-slice" in store.source_artifacts
+    assert "artifact:recap-slice" in store.source_artifacts
+
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _projection_request(revision_pin=merged.revision_id),
+    )
+    assert projection.snapshot.revision_id == merged.revision_id
+    projected = next(
+        node
+        for node in projection.nodes
+        if node.node_id == gate_a.node_id_map["obj_session22_vial"]
+    )
+    projected_refs = set(projected.evidence_ref_ids or [])
+    assert "evidence:standing:vial" in projected_refs
+    assert "evidence:recap:vial" in projected_refs
+    projected_artifacts = set(projected.source_artifact_ids or [])
+    assert "artifact:standing-slice" in projected_artifacts
+    assert "artifact:recap-slice" in projected_artifacts
 
     recap_only = build_accepted_contribution_from_multi_slice_proposals(
         [
@@ -815,8 +901,6 @@ def test_multi_slice_contribution_unions_cross_slice_assertion_provenance(
         root=tmp_path,
         proposal_digest="digest-multislice-recap-only",
     )
-    # selection_digest enters contribution_id — both-slices vs recap-only must
-    # not collapse to the same durable contribution identity.
     assert both.contribution_id != recap_only.contribution_id
     both_digest = next(
         d.split(":", 1)[1]

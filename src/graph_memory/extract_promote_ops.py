@@ -271,10 +271,17 @@ def prepare_extract_promote(
     first, then recap source_extraction.
     """
     payload = dict(candidate_graph)
-    standing_payload: dict[str, Any] | None = (
-        dict(registry_context_graph) if registry_context_graph else None
-    )
-    if standing_payload is None:
+    standing_payload: dict[str, Any] | None = None
+    if registry_context_graph is not None:
+        # Present/declared registry must be typed IR with nodes — never silent
+        # recap-only when the caller supplied a registry graph (even {}).
+        standing_payload = dict(registry_context_graph)
+        standing_typed = load_typed_candidate_graph(standing_payload)
+        if not standing_typed.nodes:
+            raise CandidateGraphMappingError(
+                "registry_context_graph must contain at least one node"
+            )
+    else:
         recap_payload, maybe_standing, _diag = partition_candidate_graph_by_provenance(
             payload
         )
@@ -307,12 +314,22 @@ def prepare_extract_promote(
 
     contribution_slices: list[dict[str, Any]] = []
     standing_gate: IdentityGateResult | None = None
-    if standing_payload and standing_payload.get("nodes"):
-        campaign_id = (
-            campaign_scope
-            or preview.campaign_id
-            or str(standing_payload.get("campaign_id") or "")
+    if standing_payload is not None:
+        standing_campaign = str(standing_payload.get("campaign_id") or "").strip()
+        requested_campaign = (
+            campaign_scope or preview.campaign_id or ""
         ).strip()
+        if (
+            standing_campaign
+            and requested_campaign
+            and standing_campaign != requested_campaign
+        ):
+            raise CandidateGraphMappingError(
+                "standing_context campaign_id "
+                f"{standing_campaign!r} disagrees with requested campaign "
+                f"{requested_campaign!r}"
+            )
+        campaign_id = standing_campaign or requested_campaign
         if not campaign_id:
             raise CandidateGraphMappingError(
                 "campaign_id is required to promote standing_context"

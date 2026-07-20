@@ -536,6 +536,26 @@ def _endpoint_available(
     return node_id in pinned_store.nodes
 
 
+def _union_embedded_records_by_key(
+    existing: Sequence[Any] | None,
+    incoming: Sequence[Any] | None,
+    *,
+    key: str,
+) -> list[dict[str, Any]]:
+    """Deterministic union of embedded dict records keyed by ``key``."""
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for payload in list(existing or ()) + list(incoming or ()):
+        if not isinstance(payload, Mapping):
+            continue
+        record_id = str(payload.get(key) or "").strip()
+        if not record_id or record_id in seen:
+            continue
+        seen.add(record_id)
+        merged.append(dict(payload))
+    return merged
+
+
 def _union_assertion_provenance(
     existing: GraphContributionAssertion,
     incoming: GraphContributionAssertion,
@@ -545,14 +565,46 @@ def _union_assertion_provenance(
     ``assertion_id`` is content-hashed over semantic fields only, so standing
     and recap may legitimately share an id while carrying distinct
     ``evidence_ref_ids`` / artifact / revision stamps. Keep one assertion body
-    and union evidence so both selected sources remain retrievable.
+    and union both top-level refs and the embedded Kernel materialization
+    payloads (``value.evidence``, ``value.source_artifacts``,
+    ``value.source_domains``) so merge can resolve every selected reference.
     """
-    merged_evidence = list(existing.evidence_ref_ids)
+    merged_evidence_ids = list(existing.evidence_ref_ids)
     for ref in incoming.evidence_ref_ids:
         text = str(ref or "").strip()
-        if text and text not in merged_evidence:
-            merged_evidence.append(text)
-    return existing.model_copy(update={"evidence_ref_ids": merged_evidence})
+        if text and text not in merged_evidence_ids:
+            merged_evidence_ids.append(text)
+
+    existing_value = dict(existing.value or {})
+    incoming_value = dict(incoming.value or {})
+    existing_value["evidence"] = _union_embedded_records_by_key(
+        existing_value.get("evidence"),
+        incoming_value.get("evidence"),
+        key="evidence_ref_id",
+    )
+    existing_value["source_artifacts"] = _union_embedded_records_by_key(
+        existing_value.get("source_artifacts"),
+        incoming_value.get("source_artifacts"),
+        key="source_artifact_id",
+    )
+    domains = [
+        str(domain).strip()
+        for domain in (existing_value.get("source_domains") or [])
+        if str(domain).strip()
+    ]
+    for domain in incoming_value.get("source_domains") or []:
+        text = str(domain or "").strip()
+        if text and text not in domains:
+            domains.append(text)
+    if domains:
+        existing_value["source_domains"] = domains
+
+    return existing.model_copy(
+        update={
+            "evidence_ref_ids": merged_evidence_ids,
+            "value": existing_value,
+        }
+    )
 
 
 def _order_assertions_nodes_before_edges(
