@@ -262,12 +262,14 @@ def gate_candidate_graph_against_head(
     authored_by: str | None = "extract-identity-gate",
     source_domain: str = "recap",
     source_uri: str | None = None,
+    source_kind: str = "source_extraction",
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
 ) -> IdentityGateResult:
     """Map + resolve identity against the pinned head; emit review proposals."""
     if not str(source_revision_id or "").strip():
         raise CandidateGraphMappingError("source_revision_id is required")
+    kind = (source_kind or "source_extraction").strip() or "source_extraction"
 
     head, _revision, store = open_current_world_graph(root, world_id)
     parent_revision_id = head.head_revision_id
@@ -315,6 +317,7 @@ def gate_candidate_graph_against_head(
         authored_by=authored_by,
         source_domain=source_domain,
         source_uri=source_uri,
+        source_kind=kind,
         node_ids=[n.node_id for n in nodes],
         include_edges=False,
     )
@@ -488,7 +491,7 @@ def gate_candidate_graph_against_head(
 
     gated_contribution = create_graph_contribution(
         world_id=world_id,
-        source_kind="source_extraction",  # type: ignore[arg-type]
+        source_kind=kind,  # type: ignore[arg-type]
         source_artifact_id=artifact_id,
         source_revision_id=revision_id,
         extraction_profile=extraction_profile,
