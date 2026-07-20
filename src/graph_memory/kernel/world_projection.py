@@ -406,6 +406,36 @@ def _node_core_semantic_fingerprint(
     )
 
 
+def _edge_core_semantic_fingerprint(
+    assertion: GraphContributionAssertion,
+) -> tuple[Any, ...]:
+    """Fingerprint correction-sensitive edge semantics, excluding session stamps.
+
+    ``value.session_ids`` and ``temporal_scope.session_id`` are additive
+    observation provenance for the same edge (e.g. standing party membership
+    re-attested on a later session promote). They must not fail projection when
+    endpoints, predicate, label, and other core semantics agree. Other
+    ``temporal_scope`` qualifiers (e.g. ``as_of``) still participate in the
+    fingerprint.
+    """
+    value = dict(semantic_assertion_value(assertion.value))
+    value.pop("session_ids", None)
+    temporal_scope = dict(assertion.temporal_scope or {})
+    temporal_scope.pop("session_id", None)
+    return (
+        assertion.assertion_kind,
+        assertion.subject_node_id,
+        assertion.target_node_id,
+        assertion.predicate,
+        assertion.label,
+        _canonicalize_json_value(value),
+        assertion.epistemic_kind,
+        assertion.visibility,
+        assertion.campaign_scope,
+        _canonicalize_json_value(temporal_scope or None),
+    )
+
+
 def _assert_active_node_assertions_agree(
     assertions: list[GraphContributionAssertion],
     *,
@@ -860,6 +890,32 @@ def _build_evidence_badge_from_store(
     )
 
 
+def _union_session_ids_from_active_edge_assertions(
+    active_assertions: list[GraphContributionAssertion],
+) -> list[str] | None:
+    """Union ``value.session_ids`` across active edge supports when the key is present.
+
+    Returns ``None`` when no active assertion declares ``session_ids`` (caller
+    keeps store-edge fallback). An explicit empty list from a sole active
+    support still returns ``[]`` so supersession can clear the projected list.
+    """
+    session_ids: list[str] = []
+    key_present = False
+    for assertion in active_assertions:
+        assertion_value = dict(assertion.value)
+        if "session_ids" not in assertion_value:
+            continue
+        key_present = True
+        nested = assertion_value.get("session_ids")
+        if not isinstance(nested, list):
+            continue
+        for item in nested:
+            session_id = str(item)
+            if session_id not in session_ids:
+                session_ids.append(session_id)
+    return session_ids if key_present else None
+
+
 def _aggregate_active_edge_support(
     root: Path,
     world_id: str,
@@ -867,7 +923,13 @@ def _aggregate_active_edge_support(
     edge_id: str,
     edge: UnionSupergraphEdge,
     active_supports: list[DurableAssertionSupport],
-) -> tuple[list[str], list[str], list[str], GraphContributionAssertion | None]:
+) -> tuple[
+    list[str],
+    list[str],
+    list[str],
+    GraphContributionAssertion | None,
+    list[str] | None,
+]:
     evidence_ids: set[str] = set()
     artifact_ids: set[str] = set()
     active_contribution_ids: set[str] = set()
@@ -890,9 +952,8 @@ def _aggregate_active_edge_support(
         )
         evidence_ids.update(support_evidence)
         artifact_ids.update(support_artifacts)
-    _assert_active_object_assertions_agree(
+    _assert_active_edge_assertions_agree(
         active_assertions,
-        object_kind="edge",
         graph_object_id=edge_id,
     )
     return (
@@ -900,6 +961,7 @@ def _aggregate_active_edge_support(
         sorted(evidence_ids),
         sorted(artifact_ids),
         representative_assertion,
+        _union_session_ids_from_active_edge_assertions(active_assertions),
     )
 
 
@@ -1060,16 +1122,15 @@ def _edge_semantics_from_assertion(
     )
 
 
-def _assert_active_object_assertions_agree(
+def _assert_active_edge_assertions_agree(
     assertions: list[GraphContributionAssertion],
     *,
-    object_kind: str,
     graph_object_id: str,
 ) -> None:
-    fingerprints = {_assertion_semantic_fingerprint(assertion) for assertion in assertions}
+    fingerprints = {_edge_core_semantic_fingerprint(assertion) for assertion in assertions}
     if len(fingerprints) > 1:
         raise _integrity_error(
-            f"Active {object_kind} assertions disagree on semantic fields.",
+            "Active edge assertions disagree on semantic fields.",
             detail=(
                 f"graph_object_id={graph_object_id!r} "
                 f"active_assertion_ids={sorted(assertion.assertion_id for assertion in assertions)!r}"
@@ -1153,6 +1214,7 @@ def _build_relationship_views(
                 evidence_ref_ids,
                 source_artifact_ids,
                 representative_assertion,
+                aggregated_session_ids,
             ) = _aggregate_active_edge_support(
                 root,
                 world_id,
@@ -1161,6 +1223,10 @@ def _build_relationship_views(
                 edge,
                 active_supports,
             )
+            if aggregated_session_ids is not None:
+                # Union across all active supports — do not replace with one
+                # representative assertion's session list.
+                relationship_session_ids = aggregated_session_ids
             if representative_assertion is not None:
                 assertion_value = dict(representative_assertion.value)
                 (
@@ -1182,12 +1248,6 @@ def _build_relationship_views(
                         label_override = nested_label
                 if label_override is not None:
                     relationship_label = label_override
-                if "session_ids" in assertion_value:
-                    nested_session_ids = assertion_value.get("session_ids")
-                    if isinstance(nested_session_ids, list):
-                        relationship_session_ids = [
-                            str(item) for item in nested_session_ids
-                        ]
         elif edge.evidence_ref_ids:
             evidence_ref_ids = list(edge.evidence_ref_ids)
             source_artifact_ids = _source_artifact_ids_for_evidence(store, evidence_ref_ids)

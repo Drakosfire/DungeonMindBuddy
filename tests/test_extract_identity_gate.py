@@ -25,6 +25,11 @@ from graph_memory.kernel.world_initialization_models import (
     WorldInitializationContribution,
     WorldInitializationPlan,
 )
+from graph_memory.projection.world_projection import (
+    PROJECTION_REQUEST_SCHEMA,
+    WorldGraphProjectionFocus,
+    WorldGraphProjectionRequest,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_PATH = (
@@ -205,9 +210,30 @@ def test_identity_gate_attaches_existing_and_creates_new(
         for a in gate.accepted_proposals
         if a.assertion_kind == "node"
     }
-    assert outcomes["pc:caelynn"] == "resolved_existing"
-    assert outcomes["location:mireward"] == "resolved_existing"
+    # resolved_existing connects map durable ids but do not emit competing node asserts
+    assert "pc:caelynn" not in outcomes
+    assert "location:mireward" not in outcomes
     assert outcomes[gate.node_id_map["obj_session22_vial"]] == "created_new"
+    assert any(
+        d.startswith("connect_existing_support_only:node:caelynn->pc:caelynn")
+        for d in gate.diagnostics
+    )
+
+    # Support-only assertions replace the skipped node assert: an attribute
+    # observation (non-destructive) for the durable resolved-existing node.
+    caelynn_attributes = [
+        a
+        for a in gate.accepted_proposals
+        if a.assertion_kind == "attribute" and a.subject_node_id == "pc:caelynn"
+    ]
+    assert len(caelynn_attributes) == 1
+    assert caelynn_attributes[0].identity_resolution_outcome == "resolved_existing"
+    assert caelynn_attributes[0].value.get("evidence")
+    assert caelynn_attributes[0].value.get("source_artifacts")
+    assert not any(
+        a.subject_node_id == "pc:caelynn" and a.assertion_kind == "alias"
+        for a in gate.accepted_proposals
+    )
 
     edge_proposals = [
         a for a in gate.accepted_proposals if a.assertion_kind == "edge"
@@ -376,3 +402,116 @@ def test_build_accepted_contribution_and_merge(
     assert vial_id in store.nodes
     assert mystery_id in store.nodes
     assert "pc:caelynn" in store.nodes
+
+
+def _projection_request(*, revision_pin: str | None = None) -> WorldGraphProjectionRequest:
+    return WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        focus=WorldGraphProjectionFocus(kind="none"),
+        admissibility="gm",
+        revision_pin=revision_pin,
+    )
+
+
+def test_connect_existing_alias_and_support_survive_publish_and_projection(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    init = _initialize(tmp_path, loaded_bundle)
+    parent = init.current_head_revision_id or init.initial_head_revision_id
+    assert parent is not None
+
+    graph = _candidate_graph()
+    graph["nodes"] = [
+        {
+            **_node("node:caelynn", "Caelynn", "character", "001", "PC"),
+            "aliases": ["Caellynn"],
+        }
+    ]
+    graph["edges"] = []
+    gate = gate_candidate_graph_against_head(
+        candidate_graph_preview_from_dict(graph),
+        root=tmp_path,
+        world_id=WORLD_ID,
+        source_revision_id="sha256:testdigest-alias-publish",
+        node_ids=["node:caelynn"],
+        include_edges=False,
+    )
+    alias_proposals = [
+        a
+        for a in gate.accepted_proposals
+        if a.assertion_kind == "alias" and a.subject_node_id == "pc:caelynn"
+    ]
+    assert len(alias_proposals) == 1
+    assert alias_proposals[0].label == "Caellynn"
+
+    attribute_proposals = [
+        a
+        for a in gate.accepted_proposals
+        if a.assertion_kind == "attribute" and a.subject_node_id == "pc:caelynn"
+    ]
+    assert len(attribute_proposals) == 1
+    assert attribute_proposals[0].value.get("evidence")
+
+    contribution = build_accepted_contribution_from_proposals(
+        gate,
+        root=tmp_path,
+        proposal_digest="digest-alias-publish",
+    )
+    merged = kernel.merge_contribution_to_revision(
+        tmp_path,
+        world_id=WORLD_ID,
+        contribution=contribution,
+        expected_parent_revision_id=parent,
+    )
+    assert merged.published is True
+    published_revision_id = merged.revision_id
+
+    projection = kernel.project_world_graph(
+        tmp_path,
+        _projection_request(revision_pin=published_revision_id),
+    )
+    assert projection.snapshot.revision_id == published_revision_id
+    caelynn = next(node for node in projection.nodes if node.node_id == "pc:caelynn")
+    assert "Caellynn" in caelynn.aliases
+
+    published_attributes = [
+        item
+        for item in projection.attributes
+        if item.subject_node_id == "pc:caelynn"
+        and item.predicate == "session_observation"
+    ]
+    assert published_attributes
+    assert published_attributes[0].value.get("evidence")
+    assert published_attributes[0].evidence_ref_ids or published_attributes[0].source_artifact_ids
+
+
+def test_connect_existing_mireward_alias_blocks_collision(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    """Foreign-owned cross-kind alias in IdentityCandidate fails closed at resolve."""
+    _initialize(tmp_path, loaded_bundle)
+    graph = _candidate_graph()
+    graph["nodes"] = [
+        {
+            **_node("node:caelynn", "Caelynn", "character", "001", "PC"),
+            "aliases": ["Mireward"],
+        }
+    ]
+    graph["edges"] = []
+    gate = gate_candidate_graph_against_head(
+        candidate_graph_preview_from_dict(graph),
+        root=tmp_path,
+        world_id=WORLD_ID,
+        source_revision_id="sha256:testdigest-mireward-collision",
+        node_ids=["node:caelynn"],
+        include_edges=False,
+    )
+    assert gate.identity_outcome_snapshot["node:caelynn"] == "blocked_collision"
+    assert gate.accepted_proposals == []
+    assert len(gate.unresolved_mentions) == 1
+    assert not any(
+        a.assertion_kind == "alias" and a.label == "Mireward"
+        for a in gate.accepted_proposals
+    )

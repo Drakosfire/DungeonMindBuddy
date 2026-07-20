@@ -27,6 +27,9 @@ from graph_memory.candidate_semantic_promote_matrix import (
 )
 from graph_memory.kernel.contributions import build_assertion, create_graph_contribution
 from graph_memory.kernel.contribution_models import GraphContribution, GraphContributionAssertion
+from graph_memory.source_artifact_domains import CAMPAIGN_STABLE_SOURCE_DOMAINS
+
+# Re-export for back-compat with callers that imported from this module.
 
 _NODE_TYPE_TO_KIND: dict[str, str] = {
     "character": "npc",
@@ -302,7 +305,10 @@ def _source_artifact_payload(
     }
     if campaign_id:
         payload["campaign_id"] = campaign_id
-    if session_id:
+    # Campaign-stable registries must not stamp the promoting session onto the
+    # artifact identity — session-N vs session-N+1 would fail merge equality
+    # even when content_sha256 is unchanged.
+    if session_id and source_domain not in CAMPAIGN_STABLE_SOURCE_DOMAINS:
         payload["session_id"] = session_id
     return payload
 
@@ -350,10 +356,11 @@ def map_candidate_node_to_assertion(
     # Top-level source_artifact_id is the first evidence artifact (not a rewrite of all).
     primary_artifact = source_artifacts[0]["source_artifact_id"]
     summary = (node.description or "").strip() or None
+    aliases = [str(a).strip() for a in node.aliases if str(a).strip()]
     value: dict[str, Any] = {
         "kind": kind,
         "role": kind,
-        "aliases": [label],
+        "aliases": aliases if aliases else [label],
         "source_domains": [source_domain],
         "evidence": embedded_evidence,
         "source_artifacts": source_artifacts,
@@ -377,6 +384,109 @@ def map_candidate_node_to_assertion(
         identity_resolution_outcome=identity_resolution_outcome,
     )
     return assertion
+
+
+def map_connect_existing_support_assertions(
+    node: CandidateNode,
+    *,
+    durable_node_id: str,
+    source_revision_id: str,
+    verified_source_artifact_id: str,
+    campaign_scope: str | None,
+    source_domain: str = "recap",
+    session_id: str | None = None,
+    campaign_id: str | None = None,
+    source_uri: str | None = None,
+    acceptance_state: str = "accepted",
+    identity_resolution_outcome: str | None = "resolved_existing",
+    predicate: str = "session_observation",
+    alias_owners: Mapping[str, str] | None = None,
+) -> tuple[list[GraphContributionAssertion], tuple[str, ...]]:
+    """Support-only assertions for identity resolutions that connect to an
+    already-durable node (``resolved_existing`` / ``human_override``).
+
+    Connect-existing must never emit a competing ``node`` assertion: the
+    durable node's role/summary/epistemic payload is authoritative, and a
+    second active node assertion with extract-derived semantics leaves two
+    disagreeing supports that projection refuses (see
+    ``_refuse_disagreeing_active_node_assertion``). Instead this emits
+    non-destructive support — an ``attribute`` observation recording this
+    session's mention plus ``alias`` assertions for extract-only spellings —
+    so the promote is additive rather than silently dropped.
+    """
+    node_id = _require_nonempty(node.node_id, field="node.node_id")
+    durable_id = _require_nonempty(durable_node_id, field="durable_node_id")
+    label = _require_nonempty(node.label or node_id, field="node.label")
+    evidence_ids, embedded_evidence, source_artifacts = _evidence_ref_payloads(
+        node.evidence_refs,
+        assertion_key=node_id,
+        default_source_domain=source_domain,
+        session_id=session_id,
+        verified_source_revision_id=source_revision_id,
+        verified_source_artifact_id=verified_source_artifact_id,
+        source_uri=source_uri,
+        campaign_id=campaign_id,
+    )
+    primary_artifact = source_artifacts[0]["source_artifact_id"]
+    summary = (node.description or "").strip() or None
+
+    observation_value: dict[str, Any] = {
+        "kind": kernel_kind_for_node_type(node.node_type),
+        "extract_node_id": node_id,
+        "source_domains": [source_domain],
+        "evidence": embedded_evidence,
+        "source_artifacts": source_artifacts,
+    }
+    if summary:
+        observation_value["summary"] = summary
+
+    assertions: list[GraphContributionAssertion] = [
+        build_assertion(
+            assertion_kind="attribute",
+            acceptance_state=acceptance_state,
+            subject_node_id=durable_id,
+            predicate=predicate,
+            label=label,
+            value=observation_value,
+            evidence_ref_ids=evidence_ids,
+            source_artifact_id=primary_artifact,
+            source_revision_id=source_revision_id,
+            campaign_scope=campaign_scope,
+            identity_resolution_outcome=identity_resolution_outcome,
+        )
+    ]
+
+    owners = dict(alias_owners or {})
+    skip_diagnostics: list[str] = []
+    seen_aliases = {label.casefold()}
+    for raw_alias in node.aliases:
+        alias = str(raw_alias).strip()
+        if not alias or alias.casefold() in seen_aliases:
+            continue
+        owner = owners.get(alias.casefold())
+        if owner is not None and owner != durable_id:
+            skip_diagnostics.append(f"alias_ownership_skip:{alias}->{owner}")
+            continue
+        seen_aliases.add(alias.casefold())
+        assertions.append(
+            build_assertion(
+                assertion_kind="alias",
+                acceptance_state=acceptance_state,
+                subject_node_id=durable_id,
+                label=alias,
+                value={
+                    "alias": alias,
+                    "evidence": embedded_evidence,
+                    "source_artifacts": source_artifacts,
+                },
+                evidence_ref_ids=evidence_ids,
+                source_artifact_id=primary_artifact,
+                source_revision_id=source_revision_id,
+                campaign_scope=campaign_scope,
+                identity_resolution_outcome=identity_resolution_outcome,
+            )
+        )
+    return assertions, tuple(skip_diagnostics)
 
 
 def map_candidate_edge_to_assertion(
@@ -436,7 +546,7 @@ def map_candidate_edge_to_assertion(
         "canon_state": mapping.canon_state,
         "approval_state": mapping.approval_state,
     }
-    if session_id:
+    if session_id and source_domain not in CAMPAIGN_STABLE_SOURCE_DOMAINS:
         value["session_ids"] = [session_id]
     return build_assertion(
         assertion_kind="edge",
@@ -453,7 +563,11 @@ def map_candidate_edge_to_assertion(
         epistemic_kind=mapping.epistemic_kind,
         visibility=mapping.visibility,
         identity_resolution_outcome=identity_resolution_outcome,
-        temporal_scope={"session_id": session_id} if session_id else None,
+        temporal_scope=(
+            {"session_id": session_id}
+            if session_id and source_domain not in CAMPAIGN_STABLE_SOURCE_DOMAINS
+            else None
+        ),
     )
 
 
@@ -472,7 +586,7 @@ def candidate_graph_to_contribution(
     include_edges: bool = True,
     proposal_digest: str | None = None,
 ) -> GraphContribution:
-    """Map a typed CandidateGraphPreview into a source_extraction contribution."""
+    """Map a typed CandidateGraphPreview into a Kernel contribution."""
     world = _require_nonempty(world_id, field="world_id")
     revision_id = _require_nonempty(source_revision_id, field="source_revision_id")
     if not revision_id.startswith("sha256:"):
