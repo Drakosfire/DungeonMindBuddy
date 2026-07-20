@@ -21,6 +21,7 @@ from apps.live_control_server.services.promotable_ingest_run import (
 from tests.test_live_extract_promote_api import (
     CAMPAIGN_ID,
     SESSION_ID,
+    _candidate_graph_payload,
     _write_promotable_run,
 )
 
@@ -322,3 +323,41 @@ def test_resolve_accepts_stamped_promote_evidence_refs(
     assert ref["can_open_source"] is True
     assert ref["can_highlight_span"] is True
     assert resolved.run_id == run_id
+
+
+def test_resolve_retains_declared_registry_context_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Manifest-declared registry URI must survive on PromotableIngestRun."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _digest, _source = _write_promotable_run(
+        repo,
+        registry_context=_candidate_graph_payload(),
+        registry_filename="party_standing_context.json",
+    )
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.registry_context_graph_path is not None
+    assert resolved.registry_context_graph_path.name == "party_standing_context.json"
+    assert resolved.registry_context_graph_path.is_file()
+
+
+def test_resolve_rejects_blank_campaign_declared_registry(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Declared registry without campaign_id must fail closed (no inherit)."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    unscoped = _candidate_graph_payload()
+    unscoped.pop("campaign_id", None)
+    run_id, _digest, _source = _write_promotable_run(
+        repo,
+        registry_context=unscoped,
+        registry_filename="party_standing_context.json",
+    )
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+    assert "campaign_id is required" in str(exc.value)

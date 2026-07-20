@@ -74,6 +74,7 @@ class PromotableIngestRun:
     run_dir: Path
     registry_root: Path
     sealed_source_uri: str
+    registry_context_graph_path: Path | None = None
     diagnostics: list[str] = field(default_factory=list)
 
 
@@ -338,6 +339,77 @@ def resolve_promotable_from_loaded_manifest(
             code="run_not_promotable",
             status_code=422,
         )
+    # Prefer declared registry artifact when present; otherwise partition in-memory
+    # so older runs that still embed heroes-party become promotable.
+    from graph_memory.standing_context_partition import (
+        partition_candidate_graph_by_provenance,
+    )
+
+    registry_kind = GraphIngestArtifactKind.REGISTRY_CONTEXT_GRAPH
+    registry_declared = manifest.artifacts.get(registry_kind.value) is not None
+    registry_context_graph_path: Path | None = None
+    if registry_declared:
+        try:
+            registry_path = _resolve_run_artifact_file(
+                repo,
+                run_dir,
+                manifest,
+                kind=registry_kind,
+                fallback_uri=None,
+            )
+            loaded_registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        except (PromotableIngestRunError, OSError, json.JSONDecodeError, TypeError) as exc:
+            raise PromotableIngestRunError(
+                "registry context graph is declared but unreadable or invalid",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[str(exc)],
+            ) from exc
+        if not isinstance(loaded_registry, dict):
+            raise PromotableIngestRunError(
+                "registry context graph root must be a JSON object",
+                code="run_not_promotable",
+                status_code=422,
+            )
+        try:
+            typed_registry = load_typed_candidate_graph(loaded_registry)
+        except CandidateGraphMappingError as exc:
+            raise PromotableIngestRunError(
+                f"registry context graph is declared but not typed CandidateGraphPreview IR: {exc}",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[str(exc)],
+            ) from exc
+        if not typed_registry.nodes:
+            raise PromotableIngestRunError(
+                "registry context graph must contain at least one node",
+                code="run_not_promotable",
+                status_code=422,
+            )
+        registry_campaign = str(typed_registry.campaign_id or "").strip()
+        if not registry_campaign:
+            raise PromotableIngestRunError(
+                "registry context graph campaign_id is required",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[f"manifest_campaign={manifest.campaign_id}"],
+            )
+        if registry_campaign != manifest.campaign_id:
+            raise PromotableIngestRunError(
+                "registry context graph campaign_id disagrees with run manifest",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    f"registry_campaign={registry_campaign}",
+                    f"manifest_campaign={manifest.campaign_id}",
+                ],
+            )
+        registry_context_graph_path = registry_path
+    else:
+        candidate_payload, _standing, _diag = partition_candidate_graph_by_provenance(
+            candidate_payload
+        )
+
     try:
         load_typed_candidate_graph(candidate_payload)
     except CandidateGraphMappingError as exc:
@@ -392,6 +464,10 @@ def resolve_promotable_from_loaded_manifest(
         f"status:{manifest.status.value}",
         f"registry_root:{registry_root}",
     ]
+    if registry_context_graph_path is not None:
+        diagnostics.append(
+            f"registry_context_graph_path:{registry_context_graph_path}"
+        )
 
     return PromotableIngestRun(
         run_id=manifest.run_id,
@@ -408,6 +484,7 @@ def resolve_promotable_from_loaded_manifest(
         run_dir=run_dir,
         registry_root=registry_root.resolve(),
         sealed_source_uri=sealed_source_uri,
+        registry_context_graph_path=registry_context_graph_path,
         diagnostics=diagnostics,
     )
 

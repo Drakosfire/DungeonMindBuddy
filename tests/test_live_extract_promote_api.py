@@ -22,6 +22,7 @@ from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
 )
+from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
 from graph_memory.contribution_bundles import load_contribution_bundle
 from graph_memory.ingestion.graph_ingest_run import GRAPH_INGEST_RUN_MANIFEST_SCHEMA
 from graph_memory.kernel.world_initialization import initialize_world_from_contributions
@@ -216,6 +217,8 @@ def _write_promotable_run(
     runs_rel: str = "out/graph_memory/runs",
     candidate_campaign_id: str | None = None,
     candidate_session_id: str | None = None,
+    registry_context: dict | None = None,
+    registry_filename: str = "registry_context_graph.json",
 ) -> tuple[str, str, Path]:
     run_dir = (
         repo / Path(runs_rel) / campaign_id / session_id / "fixture-promote"
@@ -265,6 +268,18 @@ def _write_promotable_run(
         artifacts["candidate_graph"] = {
             "kind": "candidate_graph",
             "uri": rel(candidate),
+            "exists": True,
+            "preview_only": True,
+            "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        }
+    if registry_context is not None:
+        registry_path = run_dir / registry_filename
+        registry_path.write_text(
+            json.dumps(registry_context, indent=2) + "\n", encoding="utf-8"
+        )
+        artifacts["registry_context_graph"] = {
+            "kind": "registry_context_graph",
+            "uri": rel(registry_path),
             "exists": True,
             "preview_only": True,
             "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
@@ -339,9 +354,9 @@ def _prepare_body(run_id: str, *, node_ids: list[str] | None = None) -> dict:
 
 def _selectable_assertion_ids(prepared: dict) -> list[str]:
     return [
-        item["assertionId"]
+        item["sliceQualifiedId"]
         for item in prepared["reviewItems"]
-        if item.get("selectable")
+        if item.get("selectable") and item.get("sliceQualifiedId")
     ]
 
 
@@ -424,6 +439,14 @@ def test_prepare_confirm_success(world_client) -> None:
     assert all(item["selectedByDefault"] is True for item in selectable)
     assert all("assertionId" in item and "summary" in item for item in review_items)
     assert all("dependsOnAssertionIds" in item for item in review_items)
+    assert all("sliceQualifiedId" in item for item in review_items)
+    assert all("contributionSliceId" in item for item in review_items)
+    assert all("dependsOnSliceQualifiedIds" in item for item in review_items)
+    assert all(
+        item["sliceQualifiedId"].startswith(item["contributionSliceId"])
+        for item in selectable
+        if item.get("contributionSliceId")
+    )
     relationships = [item for item in selectable if item["kind"] == "relationship"]
     if relationships:
         assert any("—" in item["label"] and "→" in item["label"] for item in relationships)
@@ -740,6 +763,139 @@ def test_prepare_rejects_missing_candidate(world_client) -> None:
     response = client.post(PREPARE_URL, json=_prepare_body(missing_id))
     assert response.status_code == 422
     assert response.json()["code"] == "run_not_promotable"
+
+
+def test_prepare_rejects_malformed_registry_context_sibling(world_client) -> None:
+    """Present but invalid registry sibling must fail closed (not recap-only)."""
+    client, _world, repo, run_id, *_rest = world_client
+    run_dir = (
+        repo
+        / "out/graph_memory/runs"
+        / CAMPAIGN_ID
+        / SESSION_ID
+        / "fixture-promote"
+    )
+    sibling = run_dir / "registry_context_graph.json"
+    sibling.write_text("{not-json", encoding="utf-8")
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert "registry context" in body["message"]
+
+
+def test_prepare_rejects_empty_object_registry_context_sibling(world_client) -> None:
+    """Wrong-schema {} sibling must fail closed — not silent recap-only."""
+    client, _world, repo, run_id, *_rest = world_client
+    run_dir = (
+        repo
+        / "out/graph_memory/runs"
+        / CAMPAIGN_ID
+        / SESSION_ID
+        / "fixture-promote"
+    )
+    sibling = run_dir / "registry_context_graph.json"
+    sibling.write_text("{}\n", encoding="utf-8")
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert "registry context" in body["message"]
+
+
+def test_prepare_rejects_wrong_campaign_registry_context_sibling(world_client) -> None:
+    """Typed registry with a foreign campaign_id must not be relabeled."""
+    client, _world, repo, run_id, *_rest = world_client
+    run_dir = (
+        repo
+        / "out/graph_memory/runs"
+        / CAMPAIGN_ID
+        / SESSION_ID
+        / "fixture-promote"
+    )
+    sibling = run_dir / "registry_context_graph.json"
+    wrong = _candidate_graph_payload(campaign_id="other-campaign")
+    sibling.write_text(json.dumps(wrong, indent=2) + "\n", encoding="utf-8")
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert "campaign_id" in body["message"]
+
+
+def test_prepare_rejects_blank_campaign_registry_context_sibling(world_client) -> None:
+    """Unscoped registry (missing/blank campaign_id) must not inherit the run campaign."""
+    client, _world, repo, run_id, *_rest = world_client
+    run_dir = (
+        repo
+        / "out/graph_memory/runs"
+        / CAMPAIGN_ID
+        / SESSION_ID
+        / "fixture-promote"
+    )
+    sibling = run_dir / "registry_context_graph.json"
+    unscoped = _candidate_graph_payload()
+    unscoped.pop("campaign_id", None)
+    sibling.write_text(json.dumps(unscoped, indent=2) + "\n", encoding="utf-8")
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["code"] == "invalid_request"
+    assert "campaign_id is required" in body["message"]
+
+
+def test_prepare_uses_manifest_declared_registry_path_not_only_sibling(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Declared registry under a non-sibling filename must still reach prepare."""
+    client, _world, repo, *_rest = world_client
+    alt_id = "graph-ingest:longmont-c2:session-22:declared-alt-registry"
+    registry = _candidate_graph_payload()
+    registry["preview_id"] = "preview:standing-party-alt"
+    registry["nodes"] = [
+        {
+            **registry["nodes"][0],
+            "node_id": "char_standing_pippa",
+            "label": "Pippa",
+            "node_type": "character",
+            "description": "Standing party PC",
+            "proposed_action": "create",
+        }
+    ]
+    registry["edges"] = []
+    _write_promotable_run(
+        repo,
+        run_id=alt_id,
+        registry_context=registry,
+        registry_filename="party_standing_context.json",
+    )
+    run_dir = (
+        repo
+        / "out/graph_memory/runs"
+        / CAMPAIGN_ID
+        / SESSION_ID
+        / "fixture-promote"
+    )
+    assert (run_dir / "party_standing_context.json").is_file()
+    assert not (run_dir / "registry_context_graph.json").exists()
+
+    captured: dict[str, object] = {}
+
+    def _capture_prepare(**kwargs):  # type: ignore[no-untyped-def]
+        captured["registry_context_graph"] = kwargs.get("registry_context_graph")
+        raise CandidateGraphMappingError(
+            "stop-after-declared-registry-load-for-test"
+        )
+
+    monkeypatch.setattr(promote_svc, "prepare_extract_promote", _capture_prepare)
+
+    response = client.post(PREPARE_URL, json=_prepare_body(alt_id))
+    assert response.status_code == 409, response.text
+    assert "stop-after-declared-registry-load-for-test" in response.json()["message"]
+    loaded = captured.get("registry_context_graph")
+    assert isinstance(loaded, dict)
+    assert loaded["preview_id"] == "preview:standing-party-alt"
+    assert loaded["nodes"][0]["node_id"] == "char_standing_pippa"
 
 
 def test_prepare_rejects_missing_preview_union_store(world_client) -> None:

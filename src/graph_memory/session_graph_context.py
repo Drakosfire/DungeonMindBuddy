@@ -220,6 +220,15 @@ def normalize_party_anchor_node(
     node_id = str(seed.get("node_id") or "node:unknown")
     label = str(seed.get("label") or node_id)
     corpus_ref = seed.get("corpus_ref")
+    aliases_raw = seed.get("aliases")
+    aliases: list[str] = []
+    if isinstance(aliases_raw, (list, tuple)):
+        aliases = [str(a).strip() for a in aliases_raw if str(a).strip()]
+    if label and label not in aliases:
+        aliases = [label, *aliases]
+    first = label.split()[0].strip(".,;:'\"") if label.split() else ""
+    if first and len(first) >= 3 and first not in aliases:
+        aliases.append(first)
     return {
         "node_id": node_id,
         "label": label,
@@ -233,6 +242,7 @@ def normalize_party_anchor_node(
         "warnings": ["context_anchor_no_session_evidence"],
         "corpus_ref": dict(corpus_ref) if isinstance(corpus_ref, Mapping) else None,
         "context_anchor": True,
+        "aliases": aliases,
     }
 
 
@@ -248,6 +258,20 @@ def merge_party_anchor_nodes(
     merged = list(nodes)
     for member in party_ctx.members:
         seed = member.seed_node()
+        seed["aliases"] = list(
+            dict.fromkeys(
+                [
+                    member.display_name,
+                    *(
+                        [member.display_name.split()[0]]
+                        if member.display_name.split()
+                        else []
+                    ),
+                    member.slug.replace("_", " ").title(),
+                    member.slug.split("_", 1)[0].title(),
+                ]
+            )
+        )
         key = ir.canonical_node_key(seed)
         if key in existing_keys:
             continue

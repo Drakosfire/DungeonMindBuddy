@@ -90,6 +90,10 @@ class ExtractPromotionReviewItem(_ExtractPromoteModel):
     selectable: bool = False
     selected_by_default: bool = False
     depends_on_assertion_ids: list[str] = Field(default_factory=list)
+    contribution_slice_id: str = ""
+    slice_qualified_id: str = ""
+    depends_on_slice_qualified_ids: list[str] = Field(default_factory=list)
+    provenance: Literal["standing_context", "source_extraction"] | None = None
 
 
 class ExtractPromoteReviewSummary(_ExtractPromoteModel):
@@ -98,6 +102,7 @@ class ExtractPromoteReviewSummary(_ExtractPromoteModel):
     relationship_count: int = 0
     unresolved_mention_count: int = 0
     rejected_assertion_count: int = 0
+    standing_accepted_proposals_count: int | None = None
 
 
 class ExtractPromotePrepareResponse(_ExtractPromoteModel):

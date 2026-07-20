@@ -23,6 +23,7 @@ from graph_memory.candidate_graph_to_contribution import (
     require_single_verified_source_artifact,
 )
 from graph_memory.extract_promote_proposal import (
+    SLICE_SELECTOR_DELIMITER,
     compute_selection_digest,
     contribution_meta_from_contribution,
     seal_promote_proposal,
@@ -262,12 +263,14 @@ def gate_candidate_graph_against_head(
     authored_by: str | None = "extract-identity-gate",
     source_domain: str = "recap",
     source_uri: str | None = None,
+    source_kind: str = "source_extraction",
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
 ) -> IdentityGateResult:
     """Map + resolve identity against the pinned head; emit review proposals."""
     if not str(source_revision_id or "").strip():
         raise CandidateGraphMappingError("source_revision_id is required")
+    kind = (source_kind or "source_extraction").strip() or "source_extraction"
 
     head, _revision, store = open_current_world_graph(root, world_id)
     parent_revision_id = head.head_revision_id
@@ -315,6 +318,7 @@ def gate_candidate_graph_against_head(
         authored_by=authored_by,
         source_domain=source_domain,
         source_uri=source_uri,
+        source_kind=kind,
         node_ids=[n.node_id for n in nodes],
         include_edges=False,
     )
@@ -488,7 +492,7 @@ def gate_candidate_graph_against_head(
 
     gated_contribution = create_graph_contribution(
         world_id=world_id,
-        source_kind="source_extraction",  # type: ignore[arg-type]
+        source_kind=kind,  # type: ignore[arg-type]
         source_artifact_id=artifact_id,
         source_revision_id=revision_id,
         extraction_profile=extraction_profile,
@@ -530,6 +534,99 @@ def _endpoint_available(
     if node_id in selected_node_subjects:
         return True
     return node_id in pinned_store.nodes
+
+
+def _union_embedded_records_by_key(
+    existing: Sequence[Any] | None,
+    incoming: Sequence[Any] | None,
+    *,
+    key: str,
+) -> list[dict[str, Any]]:
+    """Deterministic union of embedded dict records keyed by ``key``."""
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for payload in list(existing or ()) + list(incoming or ()):
+        if not isinstance(payload, Mapping):
+            continue
+        record_id = str(payload.get(key) or "").strip()
+        if not record_id or record_id in seen:
+            continue
+        seen.add(record_id)
+        merged.append(dict(payload))
+    return merged
+
+
+def _union_assertion_provenance(
+    existing: GraphContributionAssertion,
+    incoming: GraphContributionAssertion,
+) -> GraphContributionAssertion:
+    """Merge observation provenance when two slices select the same semantic id.
+
+    ``assertion_id`` is content-hashed over semantic fields only, so standing
+    and recap may legitimately share an id while carrying distinct
+    ``evidence_ref_ids`` / artifact / revision stamps. Keep one assertion body
+    and union both top-level refs and the embedded Kernel materialization
+    payloads (``value.evidence``, ``value.source_artifacts``,
+    ``value.source_domains``) so merge can resolve every selected reference.
+    """
+    merged_evidence_ids = list(existing.evidence_ref_ids)
+    for ref in incoming.evidence_ref_ids:
+        text = str(ref or "").strip()
+        if text and text not in merged_evidence_ids:
+            merged_evidence_ids.append(text)
+
+    existing_value = dict(existing.value or {})
+    incoming_value = dict(incoming.value or {})
+    existing_value["evidence"] = _union_embedded_records_by_key(
+        existing_value.get("evidence"),
+        incoming_value.get("evidence"),
+        key="evidence_ref_id",
+    )
+    existing_value["source_artifacts"] = _union_embedded_records_by_key(
+        existing_value.get("source_artifacts"),
+        incoming_value.get("source_artifacts"),
+        key="source_artifact_id",
+    )
+    domains = [
+        str(domain).strip()
+        for domain in (existing_value.get("source_domains") or [])
+        if str(domain).strip()
+    ]
+    for domain in incoming_value.get("source_domains") or []:
+        text = str(domain or "").strip()
+        if text and text not in domains:
+            domains.append(text)
+    if domains:
+        existing_value["source_domains"] = domains
+
+    return existing.model_copy(
+        update={
+            "evidence_ref_ids": merged_evidence_ids,
+            "value": existing_value,
+        }
+    )
+
+
+def _order_assertions_nodes_before_edges(
+    assertions: Sequence[GraphContributionAssertion],
+) -> list[GraphContributionAssertion]:
+    """Stable partition so Kernel can apply endpoints before edges.
+
+    Cross-slice batches may place an edge in an earlier slice than the node it
+    targets. Preflight validates against the union of selected subjects, but
+    Kernel applies sequentially — nodes (then non-edges) must precede edges.
+    """
+    nodes: list[GraphContributionAssertion] = []
+    mid: list[GraphContributionAssertion] = []
+    edges: list[GraphContributionAssertion] = []
+    for assertion in assertions:
+        if assertion.assertion_kind == "node":
+            nodes.append(assertion)
+        elif assertion.assertion_kind == "edge":
+            edges.append(assertion)
+        else:
+            mid.append(assertion)
+    return [*nodes, *mid, *edges]
 
 
 def build_accepted_contribution_from_proposals(
@@ -618,6 +715,170 @@ def build_accepted_contribution_from_proposals(
             f"accepted_for_merge:{len(filtered)}",
             f"parent_revision_id:{gate.parent_revision_id}",
             f"selection_digest:{selection_digest}",
+            *(
+                [f"proposal_digest:{proposal_digest}"]
+                if proposal_digest
+                else []
+            ),
+        ],
+    )
+
+
+def build_accepted_contribution_from_multi_slice_proposals(
+    slice_selections: Sequence[
+        tuple[IdentityGateResult, Sequence[str] | None, str]
+    ],
+    *,
+    root: Path,
+    proposal_digest: str | None = None,
+) -> GraphContribution:
+    """Build ONE merge-ready contribution spanning every verified slice.
+
+    This is the atomic-publication fix (PR011A3 review P0): a multi-slice
+    promote (standing_context + source_extraction) must land as a single
+    Kernel contribution merged in a single call, never as sequential
+    per-slice merges that could advance the head partway through. Edge
+    endpoints may reference node subjects created by *any* selected slice
+    in this same batch (not only their own slice), since every slice is
+    published together against the one pinned parent revision.
+
+    ``slice_selections`` entries are
+    ``(gate, selected_assertion_ids|None, contribution_slice_id)`` ordered
+    standing_context before source_extraction by convention. The sealed
+    ``contribution_slice_id`` must match prepare-time projection so
+    ``selection_digest`` digests slice-qualified coordinates. Raises
+    ``CandidateGraphMappingError`` when nothing is selected, when slices pin
+    different parents/worlds, or when an edge endpoint cannot be resolved
+    against the union of selected node subjects and the pinned parent.
+    """
+    active: list[tuple[str, IdentityGateResult, list[GraphContributionAssertion]]] = []
+    for gate, ids, contribution_slice_id in slice_selections:
+        slice_id = str(contribution_slice_id or "").strip()
+        if not slice_id:
+            raise CandidateGraphMappingError(
+                "contribution_slice_id is required for multi-slice merge"
+            )
+        allow = set(ids) if ids is not None else None
+        selected = [
+            assertion
+            for assertion in gate.accepted_proposals
+            if allow is None or assertion.assertion_id in allow
+        ]
+        if selected:
+            active.append((slice_id, gate, selected))
+
+    if not active:
+        raise CandidateGraphMappingError("no accepted proposals selected for merge")
+
+    parent_revision_id = active[0][1].parent_revision_id
+    world_id = active[0][1].world_id
+    for _slice_id, gate, _selected in active[1:]:
+        if gate.parent_revision_id != parent_revision_id or gate.world_id != world_id:
+            raise CandidateGraphMappingError(
+                "contribution slices disagree on parent_revision_id/world_id; "
+                "atomic multi-contribution merge requires one shared parent"
+            )
+
+    pinned_store = load_world_graph_revision(root, world_id, parent_revision_id)
+    node_subjects = {
+        assertion.subject_node_id
+        for _slice_id, _gate, selected in active
+        for assertion in selected
+        if assertion.assertion_kind == "node" and assertion.subject_node_id
+    }
+
+    diagnostics: list[str] = []
+    selection_coords: list[str] = []
+    index_by_assertion_id: dict[str, int] = {}
+    filtered: list[GraphContributionAssertion] = []
+    for slice_id, _gate, selected in active:
+        for assertion in selected:
+            selection_coords.append(
+                f"{slice_id}{SLICE_SELECTOR_DELIMITER}{assertion.assertion_id}"
+            )
+            if assertion.assertion_id in index_by_assertion_id:
+                idx = index_by_assertion_id[assertion.assertion_id]
+                prior = filtered[idx]
+                filtered[idx] = _union_assertion_provenance(prior, assertion)
+                diagnostics.append(
+                    "cross_slice_assertion_provenance_unioned:"
+                    f"{assertion.assertion_id}:from_slice:{slice_id}"
+                    f":incoming_artifact:{assertion.source_artifact_id}"
+                    f":incoming_revision:{assertion.source_revision_id}"
+                )
+                continue
+            if assertion.assertion_kind == "edge":
+                subject = assertion.subject_node_id
+                target = assertion.target_node_id
+                if subject is None or target is None:
+                    raise CandidateGraphMappingError(
+                        f"edge assertion {assertion.assertion_id} missing endpoint ids"
+                    )
+                if not _endpoint_available(
+                    subject,
+                    selected_node_subjects=node_subjects,
+                    pinned_store=pinned_store,
+                ):
+                    raise CandidateGraphMappingError(
+                        f"edge assertion {assertion.assertion_id} subject endpoint "
+                        f"{subject!r} is neither selected in this batch nor on "
+                        f"pinned parent {parent_revision_id}"
+                    )
+                if not _endpoint_available(
+                    target,
+                    selected_node_subjects=node_subjects,
+                    pinned_store=pinned_store,
+                ):
+                    raise CandidateGraphMappingError(
+                        f"edge assertion {assertion.assertion_id} target endpoint "
+                        f"{target!r} is neither selected in this batch nor on "
+                        f"pinned parent {parent_revision_id}"
+                    )
+            index_by_assertion_id[assertion.assertion_id] = len(filtered)
+            filtered.append(assertion)
+
+    filtered = _order_assertions_nodes_before_edges(filtered)
+
+    rejected: list[GraphContributionAssertion] = [
+        assertion
+        for _slice_id, gate, _selected in active
+        for assertion in gate.rejected_assertions
+    ]
+    unresolved: list[ContributionIdentityMention] = [
+        mention
+        for _slice_id, gate, _selected in active
+        for mention in gate.unresolved_mentions
+    ]
+
+    slice_metas = [
+        contribution_meta_from_contribution(gate.contribution)
+        for _slice_id, gate, _selected in active
+    ]
+    meta = next(
+        (m for m in slice_metas if str(m.get("source_kind") or "") == "source_extraction"),
+        slice_metas[-1],
+    )
+
+    selection_digest = compute_selection_digest(selection_coords)
+    return create_graph_contribution(
+        world_id=world_id,
+        source_kind=str(meta["source_kind"]),  # type: ignore[arg-type]
+        source_artifact_id=str(meta["source_artifact_id"]),
+        source_revision_id=str(meta["source_revision_id"]),
+        extraction_profile=str(meta["extraction_profile"]),
+        campaign_scope=meta.get("campaign_scope"),
+        authored_by=str(meta["authored_by"]),
+        accepted_assertions=filtered,
+        rejected_assertions=rejected,
+        unresolved_mentions=unresolved,
+        proposal_digest=proposal_digest,
+        selection_digest=selection_digest,
+        diagnostics=[
+            f"accepted_for_merge:{len(filtered)}",
+            f"contribution_slices_merged:{len(active)}",
+            f"parent_revision_id:{parent_revision_id}",
+            f"selection_digest:{selection_digest}",
+            *diagnostics,
             *(
                 [f"proposal_digest:{proposal_digest}"]
                 if proposal_digest

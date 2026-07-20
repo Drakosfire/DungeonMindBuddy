@@ -2906,6 +2906,14 @@ export interface ExtractPromotionReviewItem {
   selectedByDefault: boolean;
   /** Newly created endpoint assertions that must stay selected with this item. */
   dependsOnAssertionIds?: string[];
+  /** Contribution slice that produced this row (multi-contribution prepare). */
+  contributionSliceId?: string;
+  /** Slice-qualified selector posted to confirm; keys selection state. */
+  sliceQualifiedId: string;
+  /** Slice-qualified endpoint dependencies for relationship cascade. */
+  dependsOnSliceQualifiedIds?: string[];
+  /** Dual-contribution badge: registry standing vs recap extraction. */
+  provenance?: "standing_context" | "source_extraction" | null;
 }
 
 export interface ExtractPromoteReviewSummary {
@@ -2914,6 +2922,7 @@ export interface ExtractPromoteReviewSummary {
   relationshipCount: number;
   unresolvedMentionCount: number;
   rejectedAssertionCount: number;
+  standingAcceptedProposalsCount?: number | null;
 }
 
 export interface ExtractPromoteStatusResponse {

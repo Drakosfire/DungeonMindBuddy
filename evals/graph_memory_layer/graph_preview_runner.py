@@ -724,6 +724,14 @@ def run_graph_preview_extraction(
             candidate_graph = extraction.candidate_graph
             candidate_graph_path = output_dir / "candidate_graph.json"
             write_json(candidate_graph_path, candidate_graph)
+            if extraction.registry_context_graph:
+                registry_context_path = output_dir / "registry_context_graph.json"
+                write_json(registry_context_path, extraction.registry_context_graph)
+                artifacts["registry_context_graph"] = _artifact(
+                    GraphIngestArtifactKind.REGISTRY_CONTEXT_GRAPH,
+                    registry_context_path,
+                    "dmb_candidate_graph_preview_v0",
+                )
             pass_outputs_path = output_dir / "pass_outputs.json"
             write_json(pass_outputs_path, extraction.pass_outputs)
             pass_telemetry_path = output_dir / "pass_telemetry.json"

@@ -33,6 +33,12 @@ from src.graph_memory.session_graph_context import (
     merge_party_collective,
     party_anchors_markdown,
 )
+from src.graph_memory.standing_context_partition import (
+    ensure_standing_warning,
+    partition_candidate_parts_by_provenance,
+    party_registry_artifact_id,
+    stamp_standing_registry_evidence,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +287,7 @@ class CategoryGraphExtractionResult:
     model_id: str
     total_cost_usd: float
     diagnostics: dict[str, Any] = field(default_factory=dict)
+    registry_context_graph: dict[str, Any] | None = None
 
 
 def _policy_paths() -> list[Path]:
@@ -427,15 +434,22 @@ def parse_json_object(text: str) -> dict[str, Any]:
 def _usage_from_response(response: Any) -> dict[str, int]:
     usage = getattr(response, "usage", None)
     cached = 0
+    reasoning_tokens = 0
     if usage is not None:
         details = getattr(usage, "input_tokens_details", None)
         if details is not None:
             cached = int(getattr(details, "cached_tokens", 0) or 0)
-        return {
+        output_details = getattr(usage, "output_tokens_details", None)
+        if output_details is not None:
+            reasoning_tokens = int(getattr(output_details, "reasoning_tokens", 0) or 0)
+        out = {
             "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
             "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
             "cached_tokens": cached,
         }
+        if reasoning_tokens:
+            out["reasoning_tokens"] = reasoning_tokens
+        return out
     return {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0}
 
 
@@ -893,6 +907,7 @@ def assemble_envelope(
     session_id: str,
     source_artifact_id: str,
     model_id: str,
+    preview_suffix: str = "category",
 ) -> dict[str, Any]:
     warning_count = len(
         consolidated.get("consolidation_diagnostics", {}).get("merged_nodes", [])
@@ -900,7 +915,7 @@ def assemble_envelope(
     graph = {
         "schema": CANDIDATE_GRAPH_SCHEMA,
         "version": CANDIDATE_GRAPH_VERSION,
-        "preview_id": f"candidate-preview:{campaign_id}:{session_id}:category",
+        "preview_id": f"candidate-preview:{campaign_id}:{session_id}:{preview_suffix}",
         "campaign_id": campaign_id,
         "session_id": session_id,
         "source_artifact_ids": [source_artifact_id],
@@ -1192,6 +1207,23 @@ def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
 
 
 class OpenAICategoryGraphPassClient:
+    """Responses API client for category graph passes.
+
+    Optional constructor knobs are used by the live preview runner and Luna
+    benchmarks; default construction remains zero-arg for the Kernel path.
+    """
+
+    def __init__(
+        self,
+        *,
+        reasoning_effort: str | None = None,
+        max_retries: int | None = None,
+    ) -> None:
+        self._reasoning_effort = (
+            reasoning_effort.strip() if isinstance(reasoning_effort, str) and reasoning_effort.strip() else None
+        )
+        self._max_retries = max_retries
+
     def run_pass(
         self,
         pass_name: str,
@@ -1213,14 +1245,20 @@ class OpenAICategoryGraphPassClient:
 
         from src.agent.planner_pricing import usage_cost_usd
 
-        client = OpenAI()
+        openai_kwargs: dict[str, Any] = {}
+        if self._max_retries is not None:
+            openai_kwargs["max_retries"] = self._max_retries
+        client = OpenAI(**openai_kwargs)
+        create_kwargs: dict[str, Any] = {
+            "model": model_id.strip(),
+            "instructions": instructions,
+            "input": [{"type": "message", "role": "user", "content": user_content}],
+            "text": category_pass_text_format(pass_name),
+        }
+        if self._reasoning_effort is not None:
+            create_kwargs["reasoning"] = {"effort": self._reasoning_effort}
         t0 = time.perf_counter()
-        response = client.responses.create(
-            model=model_id.strip(),
-            instructions=instructions,
-            input=[{"type": "message", "role": "user", "content": user_content}],
-            text=category_pass_text_format(pass_name),
-        )
+        response = client.responses.create(**create_kwargs)
         elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
         refusal = getattr(response, "refusal", None)
         if refusal:
@@ -1251,7 +1289,7 @@ class OpenAICategoryGraphPassClient:
                 pass_name=pass_name,
                 raw_model_response=raw_text,
             ) from exc
-        return {
+        result: dict[str, Any] = {
             "parsed": parsed,
             "raw_text": raw_text,
             "usage": usage,
@@ -1260,6 +1298,9 @@ class OpenAICategoryGraphPassClient:
             "elapsed_ms": elapsed_ms,
             "response_id": str(getattr(response, "id", "") or ""),
         }
+        if self._reasoning_effort is not None:
+            result["reasoning_effort"] = self._reasoning_effort
+        return result
 
 
 class FixtureCategoryGraphPassClient:
@@ -1437,20 +1478,41 @@ def run_category_pipeline(
     )
     repair_diag = repair_edge_evidence_refs(consolidated, allowed_span_refs)
     sanitized, sanitize_diag = sanitize_parts(consolidated, allowed_span_refs)
+    recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
+        sanitized
+    )
     merged_diag = {
         **consolidated["consolidation_diagnostics"],
         **repair_diag,
         **sanitize_diag,
+        "standing_context_partition": partition_diag,
     }
     source_artifact_id = f"artifact:recap:{options.campaign_id}:{options.session_id}"
+    registry_artifact_id = party_registry_artifact_id(options.campaign_id)
     envelope = assemble_envelope(
-        sanitized,
+        recap_parts,
         campaign_id=options.campaign_id,
         session_id=options.session_id,
         source_artifact_id=source_artifact_id,
         model_id=model_id,
     )
     candidate_graph = canonical_graph_for_runner(envelope)
+    registry_context_graph: dict[str, Any] | None = None
+    if standing_parts.get("nodes"):
+        ensure_standing_warning(standing_parts)
+        standing_envelope = assemble_envelope(
+            standing_parts,
+            campaign_id=options.campaign_id,
+            session_id=options.session_id,
+            source_artifact_id=registry_artifact_id,
+            model_id=model_id,
+            preview_suffix="standing",
+        )
+        registry_context_graph = canonical_graph_for_runner(standing_envelope)
+        stamp_standing_registry_evidence(
+            registry_context_graph, source_artifact_id=registry_artifact_id
+        )
+        ensure_standing_warning(registry_context_graph)
     node_vocabulary_enabled = effective_node_vocabulary_packet is not None
     node_vocabulary_diag: dict[str, Any] = {"enabled": False}
     if node_vocabulary_enabled:
@@ -1474,8 +1536,10 @@ def run_category_pipeline(
             "encounter_job_edge_guidance": encounter_job_edge_diag,
             "node_vocabulary_ablation": node_vocabulary_diag,
             "dynamic_node_vocabulary_packet": dynamic_node_vocabulary_diag,
+            "standing_context_partition": partition_diag,
             **EXTRACTOR_RESULT_DIAGNOSTICS,
         },
+        registry_context_graph=registry_context_graph,
     )
 
 

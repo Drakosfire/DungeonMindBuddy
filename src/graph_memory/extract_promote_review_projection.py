@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from graph_memory.extract_identity_gate import IdentityGateResult
+from graph_memory.extract_promote_proposal import SLICE_SELECTOR_DELIMITER
 from graph_memory.kernel.contribution_models import (
     ContributionIdentityMention,
     GraphContributionAssertion,
@@ -17,6 +18,10 @@ from graph_memory.kernel.contribution_models import (
 
 ReviewItemKind = Literal["object", "relationship", "attribute", "alias"]
 ReviewItemAction = Literal["create", "connect_existing", "update"]
+
+
+def _slice_qualified_id(contribution_slice_id: str, assertion_id: str) -> str:
+    return f"{contribution_slice_id}{SLICE_SELECTOR_DELIMITER}{assertion_id}"
 
 
 @dataclass(frozen=True)
@@ -27,13 +32,21 @@ class PromoteReviewItem:
     action: ReviewItemAction
     identity_outcome: str
     summary: str
+    # Which sealed contribution slice this item belongs to (e.g. standing
+    # registry vs recap source_extraction). Selection must key off
+    # `slice_qualified_id`, never the bare `assertion_id` — assertion ids are
+    # content-hashed and can legitimately collide across independently
+    # sourced slices (PR011A3 review P1).
+    contribution_slice_id: str = ""
+    slice_qualified_id: str = ""
     evidence_summary: str | None = None
     warnings: list[str] = field(default_factory=list)
     selectable: bool = False
     selected_by_default: bool = False
-    # Assertion IDs that must remain selected when this item is selected
-    # (e.g. newly created endpoint nodes required by a relationship).
-    depends_on_assertion_ids: list[str] = field(default_factory=list)
+    # Slice-qualified ids that must remain selected when this item is
+    # selected (e.g. newly created endpoint nodes required by a
+    # relationship). Always within the same contribution slice.
+    depends_on_slice_qualified_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -47,8 +60,17 @@ class PromoteReviewSummary:
 
 def project_promote_review(
     gate: IdentityGateResult,
+    *,
+    contribution_slice_id: str = "0",
 ) -> tuple[list[PromoteReviewItem], PromoteReviewSummary]:
-    """Project an identity-gate result into UI review items + summary counts."""
+    """Project an identity-gate result into UI review items + summary counts.
+
+    ``contribution_slice_id`` identifies which sealed contribution slice this
+    gate belongs to (see ``extract_promote_proposal.contribution_slice_id_for``).
+    All item selection keys are slice-qualified so the confirm API can
+    disambiguate assertion ids that collide across independently-sourced
+    slices (PR011A3 review P1).
+    """
     items: list[PromoteReviewItem] = []
     new_objects = 0
     connect_existing = 0
@@ -64,6 +86,7 @@ def project_promote_review(
             node_id_map=gate.node_id_map,
             label_by_node_id=label_by_node_id,
             create_node_assertion_ids=create_node_assertion_ids,
+            contribution_slice_id=contribution_slice_id,
         )
         items.append(item)
         if item.kind == "relationship":
@@ -74,13 +97,18 @@ def project_promote_review(
             connect_existing += 1
 
     for mention in gate.unresolved_mentions:
-        items.append(_item_from_unresolved_mention(mention))
+        items.append(
+            _item_from_unresolved_mention(
+                mention, contribution_slice_id=contribution_slice_id
+            )
+        )
 
     for assertion in gate.rejected_assertions:
         items.append(
             _item_from_rejected_assertion(
                 assertion,
                 label_by_node_id=label_by_node_id,
+                contribution_slice_id=contribution_slice_id,
             )
         )
 
@@ -96,8 +124,12 @@ def project_promote_review(
 
 def project_promote_review_as_dicts(
     gate: IdentityGateResult,
+    *,
+    contribution_slice_id: str = "0",
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    items, summary = project_promote_review(gate)
+    items, summary = project_promote_review(
+        gate, contribution_slice_id=contribution_slice_id
+    )
     return (
         [_item_to_dict(item) for item in items],
         {
@@ -118,11 +150,13 @@ def _item_to_dict(item: PromoteReviewItem) -> dict[str, Any]:
         "action": item.action,
         "identity_outcome": item.identity_outcome,
         "summary": item.summary,
+        "contribution_slice_id": item.contribution_slice_id,
+        "slice_qualified_id": item.slice_qualified_id,
         "evidence_summary": item.evidence_summary,
         "warnings": list(item.warnings),
         "selectable": item.selectable,
         "selected_by_default": item.selected_by_default,
-        "depends_on_assertion_ids": list(item.depends_on_assertion_ids),
+        "depends_on_slice_qualified_ids": list(item.depends_on_slice_qualified_ids),
     }
 
 
@@ -192,15 +226,19 @@ def _depends_on_for_edge(
     assertion: GraphContributionAssertion,
     *,
     create_node_assertion_ids: dict[str, str],
+    contribution_slice_id: str,
 ) -> list[str]:
+    """Dependencies are always within the same slice as the edge itself."""
     deps: list[str] = []
     for endpoint in (
         (assertion.subject_node_id or "").strip(),
         (assertion.target_node_id or "").strip(),
     ):
         dep = create_node_assertion_ids.get(endpoint)
-        if dep and dep not in deps:
-            deps.append(dep)
+        if dep:
+            qualified = _slice_qualified_id(contribution_slice_id, dep)
+            if qualified not in deps:
+                deps.append(qualified)
     return deps
 
 
@@ -287,6 +325,7 @@ def _item_from_accepted_assertion(
     node_id_map: dict[str, str],
     label_by_node_id: dict[str, str],
     create_node_assertion_ids: dict[str, str],
+    contribution_slice_id: str,
 ) -> PromoteReviewItem:
     subject = (assertion.subject_node_id or "").strip()
     outcome = (
@@ -305,7 +344,9 @@ def _item_from_accepted_assertion(
         outcome = outcome or "created_new"
     if kind == "relationship":
         depends_on = _depends_on_for_edge(
-            assertion, create_node_assertion_ids=create_node_assertion_ids
+            assertion,
+            create_node_assertion_ids=create_node_assertion_ids,
+            contribution_slice_id=contribution_slice_id,
         )
     return PromoteReviewItem(
         assertion_id=assertion.assertion_id,
@@ -320,21 +361,28 @@ def _item_from_accepted_assertion(
             node_id_map=node_id_map,
             label_by_node_id=label_by_node_id,
         ),
+        contribution_slice_id=contribution_slice_id,
+        slice_qualified_id=_slice_qualified_id(
+            contribution_slice_id, assertion.assertion_id
+        ),
         evidence_summary=_evidence_summary(assertion),
         warnings=[],
         selectable=True,
         selected_by_default=True,
-        depends_on_assertion_ids=depends_on,
+        depends_on_slice_qualified_ids=depends_on,
     )
 
 
 def _item_from_unresolved_mention(
     mention: ContributionIdentityMention,
+    *,
+    contribution_slice_id: str,
 ) -> PromoteReviewItem:
     outcome = (mention.identity_resolution_outcome or "ambiguous").strip()
     warnings = list(mention.diagnostics or [])
+    assertion_id = f"unresolved:{mention.mention_id}"
     return PromoteReviewItem(
-        assertion_id=f"unresolved:{mention.mention_id}",
+        assertion_id=assertion_id,
         kind="object",
         label=(mention.label or mention.mention_id).strip(),
         action="update",
@@ -343,6 +391,8 @@ def _item_from_unresolved_mention(
             f"Unresolved mention: {(mention.label or mention.mention_id).strip()} "
             f"({outcome})"
         ),
+        contribution_slice_id=contribution_slice_id,
+        slice_qualified_id=_slice_qualified_id(contribution_slice_id, assertion_id),
         evidence_summary=(
             f"{len(mention.evidence_ref_ids)} evidence refs"
             if mention.evidence_ref_ids
@@ -358,16 +408,20 @@ def _item_from_rejected_assertion(
     assertion: GraphContributionAssertion,
     *,
     label_by_node_id: dict[str, str],
+    contribution_slice_id: str,
 ) -> PromoteReviewItem:
     outcome = (assertion.identity_resolution_outcome or "rejected").strip()
     label = _label_for_assertion(assertion, label_by_node_id=label_by_node_id)
+    assertion_id = f"rejected:{assertion.assertion_id}"
     return PromoteReviewItem(
-        assertion_id=f"rejected:{assertion.assertion_id}",
+        assertion_id=assertion_id,
         kind=_kind_from_assertion(assertion),
         label=label,
         action="update",
         identity_outcome=outcome,
         summary=f"Rejected: {label} ({outcome})",
+        contribution_slice_id=contribution_slice_id,
+        slice_qualified_id=_slice_qualified_id(contribution_slice_id, assertion_id),
         evidence_summary=_evidence_summary(assertion),
         warnings=[],
         selectable=False,

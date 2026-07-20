@@ -582,6 +582,7 @@ def candidate_graph_to_contribution(
     authored_by: str | None = "candidate-graph-mapper",
     source_domain: str = "recap",
     source_uri: str | None = None,
+    source_kind: str = "source_extraction",
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
     proposal_digest: str | None = None,
@@ -591,6 +592,7 @@ def candidate_graph_to_contribution(
     revision_id = _require_nonempty(source_revision_id, field="source_revision_id")
     if not revision_id.startswith("sha256:"):
         revision_id = f"sha256:{revision_id}"
+    kind = _require_nonempty(source_kind, field="source_kind")
 
     artifact_id = _require_nonempty(
         source_artifact_id
@@ -661,7 +663,7 @@ def candidate_graph_to_contribution(
 
     return create_graph_contribution(
         world_id=world,
-        source_kind="source_extraction",
+        source_kind=kind,  # type: ignore[arg-type]
         source_artifact_id=artifact_id,
         source_revision_id=revision_id,
         extraction_profile=extraction_profile,
@@ -674,5 +676,6 @@ def candidate_graph_to_contribution(
             f"mapped_nodes:{len(node_assertions)}",
             f"mapped_edges:{len(edge_assertions)}",
             f"preview_id:{preview.preview_id}",
+            f"source_kind:{kind}",
         ],
     )
