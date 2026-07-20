@@ -3,7 +3,7 @@
 **Status:** `DOING` (GitHub PR #370)  
 **Base:** `main` @ `c8f436c4`  
 **Branch:** `agent/pr011a3-existing-object-observation`  
-**Tip:** `7ba6b9e5e93f52bd645a0ab0e0f02bbd1f54d16d` (review-fix tip; docs pin may follow)
+**Tip:** `3816ea952f54b301d2fa2dc8f310454e4eaa549f` (multi-session session_ids accumulation)
 **Umbrella:** #367 (DO NOT MERGE fat tip `eb509dae`)
 
 ## §1 Mission
