@@ -2092,12 +2092,84 @@ def test_first_turn_issues_opaque_pointer_and_persists_binding(tmp_path: Path) -
 
     store = HermesSessionPointerStore(session_base)
     binding = store.get_for_thread(
-        campaign_id=str(READY_ENVELOPE["campaign_id"]),
+        campaign_id=str(PACKET["campaign_id"]),
         agent_thread_id="thread-a",
     )
     assert binding is not None
     assert binding.pointer_id == pointer
     assert binding.hermes_session_id == "hermes-internal-s1"
+    assert binding.campaign_id == PACKET["campaign_id"]
+
+
+def test_pointer_survives_graph_lens_campaign_switch_same_thread(tmp_path: Path) -> None:
+    """Same Plan packet + thread keeps continuity when the graph lens changes.
+
+    Ask under C2 lens, then C1-only on the same thread with the same opaque
+    pointer — must accept, not hermes_session_pointer_rejected.
+    """
+    session_base = tmp_path / "live-session"
+    packet = {"campaign_id": "longmont-c2", "session": 22}
+    c2_envelope = {
+        **READY_ENVELOPE,
+        "campaign_id": "longmont-c2",
+        "world_id": "eldyrwild",
+        "revision_id": "revision:c2",
+        "head_revision_id": "revision:c2",
+    }
+    c1_envelope = {
+        **READY_ENVELOPE,
+        "campaign_id": "longmont-c1",
+        "world_id": "eldyrwild",
+        "revision_id": "revision:c1",
+        "head_revision_id": "revision:c1",
+    }
+    host = _FakeHost(_ok_result(hermes_session_id="hermes-internal-s1"))
+    first = run_hermes_graph_query(
+        text="Who is in campaign 2?",
+        packet=packet,
+        graph_envelope=c2_envelope,
+        agent_thread_id="thread-lens",
+        turn_id="turn-1",
+        root=tmp_path,
+        session_base=session_base,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+    )
+    pointer = first["hermes_session"]["sessionId"]
+    assert pointer.startswith("hptr-")
+    host.calls.clear()
+    host.result = _ok_result(hermes_session_id="hermes-internal-s1")
+    second = run_hermes_graph_query(
+        text="Now only campaign 1 memory.",
+        packet=packet,
+        graph_envelope=c1_envelope,
+        agent_thread_id="thread-lens",
+        turn_id="turn-2",
+        root=tmp_path,
+        session_base=session_base,
+        host_factory=lambda: host,  # type: ignore[arg-type, return-value]
+        hermes_session_pointer=pointer,
+        conversation_history=VALID_HISTORY,
+    )
+    assert len(host.calls) == 1
+    assert host.calls[0].session_id == "hermes-internal-s1"
+    assert second["hermes_session"]["sessionId"] == pointer
+    ctx = second["agent_trace"]["conversation_context"]
+    assert ctx["hermes_session_pointer_status"] == "accepted"
+    from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+
+    store = HermesSessionPointerStore(session_base)
+    binding = store.get_for_thread(
+        campaign_id="longmont-c2",
+        agent_thread_id="thread-lens",
+    )
+    assert binding is not None
+    assert binding.pointer_id == pointer
+    assert binding.campaign_id == "longmont-c2"
+    # Lens campaign must not become a separate continuity key.
+    assert (
+        store.get_for_thread(campaign_id="longmont-c1", agent_thread_id="thread-lens")
+        is None
+    )
 
 
 def test_follow_up_accepts_bound_pointer_and_passes_continuity_session(

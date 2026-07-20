@@ -1037,6 +1037,22 @@ def _host_worker_pid(host: HermesGraphAgentHost) -> int | None:
     return worker_pid if isinstance(worker_pid, int) else None
 
 
+def _continuity_campaign_id(packet: Mapping[str, Any]) -> str:
+    """Campaign key for Hermes pointer continuity.
+
+    Bound to the outer live packet / Plan thread identity — not the nested
+    graph-lens campaign — so switching C2 → C1-only within one thread keeps
+    the same opaque pointer.
+    """
+    campaign_id = str(packet.get("campaign_id") or "").strip()
+    if not campaign_id:
+        raise HermesGraphQueryRequestError(
+            "Live packet is missing campaign_id for Hermes session continuity.",
+            code="hermes_session_pointer_rejected",
+        )
+    return campaign_id
+
+
 def _resolve_pointer_for_turn(
     store: HermesSessionPointerStore | None,
     *,
@@ -1386,7 +1402,8 @@ def run_hermes_graph_query(
         )
 
     resolved_corpus_root = (corpus_root or default_repo_root()).resolve()
-    campaign_id = str(graph_envelope.get("campaign_id") or "").strip()
+    # Pointer continuity keys off the live packet, not the graph-lens campaign.
+    continuity_campaign_id = _continuity_campaign_id(packet)
     pointer_store = (
         HermesSessionPointerStore(session_base)
         if session_base is not None
@@ -1394,7 +1411,7 @@ def run_hermes_graph_query(
     )
     prior_binding = (
         pointer_store.get_for_thread(
-            campaign_id=campaign_id,
+            campaign_id=continuity_campaign_id,
             agent_thread_id=agent_thread_id,
         )
         if pointer_store is not None and agent_thread_id
@@ -1402,7 +1419,7 @@ def run_hermes_graph_query(
     )
     pointer_resolution = _resolve_pointer_for_turn(
         pointer_store,
-        campaign_id=campaign_id,
+        campaign_id=continuity_campaign_id,
         agent_thread_id=agent_thread_id,
         hermes_session_pointer=hermes_session_pointer,
     )
@@ -1433,12 +1450,12 @@ def run_hermes_graph_query(
         and pointer_resolution.pointer_status == "recovered"
     ):
         pointer_store.clear_for_thread(
-            campaign_id=campaign_id,
+            campaign_id=continuity_campaign_id,
             agent_thread_id=agent_thread_id,
         )
     pointer_binding = _persist_pointer_after_turn(
         pointer_store,
-        campaign_id=campaign_id,
+        campaign_id=continuity_campaign_id,
         agent_thread_id=agent_thread_id,
         hermes_session_id=result.hermes_session_id,
         worker_pid=worker_pid,
