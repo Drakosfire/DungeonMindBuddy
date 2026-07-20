@@ -1,0 +1,321 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:918db5f8fd5a6fd6",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2ce41b7c841cdd7d",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:location:stone-bridge-span"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Stone Bridge",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:004-session-3-stone-bridge-flood",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "location:stone-bridge-span",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Stone Bridge",
+          "the stone bridge"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:location:stone-bridge-span",
+            "session_id": "session-3",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "location",
+        "role": "landmark",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a1dbe25587e7cc4e",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2ce41b7c841cdd7d",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:event:longmont-c1:session-3:stone-bridge-flood"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "The Stone Bridge Flood",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:004-session-3-stone-bridge-flood",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "event:longmont-c1:session-3:stone-bridge-flood",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "The Stone Bridge Flood"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:event:longmont-c1:session-3:stone-bridge-flood",
+            "session_id": "session-3",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "event",
+        "role": "session-event",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c197e28285f676ff",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2ce41b7c841cdd7d",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:npc:pippa"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Pippa",
+      "predicate": null,
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:004-session-3-stone-bridge-flood",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "npc:pippa",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Pippa"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:npc:pippa",
+            "session_id": "session-3",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "kind": "npc",
+        "role": "named-npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:597e13eae9ab3f45",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2ce41b7c841cdd7d",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:party:heroes-party:participated_in:event:longmont-c1:session-3:stone-bridge-flood"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Heroes / Party participated in The Stone Bridge Flood",
+      "predicate": "participated_in",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:004-session-3-stone-bridge-flood",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "party:heroes-party",
+      "target_node_id": "event:longmont-c1:session-3:stone-bridge-flood",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:party:heroes-party:participated_in:event:longmont-c1:session-3:stone-bridge-flood",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:party:heroes-party:participated_in:event:longmont-c1:session-3:stone-bridge-flood",
+            "session_id": "session-3",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Heroes / Party participated in The Stone Bridge Flood",
+        "predicate": "participated_in",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "party:heroes-party",
+        "target_node_id": "event:longmont-c1:session-3:stone-bridge-flood"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7782cb8b652f5c86",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2ce41b7c841cdd7d",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:event:longmont-c1:session-3:stone-bridge-flood:occurred_at:location:stone-bridge-span"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "The Stone Bridge Flood occurred at Stone Bridge",
+      "predicate": "occurred_at",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:004-session-3-stone-bridge-flood",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "event:longmont-c1:session-3:stone-bridge-flood",
+      "target_node_id": "location:stone-bridge-span",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:event:longmont-c1:session-3:stone-bridge-flood:occurred_at:location:stone-bridge-span",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:event:longmont-c1:session-3:stone-bridge-flood:occurred_at:location:stone-bridge-span",
+            "session_id": "session-3",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "The Stone Bridge Flood occurred at Stone Bridge",
+        "predicate": "occurred_at",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "event:longmont-c1:session-3:stone-bridge-flood",
+        "target_node_id": "location:stone-bridge-span"
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:5f0ce75cc7d1ea26",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2ce41b7c841cdd7d",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:bundle:c1:edge:location:stone-bridge-span:located_in:location:stonebridge"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Stone Bridge is located in Stonebridge",
+      "predicate": "located_in",
+      "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:004-session-3-stone-bridge-flood",
+      "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+      "subject_node_id": "location:stone-bridge-span",
+      "target_node_id": "location:stonebridge",
+      "temporal_scope": null,
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "directed",
+        "edge_id": "edge:location:stone-bridge-span:located_in:location:stonebridge",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:bundle:c1:edge:location:stone-bridge-span:located_in:location:stonebridge",
+            "session_id": "session-3",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed"
+          }
+        ],
+        "label": "Stone Bridge is located in Stonebridge",
+        "predicate": "located_in",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1",
+            "source_domain": "manual_seed",
+            "uri": "graph-data://approved-contribution-bundles/eldyrwild-longmont-c1-s1-s3-v1/"
+          }
+        ],
+        "source_domains": [
+          "manual_seed"
+        ],
+        "source_node_id": "location:stone-bridge-span",
+        "target_node_id": "location:stonebridge"
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "approved-bundle:eldyrwild-longmont-c1-s1-s3-v1",
+  "campaign_scope": "longmont-c1",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:2ce41b7c841cdd7d",
+  "diagnostics": [],
+  "extraction_profile": null,
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-18T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "graph-native:eldyrwild-c1-s1-s3-v1:004-session-3-stone-bridge-flood",
+  "source_kind": "manual_import",
+  "source_revision_id": "bundle-revision:eldyrwild-longmont-c1-s1-s3-v1",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

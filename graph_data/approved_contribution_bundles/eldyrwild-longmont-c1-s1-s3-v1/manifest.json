@@ -1,0 +1,43 @@
+{
+  "bundle_id": "eldyrwild-longmont-c1-s1-s3-v1",
+  "world_id": "eldyrwild",
+  "primary_campaign_scope": "longmont-c1",
+  "focus_sessions": [
+    "session-1",
+    "session-2",
+    "session-3"
+  ],
+  "supersedes_contribution_ids": [
+    "contribution:33d7cdb0ff623f28"
+  ],
+  "ordered_contribution_paths": [
+    "contributions/000-pc-world-ownership-supersede.json",
+    "contributions/001-heroes-party-roster.json",
+    "contributions/002-session-1-stonebridge-glowkindle.json",
+    "contributions/003-session-2-stonebridge-aftermath.json",
+    "contributions/004-session-3-stone-bridge-flood.json"
+  ],
+  "apply_mode": "additive_merge_onto_existing_head",
+  "expected_source_domains": [
+    "manual_seed"
+  ],
+  "required_node_ids": [
+    "pc:baergrom",
+    "pc:bonogo",
+    "pc:caelynn",
+    "pc:ephanna",
+    "pc:karsemine",
+    "pc:stafl",
+    "party:heroes-party",
+    "location:stonebridge",
+    "location:stone-bridge-span",
+    "event:longmont-c1:session-1:glowkindle-rats",
+    "event:longmont-c1:session-2:stonebridge-aftermath",
+    "event:longmont-c1:session-3:stone-bridge-flood",
+    "npc:grishna",
+    "npc:pippa",
+    "location:wizards-tower-brewing-co"
+  ],
+  "notes": "Additive C1 dogfood bed. First contribution supersedes C2 QC roster to make pc:* world-owned.",
+  "bundle_digest": "a1c69790bfd372b21e2ef6ae8bbe04b3f7fde341200a3ffb2068b49b4cc50df4"
+}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from pydantic import ValidationError
 
@@ -33,7 +33,11 @@ from graph_memory.projection.node_view import (
     GraphProjectionSuggestedExpansion,
     GraphProjectionTextHighlightSpan,
 )
-from graph_memory.projection.recap_projection import build_focus_overlay, build_node_view
+from graph_memory.projection.recap_projection import (
+    _resolve_evidence_source_excerpt,
+    build_focus_overlay,
+    build_node_view,
+)
 from graph_memory.projection.world_projection import (
     PROJECTION_RESPONSE_SCHEMA,
     SEARCH_MAX_ATTRIBUTES,
@@ -83,7 +87,7 @@ _UNSUPPORTED_ASSERTION_MEMORY_STATE = "unsupported_assertion"
 _TRUST_CANNOT = [
     "Evidence locators and source spans are metadata only; this projection does not verify them.",
     "Source artifact text is not read or opened by this projection.",
-    "v0 projection is single-campaign scoped; cross-campaign admissibility is not modeled.",
+    "Projection includes world-universal objects (campaign_scope null) plus objects scoped to the requested campaign_id; other campaign-scoped chronology is excluded.",
 ]
 _TRUST_CAN_HEAD = [
     "Revision pin identity matches the requested world graph revision.",
@@ -453,6 +457,22 @@ def _assert_active_node_assertions_agree(
     )
 
 
+def _assert_active_edge_assertions_agree(
+    assertions: list[GraphContributionAssertion],
+    *,
+    graph_object_id: str,
+) -> None:
+    fingerprints = {_edge_core_semantic_fingerprint(assertion) for assertion in assertions}
+    if len(fingerprints) > 1:
+        raise _integrity_error(
+            "Active edge assertions disagree on semantic fields.",
+            detail=(
+                f"graph_object_id={graph_object_id!r} "
+                f"active_assertion_ids={sorted(assertion.assertion_id for assertion in assertions)!r}"
+            ),
+        )
+
+
 def _validate_assertion_identity(
     assertion: GraphContributionAssertion,
     *,
@@ -617,21 +637,189 @@ def _load_revision_context(
 
 
 def _assert_campaign_scope(request: WorldGraphProjectionRequest, store: UnionSupergraphStore) -> None:
-    if store.campaign_id != request.campaign_id:
+    """Require a non-empty request campaign; do not bind to store.campaign_id.
+
+    Model B: the durable store is world-owned. Tenancy is assertion/object
+    ``campaign_scope`` (null = world-universal). The store may retain a legacy
+    ``campaign_id`` label from bootstrap; it is not a projection hard gate.
+    """
+    del store  # legacy store.campaign_id is intentionally unused
+    campaign_id = (request.campaign_id or "").strip()
+    if not campaign_id:
         raise WorldGraphProjectionError(
-            "Requested campaign_id does not match the selected revision store scope.",
-            code="campaign_scope_mismatch",
-            status_code=409,
+            "Requested campaign_id must be a non-empty campaign scope.",
+            code="invalid_request",
+            status_code=400,
             diagnostics=[
                 _diagnostic(
-                    "campaign_scope_mismatch",
-                    (
-                        f"request campaign_id={request.campaign_id!r} "
-                        f"store campaign_id={store.campaign_id!r}"
-                    ),
+                    "invalid_request",
+                    "request campaign_id is missing or blank",
                 )
             ],
         )
+    scope_mode = getattr(request, "scope_mode", "campaign") or "campaign"
+    if scope_mode not in {"campaign", "world"}:
+        raise WorldGraphProjectionError(
+            f"Unsupported scope_mode: {scope_mode!r}",
+            code="invalid_request",
+            status_code=400,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_request",
+                    "scope_mode must be 'campaign' or 'world'",
+                )
+            ],
+        )
+
+
+def _effective_focus_campaign_id(
+    focus: WorldGraphProjectionFocus,
+    *,
+    request_campaign_id: str,
+) -> str | None:
+    """Campaign that qualifies session focus (falls back to request campaign)."""
+    if focus.kind != "session":
+        return None
+    explicit = (focus.campaign_id or "").strip()
+    if explicit:
+        return explicit
+    return (request_campaign_id or "").strip() or None
+
+
+def _evidence_campaign_id(
+    store: UnionSupergraphStore,
+    evidence_ref_id: str,
+) -> str | None:
+    evidence = store.evidence.get(evidence_ref_id)
+    if evidence is None:
+        return None
+    artifact = store.source_artifacts.get(evidence.source_artifact_id)
+    if artifact is None:
+        return None
+    campaign = (artifact.campaign_id or "").strip()
+    return campaign or None
+
+
+def _evidence_matches_focus(
+    store: UnionSupergraphStore,
+    evidence_ref_id: str,
+    *,
+    focus_session_id: str | None,
+    focus_campaign_id: str | None,
+) -> bool:
+    """True when evidence session+campaign match the qualified temporal focus."""
+    if not focus_session_id:
+        return False
+    evidence = store.evidence.get(evidence_ref_id)
+    if evidence is None or evidence.session_id != focus_session_id:
+        return False
+    if not focus_campaign_id:
+        return True
+    evidence_campaign = _evidence_campaign_id(store, evidence_ref_id)
+    # Missing artifact campaign stays non-matching under qualified focus so
+    # bare session-N cannot silently cross campaigns.
+    return evidence_campaign == focus_campaign_id
+
+
+def _relationship_matches_focus(
+    store: UnionSupergraphStore,
+    relationship: WorldGraphProjectionRelationshipView,
+    *,
+    focus_session_id: str | None,
+    focus_campaign_id: str | None,
+) -> bool:
+    if not focus_session_id or focus_session_id not in relationship.session_ids:
+        # Fall back to evidence-level campaign+session match.
+        return any(
+            _evidence_matches_focus(
+                store,
+                evidence_ref_id,
+                focus_session_id=focus_session_id,
+                focus_campaign_id=focus_campaign_id,
+            )
+            for evidence_ref_id in relationship.evidence_ref_ids
+        )
+    if not focus_campaign_id:
+        return True
+    if relationship.campaign_scope is None:
+        # World-owned edge: only focus-anchored when evidence proves campaign.
+        return any(
+            _evidence_matches_focus(
+                store,
+                evidence_ref_id,
+                focus_session_id=focus_session_id,
+                focus_campaign_id=focus_campaign_id,
+            )
+            for evidence_ref_id in relationship.evidence_ref_ids
+        )
+    scope = str(relationship.campaign_scope).strip()
+    if not scope:
+        raise WorldGraphProjectionError(
+            "Blank campaign_scope is invalid; only JSON null is world-universal.",
+            code="invalid_campaign_scope",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_campaign_scope",
+                    "relationship campaign_scope is blank",
+                )
+            ],
+        )
+    return scope == focus_campaign_id
+
+
+def _campaign_scope_is_visible(
+    campaign_scope: str | None,
+    *,
+    request_campaign_id: str,
+    scope_mode: str = "campaign",
+) -> bool:
+    """Visibility lens independent of temporal focus.
+
+    - ``campaign``: world-universal (null) or matching request campaign.
+    - ``world``: every non-blank campaign scope in the same world store.
+    Blank strings are never world-universal in either mode.
+    """
+    if campaign_scope is None:
+        return True
+    scope = str(campaign_scope).strip()
+    if not scope:
+        raise WorldGraphProjectionError(
+            "Blank campaign_scope is invalid; only JSON null is world-universal.",
+            code="invalid_campaign_scope",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_campaign_scope",
+                    "blank campaign_scope cannot be treated as world-universal",
+                )
+            ],
+        )
+    if scope_mode == "world":
+        return True
+    return scope == request_campaign_id
+
+
+def _object_campaign_scope(state: Mapping[str, Any] | None) -> str | None:
+    if not isinstance(state, Mapping):
+        return None
+    value = state.get("campaign_scope")
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        raise WorldGraphProjectionError(
+            "Blank campaign_scope is invalid; only JSON null is world-universal.",
+            code="invalid_campaign_scope",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_campaign_scope",
+                    "stored object campaign_scope is blank",
+                )
+            ],
+        )
+    return text
 
 
 def _collect_assertion_provenance_from_contributions(
@@ -868,6 +1056,8 @@ def _build_evidence_badge_from_store(
     store: UnionSupergraphStore,
     evidence_ref_id: str,
     focus_session_id: str | None,
+    *,
+    focus_campaign_id: str | None = None,
 ) -> GraphProjectionEvidenceBadge:
     evidence = store.evidence[evidence_ref_id]
     evidence_extra = evidence.model_extra or {}
@@ -881,7 +1071,12 @@ def _build_evidence_badge_from_store(
         source_artifact_id=evidence.source_artifact_id,
         source_domain=str(evidence.source_domain),
         evidence_role=evidence.evidence_role,
-        is_focus_session_evidence=evidence.session_id == focus_session_id,
+        is_focus_session_evidence=_evidence_matches_focus(
+            store,
+            evidence_ref_id,
+            focus_session_id=focus_session_id,
+            focus_campaign_id=focus_campaign_id,
+        ),
         can_open_source=evidence.can_open_source,
         can_highlight_span=evidence.can_highlight_span,
         label=badge_label,
@@ -1032,12 +1227,14 @@ def _convert_node_view(
     role: str | None = None,
     aliases: list[str] | None = None,
     source_domains: list[str] | None = None,
+    summary: str | None = None,
     evidence_ref_ids: list[str],
     source_artifact_ids: list[str],
     adjacency: list[GraphProjectionAdjacencyCandidate] | None = None,
     suggested_expansions: list[GraphProjectionSuggestedExpansion] | None = None,
     evidence_badges: list[GraphProjectionEvidenceBadge] | None = None,
     anchored_to_focus_session: bool | None = None,
+    campaign_scope: str | None = None,
 ) -> WorldGraphProjectionNodeView:
     return WorldGraphProjectionNodeView(
         node_id=view.node_id,
@@ -1048,12 +1245,13 @@ def _convert_node_view(
         source_domains=list(
             source_domains if source_domains is not None else view.source_domains
         ),
-        summary=view.summary,
+        summary=summary if summary is not None else view.summary,
         anchored_to_focus_session=(
             view.anchored_to_focus_session
             if anchored_to_focus_session is None
             else anchored_to_focus_session
         ),
+        campaign_scope=campaign_scope,
         evidence_badges=[
             _convert_evidence_badge(badge)
             for badge in (evidence_badges if evidence_badges is not None else view.evidence_badges)
@@ -1122,15 +1320,16 @@ def _edge_semantics_from_assertion(
     )
 
 
-def _assert_active_edge_assertions_agree(
+def _assert_active_object_assertions_agree(
     assertions: list[GraphContributionAssertion],
     *,
+    object_kind: str,
     graph_object_id: str,
 ) -> None:
-    fingerprints = {_edge_core_semantic_fingerprint(assertion) for assertion in assertions}
+    fingerprints = {_assertion_semantic_fingerprint(assertion) for assertion in assertions}
     if len(fingerprints) > 1:
         raise _integrity_error(
-            "Active edge assertions disagree on semantic fields.",
+            f"Active {object_kind} assertions disagree on semantic fields.",
             detail=(
                 f"graph_object_id={graph_object_id!r} "
                 f"active_assertion_ids={sorted(assertion.assertion_id for assertion in assertions)!r}"
@@ -1142,6 +1341,9 @@ def _build_attribute_views(
     root: Path,
     world_id: str,
     store: UnionSupergraphStore,
+    *,
+    request_campaign_id: str,
+    scope_mode: str = "campaign",
 ) -> list[WorldGraphProjectionAttributeView]:
     attributes: list[WorldGraphProjectionAttributeView] = []
     for raw_support in store.assertion_support.values():
@@ -1151,6 +1353,12 @@ def _build_attribute_views(
         if support.support_state != "supported" or not support.active_contribution_ids:
             continue
         assertion = _resolve_assertion_from_support(root, world_id, store, support)
+        if not _campaign_scope_is_visible(
+            assertion.campaign_scope,
+            request_campaign_id=request_campaign_id,
+            scope_mode=scope_mode,
+        ):
+            continue
         value = dict(assertion.value)
         evidence_ref_ids, source_artifact_ids = _collect_assertion_provenance_from_contributions(
             root,
@@ -1184,6 +1392,9 @@ def _build_relationship_views(
     root: Path,
     world_id: str,
     store: UnionSupergraphStore,
+    *,
+    request_campaign_id: str,
+    scope_mode: str = "campaign",
 ) -> list[WorldGraphProjectionRelationshipView]:
     identity_context = build_union_projection_identity_context(store)
     relationships: list[WorldGraphProjectionRelationshipView] = []
@@ -1251,6 +1462,12 @@ def _build_relationship_views(
         elif edge.evidence_ref_ids:
             evidence_ref_ids = list(edge.evidence_ref_ids)
             source_artifact_ids = _source_artifact_ids_for_evidence(store, evidence_ref_ids)
+        if not _campaign_scope_is_visible(
+            campaign_scope,
+            request_campaign_id=request_campaign_id,
+            scope_mode=scope_mode,
+        ):
+            continue
         source_domains = _source_domains_from_active_provenance(
             store,
             evidence_ref_ids,
@@ -1373,6 +1590,46 @@ def _active_node_aliases(
     return aliases
 
 
+def _active_node_campaign_scope(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    node_id: str,
+    fallback_node: UnionSupergraphNode,
+) -> str | None:
+    """Prefer active node-assertion campaign_scope over stale materialized state."""
+    node_supports = [
+        support
+        for support in _active_supports_for_graph_object(store, node_id)
+        if support.assertion_kind == "node"
+    ]
+    if node_supports:
+        assertions = [
+            _resolve_assertion_from_support(root, world_id, store, support)
+            for support in node_supports
+        ]
+        _assert_active_node_assertions_agree(assertions, node_id=node_id)
+        representative = min(assertions, key=lambda assertion: assertion.assertion_id)
+        return representative.campaign_scope
+    return _object_campaign_scope(
+        fallback_node.state if isinstance(fallback_node.state, Mapping) else None
+    )
+
+
+def _union_node_description_summary(node: UnionSupergraphNode) -> str | None:
+    description = (node.model_extra or {}).get("description")
+    if isinstance(description, str) and description.strip():
+        return description.strip()
+    return None
+
+
+def _assertion_value_summary(value: Mapping[str, Any] | None) -> str | None:
+    raw = dict(value or {}).get("summary")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
 def _active_node_semantics(
     root: Path,
     world_id: str,
@@ -1380,7 +1637,7 @@ def _active_node_semantics(
     node_id: str,
     fallback: UnionSupergraphNode,
     identity_context: UnionProjectionIdentityContext,
-) -> tuple[str, str, str, list[str]]:
+) -> tuple[str, str, str, list[str], str | None]:
     node_supports = [
         support
         for support in _active_supports_for_graph_object(store, node_id)
@@ -1390,7 +1647,13 @@ def _active_node_semantics(
         aliases = _active_node_aliases(
             root, world_id, store, node_id, identity_context, list(fallback.aliases)
         )
-        return fallback.label, fallback.kind, fallback.role, aliases
+        return (
+            fallback.label,
+            fallback.kind,
+            fallback.role,
+            aliases,
+            _union_node_description_summary(fallback),
+        )
     assertions = [
         _resolve_assertion_from_support(root, world_id, store, support)
         for support in node_supports
@@ -1401,6 +1664,7 @@ def _active_node_semantics(
     label = representative.label or str(value.get("label") or fallback.label)
     kind = str(value.get("kind") or fallback.kind)
     role = str(value.get("role") or kind)
+    summary = _assertion_value_summary(value) or _union_node_description_summary(fallback)
     base_aliases = [
         alias
         for assertion in assertions
@@ -1411,7 +1675,7 @@ def _active_node_semantics(
     aliases = _active_node_aliases(
         root, world_id, store, node_id, identity_context, base_aliases
     )
-    return label, kind, role, aliases
+    return label, kind, role, aliases, summary
 
 
 def _endpoint_relative_direction(
@@ -1435,24 +1699,120 @@ def _endpoint_relative_direction(
     return relationship.direction or ""
 
 
+def _resolve_repo_uri_file(uri: str, world_root: Path) -> Path | None:
+    """Resolve a ``repo://…`` artifact URI to an on-disk file under the repo.
+
+    ``world_root`` is typically ``<repo>/out`` (``world_graph_root()``). Artifact
+    URIs are repo-relative (``repo://out/graph_memory/runs/…``), so resolution
+    tries ``world_root.parent / <rel>`` first, then paths under ``world_root``.
+    """
+    if not isinstance(uri, str) or not uri.startswith("repo://"):
+        return None
+    rel = uri[len("repo://") :].lstrip("/")
+    if not rel or ".." in Path(rel).parts:
+        return None
+    world_root = world_root.resolve()
+    repo_root = world_root.parent
+    candidates = [
+        (repo_root / rel).resolve(),
+        (world_root / rel).resolve(),
+    ]
+    rel_path = Path(rel)
+    if rel_path.parts and rel_path.parts[0] == world_root.name:
+        candidates.insert(1, (world_root.joinpath(*rel_path.parts[1:])).resolve())
+    for path in candidates:
+        try:
+            path.relative_to(repo_root)
+        except ValueError:
+            continue
+        if path.is_file():
+            return path
+    return None
+
+
+def _load_source_span_paragraph_text_index(index_path: Path) -> dict[str, str]:
+    """Load span_id → full paragraph text from an ingest ``source_span_index.json``."""
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    spans = payload.get("spans")
+    if not isinstance(spans, list):
+        return {}
+    paragraph_text_by_span_id: dict[str, str] = {}
+    for span in spans:
+        if not isinstance(span, dict):
+            continue
+        if span.get("kind") != "paragraph":
+            continue
+        span_id = span.get("span_id") or span.get("source_span_ref_id")
+        # Prefer full ``text`` over truncated ``text_excerpt`` (240-char preview).
+        text = span.get("text") or span.get("text_excerpt")
+        if isinstance(span_id, str) and isinstance(text, str) and text.strip():
+            paragraph_text_by_span_id.setdefault(span_id, text)
+    return paragraph_text_by_span_id
+
+
+def _paragraph_text_by_span_id_from_source_artifacts(
+    root: Path,
+    store: UnionSupergraphStore,
+) -> dict[str, str]:
+    """Build span_id → paragraph text from source-artifact ingest run indexes.
+
+    World-graph evidence points at ``source_span_ref_id`` values but does not
+    embed paragraph prose. Ingest runs keep that prose in sibling
+    ``source_span_index.json`` files next to the artifact's ``normalized_recap``.
+    """
+    paragraph_text_by_span_id: dict[str, str] = {}
+    for artifact in store.source_artifacts.values():
+        uri = getattr(artifact, "uri", None)
+        if not isinstance(uri, str) or not uri.strip():
+            continue
+        artifact_path = _resolve_repo_uri_file(uri, root)
+        if artifact_path is None:
+            continue
+        index_path = artifact_path.parent / "source_span_index.json"
+        if not index_path.is_file():
+            continue
+        for span_id, text in _load_source_span_paragraph_text_index(index_path).items():
+            paragraph_text_by_span_id.setdefault(span_id, text)
+    return paragraph_text_by_span_id
+
+
 def _normalized_adjacency_candidate(
     candidate: GraphProjectionAdjacencyCandidate,
     relationship: WorldGraphProjectionRelationshipView,
     *,
     store: UnionSupergraphStore,
     source_node_id: str,
-    node_metadata: dict[str, tuple[str, str, str, list[str]]],
+    node_metadata: dict[str, tuple[str, str, str, list[str], str | None]],
     focus_session_id: str | None,
+    focus_campaign_id: str | None = None,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
 ) -> GraphProjectionAdjacencyCandidate:
     related_node_id = (
         relationship.target_node_id
         if relationship.source_node_id == source_node_id
         else relationship.source_node_id
     )
-    related_label, related_kind, _related_role, _related_aliases = node_metadata.get(
-        related_node_id,
-        (candidate.label, candidate.kind, "", []),
+    related_label, related_kind, _related_role, _related_aliases, related_summary = (
+        node_metadata.get(
+            related_node_id,
+            (candidate.label, candidate.kind, "", [], candidate.related_summary),
+        )
     )
+    source_excerpt = candidate.source_excerpt
+    source_excerpt_is_full_paragraph = candidate.source_excerpt_is_full_paragraph
+    source_excerpt_highlight_spans = list(candidate.source_excerpt_highlight_spans)
+    if not (isinstance(source_excerpt, str) and source_excerpt.strip()):
+        resolved = _resolve_evidence_source_excerpt(
+            store,
+            relationship.evidence_ref_ids,
+            paragraph_text_by_span_id=paragraph_text_by_span_id,
+        )
+        source_excerpt = resolved.text
+        source_excerpt_is_full_paragraph = resolved.is_full_paragraph
+        source_excerpt_highlight_spans = list(resolved.highlight_spans)
     return GraphProjectionAdjacencyCandidate(
         edge_id=relationship.edge_id,
         node_id=related_node_id,
@@ -1460,26 +1820,20 @@ def _normalized_adjacency_candidate(
         kind=related_kind,
         predicate=relationship.predicate,
         direction=_endpoint_relative_direction(relationship, source_node_id),
-        anchored_to_focus_session=(
-            candidate.anchored_to_focus_session
-            or (
-                focus_session_id is not None
-                and focus_session_id in relationship.session_ids
-            )
-            or any(
-                store.evidence[evidence_ref_id].session_id == focus_session_id
-                for evidence_ref_id in relationship.evidence_ref_ids
-                if evidence_ref_id in store.evidence
-            )
+        anchored_to_focus_session=_relationship_matches_focus(
+            store,
+            relationship,
+            focus_session_id=focus_session_id,
+            focus_campaign_id=focus_campaign_id,
         ),
         source_domains=list(relationship.source_domains),
         evidence_ref_ids=list(relationship.evidence_ref_ids),
         edge_label=relationship.label,
         session_ids=list(relationship.session_ids),
-        related_summary=candidate.related_summary,
-        source_excerpt=None,
-        source_excerpt_is_full_paragraph=False,
-        source_excerpt_highlight_spans=[],
+        related_summary=related_summary if related_summary is not None else candidate.related_summary,
+        source_excerpt=source_excerpt,
+        source_excerpt_is_full_paragraph=source_excerpt_is_full_paragraph,
+        source_excerpt_highlight_spans=source_excerpt_highlight_spans,
     )
 
 
@@ -1490,13 +1844,24 @@ def _build_node_views(
     focus: WorldGraphProjectionFocus,
     attributes: list[WorldGraphProjectionAttributeView],
     relationships: list[WorldGraphProjectionRelationshipView],
+    *,
+    request_campaign_id: str,
+    scope_mode: str = "campaign",
 ) -> list[WorldGraphProjectionNodeView]:
     identity_context = build_union_projection_identity_context(store)
     focus_session_id = focus.session_id if focus.kind == "session" else None
+    focus_campaign_id = _effective_focus_campaign_id(
+        focus, request_campaign_id=request_campaign_id
+    )
     focus_evidence_ids = {
         evidence_ref_id
-        for evidence_ref_id, evidence in store.evidence.items()
-        if evidence.session_id == focus_session_id
+        for evidence_ref_id in store.evidence
+        if _evidence_matches_focus(
+            store,
+            evidence_ref_id,
+            focus_session_id=focus_session_id,
+            focus_campaign_id=focus_campaign_id,
+        )
     }
     node_metadata = {
         node_id: _active_node_semantics(
@@ -1505,12 +1870,24 @@ def _build_node_views(
         for node_id, node in store.nodes.items()
         if not _is_unsupported_graph_object(node)
     }
+    paragraph_text_by_span_id = _paragraph_text_by_span_id_from_source_artifacts(
+        root, store
+    )
     nodes: list[WorldGraphProjectionNodeView] = []
     for node_id in sorted(projectable_node_ids(store, identity_context)):
         node = store.nodes[node_id]
         if not is_projectable_union_node(node, identity_context):
             continue
         if _is_unsupported_graph_object(node):
+            continue
+        node_campaign_scope = _active_node_campaign_scope(
+            root, world_id, store, node_id, node
+        )
+        if not _campaign_scope_is_visible(
+            node_campaign_scope,
+            request_campaign_id=request_campaign_id,
+            scope_mode=scope_mode,
+        ):
             continue
         view = build_node_view(
             store,
@@ -1534,6 +1911,8 @@ def _build_node_views(
                 source_node_id=node_id,
                 node_metadata=node_metadata,
                 focus_session_id=focus_session_id,
+                focus_campaign_id=focus_campaign_id,
+                paragraph_text_by_span_id=paragraph_text_by_span_id,
             )
 
         def _synthesize(edge_id: str) -> GraphProjectionAdjacencyCandidate:
@@ -1547,9 +1926,9 @@ def _build_node_views(
                 edge_id=edge_id,
                 node_id=related_node_id,
                 label=node_metadata.get(
-                    related_node_id, (related_node_id, "unknown", "", [])
+                    related_node_id, (related_node_id, "unknown", "", [], None)
                 )[0],
-                kind=node_metadata.get(related_node_id, ("", "unknown", "", []))[1],
+                kind=node_metadata.get(related_node_id, ("", "unknown", "", [], None))[1],
                 predicate=relationship.predicate,
                 direction="",
             )
@@ -1612,18 +1991,15 @@ def _build_node_views(
         )
         active_evidence_ids = set(evidence_ref_ids)
         badge_by_id = {
-            badge.evidence_ref_id: badge
-            for badge in view.evidence_badges
-            if badge.evidence_ref_id in active_evidence_ids
-        }
-        for evidence_ref_id in evidence_ref_ids:
-            if evidence_ref_id in badge_by_id or evidence_ref_id not in store.evidence:
-                continue
-            badge_by_id[evidence_ref_id] = _build_evidence_badge_from_store(
+            evidence_ref_id: _build_evidence_badge_from_store(
                 store,
                 evidence_ref_id,
                 focus_session_id,
+                focus_campaign_id=focus_campaign_id,
             )
+            for evidence_ref_id in evidence_ref_ids
+            if evidence_ref_id in store.evidence
+        }
         filtered_badges = [
             badge_by_id[evidence_ref_id]
             for evidence_ref_id in evidence_ref_ids
@@ -1639,6 +2015,7 @@ def _build_node_views(
                 kind=node_metadata[node_id][1],
                 role=node_metadata[node_id][2],
                 aliases=node_metadata[node_id][3],
+                summary=node_metadata[node_id][4],
                 source_domains=_source_domains_from_active_provenance(
                     store,
                     evidence_ref_ids,
@@ -1650,6 +2027,7 @@ def _build_node_views(
                 suggested_expansions=filtered_expansions,
                 evidence_badges=filtered_badges,
                 anchored_to_focus_session=anchored_to_focus_session,
+                campaign_scope=node_campaign_scope,
             )
         )
     return nodes
@@ -1739,6 +2117,7 @@ def _build_evidence_views(
                 source_artifact_id=evidence.source_artifact_id,
                 source_domain=str(evidence.source_domain),
                 session_id=evidence.session_id,
+                campaign_id=_evidence_campaign_id(store, evidence_id),
                 locator=evidence.locator,
                 source_span_ref_id=evidence.source_span_ref_id,
             )
@@ -1793,8 +2172,20 @@ def build_projection_payload(
         )
 
     try:
-        attributes = _build_attribute_views(root, resolved_world_id, store)
-        relationships = _build_relationship_views(root, resolved_world_id, store)
+        attributes = _build_attribute_views(
+            root,
+            resolved_world_id,
+            store,
+            request_campaign_id=request.campaign_id,
+            scope_mode=request.scope_mode,
+        )
+        relationships = _build_relationship_views(
+            root,
+            resolved_world_id,
+            store,
+            request_campaign_id=request.campaign_id,
+            scope_mode=request.scope_mode,
+        )
         nodes = _build_node_views(
             root,
             resolved_world_id,
@@ -1802,6 +2193,8 @@ def build_projection_payload(
             request.focus,
             attributes,
             relationships,
+            request_campaign_id=request.campaign_id,
+            scope_mode=request.scope_mode,
         )
         evidence_ids = _collect_projection_provenance_ids(
             nodes,
@@ -1829,6 +2222,11 @@ def build_projection_payload(
 
     identity_context = build_union_projection_identity_context(store)
     focus_session_id = request.focus.session_id if request.focus.kind == "session" else None
+    focus_campaign_id = _effective_focus_campaign_id(
+        request.focus, request_campaign_id=request.campaign_id
+    )
+    # Focus overlay remains session-biased; campaign qualification is applied
+    # in node/adjacency ranking above. Overlay uses session_id for coarse set.
     overlay = build_focus_overlay(
         store,
         focus_session_id=focus_session_id,
@@ -1839,7 +2237,9 @@ def build_projection_payload(
             code="focus_overlay_built",
             message=(
                 f"Focused {len(overlay.focused_node_ids)} nodes for "
-                f"focus={request.focus.kind}."
+                f"focus={request.focus.kind} "
+                f"focus_campaign={focus_campaign_id!r} "
+                f"scope_mode={request.scope_mode}."
             ),
             severity="info",
         )
@@ -1867,6 +2267,7 @@ def build_projection_payload(
             is_head=revision_id == head_revision_id,
             focus=request.focus,
             admissibility=request.admissibility,
+            scope_mode=request.scope_mode,
         ),
         summary=WorldGraphProjectionSummary(
             node_count=len(nodes),
