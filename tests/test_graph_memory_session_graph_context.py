@@ -117,6 +117,7 @@ def test_merge_party_collective_noop_without_members():
 
 
 def test_run_category_pipeline_injects_party_anchors_for_session_22():
+    """Party registry injects anchors at consolidate; promote IR drops empty-evidence ones."""
     spref = "session-22:recap:paragraph:001"
     span_index = {
         "spans": [
@@ -140,13 +141,16 @@ def test_run_category_pipeline_injects_party_anchors_for_session_22():
             model_id="gpt-5.4-mini",
         ),
     )
-    anchor_ids = {
+    diagnostics = result.consolidation_diagnostics
+    assert "captain_lysandra_ironveil" in diagnostics["inserted_party_anchor_slugs"]
+    assert "thrin_branchborn" in diagnostics["inserted_party_anchor_slugs"]
+    assert diagnostics["session_graph_context_warnings"] == []
+    # Promote projection strips empty-evidence standing context until partition owns it.
+    assert not any(
+        n.get("context_anchor") for n in result.candidate_graph.get("nodes", [])
+    )
+    assert "captain_lysandra_ironveil" not in {
         n.get("corpus_ref", {}).get("ref_id")
         for n in result.candidate_graph.get("nodes", [])
-        if n.get("context_anchor")
+        if isinstance(n.get("corpus_ref"), dict)
     }
-    assert "captain_lysandra_ironveil" in anchor_ids
-    assert "thrin_branchborn" in anchor_ids
-    diagnostics = result.consolidation_diagnostics
-    assert diagnostics["inserted_party_anchor_slugs"]
-    assert diagnostics["session_graph_context_warnings"] == []

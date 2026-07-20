@@ -195,15 +195,27 @@ def project_candidate_graph_for_promote(
         if from_id not in kept_node_ids or to_id not in kept_node_ids:
             continue
         kept_edges.append(dict(edge))
-    kept_beats = [
-        beat
-        for beat in (graph.get("beats") or [])
-        if isinstance(beat, Mapping) and _evidence_refs_nonempty(beat)
-    ]
+    kept_beats = []
+    for beat in graph.get("beats") or []:
+        if not isinstance(beat, Mapping) or not _evidence_refs_nonempty(beat):
+            continue
+        reconciled = dict(beat)
+        reconciled["involved_node_ids"] = [
+            nid
+            for nid in (beat.get("involved_node_ids") or [])
+            if str(nid).strip() in kept_node_ids
+        ]
+        if "unresolved_thread_node_ids" in beat:
+            reconciled["unresolved_thread_node_ids"] = [
+                nid
+                for nid in (beat.get("unresolved_thread_node_ids") or [])
+                if str(nid).strip() in kept_node_ids
+            ]
+        kept_beats.append(reconciled)
     graph["nodes"] = [dict(node) for node in kept_nodes]
     graph["edges"] = kept_edges
     if "beats" in graph:
-        graph["beats"] = [dict(beat) for beat in kept_beats]
+        graph["beats"] = kept_beats
 
     diag = dict(PROMOTE_SAFE_PREVIEW_DIAGNOSTICS)
     if warning_count is not None:

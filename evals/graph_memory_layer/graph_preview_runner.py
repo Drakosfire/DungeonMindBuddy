@@ -74,7 +74,6 @@ class GraphPreviewRunnerOptions:
     output_dir: Path
     source_label: str | None = None
     model_id: str | None = None
-    reasoning_effort: str | None = None
     allow_llm: bool = False
     comparison_mode: ComparisonMode = "none"
     gold_path: Path | None = None
@@ -685,8 +684,6 @@ def run_graph_preview_extraction(
             safe_relative_artifact_uri(output_dir),
         )
         try:
-            # Promote-IR slice: do not pass reasoning_effort — OpenAICategoryGraphPassClient
-            # on this branch has no such constructor arg (fat-tip contract stays out of scope).
             category_client = options.category_client or OpenAICategoryGraphPassClient()
 
             def _progress(pass_name: str, state: str) -> None:

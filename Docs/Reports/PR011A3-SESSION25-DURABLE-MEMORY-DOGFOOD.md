@@ -5,7 +5,7 @@
 **Date/time:** 2026-07-18T10:11–11:35 America/Denver  
 **Closeout / split:** promote-IR reconstituted on `agent/pr011a3-promote-ir-closeout` (from `#367` tip; do not merge fat tip)  
 **Base SHA:** `37c0a79ddf323ec073e18a345d902162c330be61` (merge of GitHub PR #366)  
-**Head SHA:** `cf4a37f2d7b55a458707db9efd1cb2eed5b616f0`
+**Head SHA:** `PENDING_TIP` — repin after landing beat-reconcile + §4/§7 authority fix
 **GitHub PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/369  
 **Slice handoff:** `Docs/Plans/HANDOFF-pr011a3-promote-ir-slice.md`  
 **Umbrella (DO NOT MERGE):** https://github.com/Drakosfire/DungeonMindBuddy/pull/367  

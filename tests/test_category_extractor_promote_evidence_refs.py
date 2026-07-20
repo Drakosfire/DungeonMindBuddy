@@ -247,7 +247,21 @@ def test_project_candidate_graph_for_promote_party_anchors_do_not_block_typed_lo
                 "context_anchor": True,
             }
         ],
-        "beats": [],
+        "beats": [
+            {
+                "beat_id": "beat:party-scene",
+                "order": 1,
+                "title": "With the party",
+                "summary": "Session NPC acts beside the standing party collective.",
+                "involved_node_ids": ["npc:session", "node:heroes-party"],
+                "unresolved_thread_node_ids": ["node:heroes-party"],
+                "evidence_refs": [
+                    {"source_span_ref_id": SPAN, "anchor_quotes": ["beside"]}
+                ],
+                "proposed_action": "create",
+                "warnings": [],
+            }
+        ],
         "proposed_writes": [],
         "ignored_items": [],
         "deferred_items": [],
@@ -257,9 +271,101 @@ def test_project_candidate_graph_for_promote_party_anchors_do_not_block_typed_lo
     project_candidate_graph_for_promote(graph, warning_count=0)
     assert [n["node_id"] for n in graph["nodes"]] == ["npc:session"]
     assert graph["edges"] == []
+    assert len(graph["beats"]) == 1
+    assert graph["beats"][0]["involved_node_ids"] == ["npc:session"]
+    assert graph["beats"][0]["unresolved_thread_node_ids"] == []
     preview = candidate_graph_preview_from_dict(graph)
     report = validate_candidate_graph_preview(preview)
     assert report.issues == ()
+
+
+def test_party_registry_category_pipeline_persists_promotable_for_resolve(
+    tmp_path, monkeypatch
+) -> None:
+    """Owning path: real party registry → category runner → persisted run → resolve."""
+    import json
+    from pathlib import Path
+
+    from apps.live_control_server.services.graph_ingest_run_registry import (
+        GRAPH_INGEST_RUNS_ENV,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from graph_memory.candidate_graph_preview import validate_candidate_graph_preview
+    from src.graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions,
+        FixtureCategoryGraphPassClient,
+        run_category_pipeline,
+    )
+    from src.graph_memory.session_graph_context import PARTY_COLLECTIVE_NODE_ID
+    from tests.fixtures.graph_memory.category_extraction_helpers import (
+        minimal_category_pass_outputs,
+    )
+    from tests.test_live_extract_promote_api import _write_promotable_run
+
+    spref = "session-22:recap:paragraph:001"
+    passes = minimal_category_pass_outputs(spref)
+    # Beat retains standing party collective id (dropped at promote) plus session node.
+    passes["beat_pass"]["observation_beats"][0]["involved_node_ids"] = [
+        "node:bonogo",
+        PARTY_COLLECTIVE_NODE_ID,
+        "node:captain-lysandra-ironveil",
+    ]
+    span_index = {
+        "spans": [
+            {
+                "kind": "paragraph",
+                "span_id": spref,
+                "source_span_ref_id": spref,
+                "line_start": 1,
+                "line_end": 3,
+                "text": "Bonogo scouts the Mireward road with the company.",
+            }
+        ]
+    }
+    result = run_category_pipeline(
+        FixtureCategoryGraphPassClient(passes),
+        CategoryGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-22",
+            session_number=22,
+            source_span_index=span_index,
+            model_id="gpt-5.4-mini",
+        ),
+    )
+    assert result.consolidation_diagnostics["inserted_party_anchor_slugs"]
+    graph = result.candidate_graph
+    assert PARTY_COLLECTIVE_NODE_ID not in {n["node_id"] for n in graph["nodes"]}
+    beats = graph.get("beats") or []
+    assert beats
+    for beat in beats:
+        assert PARTY_COLLECTIVE_NODE_ID not in beat.get("involved_node_ids", [])
+        assert "node:captain-lysandra-ironveil" not in beat.get(
+            "involved_node_ids", []
+        )
+
+    preview = load_typed_candidate_graph(graph)
+    assert validate_candidate_graph_preview(preview).issues == ()
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _digest, _source = _write_promotable_run(repo)
+    candidate_path = (
+        repo
+        / "out/graph_memory/runs/longmont-c2/session-22/fixture-promote"
+        / "candidate_graph.json"
+    )
+    candidate_path.write_text(json.dumps(graph, indent=2) + "\n", encoding="utf-8")
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.run_id == run_id
+    asserted = json.loads(
+        Path(resolved.candidate_graph_path).read_text(encoding="utf-8")
+    )
+    load_typed_candidate_graph(asserted)
 
 
 def test_assemble_envelope_edges_are_typed_loadable() -> None:
