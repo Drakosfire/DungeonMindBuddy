@@ -1,13 +1,14 @@
 # PR011A3 — Session 24 durable memory dogfood (Session 25 waived)
 
 **Status:** `PARTIAL` — prepare+confirm published; projection integrity blocks UI reload  
-**Terminal verdict:** `PARTIAL` (NOT ready for backfill)  
+**Terminal verdict:** `PARTIAL` / `NOT_READY_FOR_CANONICAL_RECAP_BACKFILL`  
 **Date/time:** 2026-07-18T10:11–11:35 America/Denver  
 **Closeout / split:** promote-IR reconstituted on `agent/pr011a3-promote-ir-closeout` (from `#367` tip; do not merge fat tip)  
 **Base SHA:** `37c0a79ddf323ec073e18a345d902162c330be61` (merge of GitHub PR #366)  
-**Head SHA:** *(updated on push)*  
-**GitHub PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/367  
-**Closeout handoff:** `Docs/Plans/HANDOFF-pr011a3-closeout-live-acceptance-corpus-ui-readiness-gate.md`
+**Head SHA:** *(set in commit message / PR after push — see GitHub PR #369 tip)*  
+**GitHub PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/369  
+**Slice handoff:** `Docs/Plans/HANDOFF-pr011a3-promote-ir-slice.md`  
+**Umbrella (DO NOT MERGE):** https://github.com/Drakosfire/DungeonMindBuddy/pull/367  
 
 ## Operator waiver
 
@@ -279,10 +280,12 @@ C) Revert/investigate the degraded audit before any further live publishes.
 ## Split reconstruction note
 
 ```text
-PR #367 retained as DO-NOT-MERGE tracking umbrella.
+PR #367 retained as DO-NOT-MERGE tracking umbrella; authority PR is #369.
 This report remains PARTIAL / NOT_READY_FOR_CANONICAL_RECAP_BACKFILL.
 Repair of a later head (rev:156f166…) is not forward proof that confirm
 produces a directly reloadable committed revision.
-Successor slices: existing-object observation, atomic multi-contribution,
-C1 migration, Plan lens, graph reference UI, Author Node.
+Promote-IR slice drops empty-evidence party/context anchors at promote
+projection (no hidden dependency on standing-context partition).
+Successor slices: existing-object observation (#370), atomic multi-contribution
+(#375), C1, Plan lens, graph reference UI, Author Node, known-entity.
 ```

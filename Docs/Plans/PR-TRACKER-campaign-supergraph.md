@@ -352,7 +352,7 @@ review sheet (not a diagnostics dump).
 **Status:** `DOING` — implementation merged `#366` (`37c0a79d`); live acceptance **PARTIAL** (Session 25 waived → Session 24). Fat tip `#367` is DO-NOT-MERGE tracking; successor slices reconstitute from `37c0a79d`.  
 **Depends on:** PR011A2 (`DONE`)
 **Acceptance report:** [`PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md`](../Reports/PR011A3-SESSION25-DURABLE-MEMORY-DOGFOOD.md) — terminal `NOT_READY_FOR_CANONICAL_RECAP_BACKFILL` (repair ≠ forward exact-reload proof).
-**Handoff:** [`HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`](./HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md)
+**Handoff:** [`HANDOFF-pr011a3-promote-ir-slice.md`](./HANDOFF-pr011a3-promote-ir-slice.md) (slice 1); historical closeout handoff remains under umbrella #367.
 
 **Purpose:** Explicit **Merge N changes into campaign memory**, then prove the
 object journey on Session 25 (Hesta / apothecary ↔ Mireward).

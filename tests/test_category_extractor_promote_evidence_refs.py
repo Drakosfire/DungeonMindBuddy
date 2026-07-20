@@ -108,13 +108,56 @@ def test_assemble_envelope_stamps_evidence_refs() -> None:
 
 def test_project_candidate_graph_for_promote_strips_edge_family_and_safe_diag() -> None:
     graph = {
-        "nodes": [{"node_id": "n1", "context_anchor": True, "evidence_refs": []}],
+        "nodes": [
+            {
+                "node_id": "n1",
+                "context_anchor": True,
+                "evidence_refs": [],
+            },
+            {
+                "node_id": "n2",
+                "evidence_refs": [
+                    {
+                        "source_ref_id": "source-ref:a",
+                        "source_artifact_id": "a",
+                        "source_domain": "recap",
+                        "evidence_role": "supports",
+                        "can_open_source": True,
+                        "can_highlight_span": True,
+                        "source_span_ref_id": "span:1",
+                        "anchor_quotes": ["x"],
+                    }
+                ],
+            },
+        ],
         "edges": [
             {
-                "edge_id": "e1",
+                "edge_id": "e_empty",
+                "from_node_id": "n1",
+                "to_node_id": "n2",
                 "predicate_family": "spatial",
                 "relationship_type": "located_at",
-            }
+                "evidence_refs": [],
+            },
+            {
+                "edge_id": "e_ok",
+                "from_node_id": "n2",
+                "to_node_id": "n2",
+                "predicate_family": "spatial",
+                "relationship_type": "located_at",
+                "evidence_refs": [
+                    {
+                        "source_ref_id": "source-ref:a",
+                        "source_artifact_id": "a",
+                        "source_domain": "recap",
+                        "evidence_role": "supports",
+                        "can_open_source": True,
+                        "can_highlight_span": True,
+                        "source_span_ref_id": "span:1",
+                        "anchor_quotes": ["x"],
+                    }
+                ],
+            },
         ],
         "diagnostics": {
             "preview_only": True,
@@ -128,14 +171,95 @@ def test_project_candidate_graph_for_promote_strips_edge_family_and_safe_diag() 
         },
     }
     project_candidate_graph_for_promote(graph, warning_count=3)
-    assert "predicate_family" not in graph["edges"][0]
+    # Empty-evidence context anchors are dropped (standing partition is out of scope).
+    assert [n["node_id"] for n in graph["nodes"]] == ["n2"]
     assert "context_anchor" not in graph["nodes"][0]
+    assert [e["edge_id"] for e in graph["edges"]] == ["e_ok"]
+    assert "predicate_family" not in graph["edges"][0]
     assert graph["diagnostics"] == {
         **PROMOTE_SAFE_PREVIEW_DIAGNOSTICS,
         "warning_count": 3,
     }
     assert graph["diagnostics"]["extraction_performed"] is False
     assert graph["diagnostics"]["llm_used"] is False
+
+
+def test_project_candidate_graph_for_promote_party_anchors_do_not_block_typed_load() -> None:
+    """Fresh extract with party context must remain typed-promotable without standing partition."""
+    from graph_memory.candidate_graph_preview import (
+        candidate_graph_preview_from_dict,
+        validate_candidate_graph_preview,
+    )
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CANDIDATE_GRAPH_SCHEMA,
+        CANDIDATE_GRAPH_VERSION,
+    )
+
+    graph = {
+        "schema": CANDIDATE_GRAPH_SCHEMA,
+        "version": CANDIDATE_GRAPH_VERSION,
+        "preview_id": "candidate-preview:test:party",
+        "campaign_id": "longmont-c2",
+        "session_id": "session-24",
+        "source_artifact_ids": [ARTIFACT],
+        "status": "preview",
+        "nodes": [
+            {
+                "node_id": "node:heroes-party",
+                "label": "The Heroes",
+                "node_type": "group",
+                "description": None,
+                "importance": "high",
+                "semantic_state": dict(DEFAULT_SEMANTIC_STATE),
+                "evidence_refs": [],
+                "proposed_action": "anchor",
+                "confidence": "high",
+                "warnings": ["context_anchor_no_session_evidence"],
+                "context_anchor": True,
+            },
+            {
+                "node_id": "npc:session",
+                "label": "Session NPC",
+                "node_type": "character",
+                "description": None,
+                "importance": "medium",
+                "semantic_state": dict(DEFAULT_SEMANTIC_STATE),
+                "evidence_refs": [
+                    {"source_span_ref_id": SPAN, "anchor_quotes": ["NPC"]}
+                ],
+                "proposed_action": "create",
+                "confidence": "medium",
+                "warnings": [],
+            },
+        ],
+        "edges": [
+            {
+                "edge_id": "edge:member",
+                "from_node_id": "pc:caelynn",
+                "to_node_id": "node:heroes-party",
+                "relationship_type": "member_of",
+                "label": "member of",
+                "semantic_state": dict(DEFAULT_SEMANTIC_STATE),
+                "evidence_refs": [],
+                "proposed_action": "create",
+                "confidence": "high",
+                "warnings": ["context_anchor_no_session_evidence"],
+                "context_anchor": True,
+            }
+        ],
+        "beats": [],
+        "proposed_writes": [],
+        "ignored_items": [],
+        "deferred_items": [],
+        "diagnostics": dict(PROMOTE_SAFE_PREVIEW_DIAGNOSTICS),
+    }
+    stamp_graph_evidence_refs(graph, source_artifact_id=ARTIFACT)
+    project_candidate_graph_for_promote(graph, warning_count=0)
+    assert [n["node_id"] for n in graph["nodes"]] == ["npc:session"]
+    assert graph["edges"] == []
+    preview = candidate_graph_preview_from_dict(graph)
+    report = validate_candidate_graph_preview(preview)
+    assert report.issues == ()
 
 
 def test_assemble_envelope_edges_are_typed_loadable() -> None:

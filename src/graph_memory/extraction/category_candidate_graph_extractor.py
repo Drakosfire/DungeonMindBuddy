@@ -145,6 +145,11 @@ _EDGE_PROMOTE_DROP_KEYS = frozenset({"predicate_family", "context_anchor"})
 _NODE_PROMOTE_DROP_KEYS = frozenset({"context_anchor"})
 
 
+def _evidence_refs_nonempty(obj: Mapping[str, Any]) -> bool:
+    refs = obj.get("evidence_refs")
+    return isinstance(refs, list) and any(isinstance(ref, Mapping) and ref for ref in refs)
+
+
 def project_candidate_graph_for_promote(
     graph: dict[str, Any],
     *,
@@ -154,6 +159,13 @@ def project_candidate_graph_for_promote(
 
     Strips catalog/telemetry fields that typed dataclasses reject, and forces
     promote-safe PreviewDiagnostics (dangerous flags false).
+
+    Party / standing context anchors may survive sanitize with empty
+    ``evidence_refs`` via ``context_anchor``. That marker is not part of the
+    typed promote IR; leaving empty refs fails ``validate_candidate_graph_preview``.
+    Until standing-context partition (successor slice) owns those objects,
+    drop empty-evidence nodes/edges/beats here so session-evidenced extracts
+    remain promotable without a hidden dependency on multi-contribution seal.
     """
     for edge in graph.get("edges") or []:
         if isinstance(edge, dict):
@@ -163,6 +175,36 @@ def project_candidate_graph_for_promote(
         if isinstance(node, dict):
             for key in _NODE_PROMOTE_DROP_KEYS:
                 node.pop(key, None)
+
+    kept_nodes = [
+        node
+        for node in (graph.get("nodes") or [])
+        if isinstance(node, Mapping) and _evidence_refs_nonempty(node)
+    ]
+    kept_node_ids = {
+        str(node.get("node_id") or "").strip()
+        for node in kept_nodes
+        if str(node.get("node_id") or "").strip()
+    }
+    kept_edges = []
+    for edge in graph.get("edges") or []:
+        if not isinstance(edge, Mapping) or not _evidence_refs_nonempty(edge):
+            continue
+        from_id = str(edge.get("from_node_id") or "").strip()
+        to_id = str(edge.get("to_node_id") or "").strip()
+        if from_id not in kept_node_ids or to_id not in kept_node_ids:
+            continue
+        kept_edges.append(dict(edge))
+    kept_beats = [
+        beat
+        for beat in (graph.get("beats") or [])
+        if isinstance(beat, Mapping) and _evidence_refs_nonempty(beat)
+    ]
+    graph["nodes"] = [dict(node) for node in kept_nodes]
+    graph["edges"] = kept_edges
+    if "beats" in graph:
+        graph["beats"] = [dict(beat) for beat in kept_beats]
+
     diag = dict(PROMOTE_SAFE_PREVIEW_DIAGNOSTICS)
     if warning_count is not None:
         diag["warning_count"] = int(warning_count)

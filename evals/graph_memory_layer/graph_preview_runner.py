@@ -685,9 +685,9 @@ def run_graph_preview_extraction(
             safe_relative_artifact_uri(output_dir),
         )
         try:
-            category_client = options.category_client or OpenAICategoryGraphPassClient(
-                reasoning_effort=options.reasoning_effort,
-            )
+            # Promote-IR slice: do not pass reasoning_effort — OpenAICategoryGraphPassClient
+            # on this branch has no such constructor arg (fat-tip contract stays out of scope).
+            category_client = options.category_client or OpenAICategoryGraphPassClient()
 
             def _progress(pass_name: str, state: str) -> None:
                 label = PASS_PROGRESS_LABELS.get(pass_name, pass_name)
