@@ -205,9 +205,30 @@ def test_identity_gate_attaches_existing_and_creates_new(
         for a in gate.accepted_proposals
         if a.assertion_kind == "node"
     }
-    assert outcomes["pc:caelynn"] == "resolved_existing"
-    assert outcomes["location:mireward"] == "resolved_existing"
+    # resolved_existing connects map durable ids but do not emit competing node asserts
+    assert "pc:caelynn" not in outcomes
+    assert "location:mireward" not in outcomes
     assert outcomes[gate.node_id_map["obj_session22_vial"]] == "created_new"
+    assert any(
+        d.startswith("connect_existing_support_only:node:caelynn->pc:caelynn")
+        for d in gate.diagnostics
+    )
+
+    # Support-only assertions replace the skipped node assert: an attribute
+    # observation (non-destructive) for the durable resolved-existing node.
+    caelynn_attributes = [
+        a
+        for a in gate.accepted_proposals
+        if a.assertion_kind == "attribute" and a.subject_node_id == "pc:caelynn"
+    ]
+    assert len(caelynn_attributes) == 1
+    assert caelynn_attributes[0].identity_resolution_outcome == "resolved_existing"
+    assert caelynn_attributes[0].value.get("evidence")
+    assert caelynn_attributes[0].value.get("source_artifacts")
+    assert not any(
+        a.subject_node_id == "pc:caelynn" and a.assertion_kind == "alias"
+        for a in gate.accepted_proposals
+    )
 
     edge_proposals = [
         a for a in gate.accepted_proposals if a.assertion_kind == "edge"

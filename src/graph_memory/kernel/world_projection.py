@@ -406,6 +406,31 @@ def _node_core_semantic_fingerprint(
     )
 
 
+def _edge_core_semantic_fingerprint(
+    assertion: GraphContributionAssertion,
+) -> tuple[Any, ...]:
+    """Fingerprint correction-sensitive edge semantics, excluding session stamps.
+
+    ``session_ids`` / ``temporal_scope.session_id`` are additive observation
+    provenance for the same edge (e.g. standing party membership re-attested
+    on a later session promote). They must not fail projection when endpoints,
+    predicate, label, and other core semantics agree.
+    """
+    value = dict(semantic_assertion_value(assertion.value))
+    value.pop("session_ids", None)
+    return (
+        assertion.assertion_kind,
+        assertion.subject_node_id,
+        assertion.target_node_id,
+        assertion.predicate,
+        assertion.label,
+        _canonicalize_json_value(value),
+        assertion.epistemic_kind,
+        assertion.visibility,
+        assertion.campaign_scope,
+    )
+
+
 def _assert_active_node_assertions_agree(
     assertions: list[GraphContributionAssertion],
     *,
@@ -890,9 +915,8 @@ def _aggregate_active_edge_support(
         )
         evidence_ids.update(support_evidence)
         artifact_ids.update(support_artifacts)
-    _assert_active_object_assertions_agree(
+    _assert_active_edge_assertions_agree(
         active_assertions,
-        object_kind="edge",
         graph_object_id=edge_id,
     )
     return (
@@ -1060,16 +1084,15 @@ def _edge_semantics_from_assertion(
     )
 
 
-def _assert_active_object_assertions_agree(
+def _assert_active_edge_assertions_agree(
     assertions: list[GraphContributionAssertion],
     *,
-    object_kind: str,
     graph_object_id: str,
 ) -> None:
-    fingerprints = {_assertion_semantic_fingerprint(assertion) for assertion in assertions}
+    fingerprints = {_edge_core_semantic_fingerprint(assertion) for assertion in assertions}
     if len(fingerprints) > 1:
         raise _integrity_error(
-            f"Active {object_kind} assertions disagree on semantic fields.",
+            "Active edge assertions disagree on semantic fields.",
             detail=(
                 f"graph_object_id={graph_object_id!r} "
                 f"active_assertion_ids={sorted(assertion.assertion_id for assertion in assertions)!r}"
