@@ -27,10 +27,13 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 import graph_memory.kernel as kernel
 from apps.live_control_server.config import repo_root, world_graph_root
 from graph_memory.kernel.contribution_models import GraphContribution
-from graph_memory.kernel.contributions import contribution_source_payload
-from graph_memory.world_supergraph.contribution_store import (
-    load_contribution_index,
-    load_contribution_record,
+from graph_memory.kernel.contributions import (
+    _canonicalize_graph_contribution_assertions,
+    compute_contribution_source_payload_sha256,
+)
+from graph_memory.union_supergraph.model import (
+    ContributionReplayManifestEntry,
+    UnionSupergraphStore,
 )
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 
@@ -267,69 +270,61 @@ def load_approved_c1_additive_bundle(repo: Path | None = None) -> _LoadedC1Bundl
     )
 
 
-def _semantic_contribution_payload(contribution: GraphContribution) -> dict[str, Any]:
-    """Lifecycle-neutral payload with Kernel-rewritten assertion IDs removed.
-
-    Merge/supersede may recompute ``assertion_id`` values; semantic content
-    (subjects, predicates, values, scopes, provenance) must still match the
-    locked package.
-    """
-    payload = contribution_source_payload(contribution)
-    for key in ("accepted_assertions", "candidate_assertions", "rejected_assertions"):
-        for assertion in payload.get(key) or []:
-            if isinstance(assertion, dict):
-                assertion.pop("assertion_id", None)
-                assertion.pop("contribution_id", None)
-    return payload
+def _expected_head_source_payload_sha256(contribution: GraphContribution) -> str:
+    """Digest Kernel stamps into the revision after assertion-identity canonicalization."""
+    canonical, _rekeys = _canonicalize_graph_contribution_assertions(contribution)
+    return compute_contribution_source_payload_sha256(canonical)
 
 
-def _verify_applied_prefix_payloads(
-    *,
-    world_root: Path,
-    bundle: _LoadedC1Bundle,
-    applied_ids: list[str],
-) -> None:
-    by_id = {c.contribution_id: c for c in bundle.contributions}
-    for contribution_id in applied_ids:
-        expected = by_id[contribution_id]
-        try:
-            stored = load_contribution_record(
-                world_root, APPROVED_WORLD_ID, contribution_id
-            )
-        except FileNotFoundError as exc:
+def _pinned_replay_manifest(
+    store: UnionSupergraphStore,
+) -> list[ContributionReplayManifestEntry]:
+    """Return the immutable head's contribution replay plan; fail closed if absent."""
+    raw = list(store.contribution_replay_manifest or [])
+    if not raw:
+        if store.contribution_source_payload_sha256:
             raise C1AdditiveApplyError(
-                f"applied contribution {contribution_id!r} is missing from the ledger",
-                code="partial_apply_corrupt",
-                status_code=409,
-            ) from exc
-        if _semantic_contribution_payload(expected) != _semantic_contribution_payload(
-            stored
-        ):
-            raise C1AdditiveApplyError(
-                f"applied contribution {contribution_id!r} payload does not match "
-                "the locked C1 additive package",
+                "pinned head lacks contribution_replay_manifest; "
+                "cannot decide C1 additive apply status from digests alone",
                 code="partial_apply_corrupt",
                 status_code=409,
             )
+        return []
+    return [
+        entry
+        if isinstance(entry, ContributionReplayManifestEntry)
+        else ContributionReplayManifestEntry.model_validate(entry)
+        for entry in raw
+    ]
 
 
-def _bundle_apply_progress(
+def _bundle_apply_progress_from_head(
     *,
-    world_root: Path,
+    store: UnionSupergraphStore,
     bundle: _LoadedC1Bundle,
-    active_contribution_ids: list[str],
-    superseded_contribution_ids: list[str],
-) -> tuple[list[str], list[str], list[str], bool, bool, bool]:
-    """Return exact ordered-prefix progress for the locked C1 sequence.
+) -> tuple[list[str], list[str], list[str], bool, bool, bool, list[str]]:
+    """Return exact ordered-prefix progress bound to the pinned head replay manifest.
 
-    Applied IDs must be an exact prefix of the locked contribution order.
-    Any out-of-order / non-prefix active membership fails closed.
-    When any prefix step is present, the QC roster must already be superseded
-    and inactive.
+    Completion and resume decisions use revision-bound lifecycle status and
+    source-payload hashes — not the mutable contribution index/ledger.
     """
     expected_ids = [c.contribution_id for c in bundle.contributions]
-    active = set(active_contribution_ids)
-    superseded = set(superseded_contribution_ids)
+    expected_digest_by_id = {
+        contribution.contribution_id: _expected_head_source_payload_sha256(contribution)
+        for contribution in bundle.contributions
+    }
+    manifest = _pinned_replay_manifest(store)
+    entries_by_id = {entry.contribution_id: entry for entry in manifest}
+    active = {
+        entry.contribution_id
+        for entry in manifest
+        if entry.status == "active"
+    }
+    superseded = {
+        entry.contribution_id
+        for entry in manifest
+        if entry.status == "superseded"
+    }
 
     applied: list[str] = []
     for contribution_id in expected_ids:
@@ -341,32 +336,56 @@ def _bundle_apply_progress(
     non_prefix = [cid for cid in pending if cid in active]
     if non_prefix:
         raise C1AdditiveApplyError(
-            "C1 additive apply progress is not an exact ordered prefix; "
-            f"unexpected active contribution(s): {non_prefix!r}",
+            "C1 additive apply progress is not an exact ordered prefix on the "
+            f"pinned head; unexpected active contribution(s): {non_prefix!r}",
             code="partial_apply_corrupt",
             status_code=409,
         )
 
+    qc_entry = entries_by_id.get(QC_ROSTER_CONTRIBUTION_ID)
     qc_roster_superseded = (
-        QC_ROSTER_CONTRIBUTION_ID in superseded
+        qc_entry is not None
+        and qc_entry.status == "superseded"
         and QC_ROSTER_CONTRIBUTION_ID not in active
     )
     if applied:
         if not qc_roster_superseded:
             raise C1AdditiveApplyError(
-                "C1 additive prefix is present but the C2 QC roster was not "
-                "superseded / remains active",
+                "C1 additive prefix is present on the pinned head but the C2 QC "
+                "roster was not superseded / remains active",
                 code="partial_apply_corrupt",
                 status_code=409,
             )
-        _verify_applied_prefix_payloads(
-            world_root=world_root,
-            bundle=bundle,
-            applied_ids=applied,
-        )
+        for contribution_id in applied:
+            entry = entries_by_id.get(contribution_id)
+            if entry is None:
+                raise C1AdditiveApplyError(
+                    f"applied contribution {contribution_id!r} missing from pinned "
+                    "head replay manifest",
+                    code="partial_apply_corrupt",
+                    status_code=409,
+                )
+            if entry.status != "active":
+                raise C1AdditiveApplyError(
+                    f"applied contribution {contribution_id!r} is not active on the "
+                    f"pinned head (status={entry.status!r})",
+                    code="partial_apply_corrupt",
+                    status_code=409,
+                )
+            expected_digest = expected_digest_by_id[contribution_id]
+            if entry.source_payload_sha256 != expected_digest:
+                raise C1AdditiveApplyError(
+                    f"pinned head source digest for {contribution_id!r} does not "
+                    "match the locked C1 additive package",
+                    code="partial_apply_corrupt",
+                    status_code=409,
+                )
 
     already_applied = not pending
     partial_applied = bool(applied) and bool(pending)
+    head_active_ids = [
+        entry.contribution_id for entry in manifest if entry.status == "active"
+    ]
     return (
         expected_ids,
         applied,
@@ -374,6 +393,7 @@ def _bundle_apply_progress(
         already_applied,
         partial_applied,
         qc_roster_superseded,
+        head_active_ids,
     )
 
 
@@ -385,7 +405,7 @@ def get_c1_additive_apply_status(
     world_root = (root or world_graph_root()).resolve()
     bundle = load_approved_c1_additive_bundle(repo)
     try:
-        head, _revision, _store = kernel.open_current_world_graph(
+        head, _revision, store = kernel.open_current_world_graph(
             world_root, APPROVED_WORLD_ID
         )
     except WorldGraphNotFoundError:
@@ -394,7 +414,6 @@ def get_c1_additive_apply_status(
             bundle_id=APPROVED_C1_BUNDLE_ID,
             head_present=False,
         )
-    index = load_contribution_index(world_root, APPROVED_WORLD_ID)
     (
         expected_ids,
         applied_ids,
@@ -402,12 +421,8 @@ def get_c1_additive_apply_status(
         already_applied,
         partial_applied,
         qc_roster_superseded,
-    ) = _bundle_apply_progress(
-        world_root=world_root,
-        bundle=bundle,
-        active_contribution_ids=list(index.active_contribution_ids),
-        superseded_contribution_ids=list(index.superseded_contribution_ids),
-    )
+        head_active_ids,
+    ) = _bundle_apply_progress_from_head(store=store, bundle=bundle)
     return C1AdditiveApplyStatus(
         world_id=APPROVED_WORLD_ID,
         bundle_id=APPROVED_C1_BUNDLE_ID,
@@ -418,7 +433,7 @@ def get_c1_additive_apply_status(
         expected_contribution_ids=expected_ids,
         applied_contribution_ids=applied_ids,
         pending_contribution_ids=pending_ids,
-        active_contribution_ids=list(index.active_contribution_ids),
+        active_contribution_ids=head_active_ids,
         qc_roster_superseded=qc_roster_superseded,
     )
 

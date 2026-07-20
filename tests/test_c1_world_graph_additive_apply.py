@@ -33,11 +33,10 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionFocus,
     WorldGraphProjectionRequest,
 )
+from graph_memory.union_supergraph.model import ContributionReplayManifestEntry
 from graph_memory.world_supergraph.contribution_store import (
     load_contribution_index,
-    upsert_contribution_in_index,
     save_contribution_index,
-    write_contribution_record,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -329,20 +328,64 @@ def test_non_prefix_active_membership_fails_closed(
     _initialize_c2(tmp_path, loaded_c2_bundle)
     _apply_first_c1_step(tmp_path)
     bundle = load_approved_c1_additive_bundle(REPO)
-    # Activate step 2 without step 1 → non-prefix corruption.
+    head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    # Corrupt the pinned head: activate step 2 without step 1.
     orphan = bundle.contributions[2]
-    write_contribution_record(tmp_path, WORLD_ID, orphan)
-    index = load_contribution_index(tmp_path, WORLD_ID)
-    save_contribution_index(
+    from apps.live_control_server.services.c1_world_graph_additive_apply import (
+        _expected_head_source_payload_sha256,
+    )
+
+    corrupted = list(store.contribution_replay_manifest or [])
+    corrupted.append(
+        ContributionReplayManifestEntry(
+            contribution_id=orphan.contribution_id,
+            status="active",
+            source_payload_sha256=_expected_head_source_payload_sha256(orphan),
+        )
+    )
+    kernel.publish_world_graph_revision(
         tmp_path,
         WORLD_ID,
-        upsert_contribution_in_index(index, orphan),
+        store.model_copy(update={"contribution_replay_manifest": corrupted}),
+        operation_ids=["test:corrupt-non-prefix"],
+        expected_parent_revision_id=head.head_revision_id,
     )
 
     with pytest.raises(C1AdditiveApplyError) as exc_info:
         get_c1_additive_apply_status(root=tmp_path, repo=REPO)
     assert exc_info.value.code == "partial_apply_corrupt"
     assert "exact ordered prefix" in str(exc_info.value)
+
+
+def test_status_follows_pinned_head_not_mutable_index(
+    tmp_path: Path,
+    loaded_c2_bundle,
+) -> None:
+    _initialize_c2(tmp_path, loaded_c2_bundle)
+    apply_approved_c1_additive_bundle(actor="gm", root=tmp_path, repo=REPO)
+
+    # Mutable ledger/index no longer lists C1 contributions as active, but the
+    # pinned head replay manifest still does → status must remain already_applied.
+    index = load_contribution_index(tmp_path, WORLD_ID)
+    stripped_active = [
+        cid
+        for cid in index.active_contribution_ids
+        if cid not in APPROVED_ORDERED_CONTRIBUTION_IDS
+    ]
+    save_contribution_index(
+        tmp_path,
+        WORLD_ID,
+        index.model_copy(update={"active_contribution_ids": stripped_active}),
+    )
+
+    status = get_c1_additive_apply_status(root=tmp_path, repo=REPO)
+    assert status.already_applied is True
+    assert status.applied_contribution_ids == list(APPROVED_ORDERED_CONTRIBUTION_IDS)
+
+    # Blind retry remains an already_applied no-op bound to the head.
+    result = apply_approved_c1_additive_bundle(actor="gm", root=tmp_path, repo=REPO)
+    assert result.published is False
+    assert "already_applied" in result.diagnostics
 
 
 def test_resume_after_later_step_failure(
@@ -423,6 +466,23 @@ def test_blank_campaign_scope_fails_closed_in_projection_helpers() -> None:
     with pytest.raises(WorldGraphProjectionError) as visible_exc:
         _campaign_scope_is_visible("", request_campaign_id="longmont-c1")
     assert visible_exc.value.code == "invalid_campaign_scope"
+
+    with pytest.raises(WorldGraphProjectionError) as world_exc:
+        _campaign_scope_is_visible(
+            "  ",
+            request_campaign_id="longmont-c1",
+            scope_mode="world",
+        )
+    assert world_exc.value.code == "invalid_campaign_scope"
+
+    assert (
+        _campaign_scope_is_visible(
+            "longmont-c2",
+            request_campaign_id="longmont-c1",
+            scope_mode="world",
+        )
+        is True
+    )
 
     assert _object_campaign_scope({"campaign_scope": None}) is None
     with pytest.raises(WorldGraphProjectionError) as object_exc:

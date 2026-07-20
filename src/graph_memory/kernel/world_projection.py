@@ -777,11 +777,9 @@ def _campaign_scope_is_visible(
     """Visibility lens independent of temporal focus.
 
     - ``campaign``: world-universal (null) or matching request campaign.
-    - ``world``: every campaign scope in the same world store.
-    Blank strings are never world-universal; callers must fail closed first.
+    - ``world``: every non-blank campaign scope in the same world store.
+    Blank strings are never world-universal in either mode.
     """
-    if scope_mode == "world":
-        return True
     if campaign_scope is None:
         return True
     scope = str(campaign_scope).strip()
@@ -797,6 +795,8 @@ def _campaign_scope_is_visible(
                 )
             ],
         )
+    if scope_mode == "world":
+        return True
     return scope == request_campaign_id
 
 
