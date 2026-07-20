@@ -376,6 +376,87 @@ def _normalize_evidence_refs(
     return out
 
 
+def materialize_promote_evidence_ref(
+    ref: Mapping[str, Any],
+    *,
+    source_artifact_id: str,
+) -> dict[str, Any] | None:
+    """Expand an extractor span stub into promote-eligible EvidenceRef IR.
+
+    Already-full refs (``source_ref_id`` + ``source_artifact_id``) pass through.
+    Missing ``source_span_ref_id`` returns None (caller drops).
+    """
+    artifact = str(source_artifact_id or "").strip()
+    if not artifact:
+        raise ValueError("source_artifact_id is required to materialize evidence refs")
+
+    existing_ref = str(ref.get("source_ref_id") or "").strip()
+    existing_artifact = str(ref.get("source_artifact_id") or "").strip()
+    if existing_ref and existing_artifact:
+        return dict(ref)
+
+    spref = str(ref.get("source_span_ref_id") or "").strip()
+    if not spref:
+        return None
+
+    out: dict[str, Any] = {
+        "source_ref_id": f"source-ref:{artifact}",
+        "source_artifact_id": artifact,
+        "source_anchor_id": f"anchor:{spref}",
+        "label": spref,
+        "evidence_role": "source_evidence",
+        "can_open_source": True,
+        "can_highlight_span": True,
+        "source_span_ref_id": spref,
+    }
+    quotes = coerce_anchor_quotes(ref.get("anchor_quotes"))
+    if quotes:
+        out["anchor_quotes"] = quotes
+    matches = ref.get("anchor_quote_matches")
+    if isinstance(matches, list) and matches:
+        out["anchor_quote_matches"] = list(matches)
+    return out
+
+
+_EVIDENCE_COLLECTIONS = (
+    "nodes",
+    "edges",
+    "beats",
+    "proposed_writes",
+    "ignored_items",
+    "deferred_items",
+)
+
+
+def stamp_graph_evidence_refs(
+    graph: dict[str, Any],
+    *,
+    source_artifact_id: str,
+) -> dict[str, Any]:
+    """Stamp promote-eligible EvidenceRef fields on every collection in-place."""
+    for key in _EVIDENCE_COLLECTIONS:
+        items = graph.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            raw_refs = item.get("evidence_refs")
+            if not isinstance(raw_refs, list):
+                continue
+            stamped: list[dict[str, Any]] = []
+            for ref in raw_refs:
+                if not isinstance(ref, Mapping):
+                    continue
+                materialised = materialize_promote_evidence_ref(
+                    ref, source_artifact_id=source_artifact_id
+                )
+                if materialised is not None:
+                    stamped.append(materialised)
+            item["evidence_refs"] = stamped
+    return graph
+
+
 def _normalize_node(raw: Mapping[str, Any], default_type: str) -> dict[str, Any]:
     node_id = str(raw.get("node_id") or "").strip() or f"node:{ir.normalize_label(str(raw.get('label', 'unknown')))}"
     return {
@@ -729,6 +810,7 @@ def assemble_envelope(
             ),
         },
     }
+    stamp_graph_evidence_refs(graph, source_artifact_id=source_artifact_id)
     return {
         "schema": ENVELOPE_SCHEMA,
         "version": ENVELOPE_VERSION,
