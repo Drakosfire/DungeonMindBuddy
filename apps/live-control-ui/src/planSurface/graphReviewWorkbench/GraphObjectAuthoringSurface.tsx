@@ -1,6 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
+import type {
+  GraphProjectionNodeView,
+  GraphReviewExistingObjectCandidate,
+} from "../../api/types";
+import {
+  isManualGraphAuthoringSelection,
+  type GraphAuthoringSelection,
+} from "./graphAuthoringSelection";
+import { GraphObjectAuthoringBindExistingPanel } from "./GraphObjectAuthoringBindExistingPanel";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringObjectForm } from "./GraphObjectAuthoringObjectForm";
 import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
@@ -14,19 +22,18 @@ import {
 } from "./GraphObjectAuthoringStagingTray";
 import { GraphObjectAuthoringVisibilitySection } from "./GraphObjectAuthoringVisibilitySection";
 import {
-  buildOverlapContextFromProjection,
-  detectObjectFormOverlapWarnings,
-  type GraphObjectAuthoringOverlapContext,
-} from "./graphObjectAuthoringOverlap";
-import {
   canStageRelationshipForm,
   type GraphObjectAuthoringFormState,
   type GraphObjectAuthoringProposal,
   type GraphObjectAuthoringRelationshipFormState,
 } from "./graphObjectAuthoringDraft";
+import {
+  buildOverlapContextFromProjection,
+  detectObjectFormOverlapWarnings,
+  type GraphObjectAuthoringOverlapContext,
+} from "./graphObjectAuthoringOverlap";
 import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
 import { useGraphObjectCrossScopeCandidates } from "./useGraphObjectCrossScopeCandidates";
-import type { GraphProjectionNodeView } from "../../api/types";
 
 export type GraphObjectAuthoringFocusPanel =
   | "all"
@@ -48,6 +55,8 @@ export interface GraphObjectAuthoringSurfaceProps {
   onStartManualDraft?: () => void;
   pendingSelection?: GraphAuthoringSelection | null;
   onUseSelectedText?: (selection: GraphAuthoringSelection) => void;
+  onStageLinkExisting?: (candidate: GraphReviewExistingObjectCandidate) => boolean;
+  onStageLinkExistingComplete?: () => void;
   creatingObject?: boolean;
   createObjectError?: string | null;
 
@@ -85,6 +94,8 @@ export function GraphObjectAuthoringSurface({
   onStartManualDraft,
   pendingSelection = null,
   onUseSelectedText,
+  onStageLinkExisting,
+  onStageLinkExistingComplete,
   creatingObject = false,
   createObjectError = null,
   relationshipFormState,
@@ -105,6 +116,7 @@ export function GraphObjectAuthoringSurface({
   projectionNodeViews,
 }: GraphObjectAuthoringSurfaceProps) {
   const supportsRelationship = Boolean(relationshipFormState && onRelationshipFieldChange && onStageRelationshipProposal);
+  const [bindingAlias, setBindingAlias] = useState(false);
 
   const canStage = Boolean(selectedSource && formState.label.trim());
   const canStageRelationship = Boolean(
@@ -133,7 +145,18 @@ export function GraphObjectAuthoringSurface({
     };
   }, [selectedSource]);
 
-  const { candidates: scopeCandidates } = useGraphObjectCrossScopeCandidates({
+  const showBindExisting = Boolean(
+    selectedSource &&
+      !isManualGraphAuthoringSelection(selectedSource) &&
+      selectedSource.selectedText.trim() &&
+      onStageLinkExisting,
+  );
+
+  const {
+    status: bindSearchStatus,
+    error: bindSearchError,
+    candidates: scopeCandidates,
+  } = useGraphObjectCrossScopeCandidates({
     campaignId,
     sessionId,
     laneRole,
@@ -159,13 +182,26 @@ export function GraphObjectAuthoringSurface({
       (!selectedSource || selectedSource.selectedText !== pendingSelection.selectedText),
   );
 
+  const handleBindAsAlias = (candidate: GraphReviewExistingObjectCandidate) => {
+    if (!onStageLinkExisting) return;
+    setBindingAlias(true);
+    try {
+      const staged = onStageLinkExisting(candidate);
+      if (staged) {
+        onStageLinkExistingComplete?.();
+      }
+    } finally {
+      setBindingAlias(false);
+    }
+  };
+
   const headerCopy =
     focusPanel === "create_new"
       ? {
-          kicker: "Create new object",
-          title: "Create a graph object",
+          kicker: "New object",
+          title: "Bind highlighted text or create a node",
           hint:
-            "Highlight recap text, then use it below. Create object saves to authored memory immediately, then continues in Existing object.",
+            "Highlight recap text, then use it below. Prefer adding an alias to an existing node when one matches; otherwise create a new object.",
         }
       : focusPanel === "relationships"
         ? {
@@ -227,27 +263,47 @@ export function GraphObjectAuthoringSurface({
             <>
               <GraphObjectAuthoringSelectedSource selection={selectedSource} />
 
-              <GraphObjectAuthoringObjectForm formState={formState} onChange={onFormFieldChange} />
-              <GraphObjectAuthoringOverlapWarnings warnings={objectFormOverlapWarnings} />
-              <GraphObjectAuthoringVisibilitySection
-                visibility={formState.visibility}
-                onChange={(visibility) => onFormFieldChange("visibility", visibility)}
-              />
-              <div className="graph-object-authoring-surface-actions">
-                <button
-                  type="button"
-                  data-testid="graph-object-authoring-stage-button"
-                  disabled={!canStage || creatingObject}
-                  onClick={onStageProposal}
-                >
-                  {creatingObject ? "Creating…" : "Create object"}
-                </button>
-              </div>
-              {createObjectError ? (
-                <p className="graph-object-authoring-prepare-commit-error" role="alert">
-                  {createObjectError}
-                </p>
+              {showBindExisting ? (
+                <GraphObjectAuthoringBindExistingPanel
+                  selectedText={selectedSource.selectedText}
+                  status={bindSearchStatus}
+                  error={bindSearchError}
+                  candidates={scopeCandidates}
+                  onBindAsAlias={handleBindAsAlias}
+                  binding={bindingAlias}
+                />
               ) : null}
+
+              <div className="graph-object-authoring-create-new-section">
+                <header className="graph-object-authoring-create-new-header">
+                  <h4>Create a new object</h4>
+                  <p className="graph-object-authoring-surface-hint">
+                    Use when no existing node fits. Create object saves to authored
+                    memory immediately.
+                  </p>
+                </header>
+                <GraphObjectAuthoringObjectForm formState={formState} onChange={onFormFieldChange} />
+                <GraphObjectAuthoringOverlapWarnings warnings={objectFormOverlapWarnings} />
+                <GraphObjectAuthoringVisibilitySection
+                  visibility={formState.visibility}
+                  onChange={(visibility) => onFormFieldChange("visibility", visibility)}
+                />
+                <div className="graph-object-authoring-surface-actions">
+                  <button
+                    type="button"
+                    data-testid="graph-object-authoring-stage-button"
+                    disabled={!canStage || creatingObject}
+                    onClick={onStageProposal}
+                  >
+                    {creatingObject ? "Creating…" : "Create object"}
+                  </button>
+                </div>
+                {createObjectError ? (
+                  <p className="graph-object-authoring-prepare-commit-error" role="alert">
+                    {createObjectError}
+                  </p>
+                ) : null}
+              </div>
             </>
           ) : (
             <div className="graph-object-authoring-surface-empty-state">

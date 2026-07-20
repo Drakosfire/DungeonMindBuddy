@@ -192,6 +192,24 @@ describe("GraphReviewWorkbenchModule", () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+  });
+
+  it("exposes Ingest Recap from the toolbox before a session is loaded", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/ingest");
+    render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+
+    expect(screen.getByRole("button", { name: "Ingest Recap" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Diagnostics" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Author Draft" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Author Node" })).toBeInTheDocument();
   });
 
   it("auto-loads when a session query param is present", async () => {
@@ -225,7 +243,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
   });
 
-  it("opens toolbox with Ingest Recap, Diagnostics, and Author Draft tools", async () => {
+  it("opens toolbox with Ingest Recap and Diagnostics tools", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest?session=session-23");
     render(<GraphReviewWorkbenchModule context={context} />);
@@ -238,7 +256,7 @@ describe("GraphReviewWorkbenchModule", () => {
 
     expect(screen.getByRole("button", { name: "Ingest Recap" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Diagnostics" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Author Draft" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Author Draft" })).not.toBeInTheDocument();
   });
 
   it("opens diagnostics content from the toolbox", async () => {
@@ -258,7 +276,7 @@ describe("GraphReviewWorkbenchModule", () => {
     ).toBeInTheDocument();
   });
 
-  it("author draft toolbox enables relationship staging from projected pills", async () => {
+  it("author node drawer enables relationship staging from projected pills", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest?session=session-23");
     render(<GraphReviewWorkbenchModule context={context} />);
@@ -267,8 +285,7 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: "Tools" }));
-    await user.click(screen.getByRole("button", { name: "Author Draft" }));
+    await user.click(screen.getByRole("button", { name: "Author Node" }));
 
     await screen.findByTestId("graph-review-author-draft-workspace");
 
@@ -292,6 +309,24 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(
       screen.getByRole("button", { name: "Stage relationship" }),
     ).toBeEnabled();
+  });
+
+  it("opens Author Node from legacy author-draft tool query", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?session=session-23&tool=graph-review-author-draft",
+    );
+    render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-author-draft-workspace")).toBeInTheDocument(),
+    );
+    expect(window.location.search).not.toContain("tool=graph-review-author-draft");
+    expect(screen.getByRole("button", { name: "Author Node" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
   it("preserves tool query param when applying a new session from the load dialog", async () => {

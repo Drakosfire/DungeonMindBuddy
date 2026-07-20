@@ -7,6 +7,7 @@ from apps.live_control_server.services.graph_existing_object_resolver import (
 )
 from apps.live_control_server.services.graph_object_candidate_sources import (
     GraphObjectCandidateScope,
+    _session_number,
     normalize_candidate_text,
     score_query_match,
     search_cross_scope_candidates,
@@ -256,3 +257,38 @@ def test_resolver_search_does_not_mutate_overlay_file(monkeypatch, tmp_path):
 
 def test_normalize_candidate_text():
     assert normalize_candidate_text("  Bonogo ") == "bonogo"
+
+
+def test_session_number_parses_without_gold_fixture():
+    assert _session_number("session-3") == 3
+    assert _session_number("session_23") == 23
+
+
+def test_party_pc_scope_finds_bubbles_from_npc_registry_for_session_3():
+    response = resolve_existing_object_candidates(
+        GraphReviewExistingObjectResolverRequest(
+            campaign_id="longmont-c1",
+            session_id="session-3",
+            lane_role="live",
+            selected_node=GraphReviewResolverSelectedNode(
+                node_id="__graph_review_query_search__",
+                label="bubbles",
+            ),
+            query="bubbles",
+            include_authored_overlay=False,
+            include_current_projection=False,
+            include_worldbuilding=False,
+            include_campaign_memory=False,
+            include_gm_private=False,
+            include_party_pc=True,
+        )
+    )
+    party_candidates = [
+        candidate
+        for candidate in response.candidates
+        if candidate.graph_scope == GraphObjectCandidateScope.party_pc
+        and "bubble" in candidate.label.lower()
+    ]
+    assert party_candidates
+    assert party_candidates[0].label == "Bubbles the Float Goat"
+    assert party_candidates[0].source_label == "Party / PCs"

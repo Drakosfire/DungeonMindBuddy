@@ -283,17 +283,23 @@ def resolve_existing_object_candidates(
     warnings: list[str] = []
     diagnostics: list[GraphObjectCandidateDiagnostic] = []
     scopes_searched: list[GraphObjectCandidateScope] = []
-    entry = _session_entry(request.session_id)
-    if entry["campaign_id"] is not None and entry["campaign_id"] != request.campaign_id:
-        raise GraphGoldReviewError(
-            f"session {request.session_id} belongs to {entry['campaign_id']}, not {request.campaign_id}",
-            status_code=422,
-        )
-    source_rows: list[dict[str, Any]] = []
+    gold_entry: dict[str, Any] | None = None
     try:
-        source_rows.extend(_candidate_dicts_from_gold(request.session_id))
+        gold_entry = _session_entry(request.session_id)
     except GraphGoldReviewError as exc:
         warnings.append(f"Gold fixture source unavailable: {exc}")
+    else:
+        if gold_entry["campaign_id"] is not None and gold_entry["campaign_id"] != request.campaign_id:
+            raise GraphGoldReviewError(
+                f"session {request.session_id} belongs to {gold_entry['campaign_id']}, not {request.campaign_id}",
+                status_code=422,
+            )
+    source_rows: list[dict[str, Any]] = []
+    if gold_entry is not None:
+        try:
+            source_rows.extend(_candidate_dicts_from_gold(request.session_id))
+        except GraphGoldReviewError as exc:
+            warnings.append(f"Gold fixture source unavailable: {exc}")
     try:
         live_rows = _candidate_dicts_from_live(repo, request.live_run_manifest_path)
         if request.node_views:

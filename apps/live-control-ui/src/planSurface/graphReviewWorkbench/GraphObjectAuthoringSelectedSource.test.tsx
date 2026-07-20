@@ -40,7 +40,7 @@ describe("GraphObjectAuthoringSelectedSource", () => {
     expect(screen.getByText(/The/)).toBeInTheDocument();
     expect(screen.getByText(/survived the night/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Draft only. Create object saves it to authored memory immediately./i),
+      screen.getByText(/Prefer binding this phrase as an alias of an existing node/i),
     ).toBeInTheDocument();
   });
 

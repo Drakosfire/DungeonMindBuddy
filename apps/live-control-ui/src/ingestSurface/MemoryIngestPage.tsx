@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPlanView } from "../api/liveApi";
 import type { PlanViewProjection } from "../api/types";
 import { AppChrome } from "../chrome/AppChrome";
-import { buildPlanContextFromPlanView } from "../planSurface/config/planSurfaceConfig";
+import { buildIngestContextFromPlanView } from "../planSurface/config/ingestSurfaceConfig";
 import { GraphReviewWorkbenchModule } from "../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule";
 import "../planSurface/planSurface.css";
 
@@ -39,7 +39,10 @@ export function MemoryIngestPage() {
     };
   }, [refresh]);
 
-  const context = useMemo(() => (planView ? buildPlanContextFromPlanView(planView) : null), [planView]);
+  const context = useMemo(
+    () => (planView ? buildIngestContextFromPlanView(planView) : null),
+    [planView],
+  );
 
   if (status === "loading") {
     return (

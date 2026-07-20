@@ -112,3 +112,28 @@ def test_unsupported_campaign_session_is_clear_422():
     response = client.post("/api/live/graph-preview/existing-object-resolver/candidates", json=payload)
     assert response.status_code == 422
     assert "belongs to" in response.json()["detail"]
+
+
+def test_session_without_gold_fixture_can_search_npc_registry():
+    response = resolve_existing_object_candidates(
+        GraphReviewExistingObjectResolverRequest(
+            campaign_id="longmont-c1",
+            session_id="session-3",
+            lane_role="live",
+            selected_node=GraphReviewResolverSelectedNode(
+                node_id="__graph_review_query_search__",
+                label="bubbles",
+            ),
+            query="bubbles",
+            include_gm_private=True,
+        )
+    )
+    assert response.candidates
+    bubble_candidates = [
+        candidate
+        for candidate in response.candidates
+        if "bubble" in candidate.label.lower()
+    ]
+    assert bubble_candidates
+    assert any("float goat" in candidate.label.lower() for candidate in bubble_candidates)
+    assert any("gold fixture" in warning.lower() for warning in response.warnings)

@@ -193,6 +193,20 @@ export function GraphReviewAuthoringRail({
     pendingSelection: pendingAuthoringSelection,
     onUseSelectedText: (selection: GraphAuthoringSelection) =>
       graphObjectAuthoringDraft.openWithSelection(selection),
+    onStageLinkExisting: (candidate) => {
+      const selection = graphObjectAuthoringDraft.selectedSource;
+      if (!selection) {
+        return false;
+      }
+      return graphObjectAuthoringDraft.stageLinkExistingFromResolver({
+        selection,
+        candidate,
+      });
+    },
+    onStageLinkExistingComplete: () => {
+      graphObjectAuthoringDraft.dismissSelection();
+      onActiveTabChange("stage_commit");
+    },
     creatingObject: quickCommit.committing,
     createObjectError: quickCommit.error,
     relationshipFormState: graphObjectAuthoringDraft.relationshipFormState,
