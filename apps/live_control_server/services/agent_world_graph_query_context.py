@@ -101,17 +101,13 @@ class AgentWorldGraphFocus(BaseModel):
 
     kind: FocusKind = "none"
     session_id: str | None = None
-    campaign_id: str | None = None
 
     @model_validator(mode="after")
     def _validate_session_id(self) -> AgentWorldGraphFocus:
         if self.kind == "session" and not self.session_id:
             raise ValueError("session_id is required when focus.kind is session")
-        if self.kind == "none":
-            if self.session_id is not None:
-                raise ValueError("session_id must be null when focus.kind is none")
-            if self.campaign_id is not None:
-                raise ValueError("campaign_id must be null when focus.kind is none")
+        if self.kind == "none" and self.session_id is not None:
+            raise ValueError("session_id must be null when focus.kind is none")
         return self
 
 
@@ -129,8 +125,6 @@ class AgentWorldGraphQueryContextRequest(BaseModel):
     focus: AgentWorldGraphFocus = Field(default_factory=AgentWorldGraphFocus)
     admissibility: Literal["gm"] = "gm"
     revision_pin: str | None = None
-    # campaign: narrative campaign only. world: all campaigns in the same world.
-    scope_mode: Literal["campaign", "world"] = "campaign"
 
     @field_validator("world_id", "campaign_id")
     @classmethod
@@ -186,7 +180,6 @@ def _bounded_nodes(query_context: WorldGraphQueryContext) -> list[dict[str, Any]
             "role": node.role,
             "summary": node.summary,
             "anchored_to_focus_session": node.anchored_to_focus_session,
-            "campaign_scope": node.campaign_scope,
         }
         for node in query_context.nodes
     ]
@@ -202,7 +195,6 @@ def _bounded_relationships(query_context: WorldGraphQueryContext) -> list[dict[s
             "label": edge.label,
             "direction": edge.direction,
             "session_ids": list(edge.session_ids),
-            "campaign_scope": edge.campaign_scope,
         }
         for edge in query_context.relationships
     ]
@@ -216,7 +208,6 @@ def _bounded_attributes(query_context: WorldGraphQueryContext) -> list[dict[str,
             "predicate": attribute.predicate,
             "label": attribute.label,
             "text_value": attribute.text_value,
-            "campaign_scope": attribute.campaign_scope,
         }
         for attribute in query_context.attributes
     ]
@@ -244,10 +235,8 @@ def _unavailable_envelope(
         "focus": {
             "kind": request.focus.kind,
             "session_id": request.focus.session_id,
-            "campaign_id": request.focus.campaign_id,
         },
         "admissibility": request.admissibility,
-        "scope_mode": request.scope_mode,
         "query_text": query_text,
         "matched_node_ids": [],
         "nodes": [],
@@ -296,10 +285,8 @@ def adapt_projection_to_agent_envelope(
         "focus": {
             "kind": projection.snapshot.focus.kind,
             "session_id": projection.snapshot.focus.session_id,
-            "campaign_id": projection.snapshot.focus.campaign_id,
         },
         "admissibility": projection.snapshot.admissibility,
-        "scope_mode": getattr(projection.snapshot, "scope_mode", "campaign") or "campaign",
         "query_text": query_text,
         "matched_node_ids": matched,
         "nodes": nodes,
@@ -317,7 +304,6 @@ def build_projection_request(
     *,
     query_text: str,
 ) -> WorldGraphProjectionRequest:
-    focus_campaign = nested.focus.campaign_id or nested.campaign_id
     return WorldGraphProjectionRequest(
         schema=PROJECTION_REQUEST_SCHEMA,
         world_id=nested.world_id,
@@ -325,12 +311,10 @@ def build_projection_request(
         focus=WorldGraphProjectionFocus(
             kind=nested.focus.kind,
             session_id=nested.focus.session_id,
-            campaign_id=focus_campaign if nested.focus.kind == "session" else None,
         ),
         admissibility=nested.admissibility,
         revision_pin=nested.revision_pin,
         query_text=query_text,
-        scope_mode=nested.scope_mode,
     )
 
 
@@ -346,12 +330,8 @@ def resolve_agent_world_graph_query_context(
 
     ``world_graph_unavailable`` becomes nonfatal ``status: unavailable``.
     All other projection service errors remain fatal.
-
-    When ``scope_mode=world``, nested ``campaign_id`` is the narrative/temporal
-    anchor and may differ from the outer live-query campaign (same world).
-    When ``scope_mode=campaign``, nested campaign must equal the outer campaign.
     """
-    if nested.scope_mode == "campaign" and nested.campaign_id != outer_campaign_id:
+    if nested.campaign_id != outer_campaign_id:
         raise AgentWorldGraphQueryContextError(
             "world_graph_context.campaign_id must equal the outer live-query campaign_id",
             code="invalid_request",
@@ -361,7 +341,7 @@ def resolve_agent_world_graph_query_context(
                     code="invalid_request",
                     message=(
                         "world_graph_context.campaign_id must equal the outer "
-                        "live-query campaign_id when scope_mode is campaign"
+                        "live-query campaign_id"
                     ),
                     severity="error",
                 )
@@ -520,10 +500,8 @@ def compact_persisted_summary(envelope: dict[str, Any] | None) -> dict[str, Any]
         "focus": {
             "kind": focus.get("kind") or "none",
             "session_id": focus.get("session_id"),
-            "campaign_id": focus.get("campaign_id"),
         },
         "admissibility": envelope.get("admissibility") or "gm",
-        "scope_mode": envelope.get("scope_mode") or "campaign",
         "matched_node_ids": list(envelope.get("matched_node_ids") or []),
         "projection_truncated": bool(envelope.get("projection_truncated")),
         "warning_codes": list(envelope.get("warning_codes") or [])

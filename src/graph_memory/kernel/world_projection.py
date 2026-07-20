@@ -741,8 +741,7 @@ def _relationship_matches_focus(
         )
     if not focus_campaign_id:
         return True
-    scope = (relationship.campaign_scope or "").strip() or None
-    if scope is None:
+    if relationship.campaign_scope is None:
         # World-owned edge: only focus-anchored when evidence proves campaign.
         return any(
             _evidence_matches_focus(
@@ -752,6 +751,19 @@ def _relationship_matches_focus(
                 focus_campaign_id=focus_campaign_id,
             )
             for evidence_ref_id in relationship.evidence_ref_ids
+        )
+    scope = str(relationship.campaign_scope).strip()
+    if not scope:
+        raise WorldGraphProjectionError(
+            "Blank campaign_scope is invalid; only JSON null is world-universal.",
+            code="invalid_campaign_scope",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_campaign_scope",
+                    "relationship campaign_scope is blank",
+                )
+            ],
         )
     return scope == focus_campaign_id
 
@@ -765,7 +777,8 @@ def _campaign_scope_is_visible(
     """Visibility lens independent of temporal focus.
 
     - ``campaign``: world-universal (null) or matching request campaign.
-    - ``world``: every non-blank campaign scope in the same world store.
+    - ``world``: every campaign scope in the same world store.
+    Blank strings are never world-universal; callers must fail closed first.
     """
     if scope_mode == "world":
         return True
@@ -773,7 +786,17 @@ def _campaign_scope_is_visible(
         return True
     scope = str(campaign_scope).strip()
     if not scope:
-        return True
+        raise WorldGraphProjectionError(
+            "Blank campaign_scope is invalid; only JSON null is world-universal.",
+            code="invalid_campaign_scope",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_campaign_scope",
+                    "blank campaign_scope cannot be treated as world-universal",
+                )
+            ],
+        )
     return scope == request_campaign_id
 
 
@@ -784,7 +807,19 @@ def _object_campaign_scope(state: Mapping[str, Any] | None) -> str | None:
     if value is None:
         return None
     text = str(value).strip()
-    return text or None
+    if not text:
+        raise WorldGraphProjectionError(
+            "Blank campaign_scope is invalid; only JSON null is world-universal.",
+            code="invalid_campaign_scope",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_campaign_scope",
+                    "stored object campaign_scope is blank",
+                )
+            ],
+        )
+    return text
 
 
 def _collect_assertion_provenance_from_contributions(

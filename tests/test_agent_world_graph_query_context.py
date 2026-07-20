@@ -150,7 +150,6 @@ def test_ready_match_returns_tripod_and_connected_battle(tmp_path: Path) -> None
             "role",
             "summary",
             "anchored_to_focus_session",
-            "campaign_scope",
         }
     for attribute in envelope["attributes"]:
         assert "active_contribution_ids" not in attribute
@@ -160,7 +159,6 @@ def test_ready_match_returns_tripod_and_connected_battle(tmp_path: Path) -> None
             "predicate",
             "label",
             "text_value",
-            "campaign_scope",
         }
 
 
@@ -201,95 +199,6 @@ def test_campaign_mismatch_is_fatal() -> None:
         )
     assert exc_info.value.code == "invalid_request"
     assert exc_info.value.status_code == 422
-
-
-def test_campaign_scope_mode_rejects_outer_nested_mismatch() -> None:
-    nested = AgentWorldGraphQueryContextRequest.model_validate(
-        {
-            "schema": "dmb_agent_world_graph_query_context_request_v1",
-            "world_id": WORLD_ID,
-            "campaign_id": "longmont-c1",
-            "scope_mode": "campaign",
-            "focus": {"kind": "session", "session_id": FOCUS_SESSION_ID},
-            "admissibility": "gm",
-        }
-    )
-    with pytest.raises(AgentWorldGraphQueryContextError) as exc_info:
-        resolve_agent_world_graph_query_context(
-            nested,
-            outer_text="Tripod?",
-            outer_campaign_id=CAMPAIGN_ID,
-            root=Path("/tmp"),
-        )
-    assert exc_info.value.code == "invalid_request"
-    assert exc_info.value.status_code == 422
-
-
-def test_world_scope_mode_allows_c1_nested_under_c2_outer(tmp_path: Path) -> None:
-    _initialize(tmp_path)
-    nested = AgentWorldGraphQueryContextRequest.model_validate(
-        {
-            "schema": "dmb_agent_world_graph_query_context_request_v1",
-            "world_id": WORLD_ID,
-            "campaign_id": "longmont-c1",
-            "scope_mode": "world",
-            "focus": {
-                "kind": "session",
-                "session_id": FOCUS_SESSION_ID,
-                "campaign_id": "longmont-c1",
-            },
-            "admissibility": "gm",
-        }
-    )
-    envelope = resolve_agent_world_graph_query_context(
-        nested,
-        outer_text="Tripod Null-Calf",
-        outer_campaign_id=CAMPAIGN_ID,
-        root=tmp_path,
-    )
-    assert envelope["scope_mode"] == "world"
-    assert envelope["campaign_id"] == "longmont-c1"
-    assert envelope["status"] == "ready"
-    assert TRIPOD_ID in envelope["matched_node_ids"]
-
-
-def test_build_projection_request_forwards_scope_mode() -> None:
-    nested = AgentWorldGraphQueryContextRequest.model_validate(
-        {
-            "schema": "dmb_agent_world_graph_query_context_request_v1",
-            "world_id": WORLD_ID,
-            "campaign_id": "longmont-c1",
-            "scope_mode": "world",
-            "focus": {"kind": "none"},
-            "admissibility": "gm",
-        }
-    )
-    request = build_projection_request(nested, query_text="Tripod?")
-    assert request.scope_mode == "world"
-    assert request.campaign_id == "longmont-c1"
-
-
-def test_envelope_includes_scope_mode_and_node_campaign_scope(tmp_path: Path) -> None:
-    _initialize(tmp_path)
-    nested = AgentWorldGraphQueryContextRequest.model_validate(
-        {
-            "schema": "dmb_agent_world_graph_query_context_request_v1",
-            "world_id": WORLD_ID,
-            "campaign_id": "longmont-c1",
-            "scope_mode": "world",
-            "focus": {"kind": "none"},
-            "admissibility": "gm",
-        }
-    )
-    envelope = resolve_agent_world_graph_query_context(
-        nested,
-        outer_text="Tripod Null-Calf",
-        outer_campaign_id=CAMPAIGN_ID,
-        root=tmp_path,
-    )
-    assert envelope["scope_mode"] == "world"
-    tripod = next(node for node in envelope["nodes"] if node["node_id"] == TRIPOD_ID)
-    assert tripod["campaign_scope"] == CAMPAIGN_ID
 
 
 def test_historical_pin_reports_is_head_false(tmp_path: Path) -> None:

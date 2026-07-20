@@ -19,9 +19,7 @@
   ],
   "apply_mode": "additive_merge_onto_existing_head",
   "expected_source_domains": [
-    "manual_seed",
-    "recap",
-    "worldbuilding"
+    "manual_seed"
   ],
   "required_node_ids": [
     "pc:baergrom",

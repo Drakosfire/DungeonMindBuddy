@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from graph_memory.evidence.assertion_support import (
     ContributionAssertionKind,
@@ -52,6 +52,19 @@ class ContributionIdentityMention(_ContributionModel):
     candidate_node_ids: list[str] = Field(default_factory=list)
 
 
+def _reject_blank_campaign_scope(value: str | None) -> str | None:
+    """Only explicit JSON null means world-universal; blank strings fail closed."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError("campaign_scope must be a string or null")
+    if not value.strip():
+        raise ValueError(
+            "campaign_scope must be null (world-universal) or a non-blank campaign id"
+        )
+    return value
+
+
 class GraphContributionAssertion(_ContributionModel):
     assertion_id: str
     assertion_kind: ContributionAssertionKind
@@ -70,6 +83,11 @@ class GraphContributionAssertion(_ContributionModel):
     acceptance_state: ContributionAssertionStatus
     identity_resolution_outcome: str | None = None
     contribution_id: str
+
+    @field_validator("campaign_scope")
+    @classmethod
+    def _campaign_scope_not_blank(cls, value: str | None) -> str | None:
+        return _reject_blank_campaign_scope(value)
 
 
 class GraphContribution(_ContributionModel):
@@ -90,6 +108,11 @@ class GraphContribution(_ContributionModel):
     identity_decision_ids: list[str] = Field(default_factory=list)
     authored_by: str | None = None
     diagnostics: list[str] = Field(default_factory=list)
+
+    @field_validator("campaign_scope")
+    @classmethod
+    def _campaign_scope_not_blank(cls, value: str | None) -> str | None:
+        return _reject_blank_campaign_scope(value)
 
 
 class ContributionMergeResult(_ContributionModel):
