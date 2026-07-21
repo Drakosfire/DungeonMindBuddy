@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { createElement, useState, type ReactNode } from "react";
+import { createElement, useMemo, useRef, useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphProjectionNodeView } from "../api/types";
@@ -185,20 +185,40 @@ describe("GraphNodeChipRuntimeProvider stack", () => {
       summary: "Canvas goat after edit",
     };
 
+    function ContextProbe({ testId }: { testId: string }) {
+      // Reads provider context (not the module store) so we can observe A's
+      // in-place update without requiring A to own the TipTap store.
+      const runtime = useGraphNodeChipRuntime();
+      return createElement("div", {
+        "data-testid": testId,
+        "data-labels": Object.values(runtime.nodeViews)
+          .map((node) => node.label)
+          .sort()
+          .join(","),
+      });
+    }
+
     function Harness() {
+      const [showTool, setShowTool] = useState(true);
       const [canvasViews, setCanvasViews] = useState<Record<string, GraphProjectionNodeView>>({
         [canvasNode.node_id]: canvasNode,
       });
-      const canvasRuntime: GraphNodeChipRuntimeValue = {
-        nodeViews: canvasViews,
-        activeNodeId: canvasNode.node_id,
-        onSelectNode: () => undefined,
-      };
-      const toolRuntime: GraphNodeChipRuntimeValue = {
+      // Stable identities: only A’s nodeViews may change. Recreating B’s runtime/callback
+      // on the same render would re-push both providers and mask the leapfrog bug.
+      const canvasSelect = useRef(() => undefined).current;
+      const toolRuntime = useRef<GraphNodeChipRuntimeValue>({
         nodeViews: { [toolNode.node_id]: toolNode },
         activeNodeId: toolNode.node_id,
         onSelectNode: () => undefined,
-      };
+      }).current;
+      const canvasRuntime = useMemo(
+        () => ({
+          nodeViews: canvasViews,
+          activeNodeId: canvasNode.node_id,
+          onSelectNode: canvasSelect,
+        }),
+        [canvasSelect, canvasViews],
+      );
 
       return createElement(
         "div",
@@ -207,13 +227,15 @@ describe("GraphNodeChipRuntimeProvider stack", () => {
         createElement(
           GraphNodeChipRuntimeProvider,
           { value: canvasRuntime },
-          createElement("div", { "data-testid": "canvas" }, "canvas"),
+          createElement(ContextProbe, { testId: "canvas-context-probe" }),
         ),
-        createElement(
-          GraphNodeChipRuntimeProvider,
-          { value: toolRuntime },
-          createElement("div", { "data-testid": "tool" }, "tool"),
-        ),
+        showTool
+          ? createElement(
+              GraphNodeChipRuntimeProvider,
+              { value: toolRuntime },
+              createElement("div", { "data-testid": "tool" }, "tool"),
+            )
+          : null,
         createElement(
           "button",
           {
@@ -225,6 +247,11 @@ describe("GraphNodeChipRuntimeProvider stack", () => {
           },
           "Update canvas",
         ),
+        createElement(
+          "button",
+          { type: "button", onClick: () => setShowTool(false) },
+          "Close tool",
+        ),
       );
     }
 
@@ -235,18 +262,35 @@ describe("GraphNodeChipRuntimeProvider stack", () => {
       expect(screen.getByTestId("outside-probe").getAttribute("data-active")).toBe(
         toolNode.node_id,
       );
+      expect(screen.getByTestId("canvas-context-probe").getAttribute("data-labels")).toBe(
+        "Bubbles",
+      );
     });
 
     screen.getByRole("button", { name: "Update canvas" }).click();
 
     await waitFor(() => {
-      // Earlier provider value changed, but later sibling must remain store owner.
+      // A’s context must reflect the update (proves the value landed),
+      // while the module store must still be owned by stable B.
+      expect(screen.getByTestId("canvas-context-probe").getAttribute("data-labels")).toBe(
+        "Bubbles Updated",
+      );
       expect(screen.getByTestId("outside-probe").getAttribute("data-labels")).toBe("Glowkindle");
       expect(screen.getByTestId("outside-probe").getAttribute("data-active")).toBe(
         toolNode.node_id,
       );
-      expect(screen.getByTestId("outside-probe").getAttribute("data-labels")).not.toBe(
+    });
+
+    screen.getByRole("button", { name: "Close tool" }).click();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("tool")).toBeNull();
+      // Latest A value — not the pre-update Bubbles snapshot.
+      expect(screen.getByTestId("outside-probe").getAttribute("data-labels")).toBe(
         "Bubbles Updated",
+      );
+      expect(screen.getByTestId("outside-probe").getAttribute("data-active")).toBe(
+        canvasNode.node_id,
       );
     });
   });
