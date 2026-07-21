@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -295,6 +296,7 @@ def build_recap_graph_projection(
     source_spans: list[RecapProjectionSourceSpan] | None = None,
     *,
     paragraph_text_by_span_id: Mapping[str, str] | None = None,
+    known_entity_mentions: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
 ) -> RecapGraphProjection:
     """Build a backend-neutral recap graph projection from a union-supergraph store."""
 
@@ -315,6 +317,8 @@ def build_recap_graph_projection(
         store,
         markdown,
         identity_context=identity_context,
+        paragraph_text_by_span_id=paragraph_text_by_span_id,
+        known_entity_mentions=known_entity_mentions,
     )
     if projected_markdown is not None:
         projected_markdown, markdown_redirect_count = resolve_projection_markdown_dmb_node_links(
@@ -411,11 +415,107 @@ def splice_node_link_spans(
     return "".join(pieces), projected_offsets
 
 
+def _iter_known_entity_mention_rows(
+    known_entity_mentions: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None,
+) -> list[Mapping[str, Any]]:
+    if known_entity_mentions is None:
+        return []
+    if isinstance(known_entity_mentions, Mapping):
+        rows = known_entity_mentions.get("mentions")
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, Mapping)]
+        return []
+    return [row for row in known_entity_mentions if isinstance(row, Mapping)]
+
+
+def _paragraph_start_offsets(
+    markdown: str,
+    paragraph_text_by_span_id: Mapping[str, str],
+) -> dict[str, int]:
+    """Locate each paragraph's first occurrence in full markdown (fail closed on miss)."""
+    starts: dict[str, int] = {}
+    search_from = 0
+    # Prefer ordinal stability: scan spans in appearance order when possible by
+    # walking markdown and matching remaining paragraph texts greedily.
+    remaining = {
+        span_id: text
+        for span_id, text in paragraph_text_by_span_id.items()
+        if isinstance(text, str) and text
+    }
+    # First pass: exact unique find from current cursor when texts are sequential.
+    ordered_ids = sorted(remaining.keys())
+    for span_id in ordered_ids:
+        text = remaining[span_id]
+        idx = markdown.find(text, search_from)
+        if idx < 0:
+            idx = markdown.find(text)
+        if idx < 0:
+            continue
+        starts[span_id] = idx
+        search_from = max(search_from, idx + len(text))
+    return starts
+
+
+def _known_mention_spans_in_markdown(
+    markdown: str,
+    *,
+    known_entity_mentions: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None,
+    paragraph_text_by_span_id: Mapping[str, str] | None,
+    identity_context: UnionProjectionIdentityContext,
+    store: UnionSupergraphStore,
+) -> list[tuple[int, int, str, str]]:
+    """Convert paragraph-keyed known mentions into full-markdown chip spans."""
+    rows = _iter_known_entity_mention_rows(known_entity_mentions)
+    if not rows:
+        return []
+    para_texts = dict(paragraph_text_by_span_id or {})
+    para_starts = _paragraph_start_offsets(markdown, para_texts) if para_texts else {}
+    matches: list[tuple[int, int, str, str]] = []
+    for row in rows:
+        node_id = str(row.get("canonical_entity_id") or "").strip()
+        surface = str(row.get("surface_text") or "")
+        if not node_id or not surface:
+            continue
+        resolved_node_id = resolve_projected_node_id(node_id, identity_context)
+        node = store.nodes.get(resolved_node_id)
+        if node is None or not is_projectable_union_node(node, identity_context):
+            continue
+        span_id = str(row.get("source_span_ref_id") or "").strip()
+        start_offset = row.get("start_offset")
+        end_offset = row.get("end_offset")
+        global_start: int | None = None
+        global_end: int | None = None
+        if (
+            span_id
+            and span_id in para_starts
+            and isinstance(start_offset, int)
+            and isinstance(end_offset, int)
+        ):
+            para_text = para_texts.get(span_id) or ""
+            if para_text[start_offset:end_offset] == surface:
+                global_start = para_starts[span_id] + start_offset
+                global_end = para_starts[span_id] + end_offset
+        if global_start is None or global_end is None:
+            # Fail closed on offset remap; fall back to first exact surface hit.
+            hit = markdown.find(surface)
+            if hit < 0:
+                continue
+            global_start = hit
+            global_end = hit + len(surface)
+        if markdown[global_start:global_end] != surface:
+            continue
+        matches.append((global_start, global_end, surface, resolved_node_id))
+    matches.sort(key=lambda item: (item[0], -(item[1] - item[0])))
+    return matches
+
+
 def _project_markdown_mentions(
     store: UnionSupergraphStore,
     markdown: str | None,
     *,
     identity_context: UnionProjectionIdentityContext | None = None,
+    paragraph_text_by_span_id: Mapping[str, str] | None = None,
+    known_entity_mentions: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
 ) -> tuple[str | None, list[RecapProjectionMention], int]:
     if not markdown:
         return markdown, [], 0
@@ -424,6 +524,20 @@ def _project_markdown_mentions(
     matches: list[tuple[int, int, str, str]] = []
     occupied: list[tuple[int, int]] = []
 
+    # Prefer deterministic known-entity mention spans (registry-backed).
+    for start, end, label, node_id in _known_mention_spans_in_markdown(
+        markdown,
+        known_entity_mentions=known_entity_mentions,
+        paragraph_text_by_span_id=paragraph_text_by_span_id,
+        identity_context=context,
+        store=store,
+    ):
+        if any(start < used_end and end > used_start for used_start, used_end in occupied):
+            continue
+        occupied.append((start, end))
+        matches.append((start, end, label, node_id))
+
+    # Retain alias-store matching for novel / non-known entities.
     aliases = sorted(store.aliases.items(), key=lambda item: len(item[0]), reverse=True)
     for alias, node_id in aliases:
         resolved_node_id = resolve_projected_node_id(node_id, context)
