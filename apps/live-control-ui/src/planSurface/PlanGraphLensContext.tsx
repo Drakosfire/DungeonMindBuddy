@@ -40,8 +40,8 @@ interface PlanGraphLensContextValue {
   /**
    * Shared gate for projection + Ask:
    * - none: no focus to validate
-   * - pending: focus present, bundles still loading
-   * - valid: focus confirmed in a successful bundle (or operator override)
+   * - pending: focus present, bundles still loading / lens key changed
+   * - valid: focus confirmed in a successful bundle (or operator override for this lens key)
    * - invalid: focus absent from successful bundles (cleared next)
    * - unavailable: focused campaign bundle failed; URL focus kept, backend gated
    */
@@ -53,7 +53,7 @@ interface PlanGraphLensContextValue {
   retryFocusValidation: () => void;
   /**
    * Intentional operator override: accept the retained URL focus without a
-   * successful bundle ground truth (unblocks projection + Ask).
+   * successful bundle ground truth (unblocks projection + Ask for this lens key only).
    */
   acceptUnverifiedFocus: () => void;
 }
@@ -76,16 +76,41 @@ function sortCampaignIds(ids: readonly ReviewCampaignId[]): ReviewCampaignId[] {
   return REVIEW_CAMPAIGN_IDS.filter((id) => ids.includes(id));
 }
 
+/** Exact focus + selected-campaign identity for atomic validation binding. */
+export function planGraphLensValidationKey(lens: PlanGraphLens): string {
+  const campaigns = lens.selectedCampaignIds.join(",");
+  const focus = lens.focus
+    ? `${lens.focus.campaignId}:${lens.focus.sessionNumber}`
+    : "";
+  return `${campaigns}::${focus}`;
+}
+
+/**
+ * If stored validation was computed for a different lens key, treat it as
+ * pending/none immediately — do not leak a stale `valid` across lens changes.
+ */
+export function effectiveFocusValidationStatus(
+  stored: { status: PlanGraphFocusValidationStatus; boundKey: string },
+  currentKey: string,
+  hasFocus: boolean,
+): PlanGraphFocusValidationStatus {
+  if (stored.boundKey === currentKey) return stored.status;
+  return hasFocus ? "pending" : "none";
+}
+
 interface BundleLoadState {
   ready: boolean;
   loadedCampaignIds: readonly ReviewCampaignId[];
   failedCampaignIds: readonly ReviewCampaignId[];
+  /** Campaign selection this load result belongs to. */
+  selectedCampaignKey: string;
 }
 
 const BUNDLE_LOAD_IDLE: BundleLoadState = {
   ready: false,
   loadedCampaignIds: [],
   failedCampaignIds: [],
+  selectedCampaignKey: "",
 };
 
 export function PlanGraphLensProvider({
@@ -103,31 +128,65 @@ export function PlanGraphLensProvider({
   const [focusOptions, setFocusOptions] = useState<PlanGraphLoadFocusOption[]>(
     () => focusOptionsOverride ?? [],
   );
-  const [bundleLoadState, setBundleLoadState] = useState<BundleLoadState>(() =>
-    focusOptionsOverride !== undefined
-      ? {
-          ready: true,
-          loadedCampaignIds: sortCampaignIds(
-            (focusOptionsOverride ?? []).map((option) => option.campaignId),
-          ),
-          failedCampaignIds: [],
-        }
-      : BUNDLE_LOAD_IDLE,
-  );
-  const [focusValidationStatus, setFocusValidationStatus] =
-    useState<PlanGraphFocusValidationStatus>(() => (lens.focus ? "pending" : "none"));
+  const [bundleLoadState, setBundleLoadState] = useState<BundleLoadState>(() => {
+    const initialLens = resolvePlanGraphLens(
+      planCampaignId,
+      typeof window !== "undefined" ? window.location.search : "",
+    );
+    if (focusOptionsOverride !== undefined) {
+      return {
+        ready: true,
+        loadedCampaignIds: sortCampaignIds(
+          focusOptionsOverride.map((option) => option.campaignId),
+        ),
+        failedCampaignIds: [],
+        selectedCampaignKey: initialLens.selectedCampaignIds.join(","),
+      };
+    }
+    return BUNDLE_LOAD_IDLE;
+  });
+  const [storedValidation, setStoredValidation] = useState<{
+    status: PlanGraphFocusValidationStatus;
+    boundKey: string;
+  }>(() => {
+    const initialLens = resolvePlanGraphLens(
+      planCampaignId,
+      typeof window !== "undefined" ? window.location.search : "",
+    );
+    return {
+      status: initialLens.focus ? "pending" : "none",
+      boundKey: planGraphLensValidationKey(initialLens),
+    };
+  });
   const [bundleReloadToken, setBundleReloadToken] = useState(0);
-  /** Operator accepted unverified URL focus during a bundle outage. */
-  const unverifiedFocusAcceptedRef = useRef(false);
+  /**
+   * Operator override is valid only while this exact lens key is current.
+   * Changing campaigns/focus invalidates it without waiting for an effect.
+   */
+  const unverifiedOverrideKeyRef = useRef<string | null>(null);
 
   const selectedCampaignKey = lens.selectedCampaignIds.join(",");
   const focusKey = lens.focus
     ? `${lens.focus.campaignId}:${lens.focus.sessionNumber}`
     : "";
+  const currentValidationKey = planGraphLensValidationKey(lens);
+
+  const focusValidationStatus = effectiveFocusValidationStatus(
+    storedValidation,
+    currentValidationKey,
+    lens.focus != null,
+  );
+
+  const bindValidation = useCallback(
+    (status: PlanGraphFocusValidationStatus, boundKey: string) => {
+      setStoredValidation({ status, boundKey });
+    },
+    [],
+  );
 
   const setSelectedCampaignIds = useCallback(
     (ids: ReviewCampaignId[]) => {
-      unverifiedFocusAcceptedRef.current = false;
+      unverifiedOverrideKeyRef.current = null;
       setLens((previous) => {
         const next: PlanGraphLens = {
           selectedCampaignIds: sortCampaignIds(ids),
@@ -144,7 +203,7 @@ export function PlanGraphLensProvider({
   );
 
   const toggleCampaign = useCallback((campaignId: ReviewCampaignId) => {
-    unverifiedFocusAcceptedRef.current = false;
+    unverifiedOverrideKeyRef.current = null;
     setLens((previous) => {
       const selected = new Set(previous.selectedCampaignIds);
       if (selected.has(campaignId)) {
@@ -165,34 +224,44 @@ export function PlanGraphLensProvider({
     });
   }, []);
 
-  const setFocus = useCallback((focus: PlanGraphLensFocus | null) => {
-    unverifiedFocusAcceptedRef.current = false;
-    setLens((previous) => {
-      const next: PlanGraphLens = {
-        selectedCampaignIds: previous.selectedCampaignIds,
-        focus:
-          focus && previous.selectedCampaignIds.includes(focus.campaignId) ? focus : null,
+  const setFocus = useCallback(
+    (focus: PlanGraphLensFocus | null) => {
+      unverifiedOverrideKeyRef.current = null;
+      setLens((previous) => {
+        const nextFocus =
+          focus && previous.selectedCampaignIds.includes(focus.campaignId)
+            ? focus
+            : null;
+        const next: PlanGraphLens = {
+          selectedCampaignIds: previous.selectedCampaignIds,
+          focus: nextFocus,
+        };
+        syncPlanGraphLensUrl(next);
+        return next;
+      });
+      // Bind to the post-update lens key using current selection + requested focus.
+      const nextFocus =
+        focus && lens.selectedCampaignIds.includes(focus.campaignId) ? focus : null;
+      const nextLens: PlanGraphLens = {
+        selectedCampaignIds: lens.selectedCampaignIds,
+        focus: nextFocus,
       };
-      syncPlanGraphLensUrl(next);
-      return next;
-    });
-    // User-driven focus changes are grounded picks or intentional clear (override).
-    setFocusValidationStatus(focus ? "valid" : "none");
-  }, []);
+      bindValidation(nextFocus ? "valid" : "none", planGraphLensValidationKey(nextLens));
+    },
+    [bindValidation, lens.selectedCampaignIds],
+  );
 
   const retryFocusValidation = useCallback(() => {
-    unverifiedFocusAcceptedRef.current = false;
-    setFocusValidationStatus((previous) =>
-      previous === "none" ? "none" : "pending",
-    );
+    unverifiedOverrideKeyRef.current = null;
+    bindValidation(lens.focus ? "pending" : "none", currentValidationKey);
     setBundleReloadToken((token) => token + 1);
-  }, []);
+  }, [bindValidation, currentValidationKey, lens.focus]);
 
   const acceptUnverifiedFocus = useCallback(() => {
     if (!lens.focus) return;
-    unverifiedFocusAcceptedRef.current = true;
-    setFocusValidationStatus("valid");
-  }, [lens.focus]);
+    unverifiedOverrideKeyRef.current = currentValidationKey;
+    bindValidation("valid", currentValidationKey);
+  }, [bindValidation, currentValidationKey, lens.focus]);
 
   // Load grounded focus options for the selected campaigns.
   useEffect(() => {
@@ -204,6 +273,7 @@ export function PlanGraphLensProvider({
           focusOptionsOverride.map((option) => option.campaignId),
         ),
         failedCampaignIds: [],
+        selectedCampaignKey,
       });
       return;
     }
@@ -215,12 +285,16 @@ export function PlanGraphLensProvider({
         ready: true,
         loadedCampaignIds: [],
         failedCampaignIds: [],
+        selectedCampaignKey,
       });
       return;
     }
 
     let cancelled = false;
-    setBundleLoadState(BUNDLE_LOAD_IDLE);
+    setBundleLoadState({
+      ...BUNDLE_LOAD_IDLE,
+      selectedCampaignKey,
+    });
 
     void (async () => {
       const bundles = new Map<ReviewCampaignId, IngestionSourceBundle>();
@@ -241,6 +315,7 @@ export function PlanGraphLensProvider({
         ready: true,
         loadedCampaignIds: [...bundles.keys()],
         failedCampaignIds,
+        selectedCampaignKey,
       });
     })();
 
@@ -255,16 +330,21 @@ export function PlanGraphLensProvider({
     lens.selectedCampaignIds,
   ]);
 
-  // Validate active focus against grounded options once bundles resolve.
+  // Validate active focus against grounded options once bundles resolve for this selection.
   useEffect(() => {
-    if (!bundleLoadState.ready) {
-      setFocusValidationStatus(lens.focus ? "pending" : "none");
+    const bundlesMatchSelection =
+      bundleLoadState.ready
+      && bundleLoadState.selectedCampaignKey === selectedCampaignKey;
+
+    if (!bundlesMatchSelection) {
+      bindValidation(lens.focus ? "pending" : "none", currentValidationKey);
       return;
     }
 
     const focus = lens.focus;
     if (!focus) {
-      setFocusValidationStatus("none");
+      unverifiedOverrideKeyRef.current = null;
+      bindValidation("none", currentValidationKey);
       return;
     }
 
@@ -272,33 +352,37 @@ export function PlanGraphLensProvider({
       bundleLoadState.failedCampaignIds.includes(focus.campaignId)
       && !bundleLoadState.loadedCampaignIds.includes(focus.campaignId);
 
-    // Transient API failure: keep URL focus; stay gated unless operator overrides.
+    // Transient API failure: keep URL focus; stay gated unless override matches this lens key.
     if (focusCampaignFailed) {
-      if (unverifiedFocusAcceptedRef.current) {
-        setFocusValidationStatus("valid");
+      if (unverifiedOverrideKeyRef.current === currentValidationKey) {
+        bindValidation("valid", currentValidationKey);
         return;
       }
-      setFocusValidationStatus("unavailable");
+      bindValidation("unavailable", currentValidationKey);
       return;
     }
 
     if (optionsIncludeFocus(focusOptions, focus)) {
-      unverifiedFocusAcceptedRef.current = false;
-      setFocusValidationStatus("valid");
+      unverifiedOverrideKeyRef.current = null;
+      bindValidation("valid", currentValidationKey);
       return;
     }
 
     // Successful bundle(s) for the focus campaign genuinely lack this session.
-    unverifiedFocusAcceptedRef.current = false;
-    setFocusValidationStatus("invalid");
+    unverifiedOverrideKeyRef.current = null;
+    bindValidation("invalid", currentValidationKey);
     setFocus(null);
   }, [
+    bindValidation,
     bundleLoadState.failedCampaignIds,
     bundleLoadState.loadedCampaignIds,
     bundleLoadState.ready,
+    bundleLoadState.selectedCampaignKey,
+    currentValidationKey,
     focusKey,
     focusOptions,
     lens.focus,
+    selectedCampaignKey,
     setFocus,
   ]);
 

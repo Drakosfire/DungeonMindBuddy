@@ -741,6 +741,100 @@ describe("PlanSurfaceShell", () => {
     }
   });
 
+  it("does not leak overridden Session 40 projection after campaign lens changes", async () => {
+    const user = userEvent.setup();
+    window.history.pushState(
+      {},
+      "",
+      "/plan?campaigns=longmont-c2&session=longmont-c2:40",
+    );
+
+    let deferredResolvers: Array<(value: typeof mockSourceBundle) => void> = [];
+    let deferBundles = false;
+    vi.spyOn(liveApi, "getSourceBundle").mockImplementation(async () => {
+      if (!deferBundles) {
+        throw new Error("bundle unavailable");
+      }
+      return new Promise<typeof mockSourceBundle>((resolve) => {
+        deferredResolvers.push(resolve);
+      });
+    });
+
+    const projectionRequests: Array<{ focus?: { sessionId?: string | null } }> = [];
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) => {
+      projectionRequests.push(request as { focus?: { sessionId?: string | null } });
+      return worldGraphProjection;
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify(mockSourceBundle),
+    } as Response);
+
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-focus-validation-unavailable")).toBeInTheDocument();
+    });
+    expect(projectionRequests).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Use focus anyway" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("plan-graph-focus-validation-unavailable")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(projectionRequests.length).toBeGreaterThan(0);
+    });
+    const afterOverrideCount = projectionRequests.length;
+    expect(
+      projectionRequests.some((request) => request.focus?.sessionId === "session-40"),
+    ).toBe(true);
+
+    deferBundles = true;
+    deferredResolvers = [];
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("checkbox", { name: /Longmont C1/i }));
+
+    // Lens changed while override was valid: gate must engage before deferred bundles resolve.
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+        /validating focus|focus validation unavailable/i,
+      );
+    });
+    expect(screen.getByRole("checkbox", { name: /Longmont C1/i })).toBeChecked();
+    expect(window.location.search).toMatch(/session=longmont-c2%3A40|session=longmont-c2:40/);
+
+    const requestsWhileReloading = projectionRequests.slice(afterOverrideCount);
+    for (const request of requestsWhileReloading) {
+      expect(request.focus?.sessionId ?? null).not.toBe("session-40");
+    }
+
+    expect(await screen.findByText("Validating session focus…")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Question"), "Ask after lens change?");
+    expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeDisabled();
+    expect(liveQueryFetchCalls()).toHaveLength(0);
+
+    // Resolve deferred reloads (C1 + C2). Session 40 is still absent → cleared.
+    for (const resolve of deferredResolvers) {
+      resolve(mockSourceBundle);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+        /no session focus/i,
+      );
+    });
+    expect(window.location.search).not.toMatch(/session=longmont-c2:40/);
+
+    await waitFor(() => {
+      expect(projectionRequests.length).toBeGreaterThan(afterOverrideCount);
+    });
+    for (const request of projectionRequests.slice(afterOverrideCount)) {
+      expect(request.focus?.sessionId ?? null).not.toBe("session-40");
+    }
+  });
+
   it("warns when a prep memory answer has no grounding evidence", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
