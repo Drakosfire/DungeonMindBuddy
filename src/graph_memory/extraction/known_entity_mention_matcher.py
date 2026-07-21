@@ -346,6 +346,8 @@ def validate_known_entity_ir_assertions(
     Known registry entities may appear as ``proposed_action=anchor`` context nodes.
     Full observation-node assertions for those IDs/labels are rejected. Edges and
     beats may reference known canonical IDs when they carry evidence_refs.
+    Deterministic standing-context edges (``context_anchor`` / ``proposed_action=anchor``)
+    are exempt from the missing-evidence reject — same contract as anchor nodes.
     """
     rejected_node_ids: list[str] = []
     accepted_known_edges: list[str] = []
@@ -371,6 +373,10 @@ def validate_known_entity_ir_assertions(
 
     for raw in edges:
         if not isinstance(raw, Mapping):
+            continue
+        # Deterministic standing anchors (party member_of, etc.) are evidence-free
+        # by design — mirror node handling and keep them out of the reject set.
+        if raw.get("context_anchor") is True or str(raw.get("proposed_action") or "") == "anchor":
             continue
         endpoints = {
             str(raw.get("from_node_id") or "").strip(),

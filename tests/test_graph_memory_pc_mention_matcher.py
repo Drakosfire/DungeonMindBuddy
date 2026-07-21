@@ -232,6 +232,15 @@ def test_ir_rejects_known_node_asserts_accepts_evidenced_edges() -> None:
                 "to_node_id": "node:novel",
                 "evidence_refs": [],
             },
+            {
+                "edge_id": "edge:caelynn-member-of-party",
+                "from_node_id": "node:caelynn",
+                "to_node_id": "node:heroes-party",
+                "relationship_type": "member_of",
+                "evidence_refs": [],
+                "proposed_action": "anchor",
+                "context_anchor": True,
+            },
         ],
         beats=[
             {
@@ -247,6 +256,9 @@ def test_ir_rejects_known_node_asserts_accepts_evidenced_edges() -> None:
     assert "node:caelynn" in report["rejected_known_entity_node_assertions"]
     assert "edge:1" in report["accepted_known_entity_edges"]
     assert "edge:2" in report["rejected_known_entity_edges_missing_evidence"]
+    assert "edge:caelynn-member-of-party" not in report[
+        "rejected_known_entity_edges_missing_evidence"
+    ]
     assert "beat:1" in report["accepted_known_entity_beats"]
     assert report["ok"] is False
 
@@ -316,13 +328,22 @@ def test_consolidate_drops_duplicate_pc_nodes_keeps_novel() -> None:
 
 
 def test_unsupported_known_entity_edge_removed_before_evidence_repair() -> None:
-    """Empty-evidence Caelynn edges must not inherit mention citations and survive."""
+    """Hallucinated empty-evidence edges drop; roster member_of anchors survive partition."""
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         repair_edge_evidence_refs,
         sanitize_parts,
     )
+    from src.graph_memory.party_context import build_party_context_for_campaign
+    from src.graph_memory.standing_context_partition import (
+        partition_candidate_parts_by_provenance,
+    )
 
     registry = build_known_entity_registry("longmont-c2", 22)
+    party = build_party_context_for_campaign("longmont-c2", 22)
+    assert party.members, "expected C2 roster for standing membership edges"
+    expected_member_of = {
+        f"edge:{member.slug.replace('_', '-')}-member-of-party" for member in party.members
+    }
     spans = [
         {
             "kind": "paragraph",
@@ -377,17 +398,26 @@ def test_unsupported_known_entity_edge_removed_before_evidence_repair() -> None:
     )
     edge_ids = {e.get("edge_id") for e in parts["edges"]}
     assert "edge:caelynn-hallucinated" not in edge_ids
+    assert expected_member_of.issubset(edge_ids)
     diag = parts["consolidation_diagnostics"]["known_entity_mentions"]
     assert "edge:caelynn-hallucinated" in diag["rejected_known_entity_edges_missing_evidence"]
     assert "edge:caelynn-hallucinated" in diag["removed_missing_evidence_edge_ids"]
+    assert not expected_member_of.intersection(
+        diag["rejected_known_entity_edges_missing_evidence"]
+    )
+    assert not expected_member_of.intersection(
+        diag.get("removed_missing_evidence_edge_ids") or []
+    )
 
-    # Even if a caller reintroduces the edge, repair+sanitize must not resurrect it
-    # from consolidate's removed set — prove consolidate already stripped it.
     repair_edge_evidence_refs(parts, {"span:p1"})
     sanitized, _ = sanitize_parts(parts, {"span:p1"})
     assert "edge:caelynn-hallucinated" not in {
         e.get("edge_id") for e in sanitized.get("edges") or []
     }
+
+    _recap, standing, _partition_diag = partition_candidate_parts_by_provenance(sanitized)
+    standing_edge_ids = {e.get("edge_id") for e in standing.get("edges") or []}
+    assert expected_member_of.issubset(standing_edge_ids)
 
 
 def test_prompt_wiring_includes_known_entity_ledger() -> None:
