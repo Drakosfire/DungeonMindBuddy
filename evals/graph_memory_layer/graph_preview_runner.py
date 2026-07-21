@@ -732,6 +732,15 @@ def run_graph_preview_extraction(
                     registry_context_path,
                     "dmb_candidate_graph_preview_v0",
                 )
+            if extraction.known_entity_mentions:
+                known_entity_path = output_dir / "known_entity_mentions.json"
+                write_json(known_entity_path, extraction.known_entity_mentions)
+                artifacts["known_entity_mentions"] = _artifact(
+                    GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
+                    known_entity_path,
+                    extraction.known_entity_mentions.get("schema")
+                    or "dmb_known_entity_mention_sidecar_v0",
+                )
             pass_outputs_path = output_dir / "pass_outputs.json"
             write_json(pass_outputs_path, extraction.pass_outputs)
             pass_telemetry_path = output_dir / "pass_telemetry.json"

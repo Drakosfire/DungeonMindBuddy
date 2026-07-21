@@ -161,6 +161,49 @@ def test_filter_drops_duplicate_known_entity_nodes() -> None:
     assert "node:caelynn" in dropped
 
 
+def test_filter_keeps_pc_named_object_and_thread_nodes() -> None:
+    """Substring containment must not treat PC-named objects as the PC."""
+    kept, dropped = filter_observation_nodes_dropping_known_entities(
+        [
+            {"node_id": "node:caelynn", "label": "Caelynn"},
+            {"node_id": "node:caelynn-s-whisper-bottle", "label": "Caelynn's Whisper Bottle"},
+            {"node_id": "node:stafl-song", "label": "Stafl Song"},
+            {"node_id": "pc:stafl", "label": "Stafl"},
+        ],
+        known_ids={"node:caelynn", "pc:stafl", "node:stafl"},
+        known_slugs={"caelynn", "stafl"},
+        known_labels_norm={
+            normalize_match_surface("Caelynn"),
+            normalize_match_surface("Stafl"),
+        },
+    )
+    kept_ids = {n["node_id"] for n in kept}
+    assert "node:caelynn-s-whisper-bottle" in kept_ids
+    assert "node:stafl-song" in kept_ids
+    assert "node:caelynn" in dropped
+    assert "pc:stafl" in dropped
+
+
+def test_title_prefixed_names_do_not_derive_captain_alias() -> None:
+    registry = build_known_entity_registry("longmont-c2", 22)
+    lysandra = registry.by_slug().get("captain_lysandra_ironveil")
+    assert lysandra is not None
+    surfaces = {normalize_match_surface(surface) for surface, _method in lysandra.match_terms}
+    assert "captain" not in surfaces
+    assert "the captain" not in surfaces
+    assert "a captain" not in surfaces
+
+    spans = [
+        {
+            "kind": "paragraph",
+            "source_span_ref_id": "span:p1",
+            "text": "A captain of the city watch ordered the gate closed.",
+        }
+    ]
+    sidecar = match_known_entities_in_spans(spans, registry, session_id="session-22")
+    assert sidecar.mentions == ()
+
+
 def test_ir_rejects_known_node_asserts_accepts_evidenced_edges() -> None:
     report = validate_known_entity_ir_assertions(
         nodes=[
@@ -378,3 +421,141 @@ def test_projection_prefers_known_mention_spans_for_chips() -> None:
     assert projection.markdown is not None
     assert "[Caelynn](dmb-node:node:caelynn)" in projection.markdown
     assert any(m.node_id == "node:caelynn" for m in projection.mentions)
+
+
+def test_projection_skips_unresolved_offsets_instead_of_global_find() -> None:
+    """Failed paragraph remap must not chip the first surface elsewhere in the recap."""
+    markdown = (
+        "Caelynn waited at the gate.\n\n"
+        "Later, Caelynn opened the door."
+    )
+    # Wrong paragraph text so offset remap fails; surface also appears earlier.
+    sidecar = {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+            {
+                "source_span_ref_id": "span:p2",
+                "start_offset": 7,
+                "end_offset": 14,
+                "surface_text": "Caelynn",
+                "canonical_entity_id": "node:caelynn",
+                "entity_slug": "caelynn",
+                "entity_kind": "pc",
+                "match_method": "canonical",
+                "display_name": "Caelynn",
+            }
+        ],
+    }
+    projection = build_recap_graph_projection(
+        _store_with_pc(),
+        session_id="session-22",
+        markdown=markdown,
+        paragraph_text_by_span_id={
+            "span:p2": "Someone else opened the door.",  # surface absent → skip
+        },
+        known_entity_mentions=sidecar,
+    )
+    assert projection.markdown is not None
+    # Must not collapse onto the first "Caelynn" in the full markdown.
+    assert "[Caelynn](dmb-node:node:caelynn)" not in projection.markdown
+    assert all(m.node_id != "node:caelynn" for m in projection.mentions)
+    assert any(
+        d.code == "known_entity_mention_offset_unresolved"
+        for d in projection.union_identity_diagnostics
+    )
+
+
+def test_projection_unique_in_paragraph_surface_still_chips() -> None:
+    markdown = "Caelynn waited.\n\nLater, Caelynn opened the door."
+    paragraph = "Later, Caelynn opened the door."
+    sidecar = {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+            {
+                "source_span_ref_id": "span:p2",
+                # Intentionally wrong offsets; unique in-paragraph surface should recover.
+                "start_offset": 0,
+                "end_offset": 1,
+                "surface_text": "Caelynn",
+                "canonical_entity_id": "node:caelynn",
+                "entity_slug": "caelynn",
+                "entity_kind": "pc",
+                "match_method": "canonical",
+                "display_name": "Caelynn",
+            }
+        ],
+    }
+    projection = build_recap_graph_projection(
+        _store_with_pc(),
+        session_id="session-22",
+        markdown=markdown,
+        paragraph_text_by_span_id={"span:p2": paragraph},
+        known_entity_mentions=sidecar,
+    )
+    assert projection.markdown is not None
+    assert projection.markdown.count("[Caelynn](dmb-node:node:caelynn)") == 1
+    # Chip must land in the second paragraph, not the first occurrence.
+    first_chip = projection.markdown.index("[Caelynn](dmb-node:node:caelynn)")
+    assert first_chip > markdown.index("Later")
+
+
+def test_pipeline_artifact_roundtrip_feeds_live_projection() -> None:
+    """Registry match → sidecar artifact → projection adapter path."""
+    import json
+    import shutil
+    from pathlib import Path
+
+    from apps.live_control_server.config import repo_root
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        _load_manifest_known_entity_mentions,
+    )
+
+    registry = build_known_entity_registry("longmont-c2", 22)
+    spans = [
+        {
+            "kind": "paragraph",
+            "span_id": "span:p1",
+            "source_span_ref_id": "span:p1",
+            "text": "Caelynn opened the door.",
+        }
+    ]
+    sidecar = match_known_entities_in_spans(spans, registry, session_id="session-22")
+    assert any(m.entity_slug == "caelynn" for m in sidecar.mentions)
+
+    root = repo_root().resolve()
+    out = root / "evals" / "graph_memory_layer" / "artifacts" / "_tmp_known_entity_repair_test"
+    out.mkdir(parents=True, exist_ok=True)
+    try:
+        sidecar_path = out / "known_entity_mentions.json"
+        sidecar_path.write_text(json.dumps(sidecar.to_dict()), encoding="utf-8")
+        manifest_path = out / "graph_ingest_run_manifest.json"
+        rel_uri = sidecar_path.relative_to(root).as_posix()
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "schema": "dmb_graph_ingest_run_manifest_v0",
+                    "artifacts": {
+                        "known_entity_mentions": {
+                            "kind": "known_entity_mentions",
+                            "uri": rel_uri,
+                            "exists": True,
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        loaded = _load_manifest_known_entity_mentions(manifest_path)
+        assert loaded is not None
+        assert loaded["mentions"]
+
+        projection = build_recap_graph_projection(
+            _store_with_pc(),
+            session_id="session-22",
+            markdown="Caelynn opened the door.",
+            paragraph_text_by_span_id={"span:p1": "Caelynn opened the door."},
+            known_entity_mentions=loaded,
+        )
+        assert "[Caelynn](dmb-node:node:caelynn)" in (projection.markdown or "")
+    finally:
+        shutil.rmtree(out, ignore_errors=True)

@@ -87,12 +87,18 @@ def build_plan_union_supergraph_projection(
         if graph_run_manifest_path is not None
         else {}
     )
+    known_entity_mentions = (
+        _load_manifest_known_entity_mentions(graph_run_manifest_path)
+        if graph_run_manifest_path is not None
+        else None
+    )
     return build_recap_graph_projection(
         store,
         session_id=session_id,
         markdown=markdown or "",
         source_spans=source_spans,
         paragraph_text_by_span_id=paragraph_text_by_span_id,
+        known_entity_mentions=known_entity_mentions,
     )
 
 
@@ -174,6 +180,30 @@ def _load_manifest_source_span_full_text_index(
         if isinstance(span_id, str) and isinstance(text, str) and text.strip():
             full_text_by_span_id[span_id] = text
     return full_text_by_span_id
+
+
+def _load_manifest_known_entity_mentions(
+    graph_run_manifest_path: Path,
+) -> dict[str, Any] | None:
+    """Load the known-entity mention sidecar from a graph-ingest run manifest."""
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts = payload.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return None
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if not isinstance(artifact, dict):
+        return None
+    uri = artifact.get("uri")
+    if not isinstance(uri, str) or not uri.strip():
+        return None
+    sidecar_path = _resolve_repo_contained_path(Path(uri), root)
+    if not sidecar_path.is_file():
+        return None
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    return sidecar if isinstance(sidecar, dict) else None
+
 
 def load_preview_union_store_from_graph_run_manifest(
     graph_run_manifest_path: Path,

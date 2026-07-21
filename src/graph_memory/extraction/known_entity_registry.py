@@ -83,20 +83,85 @@ def normalize_match_surface(value: str) -> str:
     return text
 
 
+# Title/role tokens that must never become match aliases on their own.
+# "Captain Lysandra Ironveil" must not yield alias "Captain"; NPC extras like
+# "the captain" are likewise unsafe for deterministic attribution.
+_TITLE_ROLE_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "captain",
+        "commander",
+        "professor",
+        "sheriff",
+        "mayor",
+        "lord",
+        "lady",
+        "sir",
+        "dame",
+        "doctor",
+        "dr",
+        "sergeant",
+        "general",
+        "admiral",
+        "king",
+        "queen",
+        "prince",
+        "princess",
+        "duke",
+        "duchess",
+        "baron",
+        "baroness",
+        "master",
+        "mistress",
+        "elder",
+        "chief",
+        "lieutenant",
+        "colonel",
+        "major",
+        "private",
+        "corporal",
+    }
+)
+
+
+def is_unsafe_match_alias(surface: str) -> bool:
+    """Reject title/role stopwords and determiner+title phrases (``the captain``)."""
+    norm = normalize_match_surface(surface)
+    if not norm:
+        return True
+    parts = norm.split()
+    if len(parts) == 1:
+        return parts[0] in _TITLE_ROLE_STOPWORDS
+    if len(parts) == 2 and parts[0] in {"a", "an", "the"} and parts[1] in _TITLE_ROLE_STOPWORDS:
+        return True
+    return False
+
+
 def _derived_aliases(display_name: str, slug: str) -> list[str]:
     aliases: list[str] = []
     display = (display_name or "").strip()
     if display:
         aliases.append(display)
         first = display.split()[0].strip(".,;:'\"") if display.split() else ""
-        if first and len(first) >= 3 and first.casefold() != display.casefold():
+        if (
+            first
+            and len(first) >= 3
+            and first.casefold() != display.casefold()
+            and not is_unsafe_match_alias(first)
+        ):
             aliases.append(first)
     slug_label = slug.replace("_", " ").strip()
-    if slug_label and slug_label.casefold() not in {a.casefold() for a in aliases}:
+    if (
+        slug_label
+        and slug_label.casefold() not in {a.casefold() for a in aliases}
+        and not is_unsafe_match_alias(slug_label)
+    ):
         aliases.append(slug_label.title() if slug_label.islower() else slug_label)
-    # Prefer first token of slug (baergrom) when distinct
+    # Prefer first token of slug (baergrom) when distinct and not a title stopword
     slug_first = slug.split("_", 1)[0].strip()
-    if slug_first and len(slug_first) >= 3:
+    if slug_first and len(slug_first) >= 3 and not is_unsafe_match_alias(slug_first):
         titled = slug_first.title()
         if titled.casefold() not in {a.casefold() for a in aliases}:
             aliases.append(titled)
@@ -141,6 +206,10 @@ def _build_match_terms(
     def add(surface: str, method: str) -> None:
         cleaned = surface.strip()
         if not cleaned:
+            return
+        # Canonical display name is always allowed; derived/extra aliases are not
+        # when they collapse to a title/role stopword.
+        if method != "canonical" and is_unsafe_match_alias(cleaned):
             return
         key = normalize_match_surface(cleaned)
         if not key or key in seen_norm:

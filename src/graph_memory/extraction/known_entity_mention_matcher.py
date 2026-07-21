@@ -222,6 +222,47 @@ def render_known_entity_ledger_markdown(
     return "\n".join(lines)
 
 
+def _slug_from_prefixed_node_id(node_id: str) -> str | None:
+    """Return the identity slug when ``node_id`` is an exact known-entity prefix form.
+
+    Accepts ``pc:``, ``npc:``, ``node:``, ``party:``, and ``character_`` prefixes.
+    Does **not** treat arbitrary substrings as identity — ``node:caelynn-s-whisper-bottle``
+    is not the PC ``caelynn``.
+    """
+    raw = (node_id or "").strip()
+    if not raw:
+        return None
+    for prefix in ("pc:", "npc:", "node:", "party:"):
+        if raw.startswith(prefix):
+            return raw[len(prefix) :].replace("-", "_")
+    if raw.startswith("character_"):
+        return raw.removeprefix("character_").replace("-", "_")
+    return None
+
+
+def node_collides_with_known_entity(
+    node: Mapping[str, Any],
+    *,
+    known_ids: set[str],
+    known_slugs: set[str],
+    known_labels_norm: set[str],
+) -> bool:
+    """True when the node is an exact known-entity identity, not a PC-named object."""
+    node_id = str(node.get("node_id") or "").strip()
+    label = str(node.get("label") or "").strip()
+    corpus_ref = node.get("corpus_ref") if isinstance(node.get("corpus_ref"), Mapping) else {}
+    ref_id = str(corpus_ref.get("ref_id") or "").strip() if corpus_ref else ""
+    label_norm = normalize_match_surface(label)
+    if node_id and node_id in known_ids:
+        return True
+    if ref_id and ref_id in known_slugs:
+        return True
+    if label_norm and label_norm in known_labels_norm:
+        return True
+    extracted = _slug_from_prefixed_node_id(node_id)
+    return bool(extracted and extracted in known_slugs)
+
+
 def filter_observation_nodes_dropping_known_entities(
     nodes: Sequence[Mapping[str, Any]],
     *,
@@ -229,23 +270,27 @@ def filter_observation_nodes_dropping_known_entities(
     known_slugs: set[str],
     known_labels_norm: set[str],
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Drop LLM-emitted nodes that collide with known registry entities."""
+    """Drop LLM-emitted nodes that collide with known registry entities.
+
+    Context anchors (``proposed_action=anchor`` / ``context_anchor``) are kept so
+    party-seeded standing nodes survive while duplicate creates are removed.
+    """
     kept: list[dict[str, Any]] = []
     dropped: list[str] = []
     for raw in nodes:
         if not isinstance(raw, Mapping):
             continue
         node = dict(raw)
+        if node.get("context_anchor") is True or str(node.get("proposed_action") or "") == "anchor":
+            kept.append(node)
+            continue
         node_id = str(node.get("node_id") or "").strip()
         label = str(node.get("label") or "").strip()
-        corpus_ref = node.get("corpus_ref") if isinstance(node.get("corpus_ref"), Mapping) else {}
-        ref_id = str(corpus_ref.get("ref_id") or "").strip() if corpus_ref else ""
-        label_norm = normalize_match_surface(label)
-        if (
-            node_id in known_ids
-            or ref_id in known_slugs
-            or (label_norm and label_norm in known_labels_norm)
-            or any(slug.replace("_", "-") in node_id for slug in known_slugs)
+        if node_collides_with_known_entity(
+            node,
+            known_ids=known_ids,
+            known_slugs=known_slugs,
+            known_labels_norm=known_labels_norm,
         ):
             dropped.append(node_id or label or "<unknown>")
             continue
@@ -309,16 +354,11 @@ def validate_known_entity_ir_assertions(
     rejected_known_beats_missing_evidence: list[str] = []
 
     def _collides(node: Mapping[str, Any]) -> bool:
-        node_id = str(node.get("node_id") or "").strip()
-        label = str(node.get("label") or "").strip()
-        corpus_ref = node.get("corpus_ref") if isinstance(node.get("corpus_ref"), Mapping) else {}
-        ref_id = str(corpus_ref.get("ref_id") or "").strip() if corpus_ref else ""
-        label_norm = normalize_match_surface(label)
-        return bool(
-            node_id in known_ids
-            or ref_id in known_slugs
-            or (label_norm and label_norm in known_labels_norm)
-            or any(slug.replace("_", "-") in node_id for slug in known_slugs)
+        return node_collides_with_known_entity(
+            node,
+            known_ids=known_ids,
+            known_slugs=known_slugs,
+            known_labels_norm=known_labels_norm,
         )
 
     for raw in nodes:
