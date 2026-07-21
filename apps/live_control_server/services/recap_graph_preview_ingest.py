@@ -250,11 +250,14 @@ def materialize_recap_preview_supergraph(
                 [run.status for run in existing[:5]],
             )
             if existing and existing[0].status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value:
-                needs_extract = False
+                needs_extract = not _manifest_has_known_entity_mentions(
+                    repo, existing[0].manifest_path
+                )
             else:
                 needs_extract = (
                     not existing
                     or existing[0].status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value
+                    or not _manifest_has_known_entity_mentions(repo, existing[0].manifest_path)
                 )
         if needs_extract:
             forced_build_status = build_recap_graph_preview_bundle(
@@ -302,6 +305,7 @@ def materialize_recap_preview_supergraph(
     if (
         summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
         and not force_graph_run
+        and _manifest_has_known_entity_mentions(repo, summary.manifest_path)
     ):
         ensure_graph_ingest_projection_payload(
             repo_root=repo,
@@ -316,6 +320,26 @@ def materialize_recap_preview_supergraph(
             summary.preview_union_store_path,
         )
         return _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+    if (
+        summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
+        and not force_graph_run
+        and not _manifest_has_known_entity_mentions(repo, summary.manifest_path)
+    ):
+        # Pre-repair ready runs are not reusable: fall through only if they are
+        # still candidate-validation ready after a forced rebuild above.
+        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+        status["blocked_reason"] = (
+            "existing preview-ready run is missing known_entity_mentions; "
+            "re-run with force_graph_run or extract_graph to rebuild"
+        )
+        status["next_actions"] = ["force_graph_run", "extract_graph"]
+        logger.warning(
+            "preview union materialization refused pre-repair ready run campaign=%s session=session-%s manifest=%s",
+            campaign_id,
+            session,
+            summary.manifest_path,
+        )
+        return status
     if summary.status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value:
         status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
         status["blocked_reason"] = (
@@ -334,6 +358,14 @@ def materialize_recap_preview_supergraph(
             status.get("blocked_reason"),
             status.get("next_actions"),
         )
+        return status
+    if not _manifest_has_known_entity_mentions(repo, summary.manifest_path):
+        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+        status["blocked_reason"] = (
+            "candidate-ready run is missing known_entity_mentions; "
+            "re-run with force_graph_run or extract_graph to rebuild"
+        )
+        status["next_actions"] = ["force_graph_run", "extract_graph"]
         return status
 
     logger.info(
@@ -384,15 +416,24 @@ def ensure_graph_ingest_projection_payload(
     payload_data = json.loads(manifest_full.read_text(encoding="utf-8"))
     artifacts = payload_data.get("artifacts") if isinstance(payload_data.get("artifacts"), dict) else {}
     existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
+    has_known_entity = _manifest_has_known_entity_mentions(repo, manifest_path)
     if isinstance(existing, dict) and existing.get("exists") is True:
         uri = existing.get("uri")
         if isinstance(uri, str):
-            return _resolve_existing_repo_path(repo, uri, field_name="projection_payload")
+            projection_path = _resolve_existing_repo_path(repo, uri, field_name="projection_payload")
+            # Invalidate chipless pre-repair projections when the sidecar contract exists.
+            if not has_known_entity or _projection_payload_is_known_entity_aware(projection_path):
+                return projection_path
 
     projection_payload = build_plan_union_supergraph_projection_payload(
         session_id=session_id,
         graph_run_manifest_path=manifest_full,
     )
+    if has_known_entity and isinstance(projection_payload, dict):
+        projection_payload = {
+            **projection_payload,
+            "known_entity_mentions_contract": True,
+        }
     projection_path = manifest_full.parent / "projection_payload.json"
     projection_path.write_text(
         json.dumps(projection_payload, indent=2, sort_keys=True) + "\n",
@@ -409,6 +450,14 @@ def ensure_graph_ingest_projection_payload(
     payload_data["artifacts"] = artifacts
     manifest_full.write_text(json.dumps(payload_data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return projection_path
+
+
+def _projection_payload_is_known_entity_aware(projection_path: Path) -> bool:
+    try:
+        payload = json.loads(projection_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return isinstance(payload, dict) and payload.get("known_entity_mentions_contract") is True
 
 
 def _lineage_for_normalized_recap(
@@ -456,8 +505,49 @@ def _latest_matching_run(
             repo, run, graph_extraction_profile
         ):
             continue
+        # Extracted / preview-ready runs must carry the known-entity sidecar contract.
+        # Pre-repair manifests without it are not reusable under default ingest.
+        if run.status in {
+            GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
+            GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
+        } and not _manifest_has_known_entity_mentions(repo, run.manifest_path):
+            logger.info(
+                "skipping reusable run missing known_entity_mentions campaign=%s session=session-%s "
+                "status=%s manifest=%s",
+                campaign_id,
+                session,
+                run.status,
+                run.manifest_path,
+            )
+            continue
         return run
     return None
+
+
+def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -> bool:
+    """True when the run declares a readable known_entity_mentions artifact."""
+    if not manifest_path:
+        return False
+    try:
+        manifest_full = (repo / manifest_path).resolve()
+        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    artifacts = payload.get("artifacts") if isinstance(payload, dict) else None
+    if not isinstance(artifacts, dict):
+        return False
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if not isinstance(artifact, dict):
+        return False
+    uri = artifact.get("uri")
+    if not isinstance(uri, str) or not uri.strip():
+        return False
+    sidecar_path = (repo / uri).resolve() if not Path(uri).is_absolute() else Path(uri)
+    try:
+        sidecar_path.relative_to(repo.resolve())
+    except ValueError:
+        return False
+    return sidecar_path.is_file()
 
 
 def _summary_matches_graph_extraction_profile(

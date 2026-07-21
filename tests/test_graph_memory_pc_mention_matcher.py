@@ -315,6 +315,81 @@ def test_consolidate_drops_duplicate_pc_nodes_keeps_novel() -> None:
     assert diag["mention_count"] >= 1
 
 
+def test_unsupported_known_entity_edge_removed_before_evidence_repair() -> None:
+    """Empty-evidence Caelynn edges must not inherit mention citations and survive."""
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        repair_edge_evidence_refs,
+        sanitize_parts,
+    )
+
+    registry = build_known_entity_registry("longmont-c2", 22)
+    spans = [
+        {
+            "kind": "paragraph",
+            "source_span_ref_id": "span:p1",
+            "text": "Caelynn spoke with Mireward Scout.",
+        }
+    ]
+    sidecar = match_known_entities_in_spans(spans, registry, session_id="session-22")
+    parts = consolidate_category_outputs(
+        {
+            "actor_pass": {
+                "observation_nodes": [
+                    {
+                        "node_id": "node:mireward-scout",
+                        "label": "Mireward Scout",
+                        "node_type": "character",
+                        "description": "novel npc",
+                        "importance": "medium",
+                        "evidence_refs": [
+                            {"source_span_ref_id": "span:p1", "anchor_quotes": ["Mireward Scout"]}
+                        ],
+                    },
+                ]
+            },
+            "location_pass": {"observation_nodes": []},
+            "collective_pass": {"observation_nodes": []},
+            "object_pass": {"observation_nodes": []},
+            "thread_pass": {
+                "observation_nodes": [],
+                "ignored_items": [],
+                "deferred_items": [],
+            },
+            "beat_pass": {"observation_beats": []},
+            "edge_pass": {
+                "observation_edges": [
+                    {
+                        "edge_id": "edge:caelynn-hallucinated",
+                        "from_node_id": "node:caelynn",
+                        "to_node_id": "node:mireward-scout",
+                        "label": "commands",
+                        "relationship_type": "commands",
+                        "predicate_family": "authority",
+                        "evidence_refs": [],
+                    }
+                ]
+            },
+        },
+        campaign_id="longmont-c2",
+        session=22,
+        known_entity_sidecar=sidecar,
+        known_entity_registry=registry,
+    )
+    edge_ids = {e.get("edge_id") for e in parts["edges"]}
+    assert "edge:caelynn-hallucinated" not in edge_ids
+    diag = parts["consolidation_diagnostics"]["known_entity_mentions"]
+    assert "edge:caelynn-hallucinated" in diag["rejected_known_entity_edges_missing_evidence"]
+    assert "edge:caelynn-hallucinated" in diag["removed_missing_evidence_edge_ids"]
+
+    # Even if a caller reintroduces the edge, repair+sanitize must not resurrect it
+    # from consolidate's removed set — prove consolidate already stripped it.
+    repair_edge_evidence_refs(parts, {"span:p1"})
+    sanitized, _ = sanitize_parts(parts, {"span:p1"})
+    assert "edge:caelynn-hallucinated" not in {
+        e.get("edge_id") for e in sanitized.get("edges") or []
+    }
+
+
 def test_prompt_wiring_includes_known_entity_ledger() -> None:
     from src.graph_memory.party_context import build_party_context_for_campaign
 

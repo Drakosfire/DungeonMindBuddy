@@ -62,11 +62,17 @@ def build_plan_union_supergraph_projection(
 ) -> RecapGraphProjection:
     """Build a backend-neutral graph projection for a /plan session lens."""
 
+    known_entity_mentions: dict[str, Any] | None = None
     if preview_union_store_path is not None:
         store = load_preview_union_store(preview_union_store_path)
     elif graph_run_manifest_path is not None:
+        known_entity_mentions = _load_manifest_known_entity_mentions(graph_run_manifest_path)
         persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
-        if persisted is not None:
+        # Never return a pre-repair chipless projection when the sidecar contract exists.
+        if persisted is not None and (
+            known_entity_mentions is None
+            or persisted.get("known_entity_mentions_contract") is True
+        ):
             return RecapGraphProjection.model_validate(persisted)
         store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
     elif store_path is not None:
@@ -81,16 +87,15 @@ def build_plan_union_supergraph_projection(
             campaign_id=getattr(store, "campaign_id", None) or "longmont-c2",
             session_id=session_id,
         )
-    source_spans = _load_manifest_source_spans(graph_run_manifest_path) if graph_run_manifest_path is not None else []
+    source_spans = (
+        _load_manifest_source_spans(graph_run_manifest_path)
+        if graph_run_manifest_path is not None
+        else []
+    )
     paragraph_text_by_span_id = (
         _load_manifest_source_span_full_text_index(graph_run_manifest_path)
         if graph_run_manifest_path is not None
         else {}
-    )
-    known_entity_mentions = (
-        _load_manifest_known_entity_mentions(graph_run_manifest_path)
-        if graph_run_manifest_path is not None
-        else None
     )
     return build_recap_graph_projection(
         store,
@@ -384,6 +389,11 @@ def build_plan_union_supergraph_projection_payload(
         preview_union_store_path=preview_union_store_path,
     )
     payload = projection.model_dump(mode="json")
+    if (
+        graph_run_manifest_path is not None
+        and _load_manifest_known_entity_mentions(graph_run_manifest_path) is not None
+    ):
+        payload["known_entity_mentions_contract"] = True
     return enrich_projection_payload_with_authored_overlay(
         payload,
         campaign_id=projection.campaign_id,

@@ -492,6 +492,55 @@ def test_build_recap_graph_preview_bundle_force_graph_run_ignores_matching_reuse
     assert status["graph_extraction_profile"] == "category_encounter_job_preview"
 
 
+def test_build_recap_graph_preview_bundle_skips_pre_repair_run_missing_known_entity_mentions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Default (non-forced) ingest must not reuse chipless pre-repair ready runs."""
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/pre_repair_missing_sidecar",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    # Simulate a pre-repair manifest: strip the known_entity_mentions contract.
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    artifacts = manifest.get("artifacts") or {}
+    sidecar = artifacts.pop("known_entity_mentions", None)
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+    )
+    if isinstance(sidecar, dict) and isinstance(sidecar.get("uri"), str):
+        sidecar_path = tmp_path / sidecar["uri"]
+        if sidecar_path.is_file():
+            sidecar_path.unlink()
+
+    assert not ingest_service._manifest_has_known_entity_mentions(
+        tmp_path, old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+
+    service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    status = service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        force_graph_run=False,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert calls, "expected a new sidecar-capable run instead of reusing pre-repair"
+    assert (
+        status["manifest_path"]
+        != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+    assert ingest_service._manifest_has_known_entity_mentions(
+        tmp_path, status["manifest_path"]
+    )
+
+
 def test_registry_summary_exposes_graph_review_run_metadata(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

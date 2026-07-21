@@ -885,6 +885,25 @@ def consolidate_category_outputs(
             known_labels_norm=known_labels_norm,
         )
         known_entity_diag.update(edge_ir)
+        # Drop missing-evidence known-entity edges before generic evidence repair can
+        # inherit endpoint mention citations onto hallucinated relationships.
+        rejected_edge_ids = {
+            str(edge_id)
+            for edge_id in (edge_ir.get("rejected_known_entity_edges_missing_evidence") or [])
+            if str(edge_id).strip()
+        }
+        if rejected_edge_ids:
+            kept_edges = [
+                edge
+                for edge in edge_dedup["kept"]
+                if str(edge.get("edge_id") or "") not in rejected_edge_ids
+            ]
+            edge_dedup = {
+                **edge_dedup,
+                "kept": kept_edges,
+                "dropped_known_entity_missing_evidence": sorted(rejected_edge_ids),
+            }
+            known_entity_diag["removed_missing_evidence_edge_ids"] = sorted(rejected_edge_ids)
 
     session_ctx = build_session_graph_context(campaign_id, session)
     diagnostics = {
