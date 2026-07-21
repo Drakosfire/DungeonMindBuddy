@@ -86,6 +86,31 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     });
   });
 
+  it("stages existing_object_ref.object_id when it differs from candidate_id", () => {
+    const candidate: GraphReviewExistingObjectCandidate = {
+      ...lysandraParty,
+      candidate_id: "party:captain_lysandra_ironveil",
+      existing_object_ref: {
+        source: "party_pc",
+        object_id: "npc:captain_lysandra_ironveil",
+        source_label: "Party / PCs",
+      },
+    };
+    expect(buildObjectRefFromExistingObjectCandidate(candidate)).toMatchObject({
+      refKind: "existing_graph_node",
+      nodeId: "npc:captain_lysandra_ironveil",
+    });
+    expect(
+      buildLinkExistingFormStateFromResolverCandidate(candidate, {
+        aliasText: "Lysandra",
+      }),
+    ).toMatchObject({
+      operation: "alias",
+      aliasText: "Lysandra",
+      existingObjectRef: { nodeId: "npc:captain_lysandra_ironveil" },
+    });
+  });
+
   it("builds link-existing form state from resolver candidates", () => {
     expect(buildLinkExistingFormStateFromResolverCandidate(lysandraParty)).toMatchObject({
       operation: "alias",

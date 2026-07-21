@@ -145,9 +145,16 @@ def test_party_pc_candidate_returns_when_fixture_exists():
         candidate
         for candidate in response.candidates
         if candidate.graph_scope == GraphObjectCandidateScope.party_pc
+        and candidate.label.lower() == "caelynn"
     ]
     assert party_candidates
     assert party_candidates[0].source_label == "Party / PCs"
+    assert party_candidates[0].candidate_id == "pc:caelynn"
+    assert party_candidates[0].existing_object_ref is not None
+    assert party_candidates[0].existing_object_ref.get("object_id") == "pc:caelynn"
+    assert not any(
+        candidate.candidate_id == "party:caelynn" for candidate in party_candidates
+    )
 
 
 def test_missing_optional_scope_returns_diagnostic_not_failure():
@@ -292,3 +299,92 @@ def test_party_pc_scope_finds_bubbles_from_npc_registry_for_session_3():
     assert party_candidates
     assert party_candidates[0].label == "Bubbles the Float Goat"
     assert party_candidates[0].source_label == "Party / PCs"
+    assert party_candidates[0].candidate_id.startswith("npc:")
+
+
+def test_party_pc_caelynn_alias_binds_to_pc_not_party_parallel():
+    """Resolver → staged link_existing → projection must land on pc:caelynn.
+
+    Regression for PR 371: party_pc used to synthesize party:caelynn, which
+    authored-overlay projection materialized as a parallel thin node while
+    durable pc:caelynn stayed untouched.
+    """
+    from apps.live_control_server.models.graph_authoring_overlay import (
+        create_empty_authored_graph_overlay,
+    )
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        build_authored_projection_node_views,
+    )
+    from graph_memory.projection.node_view import GraphProjectionNodeView
+    from tests.test_graph_authoring_overlay_models import (
+        STAMP,
+        link_existing_assertion,
+    )
+
+    response = resolve_existing_object_candidates(
+        GraphReviewExistingObjectResolverRequest(
+            campaign_id="longmont-c1",
+            session_id="session-1",
+            lane_role="live",
+            selected_node=GraphReviewResolverSelectedNode(
+                node_id="__graph_review_query_search__",
+                label="Caelynn",
+            ),
+            query="Caelynn",
+            include_authored_overlay=False,
+            include_current_projection=False,
+            include_worldbuilding=False,
+            include_campaign_memory=False,
+            include_gm_private=False,
+            include_party_pc=True,
+        )
+    )
+    party_candidates = [
+        candidate
+        for candidate in response.candidates
+        if candidate.graph_scope == GraphObjectCandidateScope.party_pc
+        and candidate.label.lower() == "caelynn"
+    ]
+    assert party_candidates, "Party / PCs must return Caelynn"
+    candidate = party_candidates[0]
+    bind_object_id = (candidate.existing_object_ref or {}).get("object_id") or candidate.candidate_id
+    assert bind_object_id == "pc:caelynn"
+    assert candidate.candidate_id == "pc:caelynn"
+    assert not any(item.candidate_id == "party:caelynn" for item in party_candidates)
+
+    alias_text = "Caelynn the ranger"
+    link = link_existing_assertion(
+        campaign_id="longmont-c1",
+        session_id="session-1",
+        selected_text=alias_text,
+        normalized_selected_text=alias_text.casefold(),
+        alias_text=alias_text,
+        existing_object_ref={
+            "ref_kind": "existing_graph_node",
+            "node_id": bind_object_id,
+            "label": candidate.label,
+            "kind": candidate.kind,
+            "role": candidate.role,
+        },
+    )
+    overlay = create_empty_authored_graph_overlay("longmont-c1", created_at=STAMP).model_copy(
+        update={"assertions": [link]}
+    )
+    durable = GraphProjectionNodeView(
+        node_id="pc:caelynn",
+        label="Caelynn",
+        kind="pc",
+        role="pc",
+        aliases=["Caelynn"],
+        source_domains=["live_projection"],
+        evidence_badges=[],
+        adjacency=[],
+    )
+    node_views = build_authored_projection_node_views(
+        overlay,
+        base_node_views={"pc:caelynn": durable},
+        existing_node_ids={"pc:caelynn"},
+    )
+    assert "pc:caelynn" in node_views
+    assert "party:caelynn" not in node_views
+    assert alias_text in node_views["pc:caelynn"].aliases

@@ -437,6 +437,29 @@ def _load_npc_registry_rows(
     return rows
 
 
+def _canonical_party_member_node_id(member: Any) -> str:
+    """Bindable graph ID for a registry member from its identity-bearing corpus_ref.
+
+    Party / PC search must stage durable identities (``pc:<slug>``, ``npc:<slug>``),
+    never a synthetic ``party:<slug>`` display key that materializes a parallel node.
+    """
+    corpus_ref = getattr(member, "corpus_ref", None) or {}
+    if isinstance(corpus_ref, dict):
+        ref_type = str(corpus_ref.get("type") or "").strip().lower()
+        ref_id = str(corpus_ref.get("ref_id") or "").strip()
+        if ref_type in {"pc", "npc"} and ref_id:
+            return f"{ref_type}:{ref_id}"
+    slug = str(getattr(member, "slug", "") or "").strip()
+    kind = str(getattr(member, "kind", "") or "").strip().lower()
+    if kind == "pc" and slug:
+        return f"pc:{slug}"
+    if kind in {"companion", "npc"} and slug:
+        return f"npc:{slug}"
+    if slug:
+        return f"party:{slug}"
+    return "party:unknown"
+
+
 def _load_party_pc_rows(
     context: GraphObjectCandidateSearchContext,
 ) -> tuple[list[dict[str, Any]], list[GraphObjectCandidateDiagnostic]]:
@@ -485,7 +508,7 @@ def _load_party_pc_rows(
             for member in surface.members:
                 rows.append(
                     {
-                        "node_id": f"party:{member.slug}",
+                        "node_id": _canonical_party_member_node_id(member),
                         "label": member.display_name,
                         "kind": member.kind,
                         "role": member.kind,

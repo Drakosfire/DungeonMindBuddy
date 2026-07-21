@@ -25,10 +25,15 @@ export function buildObjectRefFromExistingObjectCandidate(
 ): GraphObjectAuthoringObjectRef {
   const ref = buildObjectRefFromResolverCandidate(candidate);
   if (options?.preserveCandidateId) {
-    return ref;
+    // Search-merge staging needs distinct search-record ids, not remapped
+    // bind targets from existing_object_ref.object_id.
+    return { ...ref, nodeId: candidate.candidate_id };
   }
   const resolvedNodeId = resolveCandidateToProjectionNodeId(candidate, nodeViews);
-  if (resolvedNodeId === candidate.candidate_id) {
+  if (
+    resolvedNodeId === candidate.candidate_id ||
+    resolvedNodeId === ref.nodeId
+  ) {
     return ref;
   }
   return { ...ref, nodeId: resolvedNodeId };
