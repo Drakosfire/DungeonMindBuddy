@@ -75,6 +75,19 @@ function numberField(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function focusOptionKey(option: Pick<PlanGraphLoadFocusOption, "campaignId" | "sessionNumber">): string {
+  return `${option.campaignId}:${option.sessionNumber}`;
+}
+
+function optionsIncludeFocus(
+  options: readonly PlanGraphLoadFocusOption[],
+  focus: PlanGraphLensFocus | null,
+): boolean {
+  if (!focus) return false;
+  const key = focusOptionKey(focus);
+  return options.some((option) => focusOptionKey(option) === key);
+}
+
 /** Session numbers present in an ingest source bundle (newest first). */
 export function sessionNumbersFromBundle(bundle: IngestionSourceBundle): number[] {
   const sessions = new Set<number>();
@@ -105,25 +118,6 @@ export function buildFocusOptionsFromBundles(
   return options;
 }
 
-function resolveFocusOptions(
-  focus: PlanGraphLensFocus | null,
-  base: PlanGraphLoadFocusOption[],
-): PlanGraphLoadFocusOption[] {
-  if (!focus) return base;
-  const key = `${focus.campaignId}:${focus.sessionNumber}`;
-  if (base.some((option) => `${option.campaignId}:${option.sessionNumber}` === key)) {
-    return base;
-  }
-  return [
-    {
-      campaignId: focus.campaignId,
-      sessionNumber: focus.sessionNumber,
-      label: `${shortCampaignLabel(focus.campaignId)} · Session ${focus.sessionNumber}`,
-    },
-    ...base,
-  ];
-}
-
 /**
  * World Graph load/lens control for Plan Board (primary) and optional test harnesses.
  * Campaign/focus changes go through PlanGraphLensContext (URL + projection reload).
@@ -140,27 +134,36 @@ export function PlanGraphLoadPanel({
   const fromContext = useOptionalPlanGraphLens();
   const controls = lensControls ?? fromContext;
   const [bundleFocusOptions, setBundleFocusOptions] = useState<PlanGraphLoadFocusOption[]>([]);
+  /** True once bundle-derived options have been resolved for the current selection. */
+  const [bundleOptionsReady, setBundleOptionsReady] = useState(false);
 
   const selectedCampaignKey = (controls?.lens.selectedCampaignIds ?? []).join(",");
+  const focusKey = controls?.lens.focus
+    ? focusOptionKey(controls.lens.focus)
+    : "";
 
   useEffect(() => {
     if (!controls) {
       setBundleFocusOptions([]);
+      setBundleOptionsReady(false);
       return;
     }
     // Explicit prop overrides bundle loading (including empty arrays).
     if (focusOptions !== undefined) {
       setBundleFocusOptions([]);
+      setBundleOptionsReady(false);
       return;
     }
 
     const selected = controls.lens.selectedCampaignIds;
     if (selected.length === 0) {
       setBundleFocusOptions([]);
+      setBundleOptionsReady(true);
       return;
     }
 
     let cancelled = false;
+    setBundleOptionsReady(false);
 
     void (async () => {
       const bundles = new Map<ReviewCampaignId, IngestionSourceBundle>();
@@ -176,12 +179,27 @@ export function PlanGraphLoadPanel({
       );
       if (cancelled) return;
       setBundleFocusOptions(buildFocusOptionsFromBundles(selected, bundles));
+      setBundleOptionsReady(true);
     })();
 
     return () => {
       cancelled = true;
     };
   }, [controls, focusOptions, loadBundle, selectedCampaignKey]);
+
+  // After grounded options are known, drop URL/lens focus that is not in the bundle set.
+  useEffect(() => {
+    if (!controls) return;
+    const grounded =
+      focusOptions !== undefined ? focusOptions : bundleFocusOptions;
+    const optionsReady = focusOptions !== undefined || bundleOptionsReady;
+    if (!optionsReady) return;
+
+    const focus = controls.lens.focus;
+    if (!focus) return;
+    if (optionsIncludeFocus(grounded, focus)) return;
+    controls.setFocus(null);
+  }, [bundleFocusOptions, bundleOptionsReady, controls, focusKey, focusOptions]);
 
   const statusLine = useMemo(() => {
     if (!controls) {
@@ -192,8 +210,7 @@ export function PlanGraphLoadPanel({
 
   const resolvedFocusOptions = useMemo(() => {
     if (!controls) return [] as PlanGraphLoadFocusOption[];
-    const base = focusOptions !== undefined ? focusOptions : bundleFocusOptions;
-    return resolveFocusOptions(controls.lens.focus, base);
+    return focusOptions !== undefined ? focusOptions : bundleFocusOptions;
   }, [bundleFocusOptions, controls, focusOptions]);
 
   if (!controls) {
@@ -211,9 +228,10 @@ export function PlanGraphLoadPanel({
   }
 
   const { lens, derived, toggleCampaign, setFocus } = controls;
-  const focusSelectValue = lens.focus
-    ? `${lens.focus.campaignId}:${lens.focus.sessionNumber}`
-    : "";
+  const focusSelectValue =
+    lens.focus && optionsIncludeFocus(resolvedFocusOptions, lens.focus)
+      ? focusOptionKey(lens.focus)
+      : "";
 
   function applyFocusFromSelect(value: string) {
     if (!value) {
@@ -233,6 +251,11 @@ export function PlanGraphLoadPanel({
       campaignId: campaignId as ReviewCampaignId,
       sessionNumber,
     };
+    // Only accept focus that is present in the grounded option list.
+    if (!optionsIncludeFocus(resolvedFocusOptions, next)) {
+      setFocus(null);
+      return;
+    }
     setFocus(next);
   }
 
@@ -272,8 +295,8 @@ export function PlanGraphLoadPanel({
           <option value="">None (plain union)</option>
           {resolvedFocusOptions.map((option) => (
             <option
-              key={`${option.campaignId}:${option.sessionNumber}`}
-              value={`${option.campaignId}:${option.sessionNumber}`}
+              key={focusOptionKey(option)}
+              value={focusOptionKey(option)}
             >
               {option.label}
             </option>

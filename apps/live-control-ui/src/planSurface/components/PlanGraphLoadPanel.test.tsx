@@ -153,6 +153,52 @@ describe("PlanGraphLoadPanel", () => {
     );
   });
 
+  it("clears stale URL focus that is absent from ingest bundles", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/plan?campaigns=longmont-c2&session=longmont-c2:40",
+    );
+    const loadBundle = vi.fn(async () => bundleWithSessions(24, 22, 1));
+
+    render(
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} loadBundle={loadBundle} />,
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+        /C2 only · no session focus · 45 nodes · ready/i,
+      );
+    });
+    expect(screen.queryByRole("option", { name: "C2 · Session 40" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Focus session")).toHaveValue("");
+    expect(window.location.search).not.toMatch(/session=longmont-c2:40/);
+    expect(screen.getByRole("option", { name: "C2 · Session 24" })).toBeInTheDocument();
+  });
+
+  it("keeps valid URL focus that is present in ingest bundles", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/plan?campaigns=longmont-c2&session=longmont-c2:24",
+    );
+    const loadBundle = vi.fn(async () => bundleWithSessions(24, 22, 1));
+
+    render(
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} loadBundle={loadBundle} />,
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+        /C2 only · C2 · Session 24 · 45 nodes · ready/i,
+      );
+    });
+    expect(screen.getByLabelText("Focus session")).toHaveValue("longmont-c2:24");
+    expect(window.location.search).toMatch(/session=longmont-c2%3A24|session=longmont-c2:24/);
+  });
+
   it("shows fail-closed status when graph lens context is missing", () => {
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={0} focusOptions={[]} />,
