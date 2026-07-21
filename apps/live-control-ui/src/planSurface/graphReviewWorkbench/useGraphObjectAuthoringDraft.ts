@@ -236,7 +236,9 @@ export function useGraphObjectAuthoringDraft(
     }) => {
       const proposal = buildGraphObjectAuthoringLinkExistingProposal(
         input.selection,
-        buildLinkExistingFormStateFromResolverCandidate(input.candidate),
+        buildLinkExistingFormStateFromResolverCandidate(input.candidate, {
+          aliasText: input.selection.selectedText,
+        }),
         createLocalGraphObjectProposalId(),
       );
       if (!proposal) {

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../api/liveApi", () => ({
@@ -44,20 +45,24 @@ function Harness({
   withPrepareCommit = false,
   focusPanel,
   pendingSelection = null,
+  enableBindExisting = false,
 }: {
   initialSelection?: GraphAuthoringSelection;
   existingNodes?: GraphObjectAuthoringInspectedNode[];
   withPrepareCommit?: boolean;
   focusPanel?: import("./GraphObjectAuthoringSurface").GraphObjectAuthoringFocusPanel;
   pendingSelection?: GraphAuthoringSelection | null;
+  enableBindExisting?: boolean;
 }) {
   const draft = useGraphObjectAuthoringDraft();
+  const [bindCompleteCount, setBindCompleteCount] = useState(0);
 
   return (
     <div>
       <button type="button" onClick={() => draft.openWithSelection(initialSelection ?? selection)}>
         Open with selection
       </button>
+      <span data-testid="bind-complete-count">{bindCompleteCount}</span>
       <GraphObjectAuthoringSurface
         focusPanel={focusPanel}
         selectedSource={draft.selectedSource}
@@ -76,11 +81,31 @@ function Harness({
         }
         pendingSelection={pendingSelection}
         onUseSelectedText={(nextSelection) => draft.openWithSelection(nextSelection)}
+        onStageLinkExisting={
+          enableBindExisting
+            ? (candidate) => {
+                const selected = draft.selectedSource;
+                if (!selected) return false;
+                return draft.stageLinkExistingFromResolver({
+                  selection: selected,
+                  candidate,
+                });
+              }
+            : undefined
+        }
+        onStageLinkExistingComplete={
+          enableBindExisting
+            ? () => {
+                setBindCompleteCount((count) => count + 1);
+                draft.dismissSelection();
+              }
+            : undefined
+        }
         relationshipFormState={draft.relationshipFormState}
         onRelationshipFieldChange={draft.updateRelationshipField}
         onStageRelationshipProposal={draft.stageRelationshipProposal}
-        campaignId={withPrepareCommit ? "longmont-c1" : undefined}
-        sessionId={withPrepareCommit ? "session-2" : undefined}
+        campaignId={withPrepareCommit || enableBindExisting ? "longmont-c1" : undefined}
+        sessionId={withPrepareCommit || enableBindExisting ? "session-2" : undefined}
         onCommittedProposals={
           withPrepareCommit ? draft.clearCommittedProposals : undefined
         }
@@ -127,6 +152,76 @@ describe("GraphObjectAuthoringSurface", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("offers Add as alias matches after using highlighted text", async () => {
+    const { resolveGraphReviewExistingObjectCandidates } = await import("../../api/liveApi");
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValueOnce({
+      schema: "dmb_graph_review_existing_object_resolver_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-2",
+      selected_node_id: "selection:bubbles",
+      selected_label: "bubbles",
+      candidates: [
+        {
+          candidate_id: "npc:bubbles_the_float_goat",
+          label: "Bubbles the Float Goat",
+          kind: "npc",
+          role: "npc",
+          confidence: "high",
+          score: 0.95,
+          reason: "Alias match: bubbles",
+          source: "union_supergraph",
+          suggested_action: "link_existing_later",
+          existing_object_ref: {
+            source: "party_pc",
+            object_id: "npc:bubbles_the_float_goat",
+            source_label: "Party / PCs",
+          },
+          matched_features: ["Alias match: bubbles"],
+          graph_scope: "party_pc",
+          source_label: "Party / PCs",
+          aliases: ["Bubbles"],
+          authored: false,
+        },
+      ],
+      warnings: [],
+      diagnostics: [],
+      scopes_searched: ["party_pc"],
+    });
+
+    const bubblesSelection: GraphAuthoringSelection = {
+      ...selection,
+      selectedText: "bubbles",
+      normalizedSelectedText: "bubbles",
+    };
+
+    render(
+      <Harness
+        pendingSelection={bubblesSelection}
+        enableBindExisting
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-use-selected-text-button"));
+
+    expect(
+      await screen.findByTestId("graph-object-authoring-bind-existing"),
+    ).toBeInTheDocument();
+    const bindList = await screen.findByTestId("graph-object-authoring-bind-existing-list");
+    expect(within(bindList).getByText(/Bubbles the Float Goat/i)).toBeInTheDocument();
+
+    fireEvent.click(
+      within(bindList).getByTestId("graph-object-authoring-bind-as-alias-button"),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("bind-complete-count")).toHaveTextContent("1");
+    });
+    const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(staged).toHaveTextContent("Bubbles the Float Goat");
+    expect(staged).toHaveTextContent("bubbles");
+    expect(staged).toHaveTextContent("Alias text: bubbles");
+  });
+
   it("does not show the pending-selection call-to-action once its text is already loaded", () => {
     render(<Harness initialSelection={selection} pendingSelection={selection} />);
     fireEvent.click(screen.getByRole("button", { name: "Open with selection" }));
@@ -170,9 +265,9 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(screen.getByTestId("graph-object-authoring-stage-button")).toHaveTextContent(
       "Creating…",
     );
-    expect(screen.getByText("Create a graph object")).toBeInTheDocument();
+    expect(screen.getByText("Bind highlighted text or create a node")).toBeInTheDocument();
     expect(
-      screen.getByText(/Create object saves to authored memory immediately/i),
+      screen.getByText(/Prefer adding an alias to an existing node/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Commit did not complete.");
   });

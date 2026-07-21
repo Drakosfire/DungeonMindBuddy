@@ -32,6 +32,7 @@ from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_store,
 )
+from src.contracts.npc_registry import load_npc_registry
 from src.graph_memory.party_context import resolve_campaign_corpus
 from src.live_play.recap_stage_paths import corpus_root
 
@@ -178,7 +179,13 @@ def _load_union_supergraph_store(
     return None
 
 
+_SESSION_NUMBER_RE = re.compile(r"session[-_](\d+)", re.IGNORECASE)
+
+
 def _session_number(session_id: str) -> int | None:
+    match = _SESSION_NUMBER_RE.search(session_id)
+    if match:
+        return int(match.group(1))
     try:
         entry = _session_entry(session_id)
     except GraphGoldReviewError:
@@ -364,10 +371,100 @@ def _load_authored_overlay_rows(
     return rows, diagnostics
 
 
+def _load_npc_registry_rows(
+    context: GraphObjectCandidateSearchContext,
+    *,
+    diagnostics: list[GraphObjectCandidateDiagnostic],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    root = context.corpus_root or corpus_root()
+    campaign_rel = context.campaign_rel
+    if campaign_rel is None:
+        try:
+            _, campaign_rel = resolve_campaign_corpus(context.campaign_id, corpus_root=root)
+        except ValueError:
+            diagnostics.append(
+                GraphObjectCandidateDiagnostic(
+                    code="npc_registry_unavailable",
+                    message="NPC registry unavailable: campaign corpus could not be resolved.",
+                    scope=GraphObjectCandidateScope.party_pc,
+                    severity="warning",
+                )
+            )
+            return rows
+    registry_relpath = f"{campaign_rel}/_npc_registry.json"
+    registry_path = root / registry_relpath
+    if not registry_path.is_file():
+        diagnostics.append(
+            GraphObjectCandidateDiagnostic(
+                code="npc_registry_missing",
+                message=f"NPC registry not found at {registry_relpath}.",
+                scope=GraphObjectCandidateScope.party_pc,
+                severity="warning",
+            )
+        )
+        return rows
+    try:
+        records = load_npc_registry(registry_path)
+    except (ValueError, OSError) as exc:
+        diagnostics.append(
+            GraphObjectCandidateDiagnostic(
+                code="npc_registry_load_failed",
+                message=f"NPC registry unavailable: {exc}",
+                scope=GraphObjectCandidateScope.party_pc,
+                severity="warning",
+            )
+        )
+        return rows
+    for record in records:
+        aliases = list(record.aliases)
+        if record.slug.lower() != record.display_name.lower() and record.slug not in aliases:
+            aliases.append(record.slug)
+        rows.append(
+            {
+                "node_id": f"npc:{record.slug}",
+                "label": record.display_name,
+                "kind": "npc",
+                "role": "npc",
+                "aliases": aliases,
+                "summary": record.notes or None,
+                "authored": False,
+                "source_anchors": [],
+                "scope": GraphObjectCandidateScope.party_pc,
+                "source_path": record.hub_path or registry_relpath,
+            }
+        )
+    return rows
+
+
+def _canonical_party_member_node_id(member: Any) -> str:
+    """Bindable graph ID for a registry member from its identity-bearing corpus_ref.
+
+    Party / PC search must stage durable identities (``pc:<slug>``, ``npc:<slug>``),
+    never a synthetic ``party:<slug>`` display key that materializes a parallel node.
+    """
+    corpus_ref = getattr(member, "corpus_ref", None) or {}
+    if isinstance(corpus_ref, dict):
+        ref_type = str(corpus_ref.get("type") or "").strip().lower()
+        ref_id = str(corpus_ref.get("ref_id") or "").strip()
+        if ref_type in {"pc", "npc"} and ref_id:
+            return f"{ref_type}:{ref_id}"
+    slug = str(getattr(member, "slug", "") or "").strip()
+    kind = str(getattr(member, "kind", "") or "").strip().lower()
+    if kind == "pc" and slug:
+        return f"pc:{slug}"
+    if kind in {"companion", "npc"} and slug:
+        return f"npc:{slug}"
+    if slug:
+        return f"party:{slug}"
+    return "party:unknown"
+
+
 def _load_party_pc_rows(
     context: GraphObjectCandidateSearchContext,
 ) -> tuple[list[dict[str, Any]], list[GraphObjectCandidateDiagnostic]]:
     diagnostics: list[GraphObjectCandidateDiagnostic] = []
+    rows: list[dict[str, Any]] = []
     session_number = _session_number(context.session_id)
     if session_number is None:
         diagnostics.append(
@@ -377,53 +474,53 @@ def _load_party_pc_rows(
                 scope=GraphObjectCandidateScope.party_pc,
             )
         )
-        return [], diagnostics
-    try:
-        surface = build_party_registry_surface(
-            campaign_id=context.campaign_id,
-            session=session_number,
-        )
-    except (ValueError, FileNotFoundError) as exc:
-        diagnostics.append(
-            GraphObjectCandidateDiagnostic(
-                code="party_graph_missing",
-                message=f"Party / PC registry unavailable: {exc}",
-                scope=GraphObjectCandidateScope.party_pc,
-                severity="warning",
+    else:
+        try:
+            surface = build_party_registry_surface(
+                campaign_id=context.campaign_id,
+                session=session_number,
             )
-        )
-        return [], diagnostics
-    rows: list[dict[str, Any]] = []
-    for party_name in surface.party_names:
-        rows.append(
-            {
-                "node_id": f"party:{normalize_candidate_text(party_name).replace(' ', '_')}",
-                "label": party_name,
-                "kind": "party",
-                "role": "party",
-                "aliases": [],
-                "summary": None,
-                "authored": False,
-                "source_anchors": [],
-                "scope": GraphObjectCandidateScope.party_pc,
-                "source_path": surface.registry_relpath,
-            }
-        )
-    for member in surface.members:
-        rows.append(
-            {
-                "node_id": f"party:{member.slug}",
-                "label": member.display_name,
-                "kind": member.kind,
-                "role": member.kind,
-                "aliases": [member.slug] if member.slug.lower() != member.display_name.lower() else [],
-                "summary": member.player,
-                "authored": False,
-                "source_anchors": [],
-                "scope": GraphObjectCandidateScope.party_pc,
-                "source_path": member.hub_rel_path or surface.registry_relpath,
-            }
-        )
+        except (ValueError, FileNotFoundError) as exc:
+            diagnostics.append(
+                GraphObjectCandidateDiagnostic(
+                    code="party_graph_missing",
+                    message=f"Party / PC registry unavailable: {exc}",
+                    scope=GraphObjectCandidateScope.party_pc,
+                    severity="warning",
+                )
+            )
+        else:
+            for party_name in surface.party_names:
+                rows.append(
+                    {
+                        "node_id": f"party:{normalize_candidate_text(party_name).replace(' ', '_')}",
+                        "label": party_name,
+                        "kind": "party",
+                        "role": "party",
+                        "aliases": [],
+                        "summary": None,
+                        "authored": False,
+                        "source_anchors": [],
+                        "scope": GraphObjectCandidateScope.party_pc,
+                        "source_path": surface.registry_relpath,
+                    }
+                )
+            for member in surface.members:
+                rows.append(
+                    {
+                        "node_id": _canonical_party_member_node_id(member),
+                        "label": member.display_name,
+                        "kind": member.kind,
+                        "role": member.kind,
+                        "aliases": [member.slug] if member.slug.lower() != member.display_name.lower() else [],
+                        "summary": member.player,
+                        "authored": False,
+                        "source_anchors": [],
+                        "scope": GraphObjectCandidateScope.party_pc,
+                        "source_path": member.hub_rel_path or surface.registry_relpath,
+                    }
+                )
+    rows.extend(_load_npc_registry_rows(context, diagnostics=diagnostics))
     if not rows:
         diagnostics.append(
             GraphObjectCandidateDiagnostic(
