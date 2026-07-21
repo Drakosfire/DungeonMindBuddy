@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -16,9 +17,18 @@ const defaultRuntime: GraphNodeChipRuntimeValue = {
   deltaByNodeId: {},
 };
 
+type RuntimeStackEntry = {
+  ownerId: symbol;
+  value: GraphNodeChipRuntimeValue;
+};
+
 let storeState: GraphNodeChipRuntimeValue = defaultRuntime;
-/** Mount-order stack so sibling provider cleanup restores the prior owner. */
-const runtimeStack: GraphNodeChipRuntimeValue[] = [];
+/**
+ * Mount-order stack keyed by stable owner id.
+ * Value updates mutate the owner's slot in place so an earlier provider
+ * re-render cannot leapfrog a still-mounted later sibling to the top.
+ */
+const runtimeStack: RuntimeStackEntry[] = [];
 const listeners = new Set<() => void>();
 
 function subscribe(listener: () => void): () => void {
@@ -43,7 +53,8 @@ function publishRuntime(next: GraphNodeChipRuntimeValue) {
 }
 
 function publishTopOfStack() {
-  const top = runtimeStack.length > 0 ? runtimeStack[runtimeStack.length - 1] : defaultRuntime;
+  const top =
+    runtimeStack.length > 0 ? runtimeStack[runtimeStack.length - 1]!.value : defaultRuntime;
   publishRuntime(top);
 }
 
@@ -54,8 +65,8 @@ const GraphNodeChipRuntimeContext = createContext<GraphNodeChipRuntimeValue | nu
  * TipTap node views subscribe via the module store (reliable across portals);
  * React children can also read context.
  *
- * Concurrent providers (Plan canvas + graph-reader tool) push onto a stack.
- * Unmount restores the previous owner instead of wiping to empty defaults.
+ * Concurrent providers (Plan canvas + graph-reader tool) register by owner id.
+ * Unmount restores the previous owner; value updates keep stack order.
  */
 export function GraphNodeChipRuntimeProvider({
   value,
@@ -64,6 +75,7 @@ export function GraphNodeChipRuntimeProvider({
   value: GraphNodeChipRuntimeValue;
   children: ReactNode;
 }) {
+  const ownerId = useRef(Symbol("graph-node-chip-runtime-owner")).current;
   const memoized = useMemo(
     () => ({
       nodeViews: value.nodeViews,
@@ -75,16 +87,25 @@ export function GraphNodeChipRuntimeProvider({
   );
 
   useEffect(() => {
-    runtimeStack.push(memoized);
+    runtimeStack.push({ ownerId, value: memoized });
     publishTopOfStack();
     return () => {
-      const index = runtimeStack.lastIndexOf(memoized);
+      const index = runtimeStack.findIndex((entry) => entry.ownerId === ownerId);
       if (index >= 0) {
         runtimeStack.splice(index, 1);
       }
       publishTopOfStack();
     };
-  }, [memoized]);
+    // Mount/unmount only — value updates must not re-push (would reorder the stack).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ownerId is stable; memoized synced below
+  }, [ownerId]);
+
+  useEffect(() => {
+    const entry = runtimeStack.find((candidate) => candidate.ownerId === ownerId);
+    if (!entry) return;
+    entry.value = memoized;
+    publishTopOfStack();
+  }, [ownerId, memoized]);
 
   return (
     <GraphNodeChipRuntimeContext.Provider value={memoized}>

@@ -177,4 +177,77 @@ describe("GraphNodeChipRuntimeProvider stack", () => {
       expect(screen.getByTestId("outside-probe").getAttribute("data-active")).toBe("");
     });
   });
+
+  it("keeps a later sibling as store owner when an earlier provider updates", async () => {
+    const updatedCanvasNode: GraphProjectionNodeView = {
+      ...canvasNode,
+      label: "Bubbles Updated",
+      summary: "Canvas goat after edit",
+    };
+
+    function Harness() {
+      const [canvasViews, setCanvasViews] = useState<Record<string, GraphProjectionNodeView>>({
+        [canvasNode.node_id]: canvasNode,
+      });
+      const canvasRuntime: GraphNodeChipRuntimeValue = {
+        nodeViews: canvasViews,
+        activeNodeId: canvasNode.node_id,
+        onSelectNode: () => undefined,
+      };
+      const toolRuntime: GraphNodeChipRuntimeValue = {
+        nodeViews: { [toolNode.node_id]: toolNode },
+        activeNodeId: toolNode.node_id,
+        onSelectNode: () => undefined,
+      };
+
+      return createElement(
+        "div",
+        null,
+        createElement(OutsideStoreProbe),
+        createElement(
+          GraphNodeChipRuntimeProvider,
+          { value: canvasRuntime },
+          createElement("div", { "data-testid": "canvas" }, "canvas"),
+        ),
+        createElement(
+          GraphNodeChipRuntimeProvider,
+          { value: toolRuntime },
+          createElement("div", { "data-testid": "tool" }, "tool"),
+        ),
+        createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () =>
+              setCanvasViews({
+                [updatedCanvasNode.node_id]: updatedCanvasNode,
+              }),
+          },
+          "Update canvas",
+        ),
+      );
+    }
+
+    render(createElement(Harness));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("outside-probe").getAttribute("data-labels")).toBe("Glowkindle");
+      expect(screen.getByTestId("outside-probe").getAttribute("data-active")).toBe(
+        toolNode.node_id,
+      );
+    });
+
+    screen.getByRole("button", { name: "Update canvas" }).click();
+
+    await waitFor(() => {
+      // Earlier provider value changed, but later sibling must remain store owner.
+      expect(screen.getByTestId("outside-probe").getAttribute("data-labels")).toBe("Glowkindle");
+      expect(screen.getByTestId("outside-probe").getAttribute("data-active")).toBe(
+        toolNode.node_id,
+      );
+      expect(screen.getByTestId("outside-probe").getAttribute("data-labels")).not.toBe(
+        "Bubbles Updated",
+      );
+    });
+  });
 });
