@@ -12,6 +12,7 @@ export type { GraphObjectCardProps } from "./GraphObjectCard";
 export { buildGraphObjectCardFromNodeView } from "./buildGraphObjectCardFromNodeView";
 export {
   displayAliasesForNode,
+  formatCampaignScopeCompact,
   formatGraphObjectType,
   friendlyVisibilityCopy,
   graphObjectSecondaryRoleLabel,

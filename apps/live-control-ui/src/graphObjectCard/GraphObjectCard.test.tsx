@@ -87,6 +87,39 @@ describe("GraphObjectCard", () => {
     expect(within(detailsPanel!).queryByText(/Node ID:/)).not.toBeInTheDocument();
   });
 
+  it("renders campaign provenance on the object and qualifies same-session relationships", () => {
+    const worldLensModel: GraphObjectCardViewModel = {
+      ...planModel,
+      campaignScope: "longmont-c1",
+      campaignLabel: "C1",
+      relationships: [
+        {
+          id: "edge-c1",
+          label: "Inn",
+          predicate: "met_at",
+          sessionIds: ["session-2"],
+          campaignScope: "longmont-c1",
+          sourceDomains: ["recap"],
+        },
+        {
+          id: "edge-c2",
+          label: "Harbor",
+          predicate: "met_at",
+          sessionIds: ["session-2"],
+          campaignScope: "longmont-c2",
+          sourceDomains: ["recap"],
+        },
+      ],
+    };
+
+    render(<GraphObjectCard mode="plan" model={worldLensModel} />);
+
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    expect(within(card).getByLabelText("Campaign: C1")).toHaveTextContent("C1");
+    expect(within(card).getByText("C1 · S2")).toBeInTheDocument();
+    expect(within(card).getByText("C2 · S2")).toBeInTheDocument();
+  });
+
   it("shows node id in plan mode only when showDebugIdentifiers is true", async () => {
     const user = userEvent.setup();
     render(<GraphObjectCard mode="plan" model={planModel} showDebugIdentifiers />);

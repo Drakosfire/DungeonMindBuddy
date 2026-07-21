@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatCampaignScopeCompact,
   humanizeRelationshipPredicate,
   MAX_DEFAULT_RELATIONSHIP_ROWS,
   relationshipRowPrimaryCopy,
@@ -33,9 +34,22 @@ describe("humanizeRelationshipPredicate", () => {
   });
 });
 
+describe("formatCampaignScopeCompact", () => {
+  it("formats longmont campaign ids", () => {
+    expect(formatCampaignScopeCompact("longmont-c1")).toBe("C1");
+    expect(formatCampaignScopeCompact("longmont-c2")).toBe("C2");
+    expect(formatCampaignScopeCompact(null)).toBeNull();
+  });
+});
+
 describe("relationshipSessionStamp", () => {
   it("formats the earliest numbered session", () => {
     expect(relationshipSessionStamp(["session-4", "session-2"])).toBe("S2");
+  });
+
+  it("qualifies the same session number across campaigns", () => {
+    expect(relationshipSessionStamp(["session-2"], "longmont-c1")).toBe("C1 · S2");
+    expect(relationshipSessionStamp(["session-2"], "longmont-c2")).toBe("C2 · S2");
   });
 });
 
@@ -52,6 +66,31 @@ describe("relationshipRowPrimaryCopy", () => {
         }),
       ),
     ).toBe("S2 · Pippa · owns");
+  });
+
+  it("qualifies campaign · session when both campaigns share a session number", () => {
+    expect(
+      relationshipRowPrimaryCopy(
+        rel({
+          id: "e-c1",
+          label: "Inn",
+          predicate: "met_at",
+          sessionIds: ["session-2"],
+          campaignScope: "longmont-c1",
+        }),
+      ),
+    ).toBe("C1 · S2 · Inn · met at");
+    expect(
+      relationshipRowPrimaryCopy(
+        rel({
+          id: "e-c2",
+          label: "Harbor",
+          predicate: "met_at",
+          sessionIds: ["session-2"],
+          campaignScope: "longmont-c2",
+        }),
+      ),
+    ).toBe("C2 · S2 · Harbor · met at");
   });
 });
 

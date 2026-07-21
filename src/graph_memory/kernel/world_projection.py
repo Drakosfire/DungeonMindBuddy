@@ -1198,6 +1198,7 @@ def _convert_adjacency_candidate(
         evidence_ref_ids=list(candidate.evidence_ref_ids),
         edge_label=candidate.edge_label,
         session_ids=list(candidate.session_ids),
+        campaign_scope=candidate.campaign_scope,
         related_summary=candidate.related_summary,
         source_excerpt=candidate.source_excerpt,
         source_excerpt_is_full_paragraph=candidate.source_excerpt_is_full_paragraph,
@@ -1779,6 +1780,24 @@ def _paragraph_text_by_span_id_from_source_artifacts(
     return paragraph_text_by_span_id
 
 
+def _adjacency_campaign_scope(
+    relationship: WorldGraphProjectionRelationshipView,
+    *,
+    store: UnionSupergraphStore,
+    related_node_id: str,
+) -> str | None:
+    """Prefer edge tenancy; fall back to related-node scope for world-universal edges."""
+    if relationship.campaign_scope is not None:
+        text = str(relationship.campaign_scope).strip()
+        return text or None
+    related = store.nodes.get(related_node_id)
+    if related is None:
+        return None
+    return _object_campaign_scope(
+        related.state if isinstance(related.state, Mapping) else None
+    )
+
+
 def _normalized_adjacency_candidate(
     candidate: GraphProjectionAdjacencyCandidate,
     relationship: WorldGraphProjectionRelationshipView,
@@ -1830,6 +1849,11 @@ def _normalized_adjacency_candidate(
         evidence_ref_ids=list(relationship.evidence_ref_ids),
         edge_label=relationship.label,
         session_ids=list(relationship.session_ids),
+        campaign_scope=_adjacency_campaign_scope(
+            relationship,
+            store=store,
+            related_node_id=related_node_id,
+        ),
         related_summary=related_summary if related_summary is not None else candidate.related_summary,
         source_excerpt=source_excerpt,
         source_excerpt_is_full_paragraph=source_excerpt_is_full_paragraph,

@@ -12,6 +12,7 @@ const node: WorldGraphProjectionNodeView = {
   sourceDomains: ["recap"],
   summary: "A friendly merchant.",
   anchoredToFocusSession: true,
+  campaignScope: "longmont-c1",
   evidenceBadges: [{
     evidenceRefId: "ev-1",
     sourceArtifactId: "artifact-1",
@@ -35,6 +36,7 @@ const node: WorldGraphProjectionNodeView = {
     sourceDomains: ["recap"],
     evidenceRefIds: ["ev-1"],
     sessionIds: ["session-21"],
+    campaignScope: "longmont-c1",
     relatedSummary: "Trades herbs.",
     sourceExcerpt: "Glowkindle waved from the inn.",
   }],
@@ -47,9 +49,15 @@ describe("adaptWorldGraphNodeForPlanCard", () => {
   it("adapts camelCase World Graph fields at the Plan card boundary", () => {
     expect(adaptWorldGraphNodeForPlanCard(node)).toMatchObject({
       node_id: "npc-glowkindle",
+      campaign_scope: "longmont-c1",
       source_domains: ["recap"],
       evidence_badges: [{ evidence_ref_id: "ev-1", source_artifact_id: "artifact-1" }],
-      adjacency: [{ edge_id: "edge-1", node_id: "location-inn", source_domains: ["recap"] }],
+      adjacency: [{
+        edge_id: "edge-1",
+        node_id: "location-inn",
+        source_domains: ["recap"],
+        campaign_scope: "longmont-c1",
+      }],
       anchored_to_focus_session: true,
     });
   });

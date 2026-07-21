@@ -1,6 +1,7 @@
 import type { GraphProjectionAdjacencyCandidate, GraphProjectionNodeView } from "../api/types";
 import {
   displayAliasesForNode,
+  formatCampaignScopeCompact,
   friendlyVisibilityCopy,
   graphObjectSecondaryRoleLabel,
   graphObjectTypeBadgeLabel,
@@ -36,6 +37,7 @@ export function relationshipViewModelsFromAdjacency(
     sourceDomains: edge.source_domains,
     anchoredToFocusSession: edge.anchored_to_focus_session,
     sessionIds: edge.session_ids,
+    campaignScope: edge.campaign_scope ?? null,
     sourceExcerpt: edge.source_excerpt ?? null,
     sourceExcerptIsFullParagraph: edge.source_excerpt_is_full_paragraph,
     sourceExcerptHighlightSpans: edge.source_excerpt_highlight_spans?.map((span) => ({
@@ -67,6 +69,7 @@ export function buildGraphObjectCardFromNodeView(
   const summary = primaryGameSummaryForNode(node);
   const aliases = displayAliasesForNode(node);
   const evidence = evidenceViewModelsFromNode(node);
+  const campaignScope = node.campaign_scope ?? null;
 
   return {
     id: node.node_id,
@@ -79,6 +82,8 @@ export function buildGraphObjectCardFromNodeView(
     summary,
     gameSummary: summary,
     whyItMattersNow: options?.whyItMattersNow ?? null,
+    campaignScope,
+    campaignLabel: formatCampaignScopeCompact(campaignScope),
     relationships: relationshipViewModelsFromAdjacency(node.adjacency),
     evidence,
     sourceDomains: node.source_domains,

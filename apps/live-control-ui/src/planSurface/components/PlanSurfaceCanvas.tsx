@@ -140,11 +140,7 @@ export function PlanSurfaceCanvas({
   );
 
   const projectionNodes = useMemo(
-    () =>
-      projection?.nodes.map((node) => ({
-        ...adaptWorldGraphNodeForPlanCard(node),
-        campaign_scope: node.campaignScope ?? null,
-      })) ?? [],
+    () => projection?.nodes.map((node) => adaptWorldGraphNodeForPlanCard(node)) ?? [],
     [projection],
   );
 

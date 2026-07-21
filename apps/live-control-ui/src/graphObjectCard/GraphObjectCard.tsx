@@ -47,7 +47,7 @@ function RelationshipRowBody({
   showProvenance: boolean;
 }) {
   const predicate = humanizeRelationshipPredicate(relationship.predicate);
-  const session = relationshipSessionStamp(relationship.sessionIds);
+  const session = relationshipSessionStamp(relationship.sessionIds, relationship.campaignScope);
   const excerpt = relationship.sourceExcerpt?.trim() || null;
   const domain = relationship.sourceDomains?.[0]?.trim() || null;
 
@@ -174,6 +174,14 @@ function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel 
           {model.typeBadgeLabel}
         </span>
         <h4>{model.label}</h4>
+        {model.campaignLabel ? (
+          <span
+            className="graph-object-card__campaign-badge"
+            aria-label={`Campaign: ${model.campaignLabel}`}
+          >
+            {model.campaignLabel}
+          </span>
+        ) : null}
       </div>
       {model.secondaryRoleLabel ? (
         <p className="graph-object-card__role-subtitle">{model.secondaryRoleLabel}</p>

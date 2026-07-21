@@ -88,22 +88,42 @@ export function humanizeRelationshipPredicate(predicate: string | null | undefin
   return trimmed.replace(/_/g, " ").replace(/\s+/g, " ").trim();
 }
 
+/** Compact campaign stamp from ids like `longmont-c1` → `C1`. */
+export function formatCampaignScopeCompact(
+  campaignScope: string | null | undefined,
+): string | null {
+  const trimmed = campaignScope?.trim();
+  if (!trimmed) return null;
+  const longmont = trimmed.match(/^longmont-c(\d+)$/i);
+  if (longmont) return `C${longmont[1]}`;
+  const bare = trimmed.match(/^c(\d+)$/i);
+  if (bare) return `C${bare[1]}`;
+  return trimmed;
+}
+
 /** Compact session stamp from ids like `session-2` → `S2`. */
 export function relationshipSessionStamp(
   sessionIds: string[] | null | undefined,
+  campaignScope?: string | null,
 ): string | null {
-  if (!sessionIds?.length) return null;
-  const numbered = sessionIds
-    .map((sessionId) => {
-      const match = sessionId.trim().match(/(\d+)\s*$/);
-      return match ? Number(match[1]) : null;
-    })
-    .filter((value): value is number => value != null && Number.isFinite(value));
-  if (!numbered.length) {
-    const first = sessionIds[0]?.trim();
-    return first || null;
+  let session: string | null = null;
+  if (sessionIds?.length) {
+    const numbered = sessionIds
+      .map((sessionId) => {
+        const match = sessionId.trim().match(/(\d+)\s*$/);
+        return match ? Number(match[1]) : null;
+      })
+      .filter((value): value is number => value != null && Number.isFinite(value));
+    if (numbered.length) {
+      session = `S${Math.min(...numbered)}`;
+    } else {
+      const first = sessionIds[0]?.trim();
+      session = first || null;
+    }
   }
-  return `S${Math.min(...numbered)}`;
+  const campaign = formatCampaignScopeCompact(campaignScope);
+  if (campaign && session) return `${campaign} · ${session}`;
+  return session ?? campaign;
 }
 
 function primarySessionSortKey(sessionIds: string[] | null | undefined): number {
@@ -138,10 +158,10 @@ export function selectDefaultRelationshipRows(
   return { rows, omittedCount: Math.max(0, sorted.length - rows.length) };
 }
 
-/** Aria / button label: `S2 · Label · humanized predicate` (no foreign summary). */
+/** Aria / button label: `C1 · S2 · Label · humanized predicate` (no foreign summary). */
 export function relationshipRowPrimaryCopy(relationship: GraphObjectRelationshipViewModel): string {
   const predicate = humanizeRelationshipPredicate(relationship.predicate);
-  const session = relationshipSessionStamp(relationship.sessionIds);
+  const session = relationshipSessionStamp(relationship.sessionIds, relationship.campaignScope);
   const core = predicate ? `${relationship.label} · ${predicate}` : relationship.label;
   return session ? `${session} · ${core}` : core;
 }

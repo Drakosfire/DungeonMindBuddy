@@ -140,6 +140,9 @@ class WorldGraphProjectionAdjacencyCandidate(_ProjectionModel):
     evidence_ref_ids: list[str] = Field(default_factory=list)
     edge_label: str | None = None
     session_ids: list[str] = Field(default_factory=list)
+    # Effective campaign tenancy for this edge (null = world-universal).
+    # Surfaced so world-lens relationship stamps can qualify sessions (C1 · S2).
+    campaign_scope: str | None = None
     related_summary: str | None = None
     source_excerpt: str | None = None
     source_excerpt_is_full_paragraph: bool = False

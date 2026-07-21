@@ -5091,6 +5091,19 @@ body.plan-toolbox-open .plan-agent-shell {
   text-transform: uppercase;
 }
 
+.graph-object-card__campaign-badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.14rem 0.52rem;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .graph-review-node-role-subtitle,
 .graph-object-card__role-subtitle {
   margin: 0;

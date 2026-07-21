@@ -17,6 +17,8 @@ const defaultRuntime: GraphNodeChipRuntimeValue = {
 };
 
 let storeState: GraphNodeChipRuntimeValue = defaultRuntime;
+/** Mount-order stack so sibling provider cleanup restores the prior owner. */
+const runtimeStack: GraphNodeChipRuntimeValue[] = [];
 const listeners = new Set<() => void>();
 
 function subscribe(listener: () => void): () => void {
@@ -40,12 +42,20 @@ function publishRuntime(next: GraphNodeChipRuntimeValue) {
   emit();
 }
 
+function publishTopOfStack() {
+  const top = runtimeStack.length > 0 ? runtimeStack[runtimeStack.length - 1] : defaultRuntime;
+  publishRuntime(top);
+}
+
 const GraphNodeChipRuntimeContext = createContext<GraphNodeChipRuntimeValue | null>(null);
 
 /**
  * Publishes chip runtime for TipTap NodeViews and React consumers.
  * TipTap node views subscribe via the module store (reliable across portals);
  * React children can also read context.
+ *
+ * Concurrent providers (Plan canvas + graph-reader tool) push onto a stack.
+ * Unmount restores the previous owner instead of wiping to empty defaults.
  */
 export function GraphNodeChipRuntimeProvider({
   value,
@@ -65,9 +75,14 @@ export function GraphNodeChipRuntimeProvider({
   );
 
   useEffect(() => {
-    publishRuntime(memoized);
+    runtimeStack.push(memoized);
+    publishTopOfStack();
     return () => {
-      publishRuntime(defaultRuntime);
+      const index = runtimeStack.lastIndexOf(memoized);
+      if (index >= 0) {
+        runtimeStack.splice(index, 1);
+      }
+      publishTopOfStack();
     };
   }, [memoized]);
 
@@ -87,4 +102,10 @@ export function useGraphNodeChipRuntime(): GraphNodeChipRuntimeValue {
 /** @deprecated Prefer GraphNodeChipRuntimeProvider; kept for transitional call sites. */
 export function setGraphNodeChipRuntimeState(next: GraphNodeChipRuntimeValue): void {
   publishRuntime(next);
+}
+
+/** Test-only: reset module store + stack between cases. */
+export function __resetGraphNodeChipRuntimeForTests(): void {
+  runtimeStack.length = 0;
+  publishRuntime(defaultRuntime);
 }
