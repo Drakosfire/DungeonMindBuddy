@@ -45,12 +45,6 @@ import {
 } from "../reference/planGraphContextRequest";
 import { usePlanGraphLens } from "../PlanGraphLensContext";
 import {
-  REVIEW_CAMPAIGN_IDS,
-  formatReviewCampaignLabel,
-  type ReviewCampaignId,
-} from "../sessionCampaignContext";
-import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
-import {
   hasGrounding,
   isConversationContext,
   isHermesGraphAgentResponse,
@@ -547,28 +541,6 @@ export function PlanAgentInteractionBar({
 
   const chronologicalTurns = useMemo(() => [...turns].reverse(), [turns]);
 
-  const lensFocusOptions = useMemo(() => {
-    if (!bundle) return [] as Array<{
-      campaignId: ReviewCampaignId;
-      sessionNumber: number;
-      label: string;
-    }>;
-    const planCampaignId = sessionDescriptor.campaignId;
-    if (!REVIEW_CAMPAIGN_IDS.includes(planCampaignId as ReviewCampaignId)) {
-      return [];
-    }
-    if (!lens.selectedCampaignIds.includes(planCampaignId as ReviewCampaignId)) {
-      return [];
-    }
-    const sessions = sessionNumbers(bundle);
-    const campaignId = planCampaignId as ReviewCampaignId;
-    return sessions.map((sessionNumber) => ({
-      campaignId,
-      sessionNumber,
-      label: `${formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "")} · Session ${sessionNumber}`,
-    }));
-  }, [bundle, lens.selectedCampaignIds, sessionDescriptor.campaignId]);
-
   const activeTurn = useMemo(
     () => turns.find((turn) => turn.turnId === activeTurnId) ?? turns[0] ?? null,
     [turns, activeTurnId],
@@ -950,12 +922,6 @@ export function PlanAgentInteractionBar({
                     role="region"
                     aria-label="Agent configuration"
                   >
-                    <PlanGraphLoadPanel
-                      projectionState={projectionState}
-                      projectionError={projectionError}
-                      nodeCount={projection?.nodes.length ?? 0}
-                      focusOptions={lensFocusOptions}
-                    />
                     <div className="plan-agent-config-actions">
                       <button
                         type="button"
@@ -1449,7 +1415,7 @@ export function PlanAgentInteractionBar({
               </p>
             ) : null}
             {!lensAllowsAsk ? (
-              <p className="plan-agent-warning">Select at least one campaign in Config.</p>
+              <p className="plan-agent-warning">Select at least one campaign on Plan Board.</p>
             ) : null}
             <button
               type="submit"

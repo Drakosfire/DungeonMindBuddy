@@ -49,4 +49,30 @@ describe("PlanGraphLoadPanel", () => {
     expect(c1).toBeChecked();
     expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(/Union · C1\+C2/i);
   });
+
+  it("offers default Focus session options for selected campaigns", () => {
+    render(
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper },
+    );
+
+    const focus = screen.getByLabelText("Focus session");
+    expect(focus).toBeEnabled();
+    expect(screen.getByRole("option", { name: "C2 · Session 1" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "C2 · Session 40" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "C1 · Session 1" })).not.toBeInTheDocument();
+  });
+
+  it("applies Focus session and updates the status line", async () => {
+    const user = userEvent.setup();
+    render(
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper },
+    );
+
+    await user.selectOptions(screen.getByLabelText("Focus session"), "longmont-c2:24");
+    expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+      /C2 only · C2 · Session 24 · 45 nodes · ready/i,
+    );
+  });
 });

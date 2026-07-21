@@ -17,7 +17,7 @@ export interface PlanGraphLoadFocusOption {
   label: string;
 }
 
-/** Explicit lens controls for surfaces rendered outside PlanGraphLensProvider (Edit chrome). */
+/** Explicit lens controls for surfaces rendered outside PlanGraphLensProvider. */
 export interface PlanGraphLoadLensControls {
   lens: PlanGraphLens;
   derived: DerivedPlanGraphApiLens | null;
@@ -30,16 +30,22 @@ export interface PlanGraphLoadPanelProps {
   projectionState: PlanGraphProjectionState;
   projectionError?: string | null;
   nodeCount: number;
-  /** Session focus choices; Edit may pass [] when no ingest bundle is loaded. */
+  /**
+   * Session focus choices. When omitted or empty, defaults are generated for
+   * each selected campaign (sessions 1..DEFAULT_FOCUS_SESSION_MAX).
+   */
   focusOptions?: PlanGraphLoadFocusOption[];
   /** When false, hide the “select at least one campaign” warning. Default true. */
   showEmptyLensWarning?: boolean;
   /**
-   * Required when this panel is rendered outside PlanGraphLensProvider
-   * (AppChrome Edit tools). Inside the provider (Ask Config), omit and use context.
+   * Optional override when rendered outside PlanGraphLensProvider.
+   * Prefer context (Plan Board) when available.
    */
   lensControls?: PlanGraphLoadLensControls | null;
 }
+
+/** Upper bound for generated Focus session options when no ingest bundle is present. */
+export const DEFAULT_FOCUS_SESSION_MAX = 40;
 
 function formatProjectionLoadStatus(
   projectionState: PlanGraphProjectionState,
@@ -60,15 +66,62 @@ function formatProjectionLoadStatus(
   return `${nodeCount} node${nodeCount === 1 ? "" : "s"} · ready`;
 }
 
+function shortCampaignLabel(campaignId: ReviewCampaignId): string {
+  return formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "");
+}
+
+export function buildDefaultPlanGraphFocusOptions(
+  selectedCampaignIds: readonly ReviewCampaignId[],
+  maxSession = DEFAULT_FOCUS_SESSION_MAX,
+): PlanGraphLoadFocusOption[] {
+  const options: PlanGraphLoadFocusOption[] = [];
+  for (const campaignId of REVIEW_CAMPAIGN_IDS) {
+    if (!selectedCampaignIds.includes(campaignId)) continue;
+    for (let sessionNumber = 1; sessionNumber <= maxSession; sessionNumber += 1) {
+      options.push({
+        campaignId,
+        sessionNumber,
+        label: `${shortCampaignLabel(campaignId)} · Session ${sessionNumber}`,
+      });
+    }
+  }
+  return options;
+}
+
+function resolveFocusOptions(
+  selectedCampaignIds: readonly ReviewCampaignId[],
+  focus: PlanGraphLensFocus | null,
+  provided: PlanGraphLoadFocusOption[] | undefined,
+): PlanGraphLoadFocusOption[] {
+  const base =
+    provided != null && provided.length > 0
+      ? provided
+      : buildDefaultPlanGraphFocusOptions(selectedCampaignIds);
+
+  if (!focus) return base;
+  const key = `${focus.campaignId}:${focus.sessionNumber}`;
+  if (base.some((option) => `${option.campaignId}:${option.sessionNumber}` === key)) {
+    return base;
+  }
+  return [
+    {
+      campaignId: focus.campaignId,
+      sessionNumber: focus.sessionNumber,
+      label: `${shortCampaignLabel(focus.campaignId)} · Session ${focus.sessionNumber}`,
+    },
+    ...base,
+  ];
+}
+
 /**
- * Shared World Graph load/lens control for Edit → World Graph objects and Ask → Config.
+ * World Graph load/lens control for Plan Board (primary) and optional test harnesses.
  * Campaign/focus changes go through PlanGraphLensContext (URL + projection reload).
  */
 export function PlanGraphLoadPanel({
   projectionState,
   projectionError = null,
   nodeCount,
-  focusOptions = [],
+  focusOptions,
   showEmptyLensWarning = true,
   lensControls = null,
 }: PlanGraphLoadPanelProps) {
@@ -81,6 +134,15 @@ export function PlanGraphLoadPanel({
     }
     return `${controls.summaryLabel} · ${formatProjectionLoadStatus(projectionState, nodeCount, projectionError)}`;
   }, [controls, nodeCount, projectionError, projectionState]);
+
+  const resolvedFocusOptions = useMemo(() => {
+    if (!controls) return [] as PlanGraphLoadFocusOption[];
+    return resolveFocusOptions(
+      controls.lens.selectedCampaignIds,
+      controls.lens.focus,
+      focusOptions,
+    );
+  }, [controls, focusOptions]);
 
   if (!controls) {
     return (
@@ -156,7 +218,7 @@ export function PlanGraphLoadPanel({
           aria-label="Focus session"
         >
           <option value="">None (plain union)</option>
-          {focusOptions.map((option) => (
+          {resolvedFocusOptions.map((option) => (
             <option
               key={`${option.campaignId}:${option.sessionNumber}`}
               value={`${option.campaignId}:${option.sessionNumber}`}

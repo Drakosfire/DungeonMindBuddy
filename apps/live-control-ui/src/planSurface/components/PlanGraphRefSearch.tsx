@@ -9,11 +9,6 @@ import {
 } from "../reference/searchGraphProjectionNodes";
 import { formatReviewCampaignLabel } from "../sessionCampaignContext";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
-import {
-  PlanGraphLoadPanel,
-  type PlanGraphLoadFocusOption,
-  type PlanGraphLoadLensControls,
-} from "./PlanGraphLoadPanel";
 
 function nodeCampaignProvenanceLabel(node: GraphProjectionNodeView): string {
   const scope = node.campaign_scope?.trim();
@@ -27,13 +22,6 @@ export interface PlanGraphRefSearchProps {
   nodes: GraphProjectionNodeView[];
   projectionState: PlanGraphProjectionState;
   projectionError?: string | null;
-  /** Session focus choices for the shared load panel (optional). */
-  focusOptions?: PlanGraphLoadFocusOption[];
-  /**
-   * Lens controls for Edit chrome (outside PlanGraphLensProvider).
-   * When omitted, PlanGraphLoadPanel uses context (Ask Config).
-   */
-  lensControls?: PlanGraphLoadLensControls | null;
   /** Disables chip insert only. Search and view stay available while editing is locked. */
   insertDisabled?: boolean;
   onInsert: (attrs: RunbookReferenceAttrs) => void;
@@ -44,8 +32,6 @@ export function PlanGraphRefSearch({
   nodes,
   projectionState,
   projectionError = null,
-  focusOptions = [],
-  lensControls = null,
   insertDisabled = false,
   onInsert,
   onView,
@@ -63,14 +49,6 @@ export function PlanGraphRefSearch({
       aria-label="World Graph objects"
       data-testid="plan-graph-ref-search"
     >
-      <PlanGraphLoadPanel
-        projectionState={projectionState}
-        projectionError={projectionError}
-        nodeCount={nodes.length}
-        focusOptions={focusOptions}
-        lensControls={lensControls}
-      />
-
       {projectionState === "loading" ? (
         <p className="plan-graph-ref-search__status" role="status">
           Loading World Graph projection…

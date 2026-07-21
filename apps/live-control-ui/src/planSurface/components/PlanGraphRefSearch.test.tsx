@@ -123,20 +123,4 @@ describe("PlanGraphRefSearch", () => {
     expect(screen.getByRole("button", { name: "Insert chip" })).toBeDisabled();
     expect(onInsert).not.toHaveBeenCalled();
   });
-
-  it("shows the World Graph load panel above Find objects", () => {
-    render(
-      <PlanGraphRefSearch
-        nodes={nodes}
-        projectionState="ready"
-        onInsert={() => undefined}
-      />,
-      { wrapper },
-    );
-
-    expect(screen.getByTestId("plan-graph-load-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
-      /2 nodes · ready/i,
-    );
-  });
 });

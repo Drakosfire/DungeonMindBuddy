@@ -150,6 +150,8 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Toolbox tools" })).toBeInTheDocument();
     expect(screen.getByLabelText("Plan canvas")).toBeInTheDocument();
+    expect(screen.getByText("Plan Board")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-graph-load-panel")).toBeInTheDocument();
     expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent(/C2 Session 23 Prep/i);
     expect(screen.queryByRole("navigation", { name: "Plan surface navigation" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("plan-memory-source")).not.toBeInTheDocument();
