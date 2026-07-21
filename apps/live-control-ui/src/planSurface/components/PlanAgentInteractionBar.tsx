@@ -419,14 +419,14 @@ function sourceKind(unit: SourceUnit): string {
 }
 
 function unitsForSession(bundle: IngestionSourceBundle, session: number): SourceUnit[] {
-  return bundle.units
+  return (bundle.units ?? [])
     .filter((unit) => unit.evidenceRole !== "diagnostic_only")
     .filter((unit) => numberField(unit.fields.sessionNumber) === session);
 }
 
 function representativeUnits(bundle: IngestionSourceBundle, activeSession: number): SourceUnit[] {
   const activeSessionUnits = unitsForSession(bundle, activeSession);
-  const fallbackUnits = bundle.units.filter((unit) => unit.evidenceRole !== "diagnostic_only");
+  const fallbackUnits = (bundle.units ?? []).filter((unit) => unit.evidenceRole !== "diagnostic_only");
   return (activeSessionUnits.length ? activeSessionUnits : fallbackUnits).slice(0, 8);
 }
 

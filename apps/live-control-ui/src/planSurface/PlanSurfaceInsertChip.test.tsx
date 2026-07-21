@@ -76,6 +76,17 @@ describe("Plan surface insert chip", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(projectionWithNode as never);
+    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
+      schema_version: "dmb_ingestion_source_bundle_v1",
+      bundle_id: "insert-chip-bundle",
+      scope: "campaign-ingested",
+      corpus_root: "corpus",
+      artifacts: [],
+      anchors: [],
+      units: [],
+      coverage: {},
+      diagnostics: [],
+    });
     vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
       schema_version: "dmb_workspace_document_registry_v1",
       records: [fixtureWorkspaceDocumentRecord()],

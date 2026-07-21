@@ -129,10 +129,25 @@ async function openAgentConfig(user: { click: (el: Element) => Promise<void> }) 
 }
 
 
+
+function liveQueryFetchCalls(): Array<[unknown, RequestInit | undefined]> {
+  return vi.mocked(globalThis.fetch).mock.calls.filter(([input]) =>
+    String(input).includes("/api/live/query"),
+  ) as Array<[unknown, RequestInit | undefined]>;
+}
+
+function latestLiveQueryBody(): Record<string, unknown> {
+  const calls = liveQueryFetchCalls();
+  const last = calls[calls.length - 1];
+  if (!last) throw new Error("expected a /api/live/query fetch call");
+  return JSON.parse(String(last[1]?.body ?? "{}")) as Record<string, unknown>;
+}
+
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(worldGraphProjection);
+    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue(mockSourceBundle);
     vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
       schema_version: "dmb_workspace_document_registry_v1",
       records: [fixtureWorkspaceDocumentRecord()],
@@ -140,7 +155,8 @@ describe("PlanSurfaceShell", () => {
     vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     localStorage.clear();
-    window.history.pushState({}, "", "/plan");
+    // Default multi-campaign lens matches Ask drawer expectations (Union · C1+C2).
+    window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
   });
 
   it("renders toolbar, edit bar, and canvas regions", async () => {
@@ -231,10 +247,6 @@ describe("PlanSurfaceShell", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
         text: async () =>
           JSON.stringify({
             answer: "Tripod stands at the North Gate.",
@@ -280,9 +292,8 @@ describe("PlanSurfaceShell", () => {
     await user.type(screen.getByLabelText("Question"), "What do we know about Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
-    expect(await screen.findByText("Tripod stands at the North Gate.")).toBeInTheDocument();
-    const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
-    const body = JSON.parse(String(queryCall[1]?.body));
+    expect(await screen.findAllByText("Tripod stands at the North Gate.")).not.toHaveLength(0);
+    const body = latestLiveQueryBody();
     expect(body).toMatchObject({
       campaign_id: "longmont-c2",
       session: 22,
@@ -304,7 +315,6 @@ describe("PlanSurfaceShell", () => {
   it("checks corpus freshness from a stored source-lines snapshot", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({
@@ -368,9 +378,11 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Check current source state" }));
 
     expect(await screen.findByRole("region", { name: "Corpus change signal" })).toHaveTextContent("Corpus signal: Current");
-    const freshnessCall = vi.mocked(globalThis.fetch).mock.calls[2];
-    expect(String(freshnessCall[0])).toContain("/api/live/citation-freshness");
-    expect(JSON.parse(String(freshnessCall[1]?.body))).toMatchObject({
+    const freshnessCall = vi.mocked(globalThis.fetch).mock.calls.find(([input]) =>
+      String(input).includes("/api/live/citation-freshness"),
+    );
+    expect(freshnessCall).toBeDefined();
+    expect(JSON.parse(String(freshnessCall?.[1]?.body))).toMatchObject({
       path: "corpus/test/session.md",
       expected_fingerprint: "expected-source-lines-hash",
       fingerprint_algorithm: "sha256:source-lines-v1",
@@ -387,10 +399,6 @@ describe("PlanSurfaceShell", () => {
   it("can route the DungeonBuddy drawer through Hermes tools", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () =>
@@ -440,8 +448,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(await screen.findByText("Preliminary verdict · Enough context")).toBeInTheDocument();
     expect(screen.getAllByText("Blended").length).toBeGreaterThan(0);
-    const queryCall = vi.mocked(globalThis.fetch).mock.calls[1];
-    expect(JSON.parse(String(queryCall[1]?.body))).toMatchObject({
+    expect(latestLiveQueryBody()).toMatchObject({
       query_backend: "hermes",
       world_graph_context: expectedWorldGraphContextRequest,
     });
@@ -450,10 +457,6 @@ describe("PlanSurfaceShell", () => {
   it("sends world graph context on follow-up turns without a thread-level pin", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () =>
@@ -492,14 +495,17 @@ describe("PlanSurfaceShell", () => {
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    expect(await screen.findByText("First answer")).toBeInTheDocument();
+    expect(await screen.findAllByText("First answer")).not.toHaveLength(0);
 
     await user.type(screen.getByLabelText("Question"), "Second question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    expect(await screen.findByText("Second answer")).toBeInTheDocument();
+    expect(await screen.findAllByText("Second answer")).not.toHaveLength(0);
 
-    const firstQueryBody = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[1][1]?.body));
-    const secondQueryBody = JSON.parse(String(vi.mocked(globalThis.fetch).mock.calls[2][1]?.body));
+    const queryBodies = liveQueryFetchCalls().map(([, init]) =>
+      JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>,
+    );
+    expect(queryBodies).toHaveLength(2);
+    const [firstQueryBody, secondQueryBody] = queryBodies;
     expect(firstQueryBody.world_graph_context).toEqual(expectedWorldGraphContextRequest);
     expect(secondQueryBody.world_graph_context).toEqual(expectedWorldGraphContextRequest);
     expect(firstQueryBody).not.toHaveProperty("revision_pin");
@@ -509,10 +515,6 @@ describe("PlanSurfaceShell", () => {
   it("renders ready world graph context with matched durable IDs", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () =>
@@ -556,10 +558,6 @@ describe("PlanSurfaceShell", () => {
   it("renders empty and unavailable world graph context states", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () =>
@@ -645,10 +643,6 @@ describe("PlanSurfaceShell", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
         text: async () =>
           JSON.stringify({
             answer: "I can speculate, but I did not find supporting campaign text.",
@@ -687,10 +681,6 @@ describe("PlanSurfaceShell", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
         text: async () =>
           JSON.stringify({
             answer: "CLI synthesized answer for operator.",
@@ -717,7 +707,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
-    expect(screen.getByText("CLI synthesized answer for operator.")).toBeInTheDocument();
+    expect(screen.getAllByText("CLI synthesized answer for operator.")).not.toHaveLength(0);
     expect(screen.getByText(/3100 ms/)).toBeInTheDocument();
     expect(screen.getByText(/Prompt sent to Hermes/)).toBeInTheDocument();
     expect(screen.getByText(/No grounded evidence returned/i)).toBeInTheDocument();
@@ -760,10 +750,6 @@ describe("PlanSurfaceShell", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
         text: async () =>
           JSON.stringify({
             answer: "Tripod stands at the North Gate.",
@@ -801,7 +787,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
-    expect(screen.getByText("Tripod stands at the North Gate.")).toBeInTheDocument();
+    expect(screen.getAllByText("Tripod stands at the North Gate.")).not.toHaveLength(0);
     expect(screen.getByText(/88 ms/)).toBeInTheDocument();
     expect(screen.getByText("not reported")).toBeInTheDocument();
     expect(screen.getByText("hermes_graph_agent")).toBeInTheDocument();
@@ -835,10 +821,6 @@ describe("PlanSurfaceShell", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
         text: async () => JSON.stringify(makeQueryResponse("First answer", "trace-one")),
       } as Response)
       .mockResolvedValueOnce({
@@ -854,12 +836,12 @@ describe("PlanSurfaceShell", () => {
 
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    expect(await screen.findByText("First answer")).toBeInTheDocument();
+    expect(await screen.findAllByText("First answer")).not.toHaveLength(0);
     expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Second question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    expect(await screen.findByText("Second answer")).toBeInTheDocument();
+    expect(await screen.findAllByText("Second answer")).not.toHaveLength(0);
     expect(screen.getByRole("region", { name: "Conversation transcript" })).toBeInTheDocument();
     expect(screen.queryByText(/Conversation \(\d+\)/)).not.toBeInTheDocument();
 
@@ -954,7 +936,6 @@ describe("PlanSurfaceShell", () => {
       },
     });
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(queryResponse("Answer for thread A", "a")) } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -1021,8 +1002,7 @@ describe("PlanSurfaceShell", () => {
         context_packet: null,
       }),
     } as Response));
-    vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
+    vi.spyOn(globalThis, "fetch");
     const fetchMock = vi.mocked(globalThis.fetch);
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
@@ -1034,7 +1014,7 @@ describe("PlanSurfaceShell", () => {
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       await user.type(screen.getByLabelText("Question"), `Question ${index}?`);
       await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-      expect(await screen.findByText(`Answer ${index}`)).toBeInTheDocument();
+      expect(await screen.findAllByText(`Answer ${index}`)).not.toHaveLength(0);
     }
 
     expect(screen.getByRole("region", { name: "Thread getting long" })).toHaveTextContent(
@@ -1063,8 +1043,7 @@ describe("PlanSurfaceShell", () => {
         context_packet: null,
       }),
     } as Response));
-    const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
     renderPlanSurface();
@@ -1075,7 +1054,7 @@ describe("PlanSurfaceShell", () => {
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `Before clear ${index}?` } });
       fireEvent.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-      expect(await screen.findByText(`Clear reset answer ${index}`)).toBeInTheDocument();
+      expect(await screen.findAllByText(`Clear reset answer ${index}`)).not.toHaveLength(0);
     }
 
     await user.click(screen.getByRole("button", { name: "Keep going" }));
@@ -1087,7 +1066,7 @@ describe("PlanSurfaceShell", () => {
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       fireEvent.change(screen.getByLabelText("Question"), { target: { value: `After clear ${index}?` } });
       fireEvent.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-      expect(await screen.findByText(`Clear reset answer ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS + index}`)).toBeInTheDocument();
+      expect(await screen.findAllByText(`Clear reset answer ${AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS + index}`)).not.toHaveLength(0);
     }
 
     expect(screen.getByRole("region", { name: "Thread getting long" })).toHaveTextContent(
@@ -1101,8 +1080,7 @@ describe("PlanSurfaceShell", () => {
       ok: true,
       text: async () => JSON.stringify({ answer: `Long answer ${index + 1}`, classification: {}, events_written: [], jobs_queued: [], next_suggestions: [], diagnostics: [], provenance: {}, citations: [], context_packet: null }),
     } as Response));
-    const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
+    const fetchMock = vi.spyOn(globalThis, "fetch");
     responses.forEach((response) => fetchMock.mockResolvedValueOnce(response));
 
     renderPlanSurface();
@@ -1114,7 +1092,7 @@ describe("PlanSurfaceShell", () => {
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
       await user.type(screen.getByLabelText("Question"), `Long question ${index}?`);
       await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-      expect(await screen.findByText(`Long answer ${index}`)).toBeInTheDocument();
+      expect(await screen.findAllByText(`Long answer ${index}`)).not.toHaveLength(0);
     }
 
     await user.click(screen.getByRole("button", { name: "Start new thread" }));
@@ -1129,7 +1107,6 @@ describe("PlanSurfaceShell", () => {
   it("restores active thread and thread list after remount", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify({ answer: "Answer for restore A", classification: {}, events_written: [], jobs_queued: [], next_suggestions: [], diagnostics: [], provenance: {}, citations: [], context_packet: null }) } as Response)
       .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify({ answer: "Answer for restore B", classification: {}, events_written: [], jobs_queued: [], next_suggestions: [], diagnostics: [], provenance: {}, citations: [], context_packet: null }) } as Response)
       .mockResolvedValue({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response);
@@ -1186,10 +1163,6 @@ describe("PlanSurfaceShell", () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
         text: async () =>
           JSON.stringify({
             answer: "Should not appear as primary.",
@@ -1231,10 +1204,6 @@ describe("PlanSurfaceShell", () => {
   it("shows broad recap routes in retrieved text", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({
-        ok: true,
-        text: async () => JSON.stringify(mockSourceBundle),
-      } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () =>
@@ -1562,6 +1531,7 @@ describe("PlanSurfaceShell", () => {
 
   it("keeps Hermes interaction UI available when the source bundle fails to load", async () => {
     const user = userEvent.setup();
+    vi.spyOn(liveApi, "getSourceBundle").mockRejectedValue(new Error("bundle failed"));
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("/api/live/source-bundle")) {
@@ -1600,7 +1570,6 @@ describe("PlanSurfaceShell", () => {
   ])("renders Hermes graph grounding state %s", async (state, showCards) => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
@@ -1639,7 +1608,6 @@ describe("PlanSurfaceShell", () => {
   it("shows contract error for grounded Hermes graph answer with scope-mismatched citation", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
@@ -1678,7 +1646,6 @@ describe("PlanSurfaceShell", () => {
     localStorage.setItem(threadStorageKey("longmont-c2", seededThread.threadId), JSON.stringify(seededThread));
 
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
@@ -1721,10 +1688,9 @@ describe("PlanSurfaceShell", () => {
 
     await user.type(screen.getByLabelText("Question"), "Follow-up Hermes question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    expect(await screen.findByText("Follow-up Hermes answer.")).toBeInTheDocument();
+    expect(await screen.findAllByText("Follow-up Hermes answer.")).not.toHaveLength(0);
 
-    const followUpCall = vi.mocked(globalThis.fetch).mock.calls[2];
-    const followUpBody = JSON.parse(String(followUpCall[1]?.body));
+    const followUpBody = latestLiveQueryBody();
     expect(followUpBody.hermes_session_pointer).toBe("hptr-server-approved");
     expect(followUpBody.hermes_session_id).toBeUndefined();
   });
@@ -1732,7 +1698,6 @@ describe("PlanSurfaceShell", () => {
   it("opens graph citations through the opaque source-anchor read route with pinned revision", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
@@ -1789,7 +1754,6 @@ describe("PlanSurfaceShell", () => {
   it("shows no graph evidence content when the source-anchor read contradicts the citation contract", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
@@ -1859,7 +1823,7 @@ describe("PlanSurfaceShell", () => {
     await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
 
-    expect(await screen.findByText("Saved graph answer.")).toBeInTheDocument();
+    expect(await screen.findAllByText("Saved graph answer.")).not.toHaveLength(0);
     expect(screen.getByRole("region", { name: "Graph evidence" })).toBeInTheDocument();
     expect(screen.getByLabelText("Agent interaction trace")).toBeInTheDocument();
     expect(screen.getByText("Graph tool activity (1)")).toBeInTheDocument();
@@ -1891,7 +1855,7 @@ describe("PlanSurfaceShell", () => {
       "What do we know about Tripod Null-Calf at the North Gate?",
     );
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    await screen.findByText("Tripod stands at the North Gate.");
+    await screen.findAllByText("Tripod stands at the North Gate.");
 
     await user.clear(screen.getByLabelText("Question"));
     await user.type(
@@ -1900,7 +1864,8 @@ describe("PlanSurfaceShell", () => {
     );
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await waitFor(() => {
-      expect(screen.getAllByText("Tripod stands at the North Gate.")).toHaveLength(2);
+      // Answer text can render in the reply card and again in the agent-trace panel.
+      expect(screen.getAllByText("Tripod stands at the North Gate.").length).toBeGreaterThanOrEqual(2);
     });
 
     const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
@@ -1953,7 +1918,7 @@ describe("PlanSurfaceShell", () => {
       "What do we know about Tripod Null-Calf at the North Gate?",
     );
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    await screen.findByText("Tripod stands at the North Gate.");
+    await screen.findAllByText("Tripod stands at the North Gate.");
 
     const activeThreadId = localStorage.getItem(activeThreadStorageKey("longmont-c2", "plan", FIXTURE_DOC_ID));
     expect(activeThreadId).toBeTruthy();
@@ -2018,14 +1983,14 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    expect(await screen.findByText("Tripod stands at the North Gate.")).toBeInTheDocument();
+    expect(await screen.findAllByText("Tripod stands at the North Gate.")).not.toHaveLength(0);
 
     await user.type(
       screen.getByLabelText("Question"),
       "What is it connected to that should affect my prep?",
     );
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    await screen.findByText("Follow-up after reload.");
+    await screen.findAllByText("Follow-up after reload.");
 
     const queryCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/live/query"));
     expect(queryCalls).toHaveLength(1);
@@ -2068,7 +2033,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.type(screen.getByLabelText("Question"), "Thread A turn 1?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
-    await screen.findByText("Tripod stands at the North Gate.");
+    await screen.findAllByText("Tripod stands at the North Gate.");
 
     await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "New prep thread" }));
@@ -2107,7 +2072,6 @@ describe("PlanSurfaceShell", () => {
     localStorage.setItem(threadStorageKey("longmont-c2", savedThread.threadId), JSON.stringify(savedThread));
 
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify({
@@ -2144,7 +2108,6 @@ describe("PlanSurfaceShell", () => {
   it("shows graph tool activity when Trace On is enabled for Hermes graph answers", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
@@ -2166,7 +2129,6 @@ describe("PlanSurfaceShell", () => {
   it("renders a contract-error card for malformed Hermes grounding or null citations without crashing", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
@@ -2194,7 +2156,6 @@ describe("PlanSurfaceShell", () => {
   it("treats grounded Hermes answers with null revision as a contract error", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
@@ -2218,7 +2179,6 @@ describe("PlanSurfaceShell", () => {
   it("renders through Plan submit when Hermes agent_trace shell fields are objects", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
@@ -2244,7 +2204,7 @@ describe("PlanSurfaceShell", () => {
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
     expect(await screen.findByLabelText("Agent interaction trace")).toBeInTheDocument();
-    expect(screen.getByText("Tripod stands at the North Gate.")).toBeInTheDocument();
+    expect(screen.getAllByText("Tripod stands at the North Gate.")).not.toHaveLength(0);
     expect(screen.getByText(/hermes · process_isolated · ok · 88ms/)).toBeInTheDocument();
     expect(screen.getByText("bounded string warning")).toBeInTheDocument();
     expect(screen.queryByText(/unexpected object/)).not.toBeInTheDocument();
@@ -2255,7 +2215,6 @@ describe("PlanSurfaceShell", () => {
   it("keeps Plan usable when top-level warnings are non-array and grounding is malformed", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse({
@@ -2289,7 +2248,6 @@ describe("PlanSurfaceShell", () => {
   it("accepts the Kernel unavailable source-anchor envelope with snapshot=null", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
@@ -2358,7 +2316,6 @@ describe("PlanSurfaceShell", () => {
       diagnostics: [{ code: "source_unreadable", message: "Source artifact is unreadable.", severity: "error" }],
     };
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
@@ -2401,7 +2358,6 @@ describe("PlanSurfaceShell", () => {
   it("accepts Kernel partial with null content and shows diagnostics", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse()),
@@ -2456,7 +2412,6 @@ describe("PlanSurfaceShell", () => {
   it("hides the corpus change signal panel for graph-only Hermes turns", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockSourceBundle) } as Response)
       .mockResolvedValueOnce({
         ok: true,
         text: async () => JSON.stringify(buildHermesGraphQueryResponse()),

@@ -345,7 +345,7 @@ export function PlanSurfaceCanvas({
             {statusLabel}
           </p>
         </div>
-        <div className="plan-canvas-heading__graph" aria-label="World Graph load">
+        <div className="plan-canvas-heading__graph">
           <PlanGraphLoadPanel
             projectionState={projectionState}
             projectionError={projectionError}
