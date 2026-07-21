@@ -44,6 +44,7 @@ import {
   getPlanWorldGraphContext,
 } from "../reference/planGraphContextRequest";
 import { usePlanGraphLens } from "../PlanGraphLensContext";
+import { isFocusValidationBlocking } from "../planGraphFocusOptions";
 import {
   hasGrounding,
   isConversationContext,
@@ -456,8 +457,7 @@ export function PlanAgentInteractionBar({
     summaryLabel,
     focusValidationStatus,
   } = usePlanGraphLens();
-  const focusValidationPending =
-    focusValidationStatus === "pending" || focusValidationStatus === "invalid";
+  const focusValidationPending = isFocusValidationBlocking(focusValidationStatus);
   const planWorldGraphContext = getPlanWorldGraphContext(sessionDescriptor, { lens });
   const hasSupportedGraphContext = planWorldGraphContext != null;
   const graphContextInitializing =
@@ -1418,7 +1418,11 @@ export function PlanAgentInteractionBar({
                 rows={1}
               />
             </label>
-            {focusValidationPending ? (
+            {focusValidationStatus === "unavailable" ? (
+              <p className="plan-agent-muted">
+                Session focus validation unavailable — retry or clear focus on Plan Board.
+              </p>
+            ) : focusValidationPending ? (
               <p className="plan-agent-muted">Validating session focus…</p>
             ) : graphContextInitializing ? (
               <p className="plan-agent-muted">Initializing world graph context…</p>
@@ -1429,7 +1433,7 @@ export function PlanAgentInteractionBar({
                 The server will resolve the authoritative revision for Hermes graph queries.
               </p>
             ) : null}
-            {!lensAllowsAsk ? (
+            {derived == null ? (
               <p className="plan-agent-warning">Select at least one campaign on Plan Board.</p>
             ) : null}
             <button

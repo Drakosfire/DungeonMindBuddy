@@ -197,7 +197,8 @@ describe("PlanGraphLoadPanel", () => {
     expect(window.location.search).toMatch(/session=longmont-c2%3A24|session=longmont-c2:24/);
   });
 
-  it("keeps URL focus when the focused campaign bundle fails to load", async () => {
+  it("keeps URL focus gated when the focused campaign bundle fails to load", async () => {
+    const user = userEvent.setup();
     window.history.replaceState(
       {},
       "",
@@ -213,12 +214,87 @@ describe("PlanGraphLoadPanel", () => {
     );
 
     await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-focus-validation-unavailable")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+      /C2 only · C2 · Session 40 · focus validation unavailable · gated/i,
+    );
+    expect(window.location.search).toMatch(/session=longmont-c2%3A40|session=longmont-c2:40/);
+    expect(screen.getByLabelText("Focus session")).toHaveValue("longmont-c2:40");
+    expect(screen.getByRole("option", { name: /C2 · Session 40 \(unverified\)/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear focus" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("plan-graph-focus-validation-unavailable")).not.toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Focus session")).toHaveValue("");
+    expect(window.location.search).not.toMatch(/session=longmont-c2:40/);
+  });
+
+  it("retries focus validation after a bundle outage", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(
+      {},
+      "",
+      "/plan?campaigns=longmont-c2&session=longmont-c2:24",
+    );
+    const loadBundle = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("bundle unavailable"))
+      .mockResolvedValueOnce(bundleWithSessions(24, 22));
+
+    render(
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(loadBundle) },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-focus-validation-unavailable")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Retry validation" }));
+    await waitFor(() => {
       expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
-        /C2 only · C2 · Session 40 · 45 nodes · ready/i,
+        /C2 only · C2 · Session 24 · 45 nodes · ready/i,
       );
     });
+    expect(screen.queryByTestId("plan-graph-focus-validation-unavailable")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Focus session")).toHaveValue("longmont-c2:24");
+    expect(loadBundle).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts unverified focus via intentional operator override", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(
+      {},
+      "",
+      "/plan?campaigns=longmont-c2&session=longmont-c2:40",
+    );
+    const loadBundle = vi.fn(async () => {
+      throw new Error("bundle unavailable");
+    });
+
+    render(
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(loadBundle) },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-focus-validation-unavailable")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Use focus anyway" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("plan-graph-focus-validation-unavailable")).not.toBeInTheDocument();
+    });
     expect(window.location.search).toMatch(/session=longmont-c2%3A40|session=longmont-c2:40/);
-    expect(screen.getByLabelText("Focus session")).toHaveValue("");
+    expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+      /C2 only · C2 · Session 40 · 45 nodes · ready/i,
+    );
+    expect(screen.getByLabelText("Focus session")).toHaveValue("longmont-c2:40");
+    expect(
+      screen.getByRole("option", { name: /C2 · Session 40 \(accepted unverified\)/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows fail-closed status when graph lens context is missing", () => {

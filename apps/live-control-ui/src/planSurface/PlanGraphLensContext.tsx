@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -12,6 +13,7 @@ import { getSourceBundle } from "../api/liveApi";
 import type { IngestionSourceBundle } from "../api/types";
 import {
   buildFocusOptionsFromBundles,
+  isFocusValidationBlocking,
   optionsIncludeFocus,
   type PlanGraphFocusValidationStatus,
   type PlanGraphLoadFocusOption,
@@ -39,13 +41,21 @@ interface PlanGraphLensContextValue {
    * Shared gate for projection + Ask:
    * - none: no focus to validate
    * - pending: focus present, bundles still loading
-   * - valid: focus confirmed (or kept after load failure)
+   * - valid: focus confirmed in a successful bundle (or operator override)
    * - invalid: focus absent from successful bundles (cleared next)
+   * - unavailable: focused campaign bundle failed; URL focus kept, backend gated
    */
   focusValidationStatus: PlanGraphFocusValidationStatus;
   setSelectedCampaignIds: (ids: ReviewCampaignId[]) => void;
   toggleCampaign: (campaignId: ReviewCampaignId) => void;
   setFocus: (focus: PlanGraphLensFocus | null) => void;
+  /** Re-fetch ingest bundles and re-validate the retained URL focus. */
+  retryFocusValidation: () => void;
+  /**
+   * Intentional operator override: accept the retained URL focus without a
+   * successful bundle ground truth (unblocks projection + Ask).
+   */
+  acceptUnverifiedFocus: () => void;
 }
 
 const PlanGraphLensContext = createContext<PlanGraphLensContextValue | null>(null);
@@ -106,6 +116,9 @@ export function PlanGraphLensProvider({
   );
   const [focusValidationStatus, setFocusValidationStatus] =
     useState<PlanGraphFocusValidationStatus>(() => (lens.focus ? "pending" : "none"));
+  const [bundleReloadToken, setBundleReloadToken] = useState(0);
+  /** Operator accepted unverified URL focus during a bundle outage. */
+  const unverifiedFocusAcceptedRef = useRef(false);
 
   const selectedCampaignKey = lens.selectedCampaignIds.join(",");
   const focusKey = lens.focus
@@ -114,6 +127,7 @@ export function PlanGraphLensProvider({
 
   const setSelectedCampaignIds = useCallback(
     (ids: ReviewCampaignId[]) => {
+      unverifiedFocusAcceptedRef.current = false;
       setLens((previous) => {
         const next: PlanGraphLens = {
           selectedCampaignIds: sortCampaignIds(ids),
@@ -130,6 +144,7 @@ export function PlanGraphLensProvider({
   );
 
   const toggleCampaign = useCallback((campaignId: ReviewCampaignId) => {
+    unverifiedFocusAcceptedRef.current = false;
     setLens((previous) => {
       const selected = new Set(previous.selectedCampaignIds);
       if (selected.has(campaignId)) {
@@ -151,6 +166,7 @@ export function PlanGraphLensProvider({
   }, []);
 
   const setFocus = useCallback((focus: PlanGraphLensFocus | null) => {
+    unverifiedFocusAcceptedRef.current = false;
     setLens((previous) => {
       const next: PlanGraphLens = {
         selectedCampaignIds: previous.selectedCampaignIds,
@@ -160,9 +176,23 @@ export function PlanGraphLensProvider({
       syncPlanGraphLensUrl(next);
       return next;
     });
-    // User-driven focus changes are already grounded in the option list (or explicit clear).
+    // User-driven focus changes are grounded picks or intentional clear (override).
     setFocusValidationStatus(focus ? "valid" : "none");
   }, []);
+
+  const retryFocusValidation = useCallback(() => {
+    unverifiedFocusAcceptedRef.current = false;
+    setFocusValidationStatus((previous) =>
+      previous === "none" ? "none" : "pending",
+    );
+    setBundleReloadToken((token) => token + 1);
+  }, []);
+
+  const acceptUnverifiedFocus = useCallback(() => {
+    if (!lens.focus) return;
+    unverifiedFocusAcceptedRef.current = true;
+    setFocusValidationStatus("valid");
+  }, [lens.focus]);
 
   // Load grounded focus options for the selected campaigns.
   useEffect(() => {
@@ -217,7 +247,13 @@ export function PlanGraphLensProvider({
     return () => {
       cancelled = true;
     };
-  }, [focusOptionsOverride, loadBundle, selectedCampaignKey, lens.selectedCampaignIds]);
+  }, [
+    bundleReloadToken,
+    focusOptionsOverride,
+    loadBundle,
+    selectedCampaignKey,
+    lens.selectedCampaignIds,
+  ]);
 
   // Validate active focus against grounded options once bundles resolve.
   useEffect(() => {
@@ -236,18 +272,24 @@ export function PlanGraphLensProvider({
       bundleLoadState.failedCampaignIds.includes(focus.campaignId)
       && !bundleLoadState.loadedCampaignIds.includes(focus.campaignId);
 
-    // Transient API failure: keep URL focus; do not treat as "session absent".
+    // Transient API failure: keep URL focus; stay gated unless operator overrides.
     if (focusCampaignFailed) {
-      setFocusValidationStatus("valid");
+      if (unverifiedFocusAcceptedRef.current) {
+        setFocusValidationStatus("valid");
+        return;
+      }
+      setFocusValidationStatus("unavailable");
       return;
     }
 
     if (optionsIncludeFocus(focusOptions, focus)) {
+      unverifiedFocusAcceptedRef.current = false;
       setFocusValidationStatus("valid");
       return;
     }
 
     // Successful bundle(s) for the focus campaign genuinely lack this session.
+    unverifiedFocusAcceptedRef.current = false;
     setFocusValidationStatus("invalid");
     setFocus(null);
   }, [
@@ -280,12 +322,16 @@ export function PlanGraphLensProvider({
       setSelectedCampaignIds,
       toggleCampaign,
       setFocus,
+      retryFocusValidation,
+      acceptUnverifiedFocus,
     }),
     [
+      acceptUnverifiedFocus,
       derived,
       focusOptions,
       focusValidationStatus,
       lens,
+      retryFocusValidation,
       setFocus,
       setSelectedCampaignIds,
       summaryLabel,
@@ -320,3 +366,5 @@ export function defaultPlanGraphLensForPlanCampaign(planCampaignId: string): Pla
     focus: null,
   };
 }
+
+export { isFocusValidationBlocking };

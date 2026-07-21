@@ -5,6 +5,7 @@ import { useOptionalPlanGraphLens } from "../PlanGraphLensContext";
 import {
   focusOptionKey,
   optionsIncludeFocus,
+  type PlanGraphFocusValidationStatus,
   type PlanGraphLoadFocusOption,
 } from "../planGraphFocusOptions";
 import {
@@ -28,8 +29,11 @@ export interface PlanGraphLoadLensControls {
   derived: DerivedPlanGraphApiLens | null;
   summaryLabel: string;
   focusOptions: PlanGraphLoadFocusOption[];
+  focusValidationStatus: PlanGraphFocusValidationStatus;
   toggleCampaign: (campaignId: ReviewCampaignId) => void;
   setFocus: (focus: PlanGraphLensFocus | null) => void;
+  retryFocusValidation: () => void;
+  acceptUnverifiedFocus: () => void;
 }
 
 export interface PlanGraphLoadPanelProps {
@@ -64,6 +68,31 @@ function formatProjectionLoadStatus(
   return `${nodeCount} node${nodeCount === 1 ? "" : "s"} · ready`;
 }
 
+function formatLensStatusLine(
+  summaryLabel: string,
+  focusValidationStatus: PlanGraphFocusValidationStatus,
+  projectionState: PlanGraphProjectionState,
+  nodeCount: number,
+  projectionError: string | null | undefined,
+): string {
+  const projectionPart = formatProjectionLoadStatus(
+    projectionState,
+    nodeCount,
+    projectionError,
+  );
+  if (focusValidationStatus === "pending") {
+    return `${summaryLabel} · validating focus · ${projectionPart}`;
+  }
+  if (focusValidationStatus === "unavailable") {
+    return `${summaryLabel} · focus validation unavailable · gated`;
+  }
+  return `${summaryLabel} · ${projectionPart}`;
+}
+
+function shortCampaignLabel(campaignId: ReviewCampaignId): string {
+  return formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "");
+}
+
 /**
  * World Graph load/lens control for Plan Board (primary) and optional test harnesses.
  * Campaign/focus changes go through PlanGraphLensContext (URL + projection reload).
@@ -83,7 +112,13 @@ export function PlanGraphLoadPanel({
     if (!controls) {
       return "Graph lens unavailable";
     }
-    return `${controls.summaryLabel} · ${formatProjectionLoadStatus(projectionState, nodeCount, projectionError)}`;
+    return formatLensStatusLine(
+      controls.summaryLabel,
+      controls.focusValidationStatus,
+      projectionState,
+      nodeCount,
+      projectionError,
+    );
   }, [controls, nodeCount, projectionError, projectionState]);
 
   if (!controls) {
@@ -100,9 +135,36 @@ export function PlanGraphLoadPanel({
     );
   }
 
-  const { lens, derived, toggleCampaign, setFocus, focusOptions } = controls;
+  const {
+    lens,
+    derived,
+    toggleCampaign,
+    setFocus,
+    focusOptions,
+    focusValidationStatus,
+    retryFocusValidation,
+    acceptUnverifiedFocus,
+  } = controls;
+
+  const heldFocusOption =
+    lens.focus && !optionsIncludeFocus(focusOptions, lens.focus)
+      ? {
+          campaignId: lens.focus.campaignId,
+          sessionNumber: lens.focus.sessionNumber,
+          label:
+            focusValidationStatus === "unavailable"
+              ? `${shortCampaignLabel(lens.focus.campaignId)} · Session ${lens.focus.sessionNumber} (unverified)`
+              : `${shortCampaignLabel(lens.focus.campaignId)} · Session ${lens.focus.sessionNumber} (accepted unverified)`,
+        }
+      : null;
+
+  const selectOptions =
+    heldFocusOption && !optionsIncludeFocus(focusOptions, lens.focus)
+      ? [heldFocusOption, ...focusOptions]
+      : focusOptions;
+
   const focusSelectValue =
-    lens.focus && optionsIncludeFocus(focusOptions, lens.focus)
+    lens.focus && optionsIncludeFocus(selectOptions, lens.focus)
       ? focusOptionKey(lens.focus)
       : "";
 
@@ -124,12 +186,19 @@ export function PlanGraphLoadPanel({
       campaignId: campaignId as ReviewCampaignId,
       sessionNumber,
     };
-    // Only accept focus that is present in the grounded option list.
-    if (!optionsIncludeFocus(focusOptions, next)) {
-      setFocus(null);
+    if (optionsIncludeFocus(focusOptions, next)) {
+      setFocus(next);
       return;
     }
-    setFocus(next);
+    // Held / accepted-unverified option: keep selection; unlock via Clear or grounded pick.
+    if (
+      lens.focus
+      && next.campaignId === lens.focus.campaignId
+      && next.sessionNumber === lens.focus.sessionNumber
+    ) {
+      return;
+    }
+    setFocus(null);
   }
 
   return (
@@ -166,7 +235,7 @@ export function PlanGraphLoadPanel({
           aria-label="Focus session"
         >
           <option value="">None (plain union)</option>
-          {focusOptions.map((option) => (
+          {selectOptions.map((option) => (
             <option
               key={focusOptionKey(option)}
               value={focusOptionKey(option)}
@@ -176,6 +245,28 @@ export function PlanGraphLoadPanel({
           ))}
         </select>
       </label>
+      {focusValidationStatus === "unavailable" ? (
+        <div
+          className="plan-graph-load-panel__validation"
+          role="status"
+          data-testid="plan-graph-focus-validation-unavailable"
+        >
+          <p className="plan-graph-load-panel__warning">
+            Session focus could not be validated (ingest bundle unavailable). Projection and Ask stay gated until you retry, clear focus, or explicitly use the unverified focus.
+          </p>
+          <div className="plan-graph-load-panel__validation-actions">
+            <button type="button" onClick={() => retryFocusValidation()}>
+              Retry validation
+            </button>
+            <button type="button" onClick={() => setFocus(null)}>
+              Clear focus
+            </button>
+            <button type="button" onClick={() => acceptUnverifiedFocus()}>
+              Use focus anyway
+            </button>
+          </div>
+        </div>
+      ) : null}
       {showEmptyLensWarning && derived == null ? (
         <p className="plan-graph-load-panel__warning" role="status">
           Select at least one campaign.

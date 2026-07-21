@@ -757,6 +757,22 @@
   color: var(--warning, #fbbf24);
 }
 
+.plan-graph-load-panel__validation {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.plan-graph-load-panel__validation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.plan-graph-load-panel__validation-actions button {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.55rem;
+}
+
 .plan-agent-ask p,
 .plan-agent-proof p {
   margin: 0 0 0.65rem;

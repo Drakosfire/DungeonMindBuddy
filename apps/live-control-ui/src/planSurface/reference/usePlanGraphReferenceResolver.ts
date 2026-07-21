@@ -15,6 +15,7 @@ import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { PlanSessionDescriptor } from "../types";
 import { useOptionalPlanGraphLens } from "../PlanGraphLensContext";
+import { isFocusValidationBlocking } from "../planGraphFocusOptions";
 import {
   isCorpusFallbackAllowed,
   isGraphNativeReference,
@@ -256,8 +257,7 @@ function usePlanGraphReferenceResolverLoad(
   const [revisionEventBump, setRevisionEventBump] = useState(0);
   const graphLens = useOptionalPlanGraphLens();
   const focusValidationStatus = graphLens?.focusValidationStatus ?? "none";
-  const focusValidationPending =
-    focusValidationStatus === "pending" || focusValidationStatus === "invalid";
+  const focusValidationPending = isFocusValidationBlocking(focusValidationStatus);
 
   const context = useMemo(
     () =>

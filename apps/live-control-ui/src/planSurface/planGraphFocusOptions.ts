@@ -12,7 +12,20 @@ export interface PlanGraphLoadFocusOption {
   label: string;
 }
 
-export type PlanGraphFocusValidationStatus = "none" | "pending" | "valid" | "invalid";
+export type PlanGraphFocusValidationStatus =
+  | "none"
+  | "pending"
+  | "valid"
+  | "invalid"
+  /** Focus retained from URL, but ingest bundles failed — backend stays gated. */
+  | "unavailable";
+
+/** True while projection / Ask must not use the current lens focus. */
+export function isFocusValidationBlocking(
+  status: PlanGraphFocusValidationStatus,
+): boolean {
+  return status === "pending" || status === "invalid" || status === "unavailable";
+}
 
 function numberField(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;

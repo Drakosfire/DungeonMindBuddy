@@ -694,6 +694,53 @@ describe("PlanSurfaceShell", () => {
     });
   });
 
+  it("keeps projection and Ask gated when focus bundle validation is unavailable", async () => {
+    const user = userEvent.setup();
+    window.history.pushState(
+      {},
+      "",
+      "/plan?campaigns=longmont-c2&session=longmont-c2:40",
+    );
+
+    vi.spyOn(liveApi, "getSourceBundle").mockRejectedValue(new Error("bundle unavailable"));
+    const projectionSpy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
+      worldGraphProjection,
+    );
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify(mockSourceBundle),
+    } as Response);
+
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-focus-validation-unavailable")).toBeInTheDocument();
+    });
+    expect(projectionSpy).not.toHaveBeenCalled();
+    expect(window.location.search).toMatch(/session=longmont-c2%3A40|session=longmont-c2:40/);
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    expect(
+      await screen.findByText(/Session focus validation unavailable/i),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Question"), "Ask during outage?");
+    expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeDisabled();
+    expect(liveQueryFetchCalls()).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Clear focus" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("plan-graph-focus-validation-unavailable")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(projectionSpy).toHaveBeenCalled();
+    });
+    for (const [request] of projectionSpy.mock.calls) {
+      const focus = (request as { focus?: { sessionId?: string | null } }).focus;
+      expect(focus?.sessionId ?? null).not.toBe("session-40");
+    }
+  });
+
   it("warns when a prep memory answer has no grounding evidence", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")
