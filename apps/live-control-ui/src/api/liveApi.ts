@@ -485,6 +485,16 @@ export async function postWorldGraphProjection(
   });
 }
 
+/** World head + focus-session corpus recap → Recap View (markdown/chips/node_views). */
+export async function postWorldGraphRecapProjection(
+  request: WorldGraphProjectionRequest,
+): Promise<UnionSupergraphProjectionResponse> {
+  return apiFetch<UnionSupergraphProjectionResponse>("/api/live/world-graph/recap-projection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
 export async function getDefaultUnionSupergraphProjection(
   sessionId: string,
   previewSource = defaultUnionSupergraphPreviewSource,

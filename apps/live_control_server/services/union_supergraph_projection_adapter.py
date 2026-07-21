@@ -335,7 +335,8 @@ def _load_focus_recap_markdown_from_store(
     return _strip_yaml_frontmatter(input_path.read_text(encoding="utf-8"))
 
 
-def _load_corpus_normalized_recap_markdown(*, campaign_id: str, session_id: str) -> str | None:
+def load_corpus_normalized_recap_markdown(*, campaign_id: str, session_id: str) -> str | None:
+    """Load stripped body markdown for a campaign session's normalized recap."""
     match = re.fullmatch(r"session-(\d+)", session_id.strip())
     if not match:
         return None
@@ -353,6 +354,10 @@ def _load_corpus_normalized_recap_markdown(*, campaign_id: str, session_id: str)
     if not candidates:
         return None
     return _strip_yaml_frontmatter(candidates[0].read_text(encoding="utf-8"))
+
+
+# Retained alias for in-module call sites.
+_load_corpus_normalized_recap_markdown = load_corpus_normalized_recap_markdown
 
 
 def _strip_yaml_frontmatter(markdown: str) -> str:

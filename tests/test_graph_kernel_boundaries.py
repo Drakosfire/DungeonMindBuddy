@@ -105,18 +105,6 @@ TS_LEGACY_SELECTOR_ALLOWLIST: dict[str, frozenset[str]] = {
             "preview_union_store_path",
         }
     ),
-    "apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.tsx": frozenset(
-        {
-            "useLatestGraphIngest",
-            "graphRunManifestPath",
-        }
-    ),
-    "apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.test.tsx": frozenset(
-        {
-            "useLatestGraphIngest",
-            "graphRunManifestPath",
-        }
-    ),
     "apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphMergeReconciliationMaterializationPanel.tsx": frozenset(
         {
             "previewUnionStorePath",

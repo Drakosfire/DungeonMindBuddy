@@ -54,10 +54,10 @@ describe("GraphProjectionReader", () => {
 
     fireEvent.click(aldenPill);
     expect(onInspectNode).toHaveBeenCalledWith("alden");
-    expect(screen.queryByLabelText("Graph node explorer")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Graph object panel")).not.toBeInTheDocument();
   });
 
-  it("opens the internal explorer when no external inspection handler is provided", async () => {
+  it("opens shared GraphObjectCard when no external inspection handler is provided", async () => {
     render(
       <GraphProjectionReader
         markdown="The party met [Alden](dmb-node:alden) at the gate."
@@ -75,7 +75,60 @@ describe("GraphProjectionReader", () => {
     });
 
     fireEvent.click(aldenPill);
-    expect(screen.getByLabelText("Graph node explorer")).toBeInTheDocument();
+    expect(screen.getByLabelText("Graph object panel")).toBeInTheDocument();
+    expect(screen.getByLabelText("Alden game card")).toBeInTheDocument();
+  });
+
+  it("navigates the object trail from GraphObjectCard relationships", async () => {
+    const mirathornNode: GraphProjectionNodeView = {
+      node_id: "loc_mirathorn",
+      label: "Mirathorn",
+      kind: "location",
+      role: "city",
+      summary: "A trade city.",
+      aliases: [],
+      source_domains: [],
+      evidence_badges: [],
+      adjacency: [],
+    };
+    const aldenWithLink: GraphProjectionNodeView = {
+      ...aldenNode,
+      adjacency: [
+        {
+          edge_id: "edge:alden:at:loc_mirathorn",
+          node_id: "loc_mirathorn",
+          label: "Mirathorn",
+          kind: "location",
+          predicate: "located_in",
+          direction: "outgoing",
+          anchored_to_focus_session: false,
+          source_domains: ["recap"],
+          evidence_ref_ids: [],
+          session_ids: [],
+        },
+      ],
+    };
+
+    render(
+      <GraphProjectionReader
+        markdown="The party met [Alden](dmb-node:alden) at the gate."
+        nodeViews={{ alden: aldenWithLink, loc_mirathorn: mirathornNode }}
+        sourceSpans={[]}
+      />,
+    );
+
+    const aldenPill = await waitFor(() => {
+      const pill = screen
+        .getAllByRole("button", { name: "Alden" })
+        .find((button) => button.classList.contains("recap-node-token"));
+      expect(pill).toBeTruthy();
+      return pill as HTMLButtonElement;
+    });
+    fireEvent.click(aldenPill);
+
+    fireEvent.click(screen.getByRole("button", { name: /Open related object.*Mirathorn/i }));
+    expect(screen.getByLabelText("Mirathorn game card")).toBeInTheDocument();
+    expect(screen.getByLabelText("Object trail")).toHaveTextContent("Alden");
   });
 
   it("shows the authoring action and forwards the callback when a valid selection exists", async () => {

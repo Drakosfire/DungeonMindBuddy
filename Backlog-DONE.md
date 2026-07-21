@@ -7,6 +7,16 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Recap View / ingest must project world graph (not session preview union) — captured 2026-07-13, done 2026-07-21
+**Priority:** high — blocked useful Graph Review / node authoring dogfood (authoring against session-isolated extracts is redundant).
+**Context:** Session 24 ingest dogfood. After LLM extract, Recap View (`/plan?tool=recap`, Open Recap View from `/ingest`) loaded `useLatestGraphIngest: true` → session preview union only.
+**Insight:** Session preview unions are extract proposals, not campaign memory. Recap View needs durable world identities with focus-session overlay; markdown/mention chips require a recap-shaped payload the plain world projection API does not return.
+**Action completed:** Added `POST /api/live/world-graph/recap-projection` (world head + corpus normalized recap → markdown/mentions/node_views). RecapGraphModule switched off `useLatestGraphIngest`; UI copy is World Graph · session focus lens. Preview union retained for Graph Review / ingest extract review. Removed Recap from TS legacy selector allowlist.
+**Surfaces when:** Recap View chips, Graph Review authoring, object cards, Edge/Mireward/PC cross-session history, `/ingest` Open Recap View, `getUnionSupergraphProjection` / `useLatestGraphIngest`, PR007A/PR008 world-graph projection migration, graph object authoring dogfood
+**Refs:** `apps/live_control_server/services/world_graph_recap_projection.py`, `apps/live_control_server/routes/world_graph_projection.py`, `apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.tsx`, `UnionSupergraphRecapProjection.tsx`, `tests/test_world_graph_recap_projection.py`
+
+---
+
 ## [DONE] Party-collective via standing_context promote seam — captured 2026-07-18, done 2026-07-19
 **Priority:** high — remaining C1S3 typed-load failure after aliases + creature: `node:heroes-party` missing evidence_refs.
 **Context:** Deterministic party-collective seed (`proposed_action: anchor`, type `group`) ships with `evidence_refs: []`; validate_candidate_graph_preview requires evidence on every node.

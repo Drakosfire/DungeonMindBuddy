@@ -17,6 +17,7 @@ import {
   LiveApiError,
   postLiveQuery,
   postWorldGraphProjection,
+  postWorldGraphRecapProjection,
   postWorldGraphSourceAnchorRead,
   getCurrentCombat,
   getGeneratedStatblock,
@@ -211,6 +212,36 @@ describe("liveApi artifact/capability helpers", () => {
       "focus",
       "admissibility",
     ]);
+  });
+
+  it("postWorldGraphRecapProjection posts the World Graph request to recap-projection", async () => {
+    const request = {
+      schema: "dmb_world_graph_projection_request_v1" as const,
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      focus: { kind: "session" as const, sessionId: "session-24", campaignId: "longmont-c2" },
+      admissibility: "gm" as const,
+      scopeMode: "campaign" as const,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        campaign_id: "longmont-c2",
+        session_id: "session-24",
+        graph_id: "rev:test",
+        markdown: "Hello",
+        focus: { focus_session_id: "session-24" },
+        node_views: {},
+        mentions: [],
+      }),
+    );
+
+    await postWorldGraphRecapProjection(request);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/world-graph/recap-projection");
+    expect(String(url)).not.toContain("?");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
   });
 
   it("getGoldGraphProjection calls gold projection endpoint with read-only query params", async () => {

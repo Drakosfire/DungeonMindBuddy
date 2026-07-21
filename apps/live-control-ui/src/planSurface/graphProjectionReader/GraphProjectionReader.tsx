@@ -5,12 +5,16 @@ import StarterKit from "@tiptap/starter-kit";
 
 import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../api/types";
 import {
+  GraphObjectCard,
+  buildGraphObjectCardFromNodeView,
+  type GraphObjectRelationshipViewModel,
+} from "../../graphObjectCard";
+import {
   GraphNodeChipRuntimeProvider,
   type GraphNodeChipDeltaPresentation,
 } from "../../graphReference";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
-import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
 import type { RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
 import {
   graphAuthoringSelectionsEqual,
@@ -162,7 +166,6 @@ export function GraphProjectionReader({
   const [pendingAuthoringSelection, setPendingAuthoringSelection] = useState<GraphAuthoringSelection | null>(null);
   const activeNodeId = explorerTrail.at(-1) ?? null;
   const activeNode = activeNodeId ? nodeViews[activeNodeId] : undefined;
-  const [selectedEvidenceSpanId, setSelectedEvidenceSpanId] = useState<string | null>(null);
   const useExternalInspection = Boolean(onInspectNode);
   const pendingAuthoringSelectionRef = useRef<GraphAuthoringSelection | null>(null);
 
@@ -171,7 +174,6 @@ export function GraphProjectionReader({
 
   useEffect(() => {
     setExplorerTrail([]);
-    setSelectedEvidenceSpanId(null);
     pendingAuthoringSelectionRef.current = null;
     setPendingAuthoringSelection(null);
     onActiveNodeChange?.(null);
@@ -185,16 +187,6 @@ export function GraphProjectionReader({
       return;
     }
     setExplorerTrail([nodeId]);
-    onActiveNodeChange?.(nodeId);
-  };
-
-  const pushExplorer = (nodeId: string) => {
-    setExplorerTrail((trail) => {
-      if (trail.at(-1) === nodeId) {
-        return trail;
-      }
-      return [...trail, nodeId];
-    });
     onActiveNodeChange?.(nodeId);
   };
 
@@ -212,6 +204,23 @@ export function GraphProjectionReader({
     onActiveNodeChange?.(null);
   };
 
+  const handleRelationshipSelect = useCallback(
+    (relationship: GraphObjectRelationshipViewModel) => {
+      const targetId = relationship.targetId;
+      if (!targetId || !nodeViews[targetId]) {
+        return;
+      }
+      setExplorerTrail((trail) => {
+        if (trail.at(-1) === targetId) {
+          return trail;
+        }
+        return [...trail, targetId];
+      });
+      onActiveNodeChange?.(targetId);
+    },
+    [nodeViews, onActiveNodeChange],
+  );
+
   const handleAuthoringSelection = useCallback((selection: GraphAuthoringSelection | null) => {
     if (graphAuthoringSelectionsEqual(pendingAuthoringSelectionRef.current, selection)) {
       return;
@@ -223,9 +232,14 @@ export function GraphProjectionReader({
 
   const explorerOpen = !useExternalInspection && explorerTrail.length > 0;
   const rootClassName = className ? `recap-reader-root ${className}` : "recap-reader-root";
-  const effectiveSelectedSpanId = selectedSourceSpanId ?? selectedEvidenceSpanId;
+  const effectiveSelectedSpanId = selectedSourceSpanId ?? null;
   const showAuthoringAction =
     authoringEnabled && pendingAuthoringSelection !== null && Boolean(onGraphAuthoringAction);
+
+  const activeCardModel = useMemo(
+    () => (activeNode ? buildGraphObjectCardFromNodeView(activeNode) : null),
+    [activeNode],
+  );
 
   return (
     <div className={rootClassName}>
@@ -287,18 +301,53 @@ export function GraphProjectionReader({
             onGraphAuthoringSelection={handleAuthoringSelection}
           />
         </article>
-        {explorerOpen && activeNode ? (
-          <GraphNodeExplorer
-            key={activeNodeId}
-            node={activeNode}
-            nodeViews={nodeViews}
-            trail={explorerTrail}
-            onBack={popExplorer}
-            onClose={closeExplorer}
-            onExpand={pushExplorer}
-            onEvidenceSelect={(badge) => setSelectedEvidenceSpanId(badge.source_span_ref_id ?? null)}
-            selectedEvidenceSpanId={selectedEvidenceSpanId}
-          />
+        {explorerOpen && activeNode && activeCardModel ? (
+          <aside
+            className="graph-node-explorer union-supergraph-node-panel"
+            aria-label="Graph object panel"
+          >
+            <header className="graph-explorer-header">
+              <div className="graph-explorer-nav">
+                {explorerTrail.length > 1 ? (
+                  <button type="button" className="graph-explorer-back" onClick={popExplorer}>
+                    Back
+                  </button>
+                ) : null}
+                <button type="button" className="graph-explorer-close" onClick={closeExplorer}>
+                  Close
+                </button>
+              </div>
+              {explorerTrail.length > 1 ? (
+                <nav className="graph-explorer-breadcrumb" aria-label="Object trail">
+                  {explorerTrail.map((nodeId, index) => {
+                    const trailNode = nodeViews[nodeId];
+                    const trailLabel = trailNode?.label ?? nodeId;
+                    return (
+                      <span key={`${nodeId}:${index}`}>
+                        {index > 0 ? <span className="graph-explorer-breadcrumb-sep">→</span> : null}
+                        <span
+                          className={
+                            index === explorerTrail.length - 1
+                              ? "graph-explorer-breadcrumb-current"
+                              : ""
+                          }
+                        >
+                          {trailLabel}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </nav>
+              ) : null}
+            </header>
+            <GraphObjectCard
+              key={activeNodeId}
+              mode="plan"
+              model={activeCardModel}
+              showRelationshipProvenance
+              onSelectRelationship={handleRelationshipSelect}
+            />
+          </aside>
         ) : null}
       </div>
     </div>

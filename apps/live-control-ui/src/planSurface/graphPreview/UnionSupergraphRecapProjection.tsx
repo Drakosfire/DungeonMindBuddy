@@ -24,7 +24,7 @@ export function UnionSupergraphRecapProjection({
   selectedCampaignId = "longmont-c2",
   onSelectCampaign = () => undefined,
   onOpenLegacy,
-  projectionSource = "default-preview-source",
+  projectionSource = "world-graph",
 }: UnionSupergraphRecapProjectionProps) {
   const paragraphSourceSpans = useMemo(
     () => (payload.source_spans ?? [])
@@ -33,9 +33,10 @@ export function UnionSupergraphRecapProjection({
     [payload.source_spans],
   );
   const sourceCopy = {
-    "latest-graph-ingest": {
-      label: "latest graph-ingest preview",
-      description: "This recap is projected from the latest preview union supergraph for this campaign/session.",
+    "world-graph": {
+      label: "World Graph head",
+      description:
+        "This recap is projected from the persistent World Graph with a session focus lens. Chips resolve to durable world identities; prior-session evidence appears when present on those identities.",
     },
     "recap-only": {
       label: "recap memory only",
@@ -43,7 +44,7 @@ export function UnionSupergraphRecapProjection({
     },
     "default-preview-source": {
       label: "default preview fixture",
-      description: "No latest graph-ingest preview store was available for this session, so this is using the default preview source.",
+      description: "No World Graph recap projection was available for this session, so this is using the default preview source.",
     },
     legacy: {
       label: "legacy recap preview",
@@ -51,30 +52,43 @@ export function UnionSupergraphRecapProjection({
     },
     unavailable: {
       label: "no graph projection available",
-      description: "No graph projection is available for this session yet. Generate Recap Memory first, then retry.",
+      description: "No graph projection is available for this session yet. Ensure the World Graph head and normalized recap exist, then retry.",
     },
   }[projectionSource];
   const projectedMarkdown = payload.markdown
-    ?? "# Session recap projection unavailable\n\nThe union-supergraph payload did not include projected recap Markdown.";
+    ?? "# Session recap projection unavailable\n\nThe World Graph recap payload did not include projected recap Markdown.";
 
+  const isWorldGraph = projectionSource === "world-graph";
 
   return (
     <div className="recap-reader-root union-supergraph-recap-root">
       <header className="recap-reader-header">
         <div>
-          <p className="plan-surface-kicker">Preview union · session extract</p>
+          <p className="plan-surface-kicker">
+            {isWorldGraph ? "World Graph · session focus lens" : "Recap projection"}
+          </p>
           <h2>Session focus lens</h2>
           <p>
-            This view projects the latest <strong>session preview union</strong> for Session{" "}
-            {payload.focus.focus_session_id?.replace("session-", "") ?? "?"} — not the campaign-wide
-            world supergraph. Chips are alias matches in this recap; prior-session history only appears
-            if that memory was merged into this preview store (it usually is not).
+            {isWorldGraph ? (
+              <>
+                This view projects the persistent <strong>World Graph</strong> with Session{" "}
+                {payload.focus.focus_session_id?.replace("session-", "") ?? "?"} as the focus
+                lens. Chips are alias matches against durable world identities; adjacency and
+                evidence can span prior sessions when those assertions live on the world head.
+              </>
+            ) : (
+              <>
+                This view projects Session{" "}
+                {payload.focus.focus_session_id?.replace("session-", "") ?? "?"}. Graph chips
+                resolve when a projection source is available.
+              </>
+            )}
           </p>
           <p className="union-supergraph-source-note">
             Source: {sourceCopy.label}. {sourceCopy.description}
           </p>
         </div>
-        <span className="union-supergraph-graph-id">{payload.graph_id ?? "union-supergraph"}</span>
+        <span className="union-supergraph-graph-id">{payload.graph_id ?? "world-graph"}</span>
       </header>
 
       <div className="recap-reader-toolbar">
@@ -101,7 +115,9 @@ export function UnionSupergraphRecapProjection({
 
       <p className="recap-reader-hint union-supergraph-mentions-hint">
         Read-only TipTap projection of ingested recap Markdown. Editing and corpus writes are intentionally out of
-        scope here. Graph chips are preview memory candidates; evidence highlights show the recap paragraph that supports the selected graph context. {payload.mentions.length} graph mention{payload.mentions.length === 1 ? "" : "s"} projected.
+        scope here. Graph chips resolve to World Graph identities; evidence highlights show the recap paragraph that
+        supports the selected graph context. {payload.mentions.length} graph mention
+        {payload.mentions.length === 1 ? "" : "s"} projected.
       </p>
 
       <GraphProjectionReader

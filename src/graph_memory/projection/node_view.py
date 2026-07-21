@@ -69,3 +69,5 @@ class GraphProjectionNodeView(BaseModel):
     )
     anchored_to_focus_session: bool = False
     summary: str | None = None
+    # Effective campaign tenancy (null = world-universal). Surfaced for world-lens Recap.
+    campaign_scope: str | None = None
