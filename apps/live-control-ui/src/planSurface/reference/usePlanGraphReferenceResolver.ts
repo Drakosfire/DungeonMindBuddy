@@ -150,10 +150,12 @@ export async function resolvePlanReferenceWithFallback(
   options: {
     projection?: WorldGraphProjection | null;
     projectionState?: PlanGraphProjectionState | null;
+    lensSummary?: string | null;
     fetchImpl?: typeof fetch;
   } = {},
 ): Promise<PlanReferenceResolution> {
   const projectionState = options.projectionState ?? null;
+  const lensSummary = options.lensSummary ?? null;
 
   if (projectionState === "loading") {
     return unresolvedResolution(
@@ -184,6 +186,7 @@ export async function resolvePlanReferenceWithFallback(
     const graphResolution = resolvePlanReferenceFromGraphProjection({
       ref,
       projection: options.projection,
+      lensSummary,
     });
 
     return {
@@ -196,6 +199,7 @@ export async function resolvePlanReferenceWithFallback(
     const graphResolution = resolvePlanReferenceFromGraphProjection({
       ref,
       projection: options.projection,
+      lensSummary,
     });
 
     if (graphResolution.kind === "graph-node") {
@@ -217,6 +221,7 @@ export async function resolvePlanReferenceWithFallback(
       ref,
       projection: options.projection,
       fallbackResolution,
+      lensSummary,
     });
 
     return {
@@ -230,6 +235,7 @@ export async function resolvePlanReferenceWithFallback(
     ref,
     projection: null,
     fallbackResolution,
+    lensSummary,
   });
 
   return {
@@ -337,8 +343,9 @@ function usePlanGraphReferenceResolverLoad(
       resolvePlanReferenceWithFallback(ref, {
         projection,
         projectionState,
+        lensSummary: graphLens?.summaryLabel ?? null,
       }),
-    [projection, projectionState],
+    [graphLens?.summaryLabel, projection, projectionState],
   );
 
   const resolvePlanRelationship = useCallback(

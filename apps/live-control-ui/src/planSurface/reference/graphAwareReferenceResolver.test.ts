@@ -219,4 +219,21 @@ describe("graphAwareReferenceResolver", () => {
     expect(result.message).toMatch(/threat:tripod-null-calf/i);
     expect(result.message).not.toMatch(/invalid reference locator/i);
   });
+
+  it("includes lens summary on graph-native miss diagnostics", () => {
+    const result = resolvePlanReferenceFromGraphProjection({
+      ref: {
+        kind: "ref",
+        refType: "graph-node",
+        refId: "node:bubbles",
+        label: "Bubbles the Float Goat",
+      },
+      projection,
+      lensSummary: "C2 only · no session focus",
+    });
+
+    expect(result.kind).toBe("unresolved");
+    expect(result.message).toMatch(/node:bubbles/i);
+    expect(result.message).toMatch(/C2 only · no session focus/);
+  });
 });

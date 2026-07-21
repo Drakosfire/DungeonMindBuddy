@@ -101,7 +101,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.click(screen.getByRole("button", { name: "Config" }));
-    await screen.findByLabelText("Graph campaign union");
+    await screen.findByTestId("plan-graph-load-panel");
 
     // Default is active plan campaign (C2); select C1 only.
     const c1 = screen.getByRole("checkbox", { name: /Longmont C1/i });
@@ -110,7 +110,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
     await user.click(c2);
 
     await waitFor(() => {
-      expect(screen.getByText(/C1 only/)).toBeInTheDocument();
+      expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(/C1 only/);
     });
 
     await user.type(screen.getByLabelText("Question"), "Tell me about campaign 1");
@@ -140,7 +140,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
     await user.click(screen.getByRole("button", { name: "Config" }));
-    await screen.findByLabelText("Graph campaign union");
+    await screen.findByTestId("plan-graph-load-panel");
 
     const c2 = screen.getByRole("checkbox", { name: /Longmont C2/i });
     await user.click(c2);

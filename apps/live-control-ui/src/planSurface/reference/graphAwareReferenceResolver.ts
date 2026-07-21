@@ -346,14 +346,18 @@ export interface ResolvePlanReferenceFromGraphProjectionInput {
   projection?: WorldGraphProjection | null;
   /** Precomputed corpus-index resolution from `resolveReference()` — not fetched here. */
   fallbackResolution?: ReferenceResolution | null;
+  /** Active Plan graph lens summary for miss diagnostics (e.g. "C2 only · no session focus"). */
+  lensSummary?: string | null;
 }
 
 function exactGraphNativeMiss(
   locator: string,
   refType: string | null,
   refId: string | null,
+  lensSummary?: string | null,
 ): PlanReferenceResolution {
   const idLabel = refId?.trim() || "unknown";
+  const lensHint = lensSummary?.trim() ? ` (${lensSummary.trim()})` : "";
   return {
     kind: "unresolved",
     locator,
@@ -364,7 +368,7 @@ function exactGraphNativeMiss(
     fallback: null,
     source: "unresolved",
     message: appendIngestEscalationHint(
-      `Graph node "${idLabel}" was not found in the loaded World Graph projection.`,
+      `Graph node "${idLabel}" was not found in the loaded World Graph projection${lensHint}.`,
     ),
   };
 }
@@ -415,7 +419,7 @@ export function resolvePlanReferenceFromGraphProjection(
     }
 
     if (graphNative) {
-      return exactGraphNativeMiss(locator, refType, refId);
+      return exactGraphNativeMiss(locator, refType, refId, input.lensSummary);
     }
   }
 

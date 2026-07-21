@@ -49,6 +49,7 @@ import {
   formatReviewCampaignLabel,
   type ReviewCampaignId,
 } from "../sessionCampaignContext";
+import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
 import {
   hasGrounding,
   isConversationContext,
@@ -459,8 +460,6 @@ export function PlanAgentInteractionBar({
     lens,
     derived,
     summaryLabel,
-    toggleCampaign,
-    setFocus,
   } = usePlanGraphLens();
   const planWorldGraphContext = getPlanWorldGraphContext(sessionDescriptor, { lens });
   const hasSupportedGraphContext = planWorldGraphContext != null;
@@ -951,68 +950,12 @@ export function PlanAgentInteractionBar({
                     role="region"
                     aria-label="Agent configuration"
                   >
-                    <div className="plan-agent-graph-lens" aria-label="Graph campaign union">
-                      <p className="plan-agent-muted">Graph campaigns</p>
-                      <div className="plan-agent-graph-lens-campaigns">
-                        {REVIEW_CAMPAIGN_IDS.map((campaignId) => {
-                          const checked = lens.selectedCampaignIds.includes(campaignId);
-                          return (
-                            <label key={campaignId} className="plan-agent-graph-lens-campaign">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => toggleCampaign(campaignId)}
-                              />
-                              <span>{formatReviewCampaignLabel(campaignId)}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      <label className="plan-agent-graph-lens-focus">
-                        <span>Focus session</span>
-                        <select
-                          value={
-                            lens.focus
-                              ? `${lens.focus.campaignId}:${lens.focus.sessionNumber}`
-                              : ""
-                          }
-                          onChange={(event) => {
-                            const value = event.currentTarget.value;
-                            if (!value) {
-                              setFocus(null);
-                              return;
-                            }
-                            const [campaignId, sessionRaw] = value.split(":");
-                            const sessionNumber = Number.parseInt(sessionRaw ?? "", 10);
-                            if (
-                              !REVIEW_CAMPAIGN_IDS.includes(campaignId as ReviewCampaignId)
-                              || !Number.isFinite(sessionNumber)
-                            ) {
-                              setFocus(null);
-                              return;
-                            }
-                            setFocus({
-                              campaignId: campaignId as ReviewCampaignId,
-                              sessionNumber,
-                            });
-                          }}
-                          disabled={lens.selectedCampaignIds.length === 0}
-                        >
-                          <option value="">None (plain union)</option>
-                          {lensFocusOptions.map((option) => (
-                            <option
-                              key={`${option.campaignId}:${option.sessionNumber}`}
-                              value={`${option.campaignId}:${option.sessionNumber}`}
-                            >
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {!lensAllowsAsk ? (
-                        <p className="plan-agent-warning">Select at least one campaign.</p>
-                      ) : null}
-                    </div>
+                    <PlanGraphLoadPanel
+                      projectionState={projectionState}
+                      projectionError={projectionError}
+                      nodeCount={projection?.nodes.length ?? 0}
+                      focusOptions={lensFocusOptions}
+                    />
                     <div className="plan-agent-config-actions">
                       <button
                         type="button"

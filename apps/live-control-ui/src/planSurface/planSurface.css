@@ -676,6 +676,65 @@
   padding: 0.35rem 0.5rem;
 }
 
+.plan-graph-load-panel {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border, #2a3142);
+}
+
+.plan-graph-load-panel__status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--fg, #e8eaef);
+}
+
+.plan-graph-load-panel__label {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--fg-mute, #9aa3b5);
+}
+
+.plan-graph-load-panel__campaigns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+}
+
+.plan-graph-load-panel__campaign {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--fg, #e8eaef);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.plan-graph-load-panel__focus {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 18rem;
+  color: var(--fg-mute, #9aa3b5);
+  font-size: 0.75rem;
+}
+
+.plan-graph-load-panel__focus select {
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.plan-graph-load-panel__warning {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--warning, #fbbf24);
+}
+
 .plan-agent-ask p,
 .plan-agent-proof p {
   margin: 0 0 0.65rem;

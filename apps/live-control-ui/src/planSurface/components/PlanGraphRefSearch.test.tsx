@@ -1,8 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { createElement, type ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphProjectionNodeView } from "../../api/types";
+import { PlanGraphLensProvider } from "../PlanGraphLensContext";
 import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
 
 const nodes: GraphProjectionNodeView[] = [
@@ -34,7 +36,21 @@ const nodes: GraphProjectionNodeView[] = [
   },
 ];
 
+function wrapper({ children }: { children: ReactNode }) {
+  return createElement(PlanGraphLensProvider, { planCampaignId: "longmont-c2" }, children);
+}
+
+function renderSearch(
+  ui: React.ReactElement,
+) {
+  return render(ui, { wrapper });
+}
+
 describe("PlanGraphRefSearch", () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/plan");
+  });
+
   it("searches projection nodes and inserts a chip from a match", async () => {
     const user = userEvent.setup();
     const onInsert = vi.fn();
@@ -45,6 +61,7 @@ describe("PlanGraphRefSearch", () => {
         projectionState="ready"
         onInsert={onInsert}
       />,
+      { wrapper },
     );
 
     await user.type(screen.getByLabelText("Find objects"), "glow");
@@ -70,6 +87,7 @@ describe("PlanGraphRefSearch", () => {
         projectionState="ready"
         onInsert={() => undefined}
       />,
+      { wrapper },
     );
 
     await user.type(screen.getByLabelText("Find objects"), "glow");
@@ -95,6 +113,7 @@ describe("PlanGraphRefSearch", () => {
         onInsert={onInsert}
         onView={onView}
       />,
+      { wrapper },
     );
 
     expect(screen.getByText(/Unlock editing to insert chips/i)).toBeInTheDocument();
@@ -103,5 +122,21 @@ describe("PlanGraphRefSearch", () => {
     expect(onView).toHaveBeenCalledWith(expect.objectContaining({ node_id: "location-inn" }));
     expect(screen.getByRole("button", { name: "Insert chip" })).toBeDisabled();
     expect(onInsert).not.toHaveBeenCalled();
+  });
+
+  it("shows the World Graph load panel above Find objects", () => {
+    render(
+      <PlanGraphRefSearch
+        nodes={nodes}
+        projectionState="ready"
+        onInsert={() => undefined}
+      />,
+      { wrapper },
+    );
+
+    expect(screen.getByTestId("plan-graph-load-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+      /2 nodes · ready/i,
+    );
   });
 });

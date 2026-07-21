@@ -34,6 +34,7 @@ import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import { usePlanMarkdownSave } from "../save/usePlanMarkdownSave";
+import { usePlanGraphLens } from "../PlanGraphLensContext";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
@@ -63,6 +64,23 @@ export function PlanSurfaceCanvas({
     projectionState,
     projectionError,
   } = usePlanGraphReferenceResolver();
+  const {
+    lens,
+    derived,
+    summaryLabel,
+    toggleCampaign,
+    setFocus,
+  } = usePlanGraphLens();
+  const lensControls = useMemo(
+    () => ({
+      lens,
+      derived,
+      summaryLabel,
+      toggleCampaign,
+      setFocus,
+    }),
+    [derived, lens, setFocus, summaryLabel, toggleCampaign],
+  );
   const editorShellRef = useRef<HTMLDivElement | null>(null);
   const markDirtyRef = useRef<() => void>(() => {});
   const skipNextDirtyRef = useRef(true);
@@ -171,6 +189,7 @@ export function PlanSurfaceCanvas({
         nodes={projectionNodes}
         projectionState={projectionState}
         projectionError={projectionError}
+        lensControls={lensControls}
         insertDisabled={!editor || isLocked}
         onInsert={insertRunbookReference}
         onView={handleViewGraphNode}
@@ -181,6 +200,7 @@ export function PlanSurfaceCanvas({
       handleViewGraphNode,
       insertRunbookReference,
       isLocked,
+      lensControls,
       projectionError,
       projectionNodes,
       projectionState,
