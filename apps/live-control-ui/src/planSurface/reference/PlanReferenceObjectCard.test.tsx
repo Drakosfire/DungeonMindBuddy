@@ -239,6 +239,8 @@ describe("PlanReferenceObjectCard", () => {
     expect(within(card).getByText("A friendly merchant.")).toBeInTheDocument();
     expect(within(card).getByRole("heading", { name: "Related objects" })).toBeInTheDocument();
 
+    expect(within(card).queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
+    expect(within(card).getByText("Memory tools")).toBeInTheDocument();
     expect(within(card).getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
       "href",
       "/ingest?campaign=longmont-c2&session=session-21",
@@ -356,7 +358,7 @@ describe("PlanReferenceObjectCard", () => {
     });
 
     await user.click(
-      screen.getByRole("button", { name: /Open related object Inn/i }),
+      screen.getByRole("button", { name: /Open related object .*Inn/i }),
     );
 
     await waitFor(() => {
@@ -385,7 +387,7 @@ describe("PlanReferenceObjectCard", () => {
       <PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />,
     );
 
-    const related = await screen.findByRole("button", { name: /Open related object Inn/i });
+    const related = await screen.findByRole("button", { name: /Open related object .*Inn/i });
     expect(related).toBeDisabled();
   });
 
@@ -426,7 +428,7 @@ describe("PlanReferenceObjectCard", () => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: /Open related object Lysandra/i }));
+    await user.click(screen.getByRole("button", { name: /Open related object .*Lysandra/i }));
 
     await waitFor(() => {
       expect(screen.getByTestId("plan-reference-unresolved-card")).toBeInTheDocument();
@@ -480,7 +482,7 @@ describe("PlanReferenceObjectCard", () => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: /Open related object Missing Gate/i }));
+    await user.click(screen.getByRole("button", { name: /Open related object .*Missing Gate/i }));
 
     await waitFor(() => {
       expect(screen.getByTestId("plan-reference-unresolved-card")).toBeInTheDocument();

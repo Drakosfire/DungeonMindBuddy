@@ -2072,6 +2072,8 @@ export interface GraphProjectionAdjacencyCandidate {
   evidence_ref_ids: string[];
   edge_label?: string | null;
   session_ids?: string[];
+  /** Effective campaign tenancy for this edge (null = world-universal). */
+  campaign_scope?: string | null;
   /** Brief summary of the related node (not the selected node). */
   related_summary?: string | null;
   /**
@@ -2212,6 +2214,8 @@ export interface WorldGraphProjectionAdjacencyCandidate {
   evidenceRefIds: string[];
   edgeLabel?: string | null;
   sessionIds: string[];
+  /** Effective campaign tenancy for this edge (null = world-universal). */
+  campaignScope?: string | null;
   relatedSummary?: string | null;
   sourceExcerpt?: string | null;
 }

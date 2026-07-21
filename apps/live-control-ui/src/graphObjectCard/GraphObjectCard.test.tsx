@@ -20,8 +20,12 @@ const planModel: GraphObjectCardViewModel = {
     {
       id: "edge-1",
       label: "Glowkindle",
-      predicate: "negotiated with",
+      predicate: "negotiated_with",
       summary: "Trades rare herbs.",
+      targetId: "npc:glowkindle",
+      sessionIds: ["session-2"],
+      sourceExcerpt: "They negotiated with Glowkindle at the Inn.",
+      sourceDomains: ["recap"],
     },
   ],
   evidence: [
@@ -44,7 +48,7 @@ const planModel: GraphObjectCardViewModel = {
 };
 
 describe("GraphObjectCard", () => {
-  it("renders plan mode with label, type badge, aliases, summary, relationships, and evidence", async () => {
+  it("renders plan mode with summary before related objects and omits foreign bios", async () => {
     const user = userEvent.setup();
     render(<GraphObjectCard mode="plan" model={planModel} />);
 
@@ -56,13 +60,20 @@ describe("GraphObjectCard", () => {
     );
     expect(within(card).getByRole("heading", { level: 4 })).toHaveTextContent("Inn (Mireward Reach)");
     expect(within(card).getByText(/Also known as: The Inn, Mireward Inn/)).toBeInTheDocument();
-    expect(
-      within(card).getByText("The party's meeting place with the town leader."),
-    ).toBeInTheDocument();
+
+    const text = card.textContent ?? "";
+    const summaryIndex = text.indexOf("The party's meeting place with the town leader.");
+    const relatedIndex = text.indexOf("Related objects");
+    expect(summaryIndex).toBeGreaterThanOrEqual(0);
+    expect(relatedIndex).toBeGreaterThan(summaryIndex);
+
     expect(within(card).getByText(/The council meets here tonight\./)).toBeInTheDocument();
     expect(within(card).getByRole("heading", { name: "Related objects" })).toBeInTheDocument();
     expect(within(card).getByText(/Glowkindle/)).toBeInTheDocument();
     expect(within(card).getByText(/negotiated with/)).toBeInTheDocument();
+    expect(within(card).getByText("S2")).toBeInTheDocument();
+    expect(within(card).queryByText(/Trades rare herbs/)).not.toBeInTheDocument();
+    expect(within(card).queryByText(/They negotiated with Glowkindle/)).not.toBeInTheDocument();
 
     await user.click(within(card).getByText("Details"));
 
@@ -74,6 +85,39 @@ describe("GraphObjectCard", () => {
     expect(within(detailsPanel!).getByText("Session recap mention · recap")).toBeInTheDocument();
     expect(within(detailsPanel!).queryByText("location-inn")).not.toBeInTheDocument();
     expect(within(detailsPanel!).queryByText(/Node ID:/)).not.toBeInTheDocument();
+  });
+
+  it("renders campaign provenance on the object and qualifies same-session relationships", () => {
+    const worldLensModel: GraphObjectCardViewModel = {
+      ...planModel,
+      campaignScope: "longmont-c1",
+      campaignLabel: "C1",
+      relationships: [
+        {
+          id: "edge-c1",
+          label: "Inn",
+          predicate: "met_at",
+          sessionIds: ["session-2"],
+          campaignScope: "longmont-c1",
+          sourceDomains: ["recap"],
+        },
+        {
+          id: "edge-c2",
+          label: "Harbor",
+          predicate: "met_at",
+          sessionIds: ["session-2"],
+          campaignScope: "longmont-c2",
+          sourceDomains: ["recap"],
+        },
+      ],
+    };
+
+    render(<GraphObjectCard mode="plan" model={worldLensModel} />);
+
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    expect(within(card).getByLabelText("Campaign: C1")).toHaveTextContent("C1");
+    expect(within(card).getByText("C1 · S2")).toBeInTheDocument();
+    expect(within(card).getByText("C2 · S2")).toBeInTheDocument();
   });
 
   it("shows node id in plan mode only when showDebugIdentifiers is true", async () => {
@@ -107,7 +151,7 @@ describe("GraphObjectCard", () => {
     expect(screen.queryByText("Review status")).not.toBeInTheDocument();
   });
 
-  it("renders Plan actions and expands Details for Inspect source/evidence", async () => {
+  it("demotes Plan actions into Memory tools and still opens Details for Inspect", async () => {
     const user = userEvent.setup();
     const modelWithActions: GraphObjectCardViewModel = {
       ...planModel,
@@ -130,7 +174,12 @@ describe("GraphObjectCard", () => {
     render(<GraphObjectCard mode="plan" model={modelWithActions} />);
 
     const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
-    expect(within(card).getByRole("heading", { name: "Actions" })).toBeInTheDocument();
+    expect(within(card).queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
+
+    const memoryTools = within(card).getByText("Memory tools").closest("details");
+    expect(memoryTools).toHaveClass("graph-object-card__memory-tools");
+    await user.click(within(card).getByText("Memory tools"));
+
     expect(within(card).getByRole("link", { name: /Review memory in \/ingest/i })).toHaveAttribute(
       "href",
       "/ingest?campaign=longmont-c2&session=session-21",
@@ -145,9 +194,30 @@ describe("GraphObjectCard", () => {
     expect(within(details!).queryByText(/Node ID:/)).not.toBeInTheDocument();
   });
 
-  it("does not render an Actions heading when there are no actions", () => {
+  it("does not render Memory tools when there are no actions", () => {
     render(<GraphObjectCard mode="plan" model={planModel} />);
+    expect(screen.queryByText("Memory tools")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
+  });
+
+  it("shows origin prose under related rows when provenance is expanded", () => {
+    render(
+      <GraphObjectCard
+        mode="plan"
+        model={planModel}
+        showRelationshipProvenance
+      />,
+    );
+
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    expect(within(card).getByText(/They negotiated with Glowkindle at the Inn/)).toBeInTheDocument();
+    expect(
+      within(card).getByText((_, element) =>
+        element?.classList.contains("graph-object-card__relationship-provenance")
+        && (element.textContent?.includes("recap") ?? false),
+      ),
+    ).toBeInTheDocument();
+    expect(within(card).queryByText(/Trades rare herbs/)).not.toBeInTheDocument();
   });
 
   it("renders related objects as plain list items without a callback", () => {
@@ -175,7 +245,7 @@ describe("GraphObjectCard", () => {
 
     const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
     const button = within(card).getByRole("button", {
-      name: /Open related object Glowkindle/i,
+      name: /Open related object S2 · Glowkindle/i,
     });
     expect(button).toBeInTheDocument();
     expect(button).not.toHaveTextContent("edge-1");
@@ -187,7 +257,7 @@ describe("GraphObjectCard", () => {
       expect.objectContaining({
         id: "edge-1",
         label: "Glowkindle",
-        predicate: "negotiated with",
+        predicate: "negotiated_with",
       }),
     );
   });

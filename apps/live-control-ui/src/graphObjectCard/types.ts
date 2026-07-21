@@ -19,6 +19,8 @@ export interface GraphObjectRelationshipViewModel {
   sourceDomains?: string[];
   anchoredToFocusSession?: boolean;
   sessionIds?: string[];
+  /** Effective campaign tenancy for this relationship (null = world-universal). */
+  campaignScope?: string | null;
   sourceExcerpt?: string | null;
   sourceExcerptIsFullParagraph?: boolean;
   sourceExcerptHighlightSpans?: Array<{ start: number; end: number }>;
@@ -64,6 +66,10 @@ export interface GraphObjectCardViewModel {
   summary?: string | null;
   gameSummary?: string | null;
   whyItMattersNow?: string | null;
+  /** Effective campaign tenancy for the selected object (null = world-universal). */
+  campaignScope?: string | null;
+  /** Compact display label such as `C1` when campaignScope is set. */
+  campaignLabel?: string | null;
   relationships?: GraphObjectRelationshipViewModel[];
   evidence?: GraphObjectEvidenceViewModel[];
   sourceDomains?: string[];

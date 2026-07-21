@@ -52,6 +52,7 @@ function adaptAdjacency(
     evidence_ref_ids: candidate.evidenceRefIds,
     edge_label: candidate.edgeLabel,
     session_ids: candidate.sessionIds,
+    campaign_scope: candidate.campaignScope ?? null,
     related_summary: candidate.relatedSummary,
     source_excerpt: candidate.sourceExcerpt,
   };
@@ -83,5 +84,6 @@ export function adaptWorldGraphNodeForPlanCard(
     suggested_expansions: node.suggestedExpansions.map(adaptSuggestedExpansion),
     anchored_to_focus_session: node.anchoredToFocusSession,
     summary: node.summary,
+    campaign_scope: node.campaignScope ?? null,
   };
 }

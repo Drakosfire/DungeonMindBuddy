@@ -1635,6 +1635,13 @@ def test_world_scope_projection_includes_c2_objects_from_c1_anchor(
     assert "party:questionable-company" in node_ids
     tripod = next(node for node in projection.nodes if node.node_id == TRIPOD_ID)
     assert tripod.campaign_scope == "longmont-c2"
+    # Adjacency inherits edge (or related-node) campaign tenancy for world-lens stamps.
+    scoped_adjacency = [candidate for candidate in tripod.adjacency if candidate.campaign_scope]
+    assert scoped_adjacency
+    assert all(
+        candidate.campaign_scope in {"longmont-c1", "longmont-c2"}
+        for candidate in scoped_adjacency
+    )
 
 
 def test_campaign_scope_mode_still_isolates_foreign_campaign(
