@@ -659,6 +659,26 @@ def run_graph_preview_extraction(
         health = _candidate_counts(candidate_graph, known_span_ids=known_span_ids, paragraph_span_count=paragraph_span_count)
         candidate_extraction = True
         extraction_mode = "fixture"
+        # Fixture path still emits the known-entity contract artifact (possibly empty)
+        # so reusable runs remain sidecar-capable for live projection.
+        known_entity_path = output_dir / "known_entity_mentions.json"
+        write_json(
+            known_entity_path,
+            {
+                "schema": "dmb_known_entity_mention_sidecar_v0",
+                "version": "0.1",
+                "campaign_id": campaign_id,
+                "session_id": session_id,
+                "mentions": [],
+                "ambiguous_surfaces": [],
+                "diagnostics": {"fixture_path": True, "mention_count": 0},
+            },
+        )
+        artifacts["known_entity_mentions"] = _artifact(
+            GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
+            known_entity_path,
+            "dmb_known_entity_mention_sidecar_v0",
+        )
         if validation.valid:
             status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
             health.candidate_graph_valid = True
@@ -731,6 +751,15 @@ def run_graph_preview_extraction(
                     GraphIngestArtifactKind.REGISTRY_CONTEXT_GRAPH,
                     registry_context_path,
                     "dmb_candidate_graph_preview_v0",
+                )
+            if extraction.known_entity_mentions:
+                known_entity_path = output_dir / "known_entity_mentions.json"
+                write_json(known_entity_path, extraction.known_entity_mentions)
+                artifacts["known_entity_mentions"] = _artifact(
+                    GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
+                    known_entity_path,
+                    extraction.known_entity_mentions.get("schema")
+                    or "dmb_known_entity_mention_sidecar_v0",
                 )
             pass_outputs_path = output_dir / "pass_outputs.json"
             write_json(pass_outputs_path, extraction.pass_outputs)

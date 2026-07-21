@@ -319,6 +319,7 @@ def build_recap_graph_projection(
         identity_context=identity_context,
         paragraph_text_by_span_id=paragraph_text_by_span_id,
         known_entity_mentions=known_entity_mentions,
+        diagnostics=diagnostics,
     )
     if projected_markdown is not None:
         projected_markdown, markdown_redirect_count = resolve_projection_markdown_dmb_node_links(
@@ -463,8 +464,15 @@ def _known_mention_spans_in_markdown(
     paragraph_text_by_span_id: Mapping[str, str] | None,
     identity_context: UnionProjectionIdentityContext,
     store: UnionSupergraphStore,
+    diagnostics: list[dict[str, Any]] | None = None,
 ) -> list[tuple[int, int, str, str]]:
-    """Convert paragraph-keyed known mentions into full-markdown chip spans."""
+    """Convert paragraph-keyed known mentions into full-markdown chip spans.
+
+    Fail closed when paragraph offsets cannot be remapped: never fall back to a
+    global ``markdown.find(surface)`` (that can chip the wrong occurrence).
+    Within the uniquely identified source paragraph, a unique exact surface hit
+    is allowed; ambiguous or missing paragraph text skips the mention.
+    """
     rows = _iter_known_entity_mention_rows(known_entity_mentions)
     if not rows:
         return []
@@ -496,13 +504,58 @@ def _known_mention_spans_in_markdown(
                 global_start = para_starts[span_id] + start_offset
                 global_end = para_starts[span_id] + end_offset
         if global_start is None or global_end is None:
-            # Fail closed on offset remap; fall back to first exact surface hit.
-            hit = markdown.find(surface)
-            if hit < 0:
+            para_text = para_texts.get(span_id) or ""
+            para_start = para_starts.get(span_id)
+            if span_id and para_text and para_start is not None:
+                local_hits = [
+                    idx
+                    for idx in range(len(para_text))
+                    if para_text.startswith(surface, idx)
+                ]
+                # Only accept a unique in-paragraph surface; never scan the full recap.
+                if len(local_hits) == 1:
+                    local = local_hits[0]
+                    global_start = para_start + local
+                    global_end = global_start + len(surface)
+                else:
+                    if diagnostics is not None:
+                        diagnostics.append(
+                            {
+                                "code": "known_entity_mention_offset_unresolved",
+                                "source_span_ref_id": span_id,
+                                "surface_text": surface,
+                                "canonical_entity_id": resolved_node_id,
+                                "reason": (
+                                    "ambiguous_in_paragraph"
+                                    if len(local_hits) > 1
+                                    else "surface_missing_in_paragraph"
+                                ),
+                            }
+                        )
+                    continue
+            else:
+                if diagnostics is not None:
+                    diagnostics.append(
+                        {
+                            "code": "known_entity_mention_offset_unresolved",
+                            "source_span_ref_id": span_id or None,
+                            "surface_text": surface,
+                            "canonical_entity_id": resolved_node_id,
+                            "reason": "paragraph_remap_unavailable",
+                        }
+                    )
                 continue
-            global_start = hit
-            global_end = hit + len(surface)
         if markdown[global_start:global_end] != surface:
+            if diagnostics is not None:
+                diagnostics.append(
+                    {
+                        "code": "known_entity_mention_offset_unresolved",
+                        "source_span_ref_id": span_id or None,
+                        "surface_text": surface,
+                        "canonical_entity_id": resolved_node_id,
+                        "reason": "remapped_slice_mismatch",
+                    }
+                )
             continue
         matches.append((global_start, global_end, surface, resolved_node_id))
     matches.sort(key=lambda item: (item[0], -(item[1] - item[0])))
@@ -516,6 +569,7 @@ def _project_markdown_mentions(
     identity_context: UnionProjectionIdentityContext | None = None,
     paragraph_text_by_span_id: Mapping[str, str] | None = None,
     known_entity_mentions: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
+    diagnostics: list[dict[str, Any]] | None = None,
 ) -> tuple[str | None, list[RecapProjectionMention], int]:
     if not markdown:
         return markdown, [], 0
@@ -525,22 +579,45 @@ def _project_markdown_mentions(
     occupied: list[tuple[int, int]] = []
 
     # Prefer deterministic known-entity mention spans (registry-backed).
+    known_mention_diagnostics: list[dict[str, Any]] = []
     for start, end, label, node_id in _known_mention_spans_in_markdown(
         markdown,
         known_entity_mentions=known_entity_mentions,
         paragraph_text_by_span_id=paragraph_text_by_span_id,
         identity_context=context,
         store=store,
+        diagnostics=known_mention_diagnostics,
     ):
         if any(start < used_end and end > used_start for used_start, used_end in occupied):
             continue
         occupied.append((start, end))
         matches.append((start, end, label, node_id))
+    if diagnostics is not None and known_mention_diagnostics:
+        for item in known_mention_diagnostics:
+            diagnostics.append(
+                UnionProjectionIdentityDiagnostic(
+                    code=str(item.get("code") or "known_entity_mention_offset_unresolved"),
+                    message=(
+                        f"Skipped known-entity chip for {item.get('surface_text')!r} "
+                        f"({item.get('canonical_entity_id')}) "
+                        f"reason={item.get('reason')}"
+                    ),
+                    severity="warning",
+                )
+            )
 
     # Retain alias-store matching for novel / non-known entities.
+    known_chip_node_ids = {
+        resolve_projected_node_id(str(row.get("canonical_entity_id") or ""), context)
+        for row in _iter_known_entity_mention_rows(known_entity_mentions)
+        if str(row.get("canonical_entity_id") or "").strip()
+    }
     aliases = sorted(store.aliases.items(), key=lambda item: len(item[0]), reverse=True)
     for alias, node_id in aliases:
         resolved_node_id = resolve_projected_node_id(node_id, context)
+        if resolved_node_id in known_chip_node_ids:
+            # Known entities are chip-sourced only from the mention sidecar.
+            continue
         node = store.nodes.get(resolved_node_id)
         if node is None or not is_projectable_union_node(node, context):
             continue

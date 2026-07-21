@@ -62,11 +62,17 @@ def build_plan_union_supergraph_projection(
 ) -> RecapGraphProjection:
     """Build a backend-neutral graph projection for a /plan session lens."""
 
+    known_entity_mentions: dict[str, Any] | None = None
     if preview_union_store_path is not None:
         store = load_preview_union_store(preview_union_store_path)
     elif graph_run_manifest_path is not None:
+        known_entity_mentions = _load_manifest_known_entity_mentions(graph_run_manifest_path)
         persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
-        if persisted is not None:
+        # Never return a pre-repair chipless projection when the sidecar contract exists.
+        if persisted is not None and (
+            known_entity_mentions is None
+            or persisted.get("known_entity_mentions_contract") is True
+        ):
             return RecapGraphProjection.model_validate(persisted)
         store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
     elif store_path is not None:
@@ -81,7 +87,11 @@ def build_plan_union_supergraph_projection(
             campaign_id=getattr(store, "campaign_id", None) or "longmont-c2",
             session_id=session_id,
         )
-    source_spans = _load_manifest_source_spans(graph_run_manifest_path) if graph_run_manifest_path is not None else []
+    source_spans = (
+        _load_manifest_source_spans(graph_run_manifest_path)
+        if graph_run_manifest_path is not None
+        else []
+    )
     paragraph_text_by_span_id = (
         _load_manifest_source_span_full_text_index(graph_run_manifest_path)
         if graph_run_manifest_path is not None
@@ -93,6 +103,7 @@ def build_plan_union_supergraph_projection(
         markdown=markdown or "",
         source_spans=source_spans,
         paragraph_text_by_span_id=paragraph_text_by_span_id,
+        known_entity_mentions=known_entity_mentions,
     )
 
 
@@ -174,6 +185,30 @@ def _load_manifest_source_span_full_text_index(
         if isinstance(span_id, str) and isinstance(text, str) and text.strip():
             full_text_by_span_id[span_id] = text
     return full_text_by_span_id
+
+
+def _load_manifest_known_entity_mentions(
+    graph_run_manifest_path: Path,
+) -> dict[str, Any] | None:
+    """Load the known-entity mention sidecar from a graph-ingest run manifest."""
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts = payload.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return None
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if not isinstance(artifact, dict):
+        return None
+    uri = artifact.get("uri")
+    if not isinstance(uri, str) or not uri.strip():
+        return None
+    sidecar_path = _resolve_repo_contained_path(Path(uri), root)
+    if not sidecar_path.is_file():
+        return None
+    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    return sidecar if isinstance(sidecar, dict) else None
+
 
 def load_preview_union_store_from_graph_run_manifest(
     graph_run_manifest_path: Path,
@@ -354,6 +389,11 @@ def build_plan_union_supergraph_projection_payload(
         preview_union_store_path=preview_union_store_path,
     )
     payload = projection.model_dump(mode="json")
+    if (
+        graph_run_manifest_path is not None
+        and _load_manifest_known_entity_mentions(graph_run_manifest_path) is not None
+    ):
+        payload["known_entity_mentions_contract"] = True
     return enrich_projection_payload_with_authored_overlay(
         payload,
         campaign_id=projection.campaign_id,
