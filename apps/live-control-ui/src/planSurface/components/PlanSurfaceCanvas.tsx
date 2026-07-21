@@ -35,6 +35,7 @@ import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenc
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import { usePlanMarkdownSave } from "../save/usePlanMarkdownSave";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
+import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
 import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
@@ -336,13 +337,23 @@ export function PlanSurfaceCanvas({
 
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
-      <div className="plan-canvas-heading">
-        <p className="plan-surface-kicker">Working board</p>
-        <h2 data-testid="plan-canvas-title">{planningDocument.title}</h2>
-        <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
-          {statusLabel}
-        </p>
-      </div>
+      <header className="plan-canvas-heading" aria-label="Plan Board">
+        <div className="plan-canvas-heading__identity">
+          <p className="plan-surface-kicker">Plan Board</p>
+          <h2 data-testid="plan-canvas-title">{planningDocument.title}</h2>
+          <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
+            {statusLabel}
+          </p>
+        </div>
+        <div className="plan-canvas-heading__graph">
+          <PlanGraphLoadPanel
+            projectionState={projectionState}
+            projectionError={projectionError}
+            nodeCount={projectionNodes.length}
+          />
+        </div>
+      </header>
+
       <div
         ref={editorShellRef}
         className={`tiptap-spike-editor md-content ${editorThemeClass}`}

@@ -44,11 +44,7 @@ import {
   getPlanWorldGraphContext,
 } from "../reference/planGraphContextRequest";
 import { usePlanGraphLens } from "../PlanGraphLensContext";
-import {
-  REVIEW_CAMPAIGN_IDS,
-  formatReviewCampaignLabel,
-  type ReviewCampaignId,
-} from "../sessionCampaignContext";
+import { isFocusValidationBlocking } from "../planGraphFocusOptions";
 import {
   hasGrounding,
   isConversationContext,
@@ -424,14 +420,14 @@ function sourceKind(unit: SourceUnit): string {
 }
 
 function unitsForSession(bundle: IngestionSourceBundle, session: number): SourceUnit[] {
-  return bundle.units
+  return (bundle.units ?? [])
     .filter((unit) => unit.evidenceRole !== "diagnostic_only")
     .filter((unit) => numberField(unit.fields.sessionNumber) === session);
 }
 
 function representativeUnits(bundle: IngestionSourceBundle, activeSession: number): SourceUnit[] {
   const activeSessionUnits = unitsForSession(bundle, activeSession);
-  const fallbackUnits = bundle.units.filter((unit) => unit.evidenceRole !== "diagnostic_only");
+  const fallbackUnits = (bundle.units ?? []).filter((unit) => unit.evidenceRole !== "diagnostic_only");
   return (activeSessionUnits.length ? activeSessionUnits : fallbackUnits).slice(0, 8);
 }
 
@@ -459,13 +455,15 @@ export function PlanAgentInteractionBar({
     lens,
     derived,
     summaryLabel,
-    toggleCampaign,
-    setFocus,
+    focusValidationStatus,
   } = usePlanGraphLens();
+  const focusValidationPending = isFocusValidationBlocking(focusValidationStatus);
   const planWorldGraphContext = getPlanWorldGraphContext(sessionDescriptor, { lens });
   const hasSupportedGraphContext = planWorldGraphContext != null;
-  const graphContextInitializing = hasSupportedGraphContext && projectionState === "loading";
-  const lensAllowsAsk = derived != null;
+  const graphContextInitializing =
+    focusValidationPending
+    || (hasSupportedGraphContext && projectionState === "loading");
+  const lensAllowsAsk = derived != null && !focusValidationPending;
   const open = agentInteraction.paneState.isOpen;
   const setOpen = agentInteraction.setPaneOpen;
   const [status, setStatus] = useState<BundleStatus>("idle");
@@ -547,28 +545,6 @@ export function PlanAgentInteractionBar({
   }, [thread?.uiState?.scrollAnchorTurnId, turns.length]);
 
   const chronologicalTurns = useMemo(() => [...turns].reverse(), [turns]);
-
-  const lensFocusOptions = useMemo(() => {
-    if (!bundle) return [] as Array<{
-      campaignId: ReviewCampaignId;
-      sessionNumber: number;
-      label: string;
-    }>;
-    const planCampaignId = sessionDescriptor.campaignId;
-    if (!REVIEW_CAMPAIGN_IDS.includes(planCampaignId as ReviewCampaignId)) {
-      return [];
-    }
-    if (!lens.selectedCampaignIds.includes(planCampaignId as ReviewCampaignId)) {
-      return [];
-    }
-    const sessions = sessionNumbers(bundle);
-    const campaignId = planCampaignId as ReviewCampaignId;
-    return sessions.map((sessionNumber) => ({
-      campaignId,
-      sessionNumber,
-      label: `${formatReviewCampaignLabel(campaignId).replace(/^Longmont /, "")} · Session ${sessionNumber}`,
-    }));
-  }, [bundle, lens.selectedCampaignIds, sessionDescriptor.campaignId]);
 
   const activeTurn = useMemo(
     () => turns.find((turn) => turn.turnId === activeTurnId) ?? turns[0] ?? null,
@@ -833,7 +809,15 @@ export function PlanAgentInteractionBar({
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = question.trim();
-    if (!trimmed || askStatus === "asking" || !derived || !planWorldGraphContext) return;
+    if (
+      !trimmed
+      || askStatus === "asking"
+      || !derived
+      || focusValidationPending
+      || !planWorldGraphContext
+    ) {
+      return;
+    }
     setAskStatus("asking");
     setAskError(null);
     try {
@@ -951,68 +935,6 @@ export function PlanAgentInteractionBar({
                     role="region"
                     aria-label="Agent configuration"
                   >
-                    <div className="plan-agent-graph-lens" aria-label="Graph campaign union">
-                      <p className="plan-agent-muted">Graph campaigns</p>
-                      <div className="plan-agent-graph-lens-campaigns">
-                        {REVIEW_CAMPAIGN_IDS.map((campaignId) => {
-                          const checked = lens.selectedCampaignIds.includes(campaignId);
-                          return (
-                            <label key={campaignId} className="plan-agent-graph-lens-campaign">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => toggleCampaign(campaignId)}
-                              />
-                              <span>{formatReviewCampaignLabel(campaignId)}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      <label className="plan-agent-graph-lens-focus">
-                        <span>Focus session</span>
-                        <select
-                          value={
-                            lens.focus
-                              ? `${lens.focus.campaignId}:${lens.focus.sessionNumber}`
-                              : ""
-                          }
-                          onChange={(event) => {
-                            const value = event.currentTarget.value;
-                            if (!value) {
-                              setFocus(null);
-                              return;
-                            }
-                            const [campaignId, sessionRaw] = value.split(":");
-                            const sessionNumber = Number.parseInt(sessionRaw ?? "", 10);
-                            if (
-                              !REVIEW_CAMPAIGN_IDS.includes(campaignId as ReviewCampaignId)
-                              || !Number.isFinite(sessionNumber)
-                            ) {
-                              setFocus(null);
-                              return;
-                            }
-                            setFocus({
-                              campaignId: campaignId as ReviewCampaignId,
-                              sessionNumber,
-                            });
-                          }}
-                          disabled={lens.selectedCampaignIds.length === 0}
-                        >
-                          <option value="">None (plain union)</option>
-                          {lensFocusOptions.map((option) => (
-                            <option
-                              key={`${option.campaignId}:${option.sessionNumber}`}
-                              value={`${option.campaignId}:${option.sessionNumber}`}
-                            >
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {!lensAllowsAsk ? (
-                        <p className="plan-agent-warning">Select at least one campaign.</p>
-                      ) : null}
-                    </div>
                     <div className="plan-agent-config-actions">
                       <button
                         type="button"
@@ -1496,7 +1418,13 @@ export function PlanAgentInteractionBar({
                 rows={1}
               />
             </label>
-            {graphContextInitializing ? (
+            {focusValidationStatus === "unavailable" ? (
+              <p className="plan-agent-muted">
+                Session focus validation unavailable — retry or clear focus on Plan Board.
+              </p>
+            ) : focusValidationPending ? (
+              <p className="plan-agent-muted">Validating session focus…</p>
+            ) : graphContextInitializing ? (
               <p className="plan-agent-muted">Initializing world graph context…</p>
             ) : null}
             {hasSupportedGraphContext && projectionState === "error" ? (
@@ -1505,8 +1433,8 @@ export function PlanAgentInteractionBar({
                 The server will resolve the authoritative revision for Hermes graph queries.
               </p>
             ) : null}
-            {!lensAllowsAsk ? (
-              <p className="plan-agent-warning">Select at least one campaign in Config.</p>
+            {derived == null ? (
+              <p className="plan-agent-warning">Select at least one campaign on Plan Board.</p>
             ) : null}
             <button
               type="submit"

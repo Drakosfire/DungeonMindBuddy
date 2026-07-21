@@ -8,6 +8,7 @@ import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { PlanGraphLensProvider } from "../PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import { PlanAgentInteractionBar } from "./PlanAgentInteractionBar";
+import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
 import type { PlanViewProjection } from "../../api/types";
 import * as liveApi from "../../api/liveApi";
 
@@ -42,6 +43,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
 
   it("asks with campaign scope when only C1 is selected", async () => {
     const user = userEvent.setup();
+    window.history.replaceState({}, "", "/plan?campaigns=longmont-c1");
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
@@ -100,18 +102,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("button", { name: "Config" }));
-    await screen.findByLabelText("Graph campaign union");
-
-    // Default is active plan campaign (C2); select C1 only.
-    const c1 = screen.getByRole("checkbox", { name: /Longmont C1/i });
-    const c2 = screen.getByRole("checkbox", { name: /Longmont C2/i });
-    await user.click(c1);
-    await user.click(c2);
-
-    await waitFor(() => {
-      expect(screen.getByText(/C1 only/)).toBeInTheDocument();
-    });
+    expect(screen.getByText(/C1 only · no session focus/)).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Tell me about campaign 1");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -126,27 +117,33 @@ describe("PlanAgentInteractionBar graph lens", () => {
       scope_mode: "campaign",
     });
   });
+
   it("disables Ask and shows warning when no campaigns are selected", async () => {
     const user = userEvent.setup();
     render(
-      createElement(PlanAgentInteractionBar, {
-        planView,
-        sessionDescriptor,
-        askCorpus: vi.fn(),
-        loadBundle: liveApi.getSourceBundle,
-      }),
+      createElement(
+        "div",
+        null,
+        createElement(PlanGraphLoadPanel, {
+          projectionState: "ready",
+          nodeCount: 0,
+        }),
+        createElement(PlanAgentInteractionBar, {
+          planView,
+          sessionDescriptor,
+          askCorpus: vi.fn(),
+          loadBundle: liveApi.getSourceBundle,
+        }),
+      ),
       { wrapper },
     );
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    await user.click(screen.getByRole("button", { name: "Config" }));
-    await screen.findByLabelText("Graph campaign union");
-
     const c2 = screen.getByRole("checkbox", { name: /Longmont C2/i });
     await user.click(c2);
 
     expect(screen.getByText("Select at least one campaign.")).toBeInTheDocument();
-    expect(screen.getByText("Select at least one campaign in Config.")).toBeInTheDocument();
+    expect(screen.getByText("Select at least one campaign on Plan Board.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeDisabled();
   });
 
@@ -166,5 +163,4 @@ describe("PlanAgentInteractionBar graph lens", () => {
     expect(screen.getByText(/C2 only · no session focus/)).toBeInTheDocument();
     expect(screen.queryByText(/Union · C1\+C2/)).not.toBeInTheDocument();
   });
-
 });

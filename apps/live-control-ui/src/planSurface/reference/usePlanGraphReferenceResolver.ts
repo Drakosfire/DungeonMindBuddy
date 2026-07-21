@@ -15,6 +15,7 @@ import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { PlanSessionDescriptor } from "../types";
 import { useOptionalPlanGraphLens } from "../PlanGraphLensContext";
+import { isFocusValidationBlocking } from "../planGraphFocusOptions";
 import {
   isCorpusFallbackAllowed,
   isGraphNativeReference,
@@ -150,10 +151,12 @@ export async function resolvePlanReferenceWithFallback(
   options: {
     projection?: WorldGraphProjection | null;
     projectionState?: PlanGraphProjectionState | null;
+    lensSummary?: string | null;
     fetchImpl?: typeof fetch;
   } = {},
 ): Promise<PlanReferenceResolution> {
   const projectionState = options.projectionState ?? null;
+  const lensSummary = options.lensSummary ?? null;
 
   if (projectionState === "loading") {
     return unresolvedResolution(
@@ -184,6 +187,7 @@ export async function resolvePlanReferenceWithFallback(
     const graphResolution = resolvePlanReferenceFromGraphProjection({
       ref,
       projection: options.projection,
+      lensSummary,
     });
 
     return {
@@ -196,6 +200,7 @@ export async function resolvePlanReferenceWithFallback(
     const graphResolution = resolvePlanReferenceFromGraphProjection({
       ref,
       projection: options.projection,
+      lensSummary,
     });
 
     if (graphResolution.kind === "graph-node") {
@@ -217,6 +222,7 @@ export async function resolvePlanReferenceWithFallback(
       ref,
       projection: options.projection,
       fallbackResolution,
+      lensSummary,
     });
 
     return {
@@ -230,6 +236,7 @@ export async function resolvePlanReferenceWithFallback(
     ref,
     projection: null,
     fallbackResolution,
+    lensSummary,
   });
 
   return {
@@ -249,6 +256,8 @@ function usePlanGraphReferenceResolverLoad(
   const [lastProjectionLoadOutcome, setLastProjectionLoadOutcome] = useState<PlanGraphProjectionState | null>(null);
   const [revisionEventBump, setRevisionEventBump] = useState(0);
   const graphLens = useOptionalPlanGraphLens();
+  const focusValidationStatus = graphLens?.focusValidationStatus ?? "none";
+  const focusValidationPending = isFocusValidationBlocking(focusValidationStatus);
 
   const context = useMemo(
     () =>
@@ -276,6 +285,16 @@ function usePlanGraphReferenceResolverLoad(
     let cancelled = false;
 
     async function loadProjection() {
+      // Shared focus gate: do not forward URL-initialized focus until bundles validate it.
+      if (focusValidationPending) {
+        setProjection(null);
+        setProjectionState("loading");
+        setProjectionError(null);
+        setLastProjectionLoadMs(null);
+        setLastProjectionLoadOutcome(null);
+        return;
+      }
+
       if (!context) {
         setProjection(null);
         setProjectionState("unavailable");
@@ -330,15 +349,16 @@ function usePlanGraphReferenceResolverLoad(
     return () => {
       cancelled = true;
     };
-  }, [context, projectionRefreshKey]);
+  }, [context, focusValidationPending, projectionRefreshKey]);
 
   const resolvePlanReference = useCallback(
     async (ref: RunbookReferenceAttrs) =>
       resolvePlanReferenceWithFallback(ref, {
         projection,
         projectionState,
+        lensSummary: graphLens?.summaryLabel ?? null,
       }),
-    [projection, projectionState],
+    [graphLens?.summaryLabel, projection, projectionState],
   );
 
   const resolvePlanRelationship = useCallback(
