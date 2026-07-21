@@ -638,6 +638,62 @@ describe("PlanSurfaceShell", () => {
     await waitFor(() => expect(submitButton).not.toBeDisabled());
   });
 
+  it("does not send projection or Ask with stale focus while bundles are pending", async () => {
+    const user = userEvent.setup();
+    window.history.pushState(
+      {},
+      "",
+      "/plan?campaigns=longmont-c2&session=longmont-c2:40",
+    );
+
+    let resolveBundle: ((value: typeof mockSourceBundle) => void) | undefined;
+    const deferredBundle = new Promise<typeof mockSourceBundle>((resolve) => {
+      resolveBundle = resolve;
+    });
+    vi.spyOn(liveApi, "getSourceBundle").mockImplementation(() => deferredBundle);
+
+    const projectionRequests: Array<{ focus?: { sessionId?: string | null } }> = [];
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) => {
+      projectionRequests.push(request as { focus?: { sessionId?: string | null } });
+      return worldGraphProjection;
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify(mockSourceBundle),
+    } as Response);
+
+    renderPlanSurface();
+    await waitForPlanSurfaceReady();
+
+    expect(projectionRequests).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    expect(await screen.findByText("Validating session focus…")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Question"), "Stale focus during validation?");
+    expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeDisabled();
+    expect(liveQueryFetchCalls()).toHaveLength(0);
+
+    resolveBundle?.(mockSourceBundle);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+        /C2 only · no session focus/i,
+      );
+    });
+    expect(window.location.search).not.toMatch(/session=longmont-c2:40/);
+
+    await waitFor(() => {
+      expect(projectionRequests.length).toBeGreaterThan(0);
+    });
+    for (const request of projectionRequests) {
+      expect(request.focus?.sessionId ?? null).not.toBe("session-40");
+    }
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).not.toBeDisabled();
+    });
+  });
+
   it("warns when a prep memory answer has no grounding evidence", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch")

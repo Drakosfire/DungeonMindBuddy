@@ -454,11 +454,16 @@ export function PlanAgentInteractionBar({
     lens,
     derived,
     summaryLabel,
+    focusValidationStatus,
   } = usePlanGraphLens();
+  const focusValidationPending =
+    focusValidationStatus === "pending" || focusValidationStatus === "invalid";
   const planWorldGraphContext = getPlanWorldGraphContext(sessionDescriptor, { lens });
   const hasSupportedGraphContext = planWorldGraphContext != null;
-  const graphContextInitializing = hasSupportedGraphContext && projectionState === "loading";
-  const lensAllowsAsk = derived != null;
+  const graphContextInitializing =
+    focusValidationPending
+    || (hasSupportedGraphContext && projectionState === "loading");
+  const lensAllowsAsk = derived != null && !focusValidationPending;
   const open = agentInteraction.paneState.isOpen;
   const setOpen = agentInteraction.setPaneOpen;
   const [status, setStatus] = useState<BundleStatus>("idle");
@@ -804,7 +809,15 @@ export function PlanAgentInteractionBar({
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = question.trim();
-    if (!trimmed || askStatus === "asking" || !derived || !planWorldGraphContext) return;
+    if (
+      !trimmed
+      || askStatus === "asking"
+      || !derived
+      || focusValidationPending
+      || !planWorldGraphContext
+    ) {
+      return;
+    }
     setAskStatus("asking");
     setAskError(null);
     try {
@@ -1405,7 +1418,9 @@ export function PlanAgentInteractionBar({
                 rows={1}
               />
             </label>
-            {graphContextInitializing ? (
+            {focusValidationPending ? (
+              <p className="plan-agent-muted">Validating session focus…</p>
+            ) : graphContextInitializing ? (
               <p className="plan-agent-muted">Initializing world graph context…</p>
             ) : null}
             {hasSupportedGraphContext && projectionState === "error" ? (

@@ -7,8 +7,21 @@ import type { IngestionSourceBundle, SourceUnit } from "../../api/types";
 import { PlanGraphLensProvider } from "../PlanGraphLensContext";
 import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
 
-function wrapper({ children }: { children: ReactNode }) {
-  return createElement(PlanGraphLensProvider, { planCampaignId: "longmont-c2" }, children);
+function wrapper(
+  loadBundle?: (scope: string, campaignId?: string) => Promise<IngestionSourceBundle>,
+  focusOptions?: [],
+) {
+  return function ProviderWrapper({ children }: { children: ReactNode }) {
+    return createElement(
+      PlanGraphLensProvider,
+      {
+        planCampaignId: "longmont-c2",
+        ...(loadBundle ? { loadBundle: loadBundle as never } : {}),
+        ...(focusOptions !== undefined ? { focusOptions } : {}),
+      },
+      children,
+    );
+  };
 }
 
 function unitWithSession(sessionNumber: number): SourceUnit {
@@ -64,13 +77,8 @@ describe("PlanGraphLoadPanel", () => {
 
   it("renders lens summary with node count when projection is ready", () => {
     render(
-      <PlanGraphLoadPanel
-        projectionState="ready"
-        nodeCount={45}
-        focusOptions={[]}
-        loadBundle={vi.fn()}
-      />,
-      { wrapper },
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(undefined, []) },
     );
 
     expect(screen.getByTestId("plan-graph-load-panel")).toBeInTheDocument();
@@ -81,13 +89,8 @@ describe("PlanGraphLoadPanel", () => {
 
   it("shows loading status while projection loads", () => {
     render(
-      <PlanGraphLoadPanel
-        projectionState="loading"
-        nodeCount={0}
-        focusOptions={[]}
-        loadBundle={vi.fn()}
-      />,
-      { wrapper },
+      <PlanGraphLoadPanel projectionState="loading" nodeCount={0} />,
+      { wrapper: wrapper(undefined, []) },
     );
 
     expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(/Loading/i);
@@ -96,13 +99,8 @@ describe("PlanGraphLoadPanel", () => {
   it("toggles a campaign into the lens", async () => {
     const user = userEvent.setup();
     render(
-      <PlanGraphLoadPanel
-        projectionState="ready"
-        nodeCount={45}
-        focusOptions={[]}
-        loadBundle={vi.fn()}
-      />,
-      { wrapper },
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(undefined, []) },
     );
 
     const c1 = screen.getByRole("checkbox", { name: /Longmont C1/i });
@@ -120,8 +118,8 @@ describe("PlanGraphLoadPanel", () => {
     });
 
     render(
-      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} loadBundle={loadBundle} />,
-      { wrapper },
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(loadBundle) },
     );
 
     await waitFor(() => {
@@ -139,8 +137,8 @@ describe("PlanGraphLoadPanel", () => {
     const loadBundle = vi.fn(async () => bundleWithSessions(24, 22));
 
     render(
-      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} loadBundle={loadBundle} />,
-      { wrapper },
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(loadBundle) },
     );
 
     await waitFor(() => {
@@ -162,8 +160,8 @@ describe("PlanGraphLoadPanel", () => {
     const loadBundle = vi.fn(async () => bundleWithSessions(24, 22, 1));
 
     render(
-      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} loadBundle={loadBundle} />,
-      { wrapper },
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(loadBundle) },
     );
 
     await waitFor(() => {
@@ -186,8 +184,8 @@ describe("PlanGraphLoadPanel", () => {
     const loadBundle = vi.fn(async () => bundleWithSessions(24, 22, 1));
 
     render(
-      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} loadBundle={loadBundle} />,
-      { wrapper },
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(loadBundle) },
     );
 
     await waitFor(() => {
@@ -199,10 +197,32 @@ describe("PlanGraphLoadPanel", () => {
     expect(window.location.search).toMatch(/session=longmont-c2%3A24|session=longmont-c2:24/);
   });
 
-  it("shows fail-closed status when graph lens context is missing", () => {
-    render(
-      <PlanGraphLoadPanel projectionState="ready" nodeCount={0} focusOptions={[]} />,
+  it("keeps URL focus when the focused campaign bundle fails to load", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/plan?campaigns=longmont-c2&session=longmont-c2:40",
     );
+    const loadBundle = vi.fn(async () => {
+      throw new Error("bundle unavailable");
+    });
+
+    render(
+      <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
+      { wrapper: wrapper(loadBundle) },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
+        /C2 only · C2 · Session 40 · 45 nodes · ready/i,
+      );
+    });
+    expect(window.location.search).toMatch(/session=longmont-c2%3A40|session=longmont-c2:40/);
+    expect(screen.getByLabelText("Focus session")).toHaveValue("");
+  });
+
+  it("shows fail-closed status when graph lens context is missing", () => {
+    render(<PlanGraphLoadPanel projectionState="ready" nodeCount={0} />);
 
     expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
       /Graph lens unavailable/i,
