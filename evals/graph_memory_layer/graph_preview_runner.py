@@ -130,7 +130,14 @@ def category_options_for_graph_extraction_profile(
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
 ) -> tuple[CategoryGraphExtractionOptions, dict[str, Any]]:
+    from src.graph_memory.extraction.recap_extraction_profile import (
+        resolve_legacy_graph_extraction_profile,
+    )
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+
     profile_options = graph_extraction_profile_options(profile)
+    profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
+    extraction_profile = get_extraction_profile(profile_id, profile_version)
     # Independent of the profile's own `enable_dynamic_node_vocabulary_packet` flag
     # (a separate, session-graph-derived vocabulary feature): this is the static,
     # corpus/registry-derived context vocabulary packet used by the vocabulary
@@ -144,6 +151,7 @@ def category_options_for_graph_extraction_profile(
             session_number=session_number,
             source_span_index=source_span_index,
             model_id=model_id,
+            profile=extraction_profile,
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             node_vocabulary_packet=context_vocabulary_packet if enable_node_vocabulary_packet else None,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
@@ -752,15 +760,25 @@ def run_graph_preview_extraction(
                     registry_context_path,
                     "dmb_candidate_graph_preview_v0",
                 )
-            if extraction.known_entity_mentions:
-                known_entity_path = output_dir / "known_entity_mentions.json"
-                write_json(known_entity_path, extraction.known_entity_mentions)
-                artifacts["known_entity_mentions"] = _artifact(
-                    GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
-                    known_entity_path,
-                    extraction.known_entity_mentions.get("schema")
-                    or "dmb_known_entity_mention_sidecar_v0",
-                )
+            # Always emit the known-entity contract artifact (possibly empty)
+            # so live materialization can reuse candidate-ready runs.
+            known_entity_payload = extraction.known_entity_mentions or {
+                "schema": "dmb_known_entity_mention_sidecar_v0",
+                "version": "0.1",
+                "campaign_id": campaign_id,
+                "session_id": session_id,
+                "mentions": [],
+                "ambiguous_surfaces": [],
+                "diagnostics": {"mention_count": 0, "empty_contract": True},
+            }
+            known_entity_path = output_dir / "known_entity_mentions.json"
+            write_json(known_entity_path, known_entity_payload)
+            artifacts["known_entity_mentions"] = _artifact(
+                GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
+                known_entity_path,
+                known_entity_payload.get("schema")
+                or "dmb_known_entity_mention_sidecar_v0",
+            )
             pass_outputs_path = output_dir / "pass_outputs.json"
             write_json(pass_outputs_path, extraction.pass_outputs)
             pass_telemetry_path = output_dir / "pass_telemetry.json"

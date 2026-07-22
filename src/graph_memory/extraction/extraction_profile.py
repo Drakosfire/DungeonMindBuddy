@@ -56,11 +56,14 @@ class ExtractionProfile:
             )
         if (
             self.admitted_document_classes is not None
-            and document_class is not None
-            and document_class not in self.admitted_document_classes
+            and (
+                document_class is None
+                or document_class not in self.admitted_document_classes
+            )
         ):
             errors.append(
-                f"profile {self.qualified_id} does not admit document_class={document_class!r}"
+                f"profile {self.qualified_id} requires document_class in "
+                f"{sorted(self.admitted_document_classes)}; got {document_class!r}"
             )
         if session_id is None and not self.allow_null_session:
             errors.append(

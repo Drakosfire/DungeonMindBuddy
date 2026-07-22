@@ -5,21 +5,46 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from apps.live_control_server.services.source_artifact_registry import (
+    SourceArtifactRegistryError,
+    create_recap_source_artifact,
+    load_registered_source_artifact_text,
+    load_source_span_index,
+)
+from graph_memory.source_span import source_span_index_to_dict
 from src.graph_memory.extraction.graph_preview_runner import (
     ProductionExtractionRequest,
     ProductionExtractionResult,
     run_production_extraction,
 )
-from src.graph_memory.extraction.recap_source_adapter import RecapSourceAdapter
-from src.graph_memory.extraction.worldbuilding_source_adapter import WorldbuildingSourceAdapter
 from src.graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
+from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
     WORLDBUILDING_PLUMBING_PROFILE_ID,
     WORLDBUILDING_PLUMBING_PROFILE_VERSION,
 )
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
+
+
+def _normalized_from_registered(
+    root: Path,
+    source_artifact_id: str,
+) -> NormalizedExtractionSource:
+    artifact, text = load_registered_source_artifact_text(root, source_artifact_id)
+    index = load_source_span_index(root, source_artifact_id)
+    return NormalizedExtractionSource(
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain=str(artifact.source_domain),
+        source_text=text,
+        source_sha256=artifact.content_sha256 or "",
+        source_uri=artifact.uri,
+        campaign_id=artifact.campaign_id,
+        session_id=artifact.session_id,
+        document_class=artifact.document_class,
+        source_span_index=source_span_index_to_dict(index),
+    )
 
 
 def run_recap_production_extraction(
@@ -38,12 +63,13 @@ def run_recap_production_extraction(
     enable_edge_vocabulary_packet: bool = False,
 ) -> ProductionExtractionResult:
     profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
-    source = RecapSourceAdapter(
+    artifact = create_recap_source_artifact(
+        repo_root,
         campaign_id=campaign_id,
         session_id=session_id,
         recap_path=recap_path,
-        source_uri=recap_path.as_posix(),
-    ).normalize()
+    )
+    source = _normalized_from_registered(repo_root, artifact.source_artifact_id)
     return run_production_extraction(
         ProductionExtractionRequest(
             repo_root=repo_root,
@@ -65,23 +91,18 @@ def run_worldbuilding_production_extraction(
     *,
     repo_root: Path,
     source_artifact_id: str,
-    source_path: Path | None = None,
-    source_text: str | None = None,
-    campaign_id: str | None = None,
-    document_class: str | None = "lore",
     model_id: str | None = None,
     allow_llm: bool = False,
     category_client: Any | None = None,
     output_dir: Path | None = None,
 ) -> ProductionExtractionResult:
-    source = WorldbuildingSourceAdapter(
-        source_artifact_id=source_artifact_id,
-        source_path=source_path,
-        source_text=source_text,
-        campaign_id=campaign_id,
-        document_class=document_class,
-        source_uri=source_path.as_posix() if source_path is not None else None,
-    ).normalize()
+    """Extract from an already-registered worldbuilding SourceArtifact only."""
+    source = _normalized_from_registered(repo_root, source_artifact_id)
+    if source.source_domain != "worldbuilding":
+        raise SourceArtifactRegistryError(
+            "worldbuilding extraction requires a worldbuilding SourceArtifact",
+            status_code=422,
+        )
     return run_production_extraction(
         ProductionExtractionRequest(
             repo_root=repo_root,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, ValidationError
@@ -24,6 +25,7 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
     ExtractionRunComponentKind,
     ExtractionRunComponentRef,
+    ExtractionRunDiagnostics,
     ExtractionRunStatus,
     assert_allowed_extraction_run_transition,
     normalize_content_digest,
@@ -417,6 +419,8 @@ def create_extraction_run(
     profile_id: str | None = None,
     components: dict[str, ExtractionRunComponentRef] | None = None,
     status: ExtractionRunStatus = ExtractionRunStatus.DRAFT,
+    diagnostics: ExtractionRunDiagnostics | None = None,
+    lineage: dict[str, Any] | None = None,
 ) -> ExtractionRun:
     artifact = _bind_run_to_artifact(
         root,
@@ -444,6 +448,8 @@ def create_extraction_run(
         created_at=now,
         updated_at=now,
         components=components or {},
+        diagnostics=diagnostics or ExtractionRunDiagnostics(),
+        lineage=dict(lineage or {}),
     )
     if status == ExtractionRunStatus.REVIEWABLE:
         assert_run_reviewable_evidence(root, run)
@@ -463,6 +469,8 @@ def update_extraction_run_status(
     status: ExtractionRunStatus,
     expected_revision: int,
     components: dict[str, ExtractionRunComponentRef] | None = None,
+    diagnostics: ExtractionRunDiagnostics | None = None,
+    lineage: dict[str, Any] | None = None,
 ) -> ExtractionRun:
     path = extraction_runs_path(root)
     with registry_mutation_lock(path):
@@ -492,16 +500,22 @@ def update_extraction_run_status(
             )
 
         next_components = existing.components if components is None else components
+        next_diagnostics = existing.diagnostics if diagnostics is None else diagnostics
+        next_lineage = existing.lineage if lineage is None else dict(lineage)
         updated = existing.model_copy(
             update={
                 "status": status,
                 "revision": existing.revision + 1,
                 "updated_at": _utc_now_iso(),
                 "components": next_components,
+                "diagnostics": next_diagnostics,
+                "lineage": next_lineage,
             }
         )
         if status in _REVIEW_BUNDLE_STATUSES:
             assert_run_reviewable_evidence(root, updated)
+        elif status in TERMINAL_EXTRACTION_RUN_STATUSES:
+            assert_immutable_component_refs(root, updated)
 
         document.records = [
             updated if row.run_id == run_id else row for row in document.records

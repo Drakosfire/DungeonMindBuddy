@@ -20,6 +20,7 @@ from apps.live_control_server.services.workspace_document_registry import (
 )
 from graph_memory.evidence.source_artifact import (
     GraphMemorySourceArtifact,
+    build_recap_source_artifact_id,
     build_worldbuilding_source_artifact_id,
     validate_source_artifact_scope,
 )
@@ -425,3 +426,211 @@ def _create_source_artifact_from_workspace_document_unlocked(
         document.records.append(candidate)
         _save_cas(root, document, expected_token=token)
         return candidate
+
+
+def _resolve_repo_contained_path(root: Path, path: Path) -> tuple[Path, str]:
+    root_resolved = root.resolve()
+    resolved = path.expanduser().resolve()
+    try:
+        relpath = resolved.relative_to(root_resolved).as_posix()
+    except ValueError as exc:
+        raise SourceArtifactRegistryError(
+            "source path must be contained within the repository root",
+            status_code=422,
+        ) from exc
+    if ".." in Path(relpath).parts:
+        raise SourceArtifactRegistryError(
+            "source path must be contained within the repository root",
+            status_code=422,
+        )
+    return resolved, relpath
+
+
+def _normalize_source_text(text: str) -> str:
+    if not text.strip():
+        raise SourceArtifactRegistryError("source text is empty", status_code=422)
+    return text.rstrip("\n") + "\n"
+
+
+def _upsert_source_artifact(
+    root: Path,
+    *,
+    candidate: GraphMemorySourceArtifact,
+    content: str,
+) -> GraphMemorySourceArtifact:
+    path = source_artifacts_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        existing = next(
+            (
+                row
+                for row in document.records
+                if row.source_artifact_id == candidate.source_artifact_id
+            ),
+            None,
+        )
+        if existing is not None:
+            if not _records_match(existing, candidate):
+                raise SourceArtifactRegistryError(
+                    "source artifact id collision with mismatched digest or foreign keys",
+                    status_code=409,
+                )
+            try:
+                load_source_span_index(root, existing.source_artifact_id)
+            except SourceArtifactRegistryError:
+                index = build_source_span_index_for_text(
+                    source_artifact_id=existing.source_artifact_id,
+                    content_sha256=existing.content_sha256 or candidate.content_sha256 or "",
+                    text=content,
+                )
+                _persist_span_index(root, index)
+            return existing
+
+        index = build_source_span_index_for_text(
+            source_artifact_id=candidate.source_artifact_id,
+            content_sha256=candidate.content_sha256 or "",
+            text=content,
+        )
+        _persist_span_index(root, index)
+        document.records.append(candidate)
+        _save_cas(root, document, expected_token=token)
+        return candidate
+
+
+def create_recap_source_artifact(
+    root: Path,
+    *,
+    campaign_id: str,
+    session_id: str,
+    recap_path: Path | None = None,
+    recap_text: str | None = None,
+    expected_content_sha256: str | None = None,
+) -> GraphMemorySourceArtifact:
+    """Create an immutable recap SourceArtifact from committed recap bytes.
+
+    Bytes are always stored under a registry-owned, repo-contained URI. When
+    ``recap_path`` is provided the server reads that file (which may live outside
+    the repo, e.g. an external corpus) and materializes the exact bytes under
+    ``out/registries/source_content/recap/…``.
+    """
+    cleaned_campaign = (campaign_id or "").strip()
+    cleaned_session = (session_id or "").strip()
+    if not cleaned_campaign or not cleaned_session:
+        raise SourceArtifactRegistryError(
+            "recap SourceArtifact requires campaign_id and session_id",
+            status_code=422,
+        )
+    if recap_path is None and recap_text is None:
+        raise SourceArtifactRegistryError(
+            "recap_path or recap_text is required",
+            status_code=422,
+        )
+
+    if recap_path is not None:
+        resolved = recap_path.expanduser().resolve()
+        if not resolved.is_file():
+            raise SourceArtifactRegistryError(
+                "recap source file is missing",
+                status_code=409,
+            )
+        try:
+            raw = resolved.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise SourceArtifactRegistryError(
+                f"failed to read recap source file: {exc}",
+                status_code=500,
+            ) from exc
+        content = _normalize_source_text(raw)
+    else:
+        content = _normalize_source_text(recap_text or "")
+
+    content_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    if expected_content_sha256 is not None:
+        expected = expected_content_sha256.removeprefix("sha256:").strip().lower()
+        if expected != content_sha256:
+            raise SourceArtifactRegistryError(
+                "expected_content_sha256 does not match recap source bytes",
+                status_code=409,
+            )
+
+    # Prefer an in-repo source path when the caller already provided one; otherwise
+    # materialize bytes under the registry-owned content tree.
+    relpath: str | None = None
+    if recap_path is not None:
+        try:
+            _resolved, candidate_relpath = _resolve_repo_contained_path(root, recap_path)
+            relpath = candidate_relpath
+        except SourceArtifactRegistryError:
+            relpath = None
+    if relpath is None:
+        relpath = (
+            "out/registries/source_content/recap/"
+            f"{cleaned_campaign}/{cleaned_session}/{content_sha256[:12]}.md"
+        )
+        target = root / relpath
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    else:
+        # Ensure the in-repo file matches the normalized bytes we digest.
+        target = root / relpath
+        if not target.is_file() or target.read_text(encoding="utf-8") != content:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+    source_artifact_id = build_recap_source_artifact_id(
+        campaign_id=cleaned_campaign,
+        session_id=cleaned_session,
+        content_sha256=content_sha256,
+    )
+    now = _utc_now_iso()
+    candidate = GraphMemorySourceArtifact(
+        source_artifact_id=source_artifact_id,
+        source_domain="recap",
+        campaign_id=cleaned_campaign,
+        session_id=cleaned_session,
+        uri=f"repo://{relpath}",
+        content_sha256=content_sha256,
+        artifact_kind="recap_markdown",
+        document_class="recap",
+        visibility_state="internal",
+        lineage={
+            "source_span_index_uri": f"repo://{source_span_index_relpath(source_artifact_id)}",
+        },
+        created_at=now,
+        updated_at=now,
+    )
+    return _upsert_source_artifact(root, candidate=candidate, content=content)
+
+
+def load_registered_source_artifact_text(
+    root: Path,
+    source_artifact_id: str,
+) -> tuple[GraphMemorySourceArtifact, str]:
+    """Load a registered SourceArtifact and its committed text bytes."""
+    artifact = get_source_artifact(root, source_artifact_id)
+    if not artifact.uri.startswith("repo://"):
+        raise SourceArtifactRegistryError(
+            "artifact uri must be repo-relative",
+            status_code=500,
+        )
+    relpath = artifact.uri.removeprefix("repo://")
+    target = root / relpath
+    if not target.is_file():
+        raise SourceArtifactRegistryError(
+            "registered source artifact file is missing",
+            status_code=409,
+        )
+    try:
+        content = _normalize_source_text(target.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise SourceArtifactRegistryError(
+            f"failed to read registered source artifact: {exc}",
+            status_code=500,
+        ) from exc
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    if digest != (artifact.content_sha256 or ""):
+        raise SourceArtifactRegistryError(
+            "registered source artifact digest mismatch",
+            status_code=409,
+        )
+    return artifact, content

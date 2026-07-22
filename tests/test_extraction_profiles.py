@@ -64,6 +64,17 @@ def test_worldbuilding_plumbing_admits_null_session() -> None:
     assert profile.allow_null_session is True
 
 
+def test_worldbuilding_plumbing_rejects_missing_document_class() -> None:
+    with pytest.raises(InadmissibleExtractionProfileError, match="document_class"):
+        require_admitted_profile(
+            profile_id=WORLDBUILDING_PLUMBING_PROFILE_ID,
+            profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+            source_domain="worldbuilding",
+            document_class=None,
+            session_id=None,
+        )
+
+
 def test_worldbuilding_plumbing_rejects_fabricated_session() -> None:
     with pytest.raises(InadmissibleExtractionProfileError):
         require_admitted_profile(

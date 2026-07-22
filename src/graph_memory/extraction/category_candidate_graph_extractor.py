@@ -249,6 +249,7 @@ class CategoryGraphExtractionOptions:
     session_number: int | None
     source_span_index: Mapping[str, Any]
     model_id: str | None = None
+    source_text: str | None = None
     enable_edge_vocabulary_packet: bool = False
     edge_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
@@ -326,28 +327,41 @@ def resolve_category_graph_model(model_id: str | None) -> str:
     return "gpt-5.4-mini"
 
 
-def source_packet_rows_from_span_index(span_index: Mapping[str, Any]) -> list[dict[str, Any]]:
+def source_packet_rows_from_span_index(
+    span_index: Mapping[str, Any],
+    *,
+    source_text: str | None = None,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    lines = source_text.splitlines() if source_text is not None else None
     for span in span_index.get("spans") or []:
         if not isinstance(span, Mapping):
             continue
-        if span.get("kind") not in {"paragraph", None}:
-            if span.get("kind") == "full_text":
-                continue
-        spref = span.get("source_span_ref_id") or span.get("span_id")
+        kind = span.get("kind")
+        if kind == "full_text":
+            continue
+        spref = (
+            span.get("source_span_ref_id")
+            or span.get("span_id")
+            or span.get("source_span_id")
+        )
         if not isinstance(spref, str) or not spref.strip():
             continue
+        start_line = int(span.get("line_start") or span.get("start_line") or 1)
+        end_line = int(span.get("line_end") or span.get("end_line") or start_line)
         text = str(span.get("text") or span.get("text_excerpt") or "").strip()
-        if not text and span.get("kind") == "full_text":
-            continue
-        if span.get("kind") == "full_text":
+        if not text and lines is not None and start_line >= 1:
+            text = "\n".join(lines[start_line - 1 : end_line]).strip()
+        if not text:
             continue
         rows.append(
             {
                 "source_span_ref_id": spref,
-                "source_unit_id": str(span.get("span_id") or spref),
-                "line_start": int(span.get("line_start") or 1),
-                "line_end": int(span.get("line_end") or 1),
+                "source_unit_id": str(
+                    span.get("span_id") or span.get("source_span_id") or spref
+                ),
+                "line_start": start_line,
+                "line_end": end_line,
                 "text": text,
             }
         )
@@ -418,17 +432,20 @@ def render_category_pass_prompts(
             f"{evidence_rule}{extra}\n\n## Source Packet\n\n{src}\n"
         )
     if active_profile.beat_pass is not None:
-        prompts[_prompt_key(BEAT_PASS_NAME)] = (
-            f"# Category Graph Extraction — {BEAT_PASS_NAME}\n\n{safety}\n\n{ledger}"
-            "## Task\n\nExtract source-local beats (scenes, topic shifts, durable claims). "
+        beat = active_profile.beat_pass
+        prompts[_prompt_key(beat.pass_id)] = (
+            f"# Category Graph Extraction — {beat.pass_id}\n\n{safety}\n\n{ledger}"
+            f"## Task\n\n{beat.instruction}\n"
             "Return JSON with key `observation_beats` (array). Each beat: "
             "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
             f"{evidence_rule}\n\n## Source Packet\n\n{src}\n"
         )
     predicate_catalog = predicate_catalog_prompt_markdown()
-    prompts[_prompt_key(EDGE_PASS_NAME)] = (
-        f"# Category Graph Extraction — {EDGE_PASS_NAME}\n\n{safety}\n\n{ledger}"
-        "## Task\n\nUsing ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
+    edge = active_profile.edge_pass
+    prompts[_prompt_key(edge.pass_id)] = (
+        f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n{ledger}"
+        f"## Task\n\n{edge.instruction}\n"
+        "Using ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
         "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes. "
         "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
         "do not stop after the first few obvious edges.\n\n"
@@ -739,10 +756,15 @@ def consolidate_category_outputs(
                 if isinstance(raw, Mapping):
                     deferred.append(_normalize_disposition(raw, "deferred"))
 
-    encounter_payload = pass_outputs.get(ENCOUNTER_JOB_PASS_NAME)
+    encounter_pass_id = (
+        active_profile.encounter_job_pass.pass_id
+        if active_profile.encounter_job_pass is not None
+        else ENCOUNTER_JOB_PASS_NAME
+    )
+    encounter_payload = pass_outputs.get(encounter_pass_id)
     if encounter_payload is not None:
         raw_encounter_nodes = encounter_payload.get("observation_nodes") or []
-        per_pass_counts[ENCOUNTER_JOB_PASS_NAME] = len(raw_encounter_nodes)
+        per_pass_counts[encounter_pass_id] = len(raw_encounter_nodes)
         dropped_invalid_node_type_ids: list[str] = []
         kept_count = 0
         for raw in raw_encounter_nodes:
@@ -762,9 +784,12 @@ def consolidate_category_outputs(
             "dropped_invalid_node_type_ids": dropped_invalid_node_type_ids,
         }
 
-    beat_payload = pass_outputs.get(BEAT_PASS_NAME, {})
+    beat_pass_id = (
+        active_profile.beat_pass.pass_id if active_profile.beat_pass is not None else BEAT_PASS_NAME
+    )
+    beat_payload = pass_outputs.get(beat_pass_id, {})
     raw_beats = beat_payload.get("observation_beats") or []
-    per_pass_counts[BEAT_PASS_NAME] = len(raw_beats)
+    per_pass_counts[beat_pass_id] = len(raw_beats)
     for raw in raw_beats:
         if isinstance(raw, Mapping):
             beats.append(_normalize_beat(raw))
@@ -775,7 +800,7 @@ def consolidate_category_outputs(
     deduped_nodes, anchor_merge_diag = merge_party_anchor_nodes(
         deduped_nodes,
         party_ctx,
-        default_semantic_state=DEFAULT_SEMANTIC_STATE,
+        default_semantic_state=dict(active_profile.default_semantic_state),
     )
 
     known_entity_diag: dict[str, Any] = {"enabled": False}
@@ -826,9 +851,10 @@ def consolidate_category_outputs(
     deduped_nodes = list(cross_class["kept"])
     cross_class_remap: dict[str, str] = cross_class["remap"]
 
-    edge_payload = pass_outputs.get(EDGE_PASS_NAME, {})
+    edge_pass_id = active_profile.edge_pass.pass_id
+    edge_payload = pass_outputs.get(edge_pass_id, {})
     raw_edges = edge_payload.get("observation_edges") or []
-    per_pass_counts[EDGE_PASS_NAME] = len(raw_edges)
+    per_pass_counts[edge_pass_id] = len(raw_edges)
     node_ids = {n["node_id"] for n in deduped_nodes}
     edges: list[dict[str, Any]] = []
     dropped_edges: list[dict[str, str]] = []
@@ -1115,7 +1141,8 @@ def build_node_pass_prompt(
     options: CategoryGraphExtractionOptions,
     node_vocabulary_packet_override: ContextVocabularyPacket | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    allowed_passes = {name for name, _default_type, _instruction in NODE_EXTRACTION_PASSES}
+    active_profile = resolve_extraction_profile(options)
+    allowed_passes = {spec.pass_id for spec in active_profile.node_passes}
     if pass_name not in allowed_passes:
         raise ValueError(f"pass_name must be one of {sorted(allowed_passes)}")
 
@@ -1262,6 +1289,7 @@ def render_encounter_job_pass_prompt(
     nodes: Sequence[Mapping[str, Any]],
     beats: Sequence[Mapping[str, Any]],
     vocabulary_context: str | None = None,
+    instruction: str | None = None,
 ) -> str:
     src = _source_packet_md(source_rows)
     anchors = _party_anchors_block(party_ctx)
@@ -1276,16 +1304,18 @@ def render_encounter_job_pass_prompt(
         "warning, event, job, task, mission, bounty, errand, adversary, monster, pc, party"
     )
     vocabulary_block = f"{vocabulary_context}\n\n" if vocabulary_context else ""
-    return (
-        f"# Category Graph Extraction — {ENCOUNTER_JOB_PASS_NAME}\n\n{safety}\n\n"
-        f"{anchors}\n\n"
-        f"{vocabulary_block}"
-        "## Task\n\n"
+    task = instruction or (
         "Extract only durable job/quest/objective nodes and discrete combat encounter nodes.\n\n"
         "Create `quest` nodes for accepted, offered, assigned, discovered, or pursued objectives. "
         "Use `quest` for jobs, tasks, missions, bounties, errands, and requests. "
         "Do not use `job`, `task`, `mission`, `bounty`, or `errand` as node_type.\n\n"
         "Create `combat_encounter` nodes for discrete conflict scenes or tactical confrontations. "
+    )
+    return (
+        f"# Category Graph Extraction — {ENCOUNTER_JOB_PASS_NAME}\n\n{safety}\n\n"
+        f"{anchors}\n\n"
+        f"{vocabulary_block}"
+        f"## Task\n\n{task}"
         "A combat encounter is not the monster, not the location, not the quest, and not the recap beat.\n\n"
         "Separate a quest from the encounter that occurs while pursuing it.\n\n"
         "Do not recreate actors, PCs, party members, employers, locations, objects, rewards, mysteries, warnings, or threats. "
@@ -1461,11 +1491,14 @@ def run_category_pipeline(
 ) -> CategoryGraphExtractionResult:
     active_profile = resolve_extraction_profile(options)
     model_id = resolve_category_graph_model(options.model_id)
-    source_rows = source_packet_rows_from_span_index(options.source_span_index)
+    source_rows = source_packet_rows_from_span_index(
+        options.source_span_index,
+        source_text=options.source_text,
+    )
     allowed_span_refs = {r["source_span_ref_id"] for r in source_rows}
     for span in options.source_span_index.get("spans") or []:
         if isinstance(span, Mapping):
-            for key in ("source_span_ref_id", "span_id"):
+            for key in ("source_span_ref_id", "span_id", "source_span_id"):
                 val = span.get(key)
                 if isinstance(val, str):
                     allowed_span_refs.add(val)
@@ -1527,29 +1560,30 @@ def run_category_pipeline(
             "usage": result["usage"],
             "elapsed_ms": result["elapsed_ms"],
             "response_id": result["response_id"],
-            "progress_label": PASS_PROGRESS_LABELS.get(pass_name, pass_spec.progress_label),
+            "progress_label": pass_spec.progress_label,
         }
         total_cost += result["cost_usd"]
         _notify(pass_name, "complete")
 
     if active_profile.beat_pass is not None:
-        _notify(BEAT_PASS_NAME, "running")
+        beat = active_profile.beat_pass
+        _notify(beat.pass_id, "running")
         beat_result = client.run_pass(
-            BEAT_PASS_NAME,
+            beat.pass_id,
             model_id=model_id,
             instructions=system,
-            user_content=prompts[_prompt_key(BEAT_PASS_NAME)],
+            user_content=prompts[_prompt_key(beat.pass_id)],
         )
-        pass_outputs[BEAT_PASS_NAME] = beat_result["parsed"]
-        pass_telemetry[BEAT_PASS_NAME] = {
+        pass_outputs[beat.pass_id] = beat_result["parsed"]
+        pass_telemetry[beat.pass_id] = {
             "cost_usd": beat_result["cost_usd"],
             "usage": beat_result["usage"],
             "elapsed_ms": beat_result["elapsed_ms"],
             "response_id": beat_result["response_id"],
-            "progress_label": PASS_PROGRESS_LABELS[BEAT_PASS_NAME],
+            "progress_label": beat.progress_label,
         }
         total_cost += beat_result["cost_usd"]
-        _notify(BEAT_PASS_NAME, "complete")
+        _notify(beat.pass_id, "complete")
 
     consolidated = consolidate_category_outputs(
         pass_outputs,
@@ -1560,38 +1594,53 @@ def run_category_pipeline(
         known_entity_registry=known_entity_registry,
         profile=active_profile,
     )
+    encounter_pass = active_profile.encounter_job_pass
     if options.enable_encounter_job_pass:
+        encounter_pass_id = (
+            encounter_pass.pass_id if encounter_pass is not None else ENCOUNTER_JOB_PASS_NAME
+        )
+        encounter_progress = (
+            encounter_pass.progress_label
+            if encounter_pass is not None
+            else PASS_PROGRESS_LABELS[ENCOUNTER_JOB_PASS_NAME]
+        )
+        encounter_instruction = (
+            encounter_pass.instruction if encounter_pass is not None else None
+        )
         encounter_vocabulary_context = ""
         if effective_node_vocabulary_packet is not None:
             encounter_vocabulary = render_node_vocabulary_context(
-                effective_node_vocabulary_packet, pass_name=ENCOUNTER_JOB_PASS_NAME
+                effective_node_vocabulary_packet, pass_name=encounter_pass_id
             )
             encounter_vocabulary_context = encounter_vocabulary.context_text
-            node_vocabulary_pass_diagnostics[ENCOUNTER_JOB_PASS_NAME] = encounter_vocabulary.diagnostics
+            node_vocabulary_pass_diagnostics[encounter_pass_id] = (
+                encounter_vocabulary.diagnostics
+            )
         encounter_prompt = render_encounter_job_pass_prompt(
             source_rows,
             party_ctx=party_ctx,
             nodes=consolidated["nodes"],
             beats=consolidated["beats"],
             vocabulary_context=encounter_vocabulary_context,
+            instruction=encounter_instruction,
         )
-        _notify(ENCOUNTER_JOB_PASS_NAME, "running")
+        _notify(encounter_pass_id, "running")
         encounter_result = client.run_pass(
-            ENCOUNTER_JOB_PASS_NAME,
+            encounter_pass_id,
             model_id=model_id,
             instructions=system,
             user_content=encounter_prompt,
         )
-        pass_outputs[ENCOUNTER_JOB_PASS_NAME] = encounter_result["parsed"]
-        pass_telemetry[ENCOUNTER_JOB_PASS_NAME] = {
+        pass_outputs[encounter_pass_id] = encounter_result["parsed"]
+        pass_telemetry[encounter_pass_id] = {
             "cost_usd": encounter_result["cost_usd"],
             "usage": encounter_result["usage"],
             "elapsed_ms": encounter_result["elapsed_ms"],
             "response_id": encounter_result["response_id"],
-            "progress_label": PASS_PROGRESS_LABELS[ENCOUNTER_JOB_PASS_NAME],
+            "progress_label": encounter_progress,
         }
         total_cost += encounter_result["cost_usd"]
-        _notify(ENCOUNTER_JOB_PASS_NAME, "complete")
+        _notify(encounter_pass_id, "complete")
         consolidated = consolidate_category_outputs(
             pass_outputs,
             campaign_id=options.campaign_id,
@@ -1601,28 +1650,29 @@ def run_category_pipeline(
             known_entity_registry=known_entity_registry,
             profile=active_profile,
         )
+    edge = active_profile.edge_pass
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
-        prompts[_prompt_key(EDGE_PASS_NAME)],
+        prompts[_prompt_key(edge.pass_id)],
         consolidated["nodes"],
         options=options,
     )
-    _notify(EDGE_PASS_NAME, "running")
+    _notify(edge.pass_id, "running")
     edge_result = client.run_pass(
-        EDGE_PASS_NAME,
+        edge.pass_id,
         model_id=model_id,
         instructions=system,
         user_content=edge_prompt,
     )
-    pass_outputs[EDGE_PASS_NAME] = edge_result["parsed"]
-    pass_telemetry[EDGE_PASS_NAME] = {
+    pass_outputs[edge.pass_id] = edge_result["parsed"]
+    pass_telemetry[edge.pass_id] = {
         "cost_usd": edge_result["cost_usd"],
         "usage": edge_result["usage"],
         "elapsed_ms": edge_result["elapsed_ms"],
         "response_id": edge_result["response_id"],
-        "progress_label": PASS_PROGRESS_LABELS[EDGE_PASS_NAME],
+        "progress_label": edge.progress_label,
     }
     total_cost += edge_result["cost_usd"]
-    _notify(EDGE_PASS_NAME, "complete")
+    _notify(edge.pass_id, "complete")
 
     consolidated = consolidate_category_outputs(
         pass_outputs,

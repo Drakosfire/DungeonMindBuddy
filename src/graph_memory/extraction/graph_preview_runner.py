@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -15,6 +16,10 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRunComponentRef,
     ExtractionRunDiagnostics,
     ExtractionRunStatus,
+)
+from graph_memory.source_span import (
+    build_source_span_index_for_text,
+    source_span_index_to_dict,
 )
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
@@ -76,14 +81,15 @@ def _session_number(session_id: str | None) -> int | None:
     return int(match.group(1))
 
 
-def _component(
-    kind: ExtractionRunComponentKind,
-    *,
-    uri: str,
-    exists: bool,
-    sha256: str | None = None,
-) -> ExtractionRunComponentRef:
-    return ExtractionRunComponentRef(kind=kind, uri=uri, exists=exists, sha256=sha256)
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _repo_uri(repo_root: Path, path: Path) -> str:
+    root = repo_root.resolve()
+    resolved = path.resolve()
+    relpath = resolved.relative_to(root).as_posix()
+    return f"repo://{relpath}"
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
@@ -91,51 +97,135 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _persist_run(repo_root: Path, run: ExtractionRun) -> ExtractionRun:
-    from apps.live_control_server.services.graph_run_registry import (
-        create_extraction_run,
-        update_extraction_run_status,
-        get_extraction_run,
+def _component(
+    kind: ExtractionRunComponentKind,
+    *,
+    uri: str,
+    sha256: str,
+    exists: bool = True,
+) -> ExtractionRunComponentRef:
+    return ExtractionRunComponentRef(kind=kind, uri=uri, exists=exists, sha256=sha256)
+
+
+def _create_draft_run(
+    repo_root: Path,
+    source: NormalizedExtractionSource,
+    *,
+    profile_id: str | None,
+    diagnostics: ExtractionRunDiagnostics | None = None,
+    lineage: dict[str, Any] | None = None,
+) -> ExtractionRun:
+    from apps.live_control_server.services.graph_run_registry import create_extraction_run
+
+    return create_extraction_run(
+        repo_root,
+        source_artifact_id=source.source_artifact_id,
+        source_domain=source.source_domain,
+        campaign_id=source.campaign_id,
+        session_id=source.session_id,
+        profile_id=profile_id,
+        status=ExtractionRunStatus.DRAFT,
+        diagnostics=diagnostics,
+        lineage=lineage,
     )
 
-    created = create_extraction_run(
+
+def _advance_run(
+    repo_root: Path,
+    run: ExtractionRun,
+    *,
+    status: ExtractionRunStatus,
+    components: dict[str, ExtractionRunComponentRef] | None = None,
+    diagnostics: ExtractionRunDiagnostics | None = None,
+    lineage: dict[str, Any] | None = None,
+) -> ExtractionRun:
+    from apps.live_control_server.services.graph_run_registry import (
+        update_extraction_run_status,
+    )
+
+    return update_extraction_run_status(
         repo_root,
-        source_artifact_id=run.source_artifact_id,
-        source_domain=run.source_domain,
-        campaign_id=run.campaign_id,
-        session_id=run.session_id,
-        profile_id=run.profile_id,
-        components=run.components,
-        status=ExtractionRunStatus.DRAFT,
+        run.run_id,
+        status=status,
+        expected_revision=run.revision,
+        components=components,
+        diagnostics=diagnostics,
+        lineage=lineage,
     )
-    # Stamp identity from controller-assigned run_id when provided.
-    if run.run_id and run.run_id != created.run_id:
-        # Registry owns IDs; keep created identity.
-        pass
-    updated = update_extraction_run_status(
+
+
+def _fail_run(
+    repo_root: Path,
+    run: ExtractionRun,
+    *,
+    message: str,
+    failure_kind: str,
+    components: dict[str, ExtractionRunComponentRef] | None = None,
+    lineage: dict[str, Any] | None = None,
+    incomplete_components: list[str] | None = None,
+) -> ExtractionRun:
+    diagnostics = ExtractionRunDiagnostics(
+        messages=[message],
+        errors=[message],
+        incomplete_components=list(incomplete_components or []),
+    )
+    next_lineage = {
+        **(run.lineage or {}),
+        **(lineage or {}),
+        "failure_kind": failure_kind,
+    }
+    return _advance_run(
         repo_root,
-        created.run_id,
-        status=run.status,
-        components=run.components,
+        run,
+        status=ExtractionRunStatus.FAILED,
+        components=components,
+        diagnostics=diagnostics,
+        lineage=next_lineage,
     )
-    # Preserve diagnostics/lineage on the in-memory result even if registry omits them.
-    return updated.model_copy(
-        update={
-            "diagnostics": run.diagnostics,
-            "lineage": run.lineage,
-            "created_at": created.created_at,
-            "updated_at": updated.updated_at,
-        }
+
+
+def _run_output_dir(repo_root: Path, run_id: str, output_dir: Path | None) -> Path:
+    base = output_dir or (repo_root / "out" / "graph_memory" / "runs" / "extraction")
+    return base / run_id
+
+
+def _build_prepared_components(
+    repo_root: Path,
+    source: NormalizedExtractionSource,
+    output_dir: Path,
+) -> tuple[dict[str, ExtractionRunComponentRef], dict[str, Any]]:
+    digest = source.source_sha256.removeprefix("sha256:")
+    index = build_source_span_index_for_text(
+        source_artifact_id=source.source_artifact_id,
+        content_sha256=digest,
+        text=source.source_text,
     )
+    span_payload = source_span_index_to_dict(index)
+    span_path = output_dir / "source_span_index.json"
+    _write_json(span_path, span_payload)
+    components = {
+        "source_artifact": _component(
+            ExtractionRunComponentKind.SOURCE_ARTIFACT,
+            uri=source.source_uri,
+            sha256=digest,
+        ),
+        "source_span_index": _component(
+            ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+            uri=_repo_uri(repo_root, span_path),
+            sha256=_file_sha256(span_path),
+        ),
+    }
+    return components, span_payload
 
 
 def run_production_extraction(
     request: ProductionExtractionRequest,
 ) -> ProductionExtractionResult:
     """Execute an exact profile-selected extraction and persist an ExtractionRun."""
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
 
-    diagnostics: list[str] = []
     source = request.source
+    profile_qualified: str | None = None
     try:
         profile = require_admitted_profile(
             profile_id=request.profile_id,
@@ -144,81 +234,65 @@ def run_production_extraction(
             document_class=source.document_class,
             session_id=source.session_id,
         )
+        profile_qualified = profile.qualified_id
     except (UnknownExtractionProfileError, InadmissibleExtractionProfileError) as exc:
-        failed = ExtractionRun(
-            run_id="pending",
-            source_artifact_id=source.source_artifact_id,
-            source_domain=source.source_domain,
-            status=ExtractionRunStatus.FAILED,
-            campaign_id=source.campaign_id,
-            session_id=source.session_id,
+        draft = _create_draft_run(
+            request.repo_root,
+            source,
             profile_id=f"{request.profile_id}@{request.profile_version}",
-            created_at=_now_iso(),
-            updated_at=_now_iso(),
-            diagnostics=ExtractionRunDiagnostics(
-                messages=[str(exc)],
-                errors=[str(exc)],
-            ),
+            diagnostics=ExtractionRunDiagnostics(messages=[str(exc)], errors=[str(exc)]),
             lineage={"failure_kind": "profile"},
         )
-        persisted = _persist_run(request.repo_root, failed)
+        failed = _fail_run(
+            request.repo_root,
+            draft,
+            message=str(exc),
+            failure_kind="profile",
+            lineage={"failure_kind": "profile"},
+        )
+        loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
-            run=persisted,
-            source_span_index=source.source_span_index,
+            run=loaded,
             failure_kind="profile",
             diagnostics=[str(exc)],
             profile_id=request.profile_id,
             profile_version=request.profile_version,
         )
 
-    output_dir = request.output_dir or (
-        request.repo_root
-        / "out"
-        / "graph_memory"
-        / "runs"
-        / "extraction"
-        / source.source_artifact_id.replace(":", "_")
+    draft = _create_draft_run(
+        request.repo_root,
+        source,
+        profile_id=profile_qualified,
+        lineage={
+            "profile_id": profile.profile_id,
+            "profile_version": profile.profile_version,
+            "source_sha256": source.source_sha256,
+        },
     )
+    output_dir = _run_output_dir(request.repo_root, draft.run_id, request.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    span_index_path = output_dir / "source_span_index.json"
-    _write_json(span_index_path, dict(source.source_span_index))
-    components = {
-        "source_artifact": _component(
-            ExtractionRunComponentKind.SOURCE_ARTIFACT,
-            uri=source.source_uri,
-            exists=True,
-            sha256=source.source_sha256,
-        ),
-        "source_span_index": _component(
-            ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
-            uri=span_index_path.as_posix(),
-            exists=True,
-        ),
-    }
+
+    components, span_payload = _build_prepared_components(
+        request.repo_root, source, output_dir
+    )
+    prepared = _advance_run(
+        request.repo_root,
+        draft,
+        status=ExtractionRunStatus.PREPARED,
+        components=components,
+        lineage={
+            "profile_id": profile.profile_id,
+            "profile_version": profile.profile_version,
+            "source_sha256": source.source_sha256,
+            "output_dir": _repo_uri(request.repo_root, output_dir),
+        },
+    )
 
     if not request.allow_llm and request.category_client is None:
-        prepared = ExtractionRun(
-            run_id="pending",
-            source_artifact_id=source.source_artifact_id,
-            source_domain=source.source_domain,
-            status=ExtractionRunStatus.PREPARED,
-            campaign_id=source.campaign_id,
-            session_id=source.session_id,
-            profile_id=profile.qualified_id,
-            created_at=_now_iso(),
-            updated_at=_now_iso(),
-            components=components,
-            lineage={
-                "profile_id": profile.profile_id,
-                "profile_version": profile.profile_version,
-                "source_sha256": source.source_sha256,
-            },
-        )
-        persisted = _persist_run(request.repo_root, prepared)
+        loaded = get_extraction_run(request.repo_root, prepared.run_id)
         return ProductionExtractionResult(
-            run=persisted,
-            source_span_index=source.source_span_index,
-            diagnostics=diagnostics,
+            run=loaded,
+            source_span_index=span_payload,
             profile_id=profile.profile_id,
             profile_version=profile.profile_version,
         )
@@ -228,7 +302,8 @@ def run_production_extraction(
         campaign_id=source.campaign_id or "",
         session_id=source.session_id,
         session_number=_session_number(source.session_id),
-        source_span_index=source.source_span_index,
+        source_span_index=span_payload,
+        source_text=source.source_text,
         model_id=model_id,
         profile=profile,
         enable_encounter_job_pass=profile.enable_encounter_job_pass,
@@ -270,29 +345,22 @@ def run_production_extraction(
             failure_kind = "incomplete"
         elif "schema" in lowered or "json" in lowered:
             failure_kind = "schema"
-        failed = ExtractionRun(
-            run_id="pending",
-            source_artifact_id=source.source_artifact_id,
-            source_domain=source.source_domain,
-            status=ExtractionRunStatus.FAILED,
-            campaign_id=source.campaign_id,
-            session_id=source.session_id,
-            profile_id=profile.qualified_id,
-            created_at=_now_iso(),
-            updated_at=_now_iso(),
+        failed = _fail_run(
+            request.repo_root,
+            prepared,
+            message=message,
+            failure_kind=failure_kind,
             components=components,
-            diagnostics=ExtractionRunDiagnostics(messages=[message], errors=[message]),
             lineage={
-                "failure_kind": failure_kind,
                 "profile_id": profile.profile_id,
                 "profile_version": profile.profile_version,
                 "model_id": model_id,
             },
         )
-        persisted = _persist_run(request.repo_root, failed)
+        loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
-            run=persisted,
-            source_span_index=source.source_span_index,
+            run=loaded,
+            source_span_index=span_payload,
             failure_kind=failure_kind,
             diagnostics=[message],
             model_id=model_id,
@@ -301,29 +369,22 @@ def run_production_extraction(
         )
     except Exception as exc:  # noqa: BLE001 - persist unexpected model/API failures
         message = str(exc)
-        failed = ExtractionRun(
-            run_id="pending",
-            source_artifact_id=source.source_artifact_id,
-            source_domain=source.source_domain,
-            status=ExtractionRunStatus.FAILED,
-            campaign_id=source.campaign_id,
-            session_id=source.session_id,
-            profile_id=profile.qualified_id,
-            created_at=_now_iso(),
-            updated_at=_now_iso(),
+        failed = _fail_run(
+            request.repo_root,
+            prepared,
+            message=message,
+            failure_kind="model",
             components=components,
-            diagnostics=ExtractionRunDiagnostics(messages=[message], errors=[message]),
             lineage={
-                "failure_kind": "model",
                 "profile_id": profile.profile_id,
                 "profile_version": profile.profile_version,
                 "model_id": model_id,
             },
         )
-        persisted = _persist_run(request.repo_root, failed)
+        loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
-            run=persisted,
-            source_span_index=source.source_span_index,
+            run=loaded,
+            source_span_index=span_payload,
             failure_kind="model",
             diagnostics=[message],
             model_id=model_id,
@@ -337,10 +398,22 @@ def run_production_extraction(
         **components,
         "candidate_graph": _component(
             ExtractionRunComponentKind.CANDIDATE_GRAPH,
-            uri=candidate_path.as_posix(),
-            exists=True,
+            uri=_repo_uri(request.repo_root, candidate_path),
+            sha256=_file_sha256(candidate_path),
         ),
     }
+    extracted = _advance_run(
+        request.repo_root,
+        prepared,
+        status=ExtractionRunStatus.EXTRACTED,
+        components=components,
+        lineage={
+            "profile_id": profile.profile_id,
+            "profile_version": profile.profile_version,
+            "model_id": model_id,
+            "source_sha256": source.source_sha256,
+        },
+    )
 
     nodes = extraction.candidate_graph.get("nodes") or []
     missing_evidence = [
@@ -350,35 +423,25 @@ def run_production_extraction(
     ]
     if missing_evidence:
         message = f"candidates missing evidence_refs: {missing_evidence[:5]}"
-        failed = ExtractionRun(
-            run_id="pending",
-            source_artifact_id=source.source_artifact_id,
-            source_domain=source.source_domain,
-            status=ExtractionRunStatus.VALIDATED,
-            campaign_id=source.campaign_id,
-            session_id=source.session_id,
-            profile_id=profile.qualified_id,
-            created_at=_now_iso(),
-            updated_at=_now_iso(),
+        failed = _fail_run(
+            request.repo_root,
+            extracted,
+            message=message,
+            failure_kind="validation",
             components=components,
-            diagnostics=ExtractionRunDiagnostics(
-                messages=[message],
-                errors=[message],
-                incomplete_components=["evidence"],
-            ),
+            incomplete_components=["evidence"],
             lineage={
-                "failure_kind": "validation",
                 "profile_id": profile.profile_id,
                 "profile_version": profile.profile_version,
                 "model_id": model_id,
                 "reviewable": False,
             },
         )
-        persisted = _persist_run(request.repo_root, failed)
+        loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
-            run=persisted,
+            run=loaded,
             candidate_graph=extraction.candidate_graph,
-            source_span_index=source.source_span_index,
+            source_span_index=span_payload,
             failure_kind="validation",
             diagnostics=[message],
             model_id=model_id,
@@ -386,16 +449,10 @@ def run_production_extraction(
             profile_version=profile.profile_version,
         )
 
-    reviewable = ExtractionRun(
-        run_id="pending",
-        source_artifact_id=source.source_artifact_id,
-        source_domain=source.source_domain,
-        status=ExtractionRunStatus.REVIEWABLE,
-        campaign_id=source.campaign_id,
-        session_id=source.session_id,
-        profile_id=profile.qualified_id,
-        created_at=_now_iso(),
-        updated_at=_now_iso(),
+    validated = _advance_run(
+        request.repo_root,
+        extracted,
+        status=ExtractionRunStatus.VALIDATED,
         components=components,
         lineage={
             "profile_id": profile.profile_id,
@@ -404,11 +461,24 @@ def run_production_extraction(
             "source_sha256": source.source_sha256,
         },
     )
-    persisted = _persist_run(request.repo_root, reviewable)
+    reviewable = _advance_run(
+        request.repo_root,
+        validated,
+        status=ExtractionRunStatus.REVIEWABLE,
+        components=components,
+        lineage={
+            "profile_id": profile.profile_id,
+            "profile_version": profile.profile_version,
+            "model_id": model_id,
+            "source_sha256": source.source_sha256,
+            "reviewable": True,
+        },
+    )
+    loaded = get_extraction_run(request.repo_root, reviewable.run_id)
     return ProductionExtractionResult(
-        run=persisted,
+        run=loaded,
         candidate_graph=extraction.candidate_graph,
-        source_span_index=source.source_span_index,
+        source_span_index=span_payload,
         model_id=model_id,
         profile_id=profile.profile_id,
         profile_version=profile.profile_version,
