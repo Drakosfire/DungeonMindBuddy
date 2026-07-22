@@ -1,176 +1,250 @@
-# HANDOFF — BLD-08 worldbuilding extraction profile and pilot
+# HANDOFF — BLD-08 bounded worldbuilding extraction profile and pilot
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-07 is merged and re-anchored
+- **Status:** DRAFT — dispatch only after BLD-07 is merged and re-anchored.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld08-worldbuilding-profile-pilot.md`
 - **Suggested branch:** `agent/bld08-worldbuilding-profile-pilot`
 
-## Shared vocabulary
+## §0 Capability decomposition decision
 
-| Term | Definition |
-|---|---|
-| Worldbuilding profile | Bounded extraction category/version policy for evergreen lore. |
-| Pilot source | Small, explicitly selected source set used to falsify the profile. |
-| Candidate | Reviewable proposed graph assertion, never automatic canon. |
-| Profile explosion | Unbounded extraction of incidental species, products, or low-value nodes. |
+| Candidate outcome | Independently useful? | Durable/public contract changed? | Decision |
+|---|---:|---:|---|
+| Add a versioned bounded worldbuilding extraction profile | Yes | Yes | Include |
+| Run repeated Shepherd’s Flock trials and record a decision | No — proof required to accept the same profile capability | No durable product contract beyond report | Include |
+| Bulk-ingest the corpus | Yes | Yes | Successor |
+| Add PDF/OCR lineage | Yes | Yes | Successor: BLD-09 |
+| Change generic profile protocol/runtime | Yes | Yes | Stop and return to BLD-04 contract |
+
+**Selected capability:** a bounded executable worldbuilding profile, proven on a
+small real source cohort, that remains review-only until Graph Review confirms
+selected assertions.
 
 ## §1 Mission
 
-The runtime has a bounded worldbuilding extraction profile that produces
-source-anchored candidates for a small Shepherd’s Flock pilot without
-fabricating session chronology or turning incidental ecology into graph truth.
+The runtime has an explicit versioned worldbuilding extraction profile that owns
+its pass, prompt/schema, vocabulary, and validation policy and produces bounded,
+source-evidenced Shepherd’s Flock candidates without fabricated session
+chronology or incidental ecology/resource explosion.
 
-**Invariant:** Worldbuilding extraction is explicit, bounded, source-evidenced,
-and review-only; no pilot result is durable graph truth until Graph Review
-confirmation.
+**Invariant:** every trial uses the exact same admitted profile contract; every
+reviewable candidate is within declared category bounds, retains canonical
+source evidence, keeps session scope null, and remains proposed until explicit
+Graph Review confirmation.
 
 ## §2 Context, authority, and boundaries
 
 | Field | Required content |
 |---|---|
 | Parent authority | `Docs/Design/ARCHITECTURE-campaign-supergraph.md` |
-| Sequencing authority | `Docs/Plans/PLAN-build-surface-worldbuilding-ingest-pr-slices.md`, BLD-08 |
-| Repository rules | `AGENTS.md`, `.cursor/rules/responses-api-structured-extraction.mdc`, `.cursor/rules/corpus-pii-and-llm-payloads.mdc`, `.cursor/rules/external-agent-pr-loop.mdc` |
-| Base revision | Dispatch-time immutable merge SHA containing BLD-07; current `8ff2339f` is reference only |
-| Predecessor contract | Generic SourceArtifact/ExtractionRun/runtime adapters and Graph Review handoff |
-| Exact input consumed | Explicitly selected local Shepherd’s Flock source artifact(s), worldbuilding profile version, and model policy |
-| Named successor | BLD-09 PDF/OCR source lineage pilot |
-| What remains false | Bulk corpus ingestion, PDF lineage, ecology/resource profile, automatic promotion |
-| Explicit non-goals | Prompt-file redesign, unbounded category expansion, raw payload sharing, corpus canon rewrite, combat integration |
+| Sequencing authority | Build slice plan BLD-08 |
+| Runtime predecessor | BLD-04 extraction profile protocol/controller and BLD-03 source/run contracts |
+| Review predecessor | BLD-07 exact generic Graph Review path |
+| Repository rules | `AGENTS.md`, structured extraction/model policy, corpus PII/payload rules, external-agent PR loop |
+| Base revision | Dispatch-time immutable merge SHA containing BLD-07 |
+| Exact input consumed | explicitly selected local Shepherd’s Flock SourceArtifact revision(s), source spans, exact worldbuilding profile ID/version, and model policy |
+| Named successor | BLD-09 PDF/OCR lineage; bulk ingestion and ecology/resource profiles remain later |
+| What remains false | no bulk corpus ingestion, PDF lineage, automatic promotion, combat integration, or universal worldbuilding quality claim |
+| Explicit non-goals | generic runtime redesign, raw payload publication, corpus rewrite, eval-gold promotion, model/provider UI |
+
+### Locked profile ownership
+
+BLD-04 established a profile protocol. The BLD-08 worldbuilding profile owns or
+references executable policy for:
+
+```text
+profile_id and profile_version
+admitted source_domain/document_class
+enabled pass IDs and order
+worldbuilding-specific pass instructions/templates
+structured-output schema IDs/versions
+node/edge vocabulary and context policy
+semantic defaults for authority/visibility/canon/session scope
+post-extraction category and evidence validation
+explicit excluded/deferred category behavior
+```
+
+This is not “configuration around unchanged recap prompts.” The profile is the
+intentional owner of worldbuilding prompt and schema behavior through BLD-04’s
+seam.
+
+Do not edit unrelated `src/prompts/*.py` opportunistically or create a second
+prompt registry. If BLD-04’s profile protocol cannot express the required
+instructions or schemas, stop and report the missing contract; fix the generic
+profile seam in a separately reviewed predecessor correction before continuing.
+
+### Initial category bounds
+
+Included:
+
+- locations and meaningful sublocations;
+- factions, organizations, collectives;
+- named NPCs and named creatures;
+- creature/statblock references as source-backed objects, without inventing
+  mechanical fields absent from the source;
+- institutions, governance, command, doctrine, and explicit durable
+  relationships;
+- unresolved mentions when identity cannot be bound safely.
+
+Excluded/deferred by default:
+
+- incidental species, food, flora, products, materials, and scenery;
+- unnamed generic inhabitants or disposable encounter instances;
+- speculative cosmology or causal claims not stated by the source;
+- session beats/chronology for evergreen lore;
+- automatic identity merges or label-first edges.
 
 Read in order:
 
-1. `Docs/Design/ARCHITECTURE-campaign-supergraph.md`
-2. `Docs/Plans/ROADMAP-build-surface-worldbuilding-ingest.md`
-3. `Docs/Plans/PLAN-build-surface-worldbuilding-ingest-pr-slices.md`
-4. BLD-03/04 source/run/runtime contracts
-5. BLD-07 Graph Review handoff
-6. Existing category profile/schema tests and local pilot conventions
+1. Campaign Supergraph architecture
+2. Build roadmap/slice plan
+3. BLD-04 profile protocol and recap profile tests
+4. BLD-03 source/span/run contracts
+5. BLD-07 Graph Review binding
+6. current category extractor vocabulary/predicate contracts
+7. selected local Shepherd’s Flock sources and payload hygiene rules
 
-If profile behavior requires editing `src/prompts/*.py`, stop and report the
-required prompt decision instead of modifying prompt files opportunistically.
+Stop if the profile requires a new graph identity rule, cannot preserve source
+evidence/null session, cannot remain bounded, or cannot be expressed through the
+BLD-04 profile protocol.
 
 ## §3 Observable-path inventory
 
-| Path | Current behavior | Required behavior | Same invariant? | Owning boundary |
+| Path | Current behavior | Required behavior | Same invariant? | Boundary |
 |---|---|---|---:|---|
-| Profile selection | Recap-shaped/default behavior | Explicit worldbuilding profile/version | Yes | Profile contract |
-| Category coverage | Categories may be broad or implicit | Bounded location/faction/NPC/creature/institution coverage | Yes | Profile |
-| Source evidence | Candidates may be path/span fragile | Every candidate retains paragraph/source evidence | Yes | Runtime/profile |
-| Session chronology | Recap options encourage session fields | Evergreen source keeps session null | Yes | Source/profile validation |
-| Incidental ecology | Broad extraction can explode taxonomy | Exclude or classify as unresolved unless explicitly covered | Yes | Profile |
-| Repeat trials | Pilot output may be anecdotal | At least three local trials with aggregate reporting | Yes | Pilot harness |
-| Review/promotion | Pilot artifacts are not graph truth | Only explicitly selected Graph Review contribution may publish | Yes | Graph Review |
-| Payload hygiene | LLM artifacts are local | No raw corpus/LLM payload in docs or external output | Yes | Pilot/report boundary |
+| Profile load | no worldbuilding profile | exact ID/version with declared executable policy | Yes | profile registry |
+| Source admission | recap assumptions possible | admit only declared worldbuilding source kinds and exact revisions | Yes | profile/controller |
+| Pass selection | recap pass set/instructions | explicit bounded worldbuilding passes/order | Yes | profile |
+| Prompt/schema | recap-oriented embedded behavior | profile-owned instructions/templates and strict schema refs | Yes | profile/client |
+| Category output | broad/recap category behavior | only declared included categories; excluded items omitted/deferred | Yes | profile/validator |
+| Source evidence | existing canonical span refs | every positive candidate resolves exact artifact/span | Yes | runtime/validator |
+| Session chronology | recap options encourage session/beat fields | session remains null; no session beats invented | Yes | profile/validator |
+| Relationships | generic edge extraction | only supported exact endpoints/predicates/evidence | Yes | profile/edge validator |
+| Repeat trials | anecdotal one-off possible | at least three comparable trial IDs in one cohort | Yes | pilot harness |
+| Trial failure | may disappear into aggregate | refusal/incomplete/schema/validation recorded explicitly | Yes | run/pilot |
+| Review | candidate output may look final | exact run opens Graph Review; only selected confirmation publishes | Yes | Graph Review |
+| Report hygiene | local payloads | redacted aggregate metrics, IDs, decisions; no raw corpus/model payload | Yes | report boundary |
 
-## §4 Files in scope (allowlist)
+## §4 Files in scope — allowlist
 
 | Action | Path | Purpose |
 |---|---|---|
-| Create | `src/graph_memory/extraction/worldbuilding_extraction_profile.py` | Bounded profile/version/category policy |
-| Create | `tests/test_worldbuilding_extraction_profile.py` | Profile bounds/null-session/forbidden-category proof |
-| Create | `tests/test_worldbuilding_profile_pipeline.py` | Fixture-backed source-to-candidate contract proof |
-| Create | `evals/graph_memory_layer/worldbuilding_profile_pilot.py` | Local three-trial pilot runner and aggregate output |
-| Create | `Docs/Reports/REPORT-build-worldbuilding-profile-pilot.md` | Redacted aggregate pilot report and decision |
-| Create | `evals/graph_memory_layer/fixtures/worldbuilding_profile_fixture.json` | Redacted/fixture-only expected profile cases |
+| Create | `src/graph_memory/extraction/worldbuilding_extraction_profile.py` | Versioned executable category/pass/prompt/schema/vocabulary/validation policy |
+| Create | `tests/test_worldbuilding_extraction_profile.py` | Admission, category bounds, prompt/schema ownership, excluded behavior, and null-session proof |
+| Create | `tests/test_worldbuilding_profile_pipeline.py` | Fixture-backed source → evidence-bearing candidate/run proof |
+| Create | `evals/graph_memory_layer/worldbuilding_profile_pilot.py` | Local repeat-trial cohort runner using production profile/runtime |
+| Create | `evals/graph_memory_layer/fixtures/worldbuilding_profile_fixture.json` | Redacted minimal contract fixture, not promoted gold |
+| Create | `Docs/Reports/REPORT-build-worldbuilding-profile-pilot.md` | Redacted aggregate evidence, manual judgment, and go/no-go decision |
 
-**Bounded discovery exception:** Not applicable — paths are enumerated. Full
-LLM payloads and raw corpus excerpts remain uncommitted local run artifacts,
-not additional allowed paths.
+### Bounded discovery exception
 
-## §5 Files and capabilities explicitly out of scope
+```text
+Directory: src/graph_memory/extraction
+Maximum additional paths: 2
+Allowed path kinds: existing profile registry/export or schema-template module created by BLD-04
+Decision rule: only to register or reference the new profile through the established protocol; no generic runtime redesign
+Required report: exact predecessor seam and why registration cannot occur in the named profile file
+```
 
-| Path, layer, or capability | Why out of scope |
+Full LLM responses, source excerpts, and local run artifacts remain uncommitted
+outside the allowlist.
+
+## §5 Explicitly out of scope
+
+| Path/capability | Why |
 |---|---|
-| `src/prompts/*.py` | Prompt redesign requires a separate strong-model design/review slice |
-| `corpus/**` | No canon rewrite or raw source mutation |
-| `evals/**/gold/**` | Pilot output is not gold promotion |
-| `apps/live-control-ui/**` | Build/Graph Review UI already has separate slices |
-| `apps/live_control_server/**` | Runtime contract is predecessor; no route changes |
-| PDF/OCR paths | BLD-09 |
-| Ecology/resource taxonomy expansion | Later bounded profile |
-| Automatic graph commit | Graph Review remains the publication owner |
+| generic controller/profile protocol changes | BLD-04 predecessor correction required |
+| `src/prompts/**` unrelated prompt registry/files | no second prompt authority or opportunistic redesign |
+| `corpus/**` | no canon rewrite or source mutation |
+| eval gold | pilot evidence is not gold promotion |
+| UI/backend routes | predecessors already expose product path |
+| PDF/OCR | BLD-09 |
+| ecology/resource profile | later bounded profile |
+| automatic graph commit | Graph Review only |
+| identity/merge rules | Kernel-owned |
 
-## §6 Implementation contract and conditional matrices
+## §6 Implementation contract
 
 ```text
 Input:
-  Worldbuilding SourceArtifact(s), explicit profile ID/version, source spans,
-  configured model policy, and fixture/pilot controls.
+  exact worldbuilding SourceArtifact revision(s) + canonical source spans +
+  profile ID/version + model-policy-resolved client + trial cohort controls.
 
 Output:
-  Bounded candidate graph/run artifacts plus an aggregate three-trial report
-  stating accepted/rejected/deferred profile behavior.
+  exact ExtractionRuns/candidate graphs governed by the profile plus a redacted
+  aggregate report with manual accept/reject/defer decisions.
 
 Invariant:
-  Profile emits only declared bounded categories, preserves source evidence,
-  keeps session scope null, and never promotes pilot output automatically.
+  only declared categories/passes/templates/schemas execute; session remains
+  null; every candidate has evidence; no trial publishes automatically.
 
 Failure behavior:
-  Unsupported category → omit or mark unresolved under explicit policy; never
-  silently invent a category.
-  Missing source evidence → candidate is non-reviewable.
-  Profile/version mismatch → fail before extraction.
-  LLM refusal/incomplete/schema failure → failed trial/run, not empty success.
-  Payload/report hygiene violation → stop and remove/redact before handback.
+  unknown/mixed profile version → fail before model call/cohort aggregation
+  inadmissible source → fail admission
+  excluded category → omit or explicit unresolved/deferred policy, never invent type
+  missing evidence → candidate/run non-reviewable
+  refusal/incomplete/schema/validation → failed trial, not empty success
+  raw payload/source leak → block handback and redact/remove
 
 Replay / idempotency:
-  same source/profile/model policy → distinct trial IDs but comparable input;
-  changed profile/source digest → new trial cohort;
-  three trials report aggregate metrics, not raw payload;
-  pilot results never mutate durable graph without explicit Graph Review action.
+  same source digest + profile/version + model policy → comparable cohort inputs
+  each trial has distinct exact run/trial ID
+  changed source/profile/model policy → new cohort
+  report regenerates from local manifests/metrics, not copied raw payloads
+  promotion occurs only through exact Graph Review action
 
 Trust boundary:
-  Verifies: category bounds, profile version, source/session scope, evidence,
-  structured output, trial manifest, and redaction.
-  Records or trusts without proving: semantic truth until GM review.
+  Verifies profile/version/admission, executable prompt/schema selection,
+  category bounds, source/null-session/evidence rules, trial comparability,
+  redaction, and absence of auto-promotion. Human review judges truth.
 ```
 
-### State and fallback matrix
+### §6A State/fallback matrix
 
-| Path | Loading | Success | Miss | Dependency unavailable | Integrity failure | Stale | Retry |
-|---|---|---|---|---|---|---|---|
-| Profile load | Load explicit version | Use exact profile | Unknown profile fails | Stable dependency error | Invalid profile fails | Version mismatch fails | Re-run exact profile |
-| Trial | Record running state | Persist candidate/run result | Empty source is explicit | Retryable failed trial | Schema/evidence failure | Source digest mismatch | New trial ID |
-| Aggregate report | Await all required trials | Report aggregate metrics | Incomplete cohort is not ready | Mark blocked | Redaction failure blocks report | Profile changed starts new cohort | Repeat cohort |
-| Promotion | No automatic action | Graph Review only | No selected candidates is no-op | N/A | Candidate remains unreviewable | Proposal stale | Existing confirm flow |
+| Path | Success | Miss | Unavailable | Integrity failure | Stale | Retry |
+|---|---|---|---|---|---|---|
+| Profile load | exact version | unknown fails | stable error | invalid policy fails | mismatch starts new cohort | exact profile only |
+| Source admission | exact artifact revision | missing/invalid source | stable error | digest/scope fail | changed source starts new cohort | exact source |
+| Trial | candidate or explicit zero result | empty source invalid | failed exact run | refusal/schema/evidence fail | profile/source mismatch | new trial ID |
+| Aggregate | all required comparable trials | incomplete cohort blocked | blocked report | redaction/metadata fail | changed policy invalidates cohort | rerun cohort |
+| Review | exact proposed run | no selected assertion no-op | review unavailable | invalid evidence blocks | stale proposal rejects | existing Graph Review flow |
 
-### Identity matrix
+### §6B Identity matrix
 
-| Situation | Required rule | Ambiguity behavior | Fallback |
+| Situation | Required rule | Ambiguity | Fallback |
 |---|---|---|---|
-| Profile | Stable ID + version | Unknown/mixed version fails cohort | No default profile |
-| Source | Exact artifact/digest | Duplicate source copy is flagged | No path-label identity |
-| Trial | Unique trial ID with shared cohort metadata | Missing trial metadata invalidates report | No anonymous trial |
-| Candidate | Stable assertion/source span IDs | Ambiguous identity remains unresolved | No first-win merge |
-| Session scope | Always null for evergreen source | Any fabricated session fails acceptance | No synthetic session |
+| Profile | exact ID/version | mixed/unknown invalid | no default recap profile |
+| Source | exact artifact/revision/digest | duplicates flagged by registry | no path/title identity |
+| Trial/cohort | unique trial IDs + shared cohort metadata | missing metadata invalidates report | no anonymous trial |
+| Candidate | stable assertion + source span IDs | unresolved identity remains unresolved | no first-win merge |
+| Session | null for evergreen sources | any fabricated value fails | none |
 
-### Persistence and replay matrix
+### §6C Persistence/replay matrix
 
-| Operation | Durable representation | Round-trip guarantee | Duplicate/replay | Compatibility | Rollback |
+| Operation | Durable representation | Round trip | Replay | Compatibility | Reversion |
 |---|---|---|---|---|---|
-| Profile | Versioned code/config contract | Same version reloads same bounds | New version creates new cohort | Recap profile unchanged | Revert profile |
-| Trial | Local run manifest/output | Inputs and model policy recorded | Repeat gets distinct trial ID | No graph truth claim | Delete local payload only |
-| Report | Redacted aggregate Markdown | No raw corpus/LLM payload | Regenerate from local artifacts | Not gold | Correct report or withdraw |
+| Profile | versioned production code/config | exact executable policy | new version new cohort | recap profile unchanged | revert profile |
+| Trial | canonical run manifest + local payloads | exact source/profile/model/trial | distinct IDs | runtime unchanged | delete local payload only |
+| Report | redacted aggregate Markdown | regenerate from metrics/manifests | cohort-specific | not gold/canon | correct or withdraw |
+| Promotion | existing Graph Review contribution | exact selected assertions | existing receipt semantics | same publication path | existing graph lifecycle |
 
-### Predecessor-to-consumer mapping
+### §6D Predecessor mapping
 
 | Predecessor | Consumer | Transformation | Proof |
 |---|---|---|---|
-| Generic extraction options | Worldbuilding profile | Select explicit bounded categories and null scope | Profile tests |
-| Source spans | Candidate assertions | Preserve paragraph evidence | Pipeline tests |
-| Run registry | Pilot runner | Record exact source/profile/trial IDs | Pilot tests |
-| Graph Review | Promotion decision | Keep pilot output proposed until explicit selection | Report + boundary inspection |
+| BLD-04 profile protocol | worldbuilding profile | supply exact passes/templates/schema/vocabulary/validation | profile tests |
+| canonical SourceArtifact/spans | runtime | retain null scope and evidence refs | pipeline tests |
+| canonical ExtractionRun | pilot | exact trial/cohort metadata | pilot/report |
+| Graph Review | manual decision | keep all outputs proposed until explicit confirmation | integration evidence |
 
-## §7 Verification ownership map and commands
+## §7 Verification ownership and commands
 
-| Guarantee | Owning boundary | Command | Expected evidence |
-|---|---|---|---|
-| Profile categories are bounded | Profile contract | `uv run pytest tests/test_worldbuilding_extraction_profile.py` | Allowed/forbidden category cases |
-| Null session and source evidence hold | Pipeline | `uv run pytest tests/test_worldbuilding_profile_pipeline.py` | Candidate anchors and null scope |
-| Three trials are comparable and redacted | Pilot/report | `uv run python evals/graph_memory_layer/worldbuilding_profile_pilot.py --trials 3` | Local aggregate artifact; no payload in report |
-| No automatic promotion | Review boundary/diff | Report and diff inspection | No commit call |
-| No scope creep | Git | `git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD` | Only §4 paths |
+| Guarantee | Boundary | Command |
+|---|---|---|
+| executable profile/version/category bounds | profile | `uv run pytest tests/test_worldbuilding_extraction_profile.py` |
+| null session/evidence/source-to-candidate behavior | production pipeline | `uv run pytest tests/test_worldbuilding_profile_pipeline.py` |
+| comparable three-trial cohort and redacted aggregation | pilot/report | exact pilot command below |
+| no automatic publication | Graph Review/diff | inspect run/report and changed paths |
+| no generic runtime redesign | diff/import inspection | changed-path checks |
 
 ```bash
 uv run pytest tests/test_worldbuilding_extraction_profile.py \
@@ -184,53 +258,36 @@ git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD
 ### Minimal live proof
 
 ```text
-Existing surface used: local graph extraction/pilot runner and Graph Review
-Smallest scenario: run the same bounded source/profile three times, aggregate
-candidate category/evidence outcomes, and review without auto-commit
-Expected observation: stable evidence/null session; bounded category behavior
-Evidence captured: local run IDs and redacted aggregate report only
+Existing boundaries: production extraction runtime and Graph Review
+Scenario: run one exact bounded source/profile cohort three times; inspect
+location/faction/NPC/creature/institution candidates, excluded incidental items,
+evidence/null session, failures, and one manual Graph Review selection.
+Expected: profile behavior is bounded and inspectable; candidates remain proposed;
+report contains aggregate metrics/run IDs and no raw payload/source prose.
 ```
 
 ## §8 Required handback
 
-1. Base and head SHA.
-2. Focused diff stat limited to §4.
-3. Exact result of every §7 command.
-4. Provenance for each result.
-5. Three-trial aggregate and redaction evidence.
-6. Base/head comparison for baseline failures.
-7. Operator waivers; `none` if none.
-8. Paths outside §4; `none` or stop report.
-9. Stop conditions; `none` if none.
-10. Confirmation that BLD-09 owns PDF/OCR.
-11. Confirmation that no prompt file, corpus canon, gold, or graph head changed.
+Record SHAs, actual paths/discovery, all commands and provenance, exact source
+artifact/profile/model/cohort IDs, aggregate metrics, manual accepted/rejected/
+deferred rationale, redaction inspection, baseline failures, waivers, stop
+conditions, and confirmation that no generic runtime, corpus, gold, or graph-head
+change was smuggled into the pilot.
 
 ## §9 Acceptance rubric
 
-- [ ] Profile is explicit, versioned, and bounded — proved by profile tests.
-- [ ] Location/faction/NPC/creature/institution coverage is fixture-tested — proved by pipeline tests.
-- [ ] Evergreen candidates retain null session and source evidence — proved by pipeline tests.
-- [ ] Pilot runs at least three trials and reports aggregate outcomes — proved by pilot command/report.
-- [ ] Raw corpus/LLM payloads remain local and redacted — proved by report/diff inspection.
-- [ ] No automatic graph promotion occurs — proved by review boundary inspection.
-- [ ] No path outside §4 changed — proved by changed-path command.
-- [ ] BLD-09 remains unimplemented and unclaimed.
+- [ ] Profile ID/version and executable pass/prompt/schema/vocabulary/validation policy are explicit.
+- [ ] Included and excluded category behavior is fixture-tested.
+- [ ] Evergreen candidates retain null session and canonical source evidence.
+- [ ] Relationship candidates use exact endpoints/predicates/evidence and unresolved identity stays unresolved.
+- [ ] At least three comparable trials produce a redacted aggregate decision report.
+- [ ] Refusal/incomplete/schema/validation failures are counted as failures, not empty success.
+- [ ] No automatic promotion, corpus rewrite, gold promotion, or generic runtime redesign occurred.
+- [ ] Only §4 and approved discovery paths changed.
 
 ## Stop conditions
 
-Stop and report if:
-
-- prompt changes are required to achieve profile behavior;
-- profile bounds cannot prevent category/ecology explosion;
-- a pilot requires modifying corpus canon or eval gold;
-- source evidence or null session scope cannot survive extraction;
-- three trials cannot be made comparable under one profile/version.
-
-```text
-Stop condition:
-Why the current mission cannot absorb it:
-New contract discovered:
-Affected paths:
-Proposed successor slice:
-Authority update needed:
-```
+Stop if BLD-04’s profile seam cannot express executable worldbuilding policy,
+category bounds cannot prevent explosion, source evidence/null session cannot
+survive, a pilot requires corpus/gold mutation, identity semantics must change,
+or comparable trials cannot be defined under one source/profile/model cohort.
