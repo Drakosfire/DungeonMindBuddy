@@ -1,10 +1,13 @@
 """Buddy-local candidate generation workflow models."""
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
+    GeneratedStatblockCandidateV1,
+)
 from apps.live_control_server.models.threat_draft import ThreatDraftCandidateRefV1
 
 
@@ -27,10 +30,12 @@ class GenerateThreatDraftCandidateResponseV1(StrictModel):
     request_id: str
     outcome: Literal["success", "failure"]
     candidate_ref: ThreatDraftCandidateRefV1 | None = None
-    candidate: dict[str, Any] | None = None
+    candidate: GeneratedStatblockCandidateV1 | None = None
     failure_category: str | None = None
     failure_message: str | None = None
-    cache_status: Literal["stored", "missing", "partial"] | None = None
+    cache_status: (
+        Literal["stored", "missing", "partial_cache", "partial_ref", "reconciled"] | None
+    ) = None
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -41,8 +46,8 @@ class ReadStatblockCandidateResponseV1(StrictModel):
         alias="schema",
     )
     candidate_id: str
-    status: Literal["active", "expired", "unavailable"]
-    candidate: dict[str, Any] | None = None
+    status: Literal["active", "expired", "unavailable", "missing"]
+    candidate: GeneratedStatblockCandidateV1 | None = None
     failure_category: str | None = None
     failure_message: str | None = None
 

@@ -152,6 +152,20 @@ def downstream_not_found(
     )
 
 
+def downstream_expired(
+    message: str = "DungeonMind statblock resource expired",
+    *,
+    status_code: int = 410,
+    error_code: str | None = None,
+) -> StatblockIntegrationError:
+    return StatblockIntegrationError(
+        category="downstream_expired",
+        message=message,
+        status_code=status_code,
+        error_code=error_code,
+    )
+
+
 def downstream_conflict(
     message: str,
     *,

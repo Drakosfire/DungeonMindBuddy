@@ -22,6 +22,7 @@ _MAX_LIST_ELEMENT = 500
 
 DEFAULT_LIST_LIMIT = 50
 MAX_LIST_LIMIT = 100
+MAX_CANDIDATE_REFS = _MAX_LIST
 
 
 class StrictModel(BaseModel):
@@ -110,17 +111,17 @@ class FocusV1(StrictModel):
 
 
 class ThreatDraftCandidateRefV1(StrictModel):
-    candidate_id: str
+    candidate_id: str = Field(pattern=r"^cand_[a-z0-9]+$")
     generated_from_draft_version: int = Field(ge=1)
-    request_id: str
-    created_at: str
-    expires_at: str | None = None
+    request_id: str = Field(min_length=1, max_length=128)
+    created_at: str = Field(min_length=1, max_length=64)
+    expires_at: str | None = Field(default=None, max_length=64)
     status: Literal["active", "superseded", "rejected", "expired", "accepted_source"] = "active"
 
-    @field_validator("candidate_id", "request_id")
+    @field_validator("request_id")
     @classmethod
-    def _ids(cls, value: str) -> str:
-        return _require_id(value, label="candidate ref id")
+    def _request_id(cls, value: str) -> str:
+        return _require_id(value, label="request_id")
 
 
 class ThreatDraftV1(StrictModel):

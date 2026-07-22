@@ -20,6 +20,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.errors import 
     StatblockIntegrationError,
     downstream_authentication_failed,
     downstream_conflict,
+    downstream_expired,
     downstream_invalid_request,
     downstream_not_found,
     downstream_rate_limited,
@@ -35,6 +36,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.errors import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
     ErrorEnvelopeV1,
     ExactRevisionResourceV1,
+    GeneratedStatblockCandidateV1,
     HealthResponseV1,
     ReadinessResponseV1,
     StrictModel,
@@ -55,9 +57,9 @@ class StatblockV1Client(Protocol):
         self, statblock_id: str, revision_id: str
     ) -> ExactRevisionResourceV1: ...
 
-    def generate_candidate(self, body: dict[str, Any]) -> dict[str, Any]: ...
+    def generate_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1: ...
 
-    def get_candidate(self, candidate_id: str) -> dict[str, Any]: ...
+    def get_candidate(self, candidate_id: str) -> GeneratedStatblockCandidateV1: ...
 
 
 class DungeonMindStatblockV1Client:
@@ -156,18 +158,24 @@ class DungeonMindStatblockV1Client:
             )
         return revision
 
-    def generate_candidate(self, body: dict[str, Any]) -> dict[str, Any]:
-        """SBW03: POST candidate generation; transport returns the Server JSON object."""
+    def generate_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1:
+        """SBW03: POST candidate generation; enforce published candidate identity."""
         payload = self._request_json(
             "POST",
             f"{API_PREFIX}/statblock-candidates:generate",
             json_body=body,
         )
-        if not isinstance(payload, dict):
-            raise downstream_unexpected("generate candidate response must be an object")
-        return payload
+        candidate = self._parse_model(GeneratedStatblockCandidateV1, payload)
+        request_id = body.get("request_id")
+        if not isinstance(request_id, str) or not request_id.strip():
+            raise downstream_unexpected("generate request missing request_id")
+        if candidate.generation_receipt.request_id != request_id:
+            raise downstream_unexpected(
+                "candidate generation_receipt.request_id does not match request"
+            )
+        return candidate
 
-    def get_candidate(self, candidate_id: str) -> dict[str, Any]:
+    def get_candidate(self, candidate_id: str) -> GeneratedStatblockCandidateV1:
         """SBW03: GET candidate by published `cand_*` identity."""
         try:
             safe_candidate_id = validate_candidate_id(candidate_id)
@@ -177,9 +185,12 @@ class DungeonMindStatblockV1Client:
             "GET",
             f"{API_PREFIX}/statblock-candidates/{safe_candidate_id}",
         )
-        if not isinstance(payload, dict):
-            raise downstream_unexpected("candidate response must be an object")
-        return payload
+        candidate = self._parse_model(GeneratedStatblockCandidateV1, payload)
+        if candidate.candidate_id != safe_candidate_id:
+            raise downstream_unexpected(
+                "candidate response identity does not match request"
+            )
+        return candidate
 
     def _ensure_ready(self) -> None:
         if not self._config.enabled:
@@ -303,6 +314,11 @@ class DungeonMindStatblockV1Client:
             code, message, details = self._safe_error_parts(body)
             return downstream_not_found(
                 message or "not found", status_code=status, error_code=code
+            )
+        if status == 410:
+            code, message, details = self._safe_error_parts(body)
+            return downstream_expired(
+                message or "expired", status_code=status, error_code=code
             )
         if status == 409:
             code, message, details = self._safe_error_parts(body)

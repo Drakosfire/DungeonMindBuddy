@@ -10,6 +10,7 @@ from typing import Iterator, Literal
 
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
+    MAX_CANDIDATE_REFS,
     MAX_LIST_LIMIT,
     CreateThreatDraftRequest,
     ThreatDraftCandidateRefV1,
@@ -343,6 +344,12 @@ def append_candidate_ref(
     Authored concept fields and draft version are unchanged; only candidate_refs,
     optional workflow_state, and updated_at may change.
     """
+    if candidate_ref.generated_from_draft_version != expected_version:
+        raise ThreatDraftStoreError(
+            "candidate ref source version mismatch",
+            status_code=422,
+        )
+
     with _store_lock(root):
         committed_id = _require_committed_draft_id(root, draft_id)
         current = _load_draft_unlocked(root, committed_id)
@@ -351,16 +358,36 @@ def append_candidate_ref(
                 "expected_version mismatch",
                 status_code=409,
             )
-        existing_ids = {ref.candidate_id for ref in current.candidate_refs}
+
         refs = list(current.candidate_refs)
-        if candidate_ref.candidate_id not in existing_ids:
-            refs.append(candidate_ref)
+        existing = next(
+            (ref for ref in refs if ref.candidate_id == candidate_ref.candidate_id),
+            None,
+        )
+        if existing is not None:
+            if existing.model_dump(mode="json") != candidate_ref.model_dump(mode="json"):
+                raise ThreatDraftStoreError(
+                    "candidate ref identity conflict",
+                    status_code=409,
+                )
+            return current
+
+        if len(refs) >= MAX_CANDIDATE_REFS:
+            raise ThreatDraftStoreError(
+                "candidate_refs limit exceeded",
+                status_code=422,
+            )
+        refs.append(candidate_ref)
         updates: dict = {
             "candidate_refs": refs,
             "updated_at": _utc_now_iso(),
         }
         if workflow_state is not None:
             updates["workflow_state"] = workflow_state
-        updated = current.model_copy(update=updates)
+        # Validate the full record before write so an over-limit or invalid
+        # payload cannot be persisted and fail on reload.
+        updated = ThreatDraftV1.model_validate(
+            current.model_copy(update=updates).model_dump(mode="json", by_alias=True)
+        )
         _save_draft_unlocked(root, updated, as_draft_id=committed_id)
         return updated
