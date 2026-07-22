@@ -115,7 +115,7 @@ Required report: explain why no handwritten canonical mechanics type was introdu
 | accept button that commits mechanics | `SBW07` |
 | World Graph files | `SBW08–09` |
 | accepted Threat Sheet | `SBW10` |
-| Markdown/Tiptap embed | `SBW11` |
+| Markdown/Tiptap embed | `SBW12` |
 | combat/media | later slices |
 | local challenge-rating/balance validator | Server owns validation |
 | generic JSON Patch endpoint | would create ambiguous partial mechanics semantics |
