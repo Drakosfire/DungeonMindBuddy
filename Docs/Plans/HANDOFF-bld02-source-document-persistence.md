@@ -110,11 +110,13 @@ paths as identity, or if Plan/runbook behavior cannot remain compatible.
 | Modify | `apps/live-control-ui/src/api/types.ts` | Typed worldbuilding workspace metadata and request/response contracts |
 | Modify | `apps/live-control-ui/src/api/liveApi.ts` | Existing workspace API client support for the new kind and lifecycle |
 | Modify | `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts` | Surface conversion diagnostics and commit-blocking state |
+| Modify | `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.test.ts` | Advisory vs worldbuilding_lossless commit-policy proof |
 | Modify | `apps/live_control_server/services/workspace_document_registry.py` | Extend discriminator and validate source metadata without a second registry |
 | Modify | `apps/live_control_server/routes/workspace_documents.py` | HTTP contract for worldbuilding workspace records |
 | Modify | `apps/live_control_server/services/tiptap_markdown_write.py` | Registry-owned worldbuilding target policy and safe two-phase writes |
 | Modify | `tests/test_workspace_document_registry.py` | Worldbuilding UUID, metadata, lifecycle, CAS, and compatibility proof |
 | Create | `tests/test_tiptap_markdown_write.py` | Target, revision, diagnostic, prepare, and commit proof |
+| Modify | `tests/test_live_tiptap_markdown_write.py` | Predecessor plan/runbook writer compatibility proof |
 | Create | `apps/live-control-ui/src/api/liveApi.test.ts` | Client contract and error-mapping proof |
 
 **Bounded discovery exception:** Not applicable — every expected path is listed.

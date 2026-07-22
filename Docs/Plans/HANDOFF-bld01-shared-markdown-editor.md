@@ -71,6 +71,7 @@ report the mapping before changing it.
 | Create | `apps/live-control-ui/src/tiptap/MarkdownEditorCore.test.tsx` | Core lifecycle and tool injection proof |
 | Create | `apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.test.ts` | Round-trip and diagnostic proof |
 | Modify | `apps/live-control-ui/src/tiptap/TiptapCalloutBridgeSpike.tsx` | Consume shared editor while preserving spike behavior |
+| Modify | `apps/live-control-ui/src/tiptap/TiptapCalloutBridgeSpike.test.tsx` | Consumer proof for first edit after mount/reset/import |
 | Modify | `apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx` | Consume shared editor while preserving Plan behavior |
 
 **Bounded discovery exception:** Not applicable — every expected path is
