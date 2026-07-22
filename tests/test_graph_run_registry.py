@@ -480,3 +480,197 @@ def test_malformed_registry_fails_closed_on_load(tmp_path: Path) -> None:
     runs_path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(GraphRunRegistryError, match="malformed"):
         get_extraction_run(tmp_path, payload["records"][0]["run_id"])
+
+
+def _advance_to_reviewable(tmp_path: Path, run, components):
+    current = run
+    for status in (
+        ExtractionRunStatus.PREPARED,
+        ExtractionRunStatus.EXTRACTED,
+        ExtractionRunStatus.VALIDATED,
+        ExtractionRunStatus.REVIEWABLE,
+    ):
+        current = update_extraction_run_status(
+            tmp_path,
+            current.run_id,
+            status=status,
+            expected_revision=current.revision,
+            components=components if status == ExtractionRunStatus.PREPARED else None,
+        )
+    return current
+
+
+def test_concurrent_updates_with_same_expected_revision(tmp_path: Path) -> None:
+    import threading
+
+    record, _digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+    )
+    barrier = threading.Barrier(2)
+    results: list[object] = []
+
+    def worker(profile_id: str) -> None:
+        barrier.wait()
+        try:
+            updated = update_extraction_run_status(
+                tmp_path,
+                run.run_id,
+                status=ExtractionRunStatus.PREPARED,
+                expected_revision=run.revision,
+                components={
+                    "candidate_graph": ExtractionRunComponentRef(
+                        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+                        uri=f"repo://out/registries/{profile_id}.json",
+                        sha256="a" * 64,
+                    )
+                },
+            )
+            results.append(updated)
+        except GraphRunRegistryError as exc:
+            results.append(exc)
+
+    threads = [
+        threading.Thread(target=worker, args=("alpha",)),
+        threading.Thread(target=worker, args=("beta",)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    successes = [item for item in results if not isinstance(item, Exception)]
+    failures = [item for item in results if isinstance(item, Exception)]
+    assert len(successes) == 1
+    assert len(failures) == 1
+    assert failures[0].status_code == 409
+    assert "revision mismatch" in str(failures[0]) or "concurrently" in str(failures[0])
+    loaded = get_extraction_run(tmp_path, run.run_id)
+    assert loaded.revision == run.revision + 1
+    assert loaded.status == ExtractionRunStatus.PREPARED
+
+
+def test_supersede_save_failure_leaves_predecessor_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record, _digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+    )
+    prepared = update_extraction_run_status(
+        tmp_path,
+        run.run_id,
+        status=ExtractionRunStatus.PREPARED,
+        expected_revision=run.revision,
+    )
+
+    def boom_write_json(_path: Path, _data: object) -> None:
+        raise OSError("simulated registry save failure")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_run_registry.write_json",
+        boom_write_json,
+    )
+    with pytest.raises(OSError, match="simulated registry save failure"):
+        supersede_extraction_run(
+            tmp_path,
+            prepared.run_id,
+            expected_revision=prepared.revision,
+        )
+
+    monkeypatch.undo()
+    predecessor = get_extraction_run(tmp_path, prepared.run_id)
+    assert predecessor.status == ExtractionRunStatus.PREPARED
+    assert predecessor.superseded_by_run_id is None
+    assert predecessor.revision == prepared.revision
+    runs_path = tmp_path / "out/registries/extraction_runs.json"
+    payload = json.loads(runs_path.read_text(encoding="utf-8"))
+    assert len(payload["records"]) == 1
+    assert payload["records"][0]["run_id"] == prepared.run_id
+
+
+def test_promoted_run_integrity_checked_on_load(tmp_path: Path) -> None:
+    record, _digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    components = _reviewable_components(tmp_path, artifact)
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+        components=components,
+    )
+    reviewable = _advance_to_reviewable(tmp_path, run, components)
+    promoted = update_extraction_run_status(
+        tmp_path,
+        reviewable.run_id,
+        status=ExtractionRunStatus.PROMOTED,
+        expected_revision=reviewable.revision,
+    )
+    assert get_extraction_run(tmp_path, promoted.run_id).status == ExtractionRunStatus.PROMOTED
+
+    graph_path = tmp_path / components["candidate_graph"].uri.removeprefix("repo://")
+    graph_path.write_text(json.dumps({"nodes": [{"id": "tampered"}]}), encoding="utf-8")
+    with pytest.raises(GraphRunRegistryError, match="integrity|digest mismatch"):
+        get_extraction_run(tmp_path, promoted.run_id)
+
+
+def test_whitespace_contaminated_component_uri_is_rejected(tmp_path: Path) -> None:
+    record, _digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    components = _reviewable_components(tmp_path, artifact)
+    components["candidate_graph"] = components["candidate_graph"].model_copy(
+        update={"uri": " repo://out/registries/test_candidate_graph.json "}
+    )
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+        components=components,
+    )
+    prepared = update_extraction_run_status(
+        tmp_path,
+        run.run_id,
+        status=ExtractionRunStatus.PREPARED,
+        expected_revision=run.revision,
+    )
+    extracted = update_extraction_run_status(
+        tmp_path,
+        prepared.run_id,
+        status=ExtractionRunStatus.EXTRACTED,
+        expected_revision=prepared.revision,
+    )
+    validated = update_extraction_run_status(
+        tmp_path,
+        extracted.run_id,
+        status=ExtractionRunStatus.VALIDATED,
+        expected_revision=extracted.revision,
+    )
+    with pytest.raises(GraphRunRegistryError, match="unsafe component uri"):
+        update_extraction_run_status(
+            tmp_path,
+            validated.run_id,
+            status=ExtractionRunStatus.REVIEWABLE,
+            expected_revision=validated.revision,
+        )

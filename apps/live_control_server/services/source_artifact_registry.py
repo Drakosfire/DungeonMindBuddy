@@ -33,6 +33,10 @@ from graph_memory.source_span import (
     validate_source_span_index,
     resolve_source_span_ref,
 )
+from apps.live_control_server.services.registry_file_lock import (
+    registry_mutation_lock,
+    registry_token,
+)
 from src.live_play.live_store import load_json, write_json
 
 DEFAULT_SOURCE_ARTIFACT_REGISTRY_REL = "out/registries/source_artifacts.json"
@@ -106,10 +110,11 @@ def _validate_registry_records(records: list[GraphMemorySourceArtifact]) -> None
         seen.add(record.source_artifact_id)
 
 
-def _load(root: Path) -> SourceArtifactRegistryDocument:
+def _load_unlocked(root: Path) -> tuple[SourceArtifactRegistryDocument, str]:
     path = source_artifacts_path(root)
+    token = registry_token(path)
     if not path.is_file():
-        return SourceArtifactRegistryDocument()
+        return SourceArtifactRegistryDocument(), token
     try:
         document = SourceArtifactRegistryDocument.model_validate(load_json(path))
     except (ValidationError, TypeError, ValueError) as exc:
@@ -118,13 +123,29 @@ def _load(root: Path) -> SourceArtifactRegistryDocument:
             status_code=500,
         ) from exc
     _validate_registry_records(document.records)
+    return document, token
+
+
+def _load(root: Path) -> SourceArtifactRegistryDocument:
+    document, _token = _load_unlocked(root)
     return document
 
 
-def _save(root: Path, document: SourceArtifactRegistryDocument) -> None:
+def _save_cas(
+    root: Path,
+    document: SourceArtifactRegistryDocument,
+    *,
+    expected_token: str,
+) -> None:
     _validate_registry_records(document.records)
     path = source_artifacts_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
+    current = registry_token(path)
+    if current != expected_token:
+        raise SourceArtifactRegistryError(
+            "source artifact registry changed concurrently",
+            status_code=409,
+        )
     write_json(path, document.model_dump(mode="json"))
 
 
@@ -350,35 +371,37 @@ def create_source_artifact_from_workspace_document(
         updated_at=now,
     )
 
-    document = _load(root)
-    existing = next(
-        (row for row in document.records if row.source_artifact_id == source_artifact_id),
-        None,
-    )
-    if existing is not None:
-        if not _records_match(existing, candidate):
-            raise SourceArtifactRegistryError(
-                "source artifact id collision with mismatched digest or foreign keys",
-                status_code=409,
-            )
-        try:
-            load_source_span_index(root, existing.source_artifact_id)
-        except SourceArtifactRegistryError:
-            index = build_source_span_index_for_text(
-                source_artifact_id=existing.source_artifact_id,
-                content_sha256=existing.content_sha256 or content_sha256,
-                text=content,
-            )
-            _persist_span_index(root, index)
-        return existing
+    path = source_artifacts_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        existing = next(
+            (row for row in document.records if row.source_artifact_id == source_artifact_id),
+            None,
+        )
+        if existing is not None:
+            if not _records_match(existing, candidate):
+                raise SourceArtifactRegistryError(
+                    "source artifact id collision with mismatched digest or foreign keys",
+                    status_code=409,
+                )
+            try:
+                load_source_span_index(root, existing.source_artifact_id)
+            except SourceArtifactRegistryError:
+                index = build_source_span_index_for_text(
+                    source_artifact_id=existing.source_artifact_id,
+                    content_sha256=existing.content_sha256 or content_sha256,
+                    text=content,
+                )
+                _persist_span_index(root, index)
+            return existing
 
-    index = build_source_span_index_for_text(
-        source_artifact_id=source_artifact_id,
-        content_sha256=content_sha256,
-        text=content,
-    )
-    _persist_span_index(root, index)
+        index = build_source_span_index_for_text(
+            source_artifact_id=source_artifact_id,
+            content_sha256=content_sha256,
+            text=content,
+        )
+        _persist_span_index(root, index)
 
-    document.records.append(candidate)
-    _save(root, document)
-    return candidate
+        document.records.append(candidate)
+        _save_cas(root, document, expected_token=token)
+        return candidate

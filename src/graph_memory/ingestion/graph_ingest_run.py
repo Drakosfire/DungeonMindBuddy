@@ -194,11 +194,11 @@ def adapt_recap_manifest_to_extraction_run(manifest: GraphIngestRunManifest):
         GraphIngestArtifactKind.PASS_TELEMETRY: ExtractionRunComponentKind.PASS_TELEMETRY,
         GraphIngestArtifactKind.PROVENANCE_INDEX: ExtractionRunComponentKind.PROVENANCE_INDEX,
     }
-    for key, artifact in manifest.artifacts.items():
+    for _key, artifact in manifest.artifacts.items():
         mapped = kind_map.get(artifact.kind)
         if mapped is None:
             continue
-        components[key] = ExtractionRunComponentRef(
+        components[mapped.value] = ExtractionRunComponentRef(
             kind=mapped,
             uri=artifact.uri,
             sha256=artifact.sha256,

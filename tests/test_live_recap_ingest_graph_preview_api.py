@@ -518,9 +518,19 @@ def test_real_recap_manifest_adapts_to_extraction_run(
     }
     assert source_component.sha256 == manifest.source.normalized_recap_sha256
 
+    kind_keys = {
+        "source_span_index",
+        "candidate_graph",
+        "validation_report",
+        "pass_telemetry",
+        "provenance_index",
+    }
     for key, artifact in manifest.artifacts.items():
-        if key not in run.components:
+        if key not in kind_keys and artifact.kind.value not in kind_keys:
             continue
-        mapped = run.components[key]
+        mapped_key = artifact.kind.value if artifact.kind.value in run.components else key
+        if mapped_key not in run.components:
+            continue
+        mapped = run.components[mapped_key]
         assert mapped.uri == artifact.uri
         assert mapped.sha256 == artifact.sha256

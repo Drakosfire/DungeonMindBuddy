@@ -155,9 +155,8 @@ class ExtractionRun(BaseModel):
 
     def has_required_review_components(self) -> bool:
         """Shape check only: required kinds present with uri + digest claims."""
-        by_kind = {component.kind.value: component for component in self.components.values()}
         for kind in REQUIRED_REVIEWABLE_COMPONENT_KINDS:
-            component = by_kind.get(kind)
+            component = self.components.get(kind)
             if component is None:
                 return False
             if not component.uri.strip():
@@ -188,8 +187,19 @@ def validate_extraction_run_record(run: ExtractionRun) -> None:
         raise ValueError("worldbuilding extraction runs must not fabricate session_id")
     if run.source_domain == "recap" and (not run.campaign_id or not run.session_id):
         raise ValueError("recap extraction runs require campaign_id and session_id")
+    seen_kinds: set[ExtractionRunComponentKind] = set()
+    for key, component in run.components.items():
+        if key != component.kind.value:
+            raise ValueError(
+                f"component key must equal kind: {key!r} != {component.kind.value!r}"
+            )
+        if component.kind in seen_kinds:
+            raise ValueError(f"duplicate component kind: {component.kind.value}")
+        seen_kinds.add(component.kind)
     if run.status == ExtractionRunStatus.REVIEWABLE and not run.has_required_review_components():
         raise ValueError("incomplete ExtractionRun cannot be reviewable")
+    if run.status == ExtractionRunStatus.PROMOTED and not run.has_required_review_components():
+        raise ValueError("promoted ExtractionRun requires the complete review bundle")
     if run.status == ExtractionRunStatus.SUPERSEDED and not run.superseded_by_run_id:
         raise ValueError("superseded runs require superseded_by_run_id")
 

@@ -44,12 +44,12 @@ def test_reviewable_requires_core_components_with_digests() -> None:
                 uri="repo://x.md",
                 sha256="a" * 64,
             ),
-            "spans": ExtractionRunComponentRef(
+            "source_span_index": ExtractionRunComponentRef(
                 kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
                 uri="repo://spans.json",
                 sha256="b" * 64,
             ),
-            "graph": ExtractionRunComponentRef(
+            "candidate_graph": ExtractionRunComponentRef(
                 kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
                 uri="repo://graph.json",
                 sha256="c" * 64,
@@ -72,12 +72,12 @@ def test_exists_flag_alone_is_not_sufficient_for_reviewable_shape() -> None:
                 uri="repo://x.md",
                 exists=True,
             ),
-            "spans": ExtractionRunComponentRef(
+            "source_span_index": ExtractionRunComponentRef(
                 kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
                 uri="repo://spans.json",
                 exists=True,
             ),
-            "graph": ExtractionRunComponentRef(
+            "candidate_graph": ExtractionRunComponentRef(
                 kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
                 uri="repo://graph.json",
                 exists=True,
@@ -85,6 +85,45 @@ def test_exists_flag_alone_is_not_sufficient_for_reviewable_shape() -> None:
         },
     )
     assert run.has_required_review_components() is False
+
+
+def test_duplicate_component_kinds_are_rejected() -> None:
+    with pytest.raises(ValidationError, match="component key must equal kind|duplicate component kind"):
+        ExtractionRun(
+            run_id="run-1",
+            source_artifact_id="artifact:x",
+            source_domain="worldbuilding",
+            status=ExtractionRunStatus.DRAFT,
+            components={
+                "verified_graph": ExtractionRunComponentRef(
+                    kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+                    uri="repo://verified.json",
+                    sha256="a" * 64,
+                ),
+                "candidate_graph": ExtractionRunComponentRef(
+                    kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+                    uri="repo://unverified.json",
+                    sha256="b" * 64,
+                ),
+            },
+        )
+
+
+def test_non_canonical_component_keys_are_rejected() -> None:
+    with pytest.raises(ValidationError, match="component key must equal kind"):
+        ExtractionRun(
+            run_id="run-1",
+            source_artifact_id="artifact:x",
+            source_domain="worldbuilding",
+            status=ExtractionRunStatus.DRAFT,
+            components={
+                "graph": ExtractionRunComponentRef(
+                    kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+                    uri="repo://graph.json",
+                    sha256="a" * 64,
+                ),
+            },
+        )
 
 
 def test_terminal_transitions_are_rejected() -> None:

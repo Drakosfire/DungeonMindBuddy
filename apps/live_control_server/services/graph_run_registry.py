@@ -9,6 +9,10 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, ValidationError
 
+from apps.live_control_server.services.registry_file_lock import (
+    registry_mutation_lock,
+    registry_token,
+)
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
     get_source_artifact,
@@ -30,6 +34,14 @@ from src.live_play.live_store import load_json, write_json
 
 DEFAULT_EXTRACTION_RUN_REGISTRY_REL = "out/registries/extraction_runs.json"
 EXTRACTION_RUN_REGISTRY_SCHEMA = "dmb_extraction_run_registry_v1"
+
+# Statuses that necessarily originated from a complete reviewable bundle.
+_REVIEW_BUNDLE_STATUSES = frozenset(
+    {
+        ExtractionRunStatus.REVIEWABLE,
+        ExtractionRunStatus.PROMOTED,
+    }
+)
 
 
 class GraphRunRegistryError(ValueError):
@@ -54,14 +66,17 @@ def extraction_runs_path(root: Path) -> Path:
 
 
 def _resolve_repo_contained_uri(root: Path, uri: str) -> Path:
-    value = (uri or "").strip()
-    if not value:
+    raw = uri or ""
+    if not raw:
         raise GraphRunRegistryError("component uri is required", status_code=422)
+    if raw != raw.strip():
+        raise GraphRunRegistryError(f"unsafe component uri: {uri}", status_code=422)
+    value = raw
     if value.startswith("repo://"):
         value = value[len("repo://") :]
     if value.startswith("file:"):
         raise GraphRunRegistryError(f"unsafe component uri: {uri}", status_code=422)
-    if value != value.strip() or "\\" in value:
+    if "\\" in value:
         raise GraphRunRegistryError(f"unsafe component uri: {uri}", status_code=422)
     candidate = Path(value)
     if candidate.is_absolute() or ".." in candidate.parts:
@@ -85,14 +100,11 @@ def _component_by_kind(
     components: dict[str, ExtractionRunComponentRef],
     kind: ExtractionRunComponentKind,
 ) -> ExtractionRunComponentRef | None:
-    for component in components.values():
-        if component.kind == kind:
-            return component
-    return None
+    return components.get(kind.value)
 
 
 def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
-    """Server-side evidence resolution required before REVIEWABLE status."""
+    """Server-side evidence resolution required for reviewable/promoted runs."""
     try:
         artifact = get_source_artifact(root, run.source_artifact_id)
     except SourceArtifactRegistryError as exc:
@@ -154,11 +166,62 @@ def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
     _assert_component_bytes(root, graph_component)
 
 
+def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
+    """Validate any supplied immutable component references present on a run."""
+    artifact: GraphMemorySourceArtifact | None = None
+    for component in run.components.values():
+        if not component.uri.strip() or not (component.sha256 or "").strip():
+            continue
+        if component.kind == ExtractionRunComponentKind.SOURCE_ARTIFACT:
+            if artifact is None:
+                try:
+                    artifact = get_source_artifact(root, run.source_artifact_id)
+                except SourceArtifactRegistryError as exc:
+                    raise GraphRunRegistryError(
+                        f"unknown source_artifact_id: {run.source_artifact_id}",
+                        status_code=422,
+                    ) from exc
+            _assert_component_bytes(
+                root, component, expected_digest=artifact.content_sha256
+            )
+            _assert_source_component_matches_artifact(component, artifact)
+            continue
+        path = _assert_component_bytes(root, component)
+        if component.kind == ExtractionRunComponentKind.SOURCE_SPAN_INDEX:
+            if artifact is None:
+                try:
+                    artifact = get_source_artifact(root, run.source_artifact_id)
+                except SourceArtifactRegistryError as exc:
+                    raise GraphRunRegistryError(
+                        f"unknown source_artifact_id: {run.source_artifact_id}",
+                        status_code=422,
+                    ) from exc
+            try:
+                from graph_memory.source_span import source_span_index_from_dict
+
+                index = source_span_index_from_dict(load_json(path))
+                validate_source_span_index(
+                    index,
+                    source_artifact_id=artifact.source_artifact_id,
+                    content_sha256=artifact.content_sha256 or "",
+                )
+            except (TypeError, ValueError, KeyError) as exc:
+                raise GraphRunRegistryError(
+                    f"source_span_index is not bound to source artifact: {exc}",
+                    status_code=422,
+                ) from exc
+
+
 def _assert_source_component_matches_artifact(
     component: ExtractionRunComponentRef,
     artifact: GraphMemorySourceArtifact,
 ) -> None:
-    uri = component.uri.strip()
+    uri = component.uri
+    if uri != uri.strip():
+        raise GraphRunRegistryError(
+            "source_artifact component uri is whitespace-contaminated",
+            status_code=422,
+        )
     expected = artifact.uri
     if uri.startswith("repo://"):
         if uri != expected:
@@ -214,6 +277,14 @@ def _assert_component_bytes(
     return path
 
 
+def _assert_persisted_run_integrity(root: Path, run: ExtractionRun) -> None:
+    if run.status in _REVIEW_BUNDLE_STATUSES:
+        assert_run_reviewable_evidence(root, run)
+        return
+    if run.status in TERMINAL_EXTRACTION_RUN_STATUSES:
+        assert_immutable_component_refs(root, run)
+
+
 def _validate_persisted_runs(root: Path, records: list[ExtractionRun]) -> None:
     seen: set[str] = set()
     for run in records:
@@ -230,20 +301,20 @@ def _validate_persisted_runs(root: Path, records: list[ExtractionRun]) -> None:
                 status_code=500,
             )
         seen.add(run.run_id)
-        if run.status == ExtractionRunStatus.REVIEWABLE:
-            try:
-                assert_run_reviewable_evidence(root, run)
-            except GraphRunRegistryError as exc:
-                raise GraphRunRegistryError(
-                    f"reviewable extraction run failed integrity validation: {exc}",
-                    status_code=500,
-                ) from exc
+        try:
+            _assert_persisted_run_integrity(root, run)
+        except GraphRunRegistryError as exc:
+            raise GraphRunRegistryError(
+                f"extraction run failed integrity validation: {exc}",
+                status_code=500,
+            ) from exc
 
 
-def _load(root: Path) -> ExtractionRunRegistryDocument:
+def _load_unlocked(root: Path) -> tuple[ExtractionRunRegistryDocument, str]:
     path = extraction_runs_path(root)
+    token = registry_token(path)
     if not path.is_file():
-        return ExtractionRunRegistryDocument()
+        return ExtractionRunRegistryDocument(), token
     try:
         document = ExtractionRunRegistryDocument.model_validate(load_json(path))
     except (ValidationError, TypeError, ValueError) as exc:
@@ -252,13 +323,29 @@ def _load(root: Path) -> ExtractionRunRegistryDocument:
             status_code=500,
         ) from exc
     _validate_persisted_runs(root, document.records)
+    return document, token
+
+
+def _load(root: Path) -> ExtractionRunRegistryDocument:
+    document, _token = _load_unlocked(root)
     return document
 
 
-def _save(root: Path, document: ExtractionRunRegistryDocument) -> None:
+def _save_cas(
+    root: Path,
+    document: ExtractionRunRegistryDocument,
+    *,
+    expected_token: str,
+) -> None:
     _validate_persisted_runs(root, document.records)
     path = extraction_runs_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
+    current = registry_token(path)
+    if current != expected_token:
+        raise GraphRunRegistryError(
+            "extraction run registry changed concurrently",
+            status_code=409,
+        )
     write_json(path, document.model_dump(mode="json"))
 
 
@@ -322,7 +409,6 @@ def create_extraction_run(
     profile_id: str | None = None,
     components: dict[str, ExtractionRunComponentRef] | None = None,
     status: ExtractionRunStatus = ExtractionRunStatus.DRAFT,
-    supersedes_run_id: str | None = None,
 ) -> ExtractionRun:
     artifact = _bind_run_to_artifact(
         root,
@@ -350,14 +436,15 @@ def create_extraction_run(
         created_at=now,
         updated_at=now,
         components=components or {},
-        supersedes_run_id=supersedes_run_id,
     )
     if status == ExtractionRunStatus.REVIEWABLE:
         assert_run_reviewable_evidence(root, run)
 
-    document = _load(root)
-    document.records.append(run)
-    _save(root, document)
+    path = extraction_runs_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        document.records.append(run)
+        _save_cas(root, document, expected_token=token)
     return run
 
 
@@ -369,48 +456,50 @@ def update_extraction_run_status(
     expected_revision: int,
     components: dict[str, ExtractionRunComponentRef] | None = None,
 ) -> ExtractionRun:
-    document = _load(root)
-    existing = next((row for row in document.records if row.run_id == run_id), None)
-    if existing is None:
-        raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
-    if existing.revision != expected_revision:
-        raise GraphRunRegistryError(
-            f"revision mismatch: expected {expected_revision}, current {existing.revision}",
-            status_code=409,
-        )
-    if existing.status in TERMINAL_EXTRACTION_RUN_STATUSES:
-        raise GraphRunRegistryError(
-            f"extraction run status {existing.status.value} is terminal",
-            status_code=409,
-        )
-    try:
-        assert_allowed_extraction_run_transition(existing.status, status)
-    except ValueError as exc:
-        raise GraphRunRegistryError(str(exc), status_code=422) from exc
+    path = extraction_runs_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        existing = next((row for row in document.records if row.run_id == run_id), None)
+        if existing is None:
+            raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
+        if existing.revision != expected_revision:
+            raise GraphRunRegistryError(
+                f"revision mismatch: expected {expected_revision}, current {existing.revision}",
+                status_code=409,
+            )
+        if existing.status in TERMINAL_EXTRACTION_RUN_STATUSES:
+            raise GraphRunRegistryError(
+                f"extraction run status {existing.status.value} is terminal",
+                status_code=409,
+            )
+        try:
+            assert_allowed_extraction_run_transition(existing.status, status)
+        except ValueError as exc:
+            raise GraphRunRegistryError(str(exc), status_code=422) from exc
 
-    if components is not None and existing.status in FROZEN_COMPONENT_STATUSES:
-        raise GraphRunRegistryError(
-            "cannot replace components for a frozen extraction run",
-            status_code=409,
+        if components is not None and existing.status in FROZEN_COMPONENT_STATUSES:
+            raise GraphRunRegistryError(
+                "cannot replace components for a frozen extraction run",
+                status_code=409,
+            )
+
+        next_components = existing.components if components is None else components
+        updated = existing.model_copy(
+            update={
+                "status": status,
+                "revision": existing.revision + 1,
+                "updated_at": _utc_now_iso(),
+                "components": next_components,
+            }
         )
+        if status in _REVIEW_BUNDLE_STATUSES:
+            assert_run_reviewable_evidence(root, updated)
 
-    next_components = existing.components if components is None else components
-    updated = existing.model_copy(
-        update={
-            "status": status,
-            "revision": existing.revision + 1,
-            "updated_at": _utc_now_iso(),
-            "components": next_components,
-        }
-    )
-    if status == ExtractionRunStatus.REVIEWABLE:
-        assert_run_reviewable_evidence(root, updated)
-
-    document.records = [
-        updated if row.run_id == run_id else row for row in document.records
-    ]
-    _save(root, document)
-    return updated
+        document.records = [
+            updated if row.run_id == run_id else row for row in document.records
+        ]
+        _save_cas(root, document, expected_token=token)
+        return updated
 
 
 def supersede_extraction_run(
@@ -422,46 +511,62 @@ def supersede_extraction_run(
     components: dict[str, ExtractionRunComponentRef] | None = None,
     status: ExtractionRunStatus = ExtractionRunStatus.DRAFT,
 ) -> ExtractionRun:
-    """Mark an exact run superseded and create a successor without rewriting its bundle."""
-    document = _load(root)
-    existing = next((row for row in document.records if row.run_id == run_id), None)
-    if existing is None:
-        raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
-    if existing.revision != expected_revision:
+    """Mark an exact run superseded and create a successor in one registry write."""
+    if status in TERMINAL_EXTRACTION_RUN_STATUSES:
         raise GraphRunRegistryError(
-            f"revision mismatch: expected {expected_revision}, current {existing.revision}",
-            status_code=409,
+            "cannot create an extraction run directly in a terminal status",
+            status_code=422,
         )
-    if existing.status == ExtractionRunStatus.SUPERSEDED:
-        raise GraphRunRegistryError("extraction run is already superseded", status_code=409)
 
-    successor = create_extraction_run(
-        root,
-        source_artifact_id=existing.source_artifact_id,
-        source_domain=existing.source_domain,
-        campaign_id=existing.campaign_id,
-        session_id=existing.session_id,
-        profile_id=profile_id if profile_id is not None else existing.profile_id,
-        components=components if components is not None else dict(existing.components),
-        status=status,
-        supersedes_run_id=existing.run_id,
-    )
+    path = extraction_runs_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        existing = next((row for row in document.records if row.run_id == run_id), None)
+        if existing is None:
+            raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
+        if existing.revision != expected_revision:
+            raise GraphRunRegistryError(
+                f"revision mismatch: expected {expected_revision}, current {existing.revision}",
+                status_code=409,
+            )
+        if existing.status == ExtractionRunStatus.SUPERSEDED:
+            raise GraphRunRegistryError("extraction run is already superseded", status_code=409)
 
-    # Reload after successor create; mark predecessor superseded without touching components.
-    document = _load(root)
-    predecessor = next((row for row in document.records if row.run_id == run_id), None)
-    if predecessor is None:
-        raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
-    superseded = predecessor.model_copy(
-        update={
-            "status": ExtractionRunStatus.SUPERSEDED,
-            "revision": predecessor.revision + 1,
-            "updated_at": _utc_now_iso(),
-            "superseded_by_run_id": successor.run_id,
-        }
-    )
-    document.records = [
-        superseded if row.run_id == run_id else row for row in document.records
-    ]
-    _save(root, document)
-    return successor
+        now = _utc_now_iso()
+        successor_id = str(uuid4())
+        successor = ExtractionRun(
+            run_id=successor_id,
+            source_artifact_id=existing.source_artifact_id,
+            source_domain=existing.source_domain,
+            status=status,
+            revision=1,
+            campaign_id=existing.campaign_id,
+            session_id=existing.session_id,
+            profile_id=profile_id if profile_id is not None else existing.profile_id,
+            created_at=now,
+            updated_at=now,
+            components=components if components is not None else dict(existing.components),
+            supersedes_run_id=existing.run_id,
+        )
+        if status == ExtractionRunStatus.REVIEWABLE:
+            assert_run_reviewable_evidence(root, successor)
+
+        predecessor = existing.model_copy(
+            update={
+                "status": ExtractionRunStatus.SUPERSEDED,
+                "revision": existing.revision + 1,
+                "updated_at": now,
+                "superseded_by_run_id": successor_id,
+            }
+        )
+        if predecessor.superseded_by_run_id != successor.run_id:
+            raise GraphRunRegistryError("supersession lineage is not reciprocal", status_code=500)
+        if successor.supersedes_run_id != predecessor.run_id:
+            raise GraphRunRegistryError("supersession lineage is not reciprocal", status_code=500)
+
+        document.records = [
+            predecessor if row.run_id == run_id else row for row in document.records
+        ]
+        document.records.append(successor)
+        _save_cas(root, document, expected_token=token)
+        return successor
