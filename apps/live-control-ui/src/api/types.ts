@@ -930,6 +930,29 @@ export interface RecapGraphPreviewReport {
   blocked_reason?: string | null;
 }
 
+export type RecapExtractionProgressPhase =
+  | "idle"
+  | "normalizing"
+  | "extracting"
+  | "materializing"
+  | "done"
+  | "error";
+
+export interface RecapExtractionProgress {
+  schema: "dmb_category_extraction_progress_v0";
+  campaign_id: string;
+  session: number;
+  phase: RecapExtractionProgressPhase;
+  current_pass: string | null;
+  current_label: string | null;
+  completed_passes: string[];
+  pass_index: number;
+  pass_total: number;
+  nodes_so_far: number;
+  edges_so_far: number;
+  updated_at: string;
+}
+
 export interface NormalizedRecapCandidate {
   basename: string;
   relpath: string;

@@ -146,11 +146,11 @@ export function GraphIngestProjectionPanel({
           <strong>Graph-rendered recap not ready yet</strong>
           <p>No lineage-matched graph projection exists for this ingested recap yet.</p>
           <p>
-            Generate Recap Memory for this session, then refresh. That one button now creates the
+            Start Ingestion for this session, then refresh. That one button now creates the
             graph projection used by Recap View.
           </p>
           <button type="button" onClick={openIngestRecap}>
-            Generate Recap Memory for {sessionId}
+            Start Ingestion for {sessionId}
           </button>
         </div>
       ) : null}

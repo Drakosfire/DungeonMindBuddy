@@ -49,7 +49,7 @@ describe("buildIngestReadiness", () => {
     expect(readiness.memory.state).toBe("ready");
     expect(readiness.graph.state).toBe("not_ready");
     expect(readiness.isComplete).toBe(false);
-    expect(readiness.nextAction).toMatch(/category graph extraction/i);
+    expect(readiness.nextAction).toMatch(/Start Ingestion/i);
     expect(readiness.nextAction).not.toMatch(/^Complete:/);
   });
 

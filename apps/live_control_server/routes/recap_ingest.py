@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from apps.live_control_server.config import repo_root
 from pydantic import BaseModel, ConfigDict, Field
@@ -37,6 +37,10 @@ from apps.live_control_server.services.recap_graph_preview_ingest import (
     ensure_graph_ingest_projection_payload,
     inspect_recap_graph_preview_status,
     materialize_recap_preview_supergraph,
+)
+from apps.live_control_server.services.recap_extraction_progress import (
+    read_live_extraction_progress,
+    write_live_extraction_progress,
 )
 
 router = APIRouter(prefix="/api/live", tags=["live"])
@@ -322,6 +326,26 @@ def _inspect_status_with_graph(body: RecapIngestRequest, corpus: Path | None) ->
 def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path | None) -> dict[str, Any]:
     active_corpus = (corpus or default_corpus_root()).resolve()
     staged_reuse_status: dict[str, Any] | None = None
+    repo = repo_root()
+
+    def _mark_progress(
+        phase: str,
+        *,
+        current_label: str | None = None,
+        nodes_so_far: int = 0,
+        edges_so_far: int = 0,
+    ) -> None:
+        write_live_extraction_progress(
+            repo,
+            campaign_id=body.campaign_id,
+            session=body.session,
+            phase=phase,  # type: ignore[arg-type]
+            current_label=current_label,
+            nodes_so_far=nodes_so_far,
+            edges_so_far=edges_so_far,
+        )
+
+    _mark_progress("normalizing", current_label="Normalizing recap")
 
     status = inspect_recap_ingest_status(
         campaign_id=body.campaign_id,
@@ -340,6 +364,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
         )
         if status.get("status") == "error" or ("staged_raw_notes_conflict" in status.get("states", []) and not body.force_stage):
             if status.get("status") == "error":
+                _mark_progress("error", current_label="Staging failed")
                 return status
             staged_reuse_status = status
 
@@ -348,13 +373,15 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
         apply_body = body.model_copy(update={"operation": "apply_normalize"})
         status = run_pipeline(_options_for_request(apply_body), corpus=corpus)
         if status.get("status") in {"error", "needs_reconciliation"}:
+            _mark_progress("error", current_label="Normalize failed")
             return status
 
     if body.include_graph_extraction:
         normalized = _normalized_recap_graph_path(status, corpus)
         if normalized:
+            _mark_progress("extracting", current_label="Starting graph extraction")
             graph = materialize_recap_preview_supergraph(
-                repo_root=repo_root(),
+                repo_root=repo,
                 campaign_id=body.campaign_id,
                 session=body.session,
                 normalized_recap_path=normalized,
@@ -369,10 +396,27 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                     f"preview graph extraction blocked: {graph.get('blocked_reason') or 'unknown reason'}",
                 )
             if graph.get("status") == "preview_union_store_ready":
+                _mark_progress(
+                    "materializing",
+                    current_label="Materializing preview union",
+                    nodes_so_far=int(graph.get("node_count") or 0),
+                    edges_so_far=int(graph.get("edge_count") or 0),
+                )
                 ensure_graph_ingest_projection_payload(
-                    repo_root=repo_root(),
+                    repo_root=repo,
                     manifest_path=graph.get("manifest_path"),
                     session_id=f"session-{body.session}",
+                )
+                _mark_progress(
+                    "done",
+                    current_label="Preview graph ready",
+                    nodes_so_far=int(graph.get("node_count") or 0),
+                    edges_so_far=int(graph.get("edge_count") or 0),
+                )
+            else:
+                _mark_progress(
+                    "error" if graph.get("status") == "failed" else "done",
+                    current_label=graph.get("blocked_reason") or "Graph extraction finished",
                 )
             if status.get("status") not in {"error", "needs_reconciliation"}:
                 status["status"] = "ready_for_planning_activation"
@@ -381,22 +425,26 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 status.setdefault("warnings", []),
                 "preview graph extraction skipped: normalized recap path could not be resolved",
             )
+            _mark_progress("done", current_label="Graph extraction skipped")
 
     if body.include_legacy_breadcrumb:
         if "frontmatter_seed_found" not in status.get("states", []):
             status = _build_frontmatter_seed_from_request(body, active_corpus)
             if status.get("status") == "error":
+                _mark_progress("error", current_label="Frontmatter seed failed")
                 return status
 
         if "breadcrumb_found" not in status.get("states", []):
             status = _run_breadcrumb_ingest_from_request(body, active_corpus)
             if status.get("status") == "error":
+                _mark_progress("error", current_label="Breadcrumb ingest failed")
                 return status
 
         if "session_memory_materialized" not in status.get("states", []):
             materialize_body = body.model_copy(update={"operation": "materialize_session_memory"})
             status = run_pipeline(_options_for_request(materialize_body), corpus=corpus)
             if status.get("status") in {"error", "needs_reconciliation"}:
+                _mark_progress("error", current_label="Session memory materialize failed")
                 return status
         if status.get("status") != "ready_for_planning_activation":
             status["status"] = "ready_for_planning_activation"
@@ -405,6 +453,18 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
             status.setdefault("warnings", []),
             "legacy_breadcrumb_skipped: graph-first ingest did not run frontmatter, breadcrumb, or session memory",
         )
+
+    if status.get("status") != "error":
+        current = read_live_extraction_progress(
+            repo, campaign_id=body.campaign_id, session=body.session
+        )
+        if current.get("phase") not in {"done", "error"}:
+            _mark_progress(
+                "done",
+                current_label=current.get("current_label") or "Ingest complete",
+                nodes_so_far=int(current.get("nodes_so_far") or 0),
+                edges_so_far=int(current.get("edges_so_far") or 0),
+            )
 
     return _merge_stage_reuse_warning(status, staged_reuse_status)
 
@@ -481,6 +541,18 @@ def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
         )
 
     raise HTTPException(status_code=422, detail=f"unsupported operation: {operation}")
+
+
+@router.get("/recap-ingest/extraction-progress")
+def get_recap_extraction_progress(
+    campaign_id: Annotated[str, Query(min_length=1)],
+    session: Annotated[int, Query(ge=1)],
+) -> dict[str, Any]:
+    return read_live_extraction_progress(
+        repo_root(),
+        campaign_id=campaign_id,
+        session=session,
+    )
 
 
 @router.post("/recap-ingest", response_model=RecapIngestStatusResponse)

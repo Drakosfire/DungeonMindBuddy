@@ -1,4 +1,4 @@
-import type { RecapIngestRequest, RecapIngestStatus } from "./types";
+import type { RecapExtractionProgress, RecapIngestRequest, RecapIngestStatus } from "./types";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 
@@ -32,4 +32,19 @@ export async function postRecapIngest(body: RecapIngestRequest): Promise<RecapIn
     throw new Error(detail);
   }
   return parseJsonBody<RecapIngestStatus>(response);
+}
+
+export async function getRecapExtractionProgress(query: {
+  campaignId: string;
+  session: number;
+}): Promise<RecapExtractionProgress> {
+  const params = new URLSearchParams({
+    campaign_id: query.campaignId,
+    session: String(query.session),
+  });
+  const response = await fetch(`${baseUrl}/api/live/recap-ingest/extraction-progress?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`Failed to load extraction progress (HTTP ${response.status}).`);
+  }
+  return parseJsonBody<RecapExtractionProgress>(response);
 }

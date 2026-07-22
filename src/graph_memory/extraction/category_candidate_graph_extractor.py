@@ -109,6 +109,32 @@ PASS_PROGRESS_LABELS: dict[str, str] = {
     "edge_pass": "Extracting relationship edges",
 }
 
+
+def count_category_pass_nodes_so_far(pass_outputs: Mapping[str, Mapping[str, Any]]) -> int:
+    total = 0
+    for pass_name, payload in pass_outputs.items():
+        if pass_name == EDGE_PASS_NAME:
+            continue
+        nodes = payload.get("observation_nodes")
+        if isinstance(nodes, list):
+            total += len(nodes)
+    return total
+
+
+def count_category_pass_edges_so_far(pass_outputs: Mapping[str, Mapping[str, Any]]) -> int:
+    payload = pass_outputs.get(EDGE_PASS_NAME) or {}
+    edges = payload.get("observation_edges")
+    return len(edges) if isinstance(edges, list) else 0
+
+
+def planned_category_pass_names(*, enable_encounter_job_pass: bool) -> tuple[str, ...]:
+    names = [name for name, _default_type, _instruction in NODE_EXTRACTION_PASSES]
+    names.append(BEAT_PASS_NAME)
+    if enable_encounter_job_pass:
+        names.append(ENCOUNTER_JOB_PASS_NAME)
+    names.append(EDGE_PASS_NAME)
+    return tuple(names)
+
 EVIDENCE_RULE = (
     "Every positive object MUST include evidence_refs as an array of objects with: "
     '{"source_span_ref_id": "<span id from source packet>", '
@@ -1479,8 +1505,14 @@ def run_category_pipeline(
     effective_node_vocabulary_packet, dynamic_node_vocabulary_diag = resolve_node_vocabulary_packet_for_options(options)
 
     def _notify(pass_name: str, state: str) -> None:
-        if progress_callback is not None:
-            progress_callback(pass_name, state)
+        if progress_callback is None:
+            return
+        progress_callback(
+            pass_name,
+            state,
+            nodes_so_far=count_category_pass_nodes_so_far(pass_outputs),
+            edges_so_far=count_category_pass_edges_so_far(pass_outputs),
+        )
 
     for pass_name, _default_type, _instruction in NODE_EXTRACTION_PASSES:
         _notify(pass_name, "running")

@@ -136,10 +136,10 @@ function buildNextAction(options: {
     ) {
       return "Next: Build Frontmatter Seed, then breadcrumb and session memory.";
     }
-    return "Next: paste or load a recap, then Generate Recap Memory.";
+    return "Next: paste or load a recap, then Start Ingestion.";
   }
   if (!graphIsReady) {
-    return "Next: run category graph extraction to materialize the preview union store.";
+    return "Next: Start Ingestion to materialize the preview union store.";
   }
   const counts = preview ? formatGraphCounts(preview) : null;
   const countHint = counts ? ` (${counts})` : "";

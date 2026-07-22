@@ -18,6 +18,7 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
     OpenAICategoryGraphPassClient,
     PASS_PROGRESS_LABELS,
     extract_category_candidate_graph,
+    planned_category_pass_names,
     resolve_category_graph_model,
 )
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
@@ -705,20 +706,6 @@ def run_graph_preview_extraction(
         )
         try:
             category_client = options.category_client or OpenAICategoryGraphPassClient()
-
-            def _progress(pass_name: str, state: str) -> None:
-                label = PASS_PROGRESS_LABELS.get(pass_name, pass_name)
-                category_pass_steps.append(
-                    GraphIngestStepStatus(
-                        id=f"extract_{pass_name}",
-                        label=label,
-                        state=GraphIngestStepState.RUNNING
-                        if state == "running"
-                        else GraphIngestStepState.COMPLETE,
-                        summary=f"{label} ({state})",
-                    )
-                )
-
             extraction_options, profile_diagnostics = category_options_for_graph_extraction_profile(
                 profile=profile,
                 campaign_id=campaign_id,
@@ -736,6 +723,66 @@ def run_graph_preview_extraction(
                 "enable_node_vocabulary_packet": profile_diagnostics["enable_node_vocabulary_packet"],
                 "enable_edge_vocabulary_packet": profile_diagnostics["enable_edge_vocabulary_packet"],
             }
+            planned_passes = planned_category_pass_names(
+                enable_encounter_job_pass=bool(
+                    profile_option_diagnostics.get("enable_encounter_job_pass")
+                )
+            )
+            completed_live_passes: list[str] = []
+
+            def _progress(
+                pass_name: str,
+                state: str,
+                *,
+                nodes_so_far: int = 0,
+                edges_so_far: int = 0,
+            ) -> None:
+                label = PASS_PROGRESS_LABELS.get(pass_name, pass_name)
+                category_pass_steps.append(
+                    GraphIngestStepStatus(
+                        id=f"extract_{pass_name}",
+                        label=label,
+                        state=GraphIngestStepState.RUNNING
+                        if state == "running"
+                        else GraphIngestStepState.COMPLETE,
+                        summary=f"{label} ({state})",
+                    )
+                )
+                if state == "complete" and pass_name not in completed_live_passes:
+                    completed_live_passes.append(pass_name)
+                try:
+                    from apps.live_control_server.config import repo_root
+                    from apps.live_control_server.services.recap_extraction_progress import (
+                        write_live_extraction_progress,
+                    )
+
+                    pass_index = (
+                        planned_passes.index(pass_name) + 1
+                        if pass_name in planned_passes
+                        else len(completed_live_passes)
+                    )
+                    write_live_extraction_progress(
+                        repo_root(),
+                        campaign_id=campaign_id,
+                        session=session_number,
+                        phase="extracting",
+                        current_pass=pass_name,
+                        current_label=label,
+                        completed_passes=list(completed_live_passes),
+                        pass_index=pass_index,
+                        pass_total=len(planned_passes),
+                        nodes_so_far=nodes_so_far,
+                        edges_so_far=edges_so_far,
+                    )
+                except Exception:
+                    logger.debug(
+                        "live extraction progress write skipped campaign=%s session=%s pass=%s",
+                        campaign_id,
+                        session_id,
+                        pass_name,
+                        exc_info=True,
+                    )
+
             extraction = extract_category_candidate_graph(
                 extraction_options,
                 client=category_client,

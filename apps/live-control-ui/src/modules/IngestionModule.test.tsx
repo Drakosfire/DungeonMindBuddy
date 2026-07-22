@@ -150,6 +150,20 @@ describe("IngestionModule", () => {
         entity_spelling_audit: [],
       }),
     );
+    vi.spyOn(recapIngestApi, "getRecapExtractionProgress").mockResolvedValue({
+      schema: "dmb_category_extraction_progress_v0",
+      campaign_id: "longmont-c2",
+      session: 22,
+      phase: "idle",
+      current_pass: null,
+      current_label: null,
+      completed_passes: [],
+      pass_index: 0,
+      pass_total: 0,
+      nodes_so_far: 0,
+      edges_so_far: 0,
+      updated_at: "2026-07-21T00:00:00Z",
+    });
   });
 
   afterEach(() => {
@@ -238,7 +252,10 @@ describe("IngestionModule", () => {
     expect(await screen.findByTestId("ingestion-header-status")).toBeInTheDocument();
     expect(screen.getByLabelText("Prior processed recap")).toBeInTheDocument();
     expect(screen.getByLabelText("Raw recap text")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Generate Recap Memory" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start Ingestion" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review in workbench" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Replace preview graph/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 2, name: "Ingest Recap" })).not.toBeInTheDocument();
     const advancedSummary = screen.getByText("Advanced", { selector: "summary" });
     expect(advancedSummary.closest("details")).not.toHaveAttribute("open");
@@ -358,7 +375,7 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "ingest");
 
-    expect(screen.getByRole("button", { name: "Generate Recap Memory" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Start Ingestion" })).toBeDisabled();
     await openAdvanced(user);
     expect(screen.getAllByText(/Session title is required/).length).toBeGreaterThan(0);
   });
@@ -416,8 +433,8 @@ describe("IngestionModule", () => {
     await waitFor(() =>
       expect(screen.getAllByText("breadcrumb_required").length).toBeGreaterThan(0),
     );
-    expect(screen.getByText("Breadcrumb required before retrieval")).toBeInTheDocument();
-    expect(screen.getByText(/not retrieval-ready/i)).toBeInTheDocument();
+    expect(screen.queryByText("Breadcrumb required before retrieval")).not.toBeInTheDocument();
+    expect(screen.queryByText(/not retrieval-ready/i)).not.toBeInTheDocument();
     await waitFor(() =>
       expect(
         screen.getAllByText("Next: Build Frontmatter Seed, then breadcrumb and session memory.")
@@ -473,7 +490,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
-    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+    await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
 
     await waitFor(() =>
       expect(screen.getAllByText("ready_for_planning_activation").length).toBeGreaterThan(0),
@@ -490,8 +507,10 @@ describe("IngestionModule", () => {
       }),
     );
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
-    expect(screen.getByTestId("ingestion-header-status")).toHaveTextContent(
-      /Recap memory ready; preview union on disk.*Review Graph Review for coverage/,
+    await waitFor(() =>
+      expect(screen.getByTestId("ingestion-header-status")).toHaveTextContent(
+        /Recap memory ready; preview union on disk.*Review Graph Review for coverage/,
+      ),
     );
     await openAdvanced(user);
     expect(screen.getByText("records: 10")).toBeInTheDocument();
@@ -527,7 +546,7 @@ describe("IngestionModule", () => {
       "Session 22 Recap\n\nDifferent pasted text.",
       "Session 22 - Mireward Road and Lysandro",
     );
-    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+    await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
 
     expect(await screen.findByText("Full ingest complete using staged notes")).toBeInTheDocument();
     expect(screen.getByText(/Recap memory and graph projection were generated from the existing staged notes/i)).toBeInTheDocument();
@@ -601,7 +620,7 @@ describe("IngestionModule", () => {
     expect(screen.getAllByText("records: 3").length).toBeGreaterThan(0);
     expect(screen.getByText(/The party held the gate/)).toBeInTheDocument();
     expect(screen.queryByText("Raw recap text is required to start a new ingest.")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+    await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
 
     await waitFor(() =>
       expect(spy).toHaveBeenCalledWith(expect.objectContaining({ operation: "generate_recap_memory", session: 23 })),
@@ -734,47 +753,57 @@ describe("IngestionModule", () => {
   it("opens the recap view for generated recap memory", async () => {
     const user = setupIngestUser();
     const assign = vi.fn();
+    const originalLocation = window.location;
     Object.defineProperty(window, "location", {
-      value: { ...window.location, assign },
+      configurable: true,
+      value: { ...originalLocation, assign },
       writable: true,
     });
-    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
-      if (body.operation === "inspect_status") {
-        return makeStatus({ status: "initialized", states: ["ingest_status_inspected"] });
-      }
-      return makeStatus({
-        status: "ready_for_planning_activation",
-        states: [
-          "raw_text_received",
-          "recap_preview_created",
-          "recap_applied",
-          "frontmatter_seed_found",
-          "breadcrumb_found",
-          "session_memory_materialized",
-          "ready_for_planning_activation",
-        ],
+    try {
+      vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+        if (body.operation === "inspect_status") {
+          return makeStatus({ status: "initialized", states: ["ingest_status_inspected"] });
+        }
+        return makeStatus({
+          status: "ready_for_planning_activation",
+          states: [
+            "raw_text_received",
+            "recap_preview_created",
+            "recap_applied",
+            "frontmatter_seed_found",
+            "breadcrumb_found",
+            "session_memory_materialized",
+            "ready_for_planning_activation",
+          ],
+        });
       });
-    });
 
-    render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await fillRecapInputs(
-      user,
-      "Session 22 Recap\n\nThe party pressed on.",
-      "Session 22 - Mireward Road and Lysandro",
-    );
-    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+      render(<IngestionModule campaignId="longmont-c2" session={23} />);
+      await fillRecapInputs(
+        user,
+        "Session 22 Recap\n\nThe party pressed on.",
+        "Session 22 - Mireward Road and Lysandro",
+      );
+      await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
-    });
-    expect(screen.getByText(/Recap memory generated/i)).toBeInTheDocument();
-    const openButton = screen.getByRole("button", { name: "Open Recap View" });
-    await user.click(openButton);
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+      });
+      expect(screen.getByText(/Recap memory generated/i)).toBeInTheDocument();
+      const openButton = screen.getByRole("button", { name: "Open Recap View" });
+      await user.click(openButton);
 
-    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
+      expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+        writable: true,
+      });
+    }
   });
 
-  it("always sends graph extraction flags with Generate Recap Memory", async () => {
+  it("always sends graph extraction flags with Start Ingestion", async () => {
     const user = setupIngestUser();
     const spy = mockRecapIngestWithInspect(() =>
       makeStatus({
@@ -796,7 +825,7 @@ describe("IngestionModule", () => {
       "Session 22 Recap\n\nThe party pressed on.",
       "Session 22 - Mireward Road and Lysandro",
     );
-    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+    await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
 
     await waitFor(() =>
       expect(spy).toHaveBeenCalledWith(
@@ -834,7 +863,7 @@ describe("IngestionModule", () => {
       "Session 22 Recap\n\nThe party pressed on.",
       "Session 22 - Mireward Road and Lysandro",
     );
-    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+    await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
 
     expect(
       await screen.findByText(
@@ -844,6 +873,151 @@ describe("IngestionModule", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
+    expect(window.location.search).not.toContain("session=session-22");
+  });
+
+  it("updates header status from live extraction progress while Start Ingestion runs", async () => {
+    const user = setupIngestUser();
+    let resolveIngest: ((value: ReturnType<typeof makeStatus>) => void) | null = null;
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return makeStatus({ status: "initialized", states: ["ingest_status_inspected"] });
+      }
+      return new Promise((resolve) => {
+        resolveIngest = resolve;
+      });
+    });
+    vi.spyOn(recapIngestApi, "getRecapExtractionProgress").mockResolvedValue({
+      schema: "dmb_category_extraction_progress_v0",
+      campaign_id: "longmont-c2",
+      session: 22,
+      phase: "extracting",
+      current_pass: "location_pass",
+      current_label: "Extracting locations",
+      completed_passes: ["actor_pass"],
+      pass_index: 2,
+      pass_total: 7,
+      nodes_so_far: 18,
+      edges_so_far: 0,
+      updated_at: "2026-07-21T00:00:01Z",
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
+    await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("ingestion-header-status")).toHaveTextContent(
+        /Working: extracting locations \(2\/7\) · 18 nodes/,
+      ),
+    );
+
+    resolveIngest?.(
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["normalized_created", "preview_union_store_ready", "ready_for_planning_activation"],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            can_open_union_graph: true,
+            node_count: 18,
+            edge_count: 4,
+          },
+        },
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("ingestion-header-status")).not.toHaveTextContent(/Working: extracting/),
+    );
+  });
+
+  it("binds ingest session, refreshes graph review, and closes toolbox after successful Start Ingestion", async () => {
+    const user = setupIngestUser();
+    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+    window.history.replaceState({}, "", "/ingest?tool=ingest-recap");
+    mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: [
+          "normalized_created",
+          "preview_union_store_ready",
+          "ready_for_planning_activation",
+        ],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            can_open_union_graph: true,
+            node_count: 12,
+            edge_count: 5,
+          },
+        },
+      }),
+    );
+
+    const { ProjectionProvider, useProjection } = await import(
+      "../planSurface/projection/projectionContext"
+    );
+    const { fixturePlanSessionDescriptor } = await import(
+      "../planSurface/config/planSessionDescriptor"
+    );
+    const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 22 });
+    const surfaceConfig = {
+      id: "ingest" as const,
+      label: "Ingest",
+      context: {
+        campaignId: "longmont-c2",
+        headerLabel: "Memory Ingest",
+        ingestSession: 22,
+        liveSession: 22,
+      },
+      tools: [{ id: "ingest-recap", label: "Ingest Recap", size: "wide" as const }],
+      canvas: { documentId: null },
+      theme: {},
+      sessionDescriptor,
+    };
+
+    function OpenIngestTool() {
+      const { openTool, active } = useProjection();
+      return (
+        <>
+          <button type="button" onClick={() => openTool("ingest-recap")}>
+            Open tool
+          </button>
+          <p data-testid="active-tool">{active?.key ?? "none"}</p>
+        </>
+      );
+    }
+
+    render(
+      <ProjectionProvider config={surfaceConfig}>
+        <OpenIngestTool />
+        <IngestionModule campaignId="longmont-c2" session={23} />
+      </ProjectionProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Open tool" }));
+    expect(screen.getByTestId("active-tool")).toHaveTextContent("ingest-recap");
+
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
+    await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("active-tool")).toHaveTextContent("none");
+      expect(window.location.search).toContain("session=session-22");
+      expect(window.location.search).toContain("campaign=longmont-c2");
+    });
+    expect(
+      dispatchSpy.mock.calls.some(
+        ([event]) => event instanceof Event && event.type === "dmb:graph-runs-changed",
+      ),
+    ).toBe(true);
   });
 
   it("submits build_graph_preview_bundle and shows source bundle blocked state", async () => {
@@ -1159,9 +1333,9 @@ describe("IngestionModule", () => {
 
     const preview = await screen.findByLabelText("Normalized recap preview");
     expect((preview as HTMLTextAreaElement).value).toContain("The party held the gate.");
-    expect(screen.getByRole("button", { name: "Run category graph extraction" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Start Ingestion" })).toBeEnabled();
 
-    await user.click(screen.getByRole("button", { name: "Run category graph extraction" }));
+    await user.click(screen.getByRole("button", { name: "Start Ingestion" }));
 
     await waitFor(() =>
       expect(ingestSpy).toHaveBeenCalledWith(
@@ -1223,13 +1397,13 @@ describe("IngestionModule", () => {
     await waitFor(() =>
       expect(screen.getByText(/A preview graph already exists for this session/)).toBeInTheDocument(),
     );
-    const reextractButton = screen.getByRole("button", { name: /category graph extraction|Replace preview graph/i });
-    expect(reextractButton).toBeDisabled();
+    const startButton = screen.getByRole("button", { name: "Start Ingestion" });
+    expect(startButton).toBeDisabled();
 
-    await user.click(screen.getByLabelText(/Replace existing preview graph \(new category extraction run\)/));
+    await user.click(screen.getByLabelText(/Overwrite existing preview graph/i));
 
-    expect(reextractButton).toBeEnabled();
-    await user.click(reextractButton);
+    expect(startButton).toBeEnabled();
+    await user.click(startButton);
 
     await waitFor(() =>
       expect(ingestSpy).toHaveBeenCalledWith(
@@ -1302,7 +1476,7 @@ describe("IngestionModule", () => {
 
     await waitFor(() =>
       expect(
-        screen.getAllByText(/Next: run category graph extraction to materialize the preview union store/i)
+        screen.getAllByText(/Next: Start Ingestion to materialize the preview union store/i)
           .length,
       ).toBeGreaterThan(0),
     );
