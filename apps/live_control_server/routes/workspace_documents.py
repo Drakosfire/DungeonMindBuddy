@@ -132,26 +132,36 @@ def post_workspace_document_restore(
 @router.post("/workspace-documents/{document_id}/source-artifact", response_model=dict)
 def post_workspace_document_source_artifact(
     document_id: str,
-    body: dict[str, Any],
+    body: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Create an immutable SourceArtifact from a committed workspace revision."""
+    """Create an immutable SourceArtifact from a committed workspace revision.
+
+    Source bytes are read from the committed BLD-02 target. Optional
+    ``expected_content_sha256`` is an assertion only.
+    """
     from apps.live_control_server.services.source_artifact_registry import (
         SourceArtifactRegistryError,
         create_source_artifact_from_workspace_document,
     )
 
-    markdown = body.get("markdown")
-    if not isinstance(markdown, str) or not markdown.strip():
-        raise HTTPException(status_code=422, detail="markdown is required")
-    expected_revision = body.get("expected_revision")
+    payload = body or {}
+    if "markdown" in payload:
+        raise HTTPException(
+            status_code=422,
+            detail="markdown is not accepted; source bytes are server-resolved from the committed target",
+        )
+    expected_revision = payload.get("expected_revision")
     if expected_revision is not None and not isinstance(expected_revision, int):
         raise HTTPException(status_code=422, detail="expected_revision must be an int")
+    expected_content_sha256 = payload.get("expected_content_sha256")
+    if expected_content_sha256 is not None and not isinstance(expected_content_sha256, str):
+        raise HTTPException(status_code=422, detail="expected_content_sha256 must be a string")
     try:
         artifact = create_source_artifact_from_workspace_document(
             repo_root(),
             document_id=document_id,
             expected_revision=expected_revision,
-            markdown=markdown,
+            expected_content_sha256=expected_content_sha256,
         )
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

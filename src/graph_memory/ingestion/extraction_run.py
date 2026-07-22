@@ -3,10 +3,18 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 EXTRACTION_RUN_SCHEMA = "dmb_extraction_run_v1"
 EXTRACTION_RUN_VERSION = "1.0"
+
+REQUIRED_REVIEWABLE_COMPONENT_KINDS = frozenset(
+    {
+        "source_artifact",
+        "source_span_index",
+        "candidate_graph",
+    }
+)
 
 
 class ExtractionRunStatus(StrEnum):
@@ -20,6 +28,74 @@ class ExtractionRunStatus(StrEnum):
     INCOMPLETE = "incomplete"
     FAILED = "failed"
     SUPERSEDED = "superseded"
+
+
+TERMINAL_EXTRACTION_RUN_STATUSES = frozenset(
+    {
+        ExtractionRunStatus.PROMOTED,
+        ExtractionRunStatus.REJECTED,
+        ExtractionRunStatus.FAILED,
+        ExtractionRunStatus.SUPERSEDED,
+    }
+)
+
+FROZEN_COMPONENT_STATUSES = frozenset(
+    {
+        ExtractionRunStatus.REVIEWABLE,
+        *TERMINAL_EXTRACTION_RUN_STATUSES,
+    }
+)
+
+ALLOWED_EXTRACTION_RUN_TRANSITIONS: dict[ExtractionRunStatus, frozenset[ExtractionRunStatus]] = {
+    ExtractionRunStatus.DRAFT: frozenset(
+        {
+            ExtractionRunStatus.PREPARED,
+            ExtractionRunStatus.INCOMPLETE,
+            ExtractionRunStatus.FAILED,
+        }
+    ),
+    ExtractionRunStatus.PREPARED: frozenset(
+        {
+            ExtractionRunStatus.EXTRACTED,
+            ExtractionRunStatus.INCOMPLETE,
+            ExtractionRunStatus.FAILED,
+        }
+    ),
+    ExtractionRunStatus.EXTRACTED: frozenset(
+        {
+            ExtractionRunStatus.VALIDATED,
+            ExtractionRunStatus.INCOMPLETE,
+            ExtractionRunStatus.FAILED,
+        }
+    ),
+    ExtractionRunStatus.VALIDATED: frozenset(
+        {
+            ExtractionRunStatus.REVIEWABLE,
+            ExtractionRunStatus.INCOMPLETE,
+            ExtractionRunStatus.FAILED,
+        }
+    ),
+    ExtractionRunStatus.REVIEWABLE: frozenset(
+        {
+            ExtractionRunStatus.PROMOTED,
+            ExtractionRunStatus.REJECTED,
+            ExtractionRunStatus.FAILED,
+        }
+    ),
+    ExtractionRunStatus.INCOMPLETE: frozenset(
+        {
+            ExtractionRunStatus.DRAFT,
+            ExtractionRunStatus.PREPARED,
+            ExtractionRunStatus.EXTRACTED,
+            ExtractionRunStatus.VALIDATED,
+            ExtractionRunStatus.FAILED,
+        }
+    ),
+    ExtractionRunStatus.PROMOTED: frozenset(),
+    ExtractionRunStatus.REJECTED: frozenset(),
+    ExtractionRunStatus.FAILED: frozenset(),
+    ExtractionRunStatus.SUPERSEDED: frozenset(),
+}
 
 
 class ExtractionRunComponentKind(StrEnum):
@@ -37,6 +113,7 @@ class ExtractionRunComponentRef(BaseModel):
     kind: ExtractionRunComponentKind
     uri: str
     sha256: str | None = None
+    # Caller-claimed existence is advisory only; registry resolution is authoritative.
     exists: bool = False
 
 
@@ -59,6 +136,7 @@ class ExtractionRun(BaseModel):
     source_artifact_id: str
     source_domain: str
     status: ExtractionRunStatus = ExtractionRunStatus.DRAFT
+    revision: int = 1
     campaign_id: str | None = None
     session_id: str | None = None
     profile_id: str | None = None
@@ -70,22 +148,74 @@ class ExtractionRun(BaseModel):
     supersedes_run_id: str | None = None
     lineage: dict[str, Any] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def _validate_persisted_invariants(self) -> ExtractionRun:
+        validate_extraction_run_record(self)
+        return self
+
+    def has_required_review_components(self) -> bool:
+        """Shape check only: required kinds present with uri + digest claims."""
+        by_kind = {component.kind.value: component for component in self.components.values()}
+        for kind in REQUIRED_REVIEWABLE_COMPONENT_KINDS:
+            component = by_kind.get(kind)
+            if component is None:
+                return False
+            if not component.uri.strip():
+                return False
+            if not (component.sha256 or "").strip():
+                return False
+        return True
+
     def is_reviewable(self) -> bool:
+        """True only when status claims reviewable and required component shape is present.
+
+        Path/digest resolvability is enforced by the server registry, not this method.
+        """
         if self.status != ExtractionRunStatus.REVIEWABLE:
             return False
-        required = {
-            ExtractionRunComponentKind.SOURCE_ARTIFACT.value,
-            ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value,
-            ExtractionRunComponentKind.CANDIDATE_GRAPH.value,
-        }
-        present = {
-            component.kind.value
-            for component in self.components.values()
-            if component.exists
-        }
-        return required.issubset(present)
+        return self.has_required_review_components()
+
+
+def validate_extraction_run_record(run: ExtractionRun) -> None:
+    """Fail-closed invariants for persisted ExtractionRun records."""
+    if not run.run_id.strip():
+        raise ValueError("run_id is required")
+    if not run.source_artifact_id.strip():
+        raise ValueError("source_artifact_id is required")
+    if run.revision < 1:
+        raise ValueError("revision must be >= 1")
+    if run.source_domain == "worldbuilding" and run.session_id is not None:
+        raise ValueError("worldbuilding extraction runs must not fabricate session_id")
+    if run.source_domain == "recap" and (not run.campaign_id or not run.session_id):
+        raise ValueError("recap extraction runs require campaign_id and session_id")
+    if run.status == ExtractionRunStatus.REVIEWABLE and not run.has_required_review_components():
+        raise ValueError("incomplete ExtractionRun cannot be reviewable")
+    if run.status == ExtractionRunStatus.SUPERSEDED and not run.superseded_by_run_id:
+        raise ValueError("superseded runs require superseded_by_run_id")
 
 
 def assert_run_not_reviewable_when_incomplete(run: ExtractionRun) -> None:
     if run.status == ExtractionRunStatus.REVIEWABLE and not run.is_reviewable():
         raise ValueError("incomplete ExtractionRun cannot be reviewable")
+
+
+def assert_allowed_extraction_run_transition(
+    current: ExtractionRunStatus,
+    target: ExtractionRunStatus,
+) -> None:
+    if current == target:
+        raise ValueError(f"extraction run status is already {current.value}")
+    allowed = ALLOWED_EXTRACTION_RUN_TRANSITIONS.get(current, frozenset())
+    if target not in allowed:
+        raise ValueError(
+            f"invalid extraction run transition: {current.value} -> {target.value}"
+        )
+
+
+def normalize_content_digest(value: str | None) -> str:
+    if value is None:
+        return ""
+    digest = value.strip()
+    if digest.startswith("sha256:"):
+        digest = digest[len("sha256:") :]
+    return digest.lower()

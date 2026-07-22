@@ -217,11 +217,18 @@ def adapt_recap_manifest_to_extraction_run(manifest: GraphIngestRunManifest):
         messages=list(manifest.warnings),
         errors=list(manifest.errors),
     )
+    # Build non-reviewable first so incomplete REVIEWABLE mappings fail closed
+    # without violating the ExtractionRun model validator.
+    construct_status = (
+        ExtractionRunStatus.INCOMPLETE
+        if status == ExtractionRunStatus.REVIEWABLE
+        else status
+    )
     run = ExtractionRun(
         run_id=manifest.run_id,
         source_artifact_id=source_artifact_id,
         source_domain=manifest.source.source_domain or "recap",
-        status=status,
+        status=construct_status,
         campaign_id=manifest.campaign_id,
         session_id=manifest.session_id,
         created_at=manifest.created_at,
@@ -233,7 +240,7 @@ def adapt_recap_manifest_to_extraction_run(manifest: GraphIngestRunManifest):
             "legacy_status": manifest.status.value,
         },
     )
-    if status == ExtractionRunStatus.REVIEWABLE and not run.is_reviewable():
-        run = run.model_copy(update={"status": ExtractionRunStatus.INCOMPLETE})
+    if status == ExtractionRunStatus.REVIEWABLE and run.has_required_review_components():
+        run = run.model_copy(update={"status": ExtractionRunStatus.REVIEWABLE})
     return run
 

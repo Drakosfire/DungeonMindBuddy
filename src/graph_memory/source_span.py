@@ -272,3 +272,247 @@ def build_stable_source_span_id(
         f"{source_artifact_id}:span:{content_sha256[:12]}:"
         f"{start_line}-{end_line}"
     )
+
+
+SOURCE_SPAN_INDEX_SCHEMA = "dmb_source_span_index_v1"
+SOURCE_SPAN_INDEX_VERSION = "1.0"
+
+
+@dataclass(frozen=True)
+class SourceSpanIndexEntry:
+    source_span_id: str
+    source_ref_id: str
+    source_artifact_id: str
+    content_sha256: str
+    start_line: int
+    end_line: int
+
+
+@dataclass(frozen=True)
+class SourceSpanIndex:
+    source_artifact_id: str
+    content_sha256: str
+    source_ref_id: str
+    spans: tuple[SourceSpanIndexEntry, ...]
+    schema: str = SOURCE_SPAN_INDEX_SCHEMA
+    version: str = SOURCE_SPAN_INDEX_VERSION
+
+
+def document_source_ref_id(source_artifact_id: str) -> str:
+    """Document-level source_ref_id shared by SourceArtifactText and span refs."""
+    if not source_artifact_id.strip():
+        raise ValueError("source_artifact_id is required")
+    return f"{source_artifact_id}:text"
+
+
+def build_source_span_index_for_text(
+    *,
+    source_artifact_id: str,
+    content_sha256: str,
+    text: str,
+) -> SourceSpanIndex:
+    """Build a stable paragraph-span index bound to an exact artifact digest."""
+    if not content_sha256.strip():
+        raise ValueError("content_sha256 is required")
+    source_ref_id = document_source_ref_id(source_artifact_id)
+    lines = text.splitlines()
+    spans: list[SourceSpanIndexEntry] = []
+    paragraph_start: int | None = None
+    for index, line in enumerate(lines, start=1):
+        if line.strip():
+            if paragraph_start is None:
+                paragraph_start = index
+            continue
+        if paragraph_start is not None:
+            end_line = index - 1
+            spans.append(
+                _span_entry(
+                    source_artifact_id=source_artifact_id,
+                    content_sha256=content_sha256,
+                    source_ref_id=source_ref_id,
+                    start_line=paragraph_start,
+                    end_line=end_line,
+                )
+            )
+            paragraph_start = None
+    if paragraph_start is not None:
+        spans.append(
+            _span_entry(
+                source_artifact_id=source_artifact_id,
+                content_sha256=content_sha256,
+                source_ref_id=source_ref_id,
+                start_line=paragraph_start,
+                end_line=len(lines),
+            )
+        )
+    if not spans and text.strip():
+        spans.append(
+            _span_entry(
+                source_artifact_id=source_artifact_id,
+                content_sha256=content_sha256,
+                source_ref_id=source_ref_id,
+                start_line=1,
+                end_line=max(1, len(lines)),
+            )
+        )
+    return SourceSpanIndex(
+        source_artifact_id=source_artifact_id,
+        content_sha256=content_sha256,
+        source_ref_id=source_ref_id,
+        spans=tuple(spans),
+    )
+
+
+def _span_entry(
+    *,
+    source_artifact_id: str,
+    content_sha256: str,
+    source_ref_id: str,
+    start_line: int,
+    end_line: int,
+) -> SourceSpanIndexEntry:
+    span_id = build_stable_source_span_id(
+        source_artifact_id=source_artifact_id,
+        content_sha256=content_sha256,
+        start_line=start_line,
+        end_line=end_line,
+    )
+    return SourceSpanIndexEntry(
+        source_span_id=span_id,
+        source_ref_id=source_ref_id,
+        source_artifact_id=source_artifact_id,
+        content_sha256=content_sha256,
+        start_line=start_line,
+        end_line=end_line,
+    )
+
+
+def validate_source_span_index(
+    index: SourceSpanIndex,
+    *,
+    source_artifact_id: str,
+    content_sha256: str,
+) -> None:
+    """Fail closed when an index is not bound to the exact artifact revision."""
+    if index.source_artifact_id != source_artifact_id:
+        raise ValueError("source_span_index source_artifact_id mismatch")
+    if index.content_sha256 != content_sha256:
+        raise ValueError("source_span_index content_sha256 mismatch")
+    expected_ref = document_source_ref_id(source_artifact_id)
+    if index.source_ref_id != expected_ref:
+        raise ValueError("source_span_index source_ref_id mismatch")
+    if not index.spans:
+        raise ValueError("source_span_index must contain at least one span")
+    for span in index.spans:
+        if span.source_artifact_id != source_artifact_id:
+            raise ValueError("span source_artifact_id mismatch")
+        if span.content_sha256 != content_sha256:
+            raise ValueError("span content_sha256 mismatch")
+        if span.source_ref_id != expected_ref:
+            raise ValueError("span source_ref_id mismatch")
+        expected_id = build_stable_source_span_id(
+            source_artifact_id=source_artifact_id,
+            content_sha256=content_sha256,
+            start_line=span.start_line,
+            end_line=span.end_line,
+        )
+        if span.source_span_id != expected_id:
+            raise ValueError("span id is not namespaced by artifact digest")
+
+
+def source_span_index_to_dict(index: SourceSpanIndex) -> dict[str, Any]:
+    return {
+        "schema": index.schema,
+        "version": index.version,
+        "source_artifact_id": index.source_artifact_id,
+        "content_sha256": index.content_sha256,
+        "source_ref_id": index.source_ref_id,
+        "spans": [asdict(span) for span in index.spans],
+    }
+
+
+def source_span_index_from_dict(data: Mapping[str, Any]) -> SourceSpanIndex:
+    spans_raw = data.get("spans") or []
+    spans = tuple(
+        SourceSpanIndexEntry(
+            source_span_id=str(row["source_span_id"]),
+            source_ref_id=str(row["source_ref_id"]),
+            source_artifact_id=str(row["source_artifact_id"]),
+            content_sha256=str(row["content_sha256"]),
+            start_line=int(row["start_line"]),
+            end_line=int(row["end_line"]),
+        )
+        for row in spans_raw
+    )
+    index = SourceSpanIndex(
+        schema=str(data.get("schema") or SOURCE_SPAN_INDEX_SCHEMA),
+        version=str(data.get("version") or SOURCE_SPAN_INDEX_VERSION),
+        source_artifact_id=str(data["source_artifact_id"]),
+        content_sha256=str(data["content_sha256"]),
+        source_ref_id=str(data["source_ref_id"]),
+        spans=spans,
+    )
+    validate_source_span_index(
+        index,
+        source_artifact_id=index.source_artifact_id,
+        content_sha256=index.content_sha256,
+    )
+    return index
+
+
+def source_span_refs_from_index(index: SourceSpanIndex) -> tuple[SourceSpanRef, ...]:
+    return tuple(
+        SourceSpanRef(
+            source_ref_id=span.source_ref_id,
+            source_artifact_id=span.source_artifact_id,
+            source_anchor_id=span.source_span_id,
+            start_line=span.start_line,
+            end_line=span.end_line,
+            evidence_role="source",
+            visibility_state="internal",
+            artifact_kind="worldbuilding_markdown",
+            label=span.source_span_id,
+        )
+        for span in index.spans
+    )
+
+
+def source_artifact_text_from_markdown(
+    *,
+    source_artifact_id: str,
+    text: str,
+    label: str | None = None,
+    visibility_state: str = "internal",
+) -> SourceArtifactText:
+    return SourceArtifactText(
+        source_artifact_id=source_artifact_id,
+        source_ref_id=document_source_ref_id(source_artifact_id),
+        artifact_kind="worldbuilding_markdown",
+        label=label or source_artifact_id,
+        text=text,
+        evidence_role="source",
+        visibility_state=visibility_state,
+    )
+
+
+def validate_source_span_ref_for_artifact(
+    ref: SourceSpanRef,
+    *,
+    source_artifact_id: str,
+    content_sha256: str,
+) -> None:
+    """Require span refs to be digest-namespaced for an exact artifact revision."""
+    if ref.source_artifact_id != source_artifact_id:
+        raise ValueError("source_span_ref source_artifact_id mismatch")
+    if ref.source_ref_id != document_source_ref_id(source_artifact_id):
+        raise ValueError("source_span_ref source_ref_id mismatch")
+    if ref.start_line is None or ref.end_line is None:
+        raise ValueError("source_span_ref requires start_line and end_line")
+    expected = build_stable_source_span_id(
+        source_artifact_id=source_artifact_id,
+        content_sha256=content_sha256,
+        start_line=ref.start_line,
+        end_line=ref.end_line,
+    )
+    if ref.source_anchor_id != expected:
+        raise ValueError("source_span_ref is not namespaced by artifact digest")

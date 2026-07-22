@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
     ExtractionRunComponentKind,
     ExtractionRunComponentRef,
     ExtractionRunStatus,
+    assert_allowed_extraction_run_transition,
     assert_run_not_reviewable_when_incomplete,
 )
 from graph_memory.ingestion.graph_ingest_run import (
@@ -20,24 +22,50 @@ from graph_memory.ingestion.graph_ingest_run import (
 
 
 def test_incomplete_run_cannot_be_reviewable() -> None:
+    with pytest.raises(ValidationError, match="incomplete"):
+        ExtractionRun(
+            run_id="run-1",
+            source_artifact_id="artifact:x",
+            source_domain="worldbuilding",
+            status=ExtractionRunStatus.REVIEWABLE,
+            components={},
+        )
+
+
+def test_reviewable_requires_core_components_with_digests() -> None:
     run = ExtractionRun(
         run_id="run-1",
         source_artifact_id="artifact:x",
         source_domain="worldbuilding",
         status=ExtractionRunStatus.REVIEWABLE,
-        components={},
+        components={
+            "source_artifact": ExtractionRunComponentRef(
+                kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+                uri="repo://x.md",
+                sha256="a" * 64,
+            ),
+            "spans": ExtractionRunComponentRef(
+                kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+                uri="repo://spans.json",
+                sha256="b" * 64,
+            ),
+            "graph": ExtractionRunComponentRef(
+                kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+                uri="repo://graph.json",
+                sha256="c" * 64,
+            ),
+        },
     )
-    assert run.is_reviewable() is False
-    with pytest.raises(ValueError, match="incomplete"):
-        assert_run_not_reviewable_when_incomplete(run)
+    assert run.is_reviewable() is True
+    assert_run_not_reviewable_when_incomplete(run)
 
 
-def test_reviewable_requires_core_components() -> None:
+def test_exists_flag_alone_is_not_sufficient_for_reviewable_shape() -> None:
     run = ExtractionRun(
         run_id="run-1",
         source_artifact_id="artifact:x",
         source_domain="worldbuilding",
-        status=ExtractionRunStatus.REVIEWABLE,
+        status=ExtractionRunStatus.DRAFT,
         components={
             "source_artifact": ExtractionRunComponentRef(
                 kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
@@ -56,8 +84,20 @@ def test_reviewable_requires_core_components() -> None:
             ),
         },
     )
-    assert run.is_reviewable() is True
-    assert_run_not_reviewable_when_incomplete(run)
+    assert run.has_required_review_components() is False
+
+
+def test_terminal_transitions_are_rejected() -> None:
+    with pytest.raises(ValueError, match="invalid extraction run transition"):
+        assert_allowed_extraction_run_transition(
+            ExtractionRunStatus.PROMOTED,
+            ExtractionRunStatus.DRAFT,
+        )
+    with pytest.raises(ValueError, match="invalid extraction run transition"):
+        assert_allowed_extraction_run_transition(
+            ExtractionRunStatus.SUPERSEDED,
+            ExtractionRunStatus.REVIEWABLE,
+        )
 
 
 def test_adapt_recap_manifest_preserves_scope_and_ids() -> None:
@@ -70,17 +110,19 @@ def test_adapt_recap_manifest_preserves_scope_and_ids() -> None:
             source_artifact_id="artifact:recap:longmont-c2:session-22",
             source_domain="recap",
             input_path_record="corpus/recap.md",
-            normalized_recap_sha256="abc",
+            normalized_recap_sha256="a" * 64,
         ),
         artifacts={
             "source_span_index": GraphIngestArtifactRef(
                 kind=GraphIngestArtifactKind.SOURCE_SPAN_INDEX,
                 uri="runs/spans.json",
+                sha256="b" * 64,
                 exists=True,
             ),
             "candidate_graph": GraphIngestArtifactRef(
                 kind=GraphIngestArtifactKind.CANDIDATE_GRAPH,
                 uri="runs/graph.json",
+                sha256="c" * 64,
                 exists=True,
             ),
         },

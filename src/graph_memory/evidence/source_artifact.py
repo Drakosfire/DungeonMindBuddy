@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from graph_memory.evidence.source_domain import SourceDomain
 
@@ -37,6 +37,11 @@ class GraphMemorySourceArtifact(BaseModel):
     status: Literal["active", "superseded"] = "active"
     created_at: str | None = None
     updated_at: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_persisted_invariants(self) -> GraphMemorySourceArtifact:
+        validate_source_artifact_scope(self)
+        return self
 
 
 def build_worldbuilding_source_artifact_id(
