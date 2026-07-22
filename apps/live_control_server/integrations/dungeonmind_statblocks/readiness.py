@@ -11,6 +11,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.config import 
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
+    redact_secret,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
     StatblockIntegrationReadinessV1,
@@ -64,7 +65,19 @@ def build_local_unavailable_readiness(
     )
 
 
+def _secret_from_client(client: StatblockV1Client) -> str:
+    config = getattr(client, "config", None)
+    if config is None:
+        return ""
+    return str(getattr(config, "internal_api_key", "") or "")
+
+
+def _public_diagnostics(items: list[str], *, secret: str) -> list[str]:
+    return [redact_secret(item, secret) for item in items if item]
+
+
 def _probe_downstream(client: StatblockV1Client) -> StatblockIntegrationReadinessV1:
+    secret = _secret_from_client(client)
     try:
         readiness = client.get_readiness()
         health = client.get_health()
@@ -73,7 +86,7 @@ def _probe_downstream(client: StatblockV1Client) -> StatblockIntegrationReadines
             configured=True,
             available=False,
             downstream_status=exc.category,
-            diagnostics=[exc.category, exc.message],
+            diagnostics=_public_diagnostics([exc.category, exc.message], secret=secret),
         )
 
     available = readiness.status == "ready"
@@ -92,7 +105,7 @@ def _probe_downstream(client: StatblockV1Client) -> StatblockIntegrationReadines
         contract=health.contract,
         contract_version=health.contract_version,
         capabilities=capabilities,
-        diagnostics=diagnostics,
+        diagnostics=_public_diagnostics(diagnostics, secret=secret),
     )
 
 

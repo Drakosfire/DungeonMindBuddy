@@ -29,6 +29,8 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.errors import 
     downstream_validation_failed,
     integration_disabled,
     integration_misconfigured,
+    redact_secret,
+    redact_secret_in_value,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
     ErrorEnvelopeV1,
@@ -40,7 +42,6 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.models import 
 
 # Health/readiness envelopes are tiny; exact-revision payloads include definition.
 MAX_RESPONSE_BODY_BYTES = 1_048_576
-_MAX_ERROR_BODY_CHARS = 2_048
 
 ModelT = TypeVar("ModelT", bound=StrictModel)
 
@@ -114,10 +115,10 @@ class DungeonMindStatblockV1Client:
                     status_code=status,
                 ) from exc
             raise downstream_unavailable(
-                envelope.error.message,
+                self._public_text(envelope.error.message),
                 status_code=status,
-                error_code=envelope.error.code,
-                details=envelope.error.details or {},
+                error_code=self._public_text(envelope.error.code),
+                details=self._public_details(envelope.error.details or {}),
             )
         raise self._map_error_response(status, body)
 
@@ -224,7 +225,9 @@ class DungeonMindStatblockV1Client:
         except httpx.TimeoutException as exc:
             raise downstream_timeout() from exc
         except httpx.HTTPError as exc:
-            raise downstream_unavailable(str(exc) or "transport error") from exc
+            raise downstream_unavailable(
+                self._public_text(str(exc) or "transport error")
+            ) from exc
 
     def _read_bounded_body(self, response: httpx.Response) -> bytes:
         content_length = response.headers.get("content-length")
@@ -315,8 +318,8 @@ class DungeonMindStatblockV1Client:
                     error_code=code,
                     details=details,
                 )
-            return downstream_unavailable(
-                f"downstream HTTP {status}",
+            return downstream_unexpected(
+                "downstream response failed schema validation",
                 status_code=status,
             )
         return downstream_unexpected(
@@ -324,22 +327,32 @@ class DungeonMindStatblockV1Client:
             status_code=status,
         )
 
+    def _public_text(self, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return redact_secret(value, self._config.internal_api_key)
+
+    def _public_details(self, details: dict[str, Any]) -> dict[str, Any]:
+        redacted = redact_secret_in_value(details, self._config.internal_api_key)
+        return redacted if isinstance(redacted, dict) else {}
+
     def _safe_error_parts(
         self, body: bytes
     ) -> tuple[str | None, str | None, dict[str, Any]]:
+        # Only structured ErrorEnvelopeV1 fields are preserved; raw body text
+        # is never reflected into exceptions (secret / unbounded-content risk).
         try:
             payload = json.loads(body)
         except ValueError:
-            text = body.decode("utf-8", errors="replace")[:_MAX_ERROR_BODY_CHARS]
-            return None, (text or None), {}
+            return None, None, {}
         try:
             envelope = ErrorEnvelopeV1.model_validate(payload)
         except Exception:
-            return None, "downstream returned an unparseable error envelope", {}
+            return None, None, {}
         return (
-            envelope.error.code,
-            envelope.error.message,
-            envelope.error.details or {},
+            self._public_text(envelope.error.code),
+            self._public_text(envelope.error.message),
+            self._public_details(envelope.error.details or {}),
         )
 
 
