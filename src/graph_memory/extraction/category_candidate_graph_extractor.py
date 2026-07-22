@@ -37,6 +37,12 @@ from src.graph_memory.extraction.known_entity_registry import (
     build_known_entity_registry,
     normalize_match_surface,
 )
+from src.graph_memory.extraction.extraction_profile import ExtractionProfile
+from src.graph_memory.extraction.recap_extraction_profile import (
+    DEFAULT_SEMANTIC_STATE as RECAP_DEFAULT_SEMANTIC_STATE,
+    EVIDENCE_RULE as RECAP_EVIDENCE_RULE,
+    RECAP_EXTRACTION_PROFILE,
+)
 from src.graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
 from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
@@ -61,35 +67,10 @@ BEAT_PASS_NAME = "beat_pass"
 ENCOUNTER_JOB_PASS_NAME = "encounter_job_pass"
 EDGE_PASS_NAME = "edge_pass"
 
-NODE_EXTRACTION_PASSES: tuple[tuple[str, str, str], ...] = (
-    (
-        "actor_pass",
-        "character",
-        "Extract named NON-PARTY NPCs, characters, and creatures only. "
-        "Do NOT extract player characters or traveling companion NPCs — those are supplied as party anchors.",
-    ),
-    (
-        "location_pass",
-        "location",
-        "Extract regions, towns, cities, roads, routes, sublocations, and named travel zones only.",
-    ),
-    (
-        "collective_pass",
-        "faction",
-        "Extract factions, councils, guards, mercenary groups, organizations, and parties (as collectives) only. "
-        "Use node_type faction, organization, or group as appropriate.",
-    ),
-    (
-        "object_pass",
-        "item",
-        "Extract notable items, devices, artifacts, and objects only — not table-mechanics noise.",
-    ),
-    (
-        "thread_pass",
-        "mystery",
-        "Extract mysteries, clues, warnings, events, unresolved phenomena, and threads. "
-        "Also emit ignored_items and deferred_items when appropriate.",
-    ),
+# Back-compat constants derived from the explicit recap profile.
+NODE_EXTRACTION_PASSES: tuple[tuple[str, str, str], ...] = tuple(
+    (spec.pass_id, spec.default_node_type or "", spec.instruction)
+    for spec in RECAP_EXTRACTION_PROFILE.node_passes
 )
 
 ALL_PASS_NAMES: tuple[str, ...] = tuple(p[0] for p in NODE_EXTRACTION_PASSES) + (
@@ -109,22 +90,9 @@ PASS_PROGRESS_LABELS: dict[str, str] = {
     "edge_pass": "Extracting relationship edges",
 }
 
-EVIDENCE_RULE = (
-    "Every positive object MUST include evidence_refs as an array of objects with: "
-    '{"source_span_ref_id": "<span id from source packet>", '
-    '"anchor_quotes": ["<verbatim phrase copied from that paragraph>"]}. '
-    "anchor_quotes must be literal substrings from the cited paragraph text block — "
-    "not summaries, not your own node labels, not regex, not invented snippets. "
-    "Copy exact words from the source packet."
-)
+EVIDENCE_RULE = RECAP_EVIDENCE_RULE
 
-DEFAULT_SEMANTIC_STATE = {
-    "canon_state": "played_canon",
-    "lifecycle_state": "candidate",
-    "evidence_role": "source_evidence",
-    "authority_state": "system_derived",
-    "visibility_state": "gm_private",
-}
+DEFAULT_SEMANTIC_STATE = dict(RECAP_DEFAULT_SEMANTIC_STATE)
 
 ENVELOPE_SCHEMA = "dmb_live_extractor_candidate_envelope_v0"
 ENVELOPE_VERSION = "0.1"
@@ -277,8 +245,8 @@ class CategoryGraphPassClient(Protocol):
 @dataclass(frozen=True)
 class CategoryGraphExtractionOptions:
     campaign_id: str
-    session_id: str
-    session_number: int
+    session_id: str | None
+    session_number: int | None
     source_span_index: Mapping[str, Any]
     model_id: str | None = None
     enable_edge_vocabulary_packet: bool = False
@@ -290,6 +258,35 @@ class CategoryGraphExtractionOptions:
     enable_encounter_job_pass: bool = False
     enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
+    profile: ExtractionProfile | None = None
+
+
+def resolve_extraction_profile(options: CategoryGraphExtractionOptions) -> ExtractionProfile:
+    if options.profile is not None:
+        return options.profile
+    return RECAP_EXTRACTION_PROFILE
+
+
+def _empty_party_context(campaign_id: str | None) -> PartyContext:
+    return PartyContext(
+        campaign_id=campaign_id,
+        session="",
+        party_names=(),
+        members=(),
+        warnings=("party context omitted: null session",),
+    )
+
+
+def _empty_known_entity_registry(campaign_id: str | None) -> KnownEntityRegistry:
+    return KnownEntityRegistry(
+        campaign_id=campaign_id or "",
+        session_key="",
+        roster_session_key=None,
+        roster_carry_forward=False,
+        registry_relpath=None,
+        entities=(),
+        warnings=("known entity registry omitted: null session",),
+    )
 
 
 @dataclass(frozen=True)
@@ -382,7 +379,10 @@ def render_category_pass_prompts(
     party_ctx: PartyContext,
     known_entity_sidecar: KnownEntityMentionSidecar | None = None,
     known_entity_registry: KnownEntityRegistry | None = None,
+    profile: ExtractionProfile | None = None,
 ) -> dict[str, str]:
+    active_profile = profile or RECAP_EXTRACTION_PROFILE
+    evidence_rule = active_profile.evidence_rule
     src = _source_packet_md(source_rows)
     anchors = _party_anchors_block(party_ctx)
     ledger = ""
@@ -399,7 +399,10 @@ def render_category_pass_prompts(
         "Forbidden: approve memory, commit graph records, promote canon, execute writes."
     )
     prompts: dict[str, str] = {}
-    for pass_name, default_type, instruction in NODE_EXTRACTION_PASSES:
+    for pass_spec in active_profile.node_passes:
+        pass_name = pass_spec.pass_id
+        default_type = pass_spec.default_node_type or ""
+        instruction = pass_spec.instruction
         extra = ""
         if pass_name == "thread_pass":
             extra = (
@@ -412,15 +415,16 @@ def render_category_pass_prompts(
             f"Default node_type for this pass: `{default_type}`.\n\n"
             f"Return JSON with key `observation_nodes` (array). Each node: "
             f"`node_id`, `label`, `node_type`, `description`, `importance` (high|medium|low), `evidence_refs`.\n"
-            f"{EVIDENCE_RULE}{extra}\n\n## Source Packet\n\n{src}\n"
+            f"{evidence_rule}{extra}\n\n## Source Packet\n\n{src}\n"
         )
-    prompts[_prompt_key(BEAT_PASS_NAME)] = (
-        f"# Category Graph Extraction — {BEAT_PASS_NAME}\n\n{safety}\n\n{ledger}"
-        "## Task\n\nExtract source-local beats (scenes, topic shifts, durable claims). "
-        "Return JSON with key `observation_beats` (array). Each beat: "
-        "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
-        f"{EVIDENCE_RULE}\n\n## Source Packet\n\n{src}\n"
-    )
+    if active_profile.beat_pass is not None:
+        prompts[_prompt_key(BEAT_PASS_NAME)] = (
+            f"# Category Graph Extraction — {BEAT_PASS_NAME}\n\n{safety}\n\n{ledger}"
+            "## Task\n\nExtract source-local beats (scenes, topic shifts, durable claims). "
+            "Return JSON with key `observation_beats` (array). Each beat: "
+            "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
+            f"{evidence_rule}\n\n## Source Packet\n\n{src}\n"
+        )
     predicate_catalog = predicate_catalog_prompt_markdown()
     prompts[_prompt_key(EDGE_PASS_NAME)] = (
         f"# Category Graph Extraction — {EDGE_PASS_NAME}\n\n{safety}\n\n{ledger}"
@@ -441,7 +445,7 @@ def render_category_pass_prompts(
         "Each edge: `edge_id`, `from_node_id`, `to_node_id`, `label`, `relationship_type`, "
         "`predicate_family`, `evidence_refs`.\n"
         f"{predicate_catalog}\n\n"
-        f"{EVIDENCE_RULE}\n\n## Source Packet\n\n{src}\n\n## Consolidated nodes\n\n"
+        f"{evidence_rule}\n\n## Source Packet\n\n{src}\n\n## Consolidated nodes\n\n"
         "(injected at runtime)\n"
     )
     return prompts
@@ -700,12 +704,17 @@ def consolidate_category_outputs(
     pass_outputs: Mapping[str, Mapping[str, Any]],
     *,
     campaign_id: str,
-    session: int,
+    session: int | None,
     enable_party_participation_attachment: bool = False,
     known_entity_sidecar: KnownEntityMentionSidecar | None = None,
     known_entity_registry: KnownEntityRegistry | None = None,
+    profile: ExtractionProfile | None = None,
 ) -> dict[str, Any]:
-    party_ctx = build_party_context_for_campaign(campaign_id, session)
+    active_profile = profile or RECAP_EXTRACTION_PROFILE
+    if session is None:
+        party_ctx = _empty_party_context(campaign_id)
+    else:
+        party_ctx = build_party_context_for_campaign(campaign_id, session)
     per_pass_counts: dict[str, int] = {}
     nodes: list[dict[str, Any]] = []
     beats: list[dict[str, Any]] = []
@@ -713,7 +722,9 @@ def consolidate_category_outputs(
     deferred: list[dict[str, Any]] = []
     encounter_job_diag: dict[str, Any] = {"enabled": False}
 
-    for pass_name, default_type, _ in NODE_EXTRACTION_PASSES:
+    for pass_spec in active_profile.node_passes:
+        pass_name = pass_spec.pass_id
+        default_type = pass_spec.default_node_type or "entity"
         payload = pass_outputs.get(pass_name, {})
         raw_nodes = payload.get("observation_nodes") or []
         per_pass_counts[pass_name] = len(raw_nodes)
@@ -905,7 +916,13 @@ def consolidate_category_outputs(
             }
             known_entity_diag["removed_missing_evidence_edge_ids"] = sorted(rejected_edge_ids)
 
-    session_ctx = build_session_graph_context(campaign_id, session)
+    if session is None:
+        session_ctx_warnings: list[str] = ["session graph context omitted: null session"]
+        registry_relpath = None
+    else:
+        session_ctx = build_session_graph_context(campaign_id, session)
+        session_ctx_warnings = list(session_ctx.warnings)
+        registry_relpath = session_ctx.registry_relpath
     diagnostics = {
         "per_pass_counts": per_pass_counts,
         "nodes_before_dedup": nodes_before_dedup,
@@ -921,8 +938,8 @@ def consolidate_category_outputs(
         "party_collective_inserted": party_collective_diag.get("party_collective_inserted", False),
         "party_membership_edge_slugs": party_collective_diag.get("party_membership_edge_slugs", []),
         "party_participation_attachment": party_participation_diag,
-        "registry_relpath": session_ctx.registry_relpath,
-        "session_graph_context_warnings": list(session_ctx.warnings),
+        "registry_relpath": registry_relpath,
+        "session_graph_context_warnings": session_ctx_warnings,
         ENCOUNTER_JOB_PASS_NAME: encounter_job_diag,
         "known_entity_mentions": known_entity_diag,
     }
@@ -1442,6 +1459,7 @@ def run_category_pipeline(
     *,
     progress_callback: Any | None = None,
 ) -> CategoryGraphExtractionResult:
+    active_profile = resolve_extraction_profile(options)
     model_id = resolve_category_graph_model(options.model_id)
     source_rows = source_packet_rows_from_span_index(options.source_span_index)
     allowed_span_refs = {r["source_span_ref_id"] for r in source_rows}
@@ -1452,14 +1470,18 @@ def run_category_pipeline(
                 if isinstance(val, str):
                     allowed_span_refs.add(val)
 
-    party_ctx = build_party_context_for_campaign(
-        options.campaign_id, options.session_number
-    )
-    known_entity_registry = build_known_entity_registry(
-        options.campaign_id,
-        options.session_number,
-        party_ctx=party_ctx,
-    )
+    if options.session_number is None:
+        party_ctx = _empty_party_context(options.campaign_id)
+        known_entity_registry = _empty_known_entity_registry(options.campaign_id)
+    else:
+        party_ctx = build_party_context_for_campaign(
+            options.campaign_id, options.session_number
+        )
+        known_entity_registry = build_known_entity_registry(
+            options.campaign_id,
+            options.session_number,
+            party_ctx=party_ctx,
+        )
     known_entity_sidecar = match_known_entities_in_spans(
         list(options.source_span_index.get("spans") or source_rows),
         known_entity_registry,
@@ -1470,6 +1492,7 @@ def run_category_pipeline(
         party_ctx=party_ctx,
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
+        profile=active_profile,
     )
     pass_outputs: dict[str, dict[str, Any]] = {}
     pass_telemetry: dict[str, Any] = {}
@@ -1482,7 +1505,8 @@ def run_category_pipeline(
         if progress_callback is not None:
             progress_callback(pass_name, state)
 
-    for pass_name, _default_type, _instruction in NODE_EXTRACTION_PASSES:
+    for pass_spec in active_profile.node_passes:
+        pass_name = pass_spec.pass_id
         _notify(pass_name, "running")
         node_prompt, node_vocabulary_diag = build_node_pass_prompt(
             pass_name,
@@ -1503,28 +1527,29 @@ def run_category_pipeline(
             "usage": result["usage"],
             "elapsed_ms": result["elapsed_ms"],
             "response_id": result["response_id"],
-            "progress_label": PASS_PROGRESS_LABELS.get(pass_name, pass_name),
+            "progress_label": PASS_PROGRESS_LABELS.get(pass_name, pass_spec.progress_label),
         }
         total_cost += result["cost_usd"]
         _notify(pass_name, "complete")
 
-    _notify(BEAT_PASS_NAME, "running")
-    beat_result = client.run_pass(
-        BEAT_PASS_NAME,
-        model_id=model_id,
-        instructions=system,
-        user_content=prompts[_prompt_key(BEAT_PASS_NAME)],
-    )
-    pass_outputs[BEAT_PASS_NAME] = beat_result["parsed"]
-    pass_telemetry[BEAT_PASS_NAME] = {
-        "cost_usd": beat_result["cost_usd"],
-        "usage": beat_result["usage"],
-        "elapsed_ms": beat_result["elapsed_ms"],
-        "response_id": beat_result["response_id"],
-        "progress_label": PASS_PROGRESS_LABELS[BEAT_PASS_NAME],
-    }
-    total_cost += beat_result["cost_usd"]
-    _notify(BEAT_PASS_NAME, "complete")
+    if active_profile.beat_pass is not None:
+        _notify(BEAT_PASS_NAME, "running")
+        beat_result = client.run_pass(
+            BEAT_PASS_NAME,
+            model_id=model_id,
+            instructions=system,
+            user_content=prompts[_prompt_key(BEAT_PASS_NAME)],
+        )
+        pass_outputs[BEAT_PASS_NAME] = beat_result["parsed"]
+        pass_telemetry[BEAT_PASS_NAME] = {
+            "cost_usd": beat_result["cost_usd"],
+            "usage": beat_result["usage"],
+            "elapsed_ms": beat_result["elapsed_ms"],
+            "response_id": beat_result["response_id"],
+            "progress_label": PASS_PROGRESS_LABELS[BEAT_PASS_NAME],
+        }
+        total_cost += beat_result["cost_usd"]
+        _notify(BEAT_PASS_NAME, "complete")
 
     consolidated = consolidate_category_outputs(
         pass_outputs,
@@ -1533,6 +1558,7 @@ def run_category_pipeline(
         enable_party_participation_attachment=options.enable_party_participation_attachment,
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
+        profile=active_profile,
     )
     if options.enable_encounter_job_pass:
         encounter_vocabulary_context = ""
@@ -1573,6 +1599,7 @@ def run_category_pipeline(
             enable_party_participation_attachment=options.enable_party_participation_attachment,
             known_entity_sidecar=known_entity_sidecar,
             known_entity_registry=known_entity_registry,
+            profile=active_profile,
         )
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
         prompts[_prompt_key(EDGE_PASS_NAME)],
@@ -1604,6 +1631,7 @@ def run_category_pipeline(
         enable_party_participation_attachment=options.enable_party_participation_attachment,
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
+        profile=active_profile,
     )
     repair_diag = repair_edge_evidence_refs(consolidated, allowed_span_refs)
     sanitized, sanitize_diag = sanitize_parts(consolidated, allowed_span_refs)
@@ -1615,8 +1643,16 @@ def run_category_pipeline(
         **repair_diag,
         **sanitize_diag,
         "standing_context_partition": partition_diag,
+        "profile_id": active_profile.profile_id,
+        "profile_version": active_profile.profile_version,
     }
-    source_artifact_id = f"artifact:recap:{options.campaign_id}:{options.session_id}"
+    if options.session_id is not None:
+        source_artifact_id = f"artifact:recap:{options.campaign_id}:{options.session_id}"
+    else:
+        source_artifact_id = str(
+            (options.source_span_index.get("spans") or [{}])[0].get("source_artifact_id")
+            or f"artifact:worldbuilding:{options.campaign_id or 'unknown'}"
+        )
     registry_artifact_id = party_registry_artifact_id(options.campaign_id)
     envelope = assemble_envelope(
         recap_parts,
