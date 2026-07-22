@@ -1,7 +1,7 @@
 # HANDOFF — SBW11 Committed Plan-document content hydration and reload
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after current workspace-document and two-phase Markdown writer contracts are re-anchored; may proceed after `SBW10` but is not statblock-specific.  
+**Status:** PRE-DESIGNED — not blocked on `SBW10`; dispatch once current workspace-document and two-phase Markdown writer contracts are re-anchored. Required before `SBW12`.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw11-plan-document-content-hydration.md`  
 **Workstream:** `SBW11`  
 **Repository:** `Drakosfire/DungeonMindBuddy`
