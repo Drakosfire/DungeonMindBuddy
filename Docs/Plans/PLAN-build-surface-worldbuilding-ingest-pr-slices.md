@@ -2,8 +2,8 @@
 document_id: dmb-plan-build-surface-worldbuilding-ingest-pr-slices
 title: Build Surface and Worldbuilding Ingest PR Slices
 document_class: implementation_plan
-status: draft
-version: 0.1
+status: proposed
+version: 0.2
 branch: docs/build-surface-worldbuilding-ingest
 roadmap: ROADMAP-build-surface-worldbuilding-ingest.md
 created_at: "2026-07-22"
@@ -12,118 +12,108 @@ last_updated_at: "2026-07-22"
 
 # Build Surface and Worldbuilding Ingest PR Slices
 
-- **Status:** Branch-local PR design; logical slice IDs only
+- **Status:** Proposed sequence; logical slice IDs only.
 - **Roadmap:** [`ROADMAP-build-surface-worldbuilding-ingest.md`](ROADMAP-build-surface-worldbuilding-ingest.md)
 - **Architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
+- **Surface architecture:** [`../Design/ARCHITECTURE-plan-surface-toolbox.md`](../Design/ARCHITECTURE-plan-surface-toolbox.md)
+- **Workspace identity:** [`../Design/CONTRACT-workspace-document-identity-v1.md`](../Design/CONTRACT-workspace-document-identity-v1.md)
 - **Publication boundary:** [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
 
-This document converts the Build/worldbuilding-ingest roadmap into reviewable
-pull-request-sized slices. `BLD-*` identifiers are sequencing labels, not
-GitHub PR numbers. A future tracker may assign actual PR numbers when this
-branch-local workstream is adopted.
-
-The slices are intentionally narrow around contracts and boundaries:
+`BLD-*` identifiers are stable sequencing labels, not GitHub PR numbers. This
+plan becomes executable only after PR 382 merges and the active tracker records
+the merge SHA and marks BLD-01 ACTIVE.
 
 ```text
-BLD-00 docs
+BLD-00 docs adoption
   → BLD-01 shared editor
-      → BLD-02 source persistence
-          → BLD-03 source artifact/run contracts
-              ├→ BLD-04 generic extraction runtime ─┐
-              └→ BLD-05 Build shell ────────────────┴→ BLD-06 extraction toolbar
-                                                        → BLD-07 Graph Review handoff
-                                                            → BLD-08 worldbuilding profile/pilot
-                                                                → BLD-09 PDF/OCR pilot
+      → BLD-02 worldbuilding workspace persistence
+          → BLD-03 canonical source/run contract graduation
+              ├→ BLD-04 generic extraction runtime + profile protocol ─┐
+              └→ BLD-05 configured Build surface ─────────────────────┴→ BLD-06 extraction controls
+                                                                         → BLD-07 generic Graph Review binding
+                                                                             → BLD-08 worldbuilding profile/pilot
+                                                                                 → BLD-09 PDF/OCR lineage pilot
 ```
 
-BLD-04 and BLD-05 can be developed in parallel after BLD-03, but BLD-06 must
-wait for both. BLD-08 is a content and integration proving slice, not a reason
-to widen the runtime contract without tests.
+BLD-04 and BLD-05 may proceed in parallel after BLD-03. BLD-06 waits for both.
 
-## Handoff map
+---
 
-These handoffs use stable BLD slice identities rather than provisional GitHub
-PR numbers. Assign the actual PR number when a stream opens the work.
+## 1. Delivery rules
+
+1. Each slice delivers one independently useful capability and records why its
+   changed layers share one invariant.
+2. All handoffs remain DRAFT until their predecessor merge SHA is recorded.
+3. Workspace document IDs, SourceArtifact IDs, ExtractionRun IDs,
+   GraphContribution IDs, proposal digests, and graph revisions remain distinct.
+4. Existing contracts are graduated or adapted; no parallel source, evidence,
+   span, run, projection, or promotion authority may be created.
+5. Build reuses the shared Surface and Agent Interaction architecture.
+6. Build may author sources and launch extraction; only Graph Review may prepare
+   and confirm graph publication.
+7. Source writes and graph writes remain separate revision-bound operations.
+8. Recap ingest remains an explicit compatibility adapter and profile.
+9. Exact run IDs replace latest-run inference on every Build/Graph Review path.
+10. LLM extraction uses Responses API structured output and model policy; no
+    prompt-only JSON parsing or hidden default profile is permitted.
+11. Each acceptance guarantee names a command at the boundary that owns it.
+12. No implementation PR may mutate corpus canon, eval gold, or raw source
+    artifacts unless the pilot itself is the named capability.
+
+---
+
+## 2. Handoff map
 
 | Slice | Handoff | Dispatch dependency |
-|---|---:|---|---|
-| BLD-01 | [`HANDOFF-bld01-shared-markdown-editor.md`](HANDOFF-bld01-shared-markdown-editor.md) | BLD-00 adopted |
+|---|---|---|
+| BLD-01 | [`HANDOFF-bld01-shared-markdown-editor.md`](HANDOFF-bld01-shared-markdown-editor.md) | BLD-00 adopted and tracker synced |
 | BLD-02 | [`HANDOFF-bld02-source-document-persistence.md`](HANDOFF-bld02-source-document-persistence.md) | BLD-01 |
 | BLD-03 | [`HANDOFF-bld03-source-artifact-run-contracts.md`](HANDOFF-bld03-source-artifact-run-contracts.md) | BLD-02 |
 | BLD-04 | [`HANDOFF-bld04-generic-extraction-runtime.md`](HANDOFF-bld04-generic-extraction-runtime.md) | BLD-03 |
-| BLD-05 | [`HANDOFF-bld05-build-surface-shell.md`](HANDOFF-bld05-build-surface-shell.md) | BLD-01 + BLD-03 |
+| BLD-05 | [`HANDOFF-bld05-build-surface-shell.md`](HANDOFF-bld05-build-surface-shell.md) | BLD-01 + BLD-02 + BLD-03 |
 | BLD-06 | [`HANDOFF-bld06-build-extraction-toolbar.md`](HANDOFF-bld06-build-extraction-toolbar.md) | BLD-04 + BLD-05 |
-| BLD-07 | [`HANDOFF-bld07-graph-review-generic-run-handoff.md`](HANDOFF-bld07-graph-review-generic-run-handoff.md) | BLD-06 + extract-promote bridge |
+| BLD-07 | [`HANDOFF-bld07-graph-review-generic-run-handoff.md`](HANDOFF-bld07-graph-review-generic-run-handoff.md) | BLD-06 + current extract-promote bridge |
 | BLD-08 | [`HANDOFF-bld08-worldbuilding-profile-pilot.md`](HANDOFF-bld08-worldbuilding-profile-pilot.md) | BLD-07 |
 | BLD-09 | [`HANDOFF-bld09-pdf-ocr-lineage-pilot.md`](HANDOFF-bld09-pdf-ocr-lineage-pilot.md) | BLD-08 |
 
 ---
 
-## Delivery rules
+## BLD-00 — Adopt contracts and sequencing
 
-1. One slice should provide one independently testable capability.
-2. No slice may change the active Campaign Supergraph sequencing tracker until
-   this branch-local design is explicitly adopted.
-3. The existing recap path remains a compatibility consumer throughout.
-4. Build may create proposals and launch review; it may not commit graph heads.
-5. Source writes and graph writes remain separate two-phase operations.
-6. Do not edit corpus canon, eval gold, or raw ingestion artifacts as part of
-   an implementation PR unless that content change is the named pilot.
-7. Every slice includes focused tests and a stated command that proves its
-   boundary.
-8. A slice that broadens an LLM extraction call must use the Responses API
-   structured-output contract and model policy; it must not add prompt-only
-   JSON parsing.
-
----
-
-## BLD-00 — Adopt the contracts and sequencing
-
-- **Phase:** 0
-- **Depends on:** none
-- **Purpose:** Make the workstream executable without rediscovering product and
-architecture decisions in each implementation PR.
+**Capability:** make the Build workstream executable without rediscovering
+identity, Surface, profile, and publication decisions.
 
 ### Scope
 
-- This roadmap.
-- This PR slice plan.
-- A short source-artifact contract note or typed contract location if the
-  implementation team requires a canonical import path.
-- Explicit non-goals for Build, Ingest, Graph Review, and Plan.
-
-### Out of scope
-
-- Runtime behavior.
-- Route or navigation changes.
-- Corpus mutation.
-- Eval-gold changes.
-- Reordering the active Campaign Supergraph tracker.
+- Adopt the roadmap and this slice plan.
+- Record the distinct WorkspaceDocument → SourceArtifact revision lineage.
+- Bind BLD work to established graph evidence/run packages.
+- Bind Build to the shared Surface architecture.
+- Bind generic extraction to a versioned profile protocol.
+- Bind publication to existing `src/graph_memory/extract_promote_ops.py` and the
+  Graph Review confirmation surface.
 
 ### Acceptance
 
-- The source artifact permits a worldbuilding source with no session.
-- The run lifecycle is named: draft → prepared → extracted → validated →
-  reviewable → promoted or rejected.
-- Graph Review is the only governed publication owner.
-- A future implementation PR can name exact files and tests without inventing
-  a second world graph.
+- No implementation handoff remains ambiguous about identity ownership.
+- No handoff names a duplicate or nonexistent graph authority.
+- BLD-01 can be activated from an immutable merge SHA.
+- BLD-02 through BLD-09 remain DRAFT.
 
 ### Verification
 
 ```bash
 git diff --check -- Docs/Plans/ROADMAP-build-surface-worldbuilding-ingest.md \
-  Docs/Plans/PLAN-build-surface-worldbuilding-ingest-pr-slices.md
+  Docs/Plans/PLAN-build-surface-worldbuilding-ingest-pr-slices.md \
+  Docs/Plans/HANDOFF-bld*.md
 ```
 
 ---
 
 ## BLD-01 — Extract the reusable Markdown editor
 
-- **Phase:** 1
-- **Depends on:** BLD-00
-- **Purpose:** Make TipTap editor behavior reusable by Plan, Build, and future
-source surfaces without changing Plan’s product behavior.
+**Capability:** Plan and the TipTap bridge use one surface-neutral editor while
+preserving their existing product behavior.
 
 ### Likely files
 
@@ -134,57 +124,55 @@ apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts
 apps/live-control-ui/src/tiptap/MarkdownEditor.tsx
 apps/live-control-ui/src/tiptap/TiptapCalloutBridgeSpike.tsx
 apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx
-apps/live-control-ui/src/planSurface/components/*test*.tsx
-apps/live-control-ui/src/tiptap/*test*.tsx
+focused TipTap and Plan tests
 ```
 
 ### Scope
 
-- Extract common TipTap setup, local draft state, import/export, dirty state,
-  and editor lifecycle callbacks.
-- Make extensions and surface-specific toolbar tools injectable.
-- Preserve callout and graph/runbook reference behavior.
-- Convert the Spike and Plan canvas to consumers of the shared component.
-- Keep source-specific save behavior in adapters/hooks.
+- Extract common TipTap setup, lifecycle, import/export, dirty state, and
+  extension/tool injection.
+- Keep document identity, persistence, and surface tools in adapters.
+- Preserve callout and reference behavior.
 
 ### Out of scope
 
-- `/build` route.
-- Worldbuilding metadata.
-- New graph extraction behavior.
-- Expanding the Markdown writer allowlist.
-- Tables, images, frontmatter, or arbitrary HTML support unless the current
-  converter already supports them.
+- Build route or source metadata.
+- Writer allowlist changes.
+- New Markdown syntax support.
+- Graph extraction or publication.
 
-### Acceptance
-
-- Plan and the Spike render through the shared editor.
-- Existing Plan save semantics remain unchanged.
-- The shared component has no Plan-session or runbook-path assumptions.
-- Unsupported Markdown diagnostics remain visible to the caller.
-
-### Verification
+### Acceptance / verification
 
 ```bash
 cd apps/live-control-ui
-npm test -- --run src/planSurface/PlanSurfaceShell.test.tsx
 npm test -- --run src/tiptap
+npm test -- --run src/planSurface
 npm run typecheck
 npm run build
 ```
 
 ---
 
-## BLD-02 — Generalize source-document persistence safely
+## BLD-02 — Persist worldbuilding workspace documents safely
 
-- **Phase:** 2
-- **Depends on:** BLD-01
-- **Purpose:** Let Build save a source document through a server-owned, reviewable
-  path policy instead of using Plan’s session-prep allowlist.
+**Capability:** a caller can create, classify, commit, reopen, discard, and
+restore a `worldbuilding_source` workspace document through the existing
+server-owned UUID registry and two-phase writer.
+
+### Locked identity decision
+
+- Extend the workspace document contract with explicit
+  `kind: worldbuilding_source` and typed source metadata.
+- Preserve opaque server-issued workspace UUID identity.
+- Do not create a SourceArtifact during draft editing.
+- A later committed revision creates a distinct SourceArtifact linked by
+  `workspace_document_id + workspace_document_revision + content_sha256`.
+- Update `CONTRACT-workspace-document-identity-v1.md` in this slice.
 
 ### Likely files
 
 ```text
+Docs/Design/CONTRACT-workspace-document-identity-v1.md
 apps/live-control-ui/src/api/types.ts
 apps/live-control-ui/src/api/liveApi.ts
 apps/live-control-ui/src/tiptap/MarkdownDocumentAdapter.ts
@@ -193,265 +181,228 @@ apps/live_control_server/routes/workspace_documents.py
 apps/live_control_server/services/tiptap_markdown_write.py
 tests/test_workspace_document_registry.py
 tests/test_tiptap_markdown_write.py
+apps/live-control-ui/src/api/liveApi.test.ts
 ```
 
 ### Scope
 
-- Decide whether `WorkspaceDocumentRecord.kind` grows to include
-  `worldbuilding` or whether a separately typed source-document registry is
-  cleaner. Keep the public discriminator explicit.
-- Add source-domain/document-class metadata.
-- Add a server-owned safe target policy for approved worldbuilding roots.
-- Preserve root containment, path normalization, backups, prepare/commit, and
-  conflict detection.
-- Return diagnostics for unsupported or lossy Markdown conversions.
-- Keep Plan and runbook paths behaviorally compatible.
+- Add explicit domain/class/authority/visibility metadata.
+- Add server-owned safe target policy for approved worldbuilding roots.
+- Preserve revision CAS, backup, root containment, discard/restore, and
+  prepare/commit behavior.
+- Block lossy Markdown commit.
+- Keep plan/runbook behavior compatible.
 
 ### Out of scope
 
-- Arbitrary filesystem writes from the browser.
-- Source extraction or graph mutation.
-- Automatic canon promotion.
-- Bulk corpus migration.
+- SourceArtifact or ExtractionRun creation.
+- Extraction and graph mutation.
+- Arbitrary filesystem paths from the browser.
 
-### Acceptance
-
-- A worldbuilding source can be created and reopened by registry ID.
-- Prepare/commit rejects unsafe paths and stale revisions.
-- A source commit cannot silently discard unsupported Markdown structures.
-- Existing plan/runbook tests remain green.
-
-### Verification
+### Acceptance / verification
 
 ```bash
 uv run pytest tests/test_workspace_document_registry.py \
   tests/test_tiptap_markdown_write.py
 cd apps/live-control-ui
-npm test -- --run src/api
+npm test -- --run src/api/liveApi.test.ts
 npm run typecheck
 ```
 
 ---
 
-## BLD-03 — Introduce generic SourceArtifact and ExtractionRun contracts
+## BLD-03 — Graduate canonical SourceArtifact and ExtractionRun contracts
 
-- **Phase:** 3
-- **Depends on:** BLD-02
-- **Purpose:** Separate source identity and run identity from recap session
-identity while preserving recap adapters.
+**Capability:** a committed workspace revision can be represented by the
+existing graph evidence authorities and participate in a source-domain-neutral,
+durable exact-run contract while old recap manifests remain readable through an
+explicit adapter.
+
+### Existing authorities to evolve
+
+```text
+src/graph_memory/evidence/source_artifact.py
+src/graph_memory/source_span.py
+src/graph_memory/ingestion/graph_ingest_run.py
+```
+
+A canonical `src/graph_memory/ingestion/extraction_run.py` may be introduced.
+If introduced, `graph_ingest_run.py` becomes the recap/legacy adapter or loader;
+it may not remain a competing canonical run contract.
 
 ### Likely files
 
 ```text
-src/graph_memory/source_artifact.py
-src/graph_memory/extraction_run.py
-src/graph_memory/source_spans.py
-src/graph_memory/provenance.py
-src/graph_memory/extraction/graph_extraction_options.py
+src/graph_memory/evidence/source_artifact.py
+src/graph_memory/evidence/__init__.py
+src/graph_memory/source_span.py
+src/graph_memory/ingestion/extraction_run.py
+src/graph_memory/ingestion/graph_ingest_run.py
+src/graph_memory/ingestion/__init__.py
 apps/live_control_server/services/source_artifact_registry.py
 apps/live_control_server/services/graph_run_registry.py
 apps/live_control_server/routes/graph_preview.py
 apps/live_control_server/routes/workspace_documents.py
-tests/test_source_artifact*.py
-tests/test_graph_run_registry*.py
+focused source, span, run, registry, and recap-compatibility tests
 ```
 
 ### Scope
 
-- Define stable source-artifact identity, content digest, authority,
-  visibility, temporal scope, optional campaign/session scope, and source
-  lineage.
-- Define a reviewable extraction-run manifest with source spans, provenance,
-  candidate graph, diagnostics, validation report, and status.
-- Allow `campaign_id` and `session_id` to be nullable where the source domain
-  permits it.
-- Add a recap adapter that maps current recap descriptors to the generic
-  contract.
-- Ensure all source paths are resolved server-side and remain root-contained.
+- Define immutable SourceArtifact revision lineage, digest, authority,
+  visibility, optional campaign/session scope, and explicit workspace foreign
+  keys.
+- Define exact ExtractionRun identity, lifecycle, components, diagnostics,
+  supersession, and reload behavior.
+- Reuse/evolve the existing source-span/evidence contract.
+- Adapt existing recap manifests without latest-run or path-derived identity.
 
 ### Out of scope
 
-- Changing extraction prompts.
-- Worldbuilding-specific category tuning.
-- UI replacement of recap ingest.
-- Graph-head mutation.
+- Extraction execution or prompt changes.
+- Build UI.
+- Graph Review UI or graph-head mutation.
+- New top-level `source_artifact.py`, `source_spans.py`, or `provenance.py`
+  authorities.
 
-### Acceptance
-
-- A source artifact with no session is valid.
-- Existing recap preview runs still load through the adapter.
-- Candidate assertions can point back to a source artifact and span.
-- Run status is durable and queryable without parsing a filesystem path.
-
-### Verification
+### Acceptance / verification
 
 ```bash
-uv run pytest tests/test_source_artifact*.py \
-  tests/test_graph_run_registry*.py \
+uv run pytest tests/test_source_artifact.py \
+  tests/test_extraction_run.py \
+  tests/test_graph_run_registry.py \
   tests/test_live_recap_ingest_graph_preview_api.py
 ```
 
 ---
 
-## BLD-04 — Generalize extraction execution behind source adapters
+## BLD-04 — Generalize extraction execution and profile selection
 
-- **Phase:** 3
-- **Depends on:** BLD-03
-- **Purpose:** Make extraction execution accept source artifacts and profiles
-instead of requiring recap-shaped arguments.
+**Capability:** recap and sessionless worldbuilding SourceArtifacts can run
+through one production extraction controller using explicit source adapters and
+versioned extraction profiles.
+
+### Profile protocol decision
+
+A profile owns or references enabled passes, pass instructions/templates,
+structured-output schemas, vocabulary/context policy, domain defaults, and
+post-validation. BLD-04 extracts current recap semantics into an explicit recap
+profile without tuning them.
 
 ### Likely files
 
 ```text
-src/graph_memory/extraction/category_candidate_graph_extractor.py
-src/graph_memory/extraction/graph_extraction_options.py
+src/graph_memory/extraction/extraction_profile.py
+src/graph_memory/extraction/recap_extraction_profile.py
 src/graph_memory/extraction/source_adapter.py
 src/graph_memory/extraction/recap_source_adapter.py
 src/graph_memory/extraction/worldbuilding_source_adapter.py
+src/graph_memory/extraction/category_candidate_graph_extractor.py
+src/graph_memory/extraction/graph_extraction_options.py
 src/graph_memory/extraction/graph_preview_runner.py
-apps/live_control_server/services/recap_graph_preview_ingest.py
 apps/live_control_server/services/graph_preview_runner.py
-tests/test_graph_preview_runner*.py
-tests/test_category_candidate_graph_extractor*.py
+apps/live_control_server/services/recap_graph_preview_ingest.py
+focused adapter, profile, extractor, controller, and recap regression tests
 ```
 
 ### Scope
 
-- Replace mandatory recap-session construction with a source-artifact
-  descriptor plus an extraction profile.
-- Keep recap extraction as an explicit adapter.
-- Add worldbuilding source-span normalization for Markdown text.
-- Preserve source anchors and provenance for every extracted assertion.
-- Persist refusal/incomplete/schema diagnostics as explicit run failures.
-- Resolve model IDs through model policy for any changed LLM path.
+- Parameterize current extractor behavior through the profile protocol.
+- Add recap and generic worldbuilding source adapters.
+- Keep worldbuilding profile semantics minimal until BLD-08.
+- Preserve source spans and explicit refusal/incomplete/schema/validation
+  failures.
+- Keep production code out of `evals/`.
 
 ### Out of scope
 
-- Tuning worldbuilding categories.
-- PDF/OCR parsing.
-- Graph Review UI.
-- Direct graph publication.
+- Worldbuilding category tuning.
+- PDF/OCR.
+- Graph Review or publication.
 
-### Acceptance
-
-- Worldbuilding Markdown with `session_id = null` completes through extraction
-  and validation.
-- Recap behavior is regression-tested against a representative existing run.
-- No adapter fabricates a session number to satisfy a legacy function.
-- Structured extraction uses Responses API `text.format` with strict JSON
-  schema where the runtime performs LLM extraction.
-
-### Verification
+### Acceptance / verification
 
 ```bash
-uv run pytest tests/test_graph_preview_runner*.py \
-  tests/test_category_candidate_graph_extractor*.py \
-  tests/test_live_recap_ingest_graph_preview_api.py
+uv run pytest tests/test_source_adapters.py \
+  tests/test_extraction_profiles.py \
+  tests/test_category_candidate_graph_extractor.py \
+  tests/test_graph_preview_runner.py \
+  tests/test_graph_memory_category_graph_preview_runner.py
 ```
 
 ---
 
-## BLD-05 — Add the Build surface shell
+## BLD-05 — Add Build as a configured shared Surface
 
-- **Phase:** 4
-- **Depends on:** BLD-03 and BLD-01
-- **Purpose:** Create an editor-first `/build` surface that can author a
-worldbuilding source even while extraction launch remains gated behind BLD-06.
+**Capability:** `/build` provides source authoring through the shared Surface,
+editor, AppChrome, theme, projection, and Agent Interaction architecture.
+
+### Architecture constraint
+
+`BuildSurfacePage` supplies Build configuration and adapters. Any
+`BuildSurfaceShell` is a thin wrapper around the existing shared `SurfaceShell`.
+No second projection registry, adaptive container, edit stack, navigation
+system, theme system, or Agent Interaction provider may be created.
 
 ### Likely files
 
 ```text
 apps/live-control-ui/src/App.tsx
 apps/live-control-ui/src/chrome/appChromeConfig.ts
+apps/live-control-ui/src/surfaces/* shared config/type files when required
 apps/live-control-ui/src/buildSurface/BuildSurfacePage.tsx
 apps/live-control-ui/src/buildSurface/BuildSurfaceShell.tsx
 apps/live-control-ui/src/buildSurface/buildSurfaceConfig.ts
-apps/live-control-ui/src/styles.css
-apps/live-control-ui/src/App.test.tsx
 apps/live-control-ui/src/buildSurface/*test*.tsx
+apps/live-control-ui/src/App.test.tsx
+shared styles/tokens only when required
 ```
 
 ### Scope
 
-- Add the `/build` route.
-- Render the shared editor with source-document metadata.
-- Provide new/open/save draft and save-source controls.
-- Show source domain, document class, authority, visibility, and dirty/save
-  state.
-- Add the primary nav item only when the shell is functional and its route
-  contract is tested.
-- Keep the empty Play surface unchanged.
+- Add `/build` and one primary navigation item.
+- Reuse shared editor and source-document API.
+- Show explicit source metadata, dirty/save/conflict state, and exact document
+  reload.
+- Preserve other surfaces and the single app-level continuity host.
 
 ### Out of scope
 
-- Extraction execution.
-- Candidate graph rendering.
-- Graph Review commit controls.
-- PDF import.
+- Extraction controls.
+- Candidate review or publication.
+- New backend capability.
 
-### Acceptance
-
-- Direct navigation to `/build` renders a real React surface.
-- The Build surface has no Plan-session requirement.
-- Source metadata is explicit and persists with the document record.
-- App chrome remains consistent across Plan, Ingest, Play, and Build.
-
-### Verification
+### Acceptance / verification
 
 ```bash
 cd apps/live-control-ui
-npm test -- --run src/App.test.tsx src/buildSurface
+npm test -- --run src/App.test.tsx src/buildSurface src/planSurface
 npm run typecheck
 npm run build
 ```
 
 ---
 
-## BLD-06 — Add Build extraction toolbar and run handoff
+## BLD-06 — Add Build extraction controls and exact-run handoff
 
-- **Phase:** 4
-- **Depends on:** BLD-04 and BLD-05
-- **Purpose:** Let Build prepare a source artifact, launch extraction, show run
-status, and open the selected run in Graph Review.
-
-### Likely files
-
-```text
-apps/live-control-ui/src/api/liveApi.ts
-apps/live-control-ui/src/api/types.ts
-apps/live-control-ui/src/buildSurface/BuildSurfacePage.tsx
-apps/live-control-ui/src/buildSurface/BuildIngestToolbar.tsx
-apps/live-control-ui/src/buildSurface/useBuildExtraction.ts
-apps/live-control-ui/src/buildSurface/*test*.tsx
-apps/live_control_server/routes/graph_preview.py
-apps/live_control_server/services/graph_run_registry.py
-tests/test_graph_preview_routes.py
-```
+**Capability:** Build can prepare a committed source revision, launch one exact
+ExtractionRun, recover status after refresh, and open that exact run in Graph
+Review.
 
 ### Scope
 
-- Add source-aware extraction options.
-- Add prepare/extract/status API calls keyed by artifact/run ID.
-- Show a compact lifecycle state and failures.
+- Bind launch to document ID, committed revision/digest, SourceArtifact ID, and
+  explicit profile.
+- Recover exact run ID; never select “latest”.
+- Show safe diagnostics and lifecycle.
 - Make **Open in Graph Review** the terminal action.
-- Carry source artifact, run, and revision identifiers into the handoff.
 
 ### Out of scope
 
-- Any Build-side merge or commit action.
-- Automatically selecting all candidate assertions.
-- A second review UI.
-- Model/provider controls in the normal user-facing toolbar.
+- Build-side prepare/confirm publication.
+- A second review panel.
+- Model/provider controls in ordinary UI.
 
-### Acceptance
-
-- The toolbar cannot launch against an unsaved or stale source.
-- A run is recoverable after page reload.
-- Failure state includes a safe diagnostic and a run ID, not raw secrets or
-  corpus payload logging.
-- Opening Graph Review selects the exact run, not merely the latest run.
-
-### Verification
+### Acceptance / verification
 
 ```bash
 uv run pytest tests/test_graph_preview_routes.py
@@ -462,51 +413,56 @@ npm run typecheck
 
 ---
 
-## BLD-07 — Generalize Graph Review run loading and publication handoff
+## BLD-07 — Bind generic runs to the existing Graph Review publication path
 
-- **Phase:** 6
-- **Depends on:** BLD-06 and the existing extract-promote bridge
-- **Purpose:** Make Graph Review consume generic recap and worldbuilding runs
-  through one review and governed-publication path.
+**Capability:** Graph Review loads exact recap or worldbuilding runs and uses
+the existing revision-bound Kernel prepare/confirm path.
+
+### Ownership constraint
+
+Shared publication ops remain in:
+
+```text
+src/graph_memory/extract_promote_ops.py
+```
+
+The HTTP boundary remains:
+
+```text
+apps/live_control_server/routes/extract_promote.py
+```
+
+There is no `apps/live_control_server/services/extract_promote_ops.py` authority.
+Any changes to Kernel contribution or identity semantics are a stop condition.
 
 ### Likely files
 
 ```text
-apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx
-apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchHeaderWithActivity.tsx
-apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewRunSelection.ts
+apps/live-control-ui/src/planSurface/graphReviewWorkbench/*
 apps/live-control-ui/src/api/liveApi.ts
 apps/live-control-ui/src/api/types.ts
 apps/live_control_server/routes/extract_promote.py
-apps/live_control_server/services/extract_promote_ops.py
-tests/test_extract_promote_ops_atomic.py
-tests/test_live_extract_promote_api.py
+src/graph_memory/extract_promote_ops.py only if generic run binding cannot be expressed through existing input adapters
+focused workbench, selection, route, atomicity, and exact-reload tests
 ```
 
 ### Scope
 
-- Resolve selected runs by durable run ID and source-artifact ID.
-- Display source domain, authority, temporal scope, and provenance.
-- Preserve assertion-level selection and prepare/confirm semantics.
-- Permit worldbuilding candidates with no session focus.
-- Keep the same contribution and immutable World Graph head path.
-- Add reload/durable-revision tests for the generic run.
+- Select exact run/source/revision IDs.
+- Adapt generic evidence into the existing review package.
+- Preserve assertion-level selection and explicit confirm.
+- Permit null session focus.
+- Reload the exact committed graph revision and distinguish commit success from
+  read degradation.
 
 ### Out of scope
 
-- Hermes-specific write paths.
+- New promotion service or write protocol.
 - Automatic identity linking.
-- Player-facing graph projection.
-- Replacing the existing Graph Review workbench.
+- Build commit controls.
+- Hermes-specific writes.
 
-### Acceptance
-
-- A worldbuilding run can be reviewed without a fake session lens.
-- The final confirmation is revision-bound and explicit.
-- A rejected or superseded proposal cannot advance the graph head.
-- A successful commit is queryable at world focus and carries source evidence.
-
-### Verification
+### Acceptance / verification
 
 ```bash
 uv run pytest tests/test_extract_promote_ops_atomic.py \
@@ -518,95 +474,77 @@ npm run typecheck
 
 ---
 
-## BLD-08 — Worldbuilding extraction profile and Shepherd’s Flock pilot
+## BLD-08 — Add a bounded worldbuilding extraction profile and pilot
 
-- **Phase:** 5
-- **Depends on:** BLD-07
-- **Purpose:** Prove that a bounded worldbuilding extraction profile works on
-  real Markdown material without inventing session chronology.
+**Capability:** an explicit versioned worldbuilding profile produces bounded,
+source-evidenced Shepherd’s Flock candidates without fabricated chronology or
+incidental taxonomy explosion.
 
 ### Scope
 
-- Select a small Shepherd’s Flock source set.
-- Deduplicate overlapping worldbuilding sources before extraction.
-- Add bounded location, faction, NPC, creature/statblock-reference, and
-  institution/governance extraction coverage.
-- Run at least three repeat trials for any stochastic extraction comparison.
-- Review candidates manually and record accepted/rejected reasons.
-- Commit only the explicitly approved world graph contribution.
-- Query the committed objects with world focus and no session ID.
+- Add a profile implementation through BLD-04’s protocol.
+- Own worldbuilding pass/category bounds, instructions/templates, schema IDs,
+  vocabulary policy, and post-validation.
+- Cover bounded location, faction, NPC, creature/statblock-reference, and
+  institution/governance extraction.
+- Run at least three comparable trials.
+- Record redacted aggregate findings and manually accepted/rejected reasons.
+- Publish only through Graph Review.
+
+### Likely files
+
+```text
+src/graph_memory/extraction/worldbuilding_extraction_profile.py
+tests/test_worldbuilding_extraction_profile.py
+tests/test_worldbuilding_profile_pipeline.py
+evals/graph_memory_layer/worldbuilding_profile_pilot.py
+evals/graph_memory_layer/fixtures/worldbuilding_profile_fixture.json
+Docs/Reports/REPORT-build-worldbuilding-profile-pilot.md
+```
+
+If the profile protocol cannot express the required prompt/schema behavior,
+stop and fix BLD-04’s contract rather than editing unrelated prompt files
+opportunistically.
 
 ### Out of scope
 
-- Bulk ingestion of the entire corpus.
-- Editing source canon as an incidental test setup.
-- Treating benchmark output as durable graph truth.
-- Broad ecology/resource extraction before a bounded profile exists.
-- PDF/OCR parsing and page-level lineage.
+- Bulk corpus ingestion.
+- Ecology/resource expansion.
+- PDF/OCR.
+- Automatic promotion.
 
-### Acceptance
-
-- Source artifact and span IDs are stable across reload.
-- Candidates link to paragraph evidence.
-- No session number is invented for evergreen lore.
-- Duplicate source copies do not create duplicate durable identities.
-- The resulting contribution is reviewable, auditable, and retractable under
-  the existing graph contract.
-
-### Verification
-
-The exact pilot command should be recorded with the resulting run artifact, but
-the minimum verification shape is:
+### Acceptance / verification
 
 ```bash
 uv run pytest tests/test_worldbuilding_extraction_profile.py \
   tests/test_worldbuilding_profile_pipeline.py
-uv run python evals/graph_memory_layer/worldbuilding_profile_pilot.py \
-  --trials 3
-uv run pytest tests/test_extract_promote_ops_atomic.py \
-  tests/test_live_extract_promote_api.py
+uv run python evals/graph_memory_layer/worldbuilding_profile_pilot.py --trials 3
 ```
-
-Any live LLM pilot must keep full payload artifacts local, use the configured
-DungeonMind environment loader, and report aggregate metrics plus run IDs
-instead of pasting corpus text into review discussion.
 
 ---
 
-## BLD-09 — PDF/OCR source lineage pilot
+## BLD-09 — Prove PDF/OCR source lineage
 
-- **Phase:** 7
-- **Depends on:** BLD-08
-- **Purpose:** Prove that PDF-derived Markdown can enter the same
-  source-artifact and review path without losing page provenance or creating
-  duplicate identities.
+**Capability:** one bounded PDF and its validated OCR/Markdown derivation enter
+the same source/run/review path with stable page evidence and no duplicate
+durable identity.
 
 ### Scope
 
-- Create a validated OCR/Markdown source artifact from one bounded PDF slice.
-- Preserve PDF/page/OCR lineage in source spans and the run manifest.
-- Reuse the existing RulesIngestion Mark III artifacts where possible.
-- Pilot one mechanical/statblock source and review its graph candidates.
-- Record aggregate outcomes and rejected candidates.
+- Register original PDF identity and a distinct derived OCR artifact.
+- Preserve PDF/page/region lineage in spans and run components.
+- Reuse existing RulesIngestion artifacts where reliable.
+- Pilot one bounded mechanical/statblock source.
+- Report redacted aggregate outcomes.
 
 ### Out of scope
 
-- Raw PDF editing inside TipTap.
-- Bulk PDF corpus ingestion.
-- New mechanical rules semantics.
-- Broad statblock authoring or combat integration.
+- Raw PDF editing in TipTap.
+- Bulk PDF ingestion.
+- New mechanical semantics.
+- Combat integration.
 
-### Acceptance
-
-- PDF-derived candidates link to stable page evidence.
-- OCR/Markdown validation failures are explicit and review-blocking.
-- Duplicate PDF/Markdown copies do not create duplicate durable identities.
-- The approved contribution uses the same Graph Review publication path as
-  worldbuilding Markdown.
-
-### Verification
-
-The exact pilot command must be recorded with the resulting run artifact:
+### Acceptance / verification
 
 ```bash
 uv run pytest tests/test_source_artifact_pdf_lineage.py \
@@ -616,38 +554,32 @@ uv run pytest tests/test_source_artifact_pdf_lineage.py \
 uv run python evals/graph_memory_layer/pdf_lineage_pilot.py --trials 3
 ```
 
-Any live LLM pilot must keep full payload artifacts local, use the configured
-DungeonMind environment loader, and report aggregate metrics plus run IDs
-instead of pasting corpus text into review discussion.
+---
+
+## 3. Cross-slice ownership guardrails
+
+- Editor extraction and extraction-runtime graduation remain separate.
+- Workspace persistence and immutable SourceArtifact creation remain distinct
+  lifecycle transitions even when one API workflow connects them.
+- Source persistence and graph publication remain separate write systems.
+- Build route work does not create graph contracts.
+- Profile tuning does not silently rewrite the generic runtime.
+- PDF lineage does not widen into bulk ingestion.
+- Plan continues to save its current document type.
+- Recap ingest continues to load recap runs through explicit adapters/profiles.
+- Graph Review continues to use the existing governed publication APIs.
+- Build contains no graph prepare/confirm control.
+- Play remains outside this workstream.
 
 ---
 
-## Cross-slice file and ownership guardrails
+## 4. Adoption follow-up
 
-### Do not combine casually
+After PR 382 merges:
 
-- Editor extraction and extraction-runtime generalization are separate review
-  concerns.
-- Source persistence and graph publication are separate write paths.
-- Worldbuilding profile tuning and PDF/OCR ingestion are separate evidence
-  questions.
-- UI route work and durable graph contract work should not be hidden in one
-  “Build surface” PR.
-
-### Compatibility obligations
-
-- Plan continues to save its current document type.
-- Ingest Recap continues to load current recap runs.
-- Graph Review continues to use the existing governed publication APIs.
-- Build must remain unusable for direct graph publication.
-- The empty Play surface remains an intentional stub until its own roadmap.
-
-### Documentation follow-up when adopted
-
-When this branch-local design is accepted for execution:
-
-1. create the corresponding workstream checklist/tracker;
-2. copy the `BLD-*` sequence into that tracker;
-3. record the active phase and next verification command;
-4. assign actual GitHub PR numbers only after slices are opened;
-5. update the roadmap and tracker atomically after each accepted slice.
+1. update the active tracker with BLD-00 through BLD-09;
+2. record the PR 382 merge SHA;
+3. activate only BLD-01;
+4. leave all successor handoffs DRAFT;
+5. assign actual PR numbers when branches open;
+6. sync tracker, judgment, and handoff status atomically after each merge.
