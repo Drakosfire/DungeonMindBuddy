@@ -34,6 +34,9 @@ from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 # Ensure profiles register on import.
 from src.graph_memory.extraction import recap_extraction_profile as _recap_profiles  # noqa: F401
 from src.graph_memory.extraction import worldbuilding_plumbing_profile as _wb_profiles  # noqa: F401
+from src.graph_memory.extraction import (  # noqa: F401
+    worldbuilding_extraction_profile as _wb_bounded_profiles,
+)
 
 
 @dataclass(frozen=True)
