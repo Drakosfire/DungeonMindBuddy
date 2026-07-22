@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import * as liveApi from "../api/liveApi";
 import type { WorkspaceDocumentRecord } from "../api/types";
-import { writeBuildLocalDraft, buildDraftFromRecord } from "./buildLocalDraft";
+import { writeBuildLocalDraft, buildDraftFromRecord, buildLocalDraftStorageKey } from "./buildLocalDraft";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
 
 vi.mock("../api/liveApi", async (importOriginal) => {
@@ -92,6 +92,22 @@ describe("BuildSurfaceShell", () => {
       /Local edits not yet committed/i,
     );
     expect(await screen.findByText("Local draft body")).toBeInTheDocument();
+  });
+
+  it("does not mark a fresh draft dirty from editor hydration alone", async () => {
+    renderShell();
+
+    expect(await screen.findByTestId("build-surface-save-status")).toHaveTextContent(
+      /Draft source ready/i,
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("build-surface-editor").querySelector('[data-markdown-editor-status="ready"]'),
+      ).not.toBeNull();
+    });
+    // TipTap may emit a hydration onUpdate; exported-markdown equality must keep idle.
+    expect(screen.getByTestId("build-surface-save-status")).toHaveTextContent(/Draft source ready/i);
+    expect(localStorage.getItem(buildLocalDraftStorageKey(DOC_ID))).toBeNull();
   });
 
   it("commits markdown when prepare succeeds and updates revision", async () => {

@@ -92,9 +92,10 @@ function BuildSurfaceBody({
   );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<string[]>([]);
-  const skipNextUpdateRef = useRef(true);
   const recordRef = useRef(record);
   recordRef.current = record;
+  const contentRef = useRef(content);
+  contentRef.current = content;
 
   useEffect(() => {
     rehydrateScope({
@@ -144,7 +145,7 @@ function BuildSurfaceBody({
     const currentRecord = recordRef.current;
     const markdown = defaultMarkdownDocumentAdapter.exportMarkdown(editor.getJSON());
     const imported = defaultMarkdownDocumentAdapter.importMarkdown(markdown);
-    if (hasCommitBlockingDiagnostics(imported.diagnostics)) {
+    if (hasCommitBlockingDiagnostics(imported.diagnostics, "worldbuilding_lossless")) {
       setSaveStatus("error");
       setSaveError("Unsupported Markdown would be lossy; fix diagnostics before save.");
       setDiagnostics(
@@ -285,8 +286,13 @@ function BuildSurfaceBody({
             editable={canEdit}
             onEditorChange={setEditor}
             onUpdate={(json) => {
-              if (skipNextUpdateRef.current) {
-                skipNextUpdateRef.current = false;
+              // TipTap may emit a hydration update with normalized empty-doc JSON.
+              // Ignore when exported Markdown is unchanged so the first real edit is kept.
+              const nextMarkdown = defaultMarkdownDocumentAdapter.exportMarkdown(json);
+              const currentMarkdown = defaultMarkdownDocumentAdapter.exportMarkdown(
+                contentRef.current,
+              );
+              if (nextMarkdown === currentMarkdown) {
                 return;
               }
               setContent(json);
