@@ -25,6 +25,9 @@ from apps.live_control_server.routes.world_graph_retrieval import (
 from apps.live_control_server.routes.workspace_documents import (
     router as workspace_documents_router,
 )
+from apps.live_control_server.routes.statblock_integration import (
+    router as statblock_integration_router,
+)
 from apps.live_control_server.services.hermes_graph_agent_host import (
     get_hermes_graph_agent_host,
     shutdown_hermes_graph_agent_host,
@@ -62,6 +65,7 @@ def create_app() -> FastAPI:
     application.include_router(world_graph_projection_router)
     application.include_router(world_graph_retrieval_router)
     application.include_router(workspace_documents_router)
+    application.include_router(statblock_integration_router)
 
     @application.get("/health")
     def health() -> dict[str, str]:

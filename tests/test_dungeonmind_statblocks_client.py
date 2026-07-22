@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import httpx
+import pytest
+
+from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
+    DungeonMindStatblockV1Client,
+)
+from apps.live_control_server.integrations.dungeonmind_statblocks.config import (
+    INTERNAL_KEY_HEADER,
+    StatblockIntegrationConfig,
+    load_statblock_integration_config,
+)
+from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+    StatblockIntegrationError,
+)
+from apps.live_control_server.integrations.dungeonmind_statblocks.readiness import (
+    evaluate_statblock_integration_readiness,
+    project_buddy_capabilities,
+)
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "statblocks" / "v1"
+SECRET = "test-internal-key-not-for-production"
+
+
+def _fixture(name: str) -> dict:
+    return json.loads((FIXTURE_DIR / name).read_text(encoding="utf-8"))
+
+
+def _config(**overrides: object) -> StatblockIntegrationConfig:
+    payload = {
+        "base_url": "https://statblocks.example.test",
+        "internal_api_key": SECRET,
+        "enabled": True,
+        "timeout_seconds": 5.0,
+    }
+    payload.update(overrides)
+    return StatblockIntegrationConfig(**payload)  # type: ignore[arg-type]
+
+
+def _client(handler: httpx.MockTransport) -> DungeonMindStatblockV1Client:
+    return DungeonMindStatblockV1Client(
+        config=_config(),
+        http_client=httpx.Client(transport=handler, follow_redirects=False),
+    )
+
+
+def test_config_disabled_does_not_require_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_ENABLED", "false")
+    monkeypatch.delenv("DUNGEONMIND_STATBLOCKS_BASE_URL", raising=False)
+    monkeypatch.delenv("DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY", raising=False)
+    config = load_statblock_integration_config()
+    assert config.enabled is False
+    assert config.is_configured is False
+
+
+def test_config_enabled_requires_base_url_and_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_ENABLED", "true")
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_BASE_URL", "https://example.test")
+    monkeypatch.delenv("DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY", raising=False)
+    with pytest.raises(Exception, match="base URL and internal API key"):
+        load_statblock_integration_config()
+
+
+def test_disabled_readiness_makes_no_downstream_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_ENABLED", "0")
+    readiness = evaluate_statblock_integration_readiness()
+    assert readiness.configured is False
+    assert readiness.available is False
+    assert readiness.diagnostics == ["integration_disabled"]
+
+
+def test_success_readiness_mapping() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers.get(INTERNAL_KEY_HEADER) == SECRET
+        if request.url.path.endswith("/health/ready"):
+            return httpx.Response(
+                200,
+                json={
+                    "status": "ready",
+                    "contract": "dungeonmind.dungeonbuddy-statblocks",
+                    "generation_enabled": True,
+                    "read_routes_enabled": True,
+                    "errors": [],
+                },
+            )
+        if request.url.path.endswith("/health"):
+            return httpx.Response(
+                200,
+                json={
+                    "status": "available",
+                    "contract": "dungeonmind.dungeonbuddy-statblocks",
+                    "contract_version": "1.0.0",
+                    "capabilities": [
+                        "candidate_generate",
+                        "candidate_read",
+                        "statblock_create",
+                        "statblock_revision_read",
+                    ],
+                },
+            )
+        return httpx.Response(404, json={"error": {"code": "not_found", "message": "missing"}})
+
+    client = _client(httpx.MockTransport(handler))
+    readiness = evaluate_statblock_integration_readiness(client=client)
+    assert readiness.configured is True
+    assert readiness.available is True
+    assert readiness.downstream_status == "ready"
+    assert readiness.contract == "dungeonmind.dungeonbuddy-statblocks"
+    assert readiness.contract_version == "1.0.0"
+    assert readiness.capabilities == ["generation", "read", "persistence"]
+
+
+def test_capability_honesty_when_generation_disabled() -> None:
+    projected = project_buddy_capabilities(
+        downstream_capabilities=[
+            "candidate_generate",
+            "statblock_revision_read",
+            "statblock_create",
+        ],
+        generation_enabled=False,
+        read_routes_enabled=True,
+    )
+    assert projected == ["read", "persistence"]
+
+
+def test_auth_failure_mapping() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            401,
+            json={"error": {"code": "unauthorized_internal_client", "message": "nope"}},
+        )
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_authentication_failed"
+    assert SECRET not in str(exc_info.value)
+
+
+def test_timeout_mapping() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow")
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_timeout"
+    assert exc_info.value.retryable is True
+
+
+def test_rate_limit_and_error_envelope_mapping() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": {"code": "rate_limited", "message": "slow down"}})
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_rate_limited"
+
+
+def test_malformed_json_fails_closed() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"not-json", headers={"content-type": "text/plain"})
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_unexpected"
+
+
+def test_exact_revision_fixture_retains_identity() -> None:
+    payload = _fixture("exact-revision-response.json")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers.get(INTERNAL_KEY_HEADER) == SECRET
+        assert request.url.path.endswith("/statblocks/sb_fixture1/revisions/rev_fixture1")
+        return httpx.Response(200, json=payload)
+
+    client = _client(httpx.MockTransport(handler))
+    revision = client.get_exact_revision("sb_fixture1", "rev_fixture1")
+    assert revision.statblock_id == "sb_fixture1"
+    assert revision.revision_id == "rev_fixture1"
+    assert revision.definition_digest.startswith("sha256:")
+
+
+def test_internal_key_absent_from_readiness_payload() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/health/ready"):
+            return httpx.Response(
+                200,
+                json={
+                    "status": "ready",
+                    "contract": "dungeonmind.dungeonbuddy-statblocks",
+                    "generation_enabled": True,
+                    "read_routes_enabled": True,
+                    "errors": [],
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "status": "available",
+                "contract": "dungeonmind.dungeonbuddy-statblocks",
+                "contract_version": "1.0.0",
+                "capabilities": ["candidate_generate"],
+            },
+        )
+
+    client = _client(httpx.MockTransport(handler))
+    readiness = evaluate_statblock_integration_readiness(client=client)
+    dumped = readiness.model_dump(mode="json", by_alias=True)
+    serialized = json.dumps(dumped)
+    assert SECRET not in serialized
+    assert "internal_api_key" not in serialized
