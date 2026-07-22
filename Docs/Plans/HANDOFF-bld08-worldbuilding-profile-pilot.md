@@ -1,7 +1,7 @@
 # HANDOFF — BLD-08 bounded worldbuilding extraction profile and pilot
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-07 is merged and re-anchored.
+- **Status:** PREPARED / DRAFT — may be stacked against the BLD-07 head; ACTIVE / MERGEABLE only after BLD-07 merge, rebase, and immutable merge-SHA re-anchor.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld08-worldbuilding-profile-pilot.md`
 - **Suggested branch:** `agent/bld08-worldbuilding-profile-pilot`
 

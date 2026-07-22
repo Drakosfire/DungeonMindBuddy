@@ -1,7 +1,7 @@
 # HANDOFF — BLD-02 safe worldbuilding workspace persistence
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-01 is merged, the tracker is re-anchored, and the immutable base SHA is recorded.
+- **Status:** PREPARED / DRAFT — may be stacked against the BLD-01 head; ACTIVE / MERGEABLE only after BLD-01 merge, tracker re-anchor, rebase, and immutable merge-SHA anchoring.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld02-source-document-persistence.md`
 - **Suggested branch:** `agent/bld02-source-document-persistence`
 

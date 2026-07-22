@@ -1,7 +1,7 @@
 # HANDOFF — BLD-06 Build extraction toolbar
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-04 and BLD-05 are merged and re-anchored
+- **Status:** PREPARED / DRAFT — may be stacked against the BLD-04 and BLD-05 heads; ACTIVE / MERGEABLE only after both merge, rebase, and immutable merge-SHA re-anchor.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld06-build-extraction-toolbar.md`
 - **Suggested branch:** `agent/bld06-build-extraction-toolbar`
 

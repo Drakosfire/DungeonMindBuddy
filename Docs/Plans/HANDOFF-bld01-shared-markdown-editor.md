@@ -1,8 +1,7 @@
 # HANDOFF — BLD-01 shared Markdown editor
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-00 is adopted and a clean
-  predecessor SHA is recorded
+- **Status:** PREPARED / DRAFT — may be stacked against the BLD-00 docs head; ACTIVE / MERGEABLE only after BLD-00 merge, tracker adoption, rebase, and immutable merge-SHA re-anchor.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld01-shared-markdown-editor.md`
 - **Suggested branch:** `agent/bld01-shared-markdown-editor`
 

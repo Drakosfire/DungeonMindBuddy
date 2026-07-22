@@ -1,7 +1,7 @@
 # HANDOFF — BLD-04 generic extraction runtime and profile protocol
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-03 is merged and re-anchored.
+- **Status:** PREPARED / DRAFT — may be stacked against the BLD-03 head; ACTIVE / MERGEABLE only after BLD-03 merge, rebase, and immutable merge-SHA re-anchor.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld04-generic-extraction-runtime.md`
 - **Suggested branch:** `agent/bld04-generic-extraction-runtime`
 

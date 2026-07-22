@@ -231,8 +231,10 @@ Resolve the workspace-document → SourceArtifact identity boundary, established
 contract paths, Surface reuse obligation, profile ownership, and publication
 owner before dispatch.
 
-**Exit gate:** BLD-01 has an immutable base SHA and ACTIVE handoff; all other
-handoffs remain DRAFT.
+**Exit gate:** BLD-01 may be PREPARED as a stacked draft PR against this docs
+head; it becomes ACTIVE/MERGEABLE only after BLD-00 merge, tracker adoption,
+rebase, and immutable merge-SHA anchoring. Later slices may be PREPARED against
+predecessor heads while remaining draft.
 
 ### Phase 1 — Shared TipTap Markdown editor
 
@@ -332,17 +334,38 @@ and duplicate copies do not silently create duplicate durable identities.
 
 ## 7. Adoption and dispatch protocol
 
-PR 382 is the design-adoption PR. After merge:
+PR 382 is the design-adoption PR. Stacked implementation work is allowed before
+predecessors merge, but merge authority remains gated.
+
+### PREPARED / DRAFT
+
+A slice may be implemented as a **stacked draft PR** against the current
+predecessor head (or an unmerged predecessor PR tip). PREPARED work may include
+code, tests, and review comments. It is **not** mergeable.
+
+### ACTIVE / MERGEABLE
+
+A slice becomes ACTIVE/MERGEABLE only after:
+
+1. its predecessor is merged;
+2. the active tracker records adoption / the predecessor merge SHA;
+3. the implementation branch is rebased onto that immutable merge SHA;
+4. the handoff is re-anchored to that base.
+
+After PR 382 merges:
 
 1. add the BLD sequence to the active Campaign Supergraph tracker or an approved
    sibling tracker;
 2. record PR 382’s merge SHA as the BLD-00 base;
-3. mark BLD-01 ACTIVE and leave BLD-02 through BLD-09 DRAFT;
-4. assign actual PR numbers when implementation PRs open;
+3. promote BLD-01 from PREPARED/DRAFT to ACTIVE/MERGEABLE once rebased onto that
+   SHA; leave later slices PREPARED/DRAFT until their own predecessor gates clear;
+4. assign actual PR numbers when implementation PRs open (draft PRs may already
+   exist under PREPARED);
 5. after each accepted implementation PR, atomically sync tracker, handoff
    status/archive, and next base SHA.
 
-No implementation agent may dispatch from a DRAFT handoff.
+No implementation PR may be marked ready to merge while still PREPARED/DRAFT or
+while based on an unmerged predecessor tip.
 
 ---
 

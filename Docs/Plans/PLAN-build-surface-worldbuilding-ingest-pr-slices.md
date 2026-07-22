@@ -19,9 +19,14 @@ last_updated_at: "2026-07-22"
 - **Workspace identity:** [`../Design/CONTRACT-workspace-document-identity-v1.md`](../Design/CONTRACT-workspace-document-identity-v1.md)
 - **Publication boundary:** [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
 
-`BLD-*` identifiers are stable sequencing labels, not GitHub PR numbers. This
-plan becomes executable only after PR 382 merges and the active tracker records
-the merge SHA and marks BLD-01 ACTIVE.
+`BLD-*` identifiers are stable sequencing labels, not GitHub PR numbers.
+
+**PREPARED / DRAFT:** a slice may be implemented as a stacked draft PR against
+the predecessor head before that predecessor merges.
+
+**ACTIVE / MERGEABLE:** only after predecessor merge, tracker adoption, rebase
+onto the immutable merge SHA, and handoff re-anchor. This plan’s merge authority
+begins only after PR 382 merges and BLD-01 is promoted under that gate.
 
 ```text
 BLD-00 docs adoption
@@ -43,7 +48,11 @@ BLD-04 and BLD-05 may proceed in parallel after BLD-03. BLD-06 waits for both.
 
 1. Each slice delivers one independently useful capability and records why its
    changed layers share one invariant.
-2. All handoffs remain DRAFT until their predecessor merge SHA is recorded.
+2. Handoffs may be **PREPARED / DRAFT** (stacked implementation against a
+   predecessor head) before predecessors merge. They become
+   **ACTIVE / MERGEABLE** only after the predecessor merge SHA is recorded,
+   the branch is rebased onto that SHA, and the handoff is re-anchored.
+   Draft implementation PRs must stay draft until that gate clears.
 3. Workspace document IDs, SourceArtifact IDs, ExtractionRun IDs,
    GraphContribution IDs, proposal digests, and graph revisions remain distinct.
 4. Existing contracts are graduated or adapted; no parallel source, evidence,
@@ -97,8 +106,10 @@ identity, Surface, profile, and publication decisions.
 
 - No implementation handoff remains ambiguous about identity ownership.
 - No handoff names a duplicate or nonexistent graph authority.
-- BLD-01 can be activated from an immutable merge SHA.
-- BLD-02 through BLD-09 remain DRAFT.
+- BLD-01 can be PREPARED as a stacked draft against this docs head and becomes
+  ACTIVE/MERGEABLE only from the immutable BLD-00 merge SHA after rebase.
+- BLD-02 through BLD-09 may be PREPARED as stacked drafts but remain
+  non-mergeable until their predecessor gates clear.
 
 ### Verification
 

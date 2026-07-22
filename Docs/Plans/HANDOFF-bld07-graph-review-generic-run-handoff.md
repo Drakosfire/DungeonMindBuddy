@@ -1,7 +1,7 @@
 # HANDOFF — BLD-07 generic Graph Review run binding
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-06 and the current extract-promote bridge are merged and re-anchored.
+- **Status:** PREPARED / DRAFT — may be stacked against the BLD-06 head (and current extract-promote bridge); ACTIVE / MERGEABLE only after that predecessor merge, rebase, and immutable merge-SHA re-anchor.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld07-graph-review-generic-run-handoff.md`
 - **Suggested branch:** `agent/bld07-graph-review-generic-run-handoff`
 

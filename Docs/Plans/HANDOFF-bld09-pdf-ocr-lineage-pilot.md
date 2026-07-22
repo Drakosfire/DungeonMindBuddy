@@ -1,7 +1,7 @@
 # HANDOFF — BLD-09 PDF/OCR source lineage pilot
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-08 is merged and re-anchored
+- **Status:** PREPARED / DRAFT — may be stacked against the BLD-08 head; ACTIVE / MERGEABLE only after BLD-08 merge, rebase, and immutable merge-SHA re-anchor.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld09-pdf-ocr-lineage-pilot.md`
 - **Suggested branch:** `agent/bld09-pdf-ocr-lineage-pilot`
 
