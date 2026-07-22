@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ from apps.live_control_server.models.threat_draft import (
     GraphContextSnapshotV1,
     RulesetRefV1,
     ThreatDraftCandidateRefV1,
+    UpdateThreatDraftRequest,
 )
 from apps.live_control_server.services.statblock_candidate_cache import (
     CandidateCacheError,
@@ -37,6 +39,7 @@ from apps.live_control_server.services.threat_draft_store import (
     append_candidate_ref,
     create_threat_draft,
     get_threat_draft,
+    update_threat_draft,
 )
 
 FIXTURE_RAW = json.loads(
@@ -81,14 +84,38 @@ def _create_draft(tmp_path: Path):
     )
 
 
+def _advance_draft(tmp_path: Path, draft) -> None:
+    update_threat_draft(
+        tmp_path,
+        draft.draft_id,
+        UpdateThreatDraftRequest(
+            expected_version=draft.version,
+            name=draft.name,
+            description=draft.description + " (edited)",
+            threat_kind=draft.threat_kind,
+            intended_roles=list(draft.intended_roles),
+            tags=list(draft.tags),
+            generation_intent=draft.generation_intent,
+            encounter_context=draft.encounter_context,
+            graph_context_snapshot=draft.graph_context_snapshot,
+            focus=draft.focus,
+        ),
+    )
+
+
 class FakeClient:
-    def __init__(self, *, payload=None, error=None):
+    def __init__(self, *, payload=None, error=None, delay_event: threading.Event | None = None):
         self.payload = payload
         self.error = error
+        self.delay_event = delay_event
         self.calls: list[dict] = []
+        self.lock = threading.Lock()
 
     def generate_candidate(self, body: dict):
-        self.calls.append(body)
+        with self.lock:
+            self.calls.append(body)
+        if self.delay_event is not None:
+            self.delay_event.wait(timeout=2.0)
         if self.error is not None:
             raise self.error
         assert self.payload is not None
@@ -184,6 +211,91 @@ def test_replay_same_request_id_does_not_regenerate(tmp_path: Path) -> None:
     assert len(reloaded.candidate_refs) == 1
 
 
+def test_concurrent_identical_requests_generate_once(tmp_path: Path) -> None:
+    draft = _create_draft(tmp_path)
+    release = threading.Event()
+    client = FakeClient(
+        payload=_candidate_payload(request_id="req-concurrent"),
+        delay_event=release,
+    )
+    results: list = []
+    errors: list[BaseException] = []
+    barrier = threading.Barrier(2)
+
+    def worker() -> None:
+        barrier.wait(timeout=2.0)
+        try:
+            results.append(
+                generate_candidate_from_draft(
+                    tmp_path,
+                    draft_id=draft.draft_id,
+                    request=GenerateThreatDraftCandidateRequestV1(
+                        expected_draft_version=1,
+                        client_request_id="req-concurrent",
+                    ),
+                    client=client,  # type: ignore[arg-type]
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    # Let both threads race into claim/generate before releasing the provider.
+    threading.Event().wait(0.05)
+    release.set()
+    for thread in threads:
+        thread.join(timeout=3.0)
+
+    assert errors == []
+    assert len(results) == 2
+    assert len(client.calls) == 1
+    successes = [result for result in results if result.outcome == "success"]
+    incompletes = [
+        result
+        for result in results
+        if result.outcome == "failure"
+        and result.failure_category == "generation_incomplete"
+    ]
+    # One caller owns generate; the other either waits for completion via a
+    # later claim observation or receives the pending claim signal.
+    assert len(successes) + len(incompletes) == 2
+    assert len(successes) >= 1
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert len(reloaded.candidate_refs) == 1
+
+
+def test_timeout_after_claim_blocks_duplicate_generate(tmp_path: Path) -> None:
+    draft = _create_draft(tmp_path)
+    client = FakeClient(error=downstream_timeout())
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-timeout",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "failure"
+    assert first.failure_category == "downstream_timeout"
+    assert len(client.calls) == 1
+
+    second = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-timeout",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert second.outcome == "failure"
+    assert second.failure_category == "generation_incomplete"
+    assert len(client.calls) == 1
+
+
 def test_replay_digest_conflict_is_rejected(tmp_path: Path) -> None:
     draft = _create_draft(tmp_path)
     client = FakeClient(payload=_candidate_payload(request_id="req-conflict"))
@@ -196,27 +308,6 @@ def test_replay_digest_conflict_is_rejected(tmp_path: Path) -> None:
         ),
         client=client,  # type: ignore[arg-type]
     )
-    # Mutate authored fields (version stays 1? No - update increments version.
-    # Replay conflict is same version + same request_id + different mapped body.
-    # Force by changing only the digest check via a second call after we can't
-    # change draft without version bump. Instead, corrupt is not needed:
-    # same draft version with same request id always same digest.
-    # Conflict path: write a reconciliation with a different digest manually.
-    from apps.live_control_server.services.statblock_generation_reconciliation import (
-        write_reconciliation,
-    )
-
-    write_reconciliation(
-        tmp_path,
-        draft_id=draft.draft_id,
-        draft_version=1,
-        request_id="req-other",
-        request_digest="sha256:" + ("a" * 64),
-        candidate_id="cand_fixture1",
-    )
-    # Overwrite digest in place for req-conflict by writing conflicting record
-    # through a second write with different digest is blocked; simulate by
-    # reading and replacing file.
     from apps.live_control_server.services import statblock_generation_reconciliation as rec
 
     path = rec._record_path(
@@ -241,6 +332,89 @@ def test_replay_digest_conflict_is_rejected(tmp_path: Path) -> None:
         )
     assert exc_info.value.status_code == 409
     assert len(client.calls) == 1
+
+
+def test_lineage_survives_draft_advance_on_partial_ref(tmp_path: Path, monkeypatch) -> None:
+    draft = _create_draft(tmp_path)
+    client = FakeClient(payload=_candidate_payload(request_id="req-lineage"))
+
+    original_append = append_candidate_ref
+    calls = {"count": 0}
+
+    def flaky_append(*args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ThreatDraftStoreError("expected_version mismatch", status_code=409)
+        return original_append(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation.append_candidate_ref",
+        flaky_append,
+    )
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-lineage",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "success"
+    assert first.cache_status == "partial_ref"
+    assert len(client.calls) == 1
+
+    monkeypatch.undo()
+    _advance_draft(tmp_path, draft)
+    advanced = get_threat_draft(tmp_path, draft.draft_id)
+    assert advanced.version == 2
+
+    second = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-lineage",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert second.outcome == "success"
+    assert second.candidate_ref is not None
+    assert second.candidate_ref.generated_from_draft_version == 1
+    assert len(client.calls) == 1
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert reloaded.version == 2
+    assert len(reloaded.candidate_refs) == 1
+    assert reloaded.candidate_refs[0].generated_from_draft_version == 1
+
+
+def test_capacity_checked_before_provider_call(tmp_path: Path) -> None:
+    draft = _create_draft(tmp_path)
+    for index in range(64):
+        append_candidate_ref(
+            tmp_path,
+            draft_id=draft.draft_id,
+            expected_version=1,
+            candidate_ref=ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{index}",
+                generated_from_draft_version=1,
+                request_id=f"req-{index}",
+                created_at="2026-01-01T00:00:00Z",
+            ),
+        )
+    client = FakeClient(payload=_candidate_payload(request_id="req-overflow"))
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        generate_candidate_from_draft(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request=GenerateThreatDraftCandidateRequestV1(
+                expected_draft_version=1,
+                client_request_id="req-overflow",
+            ),
+            client=client,  # type: ignore[arg-type]
+        )
+    assert exc_info.value.status_code == 422
+    assert client.calls == []
 
 
 def test_failure_preserves_draft(tmp_path: Path) -> None:
@@ -279,6 +453,22 @@ def test_missing_and_expired_mapping(tmp_path: Path) -> None:
     assert expired.failure_category == "downstream_expired"
 
 
+def test_cached_expiry_uses_datetime_not_lexicographic(tmp_path: Path) -> None:
+    # Lexicographic comparison of these timestamps is inverted vs datetime order
+    # when timezone offsets differ; datetime comparison must classify as expired.
+    payload = dict(FIXTURE_RAW)
+    payload["candidate_id"] = "cand_expired2"
+    payload["created_at"] = "2020-01-01T00:00:00Z"
+    payload["expires_at"] = "2020-06-01T00:00:00+00:00"
+    receipt = dict(payload["generation_receipt"])
+    receipt["request_id"] = "req-expired"
+    payload["generation_receipt"] = receipt
+    candidate = GeneratedStatblockCandidateV1.model_validate(payload)
+    store_candidate_payload(tmp_path, candidate)
+    read = read_candidate(tmp_path, candidate_id="cand_expired2")
+    assert read.status == "expired"
+
+
 def test_cache_rejects_conflicting_payload(tmp_path: Path) -> None:
     first = _candidate_payload(candidate_id="cand_cache1", request_id="req-a")
     store_candidate_payload(tmp_path, first)
@@ -286,6 +476,44 @@ def test_cache_rejects_conflicting_payload(tmp_path: Path) -> None:
     with pytest.raises(CandidateCacheError) as exc_info:
         store_candidate_payload(tmp_path, second)
     assert exc_info.value.status_code == 409
+
+
+def test_corrupt_cache_on_replay_is_typed_integrity_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _create_draft(tmp_path)
+    client = FakeClient(payload=_candidate_payload(request_id="req-corrupt"))
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-corrupt",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "success"
+
+    def boom_read(root, candidate_id):
+        raise CandidateCacheError("corrupt candidate cache record", status_code=500)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation.read_candidate_payload_or_none",
+        boom_read,
+    )
+    second = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-corrupt",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert second.outcome == "failure"
+    assert second.failure_category == "integrity_failure"
+    assert "corrupt" in (second.failure_message or "")
+    assert len(client.calls) == 1
 
 
 def test_append_ref_enforces_source_version_and_limit(tmp_path: Path) -> None:

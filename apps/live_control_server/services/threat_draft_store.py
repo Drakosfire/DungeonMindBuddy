@@ -343,6 +343,9 @@ def append_candidate_ref(
 
     Authored concept fields and draft version are unchanged; only candidate_refs,
     optional workflow_state, and updated_at may change.
+
+    Historical lineage is preserved: a ref generated from an earlier draft version
+    may still be attached after the draft advances.
     """
     if candidate_ref.generated_from_draft_version != expected_version:
         raise ThreatDraftStoreError(
@@ -353,7 +356,7 @@ def append_candidate_ref(
     with _store_lock(root):
         committed_id = _require_committed_draft_id(root, draft_id)
         current = _load_draft_unlocked(root, committed_id)
-        if current.version != expected_version:
+        if expected_version > current.version:
             raise ThreatDraftStoreError(
                 "expected_version mismatch",
                 status_code=409,

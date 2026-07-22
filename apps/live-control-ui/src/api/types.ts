@@ -1,3 +1,5 @@
+import type { GeneratedStatblockCandidateV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
+
 export type SurfaceSlot = "main" | "sidebar" | "bottom" | "overlay";
 
 export interface SurfaceModuleDefinition {
@@ -3032,17 +3034,23 @@ export interface GenerateThreatDraftCandidateResponseV1 {
   request_id: string;
   outcome: "success" | "failure";
   candidate_ref?: ThreatDraftCandidateRefV1 | null;
-  candidate?: Record<string, unknown> | null;
+  candidate?: GeneratedStatblockCandidateV1 | null;
   failure_category?: string | null;
   failure_message?: string | null;
-  cache_status?: "stored" | "missing" | "partial" | null;
+  cache_status?:
+    | "stored"
+    | "missing"
+    | "partial_cache"
+    | "partial_ref"
+    | "reconciled"
+    | null;
 }
 
 export interface ReadStatblockCandidateResponseV1 {
   schema: "dmb_statblock_candidate_read_v1";
   candidate_id: string;
-  status: "active" | "expired" | "unavailable";
-  candidate?: Record<string, unknown> | null;
+  status: "active" | "expired" | "unavailable" | "missing";
+  candidate?: GeneratedStatblockCandidateV1 | null;
   failure_category?: string | null;
   failure_message?: string | null;
 }
