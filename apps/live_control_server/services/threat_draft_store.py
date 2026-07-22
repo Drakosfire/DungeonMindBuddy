@@ -6,12 +6,13 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Literal
 
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
     MAX_LIST_LIMIT,
     CreateThreatDraftRequest,
+    ThreatDraftCandidateRefV1,
     ThreatDraftIndexV1,
     ThreatDraftSummaryV1,
     ThreatDraftV1,
@@ -325,5 +326,41 @@ def update_threat_draft(
                 "updated_at": _utc_now_iso(),
             }
         )
+        _save_draft_unlocked(root, updated, as_draft_id=committed_id)
+        return updated
+
+
+def append_candidate_ref(
+    root: Path,
+    *,
+    draft_id: str,
+    expected_version: int,
+    candidate_ref: ThreatDraftCandidateRefV1,
+    workflow_state: Literal["drafting", "candidate_ready"] | None = "candidate_ready",
+) -> ThreatDraftV1:
+    """Append candidate workflow evidence for a committed draft version.
+
+    Authored concept fields and draft version are unchanged; only candidate_refs,
+    optional workflow_state, and updated_at may change.
+    """
+    with _store_lock(root):
+        committed_id = _require_committed_draft_id(root, draft_id)
+        current = _load_draft_unlocked(root, committed_id)
+        if current.version != expected_version:
+            raise ThreatDraftStoreError(
+                "expected_version mismatch",
+                status_code=409,
+            )
+        existing_ids = {ref.candidate_id for ref in current.candidate_refs}
+        refs = list(current.candidate_refs)
+        if candidate_ref.candidate_id not in existing_ids:
+            refs.append(candidate_ref)
+        updates: dict = {
+            "candidate_refs": refs,
+            "updated_at": _utc_now_iso(),
+        }
+        if workflow_state is not None:
+            updates["workflow_state"] = workflow_state
+        updated = current.model_copy(update=updates)
         _save_draft_unlocked(root, updated, as_draft_id=committed_id)
         return updated
