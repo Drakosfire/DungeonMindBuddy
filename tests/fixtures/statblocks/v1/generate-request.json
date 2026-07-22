@@ -1,0 +1,12 @@
+{
+  "request_id": "fixture-generate-1",
+  "ruleset": {
+    "edition": "2024",
+    "house_ruleset_id": null,
+    "system": "dnd5e"
+  },
+  "source": {
+    "description": "A brutal enforcer.",
+    "name_hint": "Ironhide Brute"
+  }
+}
