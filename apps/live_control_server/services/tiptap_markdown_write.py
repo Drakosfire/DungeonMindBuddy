@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import difflib
 import re
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -66,12 +68,20 @@ class TiptapMarkdownWriteConflictError(TiptapMarkdownWriteError):
 
 
 def authorize_target_for_record(record: WorkspaceDocumentRecord) -> str:
-    """Authorize and normalize the registry target for this document kind."""
-    if not record.target_relpath or not record.target_relpath.strip():
+    """Authorize and normalize the registry target for this document kind.
+
+    Uses the raw registry value. Surrounding whitespace is rejected rather than
+    silently normalized, matching ``normalize_tiptap_target_relpath``.
+    """
+    if record.target_relpath is None or record.target_relpath == "":
         raise TiptapMarkdownWriteError(
             "workspace document has no target_relpath; cannot write Markdown"
         )
-    relpath = record.target_relpath.strip()
+    relpath = record.target_relpath
+    if relpath != relpath.strip():
+        raise TiptapMarkdownWriteError(
+            "target_relpath must be a normalized repo-relative path"
+        )
 
     if record.kind == "worldbuilding_source":
         expected_target = f"out/workspace/worldbuilding/{record.document_id}.md"
@@ -230,7 +240,7 @@ def _resolve_writable_document(
             f"workspace document is discarded: {record.document_id}"
         )
 
-    if not record.target_relpath or not record.target_relpath.strip():
+    if record.target_relpath is None or record.target_relpath == "":
         raise TiptapMarkdownWriteError(
             "workspace document has no target_relpath; cannot write Markdown"
         )
@@ -340,6 +350,60 @@ def _restore_prior_file_state(
         target.unlink()
 
 
+def _atomic_write_text(target: Path, content: str) -> None:
+    """Write Markdown via a sibling temp file and atomic replace."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temp_path.write_text(content, encoding="utf-8", newline="")
+        temp_path.replace(target)
+    except OSError:
+        with contextlib.suppress(OSError):
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
+def _raise_write_failure(message: str, *, cause: BaseException) -> None:
+    error = TiptapMarkdownWriteError(message)
+    error.status_code = 500
+    raise error from cause
+
+
+def _rollback_after_failure(
+    target: Path,
+    *,
+    prior_existed: bool,
+    prior_bytes: bytes | None,
+    backup_path: Path | None,
+    primary_exc: BaseException,
+    primary_label: str,
+) -> None:
+    """Restore the authored target and discard a newly created backup on failure."""
+    failures: list[str] = []
+    cause: BaseException = primary_exc
+    try:
+        _restore_prior_file_state(
+            target,
+            prior_existed=prior_existed,
+            prior_bytes=prior_bytes,
+        )
+    except OSError as restore_exc:
+        failures.append(f"file rollback also failed: {restore_exc}")
+        cause = restore_exc
+    if backup_path is not None:
+        try:
+            backup_path.unlink(missing_ok=True)
+        except OSError as backup_exc:
+            failures.append(f"backup cleanup also failed: {backup_exc}")
+            if cause is primary_exc:
+                cause = backup_exc
+    if failures:
+        _raise_write_failure(
+            f"{primary_label}: {primary_exc}; " + "; ".join(failures),
+            cause=cause,
+        )
+
+
 def commit_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
@@ -371,20 +435,26 @@ def commit_tiptap_markdown_write(
 
     prior_existed = target.exists()
     prior_bytes = target.read_bytes() if prior_existed else None
+    backup_path: Path | None = None
     backup_relpath: str | None = None
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
         if prior_existed:
             timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
-            backup = target.parent / ".backups" / f"{timestamp}__{target.name}"
-            backup.parent.mkdir(parents=True, exist_ok=True)
-            backup.write_bytes(prior_bytes or b"")
-            backup_relpath = backup.relative_to(root.resolve()).as_posix()
-        target.write_text(content, encoding="utf-8", newline="")
+            backup_path = target.parent / ".backups" / f"{timestamp}__{target.name}"
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            backup_path.write_bytes(prior_bytes or b"")
+            backup_relpath = backup_path.relative_to(root.resolve()).as_posix()
+        _atomic_write_text(target, content)
     except OSError as exc:
-        error = TiptapMarkdownWriteError(f"failed to write Tiptap Markdown file: {exc}")
-        error.status_code = 500
-        raise error from exc
+        _rollback_after_failure(
+            target,
+            prior_existed=prior_existed,
+            prior_bytes=prior_bytes,
+            backup_path=backup_path,
+            primary_exc=exc,
+            primary_label="failed to write Tiptap Markdown file",
+        )
+        _raise_write_failure(f"failed to write Tiptap Markdown file: {exc}", cause=exc)
 
     try:
         committed_record = mark_workspace_document_committed(
@@ -393,20 +463,25 @@ def commit_tiptap_markdown_write(
             expected_revision=record.revision,
         )
     except WorkspaceDocumentRegistryError as exc:
-        try:
-            _restore_prior_file_state(
-                target,
-                prior_existed=prior_existed,
-                prior_bytes=prior_bytes,
-            )
-        except OSError as rollback_exc:
-            error = TiptapMarkdownWriteError(
-                "file write succeeded but registry commit failed, and file rollback "
-                f"also failed: {exc}; rollback error: {rollback_exc}"
-            )
-            error.status_code = 500
-            raise error from rollback_exc
+        _rollback_after_failure(
+            target,
+            prior_existed=prior_existed,
+            prior_bytes=prior_bytes,
+            backup_path=backup_path,
+            primary_exc=exc,
+            primary_label="file write succeeded but registry commit failed",
+        )
         raise _map_registry_error(exc) from exc
+    except (OSError, TypeError, ValueError) as exc:
+        _rollback_after_failure(
+            target,
+            prior_existed=prior_existed,
+            prior_bytes=prior_bytes,
+            backup_path=backup_path,
+            primary_exc=exc,
+            primary_label="file write succeeded but registry commit failed",
+        )
+        _raise_write_failure(f"registry commit failed: {exc}", cause=exc)
 
     return TiptapMarkdownWriteCommitResponse(
         document_id=committed_record.document_id,

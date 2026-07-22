@@ -232,6 +232,58 @@ def test_authorize_target_binds_worldbuilding_to_own_document_id() -> None:
         authorize_target_for_record(record)
 
 
+@pytest.mark.parametrize(
+    ("kind", "clean_target", "extra"),
+    [
+        (
+            "worldbuilding_source",
+            "out/workspace/worldbuilding/11111111-1111-4111-8111-111111111111.md",
+            {
+                "source_domain": "worldbuilding",
+                "document_class": "lore",
+                "authority_state": "draft",
+                "visibility_state": "internal",
+            },
+        ),
+        (
+            "plan",
+            "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md",
+            {},
+        ),
+        (
+            "runbook",
+            "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-session-runbook.md",
+            {},
+        ),
+    ],
+)
+def test_authorize_rejects_whitespace_contaminated_targets(
+    kind: str,
+    clean_target: str,
+    extra: dict[str, str],
+) -> None:
+    document_id = "11111111-1111-4111-8111-111111111111"
+    record = WorkspaceDocumentRecord(
+        document_id=document_id,
+        title="Whitespace target",
+        campaign_id="eldyrwild",
+        kind=kind,  # type: ignore[arg-type]
+        target_relpath=f" {clean_target} ",
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+        **extra,  # type: ignore[arg-type]
+    )
+    with pytest.raises(TiptapMarkdownWriteError, match="normalized repo-relative path"):
+        authorize_target_for_record(record)
+
+
+def _backup_names(target: Path) -> set[str]:
+    backups_dir = target.parent / ".backups"
+    if not backups_dir.is_dir():
+        return set()
+    return {path.name for path in backups_dir.iterdir()}
+
+
 def test_registry_failure_rolls_back_new_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -256,6 +308,7 @@ def test_registry_failure_rolls_back_new_file(
     )
     target = tmp_path / (record.target_relpath or "")
     assert not target.exists()
+    backups_before = _backup_names(target)
 
     def boom(*_args: object, **_kwargs: object) -> None:
         raise WorkspaceDocumentRegistryError("injected registry failure", status_code=500)
@@ -276,6 +329,7 @@ def test_registry_failure_rolls_back_new_file(
         )
     assert exc_info.value.status_code == 500
     assert not target.exists()
+    assert _backup_names(target) == backups_before
     fresh = get_workspace_document(tmp_path, record.document_id)
     assert fresh.content_status == "draft"
     assert fresh.revision == record.revision
@@ -306,6 +360,7 @@ def test_registry_failure_restores_prior_file_bytes(
             expected_revision=1,
         ),
     )
+    backups_before = _backup_names(target)
 
     def boom(*_args: object, **_kwargs: object) -> None:
         raise WorkspaceDocumentRegistryError("injected registry failure", status_code=500)
@@ -324,6 +379,230 @@ def test_registry_failure_restores_prior_file_bytes(
                 expected_revision=1,
             ),
         )
+    assert target.read_text(encoding="utf-8") == "# prior\n"
+    assert _backup_names(target) == backups_before
+
+
+def test_registry_write_json_oserror_rolls_back_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = create_workspace_document(
+        tmp_path,
+        title="World Lore",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    target = tmp_path / (record.target_relpath or "")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# prior\n", encoding="utf-8")
+    markdown = "# Title\n\nReplacement.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=1,
+        ),
+    )
+    backups_before = _backup_names(target)
+
+    def boom_write_json(_path: Path, _data: object) -> None:
+        raise OSError("simulated registry write_json failure")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.workspace_document_registry.write_json",
+        boom_write_json,
+    )
+    with pytest.raises(TiptapMarkdownWriteError) as exc_info:
+        commit_tiptap_markdown_write(
+            root=tmp_path,
+            request=TiptapMarkdownWriteCommitRequest(
+                document_id=record.document_id,
+                markdown=markdown,
+                writer_confirm_token=prepared.writer_confirm_token or "",
+                expected_revision=1,
+            ),
+        )
+    assert exc_info.value.status_code == 500
+    assert "registry" in str(exc_info.value).lower() or "persist" in str(exc_info.value).lower()
+    assert target.read_text(encoding="utf-8") == "# prior\n"
+    assert _backup_names(target) == backups_before
+    fresh = get_workspace_document(tmp_path, record.document_id)
+    assert fresh.content_status == "draft"
+    assert fresh.revision == record.revision
+
+
+def test_target_replace_oserror_restores_prior(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = create_workspace_document(
+        tmp_path,
+        title="World Lore",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    target = tmp_path / (record.target_relpath or "")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# prior\n", encoding="utf-8")
+    markdown = "# Title\n\nReplacement.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=1,
+        ),
+    )
+    backups_before = _backup_names(target)
+
+    original_replace = Path.replace
+
+    def boom_replace(self: Path, target_path: Path | str) -> Path:
+        destination = Path(target_path)
+        if destination.resolve() == target.resolve():
+            raise OSError("simulated target replace failure")
+        return original_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", boom_replace)
+    with pytest.raises(TiptapMarkdownWriteError) as exc_info:
+        commit_tiptap_markdown_write(
+            root=tmp_path,
+            request=TiptapMarkdownWriteCommitRequest(
+                document_id=record.document_id,
+                markdown=markdown,
+                writer_confirm_token=prepared.writer_confirm_token or "",
+                expected_revision=1,
+            ),
+        )
+    assert exc_info.value.status_code == 500
+    assert "failed to write" in str(exc_info.value).lower()
+    assert target.read_text(encoding="utf-8") == "# prior\n"
+    assert _backup_names(target) == backups_before
+
+
+def test_registry_failure_with_rollback_failure_reports_partial_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = create_workspace_document(
+        tmp_path,
+        title="World Lore",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    target = tmp_path / (record.target_relpath or "")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# prior\n", encoding="utf-8")
+    markdown = "# Title\n\nReplacement.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=1,
+        ),
+    )
+    backups_before = _backup_names(target)
+
+    def boom_registry(*_args: object, **_kwargs: object) -> None:
+        raise WorkspaceDocumentRegistryError("injected registry failure", status_code=500)
+
+    def boom_restore(*_args: object, **_kwargs: object) -> None:
+        raise OSError("simulated rollback failure")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed",
+        boom_registry,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.tiptap_markdown_write._restore_prior_file_state",
+        boom_restore,
+    )
+    with pytest.raises(TiptapMarkdownWriteError) as exc_info:
+        commit_tiptap_markdown_write(
+            root=tmp_path,
+            request=TiptapMarkdownWriteCommitRequest(
+                document_id=record.document_id,
+                markdown=markdown,
+                writer_confirm_token=prepared.writer_confirm_token or "",
+                expected_revision=1,
+            ),
+        )
+    message = str(exc_info.value).lower()
+    assert exc_info.value.status_code == 500
+    assert "registry commit failed" in message
+    assert "rollback" in message
+    # Partial failure: new Markdown remains because rollback itself failed.
+    assert target.read_text(encoding="utf-8") == markdown
+    # Backup cleanup still runs after restore failure.
+    assert _backup_names(target) == backups_before
+
+
+def test_backup_cleanup_failure_is_reported_in_partial_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    record = create_workspace_document(
+        tmp_path,
+        title="World Lore",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    target = tmp_path / (record.target_relpath or "")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("# prior\n", encoding="utf-8")
+    markdown = "# Title\n\nReplacement.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=tmp_path,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=record.document_id,
+            markdown=markdown,
+            expected_revision=1,
+        ),
+    )
+
+    def boom_registry(*_args: object, **_kwargs: object) -> None:
+        raise WorkspaceDocumentRegistryError("injected registry failure", status_code=500)
+
+    original_unlink = Path.unlink
+
+    def boom_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if self.parent.name == ".backups":
+            raise OSError("simulated backup cleanup failure")
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed",
+        boom_registry,
+    )
+    monkeypatch.setattr(Path, "unlink", boom_unlink)
+    with pytest.raises(TiptapMarkdownWriteError) as exc_info:
+        commit_tiptap_markdown_write(
+            root=tmp_path,
+            request=TiptapMarkdownWriteCommitRequest(
+                document_id=record.document_id,
+                markdown=markdown,
+                writer_confirm_token=prepared.writer_confirm_token or "",
+                expected_revision=1,
+            ),
+        )
+    message = str(exc_info.value).lower()
+    assert exc_info.value.status_code == 500
+    assert "backup cleanup also failed" in message
     assert target.read_text(encoding="utf-8") == "# prior\n"
 
 

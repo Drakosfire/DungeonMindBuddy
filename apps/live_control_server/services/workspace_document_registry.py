@@ -119,7 +119,13 @@ def _load_registry_document(root: Path) -> WorkspaceDocumentRegistryDocument:
 def _save_registry_document(root: Path, document: WorkspaceDocumentRegistryDocument) -> Path:
     path = workspace_documents_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(path, document.model_dump(mode="json"))
+    try:
+        write_json(path, document.model_dump(mode="json"))
+    except (OSError, TypeError, ValueError) as exc:
+        raise WorkspaceDocumentRegistryError(
+            f"failed to persist workspace document registry: {exc}",
+            status_code=500,
+        ) from exc
     return path
 
 
