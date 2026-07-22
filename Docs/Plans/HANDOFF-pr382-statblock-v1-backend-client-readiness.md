@@ -9,6 +9,8 @@
 **Tracker:** `Docs/Plans/PR-TRACKER-threat-statblock-authoring-projection.md`
 **Server contract authority:** `Drakosfire/DungeonMindServer/Docs/Design/DESIGN-dungeonbuddy-statblock-contract-v1.md`
 
+> Template note: this handoff predates the current `§0–§11` external-agent capability template used by `SBW02+`. It remains the complete dispatch authority for `SBW01`; review tooling must map its existing sections rather than assuming uniform section numbering.
+
 ## 0. Dispatch gate
 
 Do not begin implementation until:
@@ -144,8 +146,7 @@ apps/live_control_server/routes/live.py or a narrow statblock integration route 
 apps/live_control_server/main.py only if a new router is mounted
 apps/live-control-ui/src/api/types.ts       # only if route exposed to UI
 apps/live-control-ui/src/api/liveApi.ts     # only if route exposed to UI
-tests/test_*statblock*client*.py
-tests/test_*statblock*readiness*.py
+focused Python tests for client/readiness
 configuration/runbook sample files only when required
 ```
 
