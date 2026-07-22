@@ -1,4 +1,8 @@
-import { defaultMarkdownDocumentAdapter } from "./MarkdownDocumentAdapter";
+import {
+  commitBlockingDiagnosticMessages,
+  defaultMarkdownDocumentAdapter,
+  hasCommitBlockingDiagnostics,
+} from "./MarkdownDocumentAdapter";
 
 describe("MarkdownDocumentAdapter", () => {
   it("imports supported markdown into a TipTap doc with diagnostics", () => {
@@ -41,5 +45,11 @@ describe("MarkdownDocumentAdapter", () => {
 
     expect(second.doc).toEqual(first.doc);
     expect(second.diagnostics).toEqual(first.diagnostics);
+  });
+
+  it("treats warning diagnostics as commit-blocking", () => {
+    const result = defaultMarkdownDocumentAdapter.importMarkdown("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    expect(hasCommitBlockingDiagnostics(result.diagnostics)).toBe(true);
+    expect(commitBlockingDiagnosticMessages(result.diagnostics).length).toBeGreaterThan(0);
   });
 });

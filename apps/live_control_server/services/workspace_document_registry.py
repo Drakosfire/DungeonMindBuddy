@@ -31,13 +31,18 @@ class WorkspaceDocumentRecord(BaseModel):
     title: str
     campaign_id: str
     target_session: int | None = None
-    kind: Literal["plan", "runbook"]
+    kind: Literal["plan", "runbook", "worldbuilding_source"]
     target_relpath: str | None = None
     status: Literal["active", "discarded"] = "active"
     content_status: Literal["draft", "committed"] = "draft"
     revision: int = 1
     created_at: str
     updated_at: str
+    # Worldbuilding-source metadata (null for plan/runbook).
+    source_domain: Literal["worldbuilding"] | None = None
+    document_class: str | None = None
+    authority_state: Literal["draft", "reviewed", "canonical"] | None = None
+    visibility_state: Literal["internal", "player_safe"] | None = None
 
 
 class WorkspaceDocumentRegistryDocument(BaseModel):
@@ -53,9 +58,13 @@ class WorkspaceDocumentsListResponse(BaseModel):
 class CreateWorkspaceDocumentRequest(BaseModel):
     title: str
     campaign_id: str
-    kind: Literal["plan", "runbook"]
+    kind: Literal["plan", "runbook", "worldbuilding_source"]
     target_session: int | None = None
     target_relpath: str | None = None
+    source_domain: Literal["worldbuilding"] | None = None
+    document_class: str | None = None
+    authority_state: Literal["draft", "reviewed", "canonical"] | None = None
+    visibility_state: Literal["internal", "player_safe"] | None = None
 
 
 class UpdateWorkspaceDocumentMetadataRequest(BaseModel):
@@ -63,6 +72,9 @@ class UpdateWorkspaceDocumentMetadataRequest(BaseModel):
     target_session: int | None = None
     target_relpath: str | None = None
     expected_revision: int | None = None
+    document_class: str | None = None
+    authority_state: Literal["draft", "reviewed", "canonical"] | None = None
+    visibility_state: Literal["internal", "player_safe"] | None = None
 
 
 class WorkspaceDocumentRevisionRequest(BaseModel):
@@ -132,7 +144,7 @@ def list_workspace_documents(
     root: Path,
     *,
     campaign_id: str | None = None,
-    kind: Literal["plan", "runbook"] | None = None,
+    kind: Literal["plan", "runbook", "worldbuilding_source"] | None = None,
     status: Literal["active", "discarded"] | None = "active",
 ) -> list[WorkspaceDocumentRecord]:
     records = list(_load_registry_document(root).records)
@@ -146,31 +158,105 @@ def list_workspace_documents(
     return records
 
 
+def _worldbuilding_target_relpath(document_id: str) -> str:
+    return f"out/workspace/worldbuilding/{document_id}.md"
+
+
+def _validate_worldbuilding_metadata(
+    *,
+    source_domain: Literal["worldbuilding"] | None,
+    document_class: str | None,
+    authority_state: Literal["draft", "reviewed", "canonical"] | None,
+    visibility_state: Literal["internal", "player_safe"] | None,
+) -> dict[str, Any]:
+    if source_domain != "worldbuilding":
+        raise WorkspaceDocumentRegistryError(
+            "worldbuilding_source requires source_domain='worldbuilding'",
+            status_code=422,
+        )
+    cleaned_class = (document_class or "").strip()
+    if not cleaned_class:
+        raise WorkspaceDocumentRegistryError(
+            "worldbuilding_source requires document_class",
+            status_code=422,
+        )
+    if authority_state is None:
+        raise WorkspaceDocumentRegistryError(
+            "worldbuilding_source requires authority_state",
+            status_code=422,
+        )
+    if visibility_state is None:
+        raise WorkspaceDocumentRegistryError(
+            "worldbuilding_source requires visibility_state",
+            status_code=422,
+        )
+    return {
+        "source_domain": source_domain,
+        "document_class": cleaned_class,
+        "authority_state": authority_state,
+        "visibility_state": visibility_state,
+    }
+
+
 def create_workspace_document(
     root: Path,
     *,
     title: str,
     campaign_id: str,
-    kind: Literal["plan", "runbook"],
+    kind: Literal["plan", "runbook", "worldbuilding_source"],
     target_session: int | None = None,
     target_relpath: str | None = None,
+    source_domain: Literal["worldbuilding"] | None = None,
+    document_class: str | None = None,
+    authority_state: Literal["draft", "reviewed", "canonical"] | None = None,
+    visibility_state: Literal["internal", "player_safe"] | None = None,
 ) -> WorkspaceDocumentRecord:
     cleaned_title = _validate_title(title)
     cleaned_campaign = campaign_id.strip()
     if not cleaned_campaign:
         raise WorkspaceDocumentRegistryError("campaign_id is required", status_code=422)
 
+    document_id = str(uuid.uuid4())
+    worldbuilding_fields: dict[str, Any] = {
+        "source_domain": None,
+        "document_class": None,
+        "authority_state": None,
+        "visibility_state": None,
+    }
+    resolved_target = target_relpath
+
+    if kind == "worldbuilding_source":
+        if target_relpath is not None:
+            raise WorkspaceDocumentRegistryError(
+                "target_relpath is registry-owned for worldbuilding_source",
+                status_code=422,
+            )
+        worldbuilding_fields = _validate_worldbuilding_metadata(
+            source_domain=source_domain,
+            document_class=document_class,
+            authority_state=authority_state,
+            visibility_state=visibility_state,
+        )
+        resolved_target = _worldbuilding_target_relpath(document_id)
+    else:
+        if source_domain is not None or document_class is not None or authority_state is not None or visibility_state is not None:
+            raise WorkspaceDocumentRegistryError(
+                "worldbuilding metadata is only valid for kind=worldbuilding_source",
+                status_code=422,
+            )
+
     document = _load_registry_document(root)
     now = _utc_now_iso()
     record = WorkspaceDocumentRecord(
-        document_id=str(uuid.uuid4()),
+        document_id=document_id,
         title=cleaned_title,
         campaign_id=cleaned_campaign,
         target_session=target_session,
         kind=kind,
-        target_relpath=target_relpath,
+        target_relpath=resolved_target,
         created_at=now,
         updated_at=now,
+        **worldbuilding_fields,
     )
     document.records.append(record)
     _save_registry_document(root, document)
@@ -195,6 +281,9 @@ def update_workspace_document_metadata(
     title: str | object = _UNSET,
     target_session: int | None | object = _UNSET,
     target_relpath: str | None | object = _UNSET,
+    document_class: str | None | object = _UNSET,
+    authority_state: Literal["draft", "reviewed", "canonical"] | None | object = _UNSET,
+    visibility_state: Literal["internal", "player_safe"] | None | object = _UNSET,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
     document = _load_registry_document(root)
@@ -212,7 +301,49 @@ def update_workspace_document_metadata(
     if target_session is not _UNSET:
         updates["target_session"] = target_session
     if target_relpath is not _UNSET:
+        if existing.kind == "worldbuilding_source":
+            raise WorkspaceDocumentRegistryError(
+                "target_relpath is registry-owned for worldbuilding_source",
+                status_code=422,
+            )
         updates["target_relpath"] = target_relpath
+    if document_class is not _UNSET:
+        if existing.kind != "worldbuilding_source":
+            raise WorkspaceDocumentRegistryError(
+                "document_class is only valid for worldbuilding_source",
+                status_code=422,
+            )
+        cleaned_class = str(document_class or "").strip()
+        if not cleaned_class:
+            raise WorkspaceDocumentRegistryError(
+                "document_class must be non-empty",
+                status_code=422,
+            )
+        updates["document_class"] = cleaned_class
+    if authority_state is not _UNSET:
+        if existing.kind != "worldbuilding_source":
+            raise WorkspaceDocumentRegistryError(
+                "authority_state is only valid for worldbuilding_source",
+                status_code=422,
+            )
+        if authority_state is None:
+            raise WorkspaceDocumentRegistryError(
+                "authority_state is required for worldbuilding_source",
+                status_code=422,
+            )
+        updates["authority_state"] = authority_state
+    if visibility_state is not _UNSET:
+        if existing.kind != "worldbuilding_source":
+            raise WorkspaceDocumentRegistryError(
+                "visibility_state is only valid for worldbuilding_source",
+                status_code=422,
+            )
+        if visibility_state is None:
+            raise WorkspaceDocumentRegistryError(
+                "visibility_state is required for worldbuilding_source",
+                status_code=422,
+            )
+        updates["visibility_state"] = visibility_state
     if not updates:
         raise WorkspaceDocumentRegistryError(
             "at least one metadata field is required",

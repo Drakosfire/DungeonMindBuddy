@@ -1342,9 +1342,11 @@ export interface StatblockCorpusWriteCommitResponse {
   available_actions: StatblockWorkbenchAction[];
 }
 
-export type WorkspaceDocumentKind = "plan" | "runbook";
+export type WorkspaceDocumentKind = "plan" | "runbook" | "worldbuilding_source";
 export type WorkspaceDocumentStatus = "active" | "discarded";
 export type WorkspaceDocumentContentStatus = "draft" | "committed";
+export type WorldbuildingAuthorityState = "draft" | "reviewed" | "canonical";
+export type WorldbuildingVisibilityState = "internal" | "player_safe";
 
 export interface WorkspaceDocumentRecord {
   schema_version: "dmb_workspace_document_record_v1";
@@ -1359,6 +1361,10 @@ export interface WorkspaceDocumentRecord {
   revision: number;
   created_at: string;
   updated_at: string;
+  source_domain?: "worldbuilding" | null;
+  document_class?: string | null;
+  authority_state?: WorldbuildingAuthorityState | null;
+  visibility_state?: WorldbuildingVisibilityState | null;
 }
 
 export interface WorkspaceDocumentsListResponse {
@@ -1372,6 +1378,10 @@ export interface CreateWorkspaceDocumentRequest {
   kind: WorkspaceDocumentKind;
   target_session?: number | null;
   target_relpath?: string | null;
+  source_domain?: "worldbuilding" | null;
+  document_class?: string | null;
+  authority_state?: WorldbuildingAuthorityState | null;
+  visibility_state?: WorldbuildingVisibilityState | null;
 }
 
 export interface UpdateWorkspaceDocumentMetadataRequest {
@@ -1379,6 +1389,9 @@ export interface UpdateWorkspaceDocumentMetadataRequest {
   target_session?: number | null;
   target_relpath?: string | null;
   expected_revision?: number | null;
+  document_class?: string | null;
+  authority_state?: WorldbuildingAuthorityState | null;
+  visibility_state?: WorldbuildingVisibilityState | null;
 }
 
 export interface WorkspaceDocumentRevisionRequest {

@@ -22,17 +22,36 @@ _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE = re.compile(
 _ALLOWED_PLAN_SESSION_PREP_RE = re.compile(
     r"^corpus/eldyrwild-markdown/Longmont Campaign/Campaign \d+/Session Prep/Session \d+ Prep\.md$"
 )
+_ALLOWED_WORLDBUILDING_WORKSPACE_RE = re.compile(
+    r"^out/workspace/worldbuilding/"
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\.md$"
+)
+_LOSSY_MARKDOWN_LINE_RE = re.compile(r"^\s*(?:\||<|!\[|---\s*$)")
 
 
 def _is_allowed_tiptap_target_relpath(value: str) -> bool:
     return bool(
         _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE.fullmatch(value)
         or _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(value)
+        or _ALLOWED_WORLDBUILDING_WORKSPACE_RE.fullmatch(value)
     )
 
 
 def _is_corpus_tiptap_target_relpath(value: str) -> bool:
     return value.startswith("corpus/eldyrwild-markdown/")
+
+
+def markdown_lossy_diagnostics(markdown: str) -> list[str]:
+    """Return commit-blocking diagnostics for unsupported Markdown constructs."""
+    diagnostics: list[str] = []
+    for line_number, line in enumerate(markdown.replace("\r\n", "\n").split("\n"), start=1):
+        if not line.strip():
+            continue
+        if _LOSSY_MARKDOWN_LINE_RE.match(line):
+            diagnostics.append(
+                f"line {line_number}: unsupported Markdown block would be lossy on commit"
+            )
+    return diagnostics
 
 
 class TiptapMarkdownWriteError(ValueError):
@@ -185,9 +204,16 @@ def prepare_tiptap_markdown_write(
         request.document_id,
         expected_revision=request.expected_revision,
     )
-    relpath = normalize_tiptap_target_relpath(record.target_relpath)
+    if record.kind == "worldbuilding_source":
+        expected_target = f"out/workspace/worldbuilding/{record.document_id}.md"
+        if record.target_relpath != expected_target:
+            raise TiptapMarkdownWriteError(
+                "worldbuilding_source target_relpath does not match registry policy"
+            )
+    relpath = normalize_tiptap_target_relpath(record.target_relpath or "")
     target = resolve_tiptap_markdown_target(root, relpath)
     content = _final_content(request.markdown)
+    lossy = markdown_lossy_diagnostics(request.markdown)
     exists = target.is_file()
     existing = target.read_text(encoding="utf-8") if exists else ""
     diff = "".join(
@@ -198,6 +224,7 @@ def prepare_tiptap_markdown_write(
             tofile=relpath,
         )
     )
+    writer_ok = not lossy
     return TiptapMarkdownWritePrepareResponse(
         document_id=record.document_id,
         title=record.title,
@@ -205,9 +232,11 @@ def prepare_tiptap_markdown_write(
         target_display_path=relpath,
         registry_revision=record.revision,
         file_exists=exists,
-        writer_ok=True,
+        writer_ok=writer_ok,
         writer_phase="prepare",
-        writer_confirm_token=_confirm_token(
+        writer_confirm_token=None
+        if not writer_ok
+        else _confirm_token(
             record.document_id,
             record.revision,
             relpath,
@@ -218,9 +247,9 @@ def prepare_tiptap_markdown_write(
         existing_size_bytes=len(existing.encode()) if exists else None,
         new_size_bytes=len(content.encode()),
         warnings=["Existing file will be replaced after explicit commit."]
-        if exists
-        else [],
-        diagnostics=_prepare_diagnostics(relpath),
+        if exists and writer_ok
+        else (["Commit blocked: unsupported Markdown would be lossy."] if lossy else []),
+        diagnostics=[*_prepare_diagnostics(relpath), *lossy],
     )
 
 
@@ -243,7 +272,19 @@ def commit_tiptap_markdown_write(
         request.document_id,
         expected_revision=request.expected_revision,
     )
-    relpath = normalize_tiptap_target_relpath(record.target_relpath)
+    if record.kind == "worldbuilding_source":
+        expected_target = f"out/workspace/worldbuilding/{record.document_id}.md"
+        if record.target_relpath != expected_target:
+            raise TiptapMarkdownWriteError(
+                "worldbuilding_source target_relpath does not match registry policy"
+            )
+    lossy = markdown_lossy_diagnostics(request.markdown)
+    if lossy:
+        raise TiptapMarkdownWriteError(
+            "commit blocked: unsupported Markdown would be lossy; "
+            + "; ".join(lossy[:3])
+        )
+    relpath = normalize_tiptap_target_relpath(record.target_relpath or "")
     target = resolve_tiptap_markdown_target(root, relpath)
     content = _final_content(request.markdown)
     expected = _confirm_token(

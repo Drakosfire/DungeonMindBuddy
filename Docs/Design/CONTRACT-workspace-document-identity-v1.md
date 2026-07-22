@@ -2,8 +2,9 @@
 
 **Status:** ACTIVE  
 **Date:** 2026-07-16  
-**Scope:** Authored workspace documents for `/plan` boards and Tiptap runbooks  
-**Out of scope:** Ingestion/evidence `document_id` values (`doc_*`), graph node IDs, agent thread IDs
+**Updated:** 2026-07-22 (BLD-02 worldbuilding_source)  
+**Scope:** Authored workspace documents for `/plan` boards, Tiptap runbooks, and Build worldbuilding sources  
+**Out of scope:** Ingestion/evidence `document_id` values (`doc_*`), graph node IDs, agent thread IDs, SourceArtifact IDs
 
 ---
 
@@ -12,6 +13,8 @@
 Authored workspace documents use **opaque, server-issued UUIDs** as identity. Human-facing meaning lives in typed metadata fields. Document IDs are never parsed for campaign, session, kind, or title.
 
 Ingestion/evidence `doc_*` identifiers remain a **separate provenance namespace**. They identify chunked corpus sources in retrieval indexes and must not be reused as workspace document IDs.
+
+Workspace document IDs are also a **separate namespace from SourceArtifact IDs**. BLD-03 may link a committed workspace revision to an immutable SourceArtifact via explicit foreign keys (`workspace_document_id`, `workspace_document_revision`, `content_sha256`); it must never rewrite a workspace UUID into a source-artifact ID.
 
 ---
 
@@ -25,16 +28,31 @@ Persistence: `out/registries/workspace_documents.json`
 | --- | --- |
 | `document_id` | Opaque UUID. Equality-only. Never displayed as the document name. |
 | `title` | Editable human label. May collide. |
-| `campaign_id` | Campaign scope. Explicit field, not an ID substring. |
-| `target_session` | Optional numeric “prep for Session N” metadata. |
-| `kind` | `plan` or `runbook`. |
+| `campaign_id` | Campaign or world scope. Explicit field, not an ID substring. |
+| `target_session` | Optional numeric “prep for Session N” metadata. Optional for worldbuilding sources. |
+| `kind` | `plan`, `runbook`, or `worldbuilding_source`. |
 | `target_relpath` | Optional durable Markdown publish path. Registry-owned. |
 | `status` | Lifecycle: `active` or `discarded`. Discard retains the record. |
 | `content_status` | `draft` or `committed` (relative to durable Markdown write). |
 | `revision` | Monotonic CAS token for metadata/write races. |
 | `created_at` / `updated_at` | ISO-Z timestamps. |
+| `source_domain` | Required `worldbuilding` for `worldbuilding_source`; null otherwise. |
+| `document_class` | Required non-empty class label for worldbuilding sources (e.g. `lore`, `faction`). |
+| `authority_state` | `draft` / `reviewed` / `canonical` for worldbuilding sources; null otherwise. |
+| `visibility_state` | `internal` / `player_safe` for worldbuilding sources; null otherwise. |
 
 Hard delete is not part of this contract. Discard sets `status=discarded` and keeps the row for restore/audit.
+
+### Worldbuilding target policy
+
+For `kind=worldbuilding_source`:
+
+- Clients **must not** supply `target_relpath` on create or update.
+- The registry assigns `out/workspace/worldbuilding/{document_id}.md`.
+- The Markdown writer accepts only that exact registry-owned path.
+- Unsupported Markdown constructs (tables, HTML, images, thematic breaks) are commit-blocking; prepare returns `writer_ok=false` and commit rejects without mutation.
+
+Plan and runbook targets retain their existing allowlists.
 
 ---
 
@@ -69,6 +87,7 @@ The writer resolves `title` and `target_relpath` from the registry. Clients must
 - URL selection uses `?documentId=<uuid>`. `?session=` remains memory/graph focus only.
 - Do not derive identity from title, `prepSession`, or path basename at runtime.
 - Opening without `documentId` resolves or creates an active plan document via the registry.
+- Warning-level Markdown import diagnostics are commit-blocking for durable writes.
 
 ---
 
@@ -76,8 +95,9 @@ The writer resolves `title` and `target_relpath` from the registry. Clients must
 
 | Namespace | Example | Purpose |
 | --- | --- | --- |
-| Workspace documents | `11111111-1111-4111-8111-111111111111` | Plan/runbook authoring artifacts |
+| Workspace documents | `11111111-1111-4111-8111-111111111111` | Plan/runbook/worldbuilding authoring artifacts |
 | Evidence documents | `doc_city_of_mirathorn` | Chunked corpus provenance for retrieval |
+| Source artifacts (BLD-03+) | distinct immutable IDs | Graph evidence lineage; linked by foreign keys only |
 
 Never join these namespaces by string rewriting. If a future feature needs a link, store an explicit foreign key field.
 
@@ -90,4 +110,4 @@ Never join these namespaces by string rewriting. If a future feature needs a lin
 - Longmont `Session N Prep.md` files that match the Markdown writer allowlist
 - The two Tiptap spike runbook Markdown targets under `evals/c2_live_prep/.../tiptap/`
 
-Other Session Prep filenames are reported as ambiguous and require manual resolution. Old browser-local semantic keys are not dual-read after cutover.
+Other Session Prep filenames are reported as ambiguous and require manual resolution. Old browser-local semantic keys are not dual-read after cutover. Worldbuilding sources are created through the registry API, not the seed script, unless a later slice adds explicit seeds.
