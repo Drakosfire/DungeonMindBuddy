@@ -7,15 +7,22 @@ import httpx
 import pytest
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
+    MAX_RESPONSE_BODY_BYTES,
     DungeonMindStatblockV1Client,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.config import (
     INTERNAL_KEY_HEADER,
     StatblockIntegrationConfig,
+    StatblockIntegrationConfigError,
     load_statblock_integration_config,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
+)
+from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
+    ExactRevisionResourceV1,
+    HealthResponseV1,
+    ReadinessResponseV1,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.readiness import (
     evaluate_statblock_integration_readiness,
@@ -61,8 +68,28 @@ def test_config_enabled_requires_base_url_and_key(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_ENABLED", "true")
     monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_BASE_URL", "https://example.test")
     monkeypatch.delenv("DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY", raising=False)
-    with pytest.raises(Exception, match="base URL and internal API key"):
+    with pytest.raises(StatblockIntegrationConfigError, match="base URL and internal API key"):
         load_statblock_integration_config()
+
+
+def test_config_rejects_unknown_boolean(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_ENABLED", "maybe")
+    with pytest.raises(StatblockIntegrationConfigError, match="ENABLED must be one of"):
+        load_statblock_integration_config()
+
+
+def test_config_rejects_nan_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_ENABLED", "false")
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_TIMEOUT_SECONDS", "nan")
+    with pytest.raises(StatblockIntegrationConfigError, match="finite value"):
+        load_statblock_integration_config()
+
+
+def test_config_repr_redacts_internal_key() -> None:
+    config = _config()
+    rendered = repr(config)
+    assert SECRET not in rendered
+    assert "internal_api_key=***" in rendered
 
 
 def test_disabled_readiness_makes_no_downstream_call(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -139,6 +166,7 @@ def test_auth_failure_mapping() -> None:
         client.get_health()
     assert exc_info.value.category == "downstream_authentication_failed"
     assert SECRET not in str(exc_info.value)
+    assert SECRET not in repr(exc_info.value)
 
 
 def test_timeout_mapping() -> None:
@@ -172,6 +200,59 @@ def test_malformed_json_fails_closed() -> None:
     assert exc_info.value.category == "downstream_unexpected"
 
 
+def test_health_rejects_wrong_contract_identity() -> None:
+    with pytest.raises(Exception):
+        HealthResponseV1.model_validate(
+            {
+                "status": "available",
+                "contract": "other.service",
+                "contract_version": "1.0.0",
+                "capabilities": [],
+            }
+        )
+
+
+def test_readiness_rejects_wrong_contract_identity() -> None:
+    with pytest.raises(Exception):
+        ReadinessResponseV1.model_validate(
+            {
+                "status": "ready",
+                "contract": "dungeonmind.dungeonbuddy-statblocks",
+                "generation_enabled": True,
+                "read_routes_enabled": True,
+                "errors": [],
+            }
+            | {"contract": "evil.contract"}
+        )
+
+
+def test_exact_revision_rejects_arbitrary_identity_fields() -> None:
+    payload = _fixture("exact-revision-response.json")
+    payload["statblock_id"] = "not-a-statblock-id"
+    with pytest.raises(Exception):
+        ExactRevisionResourceV1.model_validate(payload)
+
+    payload = _fixture("exact-revision-response.json")
+    payload["definition_digest"] = "md5:deadbeef"
+    with pytest.raises(Exception):
+        ExactRevisionResourceV1.model_validate(payload)
+
+    payload = _fixture("exact-revision-response.json")
+    payload["contract_version"] = "9.9.9"
+    with pytest.raises(Exception):
+        ExactRevisionResourceV1.model_validate(payload)
+
+
+def test_exact_revision_rejects_non_published_path_ids() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_fixture("exact-revision-response.json"))
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_exact_revision("SB_UPPER", "rev_fixture1")
+    assert exc_info.value.category == "downstream_invalid_request"
+
+
 def test_exact_revision_fixture_retains_identity() -> None:
     payload = _fixture("exact-revision-response.json")
 
@@ -185,6 +266,33 @@ def test_exact_revision_fixture_retains_identity() -> None:
     assert revision.statblock_id == "sb_fixture1"
     assert revision.revision_id == "rev_fixture1"
     assert revision.definition_digest.startswith("sha256:")
+    assert revision.contract == "dungeonmind.dungeonbuddy-statblocks"
+    assert revision.contract_version == "1.0.0"
+
+
+def test_oversized_response_body_rejected_before_parse() -> None:
+    huge = b"{" + (b"a" * (MAX_RESPONSE_BODY_BYTES + 1)) + b"}"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=huge,
+            headers={
+                "content-type": "application/json",
+                "content-length": str(len(huge)),
+            },
+        )
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_unexpected"
+    assert "bounded body" in exc_info.value.message
+
+
+def test_client_exposes_candidate_operations_for_sbw03() -> None:
+    assert hasattr(DungeonMindStatblockV1Client, "generate_candidate")
+    assert hasattr(DungeonMindStatblockV1Client, "get_candidate")
 
 
 def test_internal_key_absent_from_readiness_payload() -> None:
@@ -216,3 +324,4 @@ def test_internal_key_absent_from_readiness_payload() -> None:
     serialized = json.dumps(dumped)
     assert SECRET not in serialized
     assert "internal_api_key" not in serialized
+    assert SECRET not in repr(client.config)

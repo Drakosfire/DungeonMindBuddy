@@ -1,7 +1,8 @@
 """Server-owned DungeonMind statblock v1 HTTP client."""
 from __future__ import annotations
 
-from typing import Any, Protocol
+import json
+from typing import Any, Protocol, TypeVar
 
 import httpx
 
@@ -11,7 +12,9 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.config import 
     StatblockIntegrationConfig,
     StatblockIntegrationConfigError,
     load_statblock_integration_config,
-    validate_resource_id,
+    validate_candidate_id,
+    validate_revision_id,
+    validate_statblock_id,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
@@ -32,9 +35,14 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.models import 
     ExactRevisionResourceV1,
     HealthResponseV1,
     ReadinessResponseV1,
+    StrictModel,
 )
 
+# Health/readiness envelopes are tiny; exact-revision payloads include definition.
+MAX_RESPONSE_BODY_BYTES = 1_048_576
 _MAX_ERROR_BODY_CHARS = 2_048
+
+ModelT = TypeVar("ModelT", bound=StrictModel)
 
 
 class StatblockV1Client(Protocol):
@@ -45,6 +53,10 @@ class StatblockV1Client(Protocol):
     def get_exact_revision(
         self, statblock_id: str, revision_id: str
     ) -> ExactRevisionResourceV1: ...
+
+    def generate_candidate(self, body: dict[str, Any]) -> dict[str, Any]: ...
+
+    def get_candidate(self, candidate_id: str) -> dict[str, Any]: ...
 
 
 class DungeonMindStatblockV1Client:
@@ -90,8 +102,8 @@ class DungeonMindStatblockV1Client:
         self, statblock_id: str, revision_id: str
     ) -> ExactRevisionResourceV1:
         try:
-            safe_statblock_id = validate_resource_id(statblock_id, label="statblock_id")
-            safe_revision_id = validate_resource_id(revision_id, label="revision_id")
+            safe_statblock_id = validate_statblock_id(statblock_id)
+            safe_revision_id = validate_revision_id(revision_id)
         except ValueError as exc:
             raise downstream_invalid_request(str(exc)) from exc
         payload = self._request_json(
@@ -102,15 +114,14 @@ class DungeonMindStatblockV1Client:
         if (
             revision.statblock_id != safe_statblock_id
             or revision.revision_id != safe_revision_id
-            or not revision.definition_digest
         ):
             raise downstream_unexpected(
-                "exact revision response missing required identity fields"
+                "exact revision response identity does not match request"
             )
         return revision
 
     def generate_candidate(self, body: dict[str, Any]) -> dict[str, Any]:
-        """Typed transport for SBW03; returns the Server JSON object."""
+        """SBW03: POST candidate generation; transport returns the Server JSON object."""
         payload = self._request_json(
             "POST",
             f"{API_PREFIX}/statblock-candidates:generate",
@@ -121,8 +132,9 @@ class DungeonMindStatblockV1Client:
         return payload
 
     def get_candidate(self, candidate_id: str) -> dict[str, Any]:
+        """SBW03: GET candidate by published `cand_*` identity."""
         try:
-            safe_candidate_id = validate_resource_id(candidate_id, label="candidate_id")
+            safe_candidate_id = validate_candidate_id(candidate_id)
         except ValueError as exc:
             raise downstream_invalid_request(str(exc)) from exc
         payload = self._request_json(
@@ -153,47 +165,80 @@ class DungeonMindStatblockV1Client:
         url = f"{self._config.base_url}{path}"
         headers = {INTERNAL_KEY_HEADER: self._config.internal_api_key}
         try:
-            response = self._client.request(
+            with self._client.stream(
                 method,
                 url,
                 headers=headers,
                 json=json_body,
-            )
+            ) as response:
+                body = self._read_bounded_body(response)
+                allowed = allow_statuses or {200}
+                if response.status_code in allowed:
+                    return self._decode_json(body, status_code=response.status_code)
+                raise self._map_error_response(response.status_code, body)
+        except StatblockIntegrationError:
+            raise
         except httpx.TimeoutException as exc:
             raise downstream_timeout() from exc
         except httpx.HTTPError as exc:
             raise downstream_unavailable(str(exc) or "transport error") from exc
 
-        allowed = allow_statuses or {200}
-        if response.status_code in allowed:
-            return self._decode_json(response)
+    def _read_bounded_body(self, response: httpx.Response) -> bytes:
+        content_length = response.headers.get("content-length")
+        if content_length is not None:
+            try:
+                declared = int(content_length)
+            except ValueError:
+                declared = -1
+            if declared > MAX_RESPONSE_BODY_BYTES:
+                response.close()
+                raise downstream_unexpected(
+                    "downstream response exceeds bounded body limit",
+                    status_code=response.status_code,
+                )
 
-        raise self._map_error_response(response)
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in response.iter_bytes():
+            total += len(chunk)
+            if total > MAX_RESPONSE_BODY_BYTES:
+                response.close()
+                raise downstream_unexpected(
+                    "downstream response exceeds bounded body limit",
+                    status_code=response.status_code,
+                )
+            chunks.append(chunk)
+        return b"".join(chunks)
 
-    def _decode_json(self, response: httpx.Response) -> Any:
+    def _decode_json(self, body: bytes, *, status_code: int) -> Any:
         try:
-            return response.json()
+            return json.loads(body)
         except ValueError as exc:
             raise downstream_unexpected(
                 "downstream response is not JSON",
-                status_code=response.status_code,
+                status_code=status_code,
             ) from exc
 
-    def _parse_model(self, model_type: type[Any], payload: Any) -> Any:
+    def _parse_model(self, model_type: type[ModelT], payload: Any) -> ModelT:
         try:
             return model_type.model_validate(payload)
         except Exception as exc:
-            raise downstream_unexpected("downstream response failed schema validation") from exc
+            raise downstream_unexpected(
+                "downstream response failed schema validation"
+            ) from exc
 
-    def _map_error_response(self, response: httpx.Response) -> StatblockIntegrationError:
-        status = response.status_code
+    def _map_error_response(
+        self, status: int, body: bytes
+    ) -> StatblockIntegrationError:
         if status in {401, 403}:
             return downstream_authentication_failed(status_code=status)
         if status == 404:
-            code, message, details = self._safe_error_parts(response)
-            return downstream_not_found(message or "not found", status_code=status, error_code=code)
+            code, message, details = self._safe_error_parts(body)
+            return downstream_not_found(
+                message or "not found", status_code=status, error_code=code
+            )
         if status == 409:
-            code, message, details = self._safe_error_parts(response)
+            code, message, details = self._safe_error_parts(body)
             return downstream_conflict(
                 message or "conflict",
                 status_code=status,
@@ -201,13 +246,8 @@ class DungeonMindStatblockV1Client:
                 details=details,
             )
         if status == 422:
-            code, message, details = self._safe_error_parts(response)
-            category_factory = (
-                downstream_validation_failed
-                if (code or "").endswith("validation_failed") or code == "validation_failed"
-                else downstream_validation_failed
-            )
-            return category_factory(
+            code, message, details = self._safe_error_parts(body)
+            return downstream_validation_failed(
                 message or "validation failed",
                 status_code=status,
                 error_code=code,
@@ -216,7 +256,7 @@ class DungeonMindStatblockV1Client:
         if status == 429:
             return downstream_rate_limited(status_code=status)
         if status == 400:
-            code, message, details = self._safe_error_parts(response)
+            code, message, details = self._safe_error_parts(body)
             return downstream_invalid_request(
                 message or "invalid request",
                 status_code=status,
@@ -231,12 +271,12 @@ class DungeonMindStatblockV1Client:
         )
 
     def _safe_error_parts(
-        self, response: httpx.Response
+        self, body: bytes
     ) -> tuple[str | None, str | None, dict[str, Any]]:
         try:
-            payload = response.json()
+            payload = json.loads(body)
         except ValueError:
-            text = (response.text or "")[:_MAX_ERROR_BODY_CHARS]
+            text = body.decode("utf-8", errors="replace")[:_MAX_ERROR_BODY_CHARS]
             return None, (text or None), {}
         try:
             envelope = ErrorEnvelopeV1.model_validate(payload)
