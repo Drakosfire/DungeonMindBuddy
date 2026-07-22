@@ -9,6 +9,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from apps.live_control_server.services.registry_file_lock import (
+    registry_mutation_lock,
+    registry_token,
     workspace_document_mutation_lock,
 )
 from src.live_play.live_store import load_json, write_json
@@ -111,17 +113,40 @@ def _validate_title(title: str) -> str:
     return cleaned
 
 
-def _load_registry_document(root: Path) -> WorkspaceDocumentRegistryDocument:
+def _load_unlocked(root: Path) -> tuple[WorkspaceDocumentRegistryDocument, str]:
     path = workspace_documents_path(root)
+    token = registry_token(path)
     if not path.is_file():
-        return WorkspaceDocumentRegistryDocument()
-    payload = load_json(path)
-    return WorkspaceDocumentRegistryDocument.model_validate(payload)
+        return WorkspaceDocumentRegistryDocument(), token
+    try:
+        document = WorkspaceDocumentRegistryDocument.model_validate(load_json(path))
+    except (TypeError, ValueError) as exc:
+        raise WorkspaceDocumentRegistryError(
+            f"malformed workspace document registry: {exc}",
+            status_code=500,
+        ) from exc
+    return document, token
 
 
-def _save_registry_document(root: Path, document: WorkspaceDocumentRegistryDocument) -> Path:
+def _load_registry_document(root: Path) -> WorkspaceDocumentRegistryDocument:
+    document, _token = _load_unlocked(root)
+    return document
+
+
+def _save_cas(
+    root: Path,
+    document: WorkspaceDocumentRegistryDocument,
+    *,
+    expected_token: str,
+) -> Path:
     path = workspace_documents_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
+    current = registry_token(path)
+    if current != expected_token:
+        raise WorkspaceDocumentRegistryError(
+            "workspace document registry changed concurrently",
+            status_code=409,
+        )
     try:
         write_json(path, document.model_dump(mode="json"))
     except (OSError, TypeError, ValueError) as exc:
@@ -130,6 +155,37 @@ def _save_registry_document(root: Path, document: WorkspaceDocumentRegistryDocum
             status_code=500,
         ) from exc
     return path
+
+
+def _replace_record(
+    document: WorkspaceDocumentRegistryDocument,
+    updated: WorkspaceDocumentRecord,
+) -> None:
+    document.records = [
+        updated if r.document_id == updated.document_id else r for r in document.records
+    ]
+
+
+def load_workspace_document_under_registry_lock(
+    root: Path,
+    document_id: str,
+) -> WorkspaceDocumentRecord:
+    """Load one record under the shared registry-file lock.
+
+    Lock order: callers performing an isolated snapshot or mutation must hold
+    ``workspace_document_mutation_lock(document_id)`` first, then this acquires
+    the registry lock.
+    """
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, _token = _load_unlocked(root)
+        record = _find_record(document, document_id)
+        if record is None:
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document not found: {_validate_document_id(document_id)}",
+                status_code=404,
+            )
+        return record
 
 
 def _find_record(
@@ -254,7 +310,6 @@ def create_workspace_document(
                 status_code=422,
             )
 
-    document = _load_registry_document(root)
     now = _utc_now_iso()
     record = WorkspaceDocumentRecord(
         document_id=document_id,
@@ -267,8 +322,11 @@ def create_workspace_document(
         updated_at=now,
         **worldbuilding_fields,
     )
-    document.records.append(record)
-    _save_registry_document(root, document)
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        document.records.append(record)
+        _save_cas(root, document, expected_token=token)
     return record
 
 
@@ -295,82 +353,108 @@ def update_workspace_document_metadata(
     visibility_state: Literal["internal", "player_safe"] | None | object = _UNSET,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
-    document = _load_registry_document(root)
-    existing = _find_record(document, document_id)
-    if existing is None:
-        raise WorkspaceDocumentRegistryError(
-            f"workspace document not found: {_validate_document_id(document_id)}",
-            status_code=404,
-        )
-    _check_expected_revision(existing, expected_revision)
-
-    updates: dict[str, Any] = {}
-    if title is not _UNSET:
-        updates["title"] = _validate_title(str(title))
-    if target_session is not _UNSET:
-        updates["target_session"] = target_session
-    if target_relpath is not _UNSET:
-        if existing.kind == "worldbuilding_source":
-            raise WorkspaceDocumentRegistryError(
-                "target_relpath is registry-owned for worldbuilding_source",
-                status_code=422,
-            )
-        updates["target_relpath"] = target_relpath
-    if document_class is not _UNSET:
-        if existing.kind != "worldbuilding_source":
-            raise WorkspaceDocumentRegistryError(
-                "document_class is only valid for worldbuilding_source",
-                status_code=422,
-            )
-        cleaned_class = str(document_class or "").strip()
-        if not cleaned_class:
-            raise WorkspaceDocumentRegistryError(
-                "document_class must be non-empty",
-                status_code=422,
-            )
-        updates["document_class"] = cleaned_class
-    if authority_state is not _UNSET:
-        if existing.kind != "worldbuilding_source":
-            raise WorkspaceDocumentRegistryError(
-                "authority_state is only valid for worldbuilding_source",
-                status_code=422,
-            )
-        if authority_state is None:
-            raise WorkspaceDocumentRegistryError(
-                "authority_state is required for worldbuilding_source",
-                status_code=422,
-            )
-        updates["authority_state"] = authority_state
-    if visibility_state is not _UNSET:
-        if existing.kind != "worldbuilding_source":
-            raise WorkspaceDocumentRegistryError(
-                "visibility_state is only valid for worldbuilding_source",
-                status_code=422,
-            )
-        if visibility_state is None:
-            raise WorkspaceDocumentRegistryError(
-                "visibility_state is required for worldbuilding_source",
-                status_code=422,
-            )
-        updates["visibility_state"] = visibility_state
-    if not updates:
-        raise WorkspaceDocumentRegistryError(
-            "at least one metadata field is required",
-            status_code=422,
+    with workspace_document_mutation_lock(root, document_id):
+        return _update_workspace_document_metadata_unlocked(
+            root,
+            document_id,
+            title=title,
+            target_session=target_session,
+            target_relpath=target_relpath,
+            document_class=document_class,
+            authority_state=authority_state,
+            visibility_state=visibility_state,
+            expected_revision=expected_revision,
         )
 
-    updated = existing.model_copy(
-        update={
-            **updates,
-            "revision": existing.revision + 1,
-            "updated_at": _utc_now_iso(),
-        }
-    )
-    document.records = [
-        updated if r.document_id == updated.document_id else r for r in document.records
-    ]
-    _save_registry_document(root, document)
-    return updated
+
+def _update_workspace_document_metadata_unlocked(
+    root: Path,
+    document_id: str,
+    *,
+    title: str | object = _UNSET,
+    target_session: int | None | object = _UNSET,
+    target_relpath: str | None | object = _UNSET,
+    document_class: str | None | object = _UNSET,
+    authority_state: Literal["draft", "reviewed", "canonical"] | None | object = _UNSET,
+    visibility_state: Literal["internal", "player_safe"] | None | object = _UNSET,
+    expected_revision: int | None = None,
+) -> WorkspaceDocumentRecord:
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        existing = _find_record(document, document_id)
+        if existing is None:
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document not found: {_validate_document_id(document_id)}",
+                status_code=404,
+            )
+        _check_expected_revision(existing, expected_revision)
+
+        updates: dict[str, Any] = {}
+        if title is not _UNSET:
+            updates["title"] = _validate_title(str(title))
+        if target_session is not _UNSET:
+            updates["target_session"] = target_session
+        if target_relpath is not _UNSET:
+            if existing.kind == "worldbuilding_source":
+                raise WorkspaceDocumentRegistryError(
+                    "target_relpath is registry-owned for worldbuilding_source",
+                    status_code=422,
+                )
+            updates["target_relpath"] = target_relpath
+        if document_class is not _UNSET:
+            if existing.kind != "worldbuilding_source":
+                raise WorkspaceDocumentRegistryError(
+                    "document_class is only valid for worldbuilding_source",
+                    status_code=422,
+                )
+            cleaned_class = str(document_class or "").strip()
+            if not cleaned_class:
+                raise WorkspaceDocumentRegistryError(
+                    "document_class must be non-empty",
+                    status_code=422,
+                )
+            updates["document_class"] = cleaned_class
+        if authority_state is not _UNSET:
+            if existing.kind != "worldbuilding_source":
+                raise WorkspaceDocumentRegistryError(
+                    "authority_state is only valid for worldbuilding_source",
+                    status_code=422,
+                )
+            if authority_state is None:
+                raise WorkspaceDocumentRegistryError(
+                    "authority_state is required for worldbuilding_source",
+                    status_code=422,
+                )
+            updates["authority_state"] = authority_state
+        if visibility_state is not _UNSET:
+            if existing.kind != "worldbuilding_source":
+                raise WorkspaceDocumentRegistryError(
+                    "visibility_state is only valid for worldbuilding_source",
+                    status_code=422,
+                )
+            if visibility_state is None:
+                raise WorkspaceDocumentRegistryError(
+                    "visibility_state is required for worldbuilding_source",
+                    status_code=422,
+                )
+            updates["visibility_state"] = visibility_state
+        if not updates:
+            raise WorkspaceDocumentRegistryError(
+                "at least one metadata field is required",
+                status_code=422,
+            )
+
+        updated = existing.model_copy(
+            update={
+                **updates,
+                "revision": existing.revision + 1,
+                "updated_at": _utc_now_iso(),
+            }
+        )
+        _replace_record(document, updated)
+        _save_cas(root, document, expected_token=token)
+        return updated
 
 
 def discard_workspace_document(
@@ -379,12 +463,13 @@ def discard_workspace_document(
     *,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
-    return _set_workspace_document_status(
-        root,
-        document_id,
-        status="discarded",
-        expected_revision=expected_revision,
-    )
+    with workspace_document_mutation_lock(root, document_id):
+        return _set_workspace_document_status_unlocked(
+            root,
+            document_id,
+            status="discarded",
+            expected_revision=expected_revision,
+        )
 
 
 def restore_workspace_document(
@@ -393,12 +478,13 @@ def restore_workspace_document(
     *,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
-    return _set_workspace_document_status(
-        root,
-        document_id,
-        status="active",
-        expected_revision=expected_revision,
-    )
+    with workspace_document_mutation_lock(root, document_id):
+        return _set_workspace_document_status_unlocked(
+            root,
+            document_id,
+            status="active",
+            expected_revision=expected_revision,
+        )
 
 
 def mark_workspace_document_committed_unlocked(
@@ -410,29 +496,30 @@ def mark_workspace_document_committed_unlocked(
     """Mark committed without acquiring the per-document mutation lock.
 
     Callers that already hold ``workspace_document_mutation_lock`` (Markdown commit)
-    must use this form to avoid deadlock.
+    must use this form to avoid deadlock. Still acquires the registry-file lock and CAS.
+    Lock order: document lock (caller) → registry lock (here).
     """
-    document = _load_registry_document(root)
-    existing = _find_record(document, document_id)
-    if existing is None:
-        raise WorkspaceDocumentRegistryError(
-            f"workspace document not found: {_validate_document_id(document_id)}",
-            status_code=404,
-        )
-    _check_expected_revision(existing, expected_revision)
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        existing = _find_record(document, document_id)
+        if existing is None:
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document not found: {_validate_document_id(document_id)}",
+                status_code=404,
+            )
+        _check_expected_revision(existing, expected_revision)
 
-    updated = existing.model_copy(
-        update={
-            "content_status": "committed",
-            "revision": existing.revision + 1,
-            "updated_at": _utc_now_iso(),
-        }
-    )
-    document.records = [
-        updated if r.document_id == updated.document_id else r for r in document.records
-    ]
-    _save_registry_document(root, document)
-    return updated
+        updated = existing.model_copy(
+            update={
+                "content_status": "committed",
+                "revision": existing.revision + 1,
+                "updated_at": _utc_now_iso(),
+            }
+        )
+        _replace_record(document, updated)
+        _save_cas(root, document, expected_token=token)
+        return updated
 
 
 def mark_workspace_document_committed(
@@ -449,31 +536,31 @@ def mark_workspace_document_committed(
         )
 
 
-def _set_workspace_document_status(
+def _set_workspace_document_status_unlocked(
     root: Path,
     document_id: str,
     *,
     status: Literal["active", "discarded"],
     expected_revision: int | None,
 ) -> WorkspaceDocumentRecord:
-    document = _load_registry_document(root)
-    existing = _find_record(document, document_id)
-    if existing is None:
-        raise WorkspaceDocumentRegistryError(
-            f"workspace document not found: {_validate_document_id(document_id)}",
-            status_code=404,
-        )
-    _check_expected_revision(existing, expected_revision)
+    path = workspace_documents_path(root)
+    with registry_mutation_lock(path):
+        document, token = _load_unlocked(root)
+        existing = _find_record(document, document_id)
+        if existing is None:
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document not found: {_validate_document_id(document_id)}",
+                status_code=404,
+            )
+        _check_expected_revision(existing, expected_revision)
 
-    updated = existing.model_copy(
-        update={
-            "status": status,
-            "revision": existing.revision + 1,
-            "updated_at": _utc_now_iso(),
-        }
-    )
-    document.records = [
-        updated if r.document_id == updated.document_id else r for r in document.records
-    ]
-    _save_registry_document(root, document)
-    return updated
+        updated = existing.model_copy(
+            update={
+                "status": status,
+                "revision": existing.revision + 1,
+                "updated_at": _utc_now_iso(),
+            }
+        )
+        _replace_record(document, updated)
+        _save_cas(root, document, expected_token=token)
+        return updated

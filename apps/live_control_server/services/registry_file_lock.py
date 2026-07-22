@@ -34,10 +34,12 @@ def registry_mutation_lock(registry_path: Path) -> Iterator[None]:
 
 @contextmanager
 def workspace_document_mutation_lock(root: Path, document_id: str) -> Iterator[None]:
-    """Serialize Markdown commit and SourceArtifact snapshot for one workspace document.
+    """Serialize all mutations of one workspace document record.
 
     Hold across load/verify/read-or-write target bytes and any registry transition that
-    binds those bytes to a workspace revision.
+    binds those bytes or metadata to a workspace revision. Callers that also mutate the
+    shared workspace registry file must acquire this lock first, then
+    ``registry_mutation_lock(workspace_documents_path)``.
     """
     cleaned = (document_id or "").strip()
     if not cleaned:

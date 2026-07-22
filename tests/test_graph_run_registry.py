@@ -865,3 +865,163 @@ def test_one_sided_supersession_fails_closed_on_load(tmp_path: Path) -> None:
     runs_path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(GraphRunRegistryError, match="lineage|non-reciprocal|missing"):
         get_extraction_run(tmp_path, successor.run_id)
+
+
+def test_source_artifact_snapshot_blocks_concurrent_discard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Discard cannot change status while a snapshot holds the document lock."""
+    import threading
+
+    from apps.live_control_server.services import source_artifact_registry as sar
+    from apps.live_control_server.services.workspace_document_registry import (
+        discard_workspace_document,
+        get_workspace_document,
+    )
+
+    record, _digest = _committed_worldbuilding(tmp_path)
+    entered_read = threading.Event()
+    release_read = threading.Event()
+    real_read_fn = sar._read_committed_target_markdown
+
+    def delayed_read(*args, **kwargs):
+        entered_read.set()
+        assert release_read.wait(timeout=5), "timed out waiting to release snapshot barrier"
+        return real_read_fn(*args, **kwargs)
+
+    monkeypatch.setattr(sar, "_read_committed_target_markdown", delayed_read)
+
+    snapshot_errors: list[BaseException] = []
+    snapshot_result: list[object] = []
+
+    def snapshot_worker() -> None:
+        try:
+            snapshot_result.append(
+                create_source_artifact_from_workspace_document(
+                    tmp_path,
+                    document_id=record.document_id,
+                    expected_revision=record.revision,
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001 - surface to main thread
+            snapshot_errors.append(exc)
+
+    snapshot_thread = threading.Thread(target=snapshot_worker)
+    snapshot_thread.start()
+    assert entered_read.wait(timeout=5)
+
+    discard_started = threading.Event()
+    discard_done = threading.Event()
+    discard_errors: list[BaseException] = []
+    discard_result: list[object] = []
+
+    def discard_worker() -> None:
+        discard_started.set()
+        try:
+            discard_result.append(
+                discard_workspace_document(
+                    tmp_path,
+                    record.document_id,
+                    expected_revision=record.revision,
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001 - surface to main thread
+            discard_errors.append(exc)
+        finally:
+            discard_done.set()
+
+    discard_thread = threading.Thread(target=discard_worker)
+    discard_thread.start()
+    assert discard_started.wait(timeout=5)
+    # Discard must block on the shared document lock while snapshot is mid-flight.
+    assert not discard_done.wait(timeout=0.3)
+    assert get_workspace_document(tmp_path, record.document_id).status == "active"
+
+    release_read.set()
+    snapshot_thread.join(timeout=5)
+    discard_thread.join(timeout=5)
+    assert not snapshot_thread.is_alive()
+    assert not discard_thread.is_alive()
+    assert not snapshot_errors
+    assert snapshot_result
+    assert snapshot_result[0].workspace_document_revision == record.revision
+    assert not discard_errors
+    assert discard_result[0].status == "discarded"
+    assert get_workspace_document(tmp_path, record.document_id).status == "discarded"
+
+    with pytest.raises(SourceArtifactRegistryError, match="discarded"):
+        create_source_artifact_from_workspace_document(
+            tmp_path,
+            document_id=record.document_id,
+            expected_revision=discard_result[0].revision,
+        )
+
+
+def test_reciprocal_lineage_with_unrelated_artifacts_fails_closed_on_load(
+    tmp_path: Path,
+) -> None:
+    record, _digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+    )
+    prepared = update_extraction_run_status(
+        tmp_path,
+        run.run_id,
+        status=ExtractionRunStatus.PREPARED,
+        expected_revision=run.revision,
+    )
+    successor = supersede_extraction_run(
+        tmp_path,
+        prepared.run_id,
+        expected_revision=prepared.revision,
+    )
+    runs_path = tmp_path / "out/registries/extraction_runs.json"
+    payload = json.loads(runs_path.read_text(encoding="utf-8"))
+    for row in payload["records"]:
+        if row["run_id"] == successor.run_id:
+            row["source_artifact_id"] = "artifact:unrelated"
+    runs_path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(GraphRunRegistryError, match="lineage|source_artifact_id"):
+        get_extraction_run(tmp_path, prepared.run_id)
+
+
+def test_reciprocal_lineage_with_non_superseded_predecessor_fails_closed_on_load(
+    tmp_path: Path,
+) -> None:
+    record, _digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+    )
+    prepared = update_extraction_run_status(
+        tmp_path,
+        run.run_id,
+        status=ExtractionRunStatus.PREPARED,
+        expected_revision=run.revision,
+    )
+    successor = supersede_extraction_run(
+        tmp_path,
+        prepared.run_id,
+        expected_revision=prepared.revision,
+    )
+    runs_path = tmp_path / "out/registries/extraction_runs.json"
+    payload = json.loads(runs_path.read_text(encoding="utf-8"))
+    for row in payload["records"]:
+        if row["run_id"] == prepared.run_id:
+            row["status"] = "prepared"
+    runs_path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(GraphRunRegistryError, match="lineage|must be superseded"):
+        get_extraction_run(tmp_path, successor.run_id)

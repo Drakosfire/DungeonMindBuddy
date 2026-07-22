@@ -16,7 +16,7 @@ from apps.live_control_server.services.tiptap_markdown_write import (
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
-    get_workspace_document,
+    load_workspace_document_under_registry_lock,
 )
 from graph_memory.evidence.source_artifact import (
     GraphMemorySourceArtifact,
@@ -321,7 +321,7 @@ def _create_source_artifact_from_workspace_document_unlocked(
     expected_content_sha256: str | None = None,
 ) -> GraphMemorySourceArtifact:
     try:
-        record = get_workspace_document(root, document_id)
+        record = load_workspace_document_under_registry_lock(root, document_id)
     except WorkspaceDocumentRegistryError as exc:
         err = SourceArtifactRegistryError(str(exc), status_code=exc.status_code)
         raise err from exc

@@ -219,6 +219,7 @@ def validate_extraction_run_lineage(runs: list[ExtractionRun]) -> None:
             raise ValueError(f"duplicate extraction run id: {run.run_id}")
         by_id[run.run_id] = run
 
+    pairs: set[tuple[str, str]] = set()
     for run in runs:
         if run.superseded_by_run_id:
             successor = by_id.get(run.superseded_by_run_id)
@@ -231,6 +232,7 @@ def validate_extraction_run_lineage(runs: list[ExtractionRun]) -> None:
                     f"non-reciprocal supersession: {run.run_id} superseded_by "
                     f"{run.superseded_by_run_id}"
                 )
+            pairs.add((run.run_id, run.superseded_by_run_id))
         if run.supersedes_run_id:
             predecessor = by_id.get(run.supersedes_run_id)
             if predecessor is None:
@@ -242,6 +244,35 @@ def validate_extraction_run_lineage(runs: list[ExtractionRun]) -> None:
                     f"non-reciprocal supersession: {run.run_id} supersedes "
                     f"{run.supersedes_run_id}"
                 )
+            pairs.add((run.supersedes_run_id, run.run_id))
+
+    for predecessor_id, successor_id in pairs:
+        predecessor = by_id[predecessor_id]
+        successor = by_id[successor_id]
+        if predecessor.status != ExtractionRunStatus.SUPERSEDED:
+            raise ValueError(
+                f"supersession predecessor must be superseded: {predecessor_id}"
+            )
+        if predecessor.source_artifact_id != successor.source_artifact_id:
+            raise ValueError(
+                "supersession pair source_artifact_id mismatch: "
+                f"{predecessor_id} -> {successor_id}"
+            )
+        if predecessor.source_domain != successor.source_domain:
+            raise ValueError(
+                "supersession pair source_domain mismatch: "
+                f"{predecessor_id} -> {successor_id}"
+            )
+        if predecessor.campaign_id != successor.campaign_id:
+            raise ValueError(
+                "supersession pair campaign_id mismatch: "
+                f"{predecessor_id} -> {successor_id}"
+            )
+        if predecessor.session_id != successor.session_id:
+            raise ValueError(
+                "supersession pair session_id mismatch: "
+                f"{predecessor_id} -> {successor_id}"
+            )
 
     for run in runs:
         seen: set[str] = set()

@@ -283,6 +283,67 @@ def test_validate_extraction_run_lineage_requires_reciprocal_links() -> None:
         validate_extraction_run_lineage([predecessor, non_reciprocal])
 
 
+def test_validate_extraction_run_lineage_rejects_unrelated_artifacts() -> None:
+    predecessor = ExtractionRun(
+        run_id="run-a",
+        source_artifact_id="artifact:x",
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.SUPERSEDED,
+        superseded_by_run_id="run-b",
+    )
+    successor = ExtractionRun(
+        run_id="run-b",
+        source_artifact_id="artifact:y",
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.DRAFT,
+        supersedes_run_id="run-a",
+    )
+    with pytest.raises(ValueError, match="source_artifact_id mismatch"):
+        validate_extraction_run_lineage([predecessor, successor])
+
+
+def test_validate_extraction_run_lineage_requires_predecessor_superseded() -> None:
+    predecessor = ExtractionRun(
+        run_id="run-a",
+        source_artifact_id="artifact:x",
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.PREPARED,
+        superseded_by_run_id="run-b",
+    )
+    successor = ExtractionRun(
+        run_id="run-b",
+        source_artifact_id="artifact:x",
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.DRAFT,
+        supersedes_run_id="run-a",
+    )
+    with pytest.raises(ValueError, match="must be superseded"):
+        validate_extraction_run_lineage([predecessor, successor])
+
+
+def test_validate_extraction_run_lineage_rejects_scope_mismatch() -> None:
+    predecessor = ExtractionRun(
+        run_id="run-a",
+        source_artifact_id="artifact:x",
+        source_domain="recap",
+        campaign_id="longmont-c2",
+        session_id="session-22",
+        status=ExtractionRunStatus.SUPERSEDED,
+        superseded_by_run_id="run-b",
+    )
+    successor = ExtractionRun(
+        run_id="run-b",
+        source_artifact_id="artifact:x",
+        source_domain="recap",
+        campaign_id="longmont-c2",
+        session_id="session-23",
+        status=ExtractionRunStatus.DRAFT,
+        supersedes_run_id="run-a",
+    )
+    with pytest.raises(ValueError, match="session_id mismatch"):
+        validate_extraction_run_lineage([predecessor, successor])
+
+
 def test_validate_extraction_run_lineage_rejects_cycles() -> None:
     run_a = ExtractionRun(
         run_id="run-a",
