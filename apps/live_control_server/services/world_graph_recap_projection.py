@@ -36,6 +36,7 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionRequest,
     WorldGraphProjectionSuggestedExpansion,
 )
+from graph_memory.projection_load_telemetry import projection_load_trace, timed_stage
 
 
 def _adapt_relationship_direction(direction: str | None) -> str:
@@ -119,6 +120,43 @@ def adapt_world_node_to_recap_view(
     )
 
 
+_THREAD_KINDS = frozenset({"mystery", "thread", "quest", "clue", "plot_thread"})
+_THREAD_SINGLE_TOKEN_STOPWORDS = frozenset(
+    {
+        "river",
+        "stone",
+        "bridge",
+        "town",
+        "flood",
+        "panic",
+        "rescue",
+        "goat",
+        "float",
+        "artifact",
+        "mysterious",
+        "possible",
+        "next",
+        "destination",
+        "recovery",
+        "rebuilding",
+        "remains",
+        "unfinished",
+        "unnamed",
+        "upriver",
+        "settlement",
+        "unseasonable",
+        "torrential",
+        "rains",
+        "escalating",
+        "during",
+        "celebration",
+        "mentioned",
+        "appears",
+        "containing",
+    }
+)
+
+
 def _alias_entries_for_nodes(
     nodes: list[WorldGraphProjectionNodeView],
 ) -> list[tuple[str, str]]:
@@ -138,6 +176,375 @@ def _alias_entries_for_nodes(
             entries.append((alias, node.node_id))
     entries.sort(key=lambda item: len(item[0]), reverse=True)
     return entries
+
+
+def _session_number_from_id(session_id: str) -> int | str:
+    raw = (session_id or "").strip()
+    match = re.search(r"(\d+)$", raw)
+    return int(match.group(1)) if match else raw
+
+
+def _durable_id_for_known_entity(kind: str, slug: str) -> str:
+    cleaned = (slug or "").strip().replace("_", "-")
+    if kind == "pc":
+        # World head uses colon namespace for roster PCs (pc:stafl).
+        return f"pc:{slug.strip()}"
+    if kind == "companion":
+        return f"node:{cleaned}"
+    return f"node:{cleaned}"
+
+
+def _surface_appears_in_markdown(surface: str, markdown: str) -> bool:
+    pattern = re.compile(
+        rf"(?<![\w\\[]){re.escape(surface)}(?![\w\\]])",
+        re.IGNORECASE,
+    )
+    return pattern.search(markdown) is not None
+
+
+def _thread_chip_surfaces(label: str, markdown: str) -> list[str]:
+    """Derive short chip surfaces for mystery/thread nodes that appear in prose.
+
+    Full GM summary labels almost never appear verbatim in recap text, so
+    alias-only chipping leaves threads invisible. Prefer multi-word phrases,
+    then distinctive proper nouns.
+    """
+    text = (label or "").strip()
+    if not text or not markdown:
+        return []
+
+    candidates: list[str] = []
+    if ":" in text:
+        after = text.split(":", 1)[1].strip()
+        if after:
+            candidates.append(after)
+    candidates.extend(re.findall(r"[\"']([^\"']{4,48})[\"']", text))
+    candidates.extend(
+        re.findall(r"\b(?:[A-Z][a-z]+(?:\s+[A-Za-z][a-z]+){1,4})\b", text)
+    )
+    candidates.extend(re.findall(r"\b([A-Z][a-z]{4,})\b", text))
+
+    accepted: list[str] = []
+    seen: set[str] = set()
+    for raw in candidates:
+        surface = raw.strip(" .,;:\"'")
+        if len(surface) < 4:
+            continue
+        words = surface.split()
+        if len(words) == 1 and surface.casefold() in _THREAD_SINGLE_TOKEN_STOPWORDS:
+            continue
+        if len(words) == 1 and len(surface) < 6:
+            continue
+        key = surface.casefold()
+        if key in seen:
+            continue
+        if not _surface_appears_in_markdown(surface, markdown):
+            continue
+        seen.add(key)
+        accepted.append(surface)
+
+    accepted.sort(key=len, reverse=True)
+    return accepted[:3]
+
+
+def _reserved_non_thread_surfaces(
+    nodes: list[WorldGraphProjectionNodeView],
+) -> set[str]:
+    """Surfaces already owned by people/places/things — threads must not steal them."""
+    reserved: set[str] = set()
+    for node in nodes:
+        kind = (node.kind or "").strip().casefold()
+        if kind in _THREAD_KINDS:
+            continue
+        for raw in (node.label, *node.aliases):
+            surface = (raw or "").strip()
+            if surface:
+                reserved.add(surface.casefold())
+    return reserved
+
+
+def _enrich_thread_aliases_from_markdown(
+    nodes: list[WorldGraphProjectionNodeView],
+    markdown: str,
+) -> list[WorldGraphProjectionNodeView]:
+    """Attach prose-grounded chip aliases onto mystery/thread nodes."""
+    reserved = _reserved_non_thread_surfaces(nodes)
+    enriched: list[WorldGraphProjectionNodeView] = []
+    for node in nodes:
+        kind = (node.kind or "").strip().casefold()
+        if kind not in _THREAD_KINDS:
+            enriched.append(node)
+            continue
+        surfaces = [
+            surface
+            for surface in _thread_chip_surfaces(node.label, markdown)
+            if surface.casefold() not in reserved
+        ]
+        if not surfaces:
+            enriched.append(node)
+            continue
+        alias_set = {a.casefold(): a for a in node.aliases if a}
+        for surface in surfaces:
+            alias_set.setdefault(surface.casefold(), surface)
+        enriched.append(
+            node.model_copy(update={"aliases": list(alias_set.values())})
+        )
+    return enriched
+
+
+def _merge_registry_standing_into_nodes(
+    nodes: list[WorldGraphProjectionNodeView],
+    *,
+    campaign_id: str,
+    session_id: str,
+    world_standing_nodes: list[WorldGraphProjectionNodeView] | None = None,
+) -> list[WorldGraphProjectionNodeView]:
+    """Ensure party-roster PCs/companions are available for recap chipping.
+
+    Campaign-scoped world projection can omit standing PCs that live under
+    another campaign_scope (common for C1 dogfood against a C2-scoped roster
+    seed). Prefer full world-scoped standing nodes (with adjacency) over empty
+    stubs so opened PC cards still show related threads.
+    """
+    try:
+        from graph_memory.extraction.known_entity_registry import (
+            build_known_entity_registry,
+        )
+    except Exception:
+        return nodes
+
+    try:
+        registry = build_known_entity_registry(
+            campaign_id,
+            _session_number_from_id(session_id),
+        )
+    except Exception:
+        return nodes
+
+    standing_by_id = {
+        node.node_id: node for node in (world_standing_nodes or [])
+    }
+
+    by_id = {node.node_id: node for node in nodes}
+    slug_to_node: dict[str, WorldGraphProjectionNodeView] = {}
+    for node in nodes:
+        node_id = str(node.node_id or "")
+        if node_id.startswith("pc:"):
+            slug_to_node[node_id.split(":", 1)[1].replace("-", "_")] = node
+        elif node_id.startswith("node:"):
+            slug_to_node[node_id.split(":", 1)[1].replace("-", "_")] = node
+
+    merged: list[WorldGraphProjectionNodeView] = list(nodes)
+    for entity in registry.entities:
+        if entity.kind not in {"pc", "companion"}:
+            continue
+        slug = entity.slug.strip()
+        preferred_id = _durable_id_for_known_entity(entity.kind, slug)
+        existing = by_id.get(preferred_id) or slug_to_node.get(slug.replace("-", "_"))
+        standing = standing_by_id.get(preferred_id)
+        surfaces = [
+            surface
+            for surface, _method in entity.match_terms
+            if (surface or "").strip()
+        ]
+        if entity.display_name.strip():
+            surfaces.insert(0, entity.display_name.strip())
+
+        base = existing or standing
+        if base is not None:
+            alias_set = {a.casefold(): a for a in base.aliases if a}
+            for surface in surfaces:
+                if surface.casefold() not in alias_set:
+                    alias_set[surface.casefold()] = surface
+            label = base.label or entity.display_name
+            if label.casefold() not in alias_set:
+                alias_set[label.casefold()] = label
+            # Prefer standing adjacency when campaign projection omitted the PC.
+            updated = (standing or base).model_copy(
+                update={"aliases": list(alias_set.values())}
+            )
+            if existing is not None:
+                for index, node in enumerate(merged):
+                    if node.node_id == existing.node_id:
+                        merged[index] = updated
+                        break
+            else:
+                merged.append(updated)
+            by_id[updated.node_id] = updated
+            continue
+
+        stub = WorldGraphProjectionNodeView(
+            node_id=preferred_id,
+            label=entity.display_name or slug,
+            kind=entity.kind,
+            role="character" if entity.kind == "pc" else "companion",
+            aliases=list(dict.fromkeys(surfaces)),
+            source_domains=["party_registry"],
+            evidence_ref_ids=[],
+            anchored_to_focus_session=False,
+            summary=None,
+            campaign_scope=campaign_id,
+        )
+        merged.append(stub)
+        by_id[preferred_id] = stub
+
+    return merged
+
+
+def _needed_standing_durable_ids(campaign_id: str, session_id: str) -> set[str]:
+    """Return durable node ids for registry PCs/companions, or empty on failure."""
+    try:
+        from graph_memory.extraction.known_entity_registry import (
+            build_known_entity_registry,
+        )
+    except Exception:
+        return set()
+    try:
+        registry = build_known_entity_registry(
+            campaign_id,
+            _session_number_from_id(session_id),
+        )
+    except Exception:
+        return set()
+    return {
+        _durable_id_for_known_entity(entity.kind, entity.slug)
+        for entity in registry.entities
+        if entity.kind in {"pc", "companion"}
+    }
+
+
+def _world_standing_nodes_for_request(
+    request: WorldGraphProjectionRequest,
+    *,
+    root: Path | None,
+    campaign_nodes: list[WorldGraphProjectionNodeView],
+    campaign_id: str,
+    session_id: str,
+) -> list[WorldGraphProjectionNodeView]:
+    """Load world-scoped roster nodes when campaign projection omitted them."""
+    needed = _needed_standing_durable_ids(campaign_id, session_id)
+    campaign_ids = {node.node_id for node in campaign_nodes}
+    if not needed or needed.issubset(campaign_ids):
+        return []
+    if request.scope_mode == "world":
+        return []
+
+    world_request = request.model_copy(update={"scope_mode": "world"})
+    try:
+        world = project_world_graph(world_request, root=root)
+    except Exception:
+        return []
+    return [node for node in world.nodes if node.node_id in needed]
+
+
+_STANDING_CHARACTER_KINDS = frozenset({"pc", "companion"})
+_PARTY_MEMBERSHIP_PREDICATES = frozenset({"member_of", "belongs_to", "part_of"})
+_PARTY_NODE_ID_HINTS = ("party", "heroes", "questionable-company")
+_HEROES_PARTY_NODE_ID = "node:heroes-party"
+
+
+def _node_mentioned_in_markdown(
+    node: WorldGraphProjectionNodeView,
+    markdown: str,
+) -> bool:
+    for surface in (node.label, *node.aliases):
+        if surface and _surface_appears_in_markdown(surface, markdown):
+            return True
+    return False
+
+
+def _is_party_membership_adjacency(
+    candidate: WorldGraphProjectionAdjacencyCandidate,
+) -> bool:
+    predicate = (candidate.predicate or "").strip().casefold()
+    if predicate in _PARTY_MEMBERSHIP_PREDICATES:
+        return True
+    node_id = (candidate.node_id or "").strip().casefold()
+    return any(hint in node_id for hint in _PARTY_NODE_ID_HINTS)
+
+
+def _union_session_ids(existing: list[str], session_id: str) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for value in [*existing, session_id]:
+        cleaned = (value or "").strip()
+        if not cleaned:
+            continue
+        key = cleaned.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(cleaned)
+    return merged
+
+
+def _stamp_focus_session_on_mentioned_standing(
+    nodes: list[WorldGraphProjectionNodeView],
+    *,
+    session_id: str,
+    campaign_id: str,
+    markdown: str,
+) -> list[WorldGraphProjectionNodeView]:
+    """Ensure mentioned roster PCs show the focus session on party membership.
+
+    Standing PCs are often seeded under another campaign_scope and only gain
+    membership edges from later extracts. Recap chips still name them in early
+    sessions; without a focus-session stamp, Related objects timelines skip the
+    session the GM is looking at.
+    """
+    focus = (session_id or "").strip()
+    if not focus or not markdown:
+        return nodes
+
+    stamped: list[WorldGraphProjectionNodeView] = []
+    for node in nodes:
+        kind = (node.kind or "").strip().casefold()
+        if kind not in _STANDING_CHARACTER_KINDS:
+            stamped.append(node)
+            continue
+        if not _node_mentioned_in_markdown(node, markdown):
+            stamped.append(node)
+            continue
+
+        adjacency = list(node.adjacency)
+        touched = False
+        for index, candidate in enumerate(adjacency):
+            if not _is_party_membership_adjacency(candidate):
+                continue
+            session_ids = _union_session_ids(list(candidate.session_ids), focus)
+            if session_ids == list(candidate.session_ids) and candidate.anchored_to_focus_session:
+                continue
+            adjacency[index] = candidate.model_copy(
+                update={
+                    "session_ids": session_ids,
+                    "anchored_to_focus_session": True,
+                }
+            )
+            touched = True
+
+        if not touched:
+            adjacency.insert(
+                0,
+                WorldGraphProjectionAdjacencyCandidate(
+                    edge_id=f"edge:recap-focus-presence:{node.node_id}:{focus}",
+                    node_id=_HEROES_PARTY_NODE_ID,
+                    label="Heroes / party",
+                    kind="party",
+                    predicate="member_of",
+                    direction="outbound",
+                    anchored_to_focus_session=True,
+                    source_domains=["recap_focus_presence"],
+                    evidence_ref_ids=[],
+                    session_ids=[focus],
+                    campaign_scope=campaign_id,
+                ),
+            )
+            touched = True
+
+        stamped.append(
+            node.model_copy(update={"adjacency": adjacency}) if touched else node
+        )
+    return stamped
 
 
 def project_world_markdown_mentions(
@@ -235,45 +642,105 @@ def build_world_graph_recap_projection(
     session_id = request.focus.session_id
     campaign_id = request.focus.campaign_id or request.campaign_id
 
-    world = project_world_graph(request, root=root)
+    with projection_load_trace(
+        "world_graph_recap_projection",
+        world_id=request.world_id,
+        campaign_id=campaign_id,
+        focus_session_id=session_id,
+        scope_mode=getattr(request, "scope_mode", "campaign"),
+    ) as trace:
+        # Prefer a single world-scope projection when standing PCs are expected
+        # to be missing from campaign scope — avoids paying for campaign+world
+        # full builds on the cold path (~2× build_nodes).
+        projection_request = request
+        if request.scope_mode != "world":
+            needed_standing = _needed_standing_durable_ids(campaign_id, session_id)
+            if needed_standing:
+                projection_request = request.model_copy(update={"scope_mode": "world"})
+                trace.set_meta(recap_projection_scope="world_for_standing")
 
-    markdown = corpus_markdown
-    if markdown is None:
-        markdown = load_corpus_normalized_recap_markdown(
+        with timed_stage("world_projection"):
+            world = project_world_graph(projection_request, root=root)
+
+        markdown = corpus_markdown
+        if markdown is None:
+            with timed_stage("load_recap_markdown"):
+                markdown = load_corpus_normalized_recap_markdown(
+                    campaign_id=campaign_id,
+                    session_id=session_id,
+                )
+        if not (markdown or "").strip():
+            raise WorldGraphProjectionServiceError(
+                f"Normalized recap markdown not found for {campaign_id} {session_id}.",
+                code="recap_markdown_unavailable",
+                status_code=404,
+                diagnostics=[
+                    WorldGraphProjectionDiagnostic(
+                        code="recap_markdown_unavailable",
+                        message=(
+                            f"Normalized recap markdown not found for {campaign_id} {session_id}."
+                        ),
+                        severity="error",
+                    )
+                ],
+            )
+
+        with timed_stage("standing_nodes") as standing_extras:
+            # When we already projected world-scope above, standing nodes are
+            # present in ``world.nodes`` and this helper returns [].
+            standing_nodes = _world_standing_nodes_for_request(
+                request,
+                root=root,
+                campaign_nodes=list(world.nodes),
+                campaign_id=campaign_id,
+                session_id=session_id,
+            )
+            standing_extras["standing_node_count"] = len(standing_nodes)
+            standing_extras["second_projection"] = bool(standing_nodes)
+        with timed_stage("merge_standing"):
+            chip_nodes = _merge_registry_standing_into_nodes(
+                list(world.nodes),
+                campaign_id=campaign_id,
+                session_id=session_id,
+                world_standing_nodes=standing_nodes,
+            )
+        with timed_stage("enrich_aliases"):
+            chip_nodes = _enrich_thread_aliases_from_markdown(chip_nodes, markdown)
+        with timed_stage("stamp_focus"):
+            chip_nodes = _stamp_focus_session_on_mentioned_standing(
+                chip_nodes,
+                session_id=session_id,
+                campaign_id=campaign_id,
+                markdown=markdown,
+            )
+        with timed_stage("markdown_mentions") as mention_extras:
+            projected_markdown, mentions = project_world_markdown_mentions(
+                markdown, chip_nodes
+            )
+            mention_extras["mention_count"] = len(mentions)
+        with timed_stage("adapt_node_views") as adapt_extras:
+            node_views = {
+                node.node_id: adapt_world_node_to_recap_view(node) for node in chip_nodes
+            }
+            adapt_extras["node_view_count"] = len(node_views)
+
+        trace.bump("node_views", len(node_views))
+        trace.bump("mentions", len(mentions))
+        trace.set_meta(
+            revision_id=world.snapshot.revision_id,
+            markdown_chars=len(projected_markdown or ""),
+        )
+
+        return RecapGraphProjection(
             campaign_id=campaign_id,
             session_id=session_id,
+            graph_id=world.snapshot.revision_id,
+            markdown=projected_markdown,
+            focus=_focus_overlay_from_world(world, session_id=session_id),
+            node_views=node_views,
+            mentions=mentions,
+            source_spans=[],
         )
-    if not (markdown or "").strip():
-        raise WorldGraphProjectionServiceError(
-            f"Normalized recap markdown not found for {campaign_id} {session_id}.",
-            code="recap_markdown_unavailable",
-            status_code=404,
-            diagnostics=[
-                WorldGraphProjectionDiagnostic(
-                    code="recap_markdown_unavailable",
-                    message=(
-                        f"Normalized recap markdown not found for {campaign_id} {session_id}."
-                    ),
-                    severity="error",
-                )
-            ],
-        )
-
-    projected_markdown, mentions = project_world_markdown_mentions(markdown, world.nodes)
-    node_views = {
-        node.node_id: adapt_world_node_to_recap_view(node) for node in world.nodes
-    }
-
-    return RecapGraphProjection(
-        campaign_id=campaign_id,
-        session_id=session_id,
-        graph_id=world.snapshot.revision_id,
-        markdown=projected_markdown,
-        focus=_focus_overlay_from_world(world, session_id=session_id),
-        node_views=node_views,
-        mentions=mentions,
-        source_spans=[],
-    )
 
 
 def build_world_graph_recap_projection_payload(

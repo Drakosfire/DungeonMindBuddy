@@ -112,7 +112,8 @@ describe("App inspector integration", () => {
     window.history.pushState({}, "", "/ingest");
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Load recap" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Graph Review Workbench" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Review extracted graph runs against gold/i)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ingest" })).toHaveClass("active");
     expect(await screen.findByText(/No preview-ready graph runs are available/i)).toBeInTheDocument();

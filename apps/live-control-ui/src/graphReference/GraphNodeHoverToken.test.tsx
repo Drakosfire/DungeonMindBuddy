@@ -59,10 +59,11 @@ describe("GraphNodeHoverToken", () => {
     expect(glance).toBeInTheDocument();
     expect(glance).toHaveAttribute("role", "tooltip");
 
-    // Summary + single type once; no name header, Known before, or role chip row.
+    // Summary + single type once; no name header, Why now, Known before, or role chip row.
     expect(glance).toHaveTextContent("A float goat rescued from the flooded river.");
     expect(glance?.querySelector(".recap-node-kind")?.textContent).toBe("creature");
     expect(glance?.textContent).not.toMatch(/creature\s*·\s*creature/i);
+    expect(glance).not.toHaveTextContent("Why now");
     expect(glance).not.toHaveTextContent("Known before");
     expect(glance).not.toHaveTextContent("Tied to Mirathorn politics");
     expect(glance?.querySelector(".recap-node-chip-row")).toBeNull();

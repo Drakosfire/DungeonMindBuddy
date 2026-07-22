@@ -164,7 +164,10 @@ def read_admitted_recap_excerpt(
     return clipped.rstrip() + "\n\n[… admitted recap excerpt truncated …]"
 
 
-def _graph_session_ids(store: Mapping[str, Any], campaign_id: str) -> list[str]:
+def graph_session_ids_from_store(
+    store: Mapping[str, Any], campaign_id: str
+) -> list[str]:
+    """Return normalized session ids present on a world-graph store for a campaign."""
     sessions: set[str] = set()
     source_artifacts = _as_mapping(store.get("source_artifacts"))
     for raw_artifact in source_artifacts.values():
@@ -188,6 +191,34 @@ def _graph_session_ids(store: Mapping[str, Any], campaign_id: str) -> list[str]:
         sessions,
         key=lambda session_id: (_session_number(session_id) or -1, session_id),
     )
+
+
+def _graph_session_ids(store: Mapping[str, Any], campaign_id: str) -> list[str]:
+    return graph_session_ids_from_store(store, campaign_id)
+
+
+def session_ids_in_world_graph_head(
+    *,
+    campaign_id: str,
+    world_id: str = "eldyrwild",
+    graph_root: Path | None = None,
+) -> set[str]:
+    """Session ids present on the current world head for ``campaign_id``.
+
+    Returns an empty set when the world head cannot be opened (fail closed to
+    preview authority for ingest UI).
+    """
+    graph_base = (graph_root or world_graph_root()).resolve()
+    try:
+        _, _, store = load_current_world_graph(graph_base, world_id)
+    except Exception:
+        return set()
+    return set(graph_session_ids_from_store(_as_mapping(store), campaign_id))
+
+
+def normalize_session_id(session_id: Any) -> str | None:
+    """Public wrapper for session-id normalization used by registry stamps."""
+    return _normalize_session_id(session_id)
 
 
 def _object_ids_for_session(store: Mapping[str, Any], session_id: str) -> list[str]:
@@ -359,7 +390,10 @@ __all__ = [
     "LATEST_RECAP_CHANGE_SCHEMA",
     "LatestRecapChangeContext",
     "build_latest_recap_change_context",
+    "graph_session_ids_from_store",
     "is_latest_recap_change_question",
+    "normalize_session_id",
     "read_admitted_recap_excerpt",
     "resolve_latest_recap_change_context",
+    "session_ids_in_world_graph_head",
 ]

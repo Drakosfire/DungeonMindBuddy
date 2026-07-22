@@ -5,6 +5,7 @@ import {
   getGoldReviewEvidence,
   getUnionSupergraphProjection,
   postWorldGraphProjection,
+  postWorldGraphRecapProjection,
   verifyGraphGoldAuthoringCommit,
   LiveApiError,
 } from "../../api/liveApi";
@@ -21,7 +22,15 @@ import type {
   UnionSupergraphProjectionResponse,
   WorldGraphProjection,
 } from "../../api/types";
-import { buildPlanWorldGraphProjectionRequest } from "../reference/planGraphContextRequest";
+import {
+  buildPlanWorldGraphProjectionRequest,
+  WORLD_GRAPH_REVISION_COMMITTED_EVENT,
+} from "../reference/planGraphContextRequest";
+import { buildRecapWorldGraphContext } from "../reference/recapWorldGraphContext";
+import {
+  markProjectionLoadStart,
+  measureProjectionLoad,
+} from "../reference/projectionLoadTelemetry";
 import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
@@ -51,6 +60,8 @@ export type GraphReviewEvidenceStatus =
   | "error"
   | "unavailable";
 
+export type GraphReviewProjectionAuthority = "preview_union" | "world_graph";
+
 export interface UseGraphReviewLiveReviewStateOptions {
   campaignId: string;
   sessionId: string;
@@ -76,6 +87,64 @@ function friendlyProjectionError(error: unknown): string {
   return "Failed to load selected live lane projection.";
 }
 
+function resolveAuthority(
+  liveRun: GraphIngestRunSummary | null,
+  override: GraphReviewProjectionAuthority | null,
+): GraphReviewProjectionAuthority {
+  if (override) return override;
+  return liveRun?.projection_authority === "world_graph"
+    ? "world_graph"
+    : "preview_union";
+}
+
+async function loadProjectionForAuthority(options: {
+  authority: GraphReviewProjectionAuthority;
+  campaignId: string;
+  sessionId: string;
+  liveRun: GraphIngestRunSummary;
+}): Promise<UnionSupergraphProjectionResponse> {
+  const { authority, campaignId, sessionId, liveRun } = options;
+  const startMark = markProjectionLoadStart("graph-review");
+  try {
+    let response: UnionSupergraphProjectionResponse;
+    if (authority === "world_graph") {
+      const worldContext = buildRecapWorldGraphContext(campaignId, sessionId);
+      if (!worldContext) {
+        throw new Error(`No World Graph mapping for campaign ${campaignId}.`);
+      }
+      response = await postWorldGraphRecapProjection(
+        buildPlanWorldGraphProjectionRequest(worldContext),
+      );
+    } else if (!liveRun.preview_union_available) {
+      throw new Error("Selected live run does not have a preview-union projection.");
+    } else {
+      response = await getUnionSupergraphProjection({
+        campaignId,
+        sessionId,
+        graphRunManifestPath: liveRun.manifest_path,
+        previewUnionStorePath: liveRun.preview_union_store_path ?? null,
+      });
+    }
+    measureProjectionLoad(startMark, "ready", {
+      loader: "graph-review",
+      campaignId,
+      sessionId,
+      authority,
+      projectionSource: authority === "world_graph" ? "world-graph" : "preview-union",
+    });
+    return response;
+  } catch (error) {
+    measureProjectionLoad(startMark, "error", {
+      loader: "graph-review",
+      campaignId,
+      sessionId,
+      authority,
+      projectionSource: authority === "world_graph" ? "world-graph" : "preview-union",
+    });
+    throw error;
+  }
+}
+
 export function useGraphReviewLiveReviewState({
   campaignId,
   sessionId,
@@ -91,6 +160,8 @@ export function useGraphReviewLiveReviewState({
   const [projectionStatus, setProjectionStatus] =
     useState<GraphReviewProjectionStatus>("idle");
   const [projectionError, setProjectionError] = useState<string | null>(null);
+  const [authorityOverride, setAuthorityOverride] =
+    useState<GraphReviewProjectionAuthority | null>(null);
   const [selectedDeltaNodeId, setSelectedDeltaNodeId] = useState<string | null>(
     null,
   );
@@ -125,9 +196,15 @@ export function useGraphReviewLiveReviewState({
   const [projectedInteractionOpen, setProjectedInteractionOpen] =
     useState(false);
 
+  const projectionAuthority = resolveAuthority(liveRun, authorityOverride);
+
   const liveRunKey = liveRun
-    ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}`
+    ? `${liveRun.manifest_path}:${liveRun.preview_union_store_path ?? ""}:${liveRun.preview_union_available}:${liveRun.projection_authority ?? "preview_union"}`
     : "";
+
+  useEffect(() => {
+    setAuthorityOverride(null);
+  }, [liveRunKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,7 +219,9 @@ export function useGraphReviewLiveReviewState({
       };
     }
 
-    if (!liveRun.preview_union_available) {
+    const authority = resolveAuthority(liveRun, authorityOverride);
+
+    if (authority === "preview_union" && !liveRun.preview_union_available) {
       setProjectionStatus("unavailable");
       return () => {
         cancelled = true;
@@ -151,11 +230,11 @@ export function useGraphReviewLiveReviewState({
 
     setProjectionStatus("loading");
 
-    void getUnionSupergraphProjection({
+    void loadProjectionForAuthority({
+      authority,
       campaignId,
       sessionId,
-      graphRunManifestPath: liveRun.manifest_path,
-      previewUnionStorePath: liveRun.preview_union_store_path ?? null,
+      liveRun,
     })
       .then((response) => {
         if (cancelled) return;
@@ -172,24 +251,28 @@ export function useGraphReviewLiveReviewState({
     return () => {
       cancelled = true;
     };
-  }, [campaignId, sessionId, liveRun, liveRunKey]);
+  }, [authorityOverride, campaignId, sessionId, liveRun, liveRunKey]);
 
   const reloadLiveProjection = useCallback(async () => {
-    if (!liveRun?.preview_union_available) {
+    if (!liveRun) {
+      throw new Error("No live run selected.");
+    }
+    const authority = resolveAuthority(liveRun, authorityOverride);
+    if (authority === "preview_union" && !liveRun.preview_union_available) {
       throw new Error("Selected live run does not have a preview-union projection.");
     }
     setProjectionStatus("loading");
     setProjectionError(null);
-    const response = await getUnionSupergraphProjection({
+    const response = await loadProjectionForAuthority({
+      authority,
       campaignId,
       sessionId,
-      graphRunManifestPath: liveRun.manifest_path,
-      previewUnionStorePath: liveRun.preview_union_store_path ?? null,
+      liveRun,
     });
     setProjection(response);
     setProjectionStatus("ready");
     return response;
-  }, [campaignId, sessionId, liveRun]);
+  }, [authorityOverride, campaignId, sessionId, liveRun]);
 
   const reloadGoldProjection = useCallback(async () => {
     setGoldProjectionStatus("loading");
@@ -216,15 +299,61 @@ export function useGraphReviewLiveReviewState({
         }),
         revisionPin: trimmedRevision,
       };
-      const response = await postWorldGraphProjection(request);
+      const startMark = markProjectionLoadStart("graph-review-post-merge");
+      let response: WorldGraphProjection;
+      try {
+        response = await postWorldGraphProjection(request);
+        measureProjectionLoad(startMark, "ready", {
+          loader: "graph-review-post-merge",
+          campaignId,
+          sessionId,
+          authority: "world_graph",
+          projectionSource: "world-graph-projection",
+        });
+      } catch (error) {
+        measureProjectionLoad(startMark, "error", {
+          loader: "graph-review-post-merge",
+          campaignId,
+          sessionId,
+          authority: "world_graph",
+          projectionSource: "world-graph-projection",
+        });
+        throw error;
+      }
       if (response.snapshot.revisionId !== trimmedRevision) {
         throw new Error(
           `World Graph projection revision mismatch: expected ${trimmedRevision}, got ${response.snapshot.revisionId}.`,
         );
       }
+
+      // Post-merge: live canvas flips to World Graph Recap (not preview union).
+      setAuthorityOverride("world_graph");
+      if (liveRun) {
+        setProjectionStatus("loading");
+        setProjectionError(null);
+        try {
+          const worldRecap = await loadProjectionForAuthority({
+            authority: "world_graph",
+            campaignId,
+            sessionId,
+            liveRun,
+          });
+          setProjection(worldRecap);
+          setProjectionStatus("ready");
+        } catch (error) {
+          setProjection(null);
+          setProjectionStatus("error");
+          setProjectionError(friendlyProjectionError(error));
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(WORLD_GRAPH_REVISION_COMMITTED_EVENT));
+      }
+
       return response;
     },
-    [campaignId, sessionId],
+    [campaignId, liveRun, sessionId],
   );
 
   useEffect(() => {
@@ -532,6 +661,7 @@ export function useGraphReviewLiveReviewState({
     projection,
     projectionStatus,
     projectionError,
+    projectionAuthority,
     reloadLiveProjection,
     reloadCommittedWorldProjection,
     goldProjection,

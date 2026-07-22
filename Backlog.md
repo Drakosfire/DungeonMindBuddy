@@ -7,6 +7,30 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Collapse search/retrieval away from full projection builds — captured 2026-07-21
+**Priority:** high — measured cold search p50 ~2.9s on 300-node head; ≈98.8% is `load_projection` (full rebuild) before rank/assemble (<2%).
+**Context:** Graph Load Performance Audit benchmark (`evals/graph_memory_layer/artifacts/projection_load_benchmark/latest.json`). Cold `project_world_graph` p95 ~2.7s with `build_nodes`+`build_relationships` ≈96% of build time; storage/contribution I/O ≈1.4%. Postgres go/no-go: **False** (`POSTGRES-GO-NO-GO.md`). Recap previously paid a second world-scope build for standing PCs (now collapsed when registry needs them).
+**Insight:** PostgreSQL is not the bottleneck at current cardinality (300 nodes). Projection construction and shipping ~1.3MB payloads dominate. Warm ledger-fingerprinted service cache drops repeat projection to <2ms.
+**Action:** (1) Add search/object/neighborhood paths that rank from the in-memory store (or a slim index) without materializing full attribute/relationship view arrays. (2) Keep process projection cache (`DMB_WORLD_GRAPH_PROJECTION_CACHE`) and request-scoped contribution memoization. (3) Re-run `scripts/benchmark_projection_load.py` after changes; revisit Postgres only if storage share ≥80% at ≥~2000 nodes.
+**Surfaces when:** slow Graph Review / Recap / Hermes search, projection load telemetry, PostgreSQL migration debate, world graph performance
+**Refs:** `scripts/benchmark_projection_load.py`, `evals/graph_memory_layer/artifacts/projection_load_benchmark/POSTGRES-GO-NO-GO.md`, `src/graph_memory/kernel/world_retrieval.py`, `src/graph_memory/projection_load_telemetry.py`, `apps/live_control_server/services/world_graph_projection.py`
+
+## [READY] Tighten extraction away from overloaded works_with + action prose — captured 2026-07-21
+**Priority:** medium — promote now slugs observation labels into edge ids and gates core fingerprint conflicts; extraction still mints soft `works_with` edges with free-text labels.
+**Context:** C1 Session 5 merge collided Stafl↔Baergrom (`pulls net with` vs `heals`) onto `edge:pc:stafl:works_with:pc:baergrom` until repair split the heals observation. Root cause was coarse `src:pred:tgt` identity plus vague predicate.
+**Insight:** Standing relations should keep coarse ids; event-ish observations need sharper predicates (or encounter-scoped participation) so labels are not the only discriminator.
+**Action:** Prefer sharper relationship_type / participation edges in category extract prompts; audit other overloaded predicates (`related_to`, `linked_to`) for the same pattern. Do not soften `_edge_core_semantic_fingerprint` on labels.
+**Surfaces when:** Active edge assertions disagree, works_with spam, multi-session promote conflicts, edge identity, Stafl/Baergrom-style collisions
+**Refs:** `src/graph_memory/candidate_graph_to_contribution.py` (`durable_edge_id_for_observation`), `src/graph_memory/extract_identity_gate.py`, `scripts/supersede_session5_stafl_baergrom_edge_collision.py`
+
+## [READY] Enable party participation on C1 ingest + durable S1 PC edges — captured 2026-07-21
+**Priority:** medium — projection now stamps focus-session party membership for chipped roster PCs, but the world head still has zero Session-1 edges involving `pc:stafl` (only locations/encounters/items).
+**Context:** After merging C1 Session 1, Related objects on Stafl started at S3; chip existed via registry name-match. Live store: 48 S1 adjacency rows, none on PCs. Party participation attachment defaults off / collective-only; heroes-party membership session_ids were S3/S4 only.
+**Insight:** Chipping ≠ graph participation. Merge can succeed without attaching standing PCs to session encounters; Reference cannot invent durable PC↔encounter edges from a name mention alone.
+**Action:** (1) Turn on `enable_party_participation_attachment` for the live C1 ingest profile (and decide `attach_to_individual_members`). (2) Re-extract/re-merge early C1 sessions if durable encounter links are required. (3) Keep recap focus-session stamp as a lens, not a substitute for store edges.
+**Surfaces when:** Related objects timeline skips early sessions, PC chip but empty/stale Reference after merge, party participation, C1 backfill, `attach_party_participation_edges`
+**Refs:** `src/graph_memory/session_graph_context.py`, `apps/live_control_server/services/world_graph_recap_projection.py`, `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewLiveReviewState.ts`
+
 ## [READY] Ecology/resource as its own extraction pass (not actor/object) — captured 2026-07-18
 **Priority:** medium — confirmed design; not the immediate C1S3 promote unblock.
 **Context:** Operator agreed (2026-07-18): named session creatures stay in `actor_pass` (`creature`); species / flora / fauna / products / habitat need a dedicated ecology/resource pass. C1S3 showed Bubbles correctly in actor_pass but also duplicated as `item` (object_pass) and scare-mystery (thread_pass). Mirathorn dogfood already recommended this pass for species+product explosion.

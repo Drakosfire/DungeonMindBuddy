@@ -16,10 +16,7 @@ import {
   tiptapJsonToSemanticMarkdown,
   type CalloutKind,
 } from "../../tiptap/markdown/calloutMarkdown";
-import {
-  GRAPH_NODE_REF_TYPE,
-  type RunbookReferenceAttrs,
-} from "../../tiptap/references/runbookReferences";
+import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import { createStarterContentForPlanDocument } from "../config/planSessionDescriptor";
 import {
   buildInitialWorkspaceDocumentLocalState,
@@ -30,6 +27,7 @@ import { useEditCapability } from "../edit/editCapability";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { useProjection } from "../projection/projectionContext";
+import { openGraphNodeFromChip } from "../reference/openGraphNodeFromChip";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
@@ -211,17 +209,18 @@ export function PlanSurfaceCanvas({
     [openContentFromChip, projectionState, resolvePlanReference],
   );
 
-  const openGraphNodeFromChip = useCallback(
+  const handleOpenGraphNodeFromChip = useCallback(
     async (nodeId: string) => {
       const node = projection?.nodes.find((entry) => entry.nodeId === nodeId);
-      const ref: RunbookReferenceAttrs = {
-        kind: "ref",
-        refType: GRAPH_NODE_REF_TYPE,
-        refId: nodeId,
-        label: node?.label ?? nodeId,
-      };
-      const resolution = await resolvePlanReference(ref);
-      openContentFromChip(ref, resolution, true, projectionState);
+      await openGraphNodeFromChip(
+        nodeId,
+        {
+          resolvePlanReference,
+          openContentFromChip,
+          projectionState,
+        },
+        node?.label ?? nodeId,
+      );
     },
     [openContentFromChip, projection, projectionState, resolvePlanReference],
   );
@@ -235,10 +234,10 @@ export function PlanSurfaceCanvas({
       nodeViews,
       activeNodeId: null,
       onSelectNode: (nodeId) => {
-        void openGraphNodeFromChip(nodeId);
+        void handleOpenGraphNodeFromChip(nodeId);
       },
     };
-  }, [openGraphNodeFromChip, projection?.nodes]);
+  }, [handleOpenGraphNodeFromChip, projection?.nodes]);
 
   useEffect(() => {
     onEditorToolsChange?.({

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type { PlanContextDescriptor } from "../types";
+import { clearProjectionRequestCache } from "../reference/projectionRequestCache";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 
 const context: PlanContextDescriptor = {
@@ -167,6 +168,48 @@ function mockWorkbenchApis() {
     gold_fixture_id: "gold-23",
     gold_fixture_relpath: "gold/session-23.json",
   });
+  vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({ records: [] });
+  vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+    campaign_id: "longmont-c2",
+    session_id: "session-23",
+    graph_id: "warm-recap",
+    markdown: "Warm recap",
+    focus: {
+      focus_session_id: "session-23",
+      focused_evidence_ref_ids: [],
+      focused_edge_ids: [],
+      focused_node_ids: [],
+    },
+    node_views: {},
+    source_spans: [],
+    mentions: [],
+  });
+  vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+    schema: "dmb_world_graph_projection_v1",
+    snapshot: {
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      revisionId: "rev-1",
+      headRevisionId: "rev-1",
+      isHead: true,
+      focus: { kind: "session", sessionId: "session-23" },
+      admissibility: "gm",
+    },
+    summary: {
+      nodeCount: 0,
+      relationshipCount: 0,
+      attributeCount: 0,
+      evidenceCount: 0,
+      sourceArtifactCount: 0,
+      sourceTruncated: false,
+    },
+    nodes: [],
+    relationships: [],
+    attributes: [],
+    evidence: [],
+    sourceArtifacts: [],
+    diagnostics: [],
+  });
 }
 
 describe("GraphReviewWorkbenchModule", () => {
@@ -175,6 +218,7 @@ describe("GraphReviewWorkbenchModule", () => {
   });
 
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
     document.body.classList.remove("plan-toolbox-open");
   });
@@ -193,6 +237,29 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument();
+
+    // Blank landing must not pay for chip/reference world projection.
+    expect(liveApi.postWorldGraphProjection).not.toHaveBeenCalled();
+    // Draft-session recap warm-up should fire in the background.
+    await waitFor(() =>
+      expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalled(),
+    );
+    expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        campaignId: "longmont-c2",
+        scopeMode: "world",
+        focus: expect.objectContaining({
+          kind: "session",
+          sessionId: "session-23",
+        }),
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-activity")).toHaveAttribute("data-phase", "warm"),
+    );
+    expect(screen.getByTestId("graph-review-activity")).toHaveTextContent(
+      /Longmont C2 · Session 23 ready/i,
+    );
   });
 
   it("exposes Ingest Recap from the toolbox before a session is loaded", async () => {

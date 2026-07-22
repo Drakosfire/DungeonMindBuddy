@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getGoldGraphProjection,
   getUnionSupergraphProjection,
+  postWorldGraphProjection,
+  postWorldGraphRecapProjection,
   resolveGraphReviewExistingObjectCandidates,
 } from "../../api/liveApi";
 import type {
@@ -23,6 +25,9 @@ vi.mock("../../api/liveApi", async () => {
     getGoldGraphProjection: vi.fn(),
     getUnionSupergraphProjection: vi.fn(),
     resolveGraphReviewExistingObjectCandidates: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
+    postWorldGraphRecapProjection: vi.fn(),
+    getRecapArtifacts: vi.fn().mockResolvedValue({ records: [] }),
   };
 });
 
@@ -51,6 +56,7 @@ const baseRun: GraphIngestRunSummary = {
   runner_options_summary: {},
   diagnostics_summary: {},
   preview_union_available: true,
+  projection_authority: "preview_union",
 };
 
 const projection: UnionSupergraphProjectionResponse = {
@@ -110,8 +116,52 @@ describe("GraphReviewLiveProjectionPanel", () => {
   beforeEach(() => {
     sessionStorage.removeItem("graph-object-authoring-staged:longmont-c2:session-23");
     vi.mocked(getUnionSupergraphProjection).mockReset();
+    vi.mocked(postWorldGraphRecapProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockReset();
+    vi.mocked(postWorldGraphProjection).mockReset();
+    vi.mocked(postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-23" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        sourceTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "alden",
+          label: "Alden",
+          kind: "npc",
+          role: "gate warden",
+          aliases: [],
+          sourceDomains: ["recap"],
+          summary: "Alden guards the western gate and knows the patrol routes.",
+          anchoredToFocusSession: true,
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValue({
       schema: "dmb_graph_review_existing_object_resolver_response_v1",
       campaign_id: "longmont-c2",
@@ -160,6 +210,33 @@ describe("GraphReviewLiveProjectionPanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Generate preview union")).toBeInTheDocument();
     expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
+  });
+
+  it("loads World Graph recap projection when projection_authority is world_graph", async () => {
+    vi.mocked(postWorldGraphRecapProjection).mockResolvedValue(projection);
+
+    renderGraphReviewLiveHarness({
+      liveRun: {
+        ...baseRun,
+        projection_authority: "world_graph",
+      },
+      children: <GraphReviewLiveProjectionPanel />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-projection-layout")).toHaveAttribute(
+        "data-projection-authority",
+        "world_graph",
+      ),
+    );
+    expect(postWorldGraphRecapProjection).toHaveBeenCalled();
+    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-world-recap-badge")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Recap$/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Session 23" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Click a highlighted name/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Session 23 recap")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Live run prose")).not.toBeInTheDocument();
   });
 
   it("loads the selected run projection by manifest and preview-union paths", async () => {
@@ -218,7 +295,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
     expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
   });
 
-  it("opens and closes one projected interaction surface from a graph mention", async () => {
+  it("opens PlanReferenceObjectCard via the shared drawer when a graph mention is clicked", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(
       projectionWithMention,
     );
@@ -227,6 +304,33 @@ describe("GraphReviewLiveProjectionPanel", () => {
       source_kind: "gold_fixture",
       gold_fixture_id: "fixture-a",
       gold_fixture_relpath: "gold/session-23.json",
+    });
+    // World Graph miss must not block Ingest chips that already have a lane node_view.
+    vi.mocked(postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-23" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        sourceTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
     });
 
     renderGraphReviewLiveHarness({
@@ -248,26 +352,20 @@ describe("GraphReviewLiveProjectionPanel", () => {
     });
     fireEvent.click(liveAldenPill);
 
-    const dialog = screen.getByRole("dialog", { name: "Selected object: Alden" });
-    expect(dialog).toHaveTextContent("Selected object");
-    expect(dialog).toHaveTextContent("Live Run · read-only");
-    expect(dialog).toHaveTextContent(
-      "Alden guards the western gate and knows the patrol routes.",
-    );
-    expect(
-      screen.queryByRole("button", { name: "Highlight counterpart" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Stage node assertion" }),
-    ).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("Find existing object")).not.toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close selected object" }),
-    );
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Alden graph object/i)).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText(/Alden projection/i)).toBeInTheDocument();
+    expect(screen.getByText("Memory tools")).toBeInTheDocument();
     expect(
       screen.queryByRole("dialog", { name: "Selected object: Alden" }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByText(/was not found in the loaded World Graph/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close toolbox" }));
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/Alden graph object/i)).not.toBeInTheDocument();
+    });
   });
 
   it("renders gold and live projection lanes side by side in the two-lane layout", async () => {

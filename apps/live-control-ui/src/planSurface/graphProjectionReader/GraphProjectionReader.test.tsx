@@ -23,6 +23,7 @@ describe("GraphProjectionReader", () => {
         markdown="The gang arrived at the gate."
         nodeViews={{}}
         sourceSpans={[]}
+        onInspectNode={() => undefined}
       />,
     );
 
@@ -32,7 +33,7 @@ describe("GraphProjectionReader", () => {
     expect(screen.queryByTestId("graph-authoring-action")).not.toBeInTheDocument();
   });
 
-  it("delegates graph chip inspection to an external handler when provided", async () => {
+  it("delegates graph chip inspection to onInspectNode", async () => {
     const onInspectNode = vi.fn();
 
     render(
@@ -55,80 +56,7 @@ describe("GraphProjectionReader", () => {
     fireEvent.click(aldenPill);
     expect(onInspectNode).toHaveBeenCalledWith("alden");
     expect(screen.queryByLabelText("Graph object panel")).not.toBeInTheDocument();
-  });
-
-  it("opens shared GraphObjectCard when no external inspection handler is provided", async () => {
-    render(
-      <GraphProjectionReader
-        markdown="The party met [Alden](dmb-node:alden) at the gate."
-        nodeViews={{ alden: aldenNode }}
-        sourceSpans={[]}
-      />,
-    );
-
-    const aldenPill = await waitFor(() => {
-      const pill = screen
-        .getAllByRole("button", { name: "Alden" })
-        .find((button) => button.classList.contains("recap-node-token"));
-      expect(pill).toBeTruthy();
-      return pill as HTMLButtonElement;
-    });
-
-    fireEvent.click(aldenPill);
-    expect(screen.getByLabelText("Graph object panel")).toBeInTheDocument();
-    expect(screen.getByLabelText("Alden game card")).toBeInTheDocument();
-  });
-
-  it("navigates the object trail from GraphObjectCard relationships", async () => {
-    const mirathornNode: GraphProjectionNodeView = {
-      node_id: "loc_mirathorn",
-      label: "Mirathorn",
-      kind: "location",
-      role: "city",
-      summary: "A trade city.",
-      aliases: [],
-      source_domains: [],
-      evidence_badges: [],
-      adjacency: [],
-    };
-    const aldenWithLink: GraphProjectionNodeView = {
-      ...aldenNode,
-      adjacency: [
-        {
-          edge_id: "edge:alden:at:loc_mirathorn",
-          node_id: "loc_mirathorn",
-          label: "Mirathorn",
-          kind: "location",
-          predicate: "located_in",
-          direction: "outgoing",
-          anchored_to_focus_session: false,
-          source_domains: ["recap"],
-          evidence_ref_ids: [],
-          session_ids: [],
-        },
-      ],
-    };
-
-    render(
-      <GraphProjectionReader
-        markdown="The party met [Alden](dmb-node:alden) at the gate."
-        nodeViews={{ alden: aldenWithLink, loc_mirathorn: mirathornNode }}
-        sourceSpans={[]}
-      />,
-    );
-
-    const aldenPill = await waitFor(() => {
-      const pill = screen
-        .getAllByRole("button", { name: "Alden" })
-        .find((button) => button.classList.contains("recap-node-token"));
-      expect(pill).toBeTruthy();
-      return pill as HTMLButtonElement;
-    });
-    fireEvent.click(aldenPill);
-
-    fireEvent.click(screen.getByRole("button", { name: /Open related object.*Mirathorn/i }));
-    expect(screen.getByLabelText("Mirathorn game card")).toBeInTheDocument();
-    expect(screen.getByLabelText("Object trail")).toHaveTextContent("Alden");
+    expect(screen.queryByLabelText(/Alden graph object/i)).not.toBeInTheDocument();
   });
 
   it("shows the authoring action and forwards the callback when a valid selection exists", async () => {
@@ -140,6 +68,7 @@ describe("GraphProjectionReader", () => {
         markdown="The gang arrived at the gate."
         nodeViews={{}}
         sourceSpans={[]}
+        onInspectNode={() => undefined}
         authoringEnabled
         authoringContext={{
           campaignId: "longmont-c1",
@@ -198,6 +127,7 @@ describe("GraphProjectionReader", () => {
         nodeViews={{}}
         sourceSpans={[]}
         graphId="longmont-c2:preview-union-supergraph"
+        onInspectNode={() => undefined}
       />,
     );
 
@@ -215,6 +145,7 @@ describe("GraphProjectionReader", () => {
         sourceSpans={[]}
         graphId="longmont-c2:preview-union-supergraph"
         showGraphId
+        onInspectNode={() => undefined}
       />,
     );
 
@@ -231,6 +162,7 @@ describe("GraphProjectionReader", () => {
         nodeViews={{}}
         sourceSpans={[]}
         documentLabel="Projected recap"
+        onInspectNode={() => undefined}
       />,
     );
 
@@ -250,6 +182,7 @@ describe("GraphProjectionReader", () => {
         sourceSpans={[]}
         documentLabel="Live run prose"
         documentScroll="page"
+        onInspectNode={() => undefined}
       />,
     );
 

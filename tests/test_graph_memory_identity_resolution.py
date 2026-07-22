@@ -341,6 +341,41 @@ def test_cross_class_actor_collective_collision_is_blocked():
     assert blocked["policy_version"] == "cross_class_exact_label_policy_v0"
 
 
+def test_blocked_cross_class_shared_node_id_is_disambiguated():
+    """Same slug minted by actor + collective passes must not share a durable id."""
+    nodes = [
+        _node(
+            "node:captain_lysandra_ironveil",
+            "Captain Lysandra Ironveil",
+            "character",
+            spans=[(10, 10), (11, 11)],
+        ),
+        _node(
+            "node:captain_lysandra_ironveil",
+            "Captain Lysandra Ironveil",
+            "organization",
+            spans=[(10, 10)],
+        ),
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes)
+    kept_ids = {n["node_id"] for n in result["kept"]}
+    assert "node:captain_lysandra_ironveil" in kept_ids
+    assert "node:captain_lysandra_ironveil:organization" in kept_ids
+    assert len(kept_ids) == 2
+    blocked = result["blocked"][0]
+    assert blocked["policy_reason"] == "actor_cross_class_collision_high_risk"
+    assert blocked["disambiguated_node_ids"] == [
+        {
+            "from": "node:captain_lysandra_ironveil",
+            "to": "node:captain_lysandra_ironveil:organization",
+        }
+    ]
+    actor = next(n for n in result["kept"] if n["node_type"] == "character")
+    org = next(n for n in result["kept"] if n["node_type"] == "organization")
+    assert actor["node_id"] == "node:captain_lysandra_ironveil"
+    assert org["node_id"] == "node:captain_lysandra_ironveil:organization"
+
+
 def test_blocked_cross_class_collision_does_not_rewrite_edge_endpoints():
     nodes = [
         _node("actor:the-shepherd", "The Shepherd", "character"),

@@ -125,6 +125,286 @@ def test_project_world_markdown_mentions_uses_durable_node_ids() -> None:
     assert {m.node_id for m in mentions} == {"pc:caelynn", "location:mireward"}
 
 
+def test_registry_standing_chips_pcs_omitted_from_campaign_projection(
+    tmp_path: Path,
+) -> None:
+    """C1 campaign scope can omit C2-scoped standing PCs; roster still chips."""
+    from apps.live_control_server.services.world_graph_recap_projection import (
+        _merge_registry_standing_into_nodes,
+    )
+
+    # No PC nodes in the campaign-scoped projection payload.
+    nodes = [
+        WorldGraphProjectionNodeView(
+            node_id="npc_pippa",
+            label="Pippa",
+            kind="npc",
+            role="character",
+            aliases=["Pippa"],
+            evidence_ref_ids=[],
+        ),
+    ]
+    merged = _merge_registry_standing_into_nodes(
+        nodes,
+        campaign_id="longmont-c1",
+        session_id="session-3",
+    )
+    pc_ids = {node.node_id for node in merged if node.kind == "pc"}
+    assert "pc:stafl" in pc_ids
+    assert "pc:caelynn" in pc_ids
+
+    markdown = (
+        "Stafl wrote a song. Caelynn uses ice. Bonogo dives. "
+        "Baergrom loses the rope. Ephanna lassos Bubbles. Karsemine uses Zephyr strike."
+    )
+    projected, mentions = project_world_markdown_mentions(markdown, merged)
+    assert "[Stafl](dmb-node:pc:stafl)" in projected
+    assert "[Caelynn](dmb-node:pc:caelynn)" in projected
+    assert "[Bonogo](dmb-node:pc:bonogo)" in projected
+    assert "[Baergrom](dmb-node:pc:baergrom)" in projected
+    assert "[Ephanna](dmb-node:pc:ephanna)" in projected
+    assert "[Karsemine](dmb-node:pc:karsemine)" in projected
+    assert {m.node_id for m in mentions} >= {
+        "pc:stafl",
+        "pc:caelynn",
+        "pc:bonogo",
+        "pc:baergrom",
+        "pc:ephanna",
+        "pc:karsemine",
+    }
+
+
+def test_thread_aliases_chip_prose_surfaces_not_full_summary_labels() -> None:
+    from apps.live_control_server.services.world_graph_recap_projection import (
+        _enrich_thread_aliases_from_markdown,
+    )
+
+    nodes = [
+        WorldGraphProjectionNodeView(
+            node_id="mystery:session3:bubbles_scare",
+            label="Bubbles the Float Goat panic during flood rescue",
+            kind="mystery",
+            role="thread",
+            aliases=["Bubbles the Float Goat panic during flood rescue"],
+            evidence_ref_ids=[],
+        ),
+        WorldGraphProjectionNodeView(
+            node_id="mystery:session3:mirathorn_festival",
+            label="Possible next destination: Mirathorn festival",
+            kind="mystery",
+            role="thread",
+            aliases=["Possible next destination: Mirathorn festival"],
+            evidence_ref_ids=[],
+        ),
+        WorldGraphProjectionNodeView(
+            node_id="pc:stafl",
+            label="Stafl",
+            kind="pc",
+            role="character",
+            aliases=["Stafl"],
+            evidence_ref_ids=[],
+        ),
+    ]
+    markdown = (
+        "Players heard Pippa yelling and immediately ran out to help find Bubbles. "
+        "Possible next destination mentions Mirathorn after Stone Bridge."
+    )
+    enriched = _enrich_thread_aliases_from_markdown(nodes, markdown)
+    projected, mentions = project_world_markdown_mentions(markdown, enriched)
+    assert "[Bubbles](dmb-node:mystery:session3:bubbles_scare)" in projected or (
+        "[Float Goat](dmb-node:mystery:session3:bubbles_scare)" in projected
+    )
+    assert "[Mirathorn](dmb-node:mystery:session3:mirathorn_festival)" in projected
+    assert any(m.node_id.startswith("mystery:") for m in mentions)
+
+
+def test_thread_aliases_do_not_steal_pc_name_surfaces() -> None:
+    from apps.live_control_server.services.world_graph_recap_projection import (
+        _enrich_thread_aliases_from_markdown,
+    )
+
+    nodes = [
+        WorldGraphProjectionNodeView(
+            node_id="pc:ephanna",
+            label="Ephanna",
+            kind="pc",
+            role="character",
+            aliases=["Ephanna"],
+            evidence_ref_ids=[],
+        ),
+        WorldGraphProjectionNodeView(
+            node_id="mystery:session7:ephanna_capture",
+            label="Ephanna capture by river cultists",
+            kind="mystery",
+            role="thread",
+            aliases=["Ephanna capture by river cultists"],
+            evidence_ref_ids=[],
+        ),
+    ]
+    markdown = "Ephanna lassos Bubbles near the bridge."
+    enriched = _enrich_thread_aliases_from_markdown(nodes, markdown)
+    projected, _mentions = project_world_markdown_mentions(markdown, enriched)
+    assert "[Ephanna](dmb-node:pc:ephanna)" in projected
+    assert "[Ephanna](dmb-node:mystery:session7:ephanna_capture)" not in projected
+
+
+def test_mentioned_standing_pc_stamps_focus_session_on_party_membership() -> None:
+    from apps.live_control_server.services.world_graph_recap_projection import (
+        _stamp_focus_session_on_mentioned_standing,
+    )
+    from graph_memory.projection.world_projection import (
+        WorldGraphProjectionAdjacencyCandidate,
+    )
+
+    nodes = [
+        WorldGraphProjectionNodeView(
+            node_id="pc:stafl",
+            label="Stafl",
+            kind="pc",
+            role="character",
+            aliases=["Stafl"],
+            evidence_ref_ids=[],
+            adjacency=[
+                WorldGraphProjectionAdjacencyCandidate(
+                    edge_id="e-party",
+                    node_id="node:heroes-party",
+                    label="Heroes / party",
+                    kind="party",
+                    predicate="member_of",
+                    direction="outbound",
+                    session_ids=["session-3", "session-4"],
+                ),
+                WorldGraphProjectionAdjacencyCandidate(
+                    edge_id="e-item",
+                    node_id="item:nets",
+                    label="Nets",
+                    kind="item",
+                    predicate="holds",
+                    direction="outbound",
+                    session_ids=["session-3"],
+                ),
+            ],
+        )
+    ]
+    stamped = _stamp_focus_session_on_mentioned_standing(
+        nodes,
+        session_id="session-1",
+        campaign_id="longmont-c1",
+        markdown="Stafl the 'Human' Bard joins the table.",
+    )
+    stafl = stamped[0]
+    party = next(a for a in stafl.adjacency if a.node_id == "node:heroes-party")
+    assert "session-1" in party.session_ids
+    assert party.anchored_to_focus_session is True
+    nets = next(a for a in stafl.adjacency if a.node_id == "item:nets")
+    assert nets.session_ids == ["session-3"]
+
+
+def test_unmentioned_standing_pc_does_not_get_focus_session_stamp() -> None:
+    from apps.live_control_server.services.world_graph_recap_projection import (
+        _stamp_focus_session_on_mentioned_standing,
+    )
+    from graph_memory.projection.world_projection import (
+        WorldGraphProjectionAdjacencyCandidate,
+    )
+
+    nodes = [
+        WorldGraphProjectionNodeView(
+            node_id="pc:stafl",
+            label="Stafl",
+            kind="pc",
+            role="character",
+            aliases=["Stafl"],
+            evidence_ref_ids=[],
+            adjacency=[
+                WorldGraphProjectionAdjacencyCandidate(
+                    edge_id="e-party",
+                    node_id="node:heroes-party",
+                    label="Heroes / party",
+                    kind="party",
+                    predicate="member_of",
+                    direction="outbound",
+                    session_ids=["session-3"],
+                )
+            ],
+        )
+    ]
+    stamped = _stamp_focus_session_on_mentioned_standing(
+        nodes,
+        session_id="session-1",
+        campaign_id="longmont-c1",
+        markdown="Pippa yells about Bubbles near Stone Bridge.",
+    )
+    party = stamped[0].adjacency[0]
+    assert party.session_ids == ["session-3"]
+
+
+def test_mentioned_pc_without_party_edge_gets_synthetic_focus_presence() -> None:
+    from apps.live_control_server.services.world_graph_recap_projection import (
+        _stamp_focus_session_on_mentioned_standing,
+    )
+
+    nodes = [
+        WorldGraphProjectionNodeView(
+            node_id="pc:stafl",
+            label="Stafl",
+            kind="pc",
+            role="character",
+            aliases=["Stafl"],
+            evidence_ref_ids=[],
+            adjacency=[],
+        )
+    ]
+    stamped = _stamp_focus_session_on_mentioned_standing(
+        nodes,
+        session_id="session-1",
+        campaign_id="longmont-c1",
+        markdown="Stafl plays a song.",
+    )
+    assert stamped[0].adjacency
+    assert stamped[0].adjacency[0].session_ids == ["session-1"]
+    assert stamped[0].adjacency[0].node_id == "node:heroes-party"
+
+
+def test_world_standing_nodes_preserve_adjacency_on_merged_pcs() -> None:
+    from apps.live_control_server.services.world_graph_recap_projection import (
+        _merge_registry_standing_into_nodes,
+    )
+    from graph_memory.projection.world_projection import (
+        WorldGraphProjectionAdjacencyCandidate,
+    )
+
+    standing = [
+        WorldGraphProjectionNodeView(
+            node_id="pc:stafl",
+            label="Stafl",
+            kind="pc",
+            role="character",
+            aliases=["Stafl"],
+            evidence_ref_ids=[],
+            adjacency=[
+                WorldGraphProjectionAdjacencyCandidate(
+                    edge_id="e1",
+                    node_id="mystery:session3:bubbles_scare",
+                    label="Bubbles scare",
+                    kind="mystery",
+                    predicate="involved_in",
+                    direction="outbound",
+                )
+            ],
+        )
+    ]
+    merged = _merge_registry_standing_into_nodes(
+        [],
+        campaign_id="longmont-c1",
+        session_id="session-3",
+        world_standing_nodes=standing,
+    )
+    stafl = next(node for node in merged if node.node_id == "pc:stafl")
+    assert stafl.adjacency
+    assert stafl.adjacency[0].node_id == "mystery:session3:bubbles_scare"
+
+
 def test_build_requires_session_focus(tmp_path: Path) -> None:
     _initialize(tmp_path)
     request = WorldGraphProjectionRequest(

@@ -3,7 +3,7 @@ import { useState, type ComponentProps, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as extractPromoteApi from "../../api/extractPromoteApi";
-import { getUnionSupergraphProjection, postWorldGraphProjection } from "../../api/liveApi";
+import { getUnionSupergraphProjection, postWorldGraphProjection, postWorldGraphRecapProjection } from "../../api/liveApi";
 import type {
   ExtractPromoteConfirmReceipt,
   ExtractPromotePrepareResponse,
@@ -25,6 +25,7 @@ vi.mock("../../api/liveApi", async () => {
     getUnionSupergraphProjection: vi.fn(),
     getGoldGraphProjection: vi.fn(),
     postWorldGraphProjection: vi.fn(),
+    postWorldGraphRecapProjection: vi.fn(),
   };
 });
 
@@ -221,6 +222,7 @@ function renderSheet(
 describe("GraphReviewExtractPromoteSheet", () => {
   beforeEach(() => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+    vi.mocked(postWorldGraphRecapProjection).mockResolvedValue(projection);
     vi.mocked(postWorldGraphProjection).mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
@@ -337,7 +339,73 @@ describe("GraphReviewExtractPromoteSheet", () => {
     expect(screen.getByRole("button", { name: "Close" })).not.toBeDisabled();
   });
 
-  it("does not offer confirm again after a degraded receipt", async () => {
+  it("shows an unmistakable success receipt and starts World Graph sync in the background", async () => {
+    const worldProjection = {
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev:committed",
+        headRevisionId: "rev:committed",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-25" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    } as Awaited<ReturnType<typeof postWorldGraphProjection>>;
+    let resolveReload!: (value: Awaited<ReturnType<typeof postWorldGraphProjection>>) => void;
+    const deferredReload = new Promise<Awaited<ReturnType<typeof postWorldGraphProjection>>>(
+      (resolve) => {
+        resolveReload = resolve;
+      },
+    );
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
+    vi.mocked(postWorldGraphProjection).mockReturnValue(deferredReload);
+    vi.mocked(postWorldGraphRecapProjection).mockResolvedValue(projection);
+
+    renderSheet();
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("graph-review-extract-promote-receipt-headline"),
+      ).toHaveTextContent("Merged into campaign memory");
+    });
+    expect(screen.getByTestId("graph-review-extract-promote-receipt")).toHaveAttribute(
+      "data-projection-sync",
+      "syncing",
+    );
+    expect(screen.getByTestId("graph-review-extract-promote-projection-sync")).toHaveTextContent(
+      "Updating World Graph view in the background",
+    );
+    expect(screen.getByTestId("graph-review-extract-promote-done")).toHaveTextContent(
+      "Done — view still updating",
+    );
+
+    resolveReload(worldProjection);
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toHaveAttribute(
+        "data-projection-sync",
+        "ready",
+      );
+    });
+    expect(screen.getByTestId("graph-review-extract-promote-done")).toHaveTextContent("Done");
+  });
+
+  it("does not offer confirm again after a degraded receipt, and still auto-syncs the view", async () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
       confirmReceipt({
         outcome: "published_audit_degraded",
@@ -345,6 +413,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
         warnings: ["Audit publish degraded."],
       }),
     );
+    vi.mocked(postWorldGraphRecapProjection).mockResolvedValue(projection);
 
     renderSheet();
     fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
@@ -357,13 +426,18 @@ describe("GraphReviewExtractPromoteSheet", () => {
     });
 
     expect(screen.queryByTestId("graph-review-extract-promote-merge-cta")).toBeNull();
-    expect(
-      screen.getByTestId("graph-review-extract-promote-reload-revision"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-extract-promote-receipt-headline")).toHaveTextContent(
+      "Merged into campaign memory",
+    );
+    expect(screen.getByTestId("graph-review-extract-promote-done")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(postWorldGraphRecapProjection).toHaveBeenCalled();
+    });
   });
 
   it("preserves receipt when catalog refresh fails", async () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
+    vi.mocked(postWorldGraphRecapProjection).mockResolvedValue(projection);
     const onCatalogRefresh = vi.fn().mockRejectedValue(new Error("catalog refresh failed"));
 
     renderSheet(prepareResponse(), { onCatalogRefresh });
@@ -375,12 +449,62 @@ describe("GraphReviewExtractPromoteSheet", () => {
       expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
     });
   });
+
+  it("keeps Done available while background sync is still running", async () => {
+    let resolveReload!: (value: Awaited<ReturnType<typeof postWorldGraphProjection>>) => void;
+    const deferredReload = new Promise<Awaited<ReturnType<typeof postWorldGraphProjection>>>(
+      (resolve) => {
+        resolveReload = resolve;
+      },
+    );
+    const onClose = vi.fn();
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
+    vi.mocked(postWorldGraphProjection).mockReturnValue(deferredReload);
+    vi.mocked(postWorldGraphRecapProjection).mockResolvedValue(projection);
+
+    renderSheet(prepareResponse(), { onClose });
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-done")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-done"));
+    expect(onClose).toHaveBeenCalled();
+    resolveReload({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev:committed",
+        headRevisionId: "rev:committed",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-25" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    } as Awaited<ReturnType<typeof postWorldGraphProjection>>);
+  });
 });
 
 describe("GraphReviewSessionToolbar", () => {
   beforeEach(() => {
     vi.mocked(getUnionSupergraphProjection).mockReset();
+    vi.mocked(postWorldGraphRecapProjection).mockReset();
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
+    vi.mocked(postWorldGraphRecapProjection).mockResolvedValue(projection);
     vi.mocked(extractPromoteApi.getExtractPromoteStatus).mockReset();
     vi.mocked(extractPromoteApi.prepareExtractPromote).mockReset();
     vi.mocked(extractPromoteApi.getExtractPromoteStatus).mockResolvedValue({
@@ -391,6 +515,20 @@ describe("GraphReviewSessionToolbar", () => {
       headRevisionId: "rev:head",
       diagnostics: [],
     });
+  });
+
+  it("hides Review & merge when already on World Graph head", async () => {
+    renderWithLiveRun(
+      baseRun({ projection_authority: "world_graph" }),
+      <GraphReviewSessionToolbar />,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("graph-review-review-and-merge")).toBeNull();
+    });
+    expect(screen.queryByTestId("graph-review-merged-world-status")).toBeNull();
+    expect(postWorldGraphRecapProjection).toHaveBeenCalled();
+    expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
   });
 
   it("disables Review & merge when the server marks the run non-promotable", async () => {

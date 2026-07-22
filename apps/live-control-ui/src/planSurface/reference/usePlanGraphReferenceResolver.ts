@@ -30,6 +30,11 @@ import {
   getPlanWorldGraphContext,
   WORLD_GRAPH_REVISION_COMMITTED_EVENT,
 } from "./planGraphContextRequest";
+import {
+  markProjectionLoadStart,
+  measureProjectionLoad,
+} from "./projectionLoadTelemetry";
+import type { PlanGraphScopeMode } from "../sessionCampaignContext";
 
 export interface UsePlanGraphReferenceResolverResult {
   projection: WorldGraphProjection | null;
@@ -47,54 +52,6 @@ export interface UsePlanGraphReferenceResolverResult {
 
 const PlanGraphReferenceResolverContext =
   createContext<UsePlanGraphReferenceResolverResult | null>(null);
-
-let projectionLoadGeneration = 0;
-
-function markProjectionLoadStart(): string {
-  projectionLoadGeneration += 1;
-  const markName = `dmb:wg-projection:start:${projectionLoadGeneration}`;
-  if (typeof performance !== "undefined" && typeof performance.mark === "function") {
-    performance.mark(markName);
-  }
-  return markName;
-}
-
-function measureProjectionLoad(
-  startMark: string,
-  outcome: PlanGraphProjectionState,
-  meta: {
-    campaignId: string;
-    scopeMode: string;
-    focusSessionId: string | null;
-  },
-): number | null {
-  const endMark = `dmb:wg-projection:end:${projectionLoadGeneration}`;
-  const measureName = `dmb:wg-projection:load:${projectionLoadGeneration}`;
-  let durationMs: number | null = null;
-  if (typeof performance !== "undefined" && typeof performance.mark === "function") {
-    performance.mark(endMark);
-    try {
-      if (typeof performance.measure === "function") {
-        performance.measure(measureName, startMark, endMark);
-        const entries = performance.getEntriesByName(measureName);
-        const last = entries[entries.length - 1];
-        if (last) {
-          durationMs = Math.round(last.duration);
-        }
-      }
-    } catch {
-      durationMs = null;
-    }
-  }
-  console.debug("[dmb] world-graph projection", {
-    campaignId: meta.campaignId,
-    scopeMode: meta.scopeMode,
-    focusSessionId: meta.focusSessionId,
-    outcome,
-    durationMs,
-  });
-  return durationMs;
-}
 
 function isWorldGraphUnavailable(error: unknown): boolean {
   return (
@@ -248,6 +205,7 @@ export async function resolvePlanReferenceWithFallback(
 function usePlanGraphReferenceResolverLoad(
   sessionDescriptor: PlanSessionDescriptor | null | undefined,
   revisionRefreshToken?: string | number | null,
+  scopeMode?: PlanGraphScopeMode,
 ): UsePlanGraphReferenceResolverResult {
   const [projection, setProjection] = useState<WorldGraphProjection | null>(null);
   const [projectionState, setProjectionState] = useState<PlanGraphProjectionState>("loading");
@@ -263,9 +221,13 @@ function usePlanGraphReferenceResolverLoad(
     () =>
       getPlanWorldGraphContext(
         sessionDescriptor,
-        graphLens ? { lens: graphLens.lens } : undefined,
+        graphLens
+          ? { lens: graphLens.lens, scopeMode }
+          : scopeMode != null
+            ? { scopeMode }
+            : undefined,
       ),
-    [sessionDescriptor, graphLens?.lens],
+    [sessionDescriptor, graphLens?.lens, scopeMode],
   );
 
   useEffect(() => {
@@ -307,12 +269,13 @@ function usePlanGraphReferenceResolverLoad(
       setProjection(null);
       setProjectionState("loading");
       setProjectionError(null);
-      const startMark = markProjectionLoadStart();
+      const startMark = markProjectionLoadStart("plan-resolver");
       const focusSessionId =
         context.focus.kind === "session" ? context.focus.sessionId : null;
 
       const finish = (outcome: PlanGraphProjectionState) => {
         const durationMs = measureProjectionLoad(startMark, outcome, {
+          loader: "plan-resolver",
           campaignId: context.campaignId,
           scopeMode: context.scopeMode,
           focusSessionId,
@@ -385,13 +348,20 @@ function usePlanGraphReferenceResolverLoad(
 export function PlanGraphReferenceResolverProvider({
   sessionDescriptor,
   revisionRefreshToken,
+  scopeMode,
   children,
 }: {
   sessionDescriptor: PlanSessionDescriptor | null | undefined;
   revisionRefreshToken?: string | number | null;
+  /** When set, forces World Graph projection scope (ingest warm-cache alignment). */
+  scopeMode?: PlanGraphScopeMode;
   children: ReactNode;
 }) {
-  const resolver = usePlanGraphReferenceResolverLoad(sessionDescriptor, revisionRefreshToken);
+  const resolver = usePlanGraphReferenceResolverLoad(
+    sessionDescriptor,
+    revisionRefreshToken,
+    scopeMode,
+  );
   return createElement(
     PlanGraphReferenceResolverContext.Provider,
     { value: resolver },

@@ -838,6 +838,72 @@ def _cross_class_member_summary(node: Any) -> dict[str, Any]:
     return summary
 
 
+def _rewrite_node_id(node: Any, new_id: str) -> Any:
+    """Best-effort in-place node_id rewrite for mapping/dataclass nodes."""
+    if isinstance(node, MutableMapping):
+        node["node_id"] = new_id
+        return node
+    if hasattr(node, "node_id"):
+        try:
+            setattr(node, "node_id", new_id)
+            return node
+        except Exception:
+            pass
+    return node
+
+
+def _disambiguate_blocked_cross_class_ids(
+    members: Sequence[Any],
+) -> tuple[list[Any], list[tuple[str, str]]]:
+    """Ensure blocked cross-class members keep distinct durable node_ids.
+
+    Category passes often mint the same slug for a person and a mis-typed
+    organization (``node:captain_lysandra_ironveil`` ×2). Blocking correctly
+    refuses to merge them, but a shared id later collapses into one
+    graph_object_id with disagreeing kinds and merge/projection fail closed.
+
+    Higher-priority type class keeps the original id; others receive a
+    ``:{node_type}`` suffix (with numeric fallback if still taken). Edges that
+    already pointed at the shared id stay on the priority survivor — we cannot
+    attribute shared-id edges to the renamed duplicate.
+    """
+    if len(members) <= 1:
+        return list(members), []
+
+    ordered = sorted(
+        members,
+        key=lambda m: (
+            -_cross_class_priority(m),
+            -len(_get(m, "evidence_refs", []) or []),
+            str(_get(m, "node_id", "") or ""),
+            node_type_of(m),
+        ),
+    )
+    claimed: set[str] = set()
+    rewritten: list[Any] = []
+    renames: list[tuple[str, str]] = []
+    for member in ordered:
+        original_id = str(_get(member, "node_id", "") or "").strip()
+        if not original_id:
+            rewritten.append(member)
+            continue
+        if original_id not in claimed:
+            claimed.add(original_id)
+            rewritten.append(member)
+            continue
+        node_type = re.sub(r"[^a-z0-9]+", "_", node_type_of(member).strip().lower()).strip("_")
+        suffix = node_type or "dup"
+        candidate = f"{original_id}:{suffix}"
+        n = 2
+        while candidate in claimed:
+            candidate = f"{original_id}:{suffix}:{n}"
+            n += 1
+        claimed.add(candidate)
+        rewritten.append(_rewrite_node_id(member, candidate))
+        renames.append((original_id, candidate))
+    return rewritten, renames
+
+
 def _merge_evidence_refs(into: Any, extra: Any) -> None:
     """Union ``extra``'s evidence_refs onto ``into`` (best-effort, dedup-by-repr)."""
     if not isinstance(into, Mapping):
@@ -879,10 +945,13 @@ def reconcile_cross_class_label_collisions(
     This step applies an explicit safety policy before collapsing exact-label
     collisions. Today only place/collective duplicates are approved to merge;
     other cross-class collisions stay separate and are surfaced in ``blocked``
-    diagnostics. Approved merges still prefer the higher-priority type class
-    (see ``_CROSS_CLASS_TYPE_PRIORITY``), union evidence refs onto the survivor,
-    and rewrite any edge endpoints that referenced a dropped id. Self-loops
-    created by approved merges are dropped.
+    diagnostics. When blocked members share a durable ``node_id`` (common when
+    category passes mint the same slug for a person and a mis-typed organization),
+    lower-priority members are rewritten to ``:{node_type}`` so merge/projection
+    do not see two kinds on one graph object. Approved merges still prefer the
+    higher-priority type class (see ``_CROSS_CLASS_TYPE_PRIORITY``), union evidence
+    refs onto the survivor, and rewrite any edge endpoints that referenced a
+    dropped id. Self-loops created by approved merges are dropped.
 
     Conservative by construction: only policy-approved *byte-identical normalized
     labels* merge. The degradation direction is fail-to-merge with diagnostics,
@@ -921,21 +990,27 @@ def reconcile_cross_class_label_collisions(
             continue
         policy = should_merge_cross_class_label_collision(members)
         if policy["action"] != "merge":
-            sorted_members = sorted(members, key=lambda m: str(_get(m, "node_id", "") or ""))
-            blocked.append(
-                {
-                    "label": key,
-                    "node_ids": [str(_get(m, "node_id", "")) for m in sorted_members],
-                    "classes": policy["classes"],
-                    "reason": "unsafe_cross_class_exact_label",
-                    "policy_reason": policy["policy_reason"],
-                    "policy_version": _CROSS_CLASS_POLICY_VERSION,
-                    "member_summaries": [
-                        _cross_class_member_summary(m) for m in sorted_members
-                    ],
-                }
+            distinct_members, id_renames = _disambiguate_blocked_cross_class_ids(members)
+            sorted_members = sorted(
+                distinct_members, key=lambda m: str(_get(m, "node_id", "") or "")
             )
-            kept.extend(members)
+            blocked_entry: dict[str, Any] = {
+                "label": key,
+                "node_ids": [str(_get(m, "node_id", "")) for m in sorted_members],
+                "classes": policy["classes"],
+                "reason": "unsafe_cross_class_exact_label",
+                "policy_reason": policy["policy_reason"],
+                "policy_version": _CROSS_CLASS_POLICY_VERSION,
+                "member_summaries": [
+                    _cross_class_member_summary(m) for m in sorted_members
+                ],
+            }
+            if id_renames:
+                blocked_entry["disambiguated_node_ids"] = [
+                    {"from": old, "to": new} for old, new in id_renames
+                ]
+            blocked.append(blocked_entry)
+            kept.extend(distinct_members)
             continue
         survivor = max(
             members,

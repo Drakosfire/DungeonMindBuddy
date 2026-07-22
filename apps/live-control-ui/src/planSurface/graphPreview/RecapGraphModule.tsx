@@ -18,8 +18,12 @@ import {
 } from "../sessionCampaignContext";
 import {
   buildPlanWorldGraphProjectionRequest,
-  type PlanWorldGraphContext,
 } from "../reference/planGraphContextRequest";
+import { buildRecapWorldGraphContext } from "../reference/recapWorldGraphContext";
+import {
+  markProjectionLoadStart,
+  measureProjectionLoad,
+} from "../reference/projectionLoadTelemetry";
 import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection";
 import {
   filterNumericRecapArtifactRecords,
@@ -40,33 +44,10 @@ interface RecapGraphModuleProps {
 
 const DOGFOOD_SESSION_OPTIONS = ["session-1", "session-21", "session-22", "session-23"];
 
-const WORLD_ID_BY_CAMPAIGN: Record<string, string> = {
-  "longmont-c1": "eldyrwild",
-  "longmont-c2": "eldyrwild",
-};
-
 function requestedSessionFromLocation(): string | null {
   if (typeof window === "undefined") return null;
   const session = new URLSearchParams(window.location.search).get("session")?.trim();
   return session || null;
-}
-
-function buildRecapWorldGraphContext(
-  campaignId: string,
-  sessionId: string,
-): PlanWorldGraphContext | null {
-  const worldId = WORLD_ID_BY_CAMPAIGN[campaignId];
-  if (!worldId) return null;
-  return {
-    worldId,
-    campaignId,
-    scopeMode: "campaign",
-    focus: {
-      kind: "session",
-      sessionId,
-      focusCampaignId: campaignId,
-    },
-  };
 }
 
 export function RecapGraphModule({ context }: RecapGraphModuleProps) {
@@ -118,6 +99,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       return;
     }
 
+    const startMark = markProjectionLoadStart("recap-module");
     try {
       const projection = await postWorldGraphRecapProjection(
         buildPlanWorldGraphProjectionRequest(worldContext),
@@ -125,9 +107,21 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       setUnionPayload(projection);
       setProjectionSource("world-graph");
       setStatus("ready");
+      measureProjectionLoad(startMark, "ready", {
+        loader: "recap-module",
+        campaignId,
+        sessionId,
+        projectionSource: "world-graph",
+      });
     } catch (loadError) {
       setUnionPayload(null);
       setProjectionSource("unavailable");
+      measureProjectionLoad(startMark, "error", {
+        loader: "recap-module",
+        campaignId,
+        sessionId,
+        projectionSource: "world-graph",
+      });
       const message =
         loadError instanceof LiveApiError
           ? loadError.message

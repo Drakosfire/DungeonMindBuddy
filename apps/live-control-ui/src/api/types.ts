@@ -1819,6 +1819,11 @@ export interface GraphIngestRunSummary {
   /** Server-owned product gate for Review & merge (PR011A2). */
   promotable?: boolean;
   promotable_reason?: string | null;
+  /**
+   * Live canvas authority: world_graph when the session is already on world head;
+   * preview_union while the extract is still a candidate.
+   */
+  projection_authority?: "preview_union" | "world_graph";
 }
 
 export interface GraphIngestRunsResponse {

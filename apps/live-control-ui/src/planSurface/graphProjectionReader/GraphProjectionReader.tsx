@@ -5,17 +5,11 @@ import StarterKit from "@tiptap/starter-kit";
 
 import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../api/types";
 import {
-  GraphObjectCard,
-  buildGraphObjectCardFromNodeView,
-  type GraphObjectRelationshipViewModel,
-} from "../../graphObjectCard";
-import {
   GraphNodeChipRuntimeProvider,
   type GraphNodeChipDeltaPresentation,
 } from "../../graphReference";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
-import type { RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
 import {
   graphAuthoringSelectionsEqual,
   type GraphAuthoringAction,
@@ -42,11 +36,12 @@ export interface GraphProjectionReaderProps {
   documentLabel?: string;
   documentScroll?: "contained" | "page";
   resetKey?: string | null;
-  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation | GraphNodeChipDeltaPresentation>;
+  nodeDeltaPresentations?: Record<string, GraphNodeChipDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   selectedSourceSpanId?: string | null;
   onActiveNodeChange?: (nodeId: string | null) => void;
-  onInspectNode?: (nodeId: string) => void;
+  /** Required for chip clicks — opens the shared Plan reference drawer host. */
+  onInspectNode: (nodeId: string) => void;
   authoringEnabled?: boolean;
   authoringContext?: GraphAuthoringContext;
   onGraphAuthoringSelection?: (selection: GraphAuthoringSelection | null) => void;
@@ -75,7 +70,7 @@ function ReadOnlyTiptapRecap({
   onSelectNode: (nodeId: string) => void;
   sourceSpans: RecapProjectionSourceSpan[];
   selectedEvidenceSpanId: string | null;
-  nodeDeltaPresentations?: Record<string, RecapGraphNodeDeltaPresentation | GraphNodeChipDeltaPresentation>;
+  nodeDeltaPresentations?: Record<string, GraphNodeChipDeltaPresentation>;
   sourceSpanDeltaOverlays?: Record<string, SourceSpanDomOverlay>;
   authoringEnabled?: boolean;
   authoringContext?: GraphAuthoringContext;
@@ -162,63 +157,28 @@ export function GraphProjectionReader({
   onGraphAuthoringSelection,
   onGraphAuthoringAction,
 }: GraphProjectionReaderProps) {
-  const [explorerTrail, setExplorerTrail] = useState<string[]>([]);
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [pendingAuthoringSelection, setPendingAuthoringSelection] = useState<GraphAuthoringSelection | null>(null);
-  const activeNodeId = explorerTrail.at(-1) ?? null;
-  const activeNode = activeNodeId ? nodeViews[activeNodeId] : undefined;
-  const useExternalInspection = Boolean(onInspectNode);
   const pendingAuthoringSelectionRef = useRef<GraphAuthoringSelection | null>(null);
 
   const onGraphAuthoringSelectionRef = useRef(onGraphAuthoringSelection);
   onGraphAuthoringSelectionRef.current = onGraphAuthoringSelection;
 
   useEffect(() => {
-    setExplorerTrail([]);
+    setActiveNodeId(null);
     pendingAuthoringSelectionRef.current = null;
     setPendingAuthoringSelection(null);
     onActiveNodeChange?.(null);
     onGraphAuthoringSelectionRef.current?.(null);
   }, [markdown, graphId, resetKey, onActiveNodeChange]);
 
-  const openExplorer = (nodeId: string) => {
-    if (onInspectNode) {
+  const handleSelectNode = useCallback(
+    (nodeId: string) => {
       onInspectNode(nodeId);
+      setActiveNodeId(nodeId);
       onActiveNodeChange?.(nodeId);
-      return;
-    }
-    setExplorerTrail([nodeId]);
-    onActiveNodeChange?.(nodeId);
-  };
-
-  const popExplorer = () => {
-    setExplorerTrail((trail) => {
-      if (trail.length <= 1) return trail;
-      const nextTrail = trail.slice(0, -1);
-      onActiveNodeChange?.(nextTrail.at(-1) ?? null);
-      return nextTrail;
-    });
-  };
-
-  const closeExplorer = () => {
-    setExplorerTrail([]);
-    onActiveNodeChange?.(null);
-  };
-
-  const handleRelationshipSelect = useCallback(
-    (relationship: GraphObjectRelationshipViewModel) => {
-      const targetId = relationship.targetId;
-      if (!targetId || !nodeViews[targetId]) {
-        return;
-      }
-      setExplorerTrail((trail) => {
-        if (trail.at(-1) === targetId) {
-          return trail;
-        }
-        return [...trail, targetId];
-      });
-      onActiveNodeChange?.(targetId);
     },
-    [nodeViews, onActiveNodeChange],
+    [onActiveNodeChange, onInspectNode],
   );
 
   const handleAuthoringSelection = useCallback((selection: GraphAuthoringSelection | null) => {
@@ -230,16 +190,10 @@ export function GraphProjectionReader({
     onGraphAuthoringSelection?.(selection);
   }, [onGraphAuthoringSelection]);
 
-  const explorerOpen = !useExternalInspection && explorerTrail.length > 0;
   const rootClassName = className ? `recap-reader-root ${className}` : "recap-reader-root";
   const effectiveSelectedSpanId = selectedSourceSpanId ?? null;
   const showAuthoringAction =
     authoringEnabled && pendingAuthoringSelection !== null && Boolean(onGraphAuthoringAction);
-
-  const activeCardModel = useMemo(
-    () => (activeNode ? buildGraphObjectCardFromNodeView(activeNode) : null),
-    [activeNode],
-  );
 
   return (
     <div className={rootClassName}>
@@ -256,10 +210,9 @@ export function GraphProjectionReader({
         </header>
       ) : null}
 
-      {typeof mentionsCount === "number" ? (
+      {typeof mentionsCount === "number" && mentionsCount > 0 ? (
         <p className="recap-reader-hint union-supergraph-mentions-hint">
-          Read-only TipTap projection of ingested recap Markdown. Editing and corpus writes are intentionally out of
-          scope here. Graph chips are preview memory candidates; evidence highlights show the recap paragraph that supports the selected graph context. {mentionsCount} graph mention{mentionsCount === 1 ? "" : "s"} projected.
+          {mentionsCount} linked name{mentionsCount === 1 ? "" : "s"} in this recap.
         </p>
       ) : null}
 
@@ -280,7 +233,7 @@ export function GraphProjectionReader({
         </div>
       ) : null}
 
-      <div className={`recap-reader-layout union-supergraph-layout${explorerOpen ? " graph-explorer-open" : ""}`}>
+      <div className="recap-reader-layout union-supergraph-layout">
         <article
           className={`recap-reader-document union-supergraph-recap-document${
             documentScroll === "page" ? " recap-reader-document--page-scroll" : ""
@@ -291,7 +244,7 @@ export function GraphProjectionReader({
             markdown={markdown}
             nodeViews={nodeViews}
             activeNodeId={activeNodeId}
-            onSelectNode={openExplorer}
+            onSelectNode={handleSelectNode}
             sourceSpans={sourceSpans}
             selectedEvidenceSpanId={effectiveSelectedSpanId}
             nodeDeltaPresentations={nodeDeltaPresentations}
@@ -301,54 +254,6 @@ export function GraphProjectionReader({
             onGraphAuthoringSelection={handleAuthoringSelection}
           />
         </article>
-        {explorerOpen && activeNode && activeCardModel ? (
-          <aside
-            className="graph-node-explorer union-supergraph-node-panel"
-            aria-label="Graph object panel"
-          >
-            <header className="graph-explorer-header">
-              <div className="graph-explorer-nav">
-                {explorerTrail.length > 1 ? (
-                  <button type="button" className="graph-explorer-back" onClick={popExplorer}>
-                    Back
-                  </button>
-                ) : null}
-                <button type="button" className="graph-explorer-close" onClick={closeExplorer}>
-                  Close
-                </button>
-              </div>
-              {explorerTrail.length > 1 ? (
-                <nav className="graph-explorer-breadcrumb" aria-label="Object trail">
-                  {explorerTrail.map((nodeId, index) => {
-                    const trailNode = nodeViews[nodeId];
-                    const trailLabel = trailNode?.label ?? nodeId;
-                    return (
-                      <span key={`${nodeId}:${index}`}>
-                        {index > 0 ? <span className="graph-explorer-breadcrumb-sep">→</span> : null}
-                        <span
-                          className={
-                            index === explorerTrail.length - 1
-                              ? "graph-explorer-breadcrumb-current"
-                              : ""
-                          }
-                        >
-                          {trailLabel}
-                        </span>
-                      </span>
-                    );
-                  })}
-                </nav>
-              ) : null}
-            </header>
-            <GraphObjectCard
-              key={activeNodeId}
-              mode="plan"
-              model={activeCardModel}
-              showRelationshipProvenance
-              onSelectRelationship={handleRelationshipSelect}
-            />
-          </aside>
-        ) : null}
       </div>
     </div>
   );

@@ -1,5 +1,10 @@
 import type { PlanViewProjection } from "../../api/types";
-import type { PlanContextDescriptor, SurfaceConfig } from "../types";
+import { formatReviewCampaignLabel } from "../sessionCampaignContext";
+import type { PlanContextDescriptor, PlanSessionDescriptor, SurfaceConfig } from "../types";
+import {
+  FIXTURE_DOC_ID,
+  fixturePlanDocumentDescriptor,
+} from "./planSessionDescriptor";
 import {
   PLAN_SURFACE_SPIKE_THEME_ID,
   PLAN_SURFACE_THEME_TOKENS,
@@ -23,6 +28,36 @@ export function buildIngestContextFromPlanView(
   };
 }
 
+/**
+ * Session descriptor for World Graph resolution + PlanReferenceObjectCard actions.
+ * Ingest has no planning document; stub one so the shared reference host can render.
+ */
+export function buildIngestSessionDescriptor(
+  context: PlanContextDescriptor,
+): PlanSessionDescriptor {
+  const memorySession = context.ingestSession;
+  return {
+    surfaceId: "plan",
+    campaignId: context.campaignId,
+    campaignLabel: formatReviewCampaignLabel(context.campaignId),
+    memorySession,
+    liveSession: context.liveSession,
+    sourceStatusLabel:
+      memorySession != null
+        ? `Ingest · Session ${memorySession}`
+        : "Ingest · world graph",
+    sourceStatusKind: "unknown",
+    planningDocument: fixturePlanDocumentDescriptor({
+      documentId: FIXTURE_DOC_ID,
+      title: "Memory Ingest",
+      campaignId: context.campaignId,
+      targetSession: memorySession,
+      targetRelpath: null,
+      description: "Ingest surface stub — not a workspace plan document.",
+    }),
+  };
+}
+
 export function createIngestSurfaceConfig(
   context: PlanContextDescriptor,
 ): SurfaceConfig {
@@ -30,6 +65,7 @@ export function createIngestSurfaceConfig(
     id: "ingest",
     label: "Ingest",
     context,
+    sessionDescriptor: buildIngestSessionDescriptor(context),
     tools: [
       {
         id: "ingest-recap",

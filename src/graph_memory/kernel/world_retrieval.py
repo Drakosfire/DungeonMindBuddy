@@ -39,6 +39,7 @@ from graph_memory.kernel.world_projection import (
     build_projection_payload,
     resolve_projection_admissibility,
 )
+from graph_memory.projection_load_telemetry import projection_load_trace, timed_stage
 from graph_memory.union_supergraph.model import (
     UnionSupergraphStore,
 )
@@ -966,113 +967,124 @@ def search_campaign_graph(
     root: Path, request: WorldGraphSearchRequest
 ) -> WorldGraphRetrievalResult:
     request = _revalidate(WorldGraphSearchRequest, request)
-    loaded = _load_projection_and_store(
-        root,
+    with projection_load_trace(
+        "search_campaign_graph",
         world_id=request.world_id,
         campaign_id=request.campaign_id,
-        focus=request.focus.to_projection_focus(),
-        admissibility=request.admissibility,
-        revision_pin=request.revision_pin,
         scope_mode=request.scope_mode,
-    )
-    if loaded is None:
-        return _unavailable_result("search", request)
-    projection, store = loaded
+    ):
+        with timed_stage("load_projection"):
+            loaded = _load_projection_and_store(
+                root,
+                world_id=request.world_id,
+                campaign_id=request.campaign_id,
+                focus=request.focus.to_projection_focus(),
+                admissibility=request.admissibility,
+                revision_pin=request.revision_pin,
+                scope_mode=request.scope_mode,
+            )
+        if loaded is None:
+            return _unavailable_result("search", request)
+        projection, store = loaded
 
-    ranked, match_reasons, missing_seed_ids = _rank_search_matches(
-        projection.nodes,
-        projection.attributes,
-        projection.relationships,
-        request.query_text,
-        request.seed_node_ids,
-    )
+        with timed_stage("rank_matches") as rank_extras:
+            ranked, match_reasons, missing_seed_ids = _rank_search_matches(
+                projection.nodes,
+                projection.attributes,
+                projection.relationships,
+                request.query_text,
+                request.seed_node_ids,
+            )
+            rank_extras["candidate_count"] = len(ranked)
 
-    node_cap = request.bounds.max_nodes
-    node_truncated = len(ranked) > node_cap
-    selected_nodes = [node for node, _score in ranked[:node_cap]]
-    selected_node_ids = {node.node_id for node in selected_nodes}
-    matched_node_ids = [node.node_id for node in selected_nodes]
+        with timed_stage("assemble_bounded_result") as assemble_extras:
+            node_cap = request.bounds.max_nodes
+            node_truncated = len(ranked) > node_cap
+            selected_nodes = [node for node, _score in ranked[:node_cap]]
+            selected_node_ids = {node.node_id for node in selected_nodes}
+            matched_node_ids = [node.node_id for node in selected_nodes]
 
-    rel_cap = request.bounds.max_relationships
-    candidate_relationships = [
-        relationship
-        for relationship in projection.relationships
-        if relationship.source_node_id in selected_node_ids
-        or relationship.target_node_id in selected_node_ids
-    ]
-    relationship_truncated = len(candidate_relationships) > rel_cap
-    selected_relationships = candidate_relationships[:rel_cap]
+            rel_cap = request.bounds.max_relationships
+            candidate_relationships = [
+                relationship
+                for relationship in projection.relationships
+                if relationship.source_node_id in selected_node_ids
+                or relationship.target_node_id in selected_node_ids
+            ]
+            relationship_truncated = len(candidate_relationships) > rel_cap
+            selected_relationships = candidate_relationships[:rel_cap]
 
-    attr_cap = request.bounds.max_attributes
-    candidate_attributes = [
-        attribute
-        for attribute in projection.attributes
-        if attribute.subject_node_id in selected_node_ids
-    ]
-    attribute_truncated = len(candidate_attributes) > attr_cap
-    selected_attributes = candidate_attributes[:attr_cap]
+            attr_cap = request.bounds.max_attributes
+            candidate_attributes = [
+                attribute
+                for attribute in projection.attributes
+                if attribute.subject_node_id in selected_node_ids
+            ]
+            attribute_truncated = len(candidate_attributes) > attr_cap
+            selected_attributes = candidate_attributes[:attr_cap]
 
-    selected_edge_ids = {r.edge_id for r in selected_relationships}
-    selected_assertion_ids = {a.assertion_id for a in selected_attributes}
-    source_anchors, anchor_truncated, unreadable_ids, admitted_source_anchors = (
-        _source_anchors_for_targets(
-        store=store,
-        projection=projection,
-        graph_object_ids=selected_node_ids | selected_edge_ids,
-        assertion_ids=selected_assertion_ids,
-        max_source_anchors=request.bounds.max_source_anchors,
+            selected_edge_ids = {r.edge_id for r in selected_relationships}
+            selected_assertion_ids = {a.assertion_id for a in selected_attributes}
+            source_anchors, anchor_truncated, unreadable_ids, admitted_source_anchors = (
+                _source_anchors_for_targets(
+                    store=store,
+                    projection=projection,
+                    graph_object_ids=selected_node_ids | selected_edge_ids,
+                    assertion_ids=selected_assertion_ids,
+                    max_source_anchors=request.bounds.max_source_anchors,
+                )
+            )
+            missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
+                source_anchors=admitted_source_anchors,
+                selected_graph_object_ids=selected_node_ids | selected_edge_ids,
+                selected_assertion_ids=selected_assertion_ids,
+                nodes=selected_nodes,
+                relationships=selected_relationships,
+                attributes=selected_attributes,
+            )
+            assemble_extras["matched_nodes"] = len(matched_node_ids)
+
+        coverage = WorldGraphRetrievalCoverage(
+            requested_seed_node_ids=list(request.seed_node_ids),
+            missing_seed_node_ids=missing_seed_ids,
+            missing_evidence_ref_ids=missing_evidence_ref_ids,
+            unreadable_anchor_ids=unreadable_ids,
+            truncated_fields=_truncated_fields(
+                nodes=node_truncated,
+                relationships=relationship_truncated,
+                attributes=attribute_truncated,
+                source_anchors=anchor_truncated,
+            ),
         )
-    )
-    missing_evidence_ref_ids, gap_ids, gap_diagnostics = _selection_anchor_gaps(
-        source_anchors=admitted_source_anchors,
-        selected_graph_object_ids=selected_node_ids | selected_edge_ids,
-        selected_assertion_ids=selected_assertion_ids,
-        nodes=selected_nodes,
-        relationships=selected_relationships,
-        attributes=selected_attributes,
-    )
+        outcome = _determine_outcome(
+            truncated=bool(coverage.truncated_fields),
+            partial=(
+                bool(missing_seed_ids)
+                or bool(unreadable_ids)
+                or bool(gap_ids)
+            ),
+            has_content=bool(selected_nodes),
+        )
 
-    coverage = WorldGraphRetrievalCoverage(
-        requested_seed_node_ids=list(request.seed_node_ids),
-        missing_seed_node_ids=missing_seed_ids,
-        missing_evidence_ref_ids=missing_evidence_ref_ids,
-        unreadable_anchor_ids=unreadable_ids,
-        truncated_fields=_truncated_fields(
-            nodes=node_truncated,
-            relationships=relationship_truncated,
-            attributes=attribute_truncated,
-            source_anchors=anchor_truncated,
-        ),
-    )
-    outcome = _determine_outcome(
-        truncated=bool(coverage.truncated_fields),
-        partial=(
-            bool(missing_seed_ids)
-            or bool(unreadable_ids)
-            or bool(gap_ids)
-        ),
-        has_content=bool(selected_nodes),
-    )
-
-    return WorldGraphRetrievalResult(
-        operation="search",
-        outcome=outcome,
-        snapshot=_snapshot_from_projection(projection),
-        request_summary=_request_summary(request),
-        matched_node_ids=matched_node_ids,
-        match_reasons={
-            node_id: match_reasons[node_id]
-            for node_id in matched_node_ids
-            if node_id in match_reasons
-        },
-        nodes=[_convert_node(node) for node in selected_nodes],
-        relationships=[_convert_relationship(r) for r in selected_relationships],
-        attributes=[_convert_attribute(a) for a in selected_attributes],
-        source_anchors=source_anchors,
-        coverage=coverage,
-        trust_boundary=_trust_boundary(),
-        diagnostics=_outcome_diagnostics(coverage) + gap_diagnostics,
-    )
+        return WorldGraphRetrievalResult(
+            operation="search",
+            outcome=outcome,
+            snapshot=_snapshot_from_projection(projection),
+            request_summary=_request_summary(request),
+            matched_node_ids=matched_node_ids,
+            match_reasons={
+                node_id: match_reasons[node_id]
+                for node_id in matched_node_ids
+                if node_id in match_reasons
+            },
+            nodes=[_convert_node(node) for node in selected_nodes],
+            relationships=[_convert_relationship(r) for r in selected_relationships],
+            attributes=[_convert_attribute(a) for a in selected_attributes],
+            source_anchors=source_anchors,
+            coverage=coverage,
+            trust_boundary=_trust_boundary(),
+            diagnostics=_outcome_diagnostics(coverage) + gap_diagnostics,
+        )
 
 
 def get_campaign_object(

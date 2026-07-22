@@ -7,6 +7,16 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Post-merge Ingest = Recap (world graph) + tools — captured 2026-07-21, done 2026-07-21
+**Priority:** high — product identity for `/ingest`; unblocks PC timeline / card parity and collapses preview-vs-world confusion.
+**Context:** After Recap View moved to world-graph projection, Graph Review still opened preview-union `node_views` after merge.
+**Insight:** Preview union is a candidate while extract/promote is in flight. After confirm (or when the session is already on world head), the live lens must be World Graph Recap.
+**Action completed:** Registry stamps `projection_authority` from world-head session scan; Graph Review loads `postWorldGraphRecapProjection` when authority is `world_graph` (including post-confirm override); live canvas renders embedded `UnionSupergraphRecapProjection`; toolbar shows Merged · World Graph and hides Review & merge. Shared `buildRecapWorldGraphContext`. Deferred: full `/ingest` chrome reshape, session-identity unify, Edit-bar restore.
+**Surfaces when:** `/ingest` dogfood, Review & merge, extract-promote, PC timeline sparse on card, preview vs world graph, Recap/Ingest surface merge, Graph Review after promote
+**Refs:** `apps/live_control_server/services/graph_ingest_run_registry.py`, `src/graph_memory/interaction/latest_recap.py`, `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewLiveReviewState.ts`, `GraphReviewLiveProjectionPanel.tsx`, `recapWorldGraphContext.ts`
+
+---
+
 ## [DONE] Recap View / ingest must project world graph (not session preview union) — captured 2026-07-13, done 2026-07-21
 **Priority:** high — blocked useful Graph Review / node authoring dogfood (authoring against session-isolated extracts is redundant).
 **Context:** Session 24 ingest dogfood. After LLM extract, Recap View (`/plan?tool=recap`, Open Recap View from `/ingest`) loaded `useLatestGraphIngest: true` → session preview union only.

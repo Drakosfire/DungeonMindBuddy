@@ -38,6 +38,7 @@ import {
   verifyStatblockRetrieval,
 } from "./liveApi";
 import type { ProjectionCommand, ProjectionWriteResult, StoreStatblockDraftRequest } from "./types";
+import { clearProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
 
 function mockJsonResponse(payload: unknown): Response {
   return {
@@ -50,6 +51,7 @@ function mockJsonResponse(payload: unknown): Response {
 
 describe("liveApi artifact/capability helpers", () => {
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -622,10 +624,12 @@ describe("liveApi artifact/capability helpers", () => {
 
 describe("liveApi World Graph error preservation", () => {
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
   it("preserves World Graph error code and diagnostics on LiveApiError", async () => {
+    clearProjectionRequestCache();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
       status: 409,

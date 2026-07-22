@@ -21,6 +21,7 @@ from graph_memory.ingestion.graph_ingest_run import (
 from graph_memory.ingestion.graph_ingest_validate import (
     validate_graph_ingest_run_manifest,
 )
+from graph_memory.projection_load_telemetry import projection_load_trace, timed_stage
 
 GRAPH_INGEST_RUNS_ENV = "DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT"
 GRAPH_INGEST_MANIFEST_NAME = "graph_ingest_run_manifest.json"
@@ -40,6 +41,9 @@ class GraphIngestRunRegistryError(ValueError):
     def __init__(self, message: str, *, status_code: int = 404) -> None:
         super().__init__(message)
         self.status_code = status_code
+
+
+ProjectionAuthority = Literal["preview_union", "world_graph"]
 
 
 class GraphIngestRunSummary(BaseModel):
@@ -74,6 +78,8 @@ class GraphIngestRunSummary(BaseModel):
     # Server-owned product gate for Graph Review "Review & merge" (PR011A2).
     promotable: bool = False
     promotable_reason: str | None = None
+    # Live canvas authority: world_graph when session is already on world head.
+    projection_authority: ProjectionAuthority = "preview_union"
 
 
 class GraphIngestRunsResponse(BaseModel):
@@ -111,52 +117,116 @@ def discover_graph_ingest_runs(
             f"invalid status filter: {status}", status_code=422
         )
 
-    summaries: list[tuple[GraphIngestRunSummary, float]] = []
-    for search_root in _graph_ingest_search_roots(
-        repo, include_eval_roots=include_eval_roots
-    ):
-        if not search_root.exists():
-            continue
-        for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
-            summary = _summarize_manifest(
-                repo,
-                manifest_path,
-                registry_root=search_root,
-                include_eval_roots=include_eval_roots,
+    with projection_load_trace(
+        "graph_ingest_discovery",
+        campaign_id=campaign_id,
+        session_id=session_id,
+        require_preview_union_store=require_preview_union_store,
+        include_eval_roots=include_eval_roots,
+    ) as trace:
+        summaries: list[tuple[GraphIngestRunSummary, float]] = []
+        manifests_scanned = 0
+        with timed_stage("resolve_search_roots") as roots_extras:
+            search_roots = list(
+                _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots)
             )
-            if summary is None:
-                continue
-            if campaign_id is not None and summary.campaign_id != campaign_id:
-                continue
-            if session_id is not None and summary.session_id != session_id:
-                continue
-            if (
-                source_recap_path is not None or source_recap_sha256 is not None
-            ) and not _manifest_matches_source_recap(
-                repo,
-                manifest_path,
-                source_recap_path=source_recap_path,
-                source_recap_sha256=source_recap_sha256,
-            ):
-                continue
-            if status is not None and summary.status != status:
-                continue
-            if require_preview_union_store and not _has_ready_preview_union_store(
-                summary
-            ):
-                continue
-            summaries.append((summary, manifest_path.stat().st_mtime))
+            roots_extras["root_count"] = len(search_roots)
+        with timed_stage("scan_manifests") as scan_extras:
+            for search_root in search_roots:
+                if not search_root.exists():
+                    continue
+                for manifest_path in sorted(search_root.rglob(GRAPH_INGEST_MANIFEST_NAME)):
+                    manifests_scanned += 1
+                    summary = _summarize_manifest(
+                        repo,
+                        manifest_path,
+                        registry_root=search_root,
+                        include_eval_roots=include_eval_roots,
+                    )
+                    if summary is None:
+                        continue
+                    if campaign_id is not None and summary.campaign_id != campaign_id:
+                        continue
+                    if session_id is not None and summary.session_id != session_id:
+                        continue
+                    if (
+                        source_recap_path is not None or source_recap_sha256 is not None
+                    ) and not _manifest_matches_source_recap(
+                        repo,
+                        manifest_path,
+                        source_recap_path=source_recap_path,
+                        source_recap_sha256=source_recap_sha256,
+                    ):
+                        continue
+                    if status is not None and summary.status != status:
+                        continue
+                    if require_preview_union_store and not _has_ready_preview_union_store(
+                        summary
+                    ):
+                        continue
+                    summaries.append((summary, manifest_path.stat().st_mtime))
+            scan_extras["manifests_scanned"] = manifests_scanned
+            scan_extras["manifests_matched"] = len(summaries)
 
-    summaries.sort(
-        key=lambda item: (
-            item[0].updated_at or "",
-            item[0].created_at or "",
-            item[1],
-            _reverse_path_key(item[0].manifest_path),
-        ),
-        reverse=True,
+        summaries.sort(
+            key=lambda item: (
+                item[0].updated_at or "",
+                item[0].created_at or "",
+                item[1],
+                _reverse_path_key(item[0].manifest_path),
+            ),
+            reverse=True,
+        )
+        ordered = [summary for summary, _mtime in summaries]
+        with timed_stage("stamp_projection_authority") as auth_extras:
+            stamped = _stamp_projection_authority(ordered)
+            auth_extras["run_count"] = len(stamped)
+        trace.bump("manifests_scanned", manifests_scanned)
+        trace.bump("runs", len(stamped))
+        return stamped
+
+
+def _stamp_projection_authority(
+    summaries: list[GraphIngestRunSummary],
+    *,
+    world_id: str = "eldyrwild",
+) -> list[GraphIngestRunSummary]:
+    """Stamp each run with world-vs-preview live-canvas authority.
+
+    Opens world head once and caches per-campaign session sets. Fail closed to
+    ``preview_union`` when the head cannot be read.
+    """
+    if not summaries:
+        return summaries
+
+    from graph_memory.interaction.latest_recap import (
+        normalize_session_id,
+        session_ids_in_world_graph_head,
     )
-    return [summary for summary, _mtime in summaries]
+
+    sessions_by_campaign: dict[str, set[str]] = {}
+    stamped: list[GraphIngestRunSummary] = []
+    for summary in summaries:
+        campaign_id = summary.campaign_id
+        if campaign_id not in sessions_by_campaign:
+            sessions_by_campaign[campaign_id] = session_ids_in_world_graph_head(
+                campaign_id=campaign_id,
+                world_id=world_id,
+            )
+        session_key = normalize_session_id(summary.session_id)
+        authority: ProjectionAuthority = (
+            "world_graph"
+            if session_key is not None
+            and session_key in sessions_by_campaign[campaign_id]
+            else "preview_union"
+        )
+        if summary.projection_authority == authority:
+            stamped.append(summary)
+        else:
+            stamped.append(
+                summary.model_copy(update={"projection_authority": authority})
+            )
+    return stamped
 
 
 def resolve_latest_preview_union_graph_ingest_run(

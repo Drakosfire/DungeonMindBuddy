@@ -4,9 +4,9 @@ import type {
   RecapProjectionSourceSpan,
 } from "../../api/types";
 import {
-  GraphNodeToken,
+  GraphNodeHoverToken,
   presentationForNodeId,
-} from "../graphPreview/GraphNodePresentation";
+} from "../../graphReference";
 import type {
   GraphReviewDeltaIndex,
   GraphReviewDeltaStatus,
@@ -119,7 +119,7 @@ function renderMentionToken({
   const activeHere =
     activeObject?.laneRole === laneRole && activeObject?.nodeId === nodeId;
   return (
-    <GraphNodeToken
+    <GraphNodeHoverToken
       key={key}
       presentation={presentation}
       label={label}

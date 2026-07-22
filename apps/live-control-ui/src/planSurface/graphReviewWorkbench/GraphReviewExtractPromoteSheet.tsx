@@ -69,16 +69,29 @@ function actionLabel(action: ExtractPromotionReviewItem["action"]): string {
   }
 }
 
-function outcomeLabel(outcome: ExtractPromoteConfirmReceipt["outcome"]): string {
+function outcomeHeadline(outcome: ExtractPromoteConfirmReceipt["outcome"]): string {
   switch (outcome) {
     case "committed":
-      return "Committed";
+      return "Merged into campaign memory";
     case "already_applied":
-      return "Already applied";
+      return "Already in campaign memory";
     case "published_audit_degraded":
-      return "Committed with degraded audit";
+      return "Merged into campaign memory";
     default:
-      return outcome;
+      return "Merge finished";
+  }
+}
+
+function outcomeDetail(outcome: ExtractPromoteConfirmReceipt["outcome"]): string {
+  switch (outcome) {
+    case "committed":
+      return "These selected changes are now part of the World Graph.";
+    case "already_applied":
+      return "This exact selection was already published; nothing new was written.";
+    case "published_audit_degraded":
+      return "Campaign memory advanced. Post-publish audit reported a warning — the merge itself succeeded.";
+    default:
+      return "Campaign memory update completed.";
   }
 }
 
@@ -96,6 +109,8 @@ async function defaultCatalogRefresh(): Promise<void> {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
 }
+
+type ProjectionSyncPhase = "idle" | "syncing" | "ready" | "error";
 
 /**
  * Game-facing promote review sheet (PR011A2 prepare + PR011A3 confirm).
@@ -117,11 +132,13 @@ export function GraphReviewExtractPromoteSheet({
   const [receipt, setReceipt] = useState<ExtractPromoteConfirmReceipt | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [reloadError, setReloadError] = useState<string | null>(null);
-  const [reloadingRevision, setReloadingRevision] = useState(false);
+  const [projectionSyncPhase, setProjectionSyncPhase] =
+    useState<ProjectionSyncPhase>("idle");
 
   const confirming = confirmPhase === "confirming";
   const selectionLocked = confirming || confirmPhase === "receipt";
   const hasTerminalReceipt = receipt != null;
+  const syncingProjection = projectionSyncPhase === "syncing";
 
   useEffect(() => {
     onConfirmInFlightChange?.(confirming);
@@ -147,7 +164,7 @@ export function GraphReviewExtractPromoteSheet({
   };
 
   const applyCommittedRevision = useCallback(
-    async (nextReceipt: ExtractPromoteConfirmReceipt) => {
+    async (nextReceipt: ExtractPromoteConfirmReceipt): Promise<boolean> => {
       setReloadError(null);
       try {
         await reloadCommittedWorldProjection(
@@ -155,15 +172,34 @@ export function GraphReviewExtractPromoteSheet({
           nextReceipt.worldId,
         );
         selectDurableObjectIds(nextReceipt.affectedObjectIds);
+        return true;
       } catch (error) {
         setReloadError(
           error instanceof Error
             ? error.message
             : "Failed to reload committed World Graph revision.",
         );
+        return false;
       }
     },
     [reloadCommittedWorldProjection, selectDurableObjectIds],
+  );
+
+  const startBackgroundProjectionSync = useCallback(
+    (nextReceipt: ExtractPromoteConfirmReceipt) => {
+      setProjectionSyncPhase("syncing");
+      setReloadError(null);
+      void (async () => {
+        try {
+          await onCatalogRefresh();
+        } catch {
+          // Catalog refresh failure must not erase receipt or block World Graph sync.
+        }
+        const ok = await applyCommittedRevision(nextReceipt);
+        setProjectionSyncPhase(ok ? "ready" : "error");
+      })();
+    },
+    [applyCommittedRevision, onCatalogRefresh],
   );
 
   const runConfirm = useCallback(
@@ -171,21 +207,17 @@ export function GraphReviewExtractPromoteSheet({
       setConfirmPhase("confirming");
       setConfirmError(null);
       setReloadError(null);
+      setProjectionSyncPhase("idle");
       try {
         const nextReceipt = await confirmExtractPromote({
           reviewPackage: prepared.reviewPackage,
           assertionIds,
         });
+        // Paint the success receipt immediately; World Graph reload continues in
+        // the background so the GM can read confirmation while sync starts.
         setReceipt(nextReceipt);
         setConfirmPhase("receipt");
-        try {
-          await onCatalogRefresh();
-        } catch {
-          // Catalog refresh failure must not erase receipt.
-        }
-        if (nextReceipt.outcome !== "published_audit_degraded") {
-          await applyCommittedRevision(nextReceipt);
-        }
+        startBackgroundProjectionSync(nextReceipt);
       } catch (error) {
         if (error instanceof ExtractPromoteApiError) {
           setConfirmPhase("pre_commit_error");
@@ -200,7 +232,7 @@ export function GraphReviewExtractPromoteSheet({
         );
       }
     },
-    [applyCommittedRevision, onCatalogRefresh, prepared.reviewPackage],
+    [prepared.reviewPackage, startBackgroundProjectionSync],
   );
 
   const onMergeClick = () => {
@@ -218,15 +250,9 @@ export function GraphReviewExtractPromoteSheet({
     void runConfirm(ids);
   };
 
-  const onReloadCommittedRevision = async () => {
-    if (!receipt) return;
-    setReloadingRevision(true);
-    setReloadError(null);
-    try {
-      await applyCommittedRevision(receipt);
-    } finally {
-      setReloadingRevision(false);
-    }
+  const onRetryProjectionSync = () => {
+    if (!receipt || syncingProjection) return;
+    startBackgroundProjectionSync(receipt);
   };
 
   const showMergeCta =
@@ -252,7 +278,7 @@ export function GraphReviewExtractPromoteSheet({
         </button>
       </header>
 
-      {summaryLines.length ? (
+      {summaryLines.length && !hasTerminalReceipt ? (
         <ul className="graph-review-extract-promote-summary">
           {summaryLines.map((line) => (
             <li key={line}>{line}</li>
@@ -262,19 +288,45 @@ export function GraphReviewExtractPromoteSheet({
 
       {receipt ? (
         <div
-          className="graph-review-extract-promote-receipt"
+          className={
+            receipt.outcome === "published_audit_degraded"
+              ? "graph-review-extract-promote-receipt is-degraded"
+              : "graph-review-extract-promote-receipt is-success"
+          }
           data-testid="graph-review-extract-promote-receipt"
           data-outcome={receipt.outcome}
+          data-projection-sync={projectionSyncPhase}
+          role="status"
+          aria-live="polite"
         >
-          <p className="graph-review-extract-promote-receipt-outcome">
-            {outcomeLabel(receipt.outcome)}
+          <p
+            className="graph-review-extract-promote-receipt-outcome"
+            data-testid="graph-review-extract-promote-receipt-headline"
+          >
+            {outcomeHeadline(receipt.outcome)}
+          </p>
+          <p className="graph-review-extract-promote-receipt-detail">
+            {outcomeDetail(receipt.outcome)}
+          </p>
+          <p className="graph-review-extract-promote-receipt-applied">
+            Applied {receipt.appliedAssertionCount} change
+            {receipt.appliedAssertionCount === 1 ? "" : "s"}
+            {receipt.headAdvanced ? " · head advanced" : ""}.
           </p>
           <p className="graph-review-extract-promote-receipt-revision">
             {receipt.parentRevisionId} → {receipt.committedRevisionId}
           </p>
-          <p className="graph-review-extract-promote-receipt-applied">
-            Applied {receipt.appliedAssertionCount} change
-            {receipt.appliedAssertionCount === 1 ? "" : "s"} to campaign memory.
+          <p
+            className="graph-review-extract-promote-receipt-sync"
+            data-testid="graph-review-extract-promote-projection-sync"
+          >
+            {projectionSyncPhase === "syncing"
+              ? "Updating World Graph view in the background…"
+              : projectionSyncPhase === "ready"
+                ? "World Graph view updated."
+                : projectionSyncPhase === "error"
+                  ? "Merge succeeded, but the World Graph view did not refresh."
+                  : null}
           </p>
           {receipt.warnings.length ? (
             <ul className="graph-review-extract-promote-receipt-warnings">
@@ -361,7 +413,9 @@ export function GraphReviewExtractPromoteSheet({
           data-review-package-digest={prepared.proposalDigest}
         >
           {hasTerminalReceipt
-            ? "These changes are committed to campaign memory."
+            ? projectionSyncPhase === "syncing"
+              ? "Merge succeeded. You can close this panel while the World Graph catches up."
+              : "Merge succeeded."
             : selectedCount === 0
               ? "Select at least one accepted change to merge into campaign memory."
               : `${selectedCount} change${selectedCount === 1 ? "" : "s"} selected.`}
@@ -405,29 +459,26 @@ export function GraphReviewExtractPromoteSheet({
           </button>
         ) : null}
 
-        {receipt?.outcome === "published_audit_degraded" ? (
+        {receipt && projectionSyncPhase === "error" ? (
           <button
             type="button"
             className="secondary"
             data-testid="graph-review-extract-promote-reload-revision"
-            disabled={reloadingRevision}
-            onClick={() => void onReloadCommittedRevision()}
+            disabled={syncingProjection}
+            onClick={onRetryProjectionSync}
           >
-            {reloadingRevision ? "Reloading…" : "Reload committed revision"}
+            {syncingProjection ? "Updating view…" : "Retry World Graph refresh"}
           </button>
         ) : null}
 
-        {receipt &&
-        receipt.outcome !== "published_audit_degraded" &&
-        reloadError ? (
+        {receipt ? (
           <button
             type="button"
-            className="secondary"
-            data-testid="graph-review-extract-promote-reload-revision"
-            disabled={reloadingRevision}
-            onClick={() => void onReloadCommittedRevision()}
+            className="primary"
+            data-testid="graph-review-extract-promote-done"
+            onClick={onClose}
           >
-            {reloadingRevision ? "Reloading…" : "Reload committed revision"}
+            {syncingProjection ? "Done — view still updating" : "Done"}
           </button>
         ) : null}
       </footer>

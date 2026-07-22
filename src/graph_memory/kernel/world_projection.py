@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -72,6 +73,11 @@ from graph_memory.union_supergraph.projection_identity import (
     is_projectable_union_edge,
     is_projectable_union_node,
     projectable_node_ids,
+)
+from graph_memory.projection_load_telemetry import (
+    current_projection_load_trace,
+    projection_load_trace,
+    timed_stage,
 )
 from graph_memory.world_supergraph import paths as world_paths
 from graph_memory.world_supergraph.contribution_store import load_contribution_record
@@ -514,6 +520,13 @@ def _load_validated_contribution(
     world_id: str,
     contribution_id: str,
 ) -> GraphContribution:
+    trace = current_projection_load_trace()
+    if trace is not None:
+        cached = trace.get_cached_contribution(world_id, contribution_id)
+        if cached is not None:
+            return cached
+
+    started = time.perf_counter()
     try:
         contribution = load_contribution_record(root, world_id, contribution_id)
     except (FileNotFoundError, OSError, ValueError, ValidationError, json.JSONDecodeError) as exc:
@@ -548,6 +561,14 @@ def _load_validated_contribution(
                 contribution_id=contribution_id,
                 context=collection_name,
             )
+    load_ms = (time.perf_counter() - started) * 1000.0
+    if trace is not None:
+        return trace.put_cached_contribution(
+            world_id,
+            contribution_id,
+            contribution,
+            load_ms=load_ms,
+        )
     return contribution
 
 
@@ -2196,44 +2217,48 @@ def build_projection_payload(
         )
 
     try:
-        attributes = _build_attribute_views(
-            root,
-            resolved_world_id,
-            store,
-            request_campaign_id=request.campaign_id,
-            scope_mode=request.scope_mode,
-        )
-        relationships = _build_relationship_views(
-            root,
-            resolved_world_id,
-            store,
-            request_campaign_id=request.campaign_id,
-            scope_mode=request.scope_mode,
-        )
-        nodes = _build_node_views(
-            root,
-            resolved_world_id,
-            store,
-            request.focus,
-            attributes,
-            relationships,
-            request_campaign_id=request.campaign_id,
-            scope_mode=request.scope_mode,
-        )
-        evidence_ids = _collect_projection_provenance_ids(
-            nodes,
-            attributes,
-            relationships,
-        )
-        evidence = _build_evidence_views(store, evidence_ids)
-        source_artifact_ids = _collect_projection_source_artifact_ids(
-            store,
-            nodes,
-            attributes,
-            relationships,
-            evidence_ids,
-        )
-        source_artifacts = _build_source_artifact_views(store, source_artifact_ids)
+        with timed_stage("build_attributes"):
+            attributes = _build_attribute_views(
+                root,
+                resolved_world_id,
+                store,
+                request_campaign_id=request.campaign_id,
+                scope_mode=request.scope_mode,
+            )
+        with timed_stage("build_relationships"):
+            relationships = _build_relationship_views(
+                root,
+                resolved_world_id,
+                store,
+                request_campaign_id=request.campaign_id,
+                scope_mode=request.scope_mode,
+            )
+        with timed_stage("build_nodes"):
+            nodes = _build_node_views(
+                root,
+                resolved_world_id,
+                store,
+                request.focus,
+                attributes,
+                relationships,
+                request_campaign_id=request.campaign_id,
+                scope_mode=request.scope_mode,
+            )
+        with timed_stage("build_evidence_and_artifacts"):
+            evidence_ids = _collect_projection_provenance_ids(
+                nodes,
+                attributes,
+                relationships,
+            )
+            evidence = _build_evidence_views(store, evidence_ids)
+            source_artifact_ids = _collect_projection_source_artifact_ids(
+                store,
+                nodes,
+                attributes,
+                relationships,
+                evidence_ids,
+            )
+            source_artifacts = _build_source_artifact_views(store, source_artifact_ids)
     except WorldGraphProjectionError:
         raise
     except Exception as exc:
@@ -2251,11 +2276,12 @@ def build_projection_payload(
     )
     # Focus overlay remains session-biased; campaign qualification is applied
     # in node/adjacency ranking above. Overlay uses session_id for coarse set.
-    overlay = build_focus_overlay(
-        store,
-        focus_session_id=focus_session_id,
-        identity_context=identity_context,
-    )
+    with timed_stage("build_focus_overlay"):
+        overlay = build_focus_overlay(
+            store,
+            focus_session_id=focus_session_id,
+            identity_context=identity_context,
+        )
     diagnostics = [
         WorldGraphProjectionDiagnostic(
             code="focus_overlay_built",
@@ -2321,6 +2347,13 @@ def build_projection_payload(
                 )
             }
         )
+    trace = current_projection_load_trace()
+    if trace is not None:
+        trace.bump("nodes", len(nodes))
+        trace.bump("relationships", len(relationships))
+        trace.bump("attributes", len(attributes))
+        trace.bump("evidence", len(evidence))
+        trace.bump("source_artifacts", len(source_artifacts))
     return projection
 
 
@@ -2342,25 +2375,48 @@ def project_world_graph(
 
     resolve_projection_admissibility(request.admissibility)
 
-    try:
-        revision_id, head_revision_id, store = _load_revision_context(root, request)
-        return build_projection_payload(
-            request=request,
-            revision_id=revision_id,
-            head_revision_id=head_revision_id,
-            store=store,
-            root=root,
-            world_id=request.world_id,
-        )
-    except WorldGraphProjectionError:
-        raise
-    except Exception as exc:
-        raise WorldGraphProjectionError(
-            "World graph projection failed unexpectedly.",
-            code="projection_internal_error",
-            status_code=500,
-            diagnostics=[_diagnostic("projection_internal_error", str(exc))],
-        ) from exc
+    focus_session_id = (
+        request.focus.session_id if request.focus.kind == "session" else None
+    )
+    with projection_load_trace(
+        "world_graph_projection",
+        world_id=request.world_id,
+        campaign_id=request.campaign_id,
+        scope_mode=getattr(request, "scope_mode", "campaign"),
+        focus_session_id=focus_session_id,
+        revision_pin=request.revision_pin,
+        admissibility=request.admissibility,
+    ) as trace:
+        try:
+            with timed_stage("load_revision_context") as load_extras:
+                revision_id, head_revision_id, store = _load_revision_context(
+                    root, request
+                )
+                load_extras["revision_id"] = revision_id
+                load_extras["head_revision_id"] = head_revision_id
+                load_extras["pinned"] = bool(request.revision_pin)
+            trace.set_meta(
+                revision_id=revision_id,
+                head_revision_id=head_revision_id,
+            )
+            with timed_stage("build_projection_payload"):
+                return build_projection_payload(
+                    request=request,
+                    revision_id=revision_id,
+                    head_revision_id=head_revision_id,
+                    store=store,
+                    root=root,
+                    world_id=request.world_id,
+                )
+        except WorldGraphProjectionError:
+            raise
+        except Exception as exc:
+            raise WorldGraphProjectionError(
+                "World graph projection failed unexpectedly.",
+                code="projection_internal_error",
+                status_code=500,
+                diagnostics=[_diagnostic("projection_internal_error", str(exc))],
+            ) from exc
 
 
 def search_world_graph_projection(

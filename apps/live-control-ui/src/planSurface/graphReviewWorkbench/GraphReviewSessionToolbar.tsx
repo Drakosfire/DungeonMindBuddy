@@ -30,7 +30,8 @@ function promoteErrorMessage(error: unknown): string {
 }
 
 export function GraphReviewSessionToolbar() {
-  const { projection, projectionStatus, liveRun } = useGraphReviewLiveState();
+  const { projection, projectionStatus, liveRun, projectionAuthority } =
+    useGraphReviewLiveState();
   const [worldInitialized, setWorldInitialized] = useState(false);
   const [worldStatusError, setWorldStatusError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
@@ -41,6 +42,7 @@ export function GraphReviewSessionToolbar() {
   const liveRunIdRef = useRef<string | null>(liveRun?.run_id?.trim() || null);
 
   liveRunIdRef.current = liveRun?.run_id?.trim() || null;
+  const isWorldAuthority = projectionAuthority === "world_graph";
 
   useEffect(() => {
     let cancelled = false;
@@ -73,15 +75,26 @@ export function GraphReviewSessionToolbar() {
   }, [confirmInFlight, liveRun?.run_id, liveRun?.manifest_path]);
 
   const canReviewAndMerge = useMemo(() => {
+    if (isWorldAuthority) return false;
     if (projectionStatus !== "ready" || !projection) return false;
     if (!liveRun?.run_id || !liveRun.run_id.trim()) return false;
     if (liveRun.promotable !== true) return false;
     if (!worldInitialized) return false;
     if (confirmInFlight) return false;
     return true;
-  }, [confirmInFlight, liveRun, projection, projectionStatus, worldInitialized]);
+  }, [
+    confirmInFlight,
+    isWorldAuthority,
+    liveRun,
+    projection,
+    projectionStatus,
+    worldInitialized,
+  ]);
 
   const disabledReason = useMemo(() => {
+    if (isWorldAuthority) {
+      return "This session is already in memory.";
+    }
     if (confirmInFlight) {
       return "Merge confirmation is in progress.";
     }
@@ -101,11 +114,19 @@ export function GraphReviewSessionToolbar() {
       return "World Graph is not initialized.";
     }
     return null;
-  }, [confirmInFlight, liveRun, projection, projectionStatus, worldInitialized, worldStatusError]);
+  }, [
+    confirmInFlight,
+    isWorldAuthority,
+    liveRun,
+    projection,
+    projectionStatus,
+    worldInitialized,
+    worldStatusError,
+  ]);
 
   const onReviewAndMerge = useCallback(async () => {
     const runId = liveRun?.run_id?.trim();
-    if (!runId || preparing || confirmInFlight) return;
+    if (!runId || preparing || confirmInFlight || isWorldAuthority) return;
     const generation = prepareGenerationRef.current;
     setPreparing(true);
     setPrepareError(null);
@@ -132,9 +153,14 @@ export function GraphReviewSessionToolbar() {
         setPreparing(false);
       }
     }
-  }, [confirmInFlight, liveRun?.run_id, preparing]);
+  }, [confirmInFlight, isWorldAuthority, liveRun?.run_id, preparing]);
 
   if (projectionStatus !== "ready" || !projection) {
+    return null;
+  }
+
+  // World Graph authority: Memory lives in the sticky header — no green toolbar strip.
+  if (isWorldAuthority) {
     return null;
   }
 

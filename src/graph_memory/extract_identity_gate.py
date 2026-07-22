@@ -7,7 +7,7 @@ rejected assertions, plus a fixed-candidate scorer report for operator review.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -37,14 +37,87 @@ from graph_memory.kernel import (
     open_current_world_graph,
     resolve_identity,
 )
+from graph_memory.kernel.identity_models import IdentityResolution
 from graph_memory.kernel.world_graph import load_world_graph_revision
+from graph_memory.kernel.world_projection import _edge_core_semantic_fingerprint
 from graph_memory.union_supergraph.model import UnionSupergraphStore
+from graph_memory.world_supergraph.contribution_store import load_contribution_record
 
 _MUTATING_OUTCOMES = frozenset({"resolved_existing", "created_new", "human_override"})
 _CONNECT_EXISTING_OUTCOMES = frozenset({"resolved_existing", "human_override"})
 _NON_MUTATING_OUTCOMES = frozenset(
     {"ambiguous", "blocked_collision", "rejected", "provisional_new"}
 )
+
+
+def _active_edge_supports_by_object(
+    store: UnionSupergraphStore,
+) -> dict[str, list[dict[str, Any]]]:
+    """Index supported edge assertion supports by durable graph_object_id."""
+    by_object: dict[str, list[dict[str, Any]]] = {}
+    for raw in store.assertion_support.values():
+        support = (
+            raw.model_dump(mode="json")
+            if hasattr(raw, "model_dump")
+            else dict(raw)
+        )
+        if support.get("assertion_kind") != "edge":
+            continue
+        if support.get("support_state") != "supported":
+            continue
+        if not support.get("active_contribution_ids"):
+            continue
+        object_id = str(support.get("graph_object_id") or "").strip()
+        if not object_id:
+            continue
+        by_object.setdefault(object_id, []).append(support)
+    return by_object
+
+
+def _resolve_assertion_from_active_support(
+    root: Path,
+    world_id: str,
+    support: Mapping[str, Any],
+) -> GraphContributionAssertion | None:
+    assertion_id = str(support.get("assertion_id") or "").strip()
+    if not assertion_id:
+        return None
+    for contribution_id in support.get("active_contribution_ids") or []:
+        try:
+            record = load_contribution_record(root, world_id, str(contribution_id))
+        except Exception:
+            continue
+        for candidate in record.accepted_assertions:
+            if candidate.assertion_id == assertion_id:
+                return candidate
+    return None
+
+
+def _edge_core_conflict_diagnostic(
+    assertion: GraphContributionAssertion,
+    *,
+    root: Path,
+    world_id: str,
+    supports_by_object: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> str | None:
+    """If head already has this edge id with disagreeing core semantics, say why."""
+    edge_id = str((assertion.value or {}).get("edge_id") or "").strip()
+    if not edge_id:
+        return None
+    supports = list(supports_by_object.get(edge_id) or [])
+    if not supports:
+        return None
+    incoming_fp = _edge_core_semantic_fingerprint(assertion)
+    for support in supports:
+        existing = _resolve_assertion_from_active_support(root, world_id, support)
+        if existing is None:
+            continue
+        if _edge_core_semantic_fingerprint(existing) != incoming_fp:
+            return (
+                "edge_core_semantic_conflict:"
+                f"{edge_id}:{existing.assertion_id}->{assertion.assertion_id}"
+            )
+    return None
 
 
 def _require_artifact_id(value: str | None) -> str:
@@ -251,6 +324,172 @@ def _durable_node_id(resolution: Any, extract_node_id: str) -> str | None:
     return None
 
 
+def _candidate_type_priority(node: CandidateNode) -> int:
+    return int(ir._CROSS_CLASS_TYPE_PRIORITY.get(ir.node_type_class(node.node_type), 0))
+
+
+def _collapse_duplicate_extract_nodes(
+    nodes: Sequence[CandidateNode],
+) -> tuple[list[CandidateNode], list[CandidateNode]]:
+    """Keep one candidate per extract node_id (higher type-class priority wins)."""
+    winners: dict[str, CandidateNode] = {}
+    dropped: list[CandidateNode] = []
+    for node in nodes:
+        extract_id = str(node.node_id or "").strip()
+        if not extract_id:
+            dropped.append(node)
+            continue
+        existing = winners.get(extract_id)
+        if existing is None:
+            winners[extract_id] = node
+            continue
+        node_score = (
+            _candidate_type_priority(node),
+            len(node.evidence_refs or ()),
+        )
+        existing_score = (
+            _candidate_type_priority(existing),
+            len(existing.evidence_refs or ()),
+        )
+        if node_score > existing_score:
+            dropped.append(existing)
+            winners[extract_id] = node
+        else:
+            dropped.append(node)
+    return list(winners.values()), dropped
+
+
+def _kinds_compatible_for_scorer_attach(candidate_kind: str, head_kind: str) -> bool:
+    """Allow connect when kernel kinds agree or share a coarse type class.
+
+    Session extracts often retarget an existing creature/NPC under a sibling
+    actor kind (``creature`` vs ``npc``). Exact-kind matching would mint a
+    second full node assertion on the same durable id and merge refuses.
+    """
+    cand = (candidate_kind or "").strip().casefold()
+    head = (head_kind or "").strip().casefold()
+    if not cand or not head:
+        return False
+    if cand == head:
+        return True
+    cand_class = ir.node_type_class(cand)
+    head_class = ir.node_type_class(head)
+    if cand_class.startswith("type:") or head_class.startswith("type:"):
+        return False
+    return cand_class == head_class
+
+
+def _unique_scorer_head_match(
+    extract_id: str,
+    scorer_report: Mapping[str, Any],
+) -> str | None:
+    """Return the unique non-ambiguous scorer head id for this extract node, if any."""
+    ambiguous = {
+        str(item.get("candidate_node_id") or "").strip()
+        for item in (scorer_report.get("unresolved_ambiguity") or [])
+        if isinstance(item, Mapping)
+    }
+    if extract_id in ambiguous:
+        return None
+    matches = [
+        str(item.get("head_node_id") or "").strip()
+        for item in (scorer_report.get("matched") or [])
+        if isinstance(item, Mapping)
+        and str(item.get("candidate_node_id") or "").strip() == extract_id
+        and str(item.get("head_node_id") or "").strip()
+    ]
+    unique = sorted(set(matches))
+    if len(unique) != 1:
+        return None
+    return unique[0]
+
+
+def _maybe_attach_via_scorer(
+    *,
+    resolution: Any,
+    extract_id: str,
+    object_kind: str,
+    store: UnionSupergraphStore,
+    scorer_report: Mapping[str, Any],
+) -> Any:
+    """When kernel exact-match misses but scorer uniquely attaches, prefer connect."""
+    if getattr(resolution, "outcome", None) != "created_new":
+        return resolution
+    head_id = _unique_scorer_head_match(extract_id, scorer_report)
+    if not head_id:
+        return resolution
+    head_node = store.nodes.get(head_id)
+    if head_node is None:
+        return resolution
+    if not _kinds_compatible_for_scorer_attach(object_kind, head_node.kind):
+        return resolution
+    return IdentityResolution(
+        world_id=resolution.world_id,
+        candidate_id=resolution.candidate_id,
+        outcome="resolved_existing",
+        target_node_id=head_id,
+        diagnostics=[
+            *list(resolution.diagnostics or []),
+            f"scorer_unique_attach:{extract_id}->{head_id}",
+        ],
+        requires_human_review=False,
+        canon_state="canonical",
+    )
+
+
+def _maybe_attach_or_block_existing_node_id(
+    *,
+    resolution: Any,
+    extract_id: str,
+    object_kind: str,
+    store: UnionSupergraphStore,
+) -> Any:
+    """Never ``created_new`` onto a durable id that already exists on the head.
+
+    Proposed extract ids often reuse a prior slug (``node:bubbles``). Kernel
+    surface matching can miss when labels drift (``Bubbles`` vs ``Bubbles the
+    Float Goat``), but emitting a second full node assertion still collides at
+    merge. Attach when kinds share a type class; otherwise block.
+    """
+    if getattr(resolution, "outcome", None) != "created_new":
+        return resolution
+    durable_id = str(
+        getattr(resolution, "created_node_id", None) or extract_id or ""
+    ).strip()
+    if not durable_id:
+        return resolution
+    head_node = store.nodes.get(durable_id)
+    if head_node is None:
+        return resolution
+    if _kinds_compatible_for_scorer_attach(object_kind, head_node.kind):
+        return IdentityResolution(
+            world_id=resolution.world_id,
+            candidate_id=resolution.candidate_id,
+            outcome="resolved_existing",
+            target_node_id=durable_id,
+            diagnostics=[
+                *list(resolution.diagnostics or []),
+                f"existing_node_id_attach:{extract_id}->{durable_id}",
+            ],
+            requires_human_review=False,
+            canon_state="canonical",
+        )
+    return IdentityResolution(
+        world_id=resolution.world_id,
+        candidate_id=resolution.candidate_id,
+        outcome="blocked_collision",
+        blocked_by=[durable_id],
+        diagnostics=[
+            *list(resolution.diagnostics or []),
+            (
+                f"existing_node_id_kind_collision:{extract_id}->{durable_id}:"
+                f"{object_kind!r}_vs_{head_node.kind!r}"
+            ),
+        ],
+        requires_human_review=True,
+    )
+
+
 def gate_candidate_graph_against_head(
     preview: CandidateGraphPreview,
     *,
@@ -284,12 +523,20 @@ def gate_candidate_graph_against_head(
     if not nodes:
         raise CandidateGraphMappingError("candidate graph has no nodes to gate")
 
+    nodes, duplicate_extract_nodes = _collapse_duplicate_extract_nodes(nodes)
+    if not nodes:
+        raise CandidateGraphMappingError("candidate graph has no nodes to gate")
+
+    # Candidate contribution mapping filters by node_id set; collapse must also
+    # rewrite the preview payload or shared ids would reintroduce both types.
+    preview_for_mapping = replace(preview, nodes=tuple(nodes))
+
     selected_node_ids = {node.node_id for node in nodes}
     edges_in_scope = []
     if include_edges:
         edges_in_scope = [
             edge
-            for edge in preview.edges
+            for edge in preview_for_mapping.edges
             if edge.from_node_id in selected_node_ids
             and edge.to_node_id in selected_node_ids
         ]
@@ -299,17 +546,21 @@ def gate_candidate_graph_against_head(
     # with include_edges=False.
     artifact_id = _require_artifact_id(
         source_artifact_id
-        or (preview.source_artifact_ids[0] if preview.source_artifact_ids else None)
+        or (
+            preview_for_mapping.source_artifact_ids[0]
+            if preview_for_mapping.source_artifact_ids
+            else None
+        )
     )
     require_single_verified_source_artifact(
-        preview=preview,
+        preview=preview_for_mapping,
         verified_artifact_id=artifact_id,
         nodes=nodes,
         edges=edges_in_scope,
     )
 
     candidate_contribution = candidate_graph_to_contribution(
-        preview,
+        preview_for_mapping,
         world_id=world_id,
         source_artifact_id=artifact_id,
         source_revision_id=source_revision_id,
@@ -324,8 +575,8 @@ def gate_candidate_graph_against_head(
     )
 
     revision_id = candidate_contribution.source_revision_id or source_revision_id
-    session_id = preview.session_id
-    campaign_id = preview.campaign_id
+    session_id = preview_for_mapping.session_id
+    campaign_id = preview_for_mapping.campaign_id
     scope = campaign_scope or campaign_id
 
     scorer_report = build_fixed_candidate_scorer_report(nodes, store)
@@ -340,6 +591,31 @@ def gate_candidate_graph_against_head(
         f"scorer_matched:{len(scorer_report.get('matched') or [])}",
         f"scorer_ambiguity:{len(scorer_report.get('unresolved_ambiguity') or [])}",
     ]
+    for dup in duplicate_extract_nodes:
+        diagnostics.append(
+            f"duplicate_extract_node_id_dropped:{dup.node_id}:{dup.node_type}"
+        )
+        try:
+            rejected.append(
+                map_candidate_node_to_assertion(
+                    dup,
+                    source_revision_id=revision_id,
+                    verified_source_artifact_id=artifact_id,
+                    campaign_scope=scope,
+                    source_domain=source_domain,
+                    session_id=session_id,
+                    campaign_id=campaign_id,
+                    source_uri=source_uri,
+                    acceptance_state="rejected",
+                    identity_resolution_outcome="blocked_collision",
+                    kind_override=_infer_object_kind(dup, store),
+                )
+            )
+            identity_outcome_snapshot[f"{dup.node_id}:{dup.node_type}"] = (
+                "blocked_collision"
+            )
+        except CandidateGraphMappingError as exc:
+            diagnostics.append(f"duplicate_drop_map_failed:{dup.node_id}:{exc}")
 
     for node in nodes:
         extract_id = node.node_id
@@ -363,6 +639,19 @@ def gate_candidate_graph_against_head(
             proposed_node_id=extract_id,
         )
         resolution = resolve_identity(store, identity_candidate)
+        resolution = _maybe_attach_via_scorer(
+            resolution=resolution,
+            extract_id=extract_id,
+            object_kind=object_kind,
+            store=store,
+            scorer_report=scorer_report,
+        )
+        resolution = _maybe_attach_or_block_existing_node_id(
+            resolution=resolution,
+            extract_id=extract_id,
+            object_kind=object_kind,
+            store=store,
+        )
         identity_outcome_snapshot[extract_id] = resolution.outcome
         diagnostics.append(
             f"identity:{extract_id}:{resolution.outcome}:{resolution.target_node_id or resolution.created_node_id or resolution.provisional_node_id}"
@@ -469,26 +758,43 @@ def gate_candidate_graph_against_head(
 
     if include_edges:
         mapped = set(node_id_map)
+        supports_by_object = _active_edge_supports_by_object(store)
         for edge in edges_in_scope:
             from_id = edge.from_node_id
             to_id = edge.to_node_id
             if from_id not in mapped or to_id not in mapped:
                 continue
-            accepted_proposals.append(
-                map_candidate_edge_to_assertion(
-                    edge,
-                    source_revision_id=revision_id,
-                    verified_source_artifact_id=artifact_id,
-                    campaign_scope=scope,
-                    source_domain=source_domain,
-                    session_id=session_id,
-                    campaign_id=campaign_id,
-                    source_uri=source_uri,
-                    acceptance_state="accepted",
-                    identity_resolution_outcome="created_new",
-                    node_id_map=node_id_map,
-                )
+            edge_assertion = map_candidate_edge_to_assertion(
+                edge,
+                source_revision_id=revision_id,
+                verified_source_artifact_id=artifact_id,
+                campaign_scope=scope,
+                source_domain=source_domain,
+                session_id=session_id,
+                campaign_id=campaign_id,
+                source_uri=source_uri,
+                acceptance_state="accepted",
+                identity_resolution_outcome="created_new",
+                node_id_map=node_id_map,
             )
+            conflict = _edge_core_conflict_diagnostic(
+                edge_assertion,
+                root=root,
+                world_id=world_id,
+                supports_by_object=supports_by_object,
+            )
+            if conflict:
+                rejected.append(
+                    edge_assertion.model_copy(
+                        update={
+                            "acceptance_state": "rejected",
+                            "identity_resolution_outcome": "blocked_collision",
+                        }
+                    )
+                )
+                diagnostics.append(conflict)
+                continue
+            accepted_proposals.append(edge_assertion)
 
     gated_contribution = create_graph_contribution(
         world_id=world_id,
@@ -516,13 +822,14 @@ def gate_candidate_graph_against_head(
         node_id_map=node_id_map,
         identity_outcome_snapshot=identity_outcome_snapshot,
         diagnostics=diagnostics,
-        candidate_preview_id=preview.preview_id,
-        candidate_schema=preview.schema,
-        candidate_version=preview.version,
+        candidate_preview_id=preview_for_mapping.preview_id,
+        candidate_schema=preview_for_mapping.schema,
+        candidate_version=preview_for_mapping.version,
         source_revision_id=revision_id,
         source_artifact_id=artifact_id,
         verified_source_uri=source_uri,
     )
+
 
 
 def _endpoint_available(

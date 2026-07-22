@@ -8,6 +8,7 @@ or publish.
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -66,6 +67,47 @@ def kernel_kind_for_node_type(node_type: str | None) -> str:
     if not raw:
         return "npc"
     return _NODE_TYPE_TO_KIND.get(raw, raw)
+
+
+def _label_is_predicate_generic(label: str | None, predicate: str) -> bool:
+    text = (label or "").strip()
+    if not text:
+        return True
+    label_cf = text.casefold()
+    predicate_cf = predicate.casefold()
+    predicate_human_cf = predicate.replace("_", " ").casefold()
+    return label_cf == predicate_cf or label_cf == predicate_human_cf
+
+
+def _observation_label_slug(label: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", label.strip().lower())
+    slug = slug.strip("-")
+    return slug or "observation"
+
+
+def durable_edge_id_for_observation(
+    *,
+    subject_id: str,
+    target_id: str,
+    predicate: str,
+    label: str | None,
+    candidate_edge_id: str | None = None,
+) -> str:
+    """Assign a durable edge id for observation edges.
+
+    Generic labels (empty, predicate-equal, or predicate humanized with ``_``→`` ``)
+    collapse to coarse ``edge:{subject}:{predicate}:{target}``. Distinct
+    observation-specific labels receive a slug suffix. An already-specific
+    candidate edge id under the coarse prefix wins over a freshly minted slug.
+    """
+    coarse = f"edge:{subject_id}:{predicate}:{target_id}"
+    candidate = (candidate_edge_id or "").strip()
+    if candidate.startswith(f"{coarse}:") and len(candidate) > len(coarse):
+        return candidate
+    if _label_is_predicate_generic(label, predicate):
+        return coarse
+    slug = _observation_label_slug(label or "")
+    return f"{coarse}:{slug}"
 
 
 def _require_nonempty(value: str | None, *, field: str) -> str:
@@ -536,8 +578,15 @@ def map_candidate_edge_to_assertion(
         campaign_id=campaign_id,
     )
     primary_artifact = source_artifacts[0]["source_artifact_id"]
+    durable_edge_id = durable_edge_id_for_observation(
+        subject_id=subject_id,
+        target_id=target_id,
+        predicate=predicate,
+        label=edge.label,
+        candidate_edge_id=edge.edge_id,
+    )
     value: dict[str, Any] = {
-        "edge_id": f"edge:{subject_id}:{predicate}:{target_id}",
+        "edge_id": durable_edge_id,
         "predicate": predicate,
         "source_domains": [source_domain],
         "direction": "outbound",

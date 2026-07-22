@@ -211,11 +211,6 @@ export function GraphNodeHoverToken({
         {presentation.summary ? (
           <small className="recap-planning-summary">{presentation.summary}</small>
         ) : null}
-        {presentation.whyNow ? (
-          <PlanningScanSection title="Why now">
-            <small>{presentation.whyNow}</small>
-          </PlanningScanSection>
-        ) : null}
         {deltaStatus && showDeltaBadge ? (
           <PlanningScanSection title="Graph review delta">
             <small>{deltaSummary ?? deltaLabel ?? deltaStatus}</small>

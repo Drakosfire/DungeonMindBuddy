@@ -774,3 +774,58 @@ def test_registry_summary_not_promotable_on_run_id_scope_mismatch(
     assert runs[0].promotable is False
     assert runs[0].promotable_reason is not None
     assert "campaign/session" in runs[0].promotable_reason
+
+def test_registry_stamps_projection_authority_from_world_head_sessions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _preview_union_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/on-head",
+        campaign_id="longmont-c2",
+        session_id="session-24",
+    )
+    _preview_union_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/not-on-head",
+        campaign_id="longmont-c2",
+        session_id="session-99",
+    )
+
+    def fake_sessions(*, campaign_id: str, world_id: str = "eldyrwild", graph_root=None):
+        assert campaign_id == "longmont-c2"
+        assert world_id == "eldyrwild"
+        return {"session-24"}
+
+    monkeypatch.setattr(
+        "graph_memory.interaction.latest_recap.session_ids_in_world_graph_head",
+        fake_sessions,
+    )
+
+    runs = discover_graph_ingest_runs(tmp_path, require_preview_union_store=True)
+    by_session = {run.session_id: run.projection_authority for run in runs}
+    assert by_session["session-24"] == "world_graph"
+    assert by_session["session-99"] == "preview_union"
+
+
+def test_graph_session_ids_from_store_reads_artifacts_and_edges() -> None:
+    from graph_memory.interaction.latest_recap import graph_session_ids_from_store
+
+    store = {
+        "source_artifacts": {
+            "a1": {"campaign_id": "longmont-c2", "session_id": "session-24"},
+            "a2": {"campaign_id": "longmont-c1", "session_id": "session-3"},
+        },
+        "edges": {
+            "e1": {
+                "state": {"campaign_scope": "longmont-c2"},
+                "session_ids": ["22", "session-25"],
+            },
+        },
+    }
+    assert graph_session_ids_from_store(store, "longmont-c2") == [
+        "session-22",
+        "session-24",
+        "session-25",
+    ]

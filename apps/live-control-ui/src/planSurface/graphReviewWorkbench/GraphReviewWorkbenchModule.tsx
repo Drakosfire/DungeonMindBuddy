@@ -7,6 +7,7 @@ import {
   getManualReviewBed,
   getManualReviewBeds,
   LiveApiError,
+  postWorldGraphRecapProjection,
 } from "../../api/liveApi";
 import type { GoldReviewCompareResponse, ManualReviewBedDetail, ManualReviewBedSummary } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
@@ -14,14 +15,21 @@ import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReview
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import { AdaptiveProjectionContainer } from "../projection/AdaptiveProjectionContainer";
 import { ProjectionProvider } from "../projection/projectionContext";
+import { buildPlanWorldGraphProjectionRequest } from "../reference/planGraphContextRequest";
+import { buildRecapWorldGraphContext } from "../reference/recapWorldGraphContext";
+import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import type { PlanContextDescriptor } from "../types";
 import { resolveInitialReviewCampaignId } from "../sessionCampaignContext";
 import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";
+import { GraphReviewWorkbenchHeaderWithActivity } from "./GraphReviewWorkbenchHeaderWithActivity";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
+import {
+  type WarmupStatus,
+} from "./graphReviewActivity";
 import {
   buildGraphReviewCatalog,
   catalogSessionToGoldLane,
@@ -86,10 +94,17 @@ async function loadGraphReviewCatalog(): Promise<GraphReviewCatalogSession[]> {
   return buildGraphReviewCatalog(runsResponse.runs, goldResponse.sessions);
 }
 
+function sessionNumberFromId(sessionId: string | null | undefined): number | null {
+  if (!sessionId) return null;
+  const match = sessionId.match(/^(?:session-)?(\d+)$/i);
+  if (!match) return null;
+  const session = Number.parseInt(match[1], 10);
+  return Number.isFinite(session) && session > 0 ? session : null;
+}
+
 export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModuleProps) {
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
-  const toolboxConfig = useMemo(() => createIngestSurfaceConfig(context), [context]);
 
   const [catalogSessions, setCatalogSessions] = useState<GraphReviewCatalogSession[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
@@ -112,6 +127,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [selectedManualBedId, setSelectedManualBedId] = useState<string | null>(null);
   const [selectedManualBed, setSelectedManualBed] = useState<ManualReviewBedDetail | null>(null);
   const [selectedManualVariantName, setSelectedManualVariantName] = useState<string | null>(null);
+  const [warmupStatus, setWarmupStatus] = useState<WarmupStatus>("idle");
   const appliedCampaignSessions = useMemo(
     () =>
       appliedSelection
@@ -231,6 +247,32 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     window.addEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
     return () => window.removeEventListener(GRAPH_REVIEW_RUNS_CHANGED_EVENT, onRunsChanged);
   }, []);
+
+  // Background warm-up: prefetch draft-session recap so Load / remounts hit cache.
+  useEffect(() => {
+    if (!sessionsLoaded || !draftCampaignId || !draftSessionId) {
+      setWarmupStatus("idle");
+      return;
+    }
+    const worldContext = buildRecapWorldGraphContext(draftCampaignId, draftSessionId);
+    if (!worldContext) {
+      setWarmupStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    setWarmupStatus("warming");
+    void postWorldGraphRecapProjection(buildPlanWorldGraphProjectionRequest(worldContext))
+      .then(() => {
+        if (!cancelled) setWarmupStatus("ready");
+      })
+      .catch(() => {
+        // Warm-up is best-effort; Load still fetches on demand.
+        if (!cancelled) setWarmupStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionsLoaded, draftCampaignId, draftSessionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -374,10 +416,32 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     setLoadDialogOpen(false);
   };
 
+  const reviewCampaignId =
+    appliedSession?.campaignId ?? draftCampaignId ?? context.campaignId;
+  const reviewSessionId =
+    appliedSession?.sessionId || draftSessionId || fallbackSessionId;
+  const toolboxConfig = useMemo(() => {
+    const sessionNumber = sessionNumberFromId(reviewSessionId) ?? context.ingestSession;
+    return createIngestSurfaceConfig({
+      ...context,
+      campaignId: reviewCampaignId,
+      ingestSession: sessionNumber,
+    });
+  }, [context, reviewCampaignId, reviewSessionId]);
+
   if (!sessionsLoaded) {
     return (
       <div className="graph-review-workbench-root">
-        <GraphReviewWorkbenchHeader loaded={false} sessionLabel={null} onOpenLoad={() => undefined} />
+        <GraphReviewWorkbenchHeader
+          loaded={false}
+          sessionLabel={null}
+          onOpenLoad={() => undefined}
+          activity={{
+            phase: "catalog",
+            message: "Loading sessions…",
+            busy: true,
+          }}
+        />
         <p className="plan-projection-empty">Loading graph review sessions…</p>
       </div>
     );
@@ -387,13 +451,13 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
   // Ingest Recap remains reachable from the empty /ingest landing state.
-  const reviewCampaignId =
-    appliedSession?.campaignId ?? draftCampaignId ?? context.campaignId;
-  const reviewSessionId =
-    appliedSession?.sessionId || draftSessionId || fallbackSessionId;
 
   return (
     <ProjectionProvider config={toolboxConfig}>
+      <PlanGraphReferenceResolverProvider
+        sessionDescriptor={hasAppliedLoad ? toolboxConfig.sessionDescriptor : null}
+        scopeMode="world"
+      >
       <GraphReviewLiveStateProvider
         campaignId={reviewCampaignId}
         sessionId={reviewSessionId}
@@ -420,10 +484,15 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         onSelectSelection={setSelection}
       >
         <div className="graph-review-workbench-root">
-          <GraphReviewWorkbenchHeader
+          <GraphReviewWorkbenchHeaderWithActivity
             loaded={hasAppliedLoad}
             sessionLabel={loadBarSummary}
             onOpenLoad={openLoadDialog}
+            sessionsLoaded={sessionsLoaded}
+            hasAppliedLoad={hasAppliedLoad}
+            warmupStatus={warmupStatus}
+            draftCampaignId={draftCampaignId}
+            draftSessionId={draftSessionId}
           />
 
           {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
@@ -465,6 +534,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           />
         </div>
       </GraphReviewLiveStateProvider>
+      </PlanGraphReferenceResolverProvider>
     </ProjectionProvider>
   );
 }

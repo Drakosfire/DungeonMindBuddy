@@ -1,3 +1,10 @@
+import { useCallback, useEffect, useRef } from "react";
+
+import { UnionSupergraphRecapProjection } from "../graphPreview/UnionSupergraphRecapProjection";
+import { useProjection } from "../projection/projectionContext";
+import { openGraphNodeFromChip } from "../reference/openGraphNodeFromChip";
+import { planReferenceResolutionFromNodeView } from "../reference/planReferenceResolutionFromNodeView";
+import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { GraphReviewProjectedInteractionSurface } from "./GraphReviewProjectedInteractionSurface";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
@@ -15,6 +22,7 @@ export function GraphReviewLiveProjectionPanel() {
     projection,
     projectionStatus,
     projectionError,
+    projectionAuthority,
     goldProjection,
     goldProjectionStatus,
     goldProjectionError,
@@ -31,22 +39,93 @@ export function GraphReviewLiveProjectionPanel() {
     setProjectedInteractionOpen,
     setSelectedEvidenceDeltaId,
     runIdentity,
+    sessionId,
+    campaignId,
   } = useGraphReviewLiveState();
+  const { active, activePlanReference, openContentFromChip } = useProjection();
+  const { resolvePlanReference, projectionState } = usePlanGraphReferenceResolver();
+  const lastRefreshedProjectionKey = useRef<string | null>(null);
 
-  const openInspectDialog = (selection: {
-    laneRole: "gold" | "live";
-    nodeId: string;
-  }) => {
-    setSelectedNode(selection);
-    setSelectedRelationship(null);
-    setSelectedDeltaNodeId(selection.nodeId);
-    setProjectedInteractionOpen(true);
-  };
+  const isWorldAuthority = projectionAuthority === "world_graph";
+
+  // After merge/reload, keep an open Reference card on the fresh node_view
+  // (chip opens freeze the prior snapshot).
+  useEffect(() => {
+    if (projectionStatus !== "ready" || !projection?.node_views) return;
+    if (activePlanReference?.kind !== "graph-node" || !activePlanReference.graphNodeId) {
+      return;
+    }
+    const nodeId = activePlanReference.graphNodeId;
+    const fresh = projection.node_views[nodeId];
+    if (!fresh) return;
+    const refreshKey = `${projection.graph_id ?? ""}:${nodeId}:${projection.markdown?.length ?? 0}`;
+    if (lastRefreshedProjectionKey.current === refreshKey) return;
+    lastRefreshedProjectionKey.current = refreshKey;
+    const label = fresh.label ?? nodeId;
+    const { ref, resolution } = planReferenceResolutionFromNodeView(fresh, label);
+    const glanceOnly =
+      active?.kind === "content" ? Boolean(active.glanceOnly) : true;
+    openContentFromChip(ref, resolution, glanceOnly, "ready");
+  }, [
+    active,
+    activePlanReference,
+    openContentFromChip,
+    projection,
+    projectionStatus,
+  ]);
+
+  const openInspectFromChip = useCallback(
+    (selection: { laneRole: "gold" | "live"; nodeId: string }) => {
+      const laneViews =
+        (selection.laneRole === "gold" ? goldProjection : projection)?.node_views ?? {};
+      const nodeView = laneViews[selection.nodeId];
+      const label = nodeView?.label ?? selection.nodeId;
+      setSelectedNode(selection);
+      setSelectedRelationship(null);
+      setSelectedDeltaNodeId(selection.nodeId);
+
+      // Preview candidates: prefer local lane node_views (may not be on world head).
+      // World authority: local views are already world-backed; still prefer them, then resolve.
+      if (nodeView) {
+        const { ref, resolution } = planReferenceResolutionFromNodeView(nodeView, label);
+        openContentFromChip(ref, resolution, true, "ready");
+        return;
+      }
+
+      void openGraphNodeFromChip(
+        selection.nodeId,
+        {
+          resolvePlanReference,
+          openContentFromChip,
+          projectionState,
+        },
+        label,
+      );
+    },
+    [
+      goldProjection,
+      openContentFromChip,
+      projection,
+      projectionState,
+      resolvePlanReference,
+      setSelectedDeltaNodeId,
+      setSelectedNode,
+      setSelectedRelationship,
+    ],
+  );
 
   return (
     <section
-      className={`graph-review-live-projection-panel${hasGold ? "" : " graph-review-live-only-projection-panel"}`}
-      aria-label={hasGold ? "Gold and live source projections" : "Ingested recap projection"}
+      className={`graph-review-live-projection-panel${
+        hasGold && !isWorldAuthority ? "" : " graph-review-live-only-projection-panel"
+      }`}
+      aria-label={
+        isWorldAuthority
+          ? "World Graph recap projection"
+          : hasGold
+            ? "Gold and live source projections"
+            : "Ingested recap projection"
+      }
     >
       {projectionStatus === "idle" ? (
         <p className="graph-review-live-projection-status">
@@ -95,7 +174,9 @@ export function GraphReviewLiveProjectionPanel() {
 
       {projectionStatus === "loading" ? (
         <p className="graph-review-live-projection-status" role="status">
-          Loading selected live lane projection…
+          {isWorldAuthority
+            ? "Loading World Graph recap…"
+            : "Loading preview projection…"}
         </p>
       ) : null}
 
@@ -108,7 +189,25 @@ export function GraphReviewLiveProjectionPanel() {
         </div>
       ) : null}
 
-      {projectionStatus === "ready" && projection && liveRun ? (
+      {projectionStatus === "ready" && projection && liveRun && isWorldAuthority ? (
+        <div
+          className="graph-review-live-only-projections"
+          data-testid="graph-review-projection-layout"
+          data-projection-authority="world_graph"
+        >
+          <UnionSupergraphRecapProjection
+            payload={projection}
+            selectedSessionId={sessionId}
+            onSelectSession={() => undefined}
+            sessionOptions={[sessionId]}
+            selectedCampaignId={campaignId}
+            projectionSource="world-graph"
+            chrome="embedded"
+          />
+        </div>
+      ) : null}
+
+      {projectionStatus === "ready" && projection && liveRun && !isWorldAuthority ? (
         <>
           {hasGold && goldProjectionStatus === "loading" ? (
             <p className="graph-review-live-projection-status" role="status">
@@ -130,6 +229,7 @@ export function GraphReviewLiveProjectionPanel() {
                 : "graph-review-live-only-projections"
             }
             data-testid="graph-review-projection-layout"
+            data-projection-authority="preview_union"
           >
             {hasGold && goldProjectionStatus === "ready" && goldProjection ? (
               <GraphReviewProjectionLane
@@ -147,13 +247,13 @@ export function GraphReviewLiveProjectionPanel() {
                 deltaIndex={deltaIndex}
                 activeObject={activeLaneObject}
                 onActiveObjectChange={setActiveLaneObject}
-                onSelectObject={openInspectDialog}
+                onSelectObject={openInspectFromChip}
                 readerMode
               />
             ) : null}
             <GraphReviewProjectionLane
               laneRole="live"
-              title={hasGold ? "Live Run · read-only" : "Ingested recap"}
+              title={hasGold ? "Live Run · read-only" : "Ingested recap · preview candidate"}
               subtitle={runIdentity}
               markdown={projection.markdown ?? FALLBACK_MARKDOWN}
               nodeViews={projection.node_views}
@@ -162,10 +262,11 @@ export function GraphReviewLiveProjectionPanel() {
               deltaIndex={deltaIndex}
               activeObject={activeLaneObject}
               onActiveObjectChange={setActiveLaneObject}
-              onSelectObject={openInspectDialog}
+              onSelectObject={openInspectFromChip}
               readerMode
             />
           </div>
+          {/* Authoring rail / promote still open this review-only modal; chips use Plan drawer. */}
           <GraphReviewProjectedInteractionSurface
             open={projectedInteractionOpen}
             selectedNode={selectedNodeViewModel}

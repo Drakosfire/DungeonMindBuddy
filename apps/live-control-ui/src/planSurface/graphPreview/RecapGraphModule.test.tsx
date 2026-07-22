@@ -1,8 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type { RecapArtifactRecord, WorldGraphProjectionRequest } from "../../api/types";
+import { FIXTURE_DOC_ID, fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
+import { ProjectionProvider } from "../projection/projectionContext";
+import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
+import type { SurfaceConfig } from "../types";
 import { RecapGraphModule } from "./RecapGraphModule";
 import { session23UnionSupergraphFixture } from "./unionSupergraphFixture";
 
@@ -12,6 +17,33 @@ const context = {
   liveSession: 22,
   target: { target_type: "session", target_id: "session-22" },
 } as const;
+
+const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 22 });
+
+const surfaceConfig: SurfaceConfig = {
+  id: "plan",
+  label: "Plan",
+  context: {
+    campaignId: "longmont-c2",
+    headerLabel: "Longmont C2",
+    ingestSession: 22,
+    liveSession: 22,
+  },
+  tools: [],
+  canvas: { documentId: FIXTURE_DOC_ID },
+  theme: {},
+  sessionDescriptor,
+};
+
+function renderRecapModule(ui: ReactElement) {
+  return render(
+    <ProjectionProvider config={surfaceConfig}>
+      <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+        {ui}
+      </PlanGraphReferenceResolverProvider>
+    </ProjectionProvider>,
+  );
+}
 
 function artifactRecord(session: number): RecapArtifactRecord {
   return {
@@ -51,7 +83,7 @@ function expectedWorldRequest(
     schema: "dmb_world_graph_projection_request_v1",
     worldId: "eldyrwild",
     campaignId,
-    scopeMode: "campaign",
+    scopeMode: "world",
     focus: {
       kind: "session",
       sessionId,
@@ -66,6 +98,32 @@ describe("RecapGraphModule", () => {
     vi.restoreAllMocks();
     window.history.replaceState({}, "", "/plan?tool=recap&session=session-24");
     mockArtifacts();
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-24" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        sourceTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
   });
 
   it("requests World Graph recap projection for the URL session", async () => {
@@ -76,14 +134,14 @@ describe("RecapGraphModule", () => {
     });
     const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection");
 
-    render(<RecapGraphModule context={context} />);
+    renderRecapModule(<RecapGraphModule context={context} />);
 
     await waitFor(() => {
       expect(postRecap).toHaveBeenCalledWith(expectedWorldRequest("longmont-c2", "session-24"));
     });
     expect(getUnion).not.toHaveBeenCalled();
-    expect(await screen.findByText(/Source: World Graph head/i)).toBeInTheDocument();
-    expect(screen.getByText(/World Graph · session focus lens/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Session 24" })).toBeInTheDocument();
+    expect(screen.getByText(/Click a highlighted name/i)).toBeInTheDocument();
   });
 
   it("defaults to the latest ingested recap artifact when no URL session is provided", async () => {
@@ -97,7 +155,7 @@ describe("RecapGraphModule", () => {
       focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-24" },
     });
 
-    render(<RecapGraphModule context={context} />);
+    renderRecapModule(<RecapGraphModule context={context} />);
 
     await waitFor(() => {
       expect(postRecap).toHaveBeenCalledWith(expectedWorldRequest("longmont-c2", "session-24"));
@@ -111,7 +169,7 @@ describe("RecapGraphModule", () => {
     const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection");
     const fallback = vi.spyOn(liveApi, "getDefaultUnionSupergraphProjection").mockResolvedValue({} as never);
 
-    render(<RecapGraphModule context={context} />);
+    renderRecapModule(<RecapGraphModule context={context} />);
 
     expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
@@ -130,7 +188,7 @@ describe("RecapGraphModule", () => {
     const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection");
     const fallback = vi.spyOn(liveApi, "getDefaultUnionSupergraphProjection").mockResolvedValue({} as never);
 
-    render(<RecapGraphModule context={context} />);
+    renderRecapModule(<RecapGraphModule context={context} />);
 
     expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
@@ -170,7 +228,7 @@ describe("RecapGraphModule", () => {
       focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-1" },
     });
 
-    render(<RecapGraphModule context={context} />);
+    renderRecapModule(<RecapGraphModule context={context} />);
 
     await waitFor(() => {
       expect(postRecap).toHaveBeenCalledWith(expectedWorldRequest("longmont-c1", "session-1"));
@@ -202,7 +260,7 @@ describe("RecapGraphModule", () => {
       focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-1" },
     });
 
-    render(<RecapGraphModule context={context} />);
+    renderRecapModule(<RecapGraphModule context={context} />);
 
     await waitFor(() => {
       expect(getArtifacts).toHaveBeenCalledWith("longmont-c2");
@@ -217,7 +275,7 @@ describe("RecapGraphModule", () => {
       new liveApi.LiveApiError("fixture missing", 404),
     );
 
-    render(<RecapGraphModule context={context} />);
+    renderRecapModule(<RecapGraphModule context={context} />);
 
     expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();

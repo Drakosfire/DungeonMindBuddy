@@ -1,0 +1,969 @@
+{
+  "aggregates": {
+    "catalog_discovery": {
+      "contribution_cache_hits_mean": 0.0,
+      "contribution_cache_misses_mean": 0.0,
+      "contribution_load_ms_mean": 0.0,
+      "latency": {
+        "max_ms": 308.715,
+        "mean_ms": 295.43,
+        "min_ms": 282.145,
+        "n": 2,
+        "p50_ms": 295.43,
+        "p95_ms": 307.387
+      },
+      "payload_bytes_p50": null,
+      "sample_counts": {
+        "manifests_scanned": 31,
+        "runs": 21
+      },
+      "sample_stage_share": {
+        "resolve_search_roots": 0.0004,
+        "scan_manifests": 0.8157,
+        "stamp_projection_authority": 0.1829
+      },
+      "stage_ms_mean": {
+        "resolve_search_roots": 0.108,
+        "scan_manifests": 248.565,
+        "stamp_projection_authority": 46.331
+      }
+    },
+    "projection_cold": {
+      "contribution_cache_hits_mean": 2881.0,
+      "contribution_cache_misses_mean": 19.0,
+      "contribution_load_ms_mean": 19.604,
+      "latency": {
+        "max_ms": 3773.725,
+        "mean_ms": 3101.384,
+        "min_ms": 2743.017,
+        "n": 5,
+        "p50_ms": 2879.504,
+        "p95_ms": 3691.699
+      },
+      "payload_bytes_p50": 1352096,
+      "sample_counts": {
+        "attributes": 56,
+        "evidence": 72,
+        "nodes": 257,
+        "relationships": 191,
+        "source_artifacts": 13
+      },
+      "sample_stage_share": {
+        "build_attributes": 0.0116,
+        "build_evidence_and_artifacts": 0.0002,
+        "build_focus_overlay": 0.0132,
+        "build_nodes": 0.7571,
+        "build_projection_payload": 0.9929,
+        "build_relationships": 0.2106,
+        "load_revision_context": 0.0069
+      },
+      "stage_ms_mean": {
+        "build_attributes": 22.32,
+        "build_evidence_and_artifacts": 0.685,
+        "build_focus_overlay": 48.706,
+        "build_nodes": 2227.386,
+        "build_projection_payload": 3077.083,
+        "build_relationships": 777.518,
+        "load_revision_context": 20.939
+      }
+    },
+    "projection_warm": {
+      "contribution_cache_hits_mean": 0.0,
+      "contribution_cache_misses_mean": 0.0,
+      "contribution_load_ms_mean": 0.0,
+      "latency": {
+        "max_ms": 1.291,
+        "mean_ms": 0.666,
+        "min_ms": 0.411,
+        "n": 5,
+        "p50_ms": 0.442,
+        "p95_ms": 1.182
+      },
+      "payload_bytes_p50": 1352096,
+      "sample_counts": {},
+      "sample_stage_share": {},
+      "stage_ms_mean": {}
+    },
+    "recap_projection": {
+      "contribution_cache_hits_mean": 5883.0,
+      "contribution_cache_misses_mean": 19.0,
+      "contribution_load_ms_mean": 16.3,
+      "latency": {
+        "max_ms": 5663.167,
+        "mean_ms": 5603.269,
+        "min_ms": 5543.37,
+        "n": 2,
+        "p50_ms": 5603.269,
+        "p95_ms": 5657.178
+      },
+      "payload_bytes_p50": 1357365,
+      "sample_counts": {
+        "attributes": 115,
+        "evidence": 181,
+        "mentions": 50,
+        "node_views": 263,
+        "nodes": 557,
+        "relationships": 415,
+        "source_artifacts": 29
+      },
+      "sample_stage_share": {
+        "adapt_node_views": 0.0012,
+        "build_attributes": 0.0011,
+        "build_evidence_and_artifacts": 0.0001,
+        "build_focus_overlay": 0.0082,
+        "build_nodes": 0.3412,
+        "build_projection_payload": 0.4696,
+        "build_relationships": 0.1189,
+        "enrich_aliases": 0.0018,
+        "load_recap_markdown": 0.0055,
+        "load_revision_context": 0.0033,
+        "markdown_mentions": 0.0047,
+        "merge_standing": 0.0001,
+        "stamp_focus": 0.0001,
+        "standing_nodes": 0.496,
+        "world_projection": 0.49
+      },
+      "stage_ms_mean": {
+        "adapt_node_views": 7.101,
+        "build_attributes": 12.077,
+        "build_evidence_and_artifacts": 0.717,
+        "build_focus_overlay": 47.633,
+        "build_nodes": 1964.346,
+        "build_projection_payload": 2718.255,
+        "build_relationships": 693.111,
+        "enrich_aliases": 8.312,
+        "load_recap_markdown": 15.69,
+        "load_revision_context": 18.733,
+        "markdown_mentions": 22.889,
+        "merge_standing": 0.847,
+        "stamp_focus": 0.5,
+        "standing_nodes": 2796.417,
+        "world_projection": 2745.354
+      }
+    },
+    "search_campaign_graph": {
+      "contribution_cache_hits_mean": 0.0,
+      "contribution_cache_misses_mean": 0.0,
+      "contribution_load_ms_mean": 0.0,
+      "latency": {
+        "max_ms": 7160.233,
+        "mean_ms": 7087.153,
+        "min_ms": 7014.073,
+        "n": 2,
+        "p50_ms": 7087.153,
+        "p95_ms": 7152.925
+      },
+      "payload_bytes_p50": null,
+      "sample_counts": {
+        "matched_nodes": 3
+      },
+      "sample_stage_share": null,
+      "stage_ms_mean": {}
+    }
+  },
+  "campaign_id": "longmont-c1",
+  "cardinality": {
+    "assertion_support_count": 600,
+    "contribution_file_count": 24,
+    "edge_count": 224,
+    "graph_json_bytes": 1093365,
+    "node_count": 300,
+    "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757"
+  },
+  "decision": {
+    "optimize_code_first": true,
+    "postgres_spike_justified": false,
+    "reasons": [
+      "cold_projection_p95_ms=3691.7 (gate >500)",
+      "storage_like_share=0.011 (load_revision+contribution_loads; gate >=0.80)",
+      "build_projection_share=0.834",
+      "node_count=300 (gate >=2000 for postgres)",
+      "warm_projection_p50_ms=0.442",
+      "recap_p50_ms=5603.269",
+      "catalog_p50_ms=295.43"
+    ],
+    "recommended_path": "optimize_file_backed_projection_path"
+  },
+  "generated_at": "2026-07-21T23:57:47.172265+00:00",
+  "schema": "dmb_projection_load_benchmark_v1",
+  "session_id": "session-6",
+  "trials": 5,
+  "trials_raw": {
+    "catalog_discovery": [
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {
+          "manifests_scanned": 31,
+          "runs": 21
+        },
+        "elapsed_ms": 308.7153250235133,
+        "meta": {
+          "run_count": 21,
+          "stage_share": {
+            "resolve_search_roots": 0.0004,
+            "scan_manifests": 0.8157,
+            "stamp_projection_authority": 0.1829
+          }
+        },
+        "name": "catalog_discovery",
+        "payload_bytes": null,
+        "projection_cache_hits": null,
+        "projection_cache_misses": null,
+        "stages": [
+          {
+            "elapsed_ms": 0.116,
+            "root_count": 1,
+            "stage": "resolve_search_roots"
+          },
+          {
+            "elapsed_ms": 251.774,
+            "manifests_matched": 21,
+            "manifests_scanned": 31,
+            "stage": "scan_manifests"
+          },
+          {
+            "elapsed_ms": 56.463,
+            "run_count": 21,
+            "stage": "stamp_projection_authority"
+          }
+        ]
+      },
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {
+          "manifests_scanned": 31,
+          "runs": 21
+        },
+        "elapsed_ms": 282.14467997895554,
+        "meta": {
+          "run_count": 21,
+          "stage_share": {
+            "resolve_search_roots": 0.0004,
+            "scan_manifests": 0.8702,
+            "stamp_projection_authority": 0.1284
+          }
+        },
+        "name": "catalog_discovery",
+        "payload_bytes": null,
+        "projection_cache_hits": null,
+        "projection_cache_misses": null,
+        "stages": [
+          {
+            "elapsed_ms": 0.1,
+            "root_count": 1,
+            "stage": "resolve_search_roots"
+          },
+          {
+            "elapsed_ms": 245.356,
+            "manifests_matched": 21,
+            "manifests_scanned": 31,
+            "stage": "scan_manifests"
+          },
+          {
+            "elapsed_ms": 36.198,
+            "run_count": 21,
+            "stage": "stamp_projection_authority"
+          }
+        ]
+      }
+    ],
+    "projection_cold": [
+      {
+        "contribution_cache_hits": 2881,
+        "contribution_cache_misses": 19,
+        "contribution_load_ms": 36.052,
+        "counts": {
+          "attributes": 56,
+          "evidence": 72,
+          "nodes": 257,
+          "relationships": 191,
+          "source_artifacts": 13
+        },
+        "elapsed_ms": 3773.72451001429,
+        "meta": {
+          "stage_share": {
+            "build_attributes": 0.0116,
+            "build_evidence_and_artifacts": 0.0002,
+            "build_focus_overlay": 0.0132,
+            "build_nodes": 0.7571,
+            "build_projection_payload": 0.9929,
+            "build_relationships": 0.2106,
+            "load_revision_context": 0.0069
+          }
+        },
+        "name": "projection_cold",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 0,
+        "projection_cache_misses": 0,
+        "stages": [
+          {
+            "elapsed_ms": 25.945,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 43.895,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 794.549,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 2856.466,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 0.796,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 49.652,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 3745.856,
+            "stage": "build_projection_payload"
+          }
+        ]
+      },
+      {
+        "contribution_cache_hits": 2881,
+        "contribution_cache_misses": 19,
+        "contribution_load_ms": 15.916,
+        "counts": {
+          "attributes": 56,
+          "evidence": 72,
+          "nodes": 257,
+          "relationships": 191,
+          "source_artifacts": 13
+        },
+        "elapsed_ms": 2879.50425199233,
+        "meta": {
+          "stage_share": {
+            "build_attributes": 0.006,
+            "build_evidence_and_artifacts": 0.0003,
+            "build_focus_overlay": 0.0168,
+            "build_nodes": 0.6815,
+            "build_projection_payload": 0.9918,
+            "build_relationships": 0.2872,
+            "load_revision_context": 0.0077
+          }
+        },
+        "name": "projection_cold",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 0,
+        "projection_cache_misses": 0,
+        "stages": [
+          {
+            "elapsed_ms": 22.194,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 17.259,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 826.165,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 1960.571,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 0.755,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 48.352,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 2853.489,
+            "stage": "build_projection_payload"
+          }
+        ]
+      },
+      {
+        "contribution_cache_hits": 2881,
+        "contribution_cache_misses": 19,
+        "contribution_load_ms": 15.238,
+        "counts": {
+          "attributes": 56,
+          "evidence": 72,
+          "nodes": 257,
+          "relationships": 191,
+          "source_artifacts": 13
+        },
+        "elapsed_ms": 3363.594563998049,
+        "meta": {
+          "stage_share": {
+            "build_attributes": 0.0049,
+            "build_evidence_and_artifacts": 0.0002,
+            "build_focus_overlay": 0.0141,
+            "build_nodes": 0.7255,
+            "build_projection_payload": 0.9942,
+            "build_relationships": 0.2493,
+            "load_revision_context": 0.0054
+          }
+        },
+        "name": "projection_cold",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 0,
+        "projection_cache_misses": 0,
+        "stages": [
+          {
+            "elapsed_ms": 18.099,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 16.555,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 837.903,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 2438.63,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 0.611,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 47.549,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 3341.765,
+            "stage": "build_projection_payload"
+          }
+        ]
+      },
+      {
+        "contribution_cache_hits": 2881,
+        "contribution_cache_misses": 19,
+        "contribution_load_ms": 15.5,
+        "counts": {
+          "attributes": 56,
+          "evidence": 72,
+          "nodes": 257,
+          "relationships": 191,
+          "source_artifacts": 13
+        },
+        "elapsed_ms": 2747.0780570001807,
+        "meta": {
+          "stage_share": {
+            "build_attributes": 0.0063,
+            "build_evidence_and_artifacts": 0.0002,
+            "build_focus_overlay": 0.0174,
+            "build_nodes": 0.7142,
+            "build_projection_payload": 0.9925,
+            "build_relationships": 0.2542,
+            "load_revision_context": 0.0071
+          }
+        },
+        "name": "projection_cold",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 0,
+        "projection_cache_misses": 0,
+        "stages": [
+          {
+            "elapsed_ms": 19.42,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 17.223,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 697.646,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 1960.307,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 0.553,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 47.728,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 2724.013,
+            "stage": "build_projection_payload"
+          }
+        ]
+      },
+      {
+        "contribution_cache_hits": 2881,
+        "contribution_cache_misses": 19,
+        "contribution_load_ms": 15.313,
+        "counts": {
+          "attributes": 56,
+          "evidence": 72,
+          "nodes": 257,
+          "relationships": 191,
+          "source_artifacts": 13
+        },
+        "elapsed_ms": 2743.017405999126,
+        "meta": {
+          "stage_share": {
+            "build_attributes": 0.0061,
+            "build_evidence_and_artifacts": 0.0003,
+            "build_focus_overlay": 0.0183,
+            "build_nodes": 0.701,
+            "build_projection_payload": 0.9927,
+            "build_relationships": 0.2669,
+            "load_revision_context": 0.0069
+          }
+        },
+        "name": "projection_cold",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 0,
+        "projection_cache_misses": 0,
+        "stages": [
+          {
+            "elapsed_ms": 19.039,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 16.667,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 731.327,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 1920.954,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 0.71,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 50.248,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 2720.291,
+            "stage": "build_projection_payload"
+          }
+        ]
+      }
+    ],
+    "projection_warm": [
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {},
+        "elapsed_ms": 1.2910490040667355,
+        "meta": {
+          "stage_share": {}
+        },
+        "name": "projection_warm",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 1,
+        "projection_cache_misses": 1,
+        "stages": []
+      },
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {},
+        "elapsed_ms": 0.41100301314145327,
+        "meta": {
+          "stage_share": {}
+        },
+        "name": "projection_warm",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 2,
+        "projection_cache_misses": 1,
+        "stages": []
+      },
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {},
+        "elapsed_ms": 0.7477279868908226,
+        "meta": {
+          "stage_share": {}
+        },
+        "name": "projection_warm",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 3,
+        "projection_cache_misses": 1,
+        "stages": []
+      },
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {},
+        "elapsed_ms": 0.44173700734972954,
+        "meta": {
+          "stage_share": {}
+        },
+        "name": "projection_warm",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 4,
+        "projection_cache_misses": 1,
+        "stages": []
+      },
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {},
+        "elapsed_ms": 0.43767699389718473,
+        "meta": {
+          "stage_share": {}
+        },
+        "name": "projection_warm",
+        "payload_bytes": 1352096,
+        "projection_cache_hits": 5,
+        "projection_cache_misses": 1,
+        "stages": []
+      }
+    ],
+    "recap_projection": [
+      {
+        "contribution_cache_hits": 5883,
+        "contribution_cache_misses": 19,
+        "contribution_load_ms": 15.115,
+        "counts": {
+          "attributes": 115,
+          "evidence": 181,
+          "mentions": 50,
+          "node_views": 263,
+          "nodes": 557,
+          "relationships": 415,
+          "source_artifacts": 29
+        },
+        "elapsed_ms": 5663.167478021933,
+        "meta": {
+          "stage_share": {
+            "adapt_node_views": 0.0012,
+            "build_attributes": 0.0011,
+            "build_evidence_and_artifacts": 0.0001,
+            "build_focus_overlay": 0.0082,
+            "build_nodes": 0.3412,
+            "build_projection_payload": 0.4696,
+            "build_relationships": 0.1189,
+            "enrich_aliases": 0.0018,
+            "load_recap_markdown": 0.0055,
+            "load_revision_context": 0.0033,
+            "markdown_mentions": 0.0047,
+            "merge_standing": 0.0001,
+            "stamp_focus": 0.0001,
+            "standing_nodes": 0.496,
+            "world_projection": 0.49
+          }
+        },
+        "name": "recap_projection",
+        "payload_bytes": 1357365,
+        "projection_cache_hits": null,
+        "projection_cache_misses": null,
+        "stages": [
+          {
+            "elapsed_ms": 18.571,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 16.567,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 703.21,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 1986.551,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 0.573,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 47.38,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 2754.65,
+            "stage": "build_projection_payload"
+          },
+          {
+            "elapsed_ms": 2774.617,
+            "stage": "world_projection"
+          },
+          {
+            "elapsed_ms": 31.005,
+            "stage": "load_recap_markdown"
+          },
+          {
+            "elapsed_ms": 18.5,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 6.223,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 673.324,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 1931.941,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 0.755,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 46.377,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 2658.914,
+            "stage": "build_projection_payload"
+          },
+          {
+            "elapsed_ms": 2808.156,
+            "stage": "standing_nodes",
+            "standing_node_count": 6
+          },
+          {
+            "elapsed_ms": 0.757,
+            "stage": "merge_standing"
+          },
+          {
+            "elapsed_ms": 10.003,
+            "stage": "enrich_aliases"
+          },
+          {
+            "elapsed_ms": 0.609,
+            "stage": "stamp_focus"
+          },
+          {
+            "elapsed_ms": 26.862,
+            "mention_count": 50,
+            "stage": "markdown_mentions"
+          },
+          {
+            "elapsed_ms": 6.867,
+            "node_view_count": 263,
+            "stage": "adapt_node_views"
+          }
+        ]
+      },
+      {
+        "contribution_cache_hits": 5883,
+        "contribution_cache_misses": 19,
+        "contribution_load_ms": 17.486,
+        "counts": {
+          "attributes": 115,
+          "evidence": 181,
+          "mentions": 50,
+          "node_views": 263,
+          "nodes": 557,
+          "relationships": 415,
+          "source_artifacts": 29
+        },
+        "elapsed_ms": 5543.36961498484,
+        "meta": {
+          "stage_share": {
+            "adapt_node_views": 0.0013,
+            "build_attributes": 0.0012,
+            "build_evidence_and_artifacts": 0.0002,
+            "build_focus_overlay": 0.0089,
+            "build_nodes": 0.3628,
+            "build_projection_payload": 0.4987,
+            "build_relationships": 0.1256,
+            "enrich_aliases": 0.0012,
+            "load_recap_markdown": 0.0001,
+            "load_revision_context": 0.0034,
+            "markdown_mentions": 0.0034,
+            "merge_standing": 0.0002,
+            "stamp_focus": 0.0001,
+            "standing_nodes": 0.5025,
+            "world_projection": 0.4901
+          }
+        },
+        "name": "recap_projection",
+        "payload_bytes": 1357365,
+        "projection_cache_hits": null,
+        "projection_cache_misses": null,
+        "stages": [
+          {
+            "elapsed_ms": 19.09,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 18.961,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 699.728,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 1928.406,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 0.529,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 47.499,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 2695.556,
+            "stage": "build_projection_payload"
+          },
+          {
+            "elapsed_ms": 2716.091,
+            "stage": "world_projection"
+          },
+          {
+            "elapsed_ms": 0.375,
+            "stage": "load_recap_markdown"
+          },
+          {
+            "elapsed_ms": 18.772,
+            "head_revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "pinned": false,
+            "revision_id": "rev:6d78d333b7b6a0df2d65437988a31757",
+            "stage": "load_revision_context"
+          },
+          {
+            "elapsed_ms": 6.556,
+            "stage": "build_attributes"
+          },
+          {
+            "elapsed_ms": 696.184,
+            "stage": "build_relationships"
+          },
+          {
+            "elapsed_ms": 2010.485,
+            "stage": "build_nodes"
+          },
+          {
+            "elapsed_ms": 1.01,
+            "stage": "build_evidence_and_artifacts"
+          },
+          {
+            "elapsed_ms": 49.277,
+            "stage": "build_focus_overlay"
+          },
+          {
+            "elapsed_ms": 2763.899,
+            "stage": "build_projection_payload"
+          },
+          {
+            "elapsed_ms": 2784.677,
+            "stage": "standing_nodes",
+            "standing_node_count": 6
+          },
+          {
+            "elapsed_ms": 0.937,
+            "stage": "merge_standing"
+          },
+          {
+            "elapsed_ms": 6.621,
+            "stage": "enrich_aliases"
+          },
+          {
+            "elapsed_ms": 0.392,
+            "stage": "stamp_focus"
+          },
+          {
+            "elapsed_ms": 18.917,
+            "mention_count": 50,
+            "stage": "markdown_mentions"
+          },
+          {
+            "elapsed_ms": 7.334,
+            "node_view_count": 263,
+            "stage": "adapt_node_views"
+          }
+        ]
+      }
+    ],
+    "search_campaign_graph": [
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {
+          "matched_nodes": 3
+        },
+        "elapsed_ms": 7160.233053000411,
+        "meta": null,
+        "name": "search_campaign_graph",
+        "payload_bytes": null,
+        "projection_cache_hits": null,
+        "projection_cache_misses": null,
+        "stages": []
+      },
+      {
+        "contribution_cache_hits": 0,
+        "contribution_cache_misses": 0,
+        "contribution_load_ms": 0.0,
+        "counts": {
+          "matched_nodes": 3
+        },
+        "elapsed_ms": 7014.07271399512,
+        "meta": null,
+        "name": "search_campaign_graph",
+        "payload_bytes": null,
+        "projection_cache_hits": null,
+        "projection_cache_misses": null,
+        "stages": []
+      }
+    ]
+  },
+  "world_id": "eldyrwild",
+  "world_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/out"
+}

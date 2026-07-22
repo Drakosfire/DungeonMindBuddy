@@ -10,14 +10,17 @@ import pytest
 from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
     CANDIDATE_GRAPH_PREVIEW_VERSION,
+    CandidateEdge,
     CandidateNode,
     candidate_graph_preview_from_dict,
 )
 from graph_memory.candidate_graph_to_contribution import (
     CandidateGraphMappingError,
     candidate_graph_to_contribution,
+    durable_edge_id_for_observation,
     kernel_kind_for_node_type,
     load_typed_candidate_graph,
+    map_candidate_edge_to_assertion,
     map_candidate_node_to_assertion,
     verify_source_revision,
 )
@@ -346,8 +349,6 @@ def test_multi_source_evidence_rejected_until_per_artifact_verify() -> None:
 
 
 def test_map_edge_rejects_artifact_mismatch() -> None:
-    from graph_memory.candidate_graph_to_contribution import map_candidate_edge_to_assertion
-
     preview = candidate_graph_preview_from_dict(_minimal_graph())
     edge = preview.edges[0]
     with pytest.raises(CandidateGraphMappingError, match="!= verified"):
@@ -359,6 +360,7 @@ def test_map_edge_rejects_artifact_mismatch() -> None:
             session_id="session-22",
             campaign_id="longmont-c2",
         )
+
 
 def test_verify_source_revision_hashes_file(tmp_path: Path) -> None:
     source = tmp_path / "recap.md"
@@ -400,3 +402,114 @@ def test_candidate_graph_maps_nodes_and_in_scope_edges_only() -> None:
         a for a in contribution.candidate_assertions if a.assertion_kind == "node"
     ]
     assert len(node_assertions) == 2
+
+
+def _edge_for_observation_mapping(
+    *,
+    edge_id: str,
+    label: str,
+    relationship_type: str = "assists",
+) -> CandidateEdge:
+    preview = candidate_graph_preview_from_dict(_minimal_graph())
+    template = preview.edges[0]
+    return CandidateEdge(
+        edge_id=edge_id,
+        from_node_id="npc:healer",
+        to_node_id="npc:fighter",
+        label=label,
+        relationship_type=relationship_type,
+        semantic_state=template.semantic_state,
+        evidence_refs=template.evidence_refs,
+        proposed_action=template.proposed_action,
+        confidence=template.confidence,
+        warnings=template.warnings,
+    )
+
+
+def test_durable_edge_id_for_observation_generic_label_uses_coarse() -> None:
+    assert (
+        durable_edge_id_for_observation(
+            subject_id="npc:a",
+            target_id="npc:b",
+            predicate="works_with",
+            label="works with",
+        )
+        == "edge:npc:a:works_with:npc:b"
+    )
+
+
+def test_durable_edge_id_for_observation_specific_label_uses_slug() -> None:
+    assert (
+        durable_edge_id_for_observation(
+            subject_id="npc:a",
+            target_id="npc:b",
+            predicate="assists",
+            label="pulls net with",
+        )
+        == "edge:npc:a:assists:npc:b:pulls-net-with"
+    )
+
+
+def test_durable_edge_id_for_observation_prefers_candidate_specialization() -> None:
+    specialized = "edge:npc:a:works_with:npc:b:session-22-mention"
+    assert (
+        durable_edge_id_for_observation(
+            subject_id="npc:a",
+            target_id="npc:b",
+            predicate="works_with",
+            label="works with",
+            candidate_edge_id=specialized,
+        )
+        == specialized
+    )
+
+
+def test_map_candidate_edge_distinct_observation_labels_get_distinct_edge_ids() -> None:
+    common_kwargs = {
+        "source_revision_id": "sha256:abc123",
+        "verified_source_artifact_id": "artifact:recap:longmont-c2:session-22",
+        "campaign_scope": "longmont-c2",
+        "session_id": "session-22",
+        "campaign_id": "longmont-c2",
+    }
+    pulls_net = map_candidate_edge_to_assertion(
+        _edge_for_observation_mapping(edge_id="e-pulls", label="pulls net with"),
+        **common_kwargs,
+    )
+    heals = map_candidate_edge_to_assertion(
+        _edge_for_observation_mapping(edge_id="e-heals", label="heals"),
+        **common_kwargs,
+    )
+    assert pulls_net.value["edge_id"] == "edge:npc:healer:assists:npc:fighter:pulls-net-with"
+    assert heals.value["edge_id"] == "edge:npc:healer:assists:npc:fighter:heals"
+    assert pulls_net.value["edge_id"] != heals.value["edge_id"]
+    assert pulls_net.assertion_id != heals.assertion_id
+
+
+def test_map_candidate_edge_generic_label_reuses_coarse_edge_id() -> None:
+    common_kwargs = {
+        "source_revision_id": "sha256:abc123",
+        "verified_source_artifact_id": "artifact:recap:longmont-c2:session-22",
+        "campaign_scope": "longmont-c2",
+        "session_id": "session-22",
+        "campaign_id": "longmont-c2",
+    }
+    first = map_candidate_edge_to_assertion(
+        _edge_for_observation_mapping(
+            edge_id="e-one",
+            label="works with",
+            relationship_type="works_with",
+        ),
+        **common_kwargs,
+    )
+    second = map_candidate_edge_to_assertion(
+        _edge_for_observation_mapping(
+            edge_id="e-two",
+            label="works with",
+            relationship_type="works_with",
+        ),
+        **common_kwargs,
+    )
+    expected = "edge:npc:healer:works_with:npc:fighter"
+    assert first.value["edge_id"] == expected
+    assert second.value["edge_id"] == expected

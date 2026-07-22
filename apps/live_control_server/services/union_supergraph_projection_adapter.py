@@ -25,6 +25,7 @@ from graph_memory.projection import (
     build_recap_graph_projection,
 )
 from graph_memory.projection.recap_projection import RecapProjectionSourceSpan
+from graph_memory.projection_load_telemetry import projection_load_trace, timed_stage
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_store,
@@ -62,49 +63,83 @@ def build_plan_union_supergraph_projection(
 ) -> RecapGraphProjection:
     """Build a backend-neutral graph projection for a /plan session lens."""
 
-    known_entity_mentions: dict[str, Any] | None = None
-    if preview_union_store_path is not None:
-        store = load_preview_union_store(preview_union_store_path)
-    elif graph_run_manifest_path is not None:
-        known_entity_mentions = _load_manifest_known_entity_mentions(graph_run_manifest_path)
-        persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
-        # Never return a pre-repair chipless projection when the sidecar contract exists.
-        if persisted is not None and (
-            known_entity_mentions is None
-            or persisted.get("known_entity_mentions_contract") is True
-        ):
-            return RecapGraphProjection.model_validate(persisted)
-        store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
-    elif store_path is not None:
-        store = load_union_supergraph_store(store_path)
-    elif preview_source:
-        store = _build_preview_store(preview_source, focus_session_id=session_id)
-    else:
-        store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
-    markdown = _load_focus_recap_markdown_from_store(store, session_id=session_id)
-    if not (markdown or "").strip():
-        markdown = _load_corpus_normalized_recap_markdown(
-            campaign_id=getattr(store, "campaign_id", None) or "longmont-c2",
-            session_id=session_id,
-        )
-    source_spans = (
-        _load_manifest_source_spans(graph_run_manifest_path)
-        if graph_run_manifest_path is not None
-        else []
-    )
-    paragraph_text_by_span_id = (
-        _load_manifest_source_span_full_text_index(graph_run_manifest_path)
-        if graph_run_manifest_path is not None
-        else {}
-    )
-    return build_recap_graph_projection(
-        store,
+    with projection_load_trace(
+        "union_supergraph_projection",
         session_id=session_id,
-        markdown=markdown or "",
-        source_spans=source_spans,
-        paragraph_text_by_span_id=paragraph_text_by_span_id,
-        known_entity_mentions=known_entity_mentions,
-    )
+        has_manifest=bool(graph_run_manifest_path),
+        has_preview_union_store=bool(preview_union_store_path),
+    ) as trace:
+        known_entity_mentions: dict[str, Any] | None = None
+        source = "default_fixture"
+        if preview_union_store_path is not None:
+            source = "preview_union_store"
+            with timed_stage("load_preview_union_store"):
+                store = load_preview_union_store(preview_union_store_path)
+        elif graph_run_manifest_path is not None:
+            with timed_stage("load_known_entity_mentions"):
+                known_entity_mentions = _load_manifest_known_entity_mentions(
+                    graph_run_manifest_path
+                )
+            with timed_stage("load_persisted_projection") as persisted_extras:
+                persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
+                persisted_extras["hit"] = persisted is not None
+            # Never return a pre-repair chipless projection when the sidecar contract exists.
+            if persisted is not None and (
+                known_entity_mentions is None
+                or persisted.get("known_entity_mentions_contract") is True
+            ):
+                source = "persisted_manifest"
+                trace.set_meta(source=source)
+                with timed_stage("validate_persisted_projection"):
+                    return RecapGraphProjection.model_validate(persisted)
+            source = "graph_run_manifest"
+            with timed_stage("load_preview_union_from_manifest"):
+                store = load_preview_union_store_from_graph_run_manifest(
+                    graph_run_manifest_path
+                )
+        elif store_path is not None:
+            source = "store_path"
+            with timed_stage("load_union_store_path"):
+                store = load_union_supergraph_store(store_path)
+        elif preview_source:
+            source = "preview_source"
+            with timed_stage("build_preview_store"):
+                store = _build_preview_store(preview_source, focus_session_id=session_id)
+        else:
+            with timed_stage("load_default_fixture"):
+                store = load_union_supergraph_store(DEFAULT_FIXTURE_PATH)
+        trace.set_meta(source=source)
+        with timed_stage("load_focus_recap_markdown"):
+            markdown = _load_focus_recap_markdown_from_store(store, session_id=session_id)
+            if not (markdown or "").strip():
+                markdown = _load_corpus_normalized_recap_markdown(
+                    campaign_id=getattr(store, "campaign_id", None) or "longmont-c2",
+                    session_id=session_id,
+                )
+        with timed_stage("load_source_spans"):
+            source_spans = (
+                _load_manifest_source_spans(graph_run_manifest_path)
+                if graph_run_manifest_path is not None
+                else []
+            )
+            paragraph_text_by_span_id = (
+                _load_manifest_source_span_full_text_index(graph_run_manifest_path)
+                if graph_run_manifest_path is not None
+                else {}
+            )
+        with timed_stage("build_recap_projection") as build_extras:
+            projection = build_recap_graph_projection(
+                store,
+                session_id=session_id,
+                markdown=markdown or "",
+                source_spans=source_spans,
+                paragraph_text_by_span_id=paragraph_text_by_span_id,
+                known_entity_mentions=known_entity_mentions,
+            )
+            build_extras["node_view_count"] = len(projection.node_views or {})
+            build_extras["mention_count"] = len(projection.mentions or [])
+        trace.bump("node_views", len(projection.node_views or {}))
+        return projection
 
 
 def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dict[str, Any] | None:
@@ -386,25 +421,33 @@ def build_plan_union_supergraph_projection_payload(
         enrich_projection_payload_with_authored_overlay,
     )
 
-    projection = build_plan_union_supergraph_projection(
+    with projection_load_trace(
+        "union_supergraph_projection_payload",
         session_id=session_id,
-        store_path=store_path,
-        preview_source=preview_source,
-        graph_run_manifest_path=graph_run_manifest_path,
-        preview_union_store_path=preview_union_store_path,
-    )
-    payload = projection.model_dump(mode="json")
-    if (
-        graph_run_manifest_path is not None
-        and _load_manifest_known_entity_mentions(graph_run_manifest_path) is not None
     ):
-        payload["known_entity_mentions_contract"] = True
-    return enrich_projection_payload_with_authored_overlay(
-        payload,
-        campaign_id=projection.campaign_id,
-        campaign_rel=campaign_rel,
-        corpus_root=corpus_root,
-    )
+        with timed_stage("build_union_projection"):
+            projection = build_plan_union_supergraph_projection(
+                session_id=session_id,
+                store_path=store_path,
+                preview_source=preview_source,
+                graph_run_manifest_path=graph_run_manifest_path,
+                preview_union_store_path=preview_union_store_path,
+            )
+        with timed_stage("serialize_payload") as serialize_extras:
+            payload = projection.model_dump(mode="json")
+            serialize_extras["payload_keys"] = len(payload)
+        if (
+            graph_run_manifest_path is not None
+            and _load_manifest_known_entity_mentions(graph_run_manifest_path) is not None
+        ):
+            payload["known_entity_mentions_contract"] = True
+        with timed_stage("authored_overlay"):
+            return enrich_projection_payload_with_authored_overlay(
+                payload,
+                campaign_id=projection.campaign_id,
+                campaign_rel=campaign_rel,
+                corpus_root=corpus_root,
+            )
 
 
 def build_recap_only_projection_payload(

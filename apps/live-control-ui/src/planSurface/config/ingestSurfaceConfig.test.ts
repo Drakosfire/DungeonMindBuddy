@@ -40,4 +40,13 @@ describe("createIngestSurfaceConfig", () => {
       "graph-review-diagnostics",
     ]);
   });
+
+  it("attaches a session descriptor for shared World Graph reference resolution", () => {
+    const config = createIngestSurfaceConfig(
+      buildIngestContextFromPlanView(planView, "?session=7"),
+    );
+    expect(config.sessionDescriptor?.campaignId).toBe("longmont-c2");
+    expect(config.sessionDescriptor?.memorySession).toBe(7);
+    expect(config.sessionDescriptor?.planningDocument.title).toBe("Memory Ingest");
+  });
 });
