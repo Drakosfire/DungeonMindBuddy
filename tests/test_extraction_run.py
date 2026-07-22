@@ -10,6 +10,7 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRunStatus,
     assert_allowed_extraction_run_transition,
     assert_run_not_reviewable_when_incomplete,
+    validate_extraction_run_lineage,
 )
 from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestArtifactKind,
@@ -185,3 +186,119 @@ def test_adapt_recap_manifest_rejects_missing_source_artifact() -> None:
     )
     with pytest.raises(ValueError, match="source_artifact_id"):
         adapt_recap_manifest_to_extraction_run(manifest)
+
+
+def test_adapt_recap_manifest_preserves_llm_multi_telemetry_roles() -> None:
+    """LLM graph-ingest manifests emit three PASS_TELEMETRY artifacts under distinct roles."""
+    manifest = GraphIngestRunManifest(
+        run_id="run-recap-llm-1",
+        campaign_id="longmont-c2",
+        session_id="session-22",
+        status=GraphIngestRunStatus.CANDIDATE_VALIDATION_READY,
+        source=GraphIngestSource(
+            source_artifact_id="artifact:recap:longmont-c2:session-22",
+            source_domain="recap",
+            input_path_record="corpus/recap.md",
+            normalized_recap_sha256="a" * 64,
+        ),
+        artifacts={
+            "source_span_index": GraphIngestArtifactRef(
+                kind=GraphIngestArtifactKind.SOURCE_SPAN_INDEX,
+                uri="runs/source_span_index.json",
+                sha256="b" * 64,
+                exists=True,
+            ),
+            "candidate_graph": GraphIngestArtifactRef(
+                kind=GraphIngestArtifactKind.CANDIDATE_GRAPH,
+                uri="runs/candidate_graph.json",
+                sha256="c" * 64,
+                exists=True,
+            ),
+            "candidate_validation_report": GraphIngestArtifactRef(
+                kind=GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT,
+                uri="runs/candidate_validation_report.json",
+                sha256="d" * 64,
+                exists=True,
+            ),
+            "pass_outputs": GraphIngestArtifactRef(
+                kind=GraphIngestArtifactKind.PASS_TELEMETRY,
+                uri="runs/pass_outputs.json",
+                sha256="e" * 64,
+                exists=True,
+            ),
+            "pass_telemetry": GraphIngestArtifactRef(
+                kind=GraphIngestArtifactKind.PASS_TELEMETRY,
+                uri="runs/pass_telemetry.json",
+                sha256="f" * 64,
+                exists=True,
+            ),
+            "consolidation_diagnostics": GraphIngestArtifactRef(
+                kind=GraphIngestArtifactKind.PASS_TELEMETRY,
+                uri="runs/consolidation_diagnostics.json",
+                sha256="1" * 64,
+                exists=True,
+            ),
+        },
+    )
+    run = adapt_recap_manifest_to_extraction_run(manifest)
+    assert run.components["pass_outputs"].uri.endswith("pass_outputs.json")
+    assert run.components["pass_telemetry"].uri.endswith("pass_telemetry.json")
+    assert run.components["consolidation_diagnostics"].uri.endswith(
+        "consolidation_diagnostics.json"
+    )
+    assert run.components["pass_outputs"].sha256 == "e" * 64
+    assert run.components["pass_telemetry"].sha256 == "f" * 64
+    assert run.components["consolidation_diagnostics"].sha256 == "1" * 64
+    assert run.components["pass_outputs"].kind == ExtractionRunComponentKind.PASS_OUTPUTS
+    assert run.components["pass_telemetry"].kind == ExtractionRunComponentKind.PASS_TELEMETRY
+    assert (
+        run.components["consolidation_diagnostics"].kind
+        == ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS
+    )
+
+
+def test_validate_extraction_run_lineage_requires_reciprocal_links() -> None:
+    predecessor = ExtractionRun(
+        run_id="run-a",
+        source_artifact_id="artifact:x",
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.SUPERSEDED,
+        superseded_by_run_id="run-b",
+    )
+    successor = ExtractionRun(
+        run_id="run-b",
+        source_artifact_id="artifact:x",
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.DRAFT,
+        supersedes_run_id="run-a",
+    )
+    validate_extraction_run_lineage([predecessor, successor])
+
+    one_sided = predecessor.model_copy(update={"superseded_by_run_id": "run-missing"})
+    with pytest.raises(ValueError, match="missing successor"):
+        validate_extraction_run_lineage([one_sided])
+
+    non_reciprocal = successor.model_copy(update={"supersedes_run_id": None})
+    with pytest.raises(ValueError, match="non-reciprocal"):
+        validate_extraction_run_lineage([predecessor, non_reciprocal])
+
+
+def test_validate_extraction_run_lineage_rejects_cycles() -> None:
+    run_a = ExtractionRun(
+        run_id="run-a",
+        source_artifact_id="artifact:x",
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.SUPERSEDED,
+        superseded_by_run_id="run-b",
+        supersedes_run_id="run-b",
+    )
+    run_b = ExtractionRun(
+        run_id="run-b",
+        source_artifact_id="artifact:x",
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.SUPERSEDED,
+        superseded_by_run_id="run-a",
+        supersedes_run_id="run-a",
+    )
+    with pytest.raises(ValueError, match="cycle"):
+        validate_extraction_run_lineage([run_a, run_b])

@@ -518,19 +518,21 @@ def test_real_recap_manifest_adapts_to_extraction_run(
     }
     assert source_component.sha256 == manifest.source.normalized_recap_sha256
 
-    kind_keys = {
-        "source_span_index",
-        "candidate_graph",
-        "validation_report",
-        "pass_telemetry",
-        "provenance_index",
+    role_to_component = {
+        "source_span_index": "source_span_index",
+        "candidate_graph": "candidate_graph",
+        "candidate_validation_report": "validation_report",
+        "pass_outputs": "pass_outputs",
+        "pass_telemetry": "pass_telemetry",
+        "consolidation_diagnostics": "consolidation_diagnostics",
+        "raw_model_response": "raw_model_response",
+        "provenance_index": "provenance_index",
     }
     for key, artifact in manifest.artifacts.items():
-        if key not in kind_keys and artifact.kind.value not in kind_keys:
+        mapped_key = role_to_component.get(key)
+        if mapped_key is None:
             continue
-        mapped_key = artifact.kind.value if artifact.kind.value in run.components else key
-        if mapped_key not in run.components:
-            continue
+        assert mapped_key in run.components, f"missing adapted component for manifest role {key}"
         mapped = run.components[mapped_key]
         assert mapped.uri == artifact.uri
         assert mapped.sha256 == artifact.sha256

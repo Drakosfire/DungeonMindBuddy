@@ -36,6 +36,7 @@ from graph_memory.source_span import (
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
     registry_token,
+    workspace_document_mutation_lock,
 )
 from src.live_play.live_store import load_json, write_json
 
@@ -299,7 +300,26 @@ def create_source_artifact_from_workspace_document(
 
     Markdown bytes are server-resolved from the BLD-02 target. A client-supplied digest is
     accepted only as an assertion that must match the committed file.
+
+    The per-document mutation lock is held across load/verify/read/persist so a concurrent
+    Markdown commit cannot interleave target bytes with a prior workspace revision.
     """
+    with workspace_document_mutation_lock(root, document_id):
+        return _create_source_artifact_from_workspace_document_unlocked(
+            root,
+            document_id=document_id,
+            expected_revision=expected_revision,
+            expected_content_sha256=expected_content_sha256,
+        )
+
+
+def _create_source_artifact_from_workspace_document_unlocked(
+    root: Path,
+    *,
+    document_id: str,
+    expected_revision: int | None = None,
+    expected_content_sha256: str | None = None,
+) -> GraphMemorySourceArtifact:
     try:
         record = get_workspace_document(root, document_id)
     except WorkspaceDocumentRegistryError as exc:

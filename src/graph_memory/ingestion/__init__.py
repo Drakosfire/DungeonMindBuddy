@@ -12,6 +12,7 @@ from graph_memory.ingestion.extraction_run import (
     assert_allowed_extraction_run_transition,
     assert_run_not_reviewable_when_incomplete,
     normalize_content_digest,
+    validate_extraction_run_lineage,
     validate_extraction_run_record,
 )
 from graph_memory.ingestion.graph_ingest_run import (
@@ -47,6 +48,7 @@ __all__ = [
     "assert_allowed_extraction_run_transition",
     "assert_run_not_reviewable_when_incomplete",
     "normalize_content_digest",
+    "validate_extraction_run_lineage",
     "validate_extraction_run_record",
     "GRAPH_INGEST_RUN_MANIFEST_SCHEMA",
     "GRAPH_INGEST_RUN_MANIFEST_VERSION",

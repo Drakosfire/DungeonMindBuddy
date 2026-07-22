@@ -103,7 +103,10 @@ class ExtractionRunComponentKind(StrEnum):
     SOURCE_SPAN_INDEX = "source_span_index"
     CANDIDATE_GRAPH = "candidate_graph"
     VALIDATION_REPORT = "validation_report"
+    PASS_OUTPUTS = "pass_outputs"
     PASS_TELEMETRY = "pass_telemetry"
+    CONSOLIDATION_DIAGNOSTICS = "consolidation_diagnostics"
+    RAW_MODEL_RESPONSE = "raw_model_response"
     PROVENANCE_INDEX = "provenance_index"
 
 
@@ -202,6 +205,55 @@ def validate_extraction_run_record(run: ExtractionRun) -> None:
         raise ValueError("promoted ExtractionRun requires the complete review bundle")
     if run.status == ExtractionRunStatus.SUPERSEDED and not run.superseded_by_run_id:
         raise ValueError("superseded runs require superseded_by_run_id")
+    if run.superseded_by_run_id and run.superseded_by_run_id == run.run_id:
+        raise ValueError("superseded_by_run_id must not self-reference")
+    if run.supersedes_run_id and run.supersedes_run_id == run.run_id:
+        raise ValueError("supersedes_run_id must not self-reference")
+
+
+def validate_extraction_run_lineage(runs: list[ExtractionRun]) -> None:
+    """Validate reciprocal supersession and acyclic lineage across a registry document."""
+    by_id: dict[str, ExtractionRun] = {}
+    for run in runs:
+        if run.run_id in by_id:
+            raise ValueError(f"duplicate extraction run id: {run.run_id}")
+        by_id[run.run_id] = run
+
+    for run in runs:
+        if run.superseded_by_run_id:
+            successor = by_id.get(run.superseded_by_run_id)
+            if successor is None:
+                raise ValueError(
+                    f"superseded_by_run_id missing successor: {run.superseded_by_run_id}"
+                )
+            if successor.supersedes_run_id != run.run_id:
+                raise ValueError(
+                    f"non-reciprocal supersession: {run.run_id} superseded_by "
+                    f"{run.superseded_by_run_id}"
+                )
+        if run.supersedes_run_id:
+            predecessor = by_id.get(run.supersedes_run_id)
+            if predecessor is None:
+                raise ValueError(
+                    f"supersedes_run_id missing predecessor: {run.supersedes_run_id}"
+                )
+            if predecessor.superseded_by_run_id != run.run_id:
+                raise ValueError(
+                    f"non-reciprocal supersession: {run.run_id} supersedes "
+                    f"{run.supersedes_run_id}"
+                )
+
+    for run in runs:
+        seen: set[str] = set()
+        current_id: str | None = run.run_id
+        while current_id is not None:
+            if current_id in seen:
+                raise ValueError(f"supersession lineage cycle involving {current_id}")
+            seen.add(current_id)
+            current = by_id.get(current_id)
+            if current is None:
+                break
+            current_id = current.supersedes_run_id
 
 
 def assert_run_not_reviewable_when_incomplete(run: ExtractionRun) -> None:

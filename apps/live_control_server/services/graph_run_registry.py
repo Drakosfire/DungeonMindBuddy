@@ -27,6 +27,7 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRunStatus,
     assert_allowed_extraction_run_transition,
     normalize_content_digest,
+    validate_extraction_run_lineage,
     validate_extraction_run_record,
 )
 from graph_memory.source_span import validate_source_span_index
@@ -308,6 +309,13 @@ def _validate_persisted_runs(root: Path, records: list[ExtractionRun]) -> None:
                 f"extraction run failed integrity validation: {exc}",
                 status_code=500,
             ) from exc
+    try:
+        validate_extraction_run_lineage(records)
+    except ValueError as exc:
+        raise GraphRunRegistryError(
+            f"malformed extraction run lineage: {exc}",
+            status_code=500,
+        ) from exc
 
 
 def _load_unlocked(root: Path) -> tuple[ExtractionRunRegistryDocument, str]:

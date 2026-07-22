@@ -186,18 +186,38 @@ def adapt_recap_manifest_to_extraction_run(manifest: GraphIngestRunManifest):
     if not source_artifact_id:
         raise ValueError("recap manifest source.source_artifact_id is required for adaptation")
 
-    components: dict[str, ExtractionRunComponentRef] = {}
-    kind_map = {
+    # Stable manifest roles map 1:1 onto component kinds so LLM multi-telemetry
+    # artifacts (all PASS_TELEMETRY in the legacy manifest) are preserved.
+    role_kind_map: dict[str, ExtractionRunComponentKind] = {
+        "source_span_index": ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+        "candidate_graph": ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        "candidate_validation_report": ExtractionRunComponentKind.VALIDATION_REPORT,
+        "pass_outputs": ExtractionRunComponentKind.PASS_OUTPUTS,
+        "pass_telemetry": ExtractionRunComponentKind.PASS_TELEMETRY,
+        "consolidation_diagnostics": ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+        "raw_model_response": ExtractionRunComponentKind.RAW_MODEL_RESPONSE,
+        "provenance_index": ExtractionRunComponentKind.PROVENANCE_INDEX,
+    }
+    kind_fallback_map: dict[GraphIngestArtifactKind, ExtractionRunComponentKind] = {
         GraphIngestArtifactKind.SOURCE_SPAN_INDEX: ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
         GraphIngestArtifactKind.CANDIDATE_GRAPH: ExtractionRunComponentKind.CANDIDATE_GRAPH,
         GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT: ExtractionRunComponentKind.VALIDATION_REPORT,
-        GraphIngestArtifactKind.PASS_TELEMETRY: ExtractionRunComponentKind.PASS_TELEMETRY,
         GraphIngestArtifactKind.PROVENANCE_INDEX: ExtractionRunComponentKind.PROVENANCE_INDEX,
+        # PASS_TELEMETRY intentionally omitted: require a stable role key.
     }
-    for _key, artifact in manifest.artifacts.items():
-        mapped = kind_map.get(artifact.kind)
+
+    components: dict[str, ExtractionRunComponentRef] = {}
+    for role_key, artifact in manifest.artifacts.items():
+        mapped = role_kind_map.get(role_key)
+        if mapped is None:
+            mapped = kind_fallback_map.get(artifact.kind)
         if mapped is None:
             continue
+        if mapped.value in components:
+            raise ValueError(
+                f"duplicate extraction component role {mapped.value!r} "
+                f"(manifest key {role_key!r}); refusing last-write-wins"
+            )
         components[mapped.value] = ExtractionRunComponentRef(
             kind=mapped,
             uri=artifact.uri,

@@ -314,7 +314,7 @@ def test_registry_failure_rolls_back_new_file(
         raise WorkspaceDocumentRegistryError("injected registry failure", status_code=500)
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed",
+        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed_unlocked",
         boom,
     )
     with pytest.raises(TiptapMarkdownWriteError) as exc_info:
@@ -366,7 +366,7 @@ def test_registry_failure_restores_prior_file_bytes(
         raise WorkspaceDocumentRegistryError("injected registry failure", status_code=500)
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed",
+        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed_unlocked",
         boom,
     )
     with pytest.raises(TiptapMarkdownWriteError):
@@ -522,7 +522,7 @@ def test_registry_failure_with_rollback_failure_reports_partial_state(
         raise OSError("simulated rollback failure")
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed",
+        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed_unlocked",
         boom_registry,
     )
     monkeypatch.setattr(
@@ -586,7 +586,7 @@ def test_backup_cleanup_failure_is_reported_in_partial_state(
         return original_unlink(self, *args, **kwargs)
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed",
+        "apps.live_control_server.services.tiptap_markdown_write.mark_workspace_document_committed_unlocked",
         boom_registry,
     )
     monkeypatch.setattr(Path, "unlink", boom_unlink)

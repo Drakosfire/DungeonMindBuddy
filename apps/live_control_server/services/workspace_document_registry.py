@@ -8,6 +8,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from apps.live_control_server.services.registry_file_lock import (
+    workspace_document_mutation_lock,
+)
 from src.live_play.live_store import load_json, write_json
 
 DEFAULT_REGISTRY_REL = "out/registries/workspace_documents.json"
@@ -398,12 +401,17 @@ def restore_workspace_document(
     )
 
 
-def mark_workspace_document_committed(
+def mark_workspace_document_committed_unlocked(
     root: Path,
     document_id: str,
     *,
     expected_revision: int | None = None,
 ) -> WorkspaceDocumentRecord:
+    """Mark committed without acquiring the per-document mutation lock.
+
+    Callers that already hold ``workspace_document_mutation_lock`` (Markdown commit)
+    must use this form to avoid deadlock.
+    """
     document = _load_registry_document(root)
     existing = _find_record(document, document_id)
     if existing is None:
@@ -425,6 +433,20 @@ def mark_workspace_document_committed(
     ]
     _save_registry_document(root, document)
     return updated
+
+
+def mark_workspace_document_committed(
+    root: Path,
+    document_id: str,
+    *,
+    expected_revision: int | None = None,
+) -> WorkspaceDocumentRecord:
+    with workspace_document_mutation_lock(root, document_id):
+        return mark_workspace_document_committed_unlocked(
+            root,
+            document_id,
+            expected_revision=expected_revision,
+        )
 
 
 def _set_workspace_document_status(
