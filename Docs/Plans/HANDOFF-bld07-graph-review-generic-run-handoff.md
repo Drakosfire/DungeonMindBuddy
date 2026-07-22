@@ -1,29 +1,33 @@
-# HANDOFF — BLD-07 generic Graph Review run handoff
+# HANDOFF — BLD-07 generic Graph Review run binding
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-06 and the existing extract-promote bridge are re-anchored
+- **Status:** DRAFT — dispatch only after BLD-06 and the current extract-promote bridge are merged and re-anchored.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld07-graph-review-generic-run-handoff.md`
 - **Suggested branch:** `agent/bld07-graph-review-generic-run-handoff`
 
-## Shared vocabulary
+## §0 Capability decomposition decision
 
-| Term | Definition |
-|---|---|
-| Generic run | Recap or worldbuilding ExtractionRun selected by durable run ID. |
-| Review package | Server-bound candidate assertions, evidence, and revision metadata presented for judgment. |
-| Prepare | Seals a selected proposal against a parent graph revision. |
-| Confirm | Explicitly commits the prepared proposal through the existing governed publication path. |
+| Candidate outcome | Independently useful? | Durable/public contract changed? | Decision |
+|---|---:|---:|---|
+| Load an exact worldbuilding ExtractionRun in Graph Review | Yes | Yes | Include |
+| Adapt the existing server-owned promotable-run binding to generic runs | No — required for the same review capability to prepare truthfully | Yes | Include |
+| Change Kernel contribution, identity, merge, or graph-head semantics | Yes | Yes | Reject/stop condition |
+| Add a second promotion service or protocol | No — prohibited duplicate authority | Yes | Reject |
+| Add Hermes writes | Yes | Yes | Successor |
+
+**Selected capability:** Graph Review can bind an exact source-domain-neutral run
+to the existing governed prepare/confirm flow without changing Kernel semantics.
 
 ## §1 Mission
 
-Graph Review can load an exact worldbuilding ExtractionRun and use the existing
-revision-bound prepare/confirm publication path to commit selected assertions
-to the World Supergraph without inventing a session lens or creating a second
-write protocol.
+Graph Review can load an exact recap or worldbuilding ExtractionRun, display its
+source/evidence context without a fabricated session lens, and use the existing
+revision-bound prepare/confirm publication path to commit selected assertions to
+the World Supergraph.
 
-**Invariant:** A worldbuilding run is reviewable by exact run/source identity,
-and only the existing Graph Review confirmation boundary can advance the graph
-head.
+**Invariant:** the browser selects an exact server-resolved run and assertions;
+only the existing Graph Review confirmation boundary and shared Kernel ops may
+advance the graph head.
 
 ## §2 Context, authority, and boundaries
 
@@ -31,179 +35,221 @@ head.
 |---|---|
 | Parent authority | `Docs/Design/ARCHITECTURE-campaign-supergraph.md` |
 | Product boundary | `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` |
-| Sequencing authority | `Docs/Plans/PLAN-build-surface-worldbuilding-ingest-pr-slices.md`, BLD-07 |
+| Sequencing authority | Build slice plan BLD-07 |
+| Predecessor | BLD-06 exact run/source/revision handoff and BLD-03/04 canonical run contracts |
+| Existing product binding | `apps/live_control_server/services/promotable_ingest_run.py`, `apps/live_control_server/services/extract_promote.py`, and extract-promote route/models |
+| Existing Kernel owner | `src/graph_memory/extract_promote_ops.py` |
 | Repository rules | `AGENTS.md`, `.cursor/rules/external-agent-pr-loop.mdc`, existing extract-promote contracts |
-| Base revision | Dispatch-time immutable merge SHA containing BLD-06 and the current extract-promote bridge; current `8ff2339f` is reference only |
-| Predecessor contract | Exact Build handoff identifiers, ExtractionRun bundle, existing Graph Review and extract-promote APIs |
-| Exact input consumed | Run ID, source artifact ID, candidate graph/evidence bundle, selected assertion IDs, pinned parent revision |
-| Named successor | BLD-08 worldbuilding profile/pilot; Hermes writes remain separate |
-| What remains false | Automatic publication, Hermes-specific write path, generic graph editor, player-facing projection |
-| Explicit non-goals | New Kernel semantics, automatic identity linking, second contribution store, latest-run selection, undo/retract, UI redesign outside run loading |
+| Base revision | Dispatch-time immutable merge SHA containing BLD-06 and current publication bridge |
+| Exact input consumed | exact run ID, SourceArtifact ID/revision, candidate/evidence bundle, selected assertion IDs, and pinned parent graph revision |
+| Named successor | BLD-08 worldbuilding profile/pilot; Hermes reuse remains separate |
+| What remains false | no automatic publication, new identity linking, generic graph editor, player projection, undo/retract UI |
+| Explicit non-goals | Kernel semantic changes, second promotion service, latest-run selection, Build commit controls, broad workbench redesign |
+
+### Locked ownership decision
+
+The existing layers are:
+
+```text
+Browser Graph Review
+  → apps/live_control_server/routes/extract_promote.py
+  → apps/live_control_server/services/extract_promote.py
+  → apps/live_control_server/services/promotable_ingest_run.py
+  → src/graph_memory/extract_promote_ops.py
+```
+
+BLD-07 generalizes the **server-owned run resolver and service binding** so the
+existing product prepare request can resolve canonical BLD-03 ExtractionRuns.
+It does not create `apps/live_control_server/services/extract_promote_ops.py`.
+
+`src/graph_memory/extract_promote_ops.py` remains the shared Kernel orchestration
+owner and is out of scope unless the implementation proves that generic source
+scope cannot be represented through the existing sealed inputs. That discovery
+is a stop condition requiring architecture review, not silent scope expansion.
 
 Read in order:
 
-1. `Docs/Design/ARCHITECTURE-campaign-supergraph.md`
-2. `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md`
-3. `Docs/Plans/ROADMAP-build-surface-worldbuilding-ingest.md`
-4. `Docs/Plans/PLAN-build-surface-worldbuilding-ingest-pr-slices.md`
-5. Existing extract-promote models/routes/services
-6. Existing Graph Review workbench and owning tests
+1. Campaign Supergraph architecture
+2. extract-promote Graph Review bridge
+3. BLD-03 canonical SourceArtifact/ExtractionRun contracts
+4. BLD-06 exact handoff
+5. `apps/live_control_server/services/promotable_ingest_run.py`
+6. `apps/live_control_server/services/extract_promote.py`
+7. `apps/live_control_server/routes/extract_promote.py`
+8. `src/graph_memory/extract_promote_ops.py`
+9. current Graph Review workbench and owning tests
 
-If generic run loading requires changing contribution identity or Kernel
-semantics, stop and report it as a separate architecture slice.
+Stop if generic run support requires changing contribution identity, candidate
+to contribution mapping semantics, identity resolution, merge/retraction rules,
+or graph-head commit behavior.
 
 ## §3 Observable-path inventory
 
-| Path | Current behavior | Required behavior | Same invariant? | Owning boundary |
+| Path | Current behavior | Required behavior | Same invariant? | Boundary |
 |---|---|---|---:|---|
-| Build handoff | Carries run context or opens generic review | Graph Review selects exact run/source/revision | Yes | Run-selection adapter |
-| Run load | Review is recap/latest-run-shaped | Load exact worldbuilding run bundle | Yes | API + workbench |
-| Evidence display | Candidate/evidence may be recap-oriented | Show source domain/authority/span evidence | Yes | Review panel |
-| Assertion selection | Existing review selection | Preserve assertion-level selection for worldbuilding | Yes | Review state |
-| Prepare | Existing sealed proposal path | Same path accepts generic run evidence | Yes | Extract-promote service |
-| Confirm | Existing explicit commit | Same revision-bound confirmation | Yes | Extract-promote service |
-| Post-commit reload | Durable reload must be exact | Reload committed revision and show receipt | Yes | Workbench/read path |
-| Error/stale proposal | Existing failure semantics | Preserve fail-closed stale/rejected behavior | Yes | Backend + UI |
+| Build handoff | exact IDs carried by BLD-06 | Graph Review selects exact run/source/revision | Yes | run selection adapter |
+| Run resolution | server resolver is graph-ingest/recap shaped | resolve canonical exact recap/worldbuilding run through one adapter | Yes | promotable run service |
+| Run load | workbench may depend on manifest/latest context | load exact generic review bundle | Yes | API/workbench |
+| Source scope | campaign/session assumed | display world/source authority and permit null campaign/session where valid | Yes | service/review projection |
+| Evidence | recap-oriented labels/spans | show canonical SourceArtifact/span evidence | Yes | review projection |
+| Assertion selection | existing stable IDs | preserve exact assertion-ID selection | Yes | review state |
+| Prepare | existing runId-only sealed proposal | same route/service resolves generic run and seals existing Kernel proposal | Yes | route/service/Kernel call |
+| Confirm | existing explicit confirmation | unchanged sealed proposal confirmation | Yes | route/service/Kernel call |
+| Stale proposal | existing fail-closed behavior | unchanged conflict/no head advancement | Yes | service/Kernel |
+| Already applied | existing idempotent receipt | unchanged truthful no-op/receipt | Yes | service/Kernel |
+| Post-commit reload | existing exact revision work | reload exact committed revision and distinguish read degradation | Yes | workbench/read API |
+| Unknown/superseded run | existing diagnostics vary | exact 404/unreviewable; no latest fallback | Yes | resolver/service |
 
-## §4 Files in scope (allowlist)
+## §4 Files in scope — allowlist
 
 | Action | Path | Purpose |
 |---|---|---|
-| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx` | Load/render generic run bundle |
-| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchHeaderWithActivity.tsx` | Show source-domain/run context |
-| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewRunSelection.ts` | Exact run/source/revision selection adapter |
-| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewRunSelection.test.ts` | Selection and identity proof |
-| Modify | `apps/live-control-ui/src/api/liveApi.ts` | Generic run/review/promote API calls |
-| Modify | `apps/live-control-ui/src/api/types.ts` | Generic review/run/provenance types |
-| Modify | `apps/live_control_server/routes/extract_promote.py` | Accept generic source/run binding |
-| Modify | `apps/live_control_server/services/extract_promote_ops.py` | Preserve revision-bound generic proposal semantics |
-| Modify | `tests/test_extract_promote_ops_atomic.py` | Worldbuilding run and stale/selection proof |
-| Modify | `tests/test_live_extract_promote_api.py` | HTTP boundary and exact-run proof |
-| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx` | Workbench load/review/reload proof |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx` | Load/render generic exact run package |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchHeaderWithActivity.tsx` | Show source domain, authority, run, and optional scope |
+| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewRunSelection.ts` | Parse/validate exact run/source/revision handoff |
+| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewRunSelection.test.ts` | Exact identity/no-latest proof |
+| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx` | Generic package, selection, prepare/confirm, and reload UI proof |
+| Modify | `apps/live-control-ui/src/api/liveApi.ts` | Generic run/review/prepare/confirm/read client methods |
+| Modify | `apps/live-control-ui/src/api/types.ts` | Canonical run/source/evidence/review projection types |
+| Modify | `apps/live_control_server/services/promotable_ingest_run.py` | Resolve canonical ExtractionRun and adapt old recap manifests through BLD-03 compatibility seam |
+| Modify | `apps/live_control_server/services/extract_promote.py` | Bind generic resolved run to existing prepare/confirm Kernel inputs without new semantics |
+| Modify | `apps/live_control_server/routes/extract_promote.py` | Preserve runId-only product boundary and generic safe errors |
+| Modify | `apps/live_control_server/models/extract_promote.py` | Source-domain-neutral review/status fields only when required by the public response |
+| Modify | `tests/test_promotable_ingest_run.py` | Exact generic/recap resolution, invalid/superseded, and root-policy proof |
+| Modify | `tests/test_extract_promote_ops_atomic.py` | Existing Kernel invariant regression with generic sealed inputs |
+| Modify | `tests/test_live_extract_promote_api.py` | HTTP exact-run, prepare/confirm, stale, receipt, and error proof |
 
-**Bounded discovery exception:** Not applicable — paths are enumerated.
+### Bounded discovery exception
 
-## §5 Files and capabilities explicitly out of scope
+```text
+Directory: apps/live-control-ui/src/planSurface/graphReviewWorkbench
+Maximum additional paths: 2
+Allowed path kinds: existing review projection/toolbar test or type files
+Decision rule: only when the current Graph Review owning component differs from the named files
+Required report: actual owner and why the additional path proves the same invariant
+```
 
-| Path, layer, or capability | Why out of scope |
+## §5 Explicitly out of scope
+
+| Path/capability | Why |
 |---|---|
-| `apps/live-control-ui/src/buildSurface/**` | Build toolbar is predecessor; no Build UI redesign |
-| `src/graph_memory/extract_promote_ops.py` | Kernel/publication changes require separate architecture review |
-| Hermes tool registration or agent write code | Separate capability over the same path |
-| `src/graph_memory/identity/**` | No automatic identity linking |
-| Player-facing projection | Separate admissibility/product lane |
-| Authored overlay migration | Separate authoring workstream |
-| `corpus/**`, `evals/**` | No content/gold mutation |
+| `src/graph_memory/extract_promote_ops.py` | Existing Kernel owner; semantic change is a stop condition |
+| `src/graph_memory/identity/**` | no automatic identity changes |
+| new application `extract_promote_ops.py` | prohibited duplicate authority |
+| Build surface files | BLD-06 predecessor is complete |
+| Hermes registration/tool code | separate capability over same path |
+| authored overlay migration/undo/retract UI | separate workstreams |
+| player-facing projection | separate admissibility/product lane |
+| `corpus/**`, `evals/**` | no content/gold mutation |
 
-## §6 Implementation contract and conditional matrices
+## §6 Implementation contract
 
 ```text
 Input:
-  Exact ExtractionRun ID + SourceArtifact ID + candidate/evidence bundle +
-  current World Graph head + selected assertion IDs.
+  exact canonical ExtractionRun ID + SourceArtifact ID/revision + candidate and
+  evidence bundle + selected assertion IDs + current graph head.
 
 Output:
-  Reviewable generic package, revision-bound prepare response, explicit
-  confirm result, and exact committed-revision reload.
+  source-domain-neutral review package, existing sealed prepare proposal,
+  existing explicit confirm receipt, and exact committed-revision reload.
 
 Invariant:
-  The prepared proposal binds selected assertions, source evidence, and parent
-  revision; confirmation is explicit and reload truth is revision-specific.
+  product prepare remains runId-only and server-resolved; selected assertions,
+  source evidence, and parent revision are sealed before unchanged Kernel confirm.
 
 Failure behavior:
-  Unknown run/source → stable not-found; no latest fallback.
-  Invalid evidence/selection → review package remains uncommittable.
-  Stale parent revision → prepare/confirm conflict; graph head unchanged.
-  Post-commit read failure → report committed truth separately from reload
-  failure; never claim preview is durable.
-  Rejected/superseded proposal → no graph-head advancement.
+  unknown/invalid/superseded run → stable error; no latest fallback
+  source/run mismatch → fail closed
+  invalid evidence/selection → uncommittable review package
+  stale parent/proposal → conflict; prior head unchanged
+  already applied → truthful existing receipt/no-op
+  publication failure → no head advancement
+  commit succeeds but reload fails → report committed receipt + degraded read
 
 Replay / idempotency:
-  same run + same selection + same parent revision → sealed proposal identity;
-  changed selection/revision → new proposal;
-  retry after response loss → query proposal/commit receipt, not duplicate write;
-  reload → exact committed revision, never latest projection substitution.
+  same run + selection + parent revision → existing sealed proposal identity
+  changed selection/revision → new proposal
+  response-loss retry → query/reuse existing receipt semantics; no blind duplicate
+  reload → exact committed revision, not current/latest substitution
 
 Trust boundary:
-  Verifies: server-owned run binding, source evidence, assertion selection,
-  proposal digest, parent revision, authorization/policy, and committed read.
-  Records or trusts without proving: semantic truth of source claims, which
-  remains GM-reviewed.
+  Verifies server-owned exact run resolution, source/evidence binding, selection,
+  proposal digest, parent revision, capability policy, and exact read receipt.
+  Semantic truth remains GM judgment.
 ```
 
-### State and fallback matrix
+### §6A State/fallback matrix
 
-| Path | Loading | Success | Miss | Dependency unavailable | Integrity failure | Stale | Retry |
-|---|---|---|---|---|---|---|---|
-| Run selection | Loading exact ID | Render package | 404 exact run | Stable unavailable | Reject malformed bundle | Superseded visible | Re-load exact ID |
-| Review | Show evidence/selection | Selected assertions explicit | Empty candidate set is uncommittable | Review unavailable | Invalid evidence blocks prepare | Preserve selection, rebase required | Re-open package |
-| Prepare | Working | Sealed proposal | No selection is validation error | Stable error | Digest/evidence fail closed | Conflict, no head change | Re-load head/reselect |
-| Confirm | Working | Commit receipt | Unknown proposal 404 | Stable error | Proposal mismatch fails | Stale proposal rejected | Query receipt, no blind retry |
-| Reload | Reading committed revision | Exact objects/receipt | Committed revision missing is error | Read unavailable | Never show preview as durable | Revision mismatch visible | Retry same revision |
+| Path | Success | Miss | Unavailable | Integrity failure | Stale/superseded | Retry |
+|---|---|---|---|---|---|---|
+| Run selection | exact package | 404 | stable error | reject malformed/mismatch | visible/unreviewable | reload exact ID |
+| Review | source evidence + selection | zero candidates uncommittable | stable error | invalid evidence blocks | preserve state/rebase | reopen exact package |
+| Prepare | existing sealed proposal | zero selection validation | stable error | digest/scope fail closed | conflict/no head change | reload/reselect |
+| Confirm | existing commit receipt | proposal 404 | stable error | mismatch fails | stale rejects | query receipt, no blind retry |
+| Reload | exact committed objects | missing revision error | degraded read | never show preview as durable | revision mismatch visible | same revision |
 
-### Identity matrix
+### §6B Identity matrix
 
-| Situation | Required rule | Ambiguity behavior | Fallback |
+| Situation | Required rule | Ambiguity | Fallback |
 |---|---|---|---|
-| Run | Exact durable run ID | Unknown run is 404 | No latest |
-| Source | Exact source artifact ID | Mismatch blocks review | No label/path fallback |
-| Assertion | Stable assertion ID from candidate package | Unknown selected ID blocks prepare | No index-based selection |
-| Proposal | Server-sealed proposal digest | Digest mismatch rejects confirm | No compatibility bypass |
-| Revision | Explicit parent/committed revision | Missing revision blocks commit | No current-head inference |
+| Run | exact canonical run ID | unknown 404 | no latest |
+| SourceArtifact | exact ID/revision from run | mismatch blocks | no label/path |
+| Assertion | stable candidate assertion ID | unknown blocks | no index selection |
+| Proposal | server-sealed digest | mismatch rejects | no bypass |
+| Revision | explicit parent/committed IDs | missing blocks | no current-head inference |
 
-### Persistence and replay matrix
+### §6C Persistence/replay matrix
 
-| Operation | Durable representation | Round-trip guarantee | Duplicate/replay | Compatibility | Rollback |
+| Operation | Durable representation | Round trip | Replay | Compatibility | Reversion |
 |---|---|---|---|---|---|
-| Run binding | Server-owned run/source IDs | Reload selects same bundle | No latest fallback | Recap runs remain readable | No mutation |
-| Prepare | Sealed proposal + digest + parent revision | Same package reloads | Same confirm is idempotent/receipt-queryable per existing contract | Existing promote API preserved | Proposal remains uncommitted |
-| Confirm | GraphContribution + immutable head | Exact revision reload | Retry queries receipt/commit state | Existing publication authority | Existing retract/rebuild semantics only |
+| Run binding | canonical IDs + resolver result | same exact package | no latest | recap adapter supported | no mutation |
+| Prepare | existing sealed proposal | exact package/selection/head | existing semantics | current API remains runId-only | uncommitted proposal |
+| Confirm | GraphContribution + immutable head | exact receipt/revision | existing idempotency | same Kernel path | existing retract/rebuild only |
+| Reload | pinned graph revision | exact durable objects | repeat read | current projection API | no write |
 
-### Predecessor-to-consumer mapping
+### §6D Predecessor mapping
 
-| Predecessor | Consumer | Transformation | Proof |
+| Predecessor | Generic consumer | Transformation | Proof |
 |---|---|---|---|
-| BLD-06 handoff IDs | Graph Review selection | Parse exact run/source/revision context | Selection test |
-| ExtractionRun bundle | Review package | Adapt generic candidate/evidence to existing review types | Generic run test |
-| Existing prepare/confirm API | Worldbuilding review | Preserve sealed proposal and explicit confirmation | Backend route/ops tests |
-| Committed revision | Workbench state | Reload exact read snapshot | Durable reload test |
+| BLD-06 handoff IDs | run selection adapter | parse exact IDs only | selection test |
+| BLD-03 ExtractionRun | promotable resolver | map canonical components to existing sealed prepare inputs | resolver tests |
+| legacy graph-ingest manifest | BLD-03 adapter then resolver | preserve recap behavior | real fixture tests |
+| existing prepare/confirm service | generic Graph Review | no new protocol; source-domain-neutral review projection only | route/service tests |
+| committed revision receipt | workbench | exact reload and degraded-read distinction | UI/API tests |
 
 ### Commit model
 
 ```text
 Commit point:
-  Existing confirm operation advances the World Graph head.
-
+  unchanged Kernel confirm advances the World Supergraph head.
 Before commit:
-  Proposal is sealed, selected assertion IDs are explicit, parent revision and
-  source evidence are validated.
-
+  server resolves exact run; evidence/selection/parent revision are sealed.
 After commit:
-  Return contribution/committed revision receipt and read that exact revision.
-
-Truthful result after post-commit failure:
-  Report the commit receipt as committed and the exact reload as degraded;
-  never replace the failure with preview material or claim a reload succeeded.
+  return existing contribution and committed revision receipt; reload exact revision.
+Post-commit read failure:
+  report commit success and read degradation separately; never substitute preview.
 ```
 
-## §7 Verification ownership map and commands
+## §7 Verification ownership and commands
 
-| Guarantee | Owning boundary | Command | Expected evidence |
-|---|---|---|---|
-| Exact generic run loads | Workbench/API | `npm test -- --run src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx` | Worldbuilding run shown with source context |
-| Selection is assertion-ID based | Selection adapter | `npm test -- --run src/planSurface/graphReviewWorkbench/graphReviewRunSelection.test.ts` | No index/label fallback |
-| Prepare/confirm remains revision-bound | Promotion service | `uv run pytest tests/test_extract_promote_ops_atomic.py` | Generic run, stale, and rejected cases |
-| HTTP boundary preserves exact IDs | Promotion routes | `uv run pytest tests/test_live_extract_promote_api.py` | Request/response contract |
-| Exact committed revision reload is truthful | Workbench/read boundary | Generic run test + promote tests | Receipt/reload distinction |
-| No scope creep | Git | `git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD` | Only §4 paths |
+| Guarantee | Boundary | Command |
+|---|---|---|
+| exact generic/recap run resolution | promotable run service | `uv run pytest tests/test_promotable_ingest_run.py` |
+| unchanged revision-bound Kernel behavior | shared ops regression | `uv run pytest tests/test_extract_promote_ops_atomic.py` |
+| runId-only HTTP and truthful outcomes | route/service | `uv run pytest tests/test_live_extract_promote_api.py` |
+| exact UI selection/no latest | selection adapter | `npm test -- --run src/planSurface/graphReviewWorkbench/graphReviewRunSelection.test.ts` |
+| generic review/confirm/reload UX | workbench | `npm test -- --run src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx` |
+| no new write authority | diff/import inspection | changed-path checks |
 
 ```bash
-uv run pytest tests/test_extract_promote_ops_atomic.py \
+uv run pytest tests/test_promotable_ingest_run.py \
+  tests/test_extract_promote_ops_atomic.py \
   tests/test_live_extract_promote_api.py
 cd apps/live-control-ui
-npm test -- --run src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx
 npm test -- --run src/planSurface/graphReviewWorkbench/graphReviewRunSelection.test.ts
+npm test -- --run src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx
 npm run typecheck
+cd ../..
 git diff --check
 git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD
 ```
@@ -211,53 +257,37 @@ git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD
 ### Minimal live proof
 
 ```text
-Existing surface used: Graph Review
-Smallest scenario: open one generic worldbuilding run, select one assertion,
-prepare, confirm, and reload the exact committed revision
-Expected observation: only selected assertions commit; receipt and reload agree
-Evidence captured: focused tests plus revision-bound local dogfood report
+Existing surface: Graph Review
+Scenario: open one exact sessionless worldbuilding run, inspect source evidence,
+select one assertion, prepare, confirm, reload exact committed revision, then
+exercise stale proposal and already-applied receipt paths.
+Expected: existing Kernel path is reused; only selected assertions commit; no
+session/latest-run is invented; commit and reload truth are distinct.
 ```
 
 ## §8 Required handback
 
-1. Base and head SHA.
-2. Focused diff stat limited to §4.
-3. Exact result of every §7 command.
-4. Provenance for each result.
-5. Generic run, stale proposal, confirm, and exact-reload evidence.
-6. Base/head comparison for baseline failures.
-7. Operator waivers; `none` if none.
-8. Paths outside §4; `none` or stop report.
-9. Stop conditions; `none` if none.
-10. Confirmation that BLD-08 and Hermes write capability remain successors.
-11. Confirmation that the existing publication boundary was reused.
+Record SHAs, actual paths/discovery, diff, all §7 results and provenance, real
+resolver fixture provenance, live proof, baseline failures, waivers, stop
+conditions, and confirmation that `src/graph_memory/extract_promote_ops.py`
+semantics and ownership were unchanged.
 
 ## §9 Acceptance rubric
 
-- [ ] Graph Review loads exact worldbuilding runs without a fake session — proved by generic-run UI/API tests.
-- [ ] Evidence and assertion selection remain source/revision bound — proved by selection and promotion tests.
-- [ ] Prepare/confirm uses the existing governed publication path — proved by backend route/ops tests.
-- [ ] Stale/rejected proposals cannot advance the graph head — proved by failure tests.
-- [ ] Post-commit reload truthfully distinguishes commit from read degradation — proved by durable-reload test.
-- [ ] No second write protocol or graph store exists — proved by diff inspection.
-- [ ] No path outside §4 changed — proved by changed-path command.
-- [ ] BLD-08 remains unimplemented and unclaimed.
+- [ ] Graph Review loads exact recap/worldbuilding runs without fake session scope.
+- [ ] Product prepare remains runId-only and server-resolved.
+- [ ] Generic binding occurs in the existing resolver/service layers.
+- [ ] Existing Kernel prepare/confirm semantics and owner are reused unchanged.
+- [ ] Selection/evidence/proposal/revision identities remain exact and distinct.
+- [ ] Stale/rejected/invalid proposals cannot advance the head.
+- [ ] Post-commit reload truthfully distinguishes commit success from read degradation.
+- [ ] No second promotion service/protocol or Build commit action exists.
+- [ ] Only §4 and approved discovery paths changed.
 
 ## Stop conditions
 
-Stop and report if:
-
-- generic worldbuilding review requires a new graph identity or contribution store;
-- the existing prepare/confirm boundary cannot bind source evidence;
-- exact revision reload is unavailable;
-- Build must gain commit controls;
-- Hermes capability is required to prove the human review path.
-
-```text
-Stop condition:
-Why the current mission cannot absorb it:
-New contract discovered:
-Affected paths:
-Proposed successor slice:
-Authority update needed:
-```
+Stop if generic runs require changing Kernel contribution/identity/merge/head
+semantics, exact revision reload is unavailable, the existing sealed proposal
+cannot bind canonical source evidence, a second promotion service appears
+necessary, Build must gain commit controls, or Hermes is required to prove the
+human path.
