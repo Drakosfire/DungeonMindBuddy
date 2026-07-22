@@ -86,12 +86,22 @@ class DungeonMindStatblockV1Client:
         return self._parse_model(HealthResponseV1, payload)
 
     def get_readiness(self) -> ReadinessResponseV1:
-        payload = self._request_json(
+        status, body = self._request_bytes(
             "GET",
             f"{API_PREFIX}/statblocks/health/ready",
-            allow_statuses={200, 503},
         )
-        return self._parse_model(ReadinessResponseV1, payload)
+        if status == 200:
+            payload = self._decode_json(body, status_code=status)
+            return self._parse_model(ReadinessResponseV1, payload)
+        if status == 503:
+            # Server may return a legitimate not_ready readiness body or an
+            # ErrorEnvelopeV1 (auth/config). Prefer readiness; else map errors.
+            payload = self._decode_json(body, status_code=status)
+            try:
+                return ReadinessResponseV1.model_validate(payload)
+            except Exception:
+                raise self._map_error_response(status, body) from None
+        raise self._map_error_response(status, body)
 
     def get_exact_revision(
         self, statblock_id: str, revision_id: str
@@ -131,21 +141,40 @@ class DungeonMindStatblockV1Client:
         json_body: dict[str, Any] | None = None,
         allow_statuses: set[int] | None = None,
     ) -> Any:
+        status, body = self._request_bytes(method, path, json_body=json_body)
+        allowed = allow_statuses or {200}
+        if status in allowed:
+            return self._decode_json(body, status_code=status)
+        raise self._map_error_response(status, body)
+
+    def _request_bytes(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+    ) -> tuple[int, bytes]:
         self._ensure_ready()
         url = f"{self._config.base_url}{path}"
         headers = {INTERNAL_KEY_HEADER: self._config.internal_api_key}
         try:
+            # Enforce no-redirect per request so injected clients cannot override
+            # the credential-forwarding boundary.
             with self._client.stream(
                 method,
                 url,
                 headers=headers,
                 json=json_body,
+                follow_redirects=False,
             ) as response:
+                if 300 <= response.status_code < 400:
+                    response.close()
+                    raise downstream_unexpected(
+                        "downstream redirect refused",
+                        status_code=response.status_code,
+                    )
                 body = self._read_bounded_body(response)
-                allowed = allow_statuses or {200}
-                if response.status_code in allowed:
-                    return self._decode_json(body, status_code=response.status_code)
-                raise self._map_error_response(response.status_code, body)
+                return response.status_code, body
         except StatblockIntegrationError:
             raise
         except httpx.TimeoutException as exc:

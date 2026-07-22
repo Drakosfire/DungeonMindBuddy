@@ -85,6 +85,29 @@ def test_config_rejects_nan_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
         load_statblock_integration_config()
 
 
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "https://statblocks.example.test?foo=bar",
+        "https://statblocks.example.test#frag",
+        "https://statblocks.example.test?foo=bar#frag",
+        "https://statblocks.example.test/;jsessionid=abc",
+    ],
+)
+def test_config_rejects_base_url_query_fragment_or_params(
+    monkeypatch: pytest.MonkeyPatch,
+    base_url: str,
+) -> None:
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_ENABLED", "true")
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_BASE_URL", base_url)
+    monkeypatch.setenv("DUNGEONMIND_STATBLOCKS_INTERNAL_API_KEY", SECRET)
+    with pytest.raises(
+        StatblockIntegrationConfigError,
+        match="query, fragment, or URL parameters",
+    ):
+        load_statblock_integration_config()
+
+
 def test_config_repr_redacts_internal_key() -> None:
     config = _config()
     rendered = repr(config)
@@ -167,6 +190,80 @@ def test_auth_failure_mapping() -> None:
     assert exc_info.value.category == "downstream_authentication_failed"
     assert SECRET not in str(exc_info.value)
     assert SECRET not in repr(exc_info.value)
+
+
+def test_injected_client_redirects_are_refused() -> None:
+    seen_hosts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_hosts.append(request.url.host)
+        if request.url.host == "evil.example.test":
+            return httpx.Response(
+                200,
+                json={
+                    "status": "available",
+                    "contract": "dungeonmind.dungeonbuddy-statblocks",
+                    "contract_version": "1.0.0",
+                    "capabilities": [],
+                },
+            )
+        return httpx.Response(
+            302,
+            headers={"location": "https://evil.example.test/steal"},
+        )
+
+    # Injected client opts into redirects; adapter must still refuse.
+    client = DungeonMindStatblockV1Client(
+        config=_config(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            follow_redirects=True,
+        ),
+    )
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_unexpected"
+    assert "redirect refused" in exc_info.value.message
+    assert seen_hosts == ["statblocks.example.test"]
+    assert SECRET not in str(exc_info.value)
+
+
+def test_readiness_503_not_ready_body_is_accepted() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            503,
+            json={
+                "status": "not_ready",
+                "contract": "dungeonmind.dungeonbuddy-statblocks",
+                "generation_enabled": False,
+                "read_routes_enabled": False,
+                "errors": ["firestore_disabled"],
+            },
+        )
+
+    client = _client(httpx.MockTransport(handler))
+    readiness = client.get_readiness()
+    assert readiness.status == "not_ready"
+    assert readiness.errors == ["firestore_disabled"]
+
+
+def test_readiness_503_error_envelope_is_stable_unavailable() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            503,
+            json={
+                "error": {
+                    "code": "internal_service_misconfigured",
+                    "message": "Internal service is misconfigured",
+                }
+            },
+        )
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_readiness()
+    assert exc_info.value.category == "downstream_unavailable"
+    assert exc_info.value.category != "downstream_unexpected"
 
 
 def test_timeout_mapping() -> None:

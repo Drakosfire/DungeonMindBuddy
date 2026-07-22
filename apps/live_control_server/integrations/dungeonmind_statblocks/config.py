@@ -94,6 +94,12 @@ def _normalize_base_url(raw: str) -> str:
             "integration_misconfigured",
             "DUNGEONMIND_STATBLOCKS_BASE_URL must not include a path",
         )
+    if parsed.params or parsed.query or parsed.fragment:
+        raise StatblockIntegrationConfigError(
+            "integration_misconfigured",
+            "DUNGEONMIND_STATBLOCKS_BASE_URL must not include a query, fragment, "
+            "or URL parameters",
+        )
     return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
 
 
