@@ -2,8 +2,8 @@
 document_id: dmb-roadmap-build-surface-worldbuilding-ingest
 title: Build Surface and Worldbuilding Ingest Roadmap
 document_class: roadmap
-status: draft
-version: 0.1
+status: proposed
+version: 0.2
 branch: docs/build-surface-worldbuilding-ingest
 created_at: "2026-07-22"
 last_updated_at: "2026-07-22"
@@ -11,18 +11,20 @@ last_updated_at: "2026-07-22"
 
 # Build Surface and Worldbuilding Ingest Roadmap
 
-- **Status:** Branch-local design draft; not yet adopted as `main` sequencing authority
+- **Status:** Proposed for adoption by PR 382; not implementation sequencing authority until the post-merge tracker sync is complete.
 - **Workstream:** Build / TipTap Markdown / heterogeneous source ingestion / World Supergraph
-- **Branch:** `docs/build-surface-worldbuilding-ingest`
 - **Execution design:** [`PLAN-build-surface-worldbuilding-ingest-pr-slices.md`](PLAN-build-surface-worldbuilding-ingest-pr-slices.md)
 - **Architecture authority:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
-- **Promotion bridge:** [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
+- **Surface authority:** [`../Design/ARCHITECTURE-plan-surface-toolbox.md`](../Design/ARCHITECTURE-plan-surface-toolbox.md)
+- **Workspace identity contract:** [`../Design/CONTRACT-workspace-document-identity-v1.md`](../Design/CONTRACT-workspace-document-identity-v1.md)
+- **Publication bridge:** [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
 
-This document captures the proposed path from the current Plan/Ingest/TipTap
-dogfood to a real Build surface that authors Markdown source artifacts and
-launches reviewable worldbuilding extraction. It is deliberately branch-local:
-it records a proposed workstream without changing the active Campaign
-Supergraph tracker or claiming that heterogeneous ingestion is production-ready.
+This roadmap proposes the path from the current Plan/Ingest/TipTap dogfood to a
+Build surface that authors Markdown source documents and launches reviewable
+worldbuilding extraction. Merging this document adopts the design decisions
+below; it does not by itself activate any implementation handoff. The Campaign
+Supergraph tracker must be updated atomically after merge before BLD-01 becomes
+ACTIVE.
 
 ---
 
@@ -31,10 +33,10 @@ Supergraph tracker or claiming that heterogeneous ingestion is production-ready.
 Build a reusable source-authoring and extraction workflow:
 
 ```text
-Markdown source
-  → TipTap editor
-  → reviewed Source Artifact
-  → extraction run
+Mutable workspace document
+  → reviewed committed source revision
+  → immutable SourceArtifact evidence identity
+  → ExtractionRun
   → candidate graph
   → Graph Review
   → governed World Supergraph commit
@@ -43,91 +45,170 @@ Markdown source
 The Build surface is the authoring and extraction-launch surface. Ingest and
 Graph Review remain the correction and governed-publication surfaces.
 
-The first useful worldbuilding target is the Shepherd’s Flock material:
+The first proving target is bounded Shepherd’s Flock material:
 
-1. cult overview;
-2. one promoted meat-creature Markdown statblock;
-3. one named NPC or faction-adjacent sheet;
-4. review and commit through the existing graph publication boundary;
-5. query the resulting world graph with no session focus.
+1. one cult overview source;
+2. one promoted meat-creature or statblock-reference source;
+3. one named NPC or faction-adjacent source;
+4. review and commit through the existing Graph Review publication boundary;
+5. query the resulting World Supergraph with no session focus.
 
-The first target is a proving slice, not a promise to batch-ingest the entire
-corpus.
-
----
-
-## 2. Current state
-
-### 2.1 What already exists
-
-- `PlanSurfaceCanvas` already uses TipTap with StarterKit, callouts, references,
-  local workspace state, Markdown export, graph chips, and Markdown save.
-- `TiptapCalloutBridgeSpike` proves local drafts, import/export, block-boundary
-  decoration, reference insertion, and two-phase Markdown file writes.
-- `usePlanMarkdownSave` already wraps prepare → commit for a planning document.
-- Graph Review has the governed extract-promote boundary:
-  `preview_write` → `confirm_commit` → `GraphContribution` → immutable graph head.
-- The World Supergraph architecture already models worldbuilding as a source
-  domain in one world-owned graph. A world source may have no session focus.
-- Mirathorn worldbuilding fixtures prove that source spans, provenance, and
-  candidate-graph evaluation can exist without a session occurrence.
-- `SurfaceMode` already includes `"build"` as a latent surface type, but there
-  is no Build route, page, or primary navigation item yet.
-
-### 2.2 What is still recap-shaped
-
-The current live extraction path is not a generic source pipeline:
-
-- `CategoryGraphExtractionOptions` requires both `session_id` and
-  `session_number`.
-- `graph_preview_runner.py` validates `session-N` identifiers and derives a
-  numeric session from them.
-- `recap_artifacts.py` is keyed by campaign/session/recap paths.
-- `/api/live/graph-preview/*` is primarily a recap and latest-run read surface.
-- The existing workspace registry only accepts `kind: "plan" | "runbook"`.
-- The TipTap writer’s allowlist is limited to eval TipTap files and session prep
-  Markdown.
-
-These are adapters and contracts to generalize, not reasons to create a second
-worldbuilding graph.
-
-### 2.3 Markdown fidelity is a real gate
-
-The current Markdown converter supports headings, paragraphs, lists, callouts,
-and selected inline references. It warns on or flattens unsupported structures
-such as tables, images, HTML, frontmatter, and horizontal rules.
-
-Worldbuilding documents commonly contain exactly those structures. Build must
-not silently round-trip a source document into a lossy replacement.
-
-Build v0 therefore needs one explicit policy:
-
-- preserve unsupported blocks losslessly;
-- block commit until unsupported blocks are resolved; or
-- restrict v0 to newly authored Markdown within the supported subset.
-
-The recommended first slice is the third option, plus a visible diagnostic
-when an imported source is outside the safe editing subset.
+This is a proving slice, not a promise to batch-ingest the corpus.
 
 ---
 
-## 3. Product boundaries
+## 2. Locked design decisions
+
+### 2.1 Build document identity and graph evidence identity are separate
+
+Build authors a mutable `WorkspaceDocument` using the existing opaque,
+server-issued UUID identity model. BLD-02 may extend the workspace discriminator
+with an explicit `worldbuilding_source` kind and typed metadata, but it must not
+reuse ingestion/evidence IDs or infer identity from title/path.
+
+A committed workspace revision may then produce a distinct immutable
+`SourceArtifact` evidence identity. The relationship is explicit:
+
+```text
+WorkspaceDocument
+  document_id
+  revision
+  target_relpath
+  mutable metadata and draft lifecycle
+
+SourceArtifact
+  source_artifact_id
+  workspace_document_id
+  workspace_document_revision
+  content_sha256
+  source-domain authority and visibility
+  immutable source lineage
+```
+
+The source artifact ID is never the workspace document ID. No join may be
+performed by rewriting strings, parsing paths, or matching display labels.
+
+### 2.2 Existing graph-memory contracts are evolved, not shadowed
+
+The repository already has source-artifact, source-span, evidence, and graph
+run contracts. The Build workstream must graduate or adapt those authorities:
+
+- `src/graph_memory/evidence/source_artifact.py`
+- `src/graph_memory/source_span.py`
+- `src/graph_memory/ingestion/graph_ingest_run.py`
+- existing evidence and contribution contracts under `src/graph_memory`
+
+BLD-03 must not create parallel top-level `source_artifact.py`,
+`source_spans.py`, or `provenance.py` authorities. A new canonical
+`ExtractionRun` contract is permitted only when the existing recap-shaped
+manifest becomes an explicit compatibility adapter or migration seam in the
+same slice.
+
+### 2.3 Build is the second configured Surface, not a second shell architecture
+
+Build must reuse the shared Surface architecture and AppChrome composition:
+
+- one `SurfaceConfig` abstraction;
+- one app-scoped projection registry and adaptive container;
+- one edit capability and two-phase writer path;
+- one theme/token system;
+- one Agent Interaction continuity host.
+
+`BuildSurfacePage` may supply Build-specific configuration and adapters.
+`BuildSurfaceShell` may only be a thin composition around the shared
+`SurfaceShell`; it must not introduce another navigation, tool, projection,
+editor, or persistence stack.
+
+### 2.4 Extraction profiles own executable extraction policy explicitly
+
+The generic extraction runtime accepts a versioned extraction profile. A
+profile owns or references:
+
+- enabled extraction passes and category bounds;
+- pass instructions/prompt templates;
+- structured-output schema IDs and versions;
+- vocabulary/context policies;
+- source-domain defaults;
+- post-extraction validation rules.
+
+BLD-04 creates the profile protocol and extracts the current recap behavior into
+an explicit recap profile without changing semantics. BLD-08 adds the bounded
+worldbuilding profile. Prompt behavior must not remain hidden as unversioned
+constants inside a supposedly generic runtime.
+
+### 2.5 Build launches proposals; Graph Review publishes
+
+Build can save a source revision, prepare a SourceArtifact, launch extraction,
+show exact run state, and open that exact run in Graph Review. Build cannot
+prepare or confirm a graph contribution.
+
+Graph Review continues to use the existing governed publication implementation:
+
+- shared Kernel ops: `src/graph_memory/extract_promote_ops.py`;
+- HTTP boundary: `apps/live_control_server/routes/extract_promote.py`;
+- explicit proposal-bound confirmation;
+- immutable graph-head advancement and exact revision reload.
+
+No application-local duplicate of `extract_promote_ops.py` may be created.
+
+---
+
+## 3. Current state
+
+### 3.1 Existing useful seams
+
+- `PlanSurfaceCanvas` uses TipTap with local workspace state, Markdown export,
+  graph chips, and Markdown save.
+- `TiptapCalloutBridgeSpike` proves import/export, block-boundary decoration,
+  reference insertion, local drafts, and two-phase Markdown writes.
+- Workspace documents use opaque server-issued UUIDs and registry-owned target
+  paths.
+- Graph Review has the governed `preview_write` / `confirm_commit` boundary that
+  creates `GraphContribution` records and advances an immutable graph head.
+- Worldbuilding is already a source domain in one world-owned graph; it does not
+  require a session occurrence.
+- `SurfaceMode` already includes `build`, but there is no Build route or product
+  surface.
+
+### 3.2 Recap-shaped seams that require graduation
+
+- category extraction options require campaign/session fields;
+- graph preview runners and manifests are recap/session oriented;
+- current run loading often depends on preview/latest-run conventions;
+- current workspace kinds are `plan | runbook`;
+- the TipTap writer allowlist excludes approved worldbuilding source roots;
+- extraction prompts and category instructions are embedded in recap runtime
+  code rather than selected through a versioned profile.
+
+These are contracts to graduate, not reasons to create a second graph, second
+source vocabulary, or Build-specific publication path.
+
+### 3.3 Markdown fidelity remains a gate
+
+The converter supports a bounded subset and may warn on or flatten tables,
+images, HTML, frontmatter, and horizontal rules. Build v0 therefore supports
+newly authored Markdown within the proven subset and visibly blocks unsafe or
+lossy commit. Full Markdown parity is a successor capability.
+
+---
+
+## 4. Product boundaries
 
 ### Plan — session preparation
 
-Plan edits session-oriented planning documents, reads graph projections, and
-uses the existing planning save adapter. It does not own graph extraction or
-durable graph commits.
+Plan edits session-oriented planning documents and consumes graph projections.
+It does not own extraction or graph-head advancement.
 
 ### Build — source authoring and extraction launch
 
 Build owns:
 
-- creating or opening a source document;
-- editing Markdown;
+- creating/opening a worldbuilding workspace document;
+- editing supported Markdown;
 - source metadata and authority classification;
-- saving a reviewable source artifact;
-- launching an extraction run;
+- committing a reviewable source revision;
+- producing an immutable SourceArtifact from that revision;
+- launching an exact ExtractionRun;
 - handing the run to Graph Review.
 
 Build does not own identity resolution, contribution merge, or graph-head
@@ -135,234 +216,152 @@ advancement.
 
 ### Ingest / Graph Review — correction and publication
 
-Ingest owns proposed-memory creation. Graph Review owns judging and committing
-the proposal. The final Build action is therefore **Open in Graph Review**, not
-**Promote directly**.
-
----
-
-## 4. Shared architecture
-
-### 4.1 Shared UI layers
-
-Extract the current duplicated TipTap behavior into layers rather than one
-large surface component:
-
-```text
-MarkdownEditorCore
-  ├─ TipTap setup and common extensions
-  ├─ local draft state
-  ├─ import/export
-  ├─ dirty and lock state
-  └─ editor lifecycle callbacks
-
-MarkdownEditorToolset
-  ├─ common edit actions
-  ├─ insert-block actions
-  ├─ Markdown export/save actions
-  └─ AppChromeTools projection
-
-Surface adapters
-  ├─ Plan: graph chips, session prep save, planning context
-  ├─ Build: source metadata, source save, extract action
-  └─ Ingest: source review, diagnostics, Graph Review handoff
-```
-
-The current Spike should become a consumer of the shared editor, not become the
-shared editor itself. Its runbook-specific reference samples and block-boundary
-rules stay in the runbook adapter.
-
-### 4.2 Generic source artifact
-
-The runtime contract should represent a source independently of whether it is a
-recap:
-
-```text
-SourceArtifact
-  world_id
-  campaign_id: optional
-  session_id: optional
-  source_domain: recap | worldbuilding | prep | mechanical
-  document_class: play | world | reference | planning | statblock
-  artifact_kind
-  source_uri / repo-relative path
-  content_type
-  content_sha256
-  authority_state
-  visibility_state
-  temporal_scope
-```
-
-For an evergreen Shepherd’s Flock world document:
-
-```text
-world_id: eldyrwild
-campaign_id: null
-session_id: null
-source_domain: worldbuilding
-document_class: world
-artifact_kind: worldbuilding_doc
-```
-
-The source artifact, span index, provenance index, candidate graph, validation
-report, and run manifest should be one reviewable bundle. A downstream reviewer
-should not have to reconstruct the source from unrelated sibling files.
-
-### 4.3 Generic extraction controller
-
-The production pipeline should be source-agnostic:
-
-```text
-SourceArtifact
-  → source-span bundle
-  → extraction profile
-  → candidate graph
-  → validation
-  → reviewable run
-  → Graph Review
-```
-
-Recap ingestion becomes a `RecapSourceAdapter`. Build worldbuilding ingestion
-uses a `WorldbuildingSourceAdapter`. Both call the same runtime extraction and
-promotion contracts.
-
-The production service must not import an eval-only runner as its architecture.
-Evals should call the runtime contract and retain their own fixtures, gold, and
-scoring adapters.
+Ingest creates proposed memory. Graph Review judges candidate assertions and
+commits selected contributions. The terminal Build action is **Open in Graph
+Review**, never **Promote directly**.
 
 ---
 
 ## 5. Roadmap phases
 
-### Phase 0 — Contract and design lock
+### Phase 0 — Adopt contracts and sequencing
 
-Define the source artifact, authority, provenance, run, and safe Markdown
-round-trip contracts. Record the explicit boundary between Build and Graph
-Review.
+Adopt this roadmap and slice plan, then update the active tracker atomically.
+Resolve the workspace-document → SourceArtifact identity boundary, established
+contract paths, Surface reuse obligation, profile ownership, and publication
+owner before dispatch.
 
-**Exit gate:** an implementation agent can identify the source schema, the
-editor reuse boundary, the run lifecycle, the publication owner, and the
-worldbuilding pilot without reading chat history.
+**Exit gate:** BLD-01 has an immutable base SHA and ACTIVE handoff; all other
+handoffs remain DRAFT.
 
 ### Phase 1 — Shared TipTap Markdown editor
 
-Extract the common editor core from `PlanSurfaceCanvas` and
-`TiptapCalloutBridgeSpike`. Preserve current Plan and Spike behavior while
-making surface-specific behavior injectable.
+Extract common editor lifecycle and Markdown conversion behavior while Plan and
+the Spike retain their surface-specific adapters.
 
-**Exit gate:** Plan and the Spike both use the shared component; existing
-editor, Markdown conversion, and save tests remain green.
+**Exit gate:** both consumers use one shared editor; current behavior and tests
+remain green.
 
-### Phase 2 — Safe source-document persistence
+### Phase 2 — Safe worldbuilding workspace persistence
 
-Generalize workspace document metadata beyond plan/runbook where appropriate,
-or introduce a separate source-document registry. Extend the writer allowlist
-only through an explicit source-domain policy. Add revision and backup safety
-for worldbuilding paths.
+Extend the workspace document contract explicitly for
+`worldbuilding_source`, add typed metadata and server-owned safe target policy,
+and preserve revision, backup, root-containment, and two-phase write behavior.
 
-**Exit gate:** a source document can be created, edited, prepared, reviewed,
-committed, and reopened without silently changing unsupported Markdown.
+**Exit gate:** a Build source can be created, committed, reopened, and rejected
+safely when stale, unsafe, or lossy.
 
-### Phase 3 — Generic source-artifact and extraction run
+### Phase 3A — Canonical source and run contracts
 
-Separate source artifact identity from recap session identity. Generalize
-source-span generation, provenance, run manifests, status, and catalog queries.
-Keep recap behavior byte-compatible through an adapter.
+Graduate existing evidence/source-span contracts and introduce a canonical
+source-domain-neutral ExtractionRun contract with an explicit recap manifest
+adapter.
 
-**Exit gate:** a worldbuilding source with `session_id = null` can produce a
-validated, reviewable candidate run without inventing a session.
+**Exit gate:** a worldbuilding source revision with `session_id = null` has a
+stable SourceArtifact, resolvable spans, and durable exact run identity without
+parallel authorities.
+
+### Phase 3B — Generic extraction runtime and profiles
+
+Introduce source adapters and the extraction-profile protocol. Preserve current
+recap behavior through a versioned recap profile; permit a sessionless
+worldbuilding source to run without category tuning.
+
+**Exit gate:** recap and worldbuilding fixture runs use the same runtime,
+failures are explicit, and every reviewable candidate resolves to evidence.
 
 ### Phase 4 — Build surface v0
 
-Add `/build`, a quiet editor-first surface with a toolbar for:
+Add `/build` as a configured shared Surface with editor-first composition,
+metadata, save/reopen, and exact document identity. Add primary navigation only
+when the source-authoring loop is functional.
 
-- new/open source;
-- source metadata;
-- save draft;
-- prepare/commit Markdown;
-- extract candidate;
-- open Graph Review.
+**Exit gate:** the operator can author and reopen a worldbuilding source through
+the product UI without direct filesystem access.
 
-Keep Build off the primary nav until it has the Phase 3 source/run path. Once
-the v0 loop is useful, add Build as a deliberate sixth product surface rather
-than hiding authoring under Ingest.
+### Phase 5 — Build extraction controls
 
-**Exit gate:** the operator can author a worldbuilding Markdown source and
-launch a reviewable run from Build without direct filesystem access.
+Bind extraction to a committed source revision, launch and recover an exact run,
+and open that run in Graph Review. No latest-run fallback is permitted.
 
-### Phase 5 — Worldbuilding extraction profile
+**Exit gate:** refresh/retry preserves exact run identity and Build contains no
+publication action.
 
-Start with location, faction, NPC, creature/statblock-reference, and
-institution/governance coverage. Keep ecology/resource extraction as an
-explicit later profile because the existing ablation work shows it can cause
-species/product explosion.
+### Phase 6 — Generic Graph Review run loading
 
-**Exit gate:** the Mirathorn or Shepherd’s Flock proving source produces
-source-anchored candidates with correct authority and no session chronology
-invented by the extractor.
+Adapt Graph Review’s selected-run binding and the existing Kernel publication
+path to source-domain-neutral runs. Do not create a new promotion service.
 
-### Phase 6 — Graph Review handoff and publication
+**Exit gate:** a worldbuilding run can be reviewed, selectively confirmed,
+committed, and reloaded at the exact graph revision without a fake session lens.
 
-Make generic runs first-class inputs to the existing Graph Review workbench.
-The workbench should show source spans, evidence, candidate assertions, and
-the same prepare/review/confirm flow for recap and worldbuilding runs.
+### Phase 7 — Bounded worldbuilding profile and pilot
 
-**Exit gate:** a worldbuilding candidate can be reviewed, selectively prepared,
-confirmed, committed to the World Supergraph, and queried at world focus.
+Add a versioned worldbuilding profile covering bounded locations, factions,
+NPCs, creatures/statblock references, and institutions/governance. Run repeated
+Shepherd’s Flock trials and publish only manually accepted candidates.
 
-### Phase 7 — PDF/OCR and Shepherd’s Flock pilot
+**Exit gate:** candidates retain evidence, session remains null, incidental
+ecology does not explode, and aggregate evidence is recorded without raw
+payload disclosure.
 
-Treat PDFs as source artifacts with an extraction lineage:
+### Phase 8 — PDF/OCR lineage pilot
 
-```text
-PDF
-  → validated OCR/Markdown artifact
-  → human review
-  → statblock source
-  → mechanical extraction profile
-  → Graph Review
-```
+Treat a PDF and its validated OCR/Markdown derivation as separate linked source
+artifacts. Preserve PDF/page/region lineage through extraction and Graph Review.
 
-Do not make raw PDF editing a Build v0 requirement. Reuse the existing
-RulesIngestion Mark III artifacts, deduplicate the Shepherd’s Flock and
-Mirathorn/Sewers copies, then pilot the cult overview, one meat creature, and
-one named NPC.
-
-**Exit gate:** the pilot has stable PDF/page provenance, validated Markdown
-representation, reviewable graph candidates, and no duplicate source copies
-creating duplicate durable identities.
+**Exit gate:** page evidence survives reload, validation failures block review,
+and duplicate copies do not silently create duplicate durable identities.
 
 ---
 
 ## 6. Explicit non-goals
 
-- Direct one-click Build → World Graph publication.
+- Direct Build → World Graph publication.
 - A second graph for worldbuilding.
-- Automatic promotion of every Markdown paragraph into canon.
+- Reusing workspace document IDs as evidence SourceArtifact IDs.
+- Parallel source-artifact, span, provenance, run, or promotion authorities.
+- Automatic promotion of Markdown paragraphs into canon.
 - Raw PDF editing inside TipTap.
-- Full Markdown/WYSIWYG parity in the first editor extraction.
-- Ecology/resource taxonomy in the first generic profile.
+- Full Markdown/WYSIWYG parity in Build v0.
+- Ecology/resource taxonomy in the first profile.
 - Replacing Graph Review with a Build-specific review cockpit.
-- Moving the active Campaign Supergraph tracker as part of this branch-local
-  design.
+- Activating all handoffs merely because this documentation PR merges.
 
 ---
 
-## 7. Falsification and quality gates
+## 7. Adoption and dispatch protocol
 
-The roadmap is not successful merely because the UI renders.
+PR 382 is the design-adoption PR. After merge:
+
+1. add the BLD sequence to the active Campaign Supergraph tracker or an approved
+   sibling tracker;
+2. record PR 382’s merge SHA as the BLD-00 base;
+3. mark BLD-01 ACTIVE and leave BLD-02 through BLD-09 DRAFT;
+4. assign actual PR numbers when implementation PRs open;
+5. after each accepted implementation PR, atomically sync tracker, handoff
+   status/archive, and next base SHA.
+
+No implementation agent may dispatch from a DRAFT handoff.
+
+---
+
+## 8. Falsification and quality gates
+
+The roadmap is not successful merely because `/build` renders.
 
 Required evidence:
 
-1. Plan and Spike preserve existing editor behavior after extraction.
-2. Unsupported Markdown is surfaced and cannot be silently lost.
-3. A source with no session produces no fabricated session ID or chronology.
-4. Source spans and provenance resolve from candidate assertions.
-5. Recap runs remain behaviorally compatible through their adapter.
-6. Worldbuilding candidates preserve authority and visibility metadata.
-7. Graph Review, not Build, owns confirmation and graph-head advancement.
-8. Shepherd’s Flock pilot queries work with world focus and `session_id = null`.
-9. PDF-derived candidates retain PDF/page/OCR lineage.
-
-The phase-by-phase execution slices and their verification commands are defined
-in [`PLAN-build-surface-worldbuilding-ingest-pr-slices.md`](PLAN-build-surface-worldbuilding-ingest-pr-slices.md).
+1. Plan and the Spike preserve behavior after editor extraction.
+2. Workspace document and SourceArtifact identities remain distinct and linked
+   explicitly.
+3. Unsupported Markdown is visible and cannot be silently lost.
+4. Existing evidence/source-span/run authorities are evolved rather than
+   shadowed.
+5. A sessionless source produces no fabricated session ID or chronology.
+6. Every candidate assertion resolves to source evidence.
+7. Recap behavior remains compatible through explicit adapters/profiles.
+8. Build is a configured shared Surface, not a parallel shell architecture.
+9. Graph Review alone owns prepare/confirm and graph-head advancement.
+10. Worldbuilding profile behavior is versioned, bounded, and repeat-tested.
+11. PDF-derived candidates retain original PDF/page/OCR lineage.
