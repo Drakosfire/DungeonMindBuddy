@@ -361,3 +361,138 @@ def test_resolve_rejects_blank_campaign_declared_registry(
         resolve_promotable_ingest_run(run_id, root=repo)
     assert exc.value.code == "run_not_promotable"
     assert "campaign_id is required" in str(exc.value)
+
+
+def _write_reviewable_extraction_run(
+    repo: Path,
+    *,
+    run_id: str = "extraction-run-wb-1",
+    status: str = "reviewable",
+    campaign_id: str | None = "longmont-c2",
+    session_id: str | None = None,
+    invent_session_in_candidate: bool = False,
+) -> tuple[str, Path]:
+    from graph_memory.ingestion.extraction_run import (
+        ExtractionRun,
+        ExtractionRunComponentKind,
+        ExtractionRunComponentRef,
+        ExtractionRunStatus,
+    )
+
+    run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    source = repo / "out" / "workspace" / "worldbuilding" / "doc.md"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("worldbuilding source for promote\n", encoding="utf-8")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    source_artifact_id = "artifact:worldbuilding:doc:r1:abcdef123456"
+    candidate_payload = _candidate_graph_payload(
+        campaign_id=campaign_id or "",
+        session_id="session-99" if invent_session_in_candidate else (session_id or ""),
+    )
+    if not invent_session_in_candidate and session_id is None:
+        candidate_payload["session_id"] = None
+    candidate_payload["source_artifact_ids"] = [source_artifact_id]
+    for node in candidate_payload.get("nodes") or []:
+        for ref in node.get("evidence_refs") or []:
+            suffix = str(ref.get("source_ref_id") or "span").rsplit(":", 1)[-1]
+            ref["source_artifact_id"] = source_artifact_id
+            ref["source_span_ref_id"] = f"span:worldbuilding:{digest[:12]}:p{suffix}"
+            ref.pop("session_id", None)
+    for edge in candidate_payload.get("edges") or []:
+        for ref in edge.get("evidence_refs") or []:
+            suffix = str(ref.get("source_ref_id") or "span").rsplit(":", 1)[-1]
+            ref["source_artifact_id"] = source_artifact_id
+            ref["source_span_ref_id"] = f"span:worldbuilding:{digest[:12]}:p{suffix}"
+            ref.pop("session_id", None)
+    candidate = run_dir / "candidate_graph.json"
+    candidate.write_text(json.dumps(candidate_payload, indent=2) + "\n", encoding="utf-8")
+    span = run_dir / "source_span_index.json"
+    span.write_text("{}\n", encoding="utf-8")
+
+    components = {
+        "source_artifact": ExtractionRunComponentRef(
+            kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+            uri=f"repo://{source.relative_to(repo).as_posix()}",
+            exists=True,
+            sha256=f"sha256:{digest}",
+        ),
+        "source_span_index": ExtractionRunComponentRef(
+            kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+            uri=span.as_posix(),
+            exists=True,
+        ),
+        "candidate_graph": ExtractionRunComponentRef(
+            kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+            uri=candidate.as_posix(),
+            exists=True,
+        ),
+    }
+    run = ExtractionRun(
+        run_id=run_id,
+        source_artifact_id=source_artifact_id,
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus(status),
+        campaign_id=campaign_id,
+        session_id=session_id,
+        profile_id="worldbuilding_plumbing_v0@0.1",
+        components=components,
+        lineage={"source_sha256": f"sha256:{digest}"},
+    )
+    registry = {
+        "schema_version": "dmb_extraction_run_registry_v1",
+        "records": [run.model_dump(mode="json")],
+    }
+    registry_path = repo / "out" / "registries" / "extraction_runs.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+    return run_id, source
+
+
+def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id, source = _write_reviewable_extraction_run(repo)
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.run_id == run_id
+    assert resolved.campaign_id == CAMPAIGN_ID
+    assert resolved.session_id == ""
+    assert resolved.source_artifact_id.startswith("artifact:worldbuilding:")
+    assert resolved.source_revision_id.startswith("sha256:")
+    assert resolved.candidate_graph_path.is_file()
+    assert resolved.sealed_source_uri.startswith("repo://out/graph_memory/runs/")
+    assert resolved.normalized_recap_path.is_file()
+    assert "session_scope=null" in resolved.diagnostics
+    # Source was copied under the run tree for seal policy.
+    assert resolved.normalized_recap_path != source.resolve()
+
+
+def test_resolve_rejects_non_reviewable_extraction_run(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id, _source = _write_reviewable_extraction_run(repo, status="prepared")
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+    assert "not reviewable" in str(exc.value)
+
+
+def test_resolve_rejects_superseded_extraction_run(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id, _source = _write_reviewable_extraction_run(repo, status="superseded")
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+    assert "superseded" in str(exc.value)
+
+
+def test_resolve_unknown_still_404_without_latest_fallback(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _write_reviewable_extraction_run(repo, run_id="extraction-run-other")
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run("extraction-run-missing", root=repo)
+    assert exc.value.code == "run_not_found"
+    assert exc.value.status_code == 404

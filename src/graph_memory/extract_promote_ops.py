@@ -263,6 +263,7 @@ def prepare_extract_promote(
     repo_root: Path,
     disclose_source_digest: bool = True,
     registry_context_graph: Mapping[str, Any] | None = None,
+    source_domain: str = "recap",
 ) -> ExtractPromotePrepareResult:
     """Gate + seal a typed candidate graph against the pinned world head.
 
@@ -307,7 +308,7 @@ def prepare_extract_promote(
         extraction_profile=extraction_profile,
         source_uri=source_uri,
         source_kind="source_extraction",
-        source_domain="recap",
+        source_domain=(source_domain or "recap").strip() or "recap",
         node_ids=tuple(node_ids) if node_ids is not None else None,
         include_edges=include_edges,
     )

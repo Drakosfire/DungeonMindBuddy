@@ -278,6 +278,41 @@ def _assert_candidate_scope_matches_run(
 ) -> None:
     cand_campaign = str(payload.get("campaign_id") or "").strip()
     cand_session = str(payload.get("session_id") or "").strip()
+    run_campaign = (campaign_id or "").strip()
+    run_session = (session_id or "").strip()
+
+    # Sessionless worldbuilding runs: both sides must omit session; never invent one.
+    if not run_session:
+        if cand_session:
+            raise ExtractPromoteError(
+                "candidate graph invents a session for a sessionless run",
+                code="run_scope_mismatch",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "run_scope_mismatch",
+                        "candidate graph invents a session for a sessionless run",
+                    ),
+                    _diagnostic("candidate_session", cand_session),
+                    _diagnostic("manifest_session", "<null>"),
+                ],
+            )
+        if run_campaign and cand_campaign and cand_campaign != run_campaign:
+            raise ExtractPromoteError(
+                "candidate graph campaign does not match the run",
+                code="run_scope_mismatch",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "run_scope_mismatch",
+                        "candidate graph campaign does not match the run",
+                    ),
+                    _diagnostic("candidate_campaign", cand_campaign or "<missing>"),
+                    _diagnostic("manifest_campaign", run_campaign),
+                ],
+            )
+        return
+
     if not cand_campaign or not cand_session:
         raise ExtractPromoteError(
             "candidate graph is missing campaign_id or session_id",
@@ -290,11 +325,11 @@ def _assert_candidate_scope_matches_run(
                 ),
                 _diagnostic("candidate_campaign", cand_campaign or "<missing>"),
                 _diagnostic("candidate_session", cand_session or "<missing>"),
-                _diagnostic("manifest_campaign", campaign_id),
-                _diagnostic("manifest_session", session_id),
+                _diagnostic("manifest_campaign", run_campaign),
+                _diagnostic("manifest_session", run_session),
             ],
         )
-    if cand_campaign != campaign_id or cand_session != session_id:
+    if cand_campaign != run_campaign or cand_session != run_session:
         raise ExtractPromoteError(
             "candidate graph campaign/session does not match the run manifest",
             code="run_scope_mismatch",
@@ -306,8 +341,8 @@ def _assert_candidate_scope_matches_run(
                 ),
                 _diagnostic("candidate_campaign", cand_campaign),
                 _diagnostic("candidate_session", cand_session),
-                _diagnostic("manifest_campaign", campaign_id),
-                _diagnostic("manifest_session", session_id),
+                _diagnostic("manifest_campaign", run_campaign),
+                _diagnostic("manifest_session", run_session),
             ],
         )
 
@@ -472,6 +507,7 @@ def prepare(
             repo_root=repo_root(),
             disclose_source_digest=False,
             registry_context_graph=registry_payload,
+            source_domain=resolved.source_domain,
         )
     except CandidateGraphMappingError as exc:
         raise _public_mapping_error(exc) from exc
@@ -507,8 +543,8 @@ def prepare(
             result.review_summary or {}
         ),
         run_id=resolved.run_id,
-        campaign_id=resolved.campaign_id,
-        session_id=resolved.session_id,
+        campaign_id=resolved.campaign_id or None,
+        session_id=resolved.session_id or None,
     )
 
 

@@ -76,6 +76,7 @@ class PromotableIngestRun:
     sealed_source_uri: str
     registry_context_graph_path: Path | None = None
     diagnostics: list[str] = field(default_factory=list)
+    source_domain: str = "recap"
 
 
 def ingest_runs_artifact_root(root: Path | None = None) -> Path:
@@ -199,30 +200,191 @@ def resolve_promotable_ingest_run(
     matches = _find_manifests_for_run_id(
         repo, text, include_eval_roots=include_eval_roots
     )
-    if not matches:
-        raise PromotableIngestRunError(
-            f"unknown graph-ingest runId: {text}",
-            code="run_not_found",
-            status_code=404,
-        )
-    if len(matches) > 1:
-        raise PromotableIngestRunError(
-            f"ambiguous graph-ingest runId: {text}",
-            code="run_ambiguous",
-            status_code=409,
-            diagnostics=[
-                "multiple manifests share this run_id",
-                *[str(path) for path, _, _ in matches],
-            ],
+    if matches:
+        if len(matches) > 1:
+            raise PromotableIngestRunError(
+                f"ambiguous graph-ingest runId: {text}",
+                code="run_ambiguous",
+                status_code=409,
+                diagnostics=[
+                    "multiple manifests share this run_id",
+                    *[str(path) for path, _, _ in matches],
+                ],
+            )
+        manifest_path, payload, registry_root = matches[0]
+        return resolve_promotable_from_loaded_manifest(
+            repo=repo,
+            manifest_path=manifest_path,
+            payload=payload,
+            registry_root=registry_root,
+            run_id=text,
         )
 
-    manifest_path, payload, registry_root = matches[0]
-    return resolve_promotable_from_loaded_manifest(
-        repo=repo,
-        manifest_path=manifest_path,
-        payload=payload,
-        registry_root=registry_root,
-        run_id=text,
+    extraction = _resolve_promotable_extraction_run(repo, text)
+    if extraction is not None:
+        return extraction
+
+    raise PromotableIngestRunError(
+        f"unknown graph-ingest runId: {text}",
+        code="run_not_found",
+        status_code=404,
+    )
+
+
+def _resolve_repo_uri_path(repo: Path, uri: str) -> Path | None:
+    text = (uri or "").strip()
+    if not text or text.startswith("inline://"):
+        return None
+    if text.startswith("repo://"):
+        text = text[len("repo://") :]
+    path = Path(text)
+    if not path.is_absolute():
+        path = (repo / path).resolve()
+    else:
+        path = path.resolve()
+    return path
+
+
+def _materialize_sealed_source(
+    repo: Path,
+    *,
+    run_dir: Path,
+    candidates: list[Path],
+) -> Path:
+    """Return a readable source file under an allowlisted seal root."""
+    for path in candidates:
+        if not path.is_file():
+            continue
+        if is_under_ingest_runs(path, root=repo):
+            return path
+        # Workspace / other durable sources: copy into the run dir so prepare
+        # seals a registry-owned evidence URI (never invents session scope).
+        sealed = run_dir / "normalized_source.md"
+        sealed.parent.mkdir(parents=True, exist_ok=True)
+        sealed.write_bytes(path.read_bytes())
+        return sealed
+    raise PromotableIngestRunError(
+        "extraction run source markdown is missing",
+        code="run_not_promotable",
+        status_code=422,
+    )
+
+
+def _resolve_promotable_extraction_run(
+    repo: Path,
+    run_id: str,
+) -> PromotableIngestRun | None:
+    """Resolve a canonical BLD-03 ExtractionRun when no graph-ingest manifest exists."""
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        get_source_artifact,
+    )
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+
+    try:
+        run = get_extraction_run(repo, run_id)
+    except GraphRunRegistryError:
+        return None
+
+    if run.status == ExtractionRunStatus.SUPERSEDED:
+        raise PromotableIngestRunError(
+            f"extraction run is superseded: {run_id}",
+            code="run_not_promotable",
+            status_code=422,
+        )
+    if run.status != ExtractionRunStatus.REVIEWABLE or not run.is_reviewable():
+        raise PromotableIngestRunError(
+            f"extraction run is not reviewable: {run_id}",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[f"status={run.status.value}"],
+        )
+
+    candidate = run.components.get("candidate_graph")
+    source_span = run.components.get("source_span_index")
+    source_component = run.components.get("source_artifact")
+    if candidate is None or not candidate.exists or not candidate.uri:
+        raise PromotableIngestRunError(
+            "extraction run is missing candidate_graph component",
+            code="run_not_promotable",
+            status_code=422,
+        )
+    candidate_path = _resolve_repo_uri_path(repo, candidate.uri)
+    if candidate_path is None or not candidate_path.is_file():
+        raise PromotableIngestRunError(
+            "candidate_graph path is missing",
+            code="run_not_promotable",
+            status_code=422,
+        )
+
+    run_dir = candidate_path.parent
+    span_path = run_dir / "source_span_index.json"
+    if source_span and source_span.uri:
+        resolved_span = _resolve_repo_uri_path(repo, source_span.uri)
+        if resolved_span is not None:
+            span_path = resolved_span
+
+    source_candidates: list[Path] = []
+    if source_component and source_component.uri:
+        resolved_source = _resolve_repo_uri_path(repo, source_component.uri)
+        if resolved_source is not None:
+            source_candidates.append(resolved_source)
+    try:
+        artifact = get_source_artifact(repo, run.source_artifact_id)
+    except SourceArtifactRegistryError:
+        artifact = None
+    if artifact is not None and artifact.uri:
+        resolved_artifact = _resolve_repo_uri_path(repo, artifact.uri)
+        if resolved_artifact is not None:
+            source_candidates.append(resolved_artifact)
+
+    source_path = _materialize_sealed_source(
+        repo, run_dir=run_dir, candidates=source_candidates
+    )
+    digest_raw = None
+    if source_component is not None:
+        digest_raw = source_component.sha256
+    if not digest_raw and artifact is not None:
+        digest_raw = artifact.content_sha256
+    if not digest_raw:
+        digest_raw = (run.lineage or {}).get("source_sha256")
+    if not digest_raw:
+        import hashlib
+
+        digest_raw = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    source_revision_id = _normalize_digest(str(digest_raw))
+    if not source_revision_id:
+        raise PromotableIngestRunError(
+            "extraction run is missing source content digest",
+            code="run_not_promotable",
+            status_code=422,
+        )
+
+    return PromotableIngestRun(
+        run_id=run.run_id,
+        campaign_id=(run.campaign_id or "").strip(),
+        session_id=(run.session_id or "").strip(),
+        status=run.status.value,
+        extraction_profile=run.profile_id,
+        source_artifact_id=run.source_artifact_id,
+        source_revision_id=source_revision_id,
+        normalized_recap_path=source_path,
+        candidate_graph_path=candidate_path,
+        preview_union_store_path=run_dir,
+        manifest_path=run_dir / "extraction_run.json",
+        run_dir=run_dir,
+        registry_root=repo,
+        sealed_source_uri=_seal_repo_uri(repo, source_path),
+        diagnostics=[
+            "resolved via canonical ExtractionRun registry",
+            f"source_domain={run.source_domain}",
+            f"session_scope={'null' if not (run.session_id or '').strip() else 'session'}",
+        ],
+        source_domain=(run.source_domain or "worldbuilding").strip() or "worldbuilding",
     )
 
 
