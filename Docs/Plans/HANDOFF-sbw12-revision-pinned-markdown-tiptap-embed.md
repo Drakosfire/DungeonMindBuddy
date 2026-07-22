@@ -17,7 +17,7 @@
 | Resolve/render exact revision in Plan canvas | Yes | No | Yes | Include |
 | Insert block from Threat Sheet/workbench | No; required usable entry path | No | Yes | Include |
 | Hydrate committed Plan content | Yes | Yes | Yes | Predecessor `SBW11` |
-| Automatically upgrade to latest | Yes | Yes | Yes | Prohibited; explicit upgrade `SBW14` |
+| Automatically upgrade to latest | Yes | Yes | Yes | Prohibited; deferred unnumbered pinned-use upgrade successor |
 | Generic React/component embed framework | Yes | Yes | Broad | Exclude |
 
 **Selected capability:** a Plan document stores one exact statblock locator and renders it through the shared Threat Sheet/statblock projection across save and fresh reload.
@@ -49,8 +49,8 @@ This is not one slice if implementation must also create a new mechanics revisio
 | Base revision | Actual merged SHA containing `SBW10–11` |
 | Predecessor contract | Exact Threat Sheet/revision read projection; committed Plan content read/hydration; Markdown parser/serializer; Tiptap extension patterns |
 | Exact input consumed | `provider=dungeonmind`, exact `statblock_id`, exact `revision_id`, `view`, optional exact `threat_id` |
-| Named successor | `SBW14` explicit scoped embed upgrade |
-| What remains false | Embed cannot create/edit mechanics or follow latest automatically |
+| Named successor | Deferred, unnumbered pinned-use upgrade capability for explicitly repinning one Plan embed; placement upgrades must be decomposed separately if they require a different durable store or invariant |
+| What remains false | Embed cannot create/edit mechanics, follow latest automatically, or repin itself to another revision |
 | Explicit non-goals | Generic embed registry, revision append, graph update, combat, media selection, portable snapshot export unless trivial and separately reviewed |
 
 Read in order:
@@ -111,7 +111,8 @@ Required report: prove no second editor/projection registry or generic embed fra
 | Capability | Why excluded |
 |---|---|
 | creating/appending mechanics revision | `SBW13` |
-| updating embed to another revision | `SBW14` |
+| updating an existing embed to another revision | deferred unnumbered pinned-use upgrade successor; explicitly not `SBW14` |
+| Plan placement revision upgrade | deferred and must be decomposed separately if placement persistence differs from document persistence |
 | automatic latest/campaign-preferred resolution | violates pinned invariant |
 | graph binding write | `SBW14` or governed graph path |
 | combat insertion | `SBW15` |
