@@ -41,32 +41,55 @@ def threat_drafts_root(repo_root: Path) -> Path:
     return repo_root / DEFAULT_STORE_REL
 
 
+def _storage_unavailable() -> ThreatDraftStoreError:
+    return ThreatDraftStoreError(
+        "threat draft storage unavailable",
+        status_code=500,
+    )
+
+
 @contextmanager
 def _store_lock(root: Path) -> Iterator[None]:
     """Exclusive lock covering index and draft mutation for one store root."""
-    store_root = threat_drafts_root(root)
-    store_root.mkdir(parents=True, exist_ok=True)
-    lock_path = store_root / LOCK_NAME
-    with open(lock_path, "a+", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+    try:
+        store_root = threat_drafts_root(root)
+        store_root.mkdir(parents=True, exist_ok=True)
+        lock_path = store_root / LOCK_NAME
+        lock_file = open(lock_path, "a+", encoding="utf-8")
+    except OSError:
+        raise _storage_unavailable() from None
+
+    try:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        except OSError:
+            raise _storage_unavailable() from None
         try:
             yield
         finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
+    finally:
+        lock_file.close()
 
 
 def _validated_draft_id(draft_id: str) -> str:
     try:
         return require_draft_id(draft_id)
-    except ValueError as exc:
+    except ValueError:
         raise ThreatDraftStoreError("invalid draft_id", status_code=422) from None
 
 
 def _draft_path(root: Path, draft_id: str) -> Path:
     """Resolve a draft path that is always under the store directory."""
     cleaned = _validated_draft_id(draft_id)
-    store_root = threat_drafts_root(root).resolve()
-    path = (store_root / f"{cleaned}.json").resolve()
+    try:
+        store_root = threat_drafts_root(root).resolve()
+        path = (store_root / f"{cleaned}.json").resolve()
+    except OSError:
+        raise _storage_unavailable() from None
     if path.parent != store_root:
         raise ThreatDraftStoreError(
             "corrupt threat draft index",
@@ -81,10 +104,13 @@ def _index_path(root: Path) -> Path:
 
 def _load_index(root: Path) -> ThreatDraftIndexV1:
     path = _index_path(root)
-    if not path.is_file():
-        return ThreatDraftIndexV1()
     try:
+        if not path.is_file():
+            return ThreatDraftIndexV1()
         payload = load_json(path)
+    except OSError:
+        raise _storage_unavailable() from None
+    try:
         return ThreatDraftIndexV1.model_validate(payload)
     except ThreatDraftStoreError:
         raise
@@ -97,16 +123,24 @@ def _load_index(root: Path) -> ThreatDraftIndexV1:
 
 def _save_index(root: Path, index: ThreatDraftIndexV1) -> None:
     path = _index_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(path, index.model_dump(mode="json", by_alias=True))
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(path, index.model_dump(mode="json", by_alias=True))
+    except OSError:
+        raise _storage_unavailable() from None
 
 
 def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
     path = _draft_path(root, draft_id)
-    if not path.is_file():
-        raise ThreatDraftStoreError("threat draft not found", status_code=404)
     try:
+        if not path.is_file():
+            raise ThreatDraftStoreError("threat draft not found", status_code=404)
         payload = load_json(path)
+    except ThreatDraftStoreError:
+        raise
+    except OSError:
+        raise _storage_unavailable() from None
+    try:
         return ThreatDraftV1.model_validate(payload)
     except ThreatDraftStoreError:
         raise
@@ -119,13 +153,19 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
 
 def _save_draft_unlocked(root: Path, draft: ThreatDraftV1) -> None:
     path = _draft_path(root, draft.draft_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(path, draft.model_dump(mode="json", by_alias=True))
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(path, draft.model_dump(mode="json", by_alias=True))
+    except OSError:
+        raise _storage_unavailable() from None
 
 
 def _remove_draft_file(root: Path, draft_id: str) -> None:
     path = _draft_path(root, draft_id)
-    path.unlink(missing_ok=True)
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        raise _storage_unavailable() from None
 
 
 def create_threat_draft(root: Path, request: CreateThreatDraftRequest) -> ThreatDraftV1:
@@ -165,9 +205,12 @@ def create_threat_draft(root: Path, request: CreateThreatDraftRequest) -> Threat
                 )
             index.draft_ids.append(draft.draft_id)
             _save_index(root, index)
-        except Exception:
+        except ThreatDraftStoreError:
             if draft_written:
-                _remove_draft_file(root, draft.draft_id)
+                try:
+                    _remove_draft_file(root, draft.draft_id)
+                except ThreatDraftStoreError:
+                    pass
             raise
     return draft
 

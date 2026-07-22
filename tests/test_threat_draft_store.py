@@ -13,7 +13,6 @@ from apps.live_control_server.models.threat_draft import (
     RulesetRefV1,
     UpdateThreatDraftRequest,
 )
-from apps.live_control_server.models.threat_draft import ThreatDraftIndexV1
 from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
     _draft_path,
@@ -177,20 +176,73 @@ def test_concurrent_creates_all_indexed(tmp_path: Path) -> None:
 
 
 def test_create_index_failure_leaves_no_orphan(tmp_path: Path, monkeypatch) -> None:
-    def boom(root: Path, index: ThreatDraftIndexV1) -> None:
-        raise OSError("disk full")
+    real_write_json = write_json
+    index_path = _index_path(tmp_path)
+
+    def boom_write(path: Path, data: dict) -> None:
+        if Path(path) == index_path:
+            raise OSError("disk full")
+        real_write_json(path, data)
 
     monkeypatch.setattr(
-        "apps.live_control_server.services.threat_draft_store._save_index",
-        boom,
+        "apps.live_control_server.services.threat_draft_store.write_json",
+        boom_write,
     )
-    with pytest.raises(OSError, match="disk full"):
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
         create_threat_draft(tmp_path, _create_request())
+    assert exc_info.value.status_code == 500
+    assert "storage unavailable" in str(exc_info.value)
 
     store_root = tmp_path / "out" / "threat_drafts"
     draft_files = list(store_root.glob("*.json")) if store_root.is_dir() else []
     assert draft_files == []
-    assert not _index_path(tmp_path).is_file()
+    assert not index_path.is_file()
+
+
+def test_update_write_failure_preserves_prior_version(
+    tmp_path: Path, monkeypatch
+) -> None:
+    created = create_threat_draft(tmp_path, _create_request())
+    draft_path = _draft_path(tmp_path, created.draft_id)
+    real_write_json = write_json
+
+    def boom_write(path: Path, data: dict) -> None:
+        if Path(path) == draft_path:
+            raise OSError("disk full")
+        real_write_json(path, data)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.threat_draft_store.write_json",
+        boom_write,
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        update_threat_draft(
+            tmp_path,
+            created.draft_id,
+            _update_request(created, description="Should not persist."),
+        )
+    assert exc_info.value.status_code == 500
+    assert "storage unavailable" in str(exc_info.value)
+
+    loaded = get_threat_draft(tmp_path, created.draft_id)
+    assert loaded.version == 1
+    assert loaded.description == created.description
+
+
+def test_index_rejects_duplicate_ids(tmp_path: Path) -> None:
+    created = create_threat_draft(tmp_path, _create_request())
+    index_path = _index_path(tmp_path)
+    write_json(
+        index_path,
+        {
+            "schema": "dmb_threat_draft_index_v1",
+            "draft_ids": [created.draft_id, created.draft_id],
+        },
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        list_threat_drafts(tmp_path)
+    assert exc_info.value.status_code == 500
+    assert "corrupt threat draft index" in str(exc_info.value)
 
 
 def test_index_rejects_traversal_ids(tmp_path: Path) -> None:

@@ -178,7 +178,10 @@ class ThreatDraftIndexV1(StrictModel):
     @field_validator("draft_ids")
     @classmethod
     def _draft_ids(cls, values: list[str]) -> list[str]:
-        return [require_draft_id(item) for item in values]
+        cleaned = [require_draft_id(item) for item in values]
+        if len(cleaned) != len(set(cleaned)):
+            raise ValueError("duplicate draft_id in index")
+        return cleaned
 
 
 class CreateThreatDraftRequest(StrictModel):
