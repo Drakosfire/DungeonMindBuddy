@@ -278,7 +278,7 @@ def test_downstream_error_text_redacts_internal_key() -> None:
                 "error": {
                     "code": "internal_service_misconfigured",
                     "message": leaked,
-                    "details": {"echo": SECRET},
+                    "details": {"echo": SECRET, SECRET: "present"},
                 }
             },
         )
@@ -291,11 +291,69 @@ def test_downstream_error_text_redacts_internal_key() -> None:
     assert SECRET not in repr(exc_info.value)
     assert SECRET not in json.dumps(exc_info.value.details)
     assert "***" in exc_info.value.message
+    assert "***" in exc_info.value.details
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__context__ is None
 
     readiness = evaluate_statblock_integration_readiness(client=client)
     dumped = json.dumps(readiness.model_dump(mode="json", by_alias=True))
     assert SECRET not in dumped
     assert readiness.downstream_status == "downstream_unavailable"
+
+
+def test_transport_errors_do_not_retain_secret_bearing_causes() -> None:
+    def timeout_handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    client = _client(httpx.MockTransport(timeout_handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_timeout"
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__context__ is None
+
+    def bad_json(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=f'{{"leak":"{SECRET}"}}'.encode() + b"not-json")
+
+    client = _client(httpx.MockTransport(bad_json))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_unexpected"
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__context__ is None
+    assert SECRET not in str(exc_info.value)
+
+    def bad_schema(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "status": "available",
+                "contract": "evil.contract",
+                "contract_version": "1.0.0",
+                "capabilities": [],
+                "leak": SECRET,
+            },
+        )
+
+    client = _client(httpx.MockTransport(bad_schema))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_unexpected"
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__context__ is None
+    assert SECRET not in str(exc_info.value)
+
+
+def test_redact_secret_in_value_redacts_dictionary_keys() -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        redact_secret_in_value,
+    )
+
+    payload = {SECRET: {"nested": SECRET}, "ok": True}
+    redacted = redact_secret_in_value(payload, SECRET)
+    assert SECRET not in json.dumps(redacted)
+    assert "***" in redacted
+    assert redacted["***"]["nested"] == "***"
 
 
 def test_malformed_5xx_fails_closed_as_unexpected() -> None:
