@@ -853,7 +853,7 @@ export async function commitStatblockCorpusWrite(
 
 export async function listWorkspaceDocuments(args: {
   campaign_id?: string;
-  kind?: "plan" | "runbook";
+  kind?: "plan" | "runbook" | "worldbuilding_source";
   status?: "active" | "discarded";
 } = {}): Promise<WorkspaceDocumentsListResponse> {
   const params = new URLSearchParams();

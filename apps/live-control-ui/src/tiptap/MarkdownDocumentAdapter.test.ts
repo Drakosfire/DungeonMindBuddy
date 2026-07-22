@@ -1,4 +1,8 @@
-import { defaultMarkdownDocumentAdapter } from "./MarkdownDocumentAdapter";
+import {
+  commitBlockingDiagnosticMessages,
+  defaultMarkdownDocumentAdapter,
+  hasCommitBlockingDiagnostics,
+} from "./MarkdownDocumentAdapter";
 
 describe("MarkdownDocumentAdapter", () => {
   it("imports supported markdown into a TipTap doc with diagnostics", () => {
@@ -41,5 +45,19 @@ describe("MarkdownDocumentAdapter", () => {
 
     expect(second.doc).toEqual(first.doc);
     expect(second.diagnostics).toEqual(first.diagnostics);
+  });
+
+  it("treats warning diagnostics as advisory by default", () => {
+    const result = defaultMarkdownDocumentAdapter.importMarkdown("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    expect(hasCommitBlockingDiagnostics(result.diagnostics)).toBe(false);
+    expect(commitBlockingDiagnosticMessages(result.diagnostics)).toEqual([]);
+  });
+
+  it("blocks warning diagnostics under worldbuilding_lossless policy", () => {
+    const result = defaultMarkdownDocumentAdapter.importMarkdown("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    expect(hasCommitBlockingDiagnostics(result.diagnostics, "worldbuilding_lossless")).toBe(true);
+    expect(
+      commitBlockingDiagnosticMessages(result.diagnostics, "worldbuilding_lossless").length,
+    ).toBeGreaterThan(0);
   });
 });
