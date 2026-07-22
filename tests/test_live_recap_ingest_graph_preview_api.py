@@ -273,6 +273,184 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
             assert ref.get("source_artifact_id") == run.source_artifact_id
 
 
+def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_union(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A typed-validation-failed candidate must not become candidate-ready or materialize."""
+    import src.graph_memory.extraction.graph_preview_runner as prod_runner
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionResult,
+    )
+
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+
+    def fake_invalid_extract(options, *, client=None, progress_callback=None):  # noqa: ANN001
+        spans = list(options.source_span_index.get("spans") or [])
+        spref = "invalid-span"
+        for span in spans:
+            if not isinstance(span, dict):
+                continue
+            candidate = str(
+                span.get("source_span_id")
+                or span.get("source_span_ref_id")
+                or span.get("span_id")
+                or ""
+            ).strip()
+            if candidate:
+                spref = candidate
+                break
+        artifact = str(
+            options.source_artifact_id
+            or options.source_span_index.get("source_artifact_id")
+            or "artifact:missing"
+        ).strip()
+        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref)
+        for node in graph.get("nodes") or []:
+            if isinstance(node, dict):
+                node["semantic_state"] = {
+                    "canon_state": "not_a_valid_canon_state",
+                    "lifecycle_state": "candidate",
+                    "evidence_role": "source_evidence",
+                    "authority_state": "llm_generated",
+                    "visibility_state": "unknown",
+                }
+        return CategoryGraphExtractionResult(
+            candidate_graph=graph,
+            envelope={"candidate_graph": graph},
+            pass_outputs={},
+            pass_telemetry={},
+            consolidation_diagnostics={},
+            model_id=options.model_id or "gpt-5.4-mini",
+            total_cost_usd=0.0,
+            diagnostics={"extraction_mode": "category_decomposed"},
+            known_entity_mentions={
+                "schema": "dmb_known_entity_mention_sidecar_v0",
+                "version": "0.1",
+                "campaign_id": options.campaign_id,
+                "session_id": options.session_id,
+                "mentions": [],
+                "ambiguous_surfaces": [],
+                "diagnostics": {"mention_count": 0, "empty_contract": True},
+            },
+        )
+
+    monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_invalid_extract)
+
+    build = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "extract_graph": True,
+            "force_graph_run": True,
+            "graph_model_id": "gpt-5.4-mini",
+        },
+    )
+    assert build.status_code == 200
+    graph = build.json()["ingest_report"]["graph_preview"]
+    assert graph["status"] != "candidate_validation_ready"
+    assert graph["status"] != "preview_union_store_ready"
+    assert graph["extraction_run_status"] == "failed"
+    assert graph["extraction_mode"] == "llm_blocked"
+    assert graph["blocked_reason"]
+    assert "validation" in graph["blocked_reason"].lower() or "typed" in graph[
+        "blocked_reason"
+    ].lower() or "semantic" in graph["blocked_reason"].lower()
+    assert graph.get("preview_union_store_path") in (None, "")
+
+    materialize = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "materialize_preview_supergraph",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "extract_graph": True,
+            "force_graph_run": True,
+            "materialize_after_extract": True,
+            "graph_model_id": "gpt-5.4-mini",
+        },
+    )
+    assert materialize.status_code == 200
+    mat_graph = materialize.json()["ingest_report"]["graph_preview"]
+    assert mat_graph["status"] != "preview_union_store_ready"
+    assert mat_graph["extraction_run_status"] == "failed"
+    assert mat_graph.get("preview_union_store_path") in (None, "")
+    assert mat_graph["can_open_union_graph"] is False
+
+
+def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every candidate EvidenceRef must resolve against the packaged canonical span index."""
+    from apps.live_control_server.services.graph_preview_surface import (
+        _enrich_evidence_ref,
+        _span_lookup_key,
+    )
+
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "extract_graph": True,
+            "graph_model_id": "gpt-5.4-mini",
+        },
+    )
+    assert response.status_code == 200
+    graph = response.json()["ingest_report"]["graph_preview"]
+    assert graph["status"] == "candidate_validation_ready"
+    run_dir = ROOT / graph["run_dir"]
+    candidate = json.loads((ROOT / graph["candidate_graph_path"]).read_text(encoding="utf-8"))
+    span_index = json.loads((run_dir / "source_span_index.json").read_text(encoding="utf-8"))
+    assert span_index.get("schema") == "dmb_source_span_index_v1"
+    assert span_index.get("source_artifact_id") == graph["source_artifact_id"]
+
+    span_lookup = {
+        key: sp
+        for sp in span_index.get("spans") or []
+        if isinstance(sp, dict)
+        for key in [_span_lookup_key(sp)]
+        if key is not None
+    }
+    recap_text = (run_dir / "source_spans" / "recap_full_text.md").read_text(encoding="utf-8")
+    recap_path = graph.get("normalized_recap_path") or ""
+
+    evidence_refs = []
+    for collection in ("nodes", "edges", "beats", "ignored_items", "deferred_items"):
+        for item in candidate.get(collection) or []:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label") or item.get("title") or "")
+            for ref in item.get("evidence_refs") or []:
+                if isinstance(ref, dict):
+                    evidence_refs.append((ref, label))
+    assert evidence_refs
+
+    for ref, label in evidence_refs:
+        enriched = _enrich_evidence_ref(
+            ref,
+            span_lookup=span_lookup,
+            recap_text=recap_text,
+            recap_path=recap_path,
+            entity_label=label or None,
+        )
+        assert enriched.source_artifact_id == graph["source_artifact_id"]
+        assert enriched.source_span_ref_id
+        assert enriched.source_span_ref_id in span_lookup
+        assert enriched.paragraph_text and enriched.paragraph_text.strip()
+        assert enriched.line_start is not None and enriched.line_start >= 1
+        assert enriched.line_end is not None and enriched.line_end >= enriched.line_start
+        assert enriched.can_highlight_span is True or enriched.anchor_quote_matches
+        assert enriched.anchor_quotes or enriched.anchor_quote_matches
+
+
 def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_path(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:

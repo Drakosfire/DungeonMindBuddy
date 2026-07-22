@@ -28,6 +28,7 @@ from src.graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
+from graph_memory.ingestion.extraction_run import ExtractionRunStatus
 from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestArtifactKind,
     GraphIngestRunStatus,
@@ -40,6 +41,24 @@ from src.graph_memory.union_supergraph.preview_run_materialize import (
 _MANIFEST_NAME = "graph_ingest_run_manifest.json"
 _RUNS_ROOT = Path("out/graph_memory/runs")
 logger = logging.getLogger(__name__)
+
+
+def _production_candidate_is_packageable(production: Any) -> bool:
+    """Package a production candidate only when the ExtractionRun is reviewable."""
+    run = getattr(production, "run", None)
+    status = getattr(run, "status", None)
+    return (
+        getattr(production, "failure_kind", None) is None
+        and getattr(production, "candidate_graph", None) is not None
+        and status == ExtractionRunStatus.REVIEWABLE
+    )
+
+
+def _manifest_is_candidate_reusable(repo: Path, manifest_path: str | None) -> bool:
+    """Candidate/preview-ready runs are reusable only with sidecar + production lineage."""
+    return _manifest_has_known_entity_mentions(
+        repo, manifest_path
+    ) and _manifest_has_production_lineage(repo, manifest_path)
 
 
 def inspect_recap_graph_preview_status(
@@ -135,6 +154,7 @@ def build_recap_graph_preview_bundle(
             source_recap_path=source_recap_path,
             source_recap_sha256=source_recap_sha256,
             graph_extraction_profile=requested_profile if profile_sensitive_reuse else None,
+            require_production_lineage=extract_graph,
         )
         if reusable is not None:
             logger.info(
@@ -179,7 +199,7 @@ def build_recap_graph_preview_bundle(
     )
 
     production_candidate: Path | None = None
-    if extract_graph and production.candidate_graph is not None:
+    if extract_graph and _production_candidate_is_packageable(production):
         candidate_component = production.run.components.get("candidate_graph")
         if candidate_component is not None and str(candidate_component.uri).startswith("repo://"):
             production_candidate = (repo / str(candidate_component.uri).removeprefix("repo://")).resolve()
@@ -196,6 +216,13 @@ def build_recap_graph_preview_bundle(
                 json.dumps(production.known_entity_mentions, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+    elif extract_graph and production.candidate_graph is not None:
+        logger.warning(
+            "refusing to package non-reviewable production candidate run_id=%s status=%s failure_kind=%s",
+            production.run.run_id,
+            production.run.status.value,
+            production.failure_kind,
+        )
 
     # Legacy GraphIngest packaging only — never perform a second model call here.
     legacy_candidate = candidate or production_candidate
@@ -215,6 +242,12 @@ def build_recap_graph_preview_bundle(
             context_vocabulary_packet=context_vocabulary_packet,
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+            source_span_index=(
+                dict(production.source_span_index)
+                if production.source_span_index is not None
+                else None
+            ),
+            source_artifact_id=production.run.source_artifact_id,
         )
     )
     if (
@@ -240,27 +273,31 @@ def build_recap_graph_preview_bundle(
         _repo_relative(result.validation_report_path, repo) if result.validation_report_path else None,
     )
 
-    if extract_graph and production.failure_kind is not None and production.candidate_graph is None:
+    if extract_graph and not _production_candidate_is_packageable(production):
         # Persist llm_blocked on the GraphIngest manifest so materialize/status
-        # reloads from disk still surface the production failure.
+        # reloads from disk still surface the production failure — including
+        # typed-validation failures that still left a diagnostic candidate file.
         manifest_payload = json.loads(result.manifest_path.read_text(encoding="utf-8"))
         diagnostics = dict(manifest_payload.get("diagnostics") or {})
         diagnostics["extraction_mode"] = "llm_blocked"
         diagnostics["extraction_run_id"] = production.run.run_id
         diagnostics["extraction_run_status"] = production.run.status.value
-        diagnostics["failure_kind"] = production.failure_kind
+        diagnostics["failure_kind"] = production.failure_kind or "validation"
+        diagnostics["source_artifact_id"] = production.run.source_artifact_id
         manifest_payload["diagnostics"] = diagnostics
-        manifest_payload["errors"] = list(
-            production.diagnostics
-            or [f"extraction failed: {production.failure_kind}"]
+        blocked_message = (
+            production.diagnostics[0]
+            if production.diagnostics
+            else f"extraction failed: {production.failure_kind or production.run.status.value}"
         )
+        manifest_payload["errors"] = list(production.diagnostics or [blocked_message])
         result.manifest_path.write_text(
             json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         summary = _summary_for_manifest(repo, result.manifest_path)
 
-    if extract_graph and production.candidate_graph is not None and production.failure_kind is None:
+    if extract_graph and _production_candidate_is_packageable(production):
         manifest_payload = json.loads(result.manifest_path.read_text(encoding="utf-8"))
         diagnostics = dict(manifest_payload.get("diagnostics") or {})
         diagnostics["extraction_mode"] = "category_decomposed"
@@ -282,16 +319,16 @@ def build_recap_graph_preview_bundle(
     status["extraction_run_id"] = production.run.run_id
     status["extraction_run_status"] = production.run.status.value
     status["source_artifact_id"] = production.run.source_artifact_id
-    if extract_graph and production.candidate_graph is not None and production.failure_kind is None:
+    if extract_graph and _production_candidate_is_packageable(production):
         status["extraction_mode"] = "category_decomposed"
         if production.model_id:
             status["model_id"] = production.model_id
-    elif extract_graph and production.failure_kind is not None and production.candidate_graph is None:
+    elif extract_graph:
         status["extraction_mode"] = "llm_blocked"
         status["blocked_reason"] = (
             production.diagnostics[0]
             if production.diagnostics
-            else f"extraction failed: {production.failure_kind}"
+            else f"extraction failed: {production.failure_kind or production.run.status.value}"
         )
     return status
 
@@ -370,14 +407,14 @@ def materialize_recap_preview_supergraph(
                 [run.status for run in existing[:5]],
             )
             if existing and existing[0].status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value:
-                needs_extract = not _manifest_has_known_entity_mentions(
+                needs_extract = not _manifest_is_candidate_reusable(
                     repo, existing[0].manifest_path
                 )
             else:
                 needs_extract = (
                     not existing
                     or existing[0].status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value
-                    or not _manifest_has_known_entity_mentions(repo, existing[0].manifest_path)
+                    or not _manifest_is_candidate_reusable(repo, existing[0].manifest_path)
                 )
         if needs_extract:
             forced_build_status = build_recap_graph_preview_bundle(
@@ -425,7 +462,11 @@ def materialize_recap_preview_supergraph(
     if (
         summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
         and not force_graph_run
-        and _manifest_has_known_entity_mentions(repo, summary.manifest_path)
+        and (
+            _manifest_is_candidate_reusable(repo, summary.manifest_path)
+            if extract_graph
+            else _manifest_has_known_entity_mentions(repo, summary.manifest_path)
+        )
     ):
         ensure_graph_ingest_projection_payload(
             repo_root=repo,
@@ -443,22 +484,35 @@ def materialize_recap_preview_supergraph(
     if (
         summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
         and not force_graph_run
+        and extract_graph
+        and not _manifest_is_candidate_reusable(repo, summary.manifest_path)
+    ):
+        # Pre-migration / pre-repair extract-ready runs are not reusable.
+        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+        status["blocked_reason"] = (
+            "existing preview-ready run is missing production ExtractionRun lineage "
+            "or known_entity_mentions; re-run with force_graph_run or extract_graph to rebuild"
+        )
+        status["next_actions"] = ["force_graph_run", "extract_graph"]
+        logger.warning(
+            "preview union materialization refused pre-migration ready run campaign=%s session=session-%s manifest=%s",
+            campaign_id,
+            session,
+            summary.manifest_path,
+        )
+        return status
+    if (
+        summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
+        and not force_graph_run
+        and not extract_graph
         and not _manifest_has_known_entity_mentions(repo, summary.manifest_path)
     ):
-        # Pre-repair ready runs are not reusable: fall through only if they are
-        # still candidate-validation ready after a forced rebuild above.
         status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
         status["blocked_reason"] = (
             "existing preview-ready run is missing known_entity_mentions; "
             "re-run with force_graph_run or extract_graph to rebuild"
         )
         status["next_actions"] = ["force_graph_run", "extract_graph"]
-        logger.warning(
-            "preview union materialization refused pre-repair ready run campaign=%s session=session-%s manifest=%s",
-            campaign_id,
-            session,
-            summary.manifest_path,
-        )
         return status
     if summary.status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value:
         status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
@@ -494,6 +548,14 @@ def materialize_recap_preview_supergraph(
         status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
         status["blocked_reason"] = (
             "candidate-ready run is missing known_entity_mentions; "
+            "re-run with force_graph_run or extract_graph to rebuild"
+        )
+        status["next_actions"] = ["force_graph_run", "extract_graph"]
+        return status
+    if extract_graph and not _manifest_has_production_lineage(repo, summary.manifest_path):
+        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+        status["blocked_reason"] = (
+            "candidate-ready run is missing production ExtractionRun lineage; "
             "re-run with force_graph_run or extract_graph to rebuild"
         )
         status["next_actions"] = ["force_graph_run", "extract_graph"]
@@ -622,6 +684,7 @@ def _latest_matching_run(
     source_recap_path: str | None = None,
     source_recap_sha256: str | None = None,
     graph_extraction_profile: str | None = None,
+    require_production_lineage: bool = False,
 ) -> GraphIngestRunSummary | None:
     for run in discover_graph_ingest_runs(
         repo,
@@ -636,23 +699,83 @@ def _latest_matching_run(
             repo, run, graph_extraction_profile
         ):
             continue
-        # Extracted / preview-ready runs must carry the known-entity sidecar contract.
-        # Pre-repair manifests without it are not reusable under default ingest.
+        # Extracted / preview-ready runs must carry the known-entity sidecar.
+        # When extract_graph reuse is requested, also require production lineage so
+        # pre-controller candidate-ready runs are rebuilt.
         if run.status in {
             GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
             GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
-        } and not _manifest_has_known_entity_mentions(repo, run.manifest_path):
-            logger.info(
-                "skipping reusable run missing known_entity_mentions campaign=%s session=session-%s "
-                "status=%s manifest=%s",
-                campaign_id,
-                session,
-                run.status,
-                run.manifest_path,
-            )
-            continue
+        }:
+            if require_production_lineage:
+                if not _manifest_is_candidate_reusable(repo, run.manifest_path):
+                    logger.info(
+                        "skipping reusable run missing production lineage or known_entity_mentions "
+                        "campaign=%s session=session-%s status=%s manifest=%s",
+                        campaign_id,
+                        session,
+                        run.status,
+                        run.manifest_path,
+                    )
+                    continue
+            elif not _manifest_has_known_entity_mentions(repo, run.manifest_path):
+                logger.info(
+                    "skipping reusable run missing known_entity_mentions campaign=%s session=session-%s "
+                    "status=%s manifest=%s",
+                    campaign_id,
+                    session,
+                    run.status,
+                    run.manifest_path,
+                )
+                continue
         return run
     return None
+
+
+def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> bool:
+    """True when the run proves a reviewable production ExtractionRun lineage."""
+    if not manifest_path:
+        return False
+    try:
+        manifest_full = (repo / manifest_path).resolve()
+        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    diagnostics = payload.get("diagnostics") if isinstance(payload.get("diagnostics"), dict) else {}
+    run_id = diagnostics.get("extraction_run_id")
+    run_status = diagnostics.get("extraction_run_status")
+    source_artifact_id = diagnostics.get("source_artifact_id")
+    if not isinstance(run_id, str) or not run_id.strip():
+        return False
+    if str(run_status or "").strip() != ExtractionRunStatus.REVIEWABLE.value:
+        return False
+    if not isinstance(source_artifact_id, str) or not source_artifact_id.strip():
+        return False
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    candidate = artifacts.get(GraphIngestArtifactKind.CANDIDATE_GRAPH.value)
+    if not isinstance(candidate, dict):
+        return False
+    uri = candidate.get("uri")
+    if not isinstance(uri, str) or not uri.strip():
+        return False
+    candidate_path = (repo / uri).resolve() if not Path(uri).is_absolute() else Path(uri)
+    try:
+        candidate_path.relative_to(repo.resolve())
+    except ValueError:
+        return False
+    if not candidate_path.is_file():
+        return False
+    try:
+        graph = json.loads(candidate_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(graph, dict):
+        return False
+    bound_ids = graph.get("source_artifact_ids") or []
+    if not isinstance(bound_ids, list):
+        return False
+    return source_artifact_id in bound_ids
 
 
 def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -> bool:

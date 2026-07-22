@@ -276,15 +276,66 @@ def _service_fake_runner_with_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+    from types import SimpleNamespace
+
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionResult
 
     actual_runner = ingest_service.run_graph_preview_extraction
     calls: list[GraphPreviewRunnerOptions] = []
+    artifact_id = "artifact:test:service-fake:recap"
+
+    def fake_production(**_kwargs):  # noqa: ANN003
+        candidate = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
+        candidate["source_artifact_ids"] = [artifact_id]
+        run = SimpleNamespace(
+            run_id="er_service_fake",
+            status=ExtractionRunStatus.REVIEWABLE,
+            source_artifact_id=artifact_id,
+            components={},
+            profile_id="recap_session_default@1.0.0",
+        )
+        return ProductionExtractionResult(
+            run=run,
+            candidate_graph=candidate,
+            source_span_index={
+                "schema": "dmb_source_span_index_v1",
+                "version": "1.0",
+                "source_artifact_id": artifact_id,
+                "content_sha256": "abc123deadbeef",
+                "source_ref_id": f"{artifact_id}:text",
+                "spans": [
+                    {
+                        "source_span_id": f"{artifact_id}:span:abc123deadbe:1-3",
+                        "source_ref_id": f"{artifact_id}:text",
+                        "source_artifact_id": artifact_id,
+                        "content_sha256": "abc123deadbeef",
+                        "start_line": 1,
+                        "end_line": 3,
+                    }
+                ],
+            },
+            known_entity_mentions={
+                "schema": "dmb_known_entity_mention_sidecar_v0",
+                "version": "0.1",
+                "mentions": [],
+                "ambiguous_surfaces": [],
+                "diagnostics": {"mention_count": 0, "empty_contract": True},
+            },
+            failure_kind=None,
+            model_id="gpt-5.4-mini",
+            profile_id="recap_session_default",
+            profile_version="1.0.0",
+        )
 
     def fake_runner(options: GraphPreviewRunnerOptions):
         calls.append(options)
         candidate = tmp_path / "service_fake_candidate.json"
+        payload = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
+        if options.source_artifact_id:
+            payload["source_artifact_ids"] = [options.source_artifact_id]
         candidate.write_text(
-            CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         return actual_runner(
             GraphPreviewRunnerOptions(
@@ -299,11 +350,41 @@ def _service_fake_runner_with_candidate(
                 candidate_graph_path=candidate,
                 input_path_record=options.input_path_record,
                 graph_extraction_profile=options.graph_extraction_profile,
+                source_span_index=options.source_span_index,
+                source_artifact_id=options.source_artifact_id,
             )
         )
 
+    monkeypatch.setattr(ingest_service, "run_recap_production_extraction", fake_production)
     monkeypatch.setattr(ingest_service, "run_graph_preview_extraction", fake_runner)
     return ingest_service, calls
+
+
+def _stamp_production_lineage(
+    tmp_path: Path,
+    result,
+    *,
+    source_artifact_id: str = "artifact:test:stamped-lineage:recap",
+) -> None:
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    diagnostics = dict(manifest.get("diagnostics") or {})
+    diagnostics["extraction_run_id"] = "er_stamped_lineage"
+    diagnostics["extraction_run_status"] = "reviewable"
+    diagnostics["source_artifact_id"] = source_artifact_id
+    manifest["diagnostics"] = diagnostics
+    artifacts = manifest.get("artifacts") or {}
+    candidate_ref = artifacts.get("candidate_graph") or {}
+    uri = candidate_ref.get("uri")
+    assert isinstance(uri, str)
+    candidate_path = tmp_path / uri
+    graph = json.loads(candidate_path.read_text(encoding="utf-8"))
+    graph["source_artifact_ids"] = [source_artifact_id]
+    candidate_path.write_text(
+        json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def _profiled_candidate_ready_run(
@@ -368,6 +449,7 @@ def test_build_recap_graph_preview_bundle_reuses_matching_profile_run(
         "out/graph_memory/runs/encounter_profile",
         graph_extraction_profile="category_encounter_job_preview",
     )
+    _stamp_production_lineage(tmp_path, old_result)
     ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
 
     status = ingest_service.build_recap_graph_preview_bundle(
@@ -387,6 +469,43 @@ def test_build_recap_graph_preview_bundle_reuses_matching_profile_run(
     assert status["graph_extraction_profile"] == "category_encounter_job_preview"
 
 
+def test_build_recap_graph_preview_bundle_skips_pre_migration_run_missing_extraction_lineage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Candidate-ready legacy runs without ExtractionRun lineage must rebuild."""
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/pre_migration_no_lineage",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+
+    assert not ingest_service._manifest_has_production_lineage(
+        tmp_path, old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+
+    status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert calls
+    assert (
+        status["manifest_path"]
+        != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+    assert status["status"] == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value
+    assert status["extraction_run_status"] == "reviewable"
+    assert ingest_service._manifest_has_production_lineage(
+        tmp_path, status["manifest_path"]
+    )
+
+
 def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -399,6 +518,7 @@ def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_d
     old_result.manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
     )
+    _stamp_production_lineage(tmp_path, old_result)
 
     ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
     default_status = ingest_service.build_recap_graph_preview_bundle(

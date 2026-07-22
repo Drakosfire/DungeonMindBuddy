@@ -148,7 +148,7 @@ def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProj
         return []
     spans: list[RecapProjectionSourceSpan] = []
     for span in raw_spans:
-        span_id = span.get("span_id") or span.get("source_span_ref_id")
+        span_id = span.get("span_id") or span.get("source_span_ref_id") or span.get("source_span_id")
         if not isinstance(span_id, str):
             continue
         spans.append(
@@ -157,8 +157,20 @@ def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProj
                 kind=str(span.get("kind") or "span"),
                 ordinal=span.get("ordinal") if isinstance(span.get("ordinal"), int) else None,
                 text_excerpt=str(span.get("text_excerpt") or span.get("text") or "")[:240] or None,
-                line_start=span.get("line_start") if isinstance(span.get("line_start"), int) else None,
-                line_end=span.get("line_end") if isinstance(span.get("line_end"), int) else None,
+                line_start=(
+                    span.get("line_start")
+                    if isinstance(span.get("line_start"), int)
+                    else span.get("start_line")
+                    if isinstance(span.get("start_line"), int)
+                    else None
+                ),
+                line_end=(
+                    span.get("line_end")
+                    if isinstance(span.get("line_end"), int)
+                    else span.get("end_line")
+                    if isinstance(span.get("end_line"), int)
+                    else None
+                ),
             )
         )
     return spans
@@ -178,9 +190,9 @@ def _load_manifest_source_span_full_text_index(
         return {}
     full_text_by_span_id: dict[str, str] = {}
     for span in raw_spans:
-        if span.get("kind") != "paragraph":
+        if span.get("kind") not in {None, "paragraph"}:
             continue
-        span_id = span.get("span_id") or span.get("source_span_ref_id")
+        span_id = span.get("span_id") or span.get("source_span_ref_id") or span.get("source_span_id")
         text = span.get("text") or span.get("text_excerpt")
         if isinstance(span_id, str) and isinstance(text, str) and text.strip():
             full_text_by_span_id[span_id] = text
