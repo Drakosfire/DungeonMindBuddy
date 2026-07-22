@@ -23,6 +23,7 @@ class RecordingClient:
         model_id: str,
         instructions: str,
         user_content: str,
+        pass_spec=None,
     ) -> dict[str, Any]:
         self.passes.append(pass_name)
         if pass_name == "edge_pass":
@@ -89,6 +90,8 @@ def _span_index(*, session_id: str | None) -> dict[str, Any]:
         "version": "0.1",
         "campaign_id": "eldyrwild",
         "session_id": session_id,
+        "source_artifact_id": "artifact:test",
+        "source_ref_id": "artifact:test:text",
         "spans": [
             {
                 "span_id": "span-1",

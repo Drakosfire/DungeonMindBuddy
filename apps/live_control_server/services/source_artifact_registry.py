@@ -470,6 +470,30 @@ def _upsert_source_artifact(
             None,
         )
         if existing is not None:
+            same_bytes = (existing.content_sha256 or "") == (candidate.content_sha256 or "")
+            same_scope = (
+                existing.source_domain == candidate.source_domain
+                and existing.campaign_id == candidate.campaign_id
+                and existing.session_id == candidate.session_id
+                and existing.artifact_kind == candidate.artifact_kind
+                and existing.document_class == candidate.document_class
+                and existing.workspace_document_id == candidate.workspace_document_id
+                and existing.workspace_document_revision
+                == candidate.workspace_document_revision
+            )
+            if same_bytes and same_scope:
+                # Idempotent re-admission of the same bytes. Keep the existing URI
+                # so previously reviewable runs remain bound to immutable content.
+                try:
+                    load_source_span_index(root, existing.source_artifact_id)
+                except SourceArtifactRegistryError:
+                    index = build_source_span_index_for_text(
+                        source_artifact_id=existing.source_artifact_id,
+                        content_sha256=existing.content_sha256 or candidate.content_sha256 or "",
+                        text=content,
+                    )
+                    _persist_span_index(root, index)
+                return existing
             if not _records_match(existing, candidate):
                 raise SourceArtifactRegistryError(
                     "source artifact id collision with mismatched digest or foreign keys",
@@ -508,10 +532,10 @@ def create_recap_source_artifact(
 ) -> GraphMemorySourceArtifact:
     """Create an immutable recap SourceArtifact from committed recap bytes.
 
-    Bytes are always stored under a registry-owned, repo-contained URI. When
-    ``recap_path`` is provided the server reads that file (which may live outside
-    the repo, e.g. an external corpus) and materializes the exact bytes under
-    ``out/registries/source_content/recap/…``.
+    Bytes are always materialized under a registry-owned, repo-contained URI
+    keyed by the full content digest
+    (``out/registries/source_content/recap/<campaign>/<session>/<sha256>.md``).
+    The caller's original recap path is read-only input and is never rewritten.
     """
     cleaned_campaign = (campaign_id or "").strip()
     cleaned_session = (session_id or "").strip()
@@ -553,29 +577,24 @@ def create_recap_source_artifact(
                 status_code=409,
             )
 
-    # Prefer an in-repo source path when the caller already provided one; otherwise
-    # materialize bytes under the registry-owned content tree.
-    relpath: str | None = None
-    if recap_path is not None:
-        try:
-            _resolved, candidate_relpath = _resolve_repo_contained_path(root, recap_path)
-            relpath = candidate_relpath
-        except SourceArtifactRegistryError:
-            relpath = None
-    if relpath is None:
-        relpath = (
-            "out/registries/source_content/recap/"
-            f"{cleaned_campaign}/{cleaned_session}/{content_sha256[:12]}.md"
-        )
-        target = root / relpath
-        target.parent.mkdir(parents=True, exist_ok=True)
+    # Always materialize into a registry-owned, digest-namespaced path. Never
+    # retain or rewrite the caller's original recap path — that source must stay
+    # immutable from the registry's perspective.
+    relpath = (
+        "out/registries/source_content/recap/"
+        f"{cleaned_campaign}/{cleaned_session}/{content_sha256}.md"
+    )
+    target = root / relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not target.is_file():
         target.write_text(content, encoding="utf-8")
     else:
-        # Ensure the in-repo file matches the normalized bytes we digest.
-        target = root / relpath
-        if not target.is_file() or target.read_text(encoding="utf-8") != content:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content, encoding="utf-8")
+        existing = target.read_text(encoding="utf-8")
+        if existing != content:
+            raise SourceArtifactRegistryError(
+                "registry-owned recap content path already exists with different bytes",
+                status_code=409,
+            )
 
     source_artifact_id = build_recap_source_artifact_id(
         campaign_id=cleaned_campaign,

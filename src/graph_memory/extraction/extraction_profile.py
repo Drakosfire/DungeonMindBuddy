@@ -13,6 +13,8 @@ class ExtractionPassSpec:
     instruction: str
     progress_label: str
     kind: str = "node"  # node | beat | encounter_job | edge
+    include_dispositions: bool = False
+    allowed_node_types: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)

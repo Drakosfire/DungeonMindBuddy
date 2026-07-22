@@ -28,6 +28,8 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
     corpus = tmp_path / "external-corpus"
     graph_runs = ROOT / "out/graph_memory/runs/longmont-c2/session-22"
     shutil.rmtree(graph_runs, ignore_errors=True)
+    source_registry = ROOT / "out/registries"
+    shutil.rmtree(source_registry, ignore_errors=True)
     campaign = corpus / "Longmont Campaign/Campaign 2"
     (campaign / "_ingest_staging").mkdir(parents=True, exist_ok=True)
     (campaign / "Session Recaps").mkdir(parents=True, exist_ok=True)

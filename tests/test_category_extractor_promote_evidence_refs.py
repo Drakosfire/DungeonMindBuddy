@@ -22,7 +22,7 @@ def test_materialize_promote_evidence_ref_expands_stub() -> None:
     stub = {"source_span_ref_id": SPAN, "anchor_quotes": ["quote"]}
     out = materialize_promote_evidence_ref(stub, source_artifact_id=ARTIFACT)
     assert out == {
-        "source_ref_id": f"source-ref:{ARTIFACT}",
+        "source_ref_id": f"{ARTIFACT}:text",
         "source_artifact_id": ARTIFACT,
         "source_anchor_id": f"anchor:{SPAN}",
         "label": SPAN,
@@ -87,7 +87,7 @@ def test_assemble_envelope_stamps_evidence_refs() -> None:
     )
     graph = envelope["candidate_graph"]
     ref = graph["nodes"][0]["evidence_refs"][0]
-    assert ref["source_ref_id"] == f"source-ref:{ARTIFACT}"
+    assert ref["source_ref_id"] == f"{ARTIFACT}:text"
     assert ref["source_artifact_id"] == ARTIFACT
     assert ref["can_open_source"] is True
     assert ref["can_highlight_span"] is True
@@ -95,7 +95,7 @@ def test_assemble_envelope_stamps_evidence_refs() -> None:
     assert ref["anchor_quotes"] == ["Firebolt"]
     # Typed EvidenceRef parse must succeed for the stamped row.
     typed = evidence_ref_from_dict(ref)
-    assert typed.source_ref_id == f"source-ref:{ARTIFACT}"
+    assert typed.source_ref_id == f"{ARTIFACT}:text"
     assert typed.can_open_source is True
     assert typed.can_highlight_span is True
     assert graph["diagnostics"] == {
@@ -314,11 +314,14 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
         "node:captain-lysandra-ironveil",
     ]
     span_index = {
+        "source_artifact_id": "artifact:recap:longmont-c2:session-22:testdigest",
+        "source_ref_id": "artifact:recap:longmont-c2:session-22:testdigest:text",
         "spans": [
             {
                 "kind": "paragraph",
                 "span_id": spref,
                 "source_span_ref_id": spref,
+                "source_artifact_id": "artifact:recap:longmont-c2:session-22:testdigest",
                 "line_start": 1,
                 "line_end": 3,
                 "text": "Bonogo scouts the Mireward road with the company.",
@@ -332,6 +335,8 @@ def test_party_registry_category_pipeline_persists_promotable_for_resolve(
             session_id="session-22",
             session_number=22,
             source_span_index=span_index,
+            source_artifact_id="artifact:recap:longmont-c2:session-22:testdigest",
+            source_ref_id="artifact:recap:longmont-c2:session-22:testdigest:text",
             model_id="gpt-5.4-mini",
         ),
     )
@@ -457,5 +462,5 @@ def test_stamp_graph_evidence_refs_walks_all_collections() -> None:
         "deferred_items",
     ):
         ref = graph[key][0]["evidence_refs"][0]
-        assert ref["source_ref_id"] == f"source-ref:{ARTIFACT}"
+        assert ref["source_ref_id"] == f"{ARTIFACT}:text"
         assert ref["source_artifact_id"] == ARTIFACT

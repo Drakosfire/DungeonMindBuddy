@@ -16,6 +16,8 @@ from src.graph_memory.extraction.category_candidate_graph_schema import schema_f
 
 def _span_index() -> dict[str, Any]:
     return {
+        "source_artifact_id": "artifact:recap:longmont-c2:session-1:test",
+        "source_ref_id": "artifact:recap:longmont-c2:session-1:test:text",
         "spans": [
             {
                 "kind": "paragraph",
@@ -121,7 +123,7 @@ class RecordingFixtureClient(FixtureCategoryGraphPassClient):
         self.calls: list[str] = []
         self.user_content: dict[str, str] = {}
 
-    def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str) -> dict[str, Any]:
+    def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str, pass_spec=None) -> dict[str, Any]:
         self.calls.append(pass_name)
         self.user_content[pass_name] = user_content
         return super().run_pass(

@@ -61,6 +61,7 @@ class ProductionExtractionResult:
     run: ExtractionRun
     candidate_graph: dict[str, Any] | None = None
     source_span_index: Mapping[str, Any] | None = None
+    known_entity_mentions: Mapping[str, Any] | None = None
     failure_kind: str | None = None
     diagnostics: list[str] = field(default_factory=list)
     model_id: str | None = None
@@ -304,6 +305,8 @@ def run_production_extraction(
         session_number=_session_number(source.session_id),
         source_span_index=span_payload,
         source_text=source.source_text,
+        source_artifact_id=source.source_artifact_id,
+        source_ref_id=str(span_payload.get("source_ref_id") or "") or None,
         model_id=model_id,
         profile=profile,
         enable_encounter_job_pass=profile.enable_encounter_job_pass,
@@ -479,6 +482,7 @@ def run_production_extraction(
         run=loaded,
         candidate_graph=extraction.candidate_graph,
         source_span_index=span_payload,
+        known_entity_mentions=extraction.known_entity_mentions,
         model_id=model_id,
         profile_id=profile.profile_id,
         profile_version=profile.profile_version,

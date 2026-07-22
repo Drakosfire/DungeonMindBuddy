@@ -71,6 +71,7 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
             "Also emit ignored_items and deferred_items when appropriate."
         ),
         progress_label="Extracting mysteries and threads",
+        include_dispositions=True,
     ),
 )
 
@@ -88,6 +89,7 @@ _ENCOUNTER_JOB_PASS = ExtractionPassSpec(
     instruction="Extract encounters and quests.",
     progress_label="Extracting encounters and quests",
     kind="encounter_job",
+    allowed_node_types=("combat_encounter", "quest"),
 )
 
 _EDGE_PASS = ExtractionPassSpec(

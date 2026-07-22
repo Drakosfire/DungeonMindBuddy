@@ -18,6 +18,8 @@ from src.graph_memory.session_graph_context import (
 
 def _span_index() -> dict[str, Any]:
     return {
+        "source_artifact_id": "artifact:recap:longmont-c2:session-22:test",
+        "source_ref_id": "artifact:recap:longmont-c2:session-22:test:text",
         "spans": [
             {
                 "kind": "paragraph",

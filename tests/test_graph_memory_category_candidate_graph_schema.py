@@ -32,3 +32,34 @@ def test_category_pass_text_format_uses_strict_json_schema() -> None:
             assert "relationship_type" in edge_items["properties"]
             assert "enum" in edge_items["properties"]["relationship_type"]
             assert "parent_of" in edge_items["properties"]["relationship_type"]["enum"]
+
+
+def test_schema_for_pass_spec_uses_kind_not_literal_id() -> None:
+    from src.graph_memory.extraction.category_candidate_graph_schema import (
+        category_pass_text_format_for_spec,
+        schema_for_pass_spec,
+    )
+    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+
+    custom_node = ExtractionPassSpec(
+        pass_id="lore_actor_pass",
+        default_node_type="character",
+        instruction="custom",
+        progress_label="custom",
+        kind="node",
+    )
+    custom_edge = ExtractionPassSpec(
+        pass_id="lore_edge_pass",
+        default_node_type=None,
+        instruction="custom",
+        progress_label="custom",
+        kind="edge",
+    )
+    node_schema = schema_for_pass_spec(custom_node)
+    edge_schema = schema_for_pass_spec(custom_edge)
+    assert "observation_nodes" in node_schema["required"]
+    assert "observation_edges" in edge_schema["required"]
+    fmt = category_pass_text_format_for_spec(custom_node)
+    assert fmt["format"]["type"] == "json_schema"
+    assert fmt["format"]["strict"] is True
+    assert fmt["format"]["name"] == "category_graph_lore_actor_pass"
