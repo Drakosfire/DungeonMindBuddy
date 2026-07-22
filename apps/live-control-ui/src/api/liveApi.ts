@@ -53,6 +53,9 @@ import type {
   TiptapMarkdownWriteCommitResponse,
   TiptapMarkdownWritePrepareRequest,
   TiptapMarkdownWritePrepareResponse,
+  ExtractionRunLaunchRequest,
+  ExtractionRunLaunchResponse,
+  ExtractionRunRecord,
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
@@ -963,6 +966,21 @@ export async function commitTiptapMarkdownWrite(
   return apiFetch<TiptapMarkdownWriteCommitResponse>(
     "/api/live/tiptap/markdown-write/commit",
     { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function launchExtractionRun(
+  request: ExtractionRunLaunchRequest,
+): Promise<ExtractionRunLaunchResponse> {
+  return apiFetch<ExtractionRunLaunchResponse>(
+    "/api/live/graph-preview/extraction-runs",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function getExtractionRun(runId: string): Promise<ExtractionRunRecord> {
+  return apiFetch<ExtractionRunRecord>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}`,
   );
 }
 

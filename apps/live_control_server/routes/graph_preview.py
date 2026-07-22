@@ -184,6 +184,114 @@ def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
     return run.model_dump(mode="json")
 
 
+@router.post("/extraction-runs")
+def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
+    """Launch an exact extraction run for a committed worldbuilding source revision."""
+    from apps.live_control_server.services.graph_preview_runner import (
+        run_worldbuilding_production_extraction,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        create_source_artifact_from_workspace_document,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceDocumentRegistryError,
+        get_workspace_document,
+    )
+    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+        WORLDBUILDING_PLUMBING_PROFILE_ID,
+        WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+    )
+
+    document_id = body.get("document_id")
+    expected_revision = body.get("expected_revision")
+    expected_content_sha256 = body.get("expected_content_sha256")
+    profile_id = body.get("profile_id") or WORLDBUILDING_PLUMBING_PROFILE_ID
+    profile_version = body.get("profile_version") or WORLDBUILDING_PLUMBING_PROFILE_VERSION
+    allow_llm = bool(body.get("allow_llm", False))
+
+    if not isinstance(document_id, str) or not document_id.strip():
+        raise HTTPException(status_code=422, detail="document_id is required")
+    if expected_revision is not None and not isinstance(expected_revision, int):
+        raise HTTPException(status_code=422, detail="expected_revision must be an int")
+    if expected_content_sha256 is not None and (
+        not isinstance(expected_content_sha256, str) or not expected_content_sha256.strip()
+    ):
+        raise HTTPException(status_code=422, detail="expected_content_sha256 must be a non-empty string when provided")
+    if (
+        profile_id != WORLDBUILDING_PLUMBING_PROFILE_ID
+        or profile_version != WORLDBUILDING_PLUMBING_PROFILE_VERSION
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"unsupported extraction profile {profile_id}@{profile_version}; "
+                f"use {WORLDBUILDING_PLUMBING_PROFILE_ID}@{WORLDBUILDING_PLUMBING_PROFILE_VERSION}"
+            ),
+        )
+
+    root = repo_root()
+    try:
+        record = get_workspace_document(root, document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    if record.content_status != "committed":
+        raise HTTPException(status_code=422, detail="source must be committed before extraction")
+    if expected_revision is not None and record.revision != expected_revision:
+        raise HTTPException(
+            status_code=409,
+            detail=f"revision mismatch: expected {expected_revision}, current {record.revision}",
+        )
+    if not record.target_relpath:
+        raise HTTPException(status_code=422, detail="workspace document has no target_relpath")
+
+    try:
+        artifact = create_source_artifact_from_workspace_document(
+            root,
+            document_id=document_id,
+            expected_revision=record.revision,
+            expected_content_sha256=expected_content_sha256,
+        )
+    except SourceArtifactRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    result = run_worldbuilding_production_extraction(
+        repo_root=root,
+        source_artifact_id=artifact.source_artifact_id,
+        allow_llm=allow_llm,
+        output_dir=root
+        / "out"
+        / "graph_memory"
+        / "runs"
+        / "extraction"
+        / artifact.source_artifact_id.replace(":", "_"),
+    )
+
+    return {
+        "schema_version": "dmb_extraction_run_launch_v1",
+        "run": result.run.model_dump(mode="json"),
+        "source_artifact_id": artifact.source_artifact_id,
+        "document_id": record.document_id,
+        "document_revision": record.revision,
+        "failure_kind": result.failure_kind,
+        "diagnostics": result.diagnostics,
+        "graph_review_handoff": {
+            "href": (
+                "/ingest"
+                f"?extractionRunId={result.run.run_id}"
+                f"&sourceArtifactId={artifact.source_artifact_id}"
+                f"&documentId={record.document_id}"
+                f"&revision={record.revision}"
+            ),
+            "extraction_run_id": result.run.run_id,
+            "source_artifact_id": artifact.source_artifact_id,
+            "document_id": record.document_id,
+            "document_revision": record.revision,
+        },
+    }
+
+
 @router.get("/graph-ingest/latest", response_model=GraphIngestLatestRunResponse)
 def get_latest_graph_ingest_run(
     campaign_id: Annotated[str, Query()],
