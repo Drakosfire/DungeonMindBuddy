@@ -217,16 +217,16 @@ def create_threat_draft(root: Path, request: CreateThreatDraftRequest) -> Threat
         updated_at=now,
     )
     with _store_lock(root):
+        index = _load_index(root)
+        if draft.draft_id in index.draft_ids:
+            raise ThreatDraftStoreError(
+                "draft_id collision",
+                status_code=500,
+            )
         draft_written = False
         try:
             _save_draft_unlocked(root, draft, as_draft_id=draft.draft_id)
             draft_written = True
-            index = _load_index(root)
-            if draft.draft_id in index.draft_ids:
-                raise ThreatDraftStoreError(
-                    "draft_id collision",
-                    status_code=500,
-                )
             index.draft_ids.append(draft.draft_id)
             _save_index(root, index)
         except ThreatDraftStoreError:

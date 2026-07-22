@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import uuid
 from pathlib import Path
 
 import pytest
@@ -108,6 +109,37 @@ def test_names_do_not_resolve_identity(tmp_path: Path) -> None:
     first = create_threat_draft(tmp_path, _create_request(name="Same Name"))
     second = create_threat_draft(tmp_path, _create_request(name="Same Name"))
     assert first.draft_id != second.draft_id
+
+
+def test_create_uuid_collision_preserves_committed_draft(
+    tmp_path: Path, monkeypatch
+) -> None:
+    existing = create_threat_draft(
+        tmp_path,
+        _create_request(name="Original", description="Keep me"),
+    )
+    original = get_threat_draft(tmp_path, existing.draft_id)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.threat_draft_store.uuid.uuid4",
+        lambda: uuid.UUID(existing.draft_id),
+    )
+
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        create_threat_draft(
+            tmp_path,
+            _create_request(name="Colliding", description="Must not overwrite"),
+        )
+    assert exc_info.value.status_code == 500
+    assert "collision" in str(exc_info.value)
+
+    loaded = get_threat_draft(tmp_path, existing.draft_id)
+    assert loaded.model_dump(by_alias=True) == original.model_dump(by_alias=True)
+    assert loaded.description == "Keep me"
+    assert loaded.name == "Original"
+    assert loaded.version == 1
+    summaries, total = list_threat_drafts(tmp_path, limit=100)
+    assert total == 1
+    assert summaries[0].draft_id == existing.draft_id
 
 
 def test_concurrent_updates_only_one_succeeds(tmp_path: Path) -> None:
