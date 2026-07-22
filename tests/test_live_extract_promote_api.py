@@ -1115,3 +1115,59 @@ def test_path_contract_still_rejects_world_store_sources(world_client) -> None:
         promote_svc.resolve_promote_source_uri(str(planted))
     assert exc.value.code == "invalid_source_uri"
     assert "world graph store" in str(exc.value) or "ingest-run" in str(exc.value)
+
+
+def test_prepare_confirm_exact_worldbuilding_extraction_run(world_client) -> None:
+    """Product prepare remains runId-only for canonical ExtractionRun IDs."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial", "mystery_puddles"]),
+    )
+    assert prepare.status_code == 200, prepare.text
+    prepared = prepare.json()
+    assert prepared["runId"] == run_id
+    assert prepared["campaignId"] == CAMPAIGN_ID
+    assert prepared.get("sessionId") in (None, "")
+    package = prepared["reviewPackage"]
+    sealed_uri = package["effect"]["verified_source_uri"]
+    assert sealed_uri.startswith("repo://out/graph_memory/runs/")
+    assertion_ids = _selectable_assertion_ids(prepared)
+    assert assertion_ids
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    confirm = client.post(CONFIRM_URL, json=_confirm_body(package, assertion_ids))
+    assert confirm.status_code == 200, confirm.text
+    confirmed = confirm.json()
+    assert confirmed["outcome"] == "committed"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after != head_before
+
+
+def test_prepare_rejects_non_reviewable_extraction_run(world_client) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo, status="prepared")
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == head_before
+
+
+def test_prepare_rejects_session_invention_for_sessionless_extraction_run(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, invent_session_in_candidate=True
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"

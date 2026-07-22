@@ -1475,6 +1475,13 @@ export type ExtractionRunLifecycleStatus =
   | "failed"
   | "superseded";
 
+export interface ExtractionRunComponentRef {
+  kind: string;
+  uri: string;
+  sha256?: string | null;
+  exists?: boolean;
+}
+
 export interface ExtractionRunRecord {
   schema_version: "dmb_extraction_run_v1";
   version: string;
@@ -1487,12 +1494,15 @@ export interface ExtractionRunRecord {
   profile_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  components?: Record<string, ExtractionRunComponentRef>;
   diagnostics?: {
     messages?: string[];
     incomplete_components?: string[];
     errors?: string[];
   };
   lineage?: Record<string, unknown>;
+  superseded_by_run_id?: string | null;
+  supersedes_run_id?: string | null;
 }
 
 export interface GraphReviewHandoffPayload {
