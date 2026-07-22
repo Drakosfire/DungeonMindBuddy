@@ -9,186 +9,188 @@
 
 ## 1. Goal
 
-Turn the existing DungeonMindServer statblock v1 contract and DungeonBuddy World Graph, Plan, Graph Review, Markdown canvas, and combat foundations into one dogfoodable authoring loop:
+Turn the existing DungeonMindServer statblock v1 contract and DungeonBuddy World Graph/Plan/Graph Review/combat foundations into one dogfoodable authoring loop:
 
 ```text
 World Graph context
-→ versioned ThreatDraft
+→ ThreatDraft
 → typed generated candidate
-→ review/edit/validate/revise
+→ review/edit/validate
 → immutable statblock revision
-→ governed Threat + exact binding publication
-→ exact-revision Threat Sheet
+→ governed Threat + binding graph publication
+→ exact-revision projections
 → committed Plan document hydration
-→ revision-pinned Markdown/Tiptap embed
-→ append and compare mechanics revisions
-→ explicit one-binding adoption
-→ exact-revision combat instances
-→ optional image generation
+→ pinned Markdown/Tiptap embed
+→ immutable child revision + compare
+→ one-binding adoption
+→ combat
+→ image generation
 → durable image selection
 ```
 
-Three-dimensional media remains a separate deferred contract investigation.
-
-The roadmap optimizes for small, independently useful, easy-to-review PRs. A PR may cross backend, frontend, persistence, and tests only when every changed layer establishes or proves one invariant.
+The roadmap optimizes for small, independently useful, easy-to-review PRs. A PR may cross backend/UI/test layers only when every changed layer proves one invariant.
 
 ## 2. Locked sequencing rules
 
 1. Do not reopen or redesign DungeonMindServer's v1 mechanics contract from DungeonBuddy.
-2. Establish server-owned transport before product workflow.
+2. Establish server-owned transport before UI integration.
 3. Establish durable `ThreatDraft` identity before generation.
-4. Bind every candidate to one exact draft version and request identity.
-5. Make real candidate review useful before persistence or graph writes.
-6. Edit one complete generated definition; do not introduce sparse patches or a local mechanics schema.
-7. Persist mechanics before proposing graph memory.
-8. Establish the typed external-resource/binding graph contract before publishing the first real Threat binding.
-9. Use the existing governed graph prepare/review/confirm path; never add a statblock-only graph writer.
-10. Build one shared semantic renderer for candidate review, accepted views, embeds, and combat drilldown.
-11. Make committed Plan-document content reload real before introducing a durable embedded block.
-12. Pin exact revisions in graph bindings, Plan embeds, placements, exports, and combat.
-13. Separate immutable child-revision creation from adoption by a campaign binding.
-14. One binding upgrade must not migrate other Threats, embeds, placements, or combatants.
-15. Separate optional image generation from durable image selection/binding.
-16. Media selection changes presentation state only; it never changes mechanics digest or graph identity.
-17. Treat 3D as a distinct media/job/storage contract, not an extension of image-only `AssetRefV1`.
-18. Delete mock, corpus, path-based, or Markdown-first predecessor behavior when the exact replacement becomes production-ready.
-19. Every PR names success, miss, unavailable, integrity failure, stale state, retry/replay, persistence, and demolition behavior where applicable.
+4. Make candidate review useful before persistence or graph writes.
+5. Persist mechanics before proposing a graph binding.
+6. Establish the typed graph external-resource/binding contract before publishing the first Threat binding.
+7. Use the existing governed graph preview/confirm path; do not invent a statblock-only graph writer.
+8. Build one shared semantic renderer; do not create separate candidate, view, Markdown, and combat renderers.
+9. Pin exact revisions in bindings, Plan embeds, placements, exports, and combat.
+10. Committed Plan-document read/hydration is a separate prerequisite from the statblock embed node.
+11. Appending a child mechanics revision and adopting it for one Threat binding are separate capabilities.
+12. Updating a pinned Plan embed or placement to another revision is not owned by the binding-adoption slice and remains a later, separately decomposed capability.
+13. Image generation and durable image selection are separate capabilities.
+14. Images are non-blocking presentation state. 3D media is a separate deferred contract/reconnaissance item.
+15. Delete mock/corpus/path-based predecessor behavior when the replacement path becomes production-ready.
+16. Every PR names success, miss, failure, retry, reload, stale, and predecessor behavior where applicable.
 
-## 3. Stable slice IDs, dependencies, and handoffs
+## 3. Workstream IDs and status
 
-Stable slice IDs are design identifiers. Only `SBW01` has a tentative GitHub PR number in its current filename; later GitHub PR numbers are assigned at dispatch after the predecessor base is known.
+Workstream IDs are stable design identifiers. GitHub PR numbers are assigned when a handoff becomes active; do not reserve a long fragile range of future GitHub numbers.
 
-| Slice | Status | Outcome | Canonical handoff |
-|---|---|---|---|
-| `SBW01` | READY | Server-owned DungeonMind statblock v1 client, readiness, and typed errors. | [`HANDOFF-pr382-statblock-v1-backend-client-readiness.md`](../Plans/HANDOFF-pr382-statblock-v1-backend-client-readiness.md) |
-| `SBW02` | BLOCKED on SBW01 route conventions | Versioned, durable, non-canonical `ThreatDraftV1` CRUD. | [`HANDOFF-sbw02-threat-draft-store.md`](../Plans/HANDOFF-sbw02-threat-draft-store.md) |
-| `SBW03` | BLOCKED on SBW01+02 | One exact draft version generates one reloadable typed candidate; failure preserves the draft. | [`HANDOFF-sbw03-generate-candidate-from-draft.md`](../Plans/HANDOFF-sbw03-generate-candidate-from-draft.md) |
-| `SBW04` | BLOCKED on SBW03 | Shared semantic renderer and real read-only candidate workbench; normal mock/corpus presentation removed. | [`HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`](../Plans/HANDOFF-sbw04-semantic-renderer-candidate-workbench.md) |
-| `SBW05` | BLOCKED on SBW04 | Complete-definition typed editing and exact-digest preview validation. | [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](../Plans/HANDOFF-sbw05-typed-candidate-edit-validation.md) |
-| `SBW06` | BLOCKED on SBW05 | Model-assisted candidate revise/regenerate with exact source lineage and explicit statuses. | [`HANDOFF-sbw06-candidate-revise-lineage.md`](../Plans/HANDOFF-sbw06-candidate-revise-lineage.md) |
-| `SBW07` | BLOCKED on SBW05; SBW06 optional for first save | Idempotently persist one logical statblock and immutable first revision; record exact accepted mechanics ref. | [`HANDOFF-sbw07-persist-accepted-mechanics.md`](../Plans/HANDOFF-sbw07-persist-accepted-mechanics.md) |
-| `SBW08` | READY in parallel after graph main stabilizes | Typed external statblock resource node and `ThreatStatblockBinding` graph contract. | [`HANDOFF-sbw08-world-graph-statblock-binding-contract.md`](../Plans/HANDOFF-sbw08-world-graph-statblock-binding-contract.md) |
-| `SBW09` | BLOCKED on SBW07+08 and graph confirm | Governed planned Threat + exact binding publication with recoverable partial state. | [`HANDOFF-sbw09-governed-threat-binding-publication.md`](../Plans/HANDOFF-sbw09-governed-threat-binding-publication.md) |
-| `SBW10` | BLOCKED on SBW09 | Exact-revision composed Threat Sheet opened from graph/Plan. | [`HANDOFF-sbw10-exact-revision-threat-sheet.md`](../Plans/HANDOFF-sbw10-exact-revision-threat-sheet.md) |
-| `SBW11` | READY once current document contracts are re-anchored | Fresh Plan open hydrates committed Markdown with explicit dirty-local precedence. | [`HANDOFF-sbw11-plan-document-content-hydration.md`](../Plans/HANDOFF-sbw11-plan-document-content-hydration.md) |
-| `SBW12` | BLOCKED on SBW10+11 | Strict revision-pinned Markdown/Tiptap statblock block with real save/fresh-reload. | [`HANDOFF-sbw12-revision-pinned-markdown-tiptap-embed.md`](../Plans/HANDOFF-sbw12-revision-pinned-markdown-tiptap-embed.md) |
-| `SBW13` | BLOCKED on SBW06+07+10 | Append an immutable exact-parent child revision and compare parent/child; no use migrates. | [`HANDOFF-sbw13-append-revision-compare.md`](../Plans/HANDOFF-sbw13-append-revision-compare.md) |
-| `SBW14` | BLOCKED on SBW13+graph replacement semantics | Governed adoption of one exact child revision by one exact Threat binding only. | [`HANDOFF-sbw14-governed-binding-revision-upgrade.md`](../Plans/HANDOFF-sbw14-governed-binding-revision-upgrade.md) |
-| `SBW15` | BLOCKED on SBW10 | Deterministic exact-revision `CombatantSeedV1`, insertion, reload/export, offline operation, and drilldown. | [`HANDOFF-sbw15-exact-revision-combat-adapter.md`](../Plans/HANDOFF-sbw15-exact-revision-combat-adapter.md) |
-| `SBW16` | BLOCKED on SBW04; parallel thereafter | Explicit optional image generation on candidate generate/revise with typed partial outcomes. | [`HANDOFF-sbw16-optional-image-generation.md`](../Plans/HANDOFF-sbw16-optional-image-generation.md) |
-| `SBW17` | BLOCKED on SBW10+16 | Versioned image selection for exact Threat/binding roles and composition into existing projections. | [`HANDOFF-sbw17-durable-image-selection-binding.md`](../Plans/HANDOFF-sbw17-durable-image-selection-binding.md) |
-| `SBW18` | DEFERRED on SBW17 dogfood and operator choice | Select one 3D use case/provider and define a distinct model/job/storage contract plus split successor handoffs. | [`HANDOFF-sbw18-3d-media-contract-reconnaissance.md`](../Plans/HANDOFF-sbw18-3d-media-contract-reconnaissance.md) |
+| Slice | Status | Outcome |
+|---|---|---|
+| `SBW01` | READY after docs merge/re-anchor | DungeonBuddy backend can call and classify DungeonMind statblock v1 readiness/read operations through one server-owned client. |
+| `SBW02` | PRE-DESIGNED | Persistent versioned `ThreatDraftV1` CRUD with no generation side effects. |
+| `SBW03` | PRE-DESIGNED | One exact draft version generates one typed candidate; failure preserves the draft. |
+| `SBW04` | PRE-DESIGNED | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. |
+| `SBW05` | PRE-DESIGNED | Complete-definition typed editing and editor-preview validation. |
+| `SBW06` | PRE-DESIGNED | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
+| `SBW07` | PRE-DESIGNED | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |
+| `SBW08` | PRE-DESIGNED / PARALLEL | Typed external-resource node + `ThreatStatblockBinding` edge state in Kernel/projection contracts; no product write yet. |
+| `SBW09` | PRE-DESIGNED | Preview/confirm Threat + exact binding publication with recoverable partial completion. |
+| `SBW10` | PRE-DESIGNED | Exact-revision Threat Sheet/full statblock read projection opened from graph/Plan. |
+| `SBW11` | PRE-DESIGNED / EARLY PARALLEL | Registered Plan documents load committed Markdown with revision-aware local-draft precedence; independent of `SBW10`, required before `SBW12`. |
+| `SBW12` | PRE-DESIGNED | Revision-pinned Markdown/Tiptap statblock embed and honest unresolved state. |
+| `SBW13` | PRE-DESIGNED | Append immutable child revision and compare it to its exact parent; no consumer moves. |
+| `SBW14` | PRE-DESIGNED | Governed adoption of one child revision for one Threat binding only. |
+| `SBW15` | PRE-DESIGNED | Deterministic CombatantSeed and existing combat tracker insertion/reload/drilldown. |
+| `SBW16` | PRE-DESIGNED / PARALLEL | Optional image generation with typed partial outcomes; no durable selection. |
+| `SBW17` | PRE-DESIGNED | Durable selected-image binding and renderer slots without changing mechanics identity. |
+| `SBW18` | DEFERRED RECONNAISSANCE | Decide/define a separate 3D media/job/storage contract after image dogfood and provider/use-case selection. |
 
-## 4. Dependency graph
+Deferred, deliberately unnumbered successors:
 
-### Core first-use path
+- explicitly repin one existing Plan embed to another exact revision;
+- explicitly upgrade one persisted Plan/encounter placement to another exact revision.
+
+These are not `SBW14`. They must be decomposed after the actual document and placement stores are proven; they may become separate slices.
+
+## 4. Critical path
 
 ```text
 SBW01 backend client/readiness
   → SBW02 ThreatDraft store
-  → SBW03 exact draft-version generation
-  → SBW04 shared renderer + real candidate review
+  → SBW03 candidate generation
+  → SBW04 shared renderer + read-only review workbench
   → SBW05 typed edit + validation
-  → SBW07 immutable first mechanics revision
-  → SBW09 governed Threat + exact binding publication
+  → SBW07 immutable mechanics save
+  → SBW09 Threat + binding graph publish
   → SBW10 exact-revision Threat Sheet
-  → SBW12 pinned Plan embed
-  → SBW15 exact-revision combat adapter
+  → SBW12 revision-pinned Plan embed
+  → SBW15 combat adapter
 ```
 
-`SBW12` also requires the document-foundation lane:
+Parallel lanes:
 
 ```text
-current workspace-document/writer contracts
-  → SBW11 committed Plan-document hydration
-  → SBW12 pinned Plan embed
+SBW08 graph binding contract
+  starts after current graph contract is stable
+  must finish before SBW09
+
+SBW11 Plan-document hydration
+  can run early after current document/read/write contracts are re-anchored
+  is independent of SBW10
+  must finish before SBW12
+
+SBW06 revise/regenerate
+  starts after SBW05
+  required before SBW13, not before first mechanics save
+
+SBW13 append + compare
+  starts after SBW06 and accepted-revision read exists
+  creates no graph/document/placement/combat mutation
+
+SBW14 one-binding adoption
+  starts after SBW13 and governed graph replacement is available
+  changes one Threat binding only
+
+SBW16 image generation
+  starts after SBW04 and current Server image contract is re-anchored
+  does not block first mechanics/graph/combat slice
+
+SBW17 image selection
+  starts after SBW16; Threat-owned roles may also require SBW09 context
+
+SBW18 3D reconnaissance
+  begins only after image ownership is dogfooded and operator selects a use case/provider
 ```
-
-### Parallel and later lanes
-
-```text
-Graph contract lane:
-  current graph main stabilizes
-    → SBW08 external resource + binding contract
-    → SBW09 publication
-
-Mechanics iteration lane:
-  SBW05
-    → SBW06 candidate revise lineage
-    → SBW13 append + compare
-    → SBW14 one-binding adoption
-
-Media lane:
-  SBW04
-    → SBW16 optional image generation
-  SBW10 + SBW16
-    → SBW17 durable image selection
-  SBW17 dogfood + operator choice
-    → SBW18 3D reconnaissance
-```
-
-`SBW14` intentionally changes only one graph binding. Plan-embed/placement bulk or individual upgrade UX remains a later capability and is not required for the first complete dogfood.
 
 ## 5. Milestones
 
 ### Milestone A — Typed candidate is real
 
-Slices: `SBW01–04`.
+Slices: `SBW01–SBW04`.
 
 Exit:
 
-- DungeonBuddy has one server-owned authenticated v1 client and honest readiness.
-- A durable ThreatDraft survives reload and provider failure.
-- One exact draft version generates one traceable candidate.
-- The shared renderer presents real typed mechanics.
-- The normal workbench no longer presents mock/corpus Markdown as canonical mechanics.
+- A persisted ThreatDraft can call DungeonMindServer through the Buddy backend.
+- A typed candidate renders through the shared semantic renderer.
+- Provider/auth/timeout/validation failures are distinct.
+- The normal workbench no longer claims mock or Markdown corpus output is canonical mechanics.
 
 ### Milestone B — Human-adjudicated mechanics workflow
 
-Slices: `SBW05–07`.
+Slices: `SBW05–SBW07`.
 
 Exit:
 
-- Complete-definition edits preserve all typed structures.
-- Validation applies to one exact digest and stale receipts cannot save.
-- Revise/regenerate creates new candidate lineage rather than overwriting.
-- One immutable logical statblock/revision survives reload with exact IDs and digest.
-- UI says `mechanics_saved`, not published Threat.
+- The GM can edit the complete definition, validate, revise/regenerate, and save one immutable revision.
+- Error validation blocks save; warnings remain visible.
+- Accepted mechanics survive reload with exact IDs and digest.
+- No graph truth is claimed yet.
 
 ### Milestone C — World Graph publication
 
-Slices: `SBW08–09`.
+Slices: `SBW08–SBW09`.
 
 Exit:
 
-- External mechanics identity and typed binding metadata round-trip through Kernel/projection contracts.
-- The GM previews and confirms a planned GM-visible Threat and exact binding.
-- Existing-object resolution avoids duplicates.
-- Stale or failed graph publication leaves saved mechanics intact and recoverable.
-- Exact committed graph revision verifies the node and relationship.
+- The graph has a typed external statblock resource/binding representation.
+- The GM previews and confirms a planned GM-visible Threat and binding.
+- The graph write is revision-bound and stale-safe.
+- Server success + graph failure is recoverable and truthfully displayed.
 
-### Milestone D — Reusable read and document projections
+### Milestone D — Reusable exact projections and documents
 
-Slices: `SBW10–12`.
-
-Exit:
-
-- A graph Threat opens one exact composed Threat Sheet through the shared renderer.
-- A fresh Plan-document open hydrates committed content instead of starter content.
-- The statblock directive/Tiptap node round-trips exact identity.
-- Missing/unavailable mechanics retain the locator and never select latest.
-
-### Milestone E — Mechanics evolution without silent migration
-
-Slices: `SBW13–14`.
+Slices: `SBW10–SBW12`.
 
 Exit:
 
-- A validation-clean child revision appends against one exact parent.
-- Parent and child remain readable and compare semantically.
-- Existing bindings, embeds, placements, and combatants remain pinned after append.
-- One chosen Threat binding may adopt the child through governed confirmation.
-- No other use migrates automatically.
+- Summary/full Threat Sheet resolves an exact binding revision.
+- Committed Plan Markdown loads after a fresh browser/session reload.
+- The statblock embed stores and reloads an exact revision locator.
+- Renderer identity is shared across review, full view, and embed.
+- A newer revision does not silently change a binding or document.
+
+### Milestone E — Immutable revision evolution
+
+Slices: `SBW06`, `SBW13`, `SBW14`.
+
+Exit:
+
+- A new candidate can preserve lineage from exact source mechanics.
+- A validated child revision appends without changing any consumer.
+- The GM compares parent/child revisions.
+- One governed Threat binding may adopt the child revision.
+- Plan embeds, placements, and combatants remain unchanged.
+
+Explicitly excluded from this milestone: document/placement repinning. Those are later unnumbered successors.
 
 ### Milestone F — Table operation
 
@@ -196,76 +198,87 @@ Slice: `SBW15`.
 
 Exit:
 
-- One exact revision derives one deterministic combat seed.
-- Combat save/load/export retains exact locator and bounded snapshot.
-- HP, initiative, conditions, and notes mutate only combat state.
-- Existing rows remain operational when DungeonMindServer is unavailable; full detail fails honestly.
-- The artifact/corpus path is no longer the normal insertion identity.
+- The exact accepted revision creates a deterministic combat seed.
+- Combat reload retains the exact locator and operational snapshot.
+- Mutable combat state cannot change mechanics or graph truth.
 
-### Milestone G — Images
+### Milestone G — Image media
 
-Slices: `SBW16–17`.
+Slices: `SBW16–SBW17`.
 
 Exit:
 
-- Image generation is explicit and defaults off.
-- Mechanics success remains valid when images partially fail.
-- Only typed provider-owned durable image refs are trusted.
-- The GM can select an exact image for a typed Threat/binding role.
-- Selection survives reload, changes no mechanics digest, and never deletes the provider asset.
+- Optional generation returns typed asset outcomes/warnings without blocking mechanics.
+- A GM selects a durable asset for one exact presentation role.
+- The selected asset renders after reload.
+- Asset selection does not alter mechanics digest.
 
-`SBW18` is not part of the initial product completion gate.
+### Deferred — 3D media
+
+Slice: `SBW18` reconnaissance only.
+
+Exit:
+
+- one user use case and provider decision;
+- explicit model formats/MIME and preview relationship;
+- job lifecycle and ownership/deletion policy;
+- CDN/range/licensing/retention decision;
+- recommendation whether to create a later implementation roadmap.
+
+No core completion gate depends on 3D.
 
 ## 6. End-to-end dogfood gate
 
-Use a real Campaign 2 Shepherds' Flock/Mireward scene rather than a synthetic product example:
+Use a real Shepherds' Flock/Mireward scene design rather than a synthetic fixture:
 
-1. Select the campaign and intended session/scene World Graph lens in Plan.
-2. Ask Hermes for graph-grounded scene and Shepherds' Flock context.
-3. Paste the designed threat prose into a saved ThreatDraft.
-4. Generate a typed candidate with images off by default.
-5. Inspect it through the shared renderer.
-6. Edit one attack/effect and validate the exact digest.
-7. Optionally revise once and inspect lineage.
-8. Save one immutable statblock revision.
-9. Preview and confirm a planned GM-visible Threat + exact binding.
-10. Reload the exact graph revision and open the Threat Sheet.
-11. Insert the pinned statblock block into a Plan document, commit, clear local state/use a fresh browser, and reload it.
-12. Append a child revision and compare it without changing the existing embed or combat state.
-13. Optionally adopt it for the one Threat binding and prove the embed remains pinned.
-14. Add the chosen exact revision to combat; mutate HP/conditions; save/reload; verify mechanics remain unchanged.
-15. Generate images explicitly, tolerate a partial failure, select a portrait/token, and reload the Threat Sheet without changing mechanics digest.
+1. Load Campaign 2 and intended scene/session focus.
+2. Ask Hermes for graph-grounded context on the scene and Shepherds' Flock.
+3. Paste a newly authored threat description into a saved draft.
+4. Generate a candidate.
+5. Edit one attack/effect and validate.
+6. Save immutable mechanics.
+7. Publish a planned Threat + binding through governed confirmation.
+8. Reload from the committed graph revision and open the Threat Sheet.
+9. Open a registered Plan document from committed Markdown in a fresh browser/session.
+10. Embed the exact statblock revision, save, clear local state, and reload.
+11. Append a child mechanics revision and prove the existing embed remains pinned.
+12. Explicitly adopt the child revision for one Threat binding and prove the embed still remains pinned.
+13. Add the selected exact revision to combat and change runtime state.
+14. Request image generation and observe typed asset outcomes.
+15. Select/bind one durable image and prove mechanics digest is unchanged.
 
-Write one cumulative dogfood report under `Docs/Reports/` after `SBW15` and `SBW17`. It is evidence, not a substitute for per-PR tests.
-
-## 7. Review discipline
+## 7. Review and dispatch discipline
 
 Every implementation handoff contains:
 
-- §0 capability decomposition;
 - one-sentence mission and one invariant;
-- exact dependencies and immutable base SHA at dispatch;
-- observable-path inventory;
-- bounded changed-path allowlist;
+- capability-decomposition decision;
+- exact dependencies and current base SHA at dispatch;
+- bounded expected path allowlist;
+- public/durable contracts introduced or intentionally not introduced;
+- success, miss, failure, retry, reload, stale, and predecessor behavior;
+- state/fallback, identity, persistence/replay, and predecessor mappings where applicable;
 - explicit non-goals and named successors;
-- state/fallback, identity, persistence/replay, and predecessor mappings;
-- irreversible commit/partial-failure semantics where applicable;
-- tests at the boundary owning each guarantee;
-- minimal live proof using an existing surface;
 - demolition declaration;
-- stop conditions that require a report rather than scope growth.
+- tests at the owning boundary;
+- stop conditions requiring a report instead of scope growth;
+- final dispatch checklist.
 
-A PR is too large when it creates two independently useful outcomes, two public/durable contracts, or two independently revertible migrations—even when it touches only a few files.
+`SBW01` predates the current full template shape but remains complete and dispatch-ready. Dispatch/review automation must not assume identical section numbering without adapting it.
 
-Pre-designed handoffs are not automatically ready. At dispatch, the operator/dispatcher must re-anchor:
+A PR is too large when it creates two independently useful outcomes, two durable contracts, or two independently revertible migrations. Cross-layer code remains one PR when every layer establishes/proves one invariant.
 
-- current `main` SHA;
-- merged predecessor contracts and paths;
-- real Server OpenAPI/fixtures;
-- current graph token/revision semantics;
-- actual baseline test commands;
-- any handoff stop condition made true by repository drift.
+Pre-designed is not ready. Before every later dispatch:
+
+1. pin current merged base SHA;
+2. replace expected/fuzzy paths with actual paths;
+3. capture real generated OpenAPI/types/fixtures/error payloads;
+4. re-anchor graph tokens and contribution/projection contracts;
+5. register the implementation PR in the active external-agent loop/plan mechanism;
+6. record baseline failures rather than weakening acceptance gates.
 
 ## 8. Workstream completion
 
-The initial workstream is complete when Milestones A–G pass and the cumulative Shepherds' Flock dogfood is recorded. `SBW18` remains a separate follow-on investigation unless a concrete 3D use case, provider, licensing model, and storage/delivery contract are selected.
+The core roadmap is complete when Milestones A–F and image Milestone G pass the cumulative dogfood. `SBW18` remains a separate deferred decision item.
+
+Pinned Plan embed/placement upgrade is intentionally outside current completion. First dogfood must prove that users need explicit repinning and reveal whether document and placement storage warrant one or multiple successor slices.
