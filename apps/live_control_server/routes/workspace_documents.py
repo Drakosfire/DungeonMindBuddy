@@ -33,7 +33,7 @@ def _record_response(record: WorkspaceDocumentRecord) -> dict[str, Any]:
 @router.get("/workspace-documents", response_model=WorkspaceDocumentsListResponse)
 def get_workspace_documents(
     campaign_id: Annotated[str | None, Query()] = None,
-    kind: Annotated[Literal["plan", "runbook"] | None, Query()] = None,
+    kind: Annotated[Literal["plan", "runbook", "worldbuilding_source"] | None, Query()] = None,
     status: Annotated[Literal["active", "discarded"] | None, Query()] = "active",
 ) -> dict[str, Any]:
     records = list_workspace_documents(
@@ -55,6 +55,10 @@ def post_workspace_document(body: CreateWorkspaceDocumentRequest) -> dict[str, A
             kind=body.kind,
             target_session=body.target_session,
             target_relpath=body.target_relpath,
+            source_domain=body.source_domain,
+            document_class=body.document_class,
+            authority_state=body.authority_state,
+            visibility_state=body.visibility_state,
         )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -83,6 +87,9 @@ def patch_workspace_document_metadata(
             title=body.title if "title" in fields_set else _UNSET,
             target_session=body.target_session if "target_session" in fields_set else _UNSET,
             target_relpath=body.target_relpath if "target_relpath" in fields_set else _UNSET,
+            document_class=body.document_class if "document_class" in fields_set else _UNSET,
+            authority_state=body.authority_state if "authority_state" in fields_set else _UNSET,
+            visibility_state=body.visibility_state if "visibility_state" in fields_set else _UNSET,
             expected_revision=body.expected_revision,
         )
     except WorkspaceDocumentRegistryError as exc:
