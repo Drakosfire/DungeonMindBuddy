@@ -1,6 +1,7 @@
 """Strict configuration for DungeonMind statblock v1 integration."""
 from __future__ import annotations
 
+import math
 import os
 import re
 from dataclasses import dataclass
@@ -17,7 +18,12 @@ API_PREFIX = "/api/internal/dungeonbuddy/v1"
 DEFAULT_TIMEOUT_SECONDS = 30.0
 MAX_TIMEOUT_SECONDS = 120.0
 _SUPPORTED_SCHEMES = frozenset({"http", "https"})
-_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+_FALSE_VALUES = frozenset({"0", "false", "no", "off"})
+
+# Published DungeonMindServer identity patterns (statblocks_v1.domain.resources).
+_STATBLOCK_ID_RE = re.compile(r"^sb_[a-z0-9]+$")
+_REVISION_ID_RE = re.compile(r"^rev_[a-z0-9]+$")
 
 
 class StatblockIntegrationConfigError(ValueError):
@@ -39,11 +45,29 @@ class StatblockIntegrationConfig:
     def is_configured(self) -> bool:
         return bool(self.enabled and self.base_url and self.internal_api_key)
 
+    def __repr__(self) -> str:
+        return (
+            "StatblockIntegrationConfig("
+            f"base_url={self.base_url!r}, "
+            "internal_api_key=***, "
+            f"enabled={self.enabled!r}, "
+            f"timeout_seconds={self.timeout_seconds!r})"
+        )
+
 
 def _parse_bool(raw: str | None, *, default: bool = False) -> bool:
     if raw is None or not raw.strip():
         return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
+    cleaned = raw.strip().lower()
+    if cleaned in _TRUE_VALUES:
+        return True
+    if cleaned in _FALSE_VALUES:
+        return False
+    raise StatblockIntegrationConfigError(
+        "integration_misconfigured",
+        "DUNGEONMIND_STATBLOCKS_ENABLED must be one of "
+        "1/true/yes/on or 0/false/no/off",
+    )
 
 
 def _normalize_base_url(raw: str) -> str:
@@ -65,9 +89,7 @@ def _normalize_base_url(raw: str) -> str:
             "DUNGEONMIND_STATBLOCKS_BASE_URL must not embed credentials",
         )
     path = parsed.path.rstrip("/")
-    if path and path != "":
-        # Allow optional trailing path only when empty after strip; reject extra path.
-        # Base URL is origin only so clients build exact contract paths.
+    if path:
         raise StatblockIntegrationConfigError(
             "integration_misconfigured",
             "DUNGEONMIND_STATBLOCKS_BASE_URL must not include a path",
@@ -85,10 +107,11 @@ def _parse_timeout(raw: str | None) -> float:
             "integration_misconfigured",
             "DUNGEONMIND_STATBLOCKS_TIMEOUT_SECONDS must be a positive number",
         ) from exc
-    if value <= 0 or value > MAX_TIMEOUT_SECONDS:
+    if not math.isfinite(value) or value <= 0 or value > MAX_TIMEOUT_SECONDS:
         raise StatblockIntegrationConfigError(
             "integration_misconfigured",
-            f"DUNGEONMIND_STATBLOCKS_TIMEOUT_SECONDS must be in (0, {MAX_TIMEOUT_SECONDS}]",
+            f"DUNGEONMIND_STATBLOCKS_TIMEOUT_SECONDS must be a finite value in "
+            f"(0, {MAX_TIMEOUT_SECONDS}]",
         )
     return value
 
@@ -125,8 +148,15 @@ def load_statblock_integration_config(
     )
 
 
-def validate_resource_id(value: str, *, label: str) -> str:
+def validate_statblock_id(value: str) -> str:
     cleaned = value.strip()
-    if not _ID_RE.fullmatch(cleaned):
-        raise ValueError(f"invalid {label}")
+    if not _STATBLOCK_ID_RE.fullmatch(cleaned):
+        raise ValueError("invalid statblock_id")
+    return cleaned
+
+
+def validate_revision_id(value: str) -> str:
+    cleaned = value.strip()
+    if not _REVISION_ID_RE.fullmatch(cleaned):
+        raise ValueError("invalid revision_id")
     return cleaned
