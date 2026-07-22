@@ -69,10 +69,14 @@ class DungeonMindStatblockV1Client:
         config: StatblockIntegrationConfig | None = None,
         http_client: httpx.Client | None = None,
     ) -> None:
+        config_error: str | None = None
         try:
             self._config = config if config is not None else load_statblock_integration_config()
         except StatblockIntegrationConfigError as exc:
-            raise integration_misconfigured(str(exc)) from exc
+            config_error = str(exc)
+        if config_error is not None:
+            # Raise outside the except block so no secret-bearing cause/context is retained.
+            raise integration_misconfigured(config_error)
         self._owns_client = http_client is None
         self._client = http_client or httpx.Client(
             timeout=self._config.timeout_seconds,
@@ -107,13 +111,16 @@ class DungeonMindStatblockV1Client:
                 return ReadinessResponseV1.model_validate(payload)
             except Exception:
                 pass
+            envelope: ErrorEnvelopeV1 | None
             try:
                 envelope = ErrorEnvelopeV1.model_validate(payload)
-            except Exception as exc:
+            except Exception:
+                envelope = None
+            if envelope is None:
                 raise downstream_unexpected(
                     "downstream response failed schema validation",
                     status_code=status,
-                ) from exc
+                )
             raise downstream_unavailable(
                 self._public_text(envelope.error.message),
                 status_code=status,
@@ -125,11 +132,16 @@ class DungeonMindStatblockV1Client:
     def get_exact_revision(
         self, statblock_id: str, revision_id: str
     ) -> ExactRevisionResourceV1:
+        invalid_id: str | None = None
+        safe_statblock_id = ""
+        safe_revision_id = ""
         try:
             safe_statblock_id = validate_statblock_id(statblock_id)
             safe_revision_id = validate_revision_id(revision_id)
         except ValueError as exc:
-            raise downstream_invalid_request(str(exc)) from exc
+            invalid_id = str(exc)
+        if invalid_id is not None:
+            raise downstream_invalid_request(invalid_id)
         payload = self._request_json(
             "GET",
             f"{API_PREFIX}/statblocks/{safe_statblock_id}/revisions/{safe_revision_id}",
@@ -201,6 +213,7 @@ class DungeonMindStatblockV1Client:
         self._ensure_ready()
         url = f"{self._config.base_url}{path}"
         headers = {INTERNAL_KEY_HEADER: self._config.internal_api_key}
+        mapped_error: StatblockIntegrationError | None = None
         try:
             # Enforce timeout and no-redirect per request so injected clients
             # cannot override the integration's transport bounds.
@@ -222,12 +235,16 @@ class DungeonMindStatblockV1Client:
                 return response.status_code, body
         except StatblockIntegrationError:
             raise
-        except httpx.TimeoutException as exc:
-            raise downstream_timeout() from exc
+        except httpx.TimeoutException:
+            # httpx exceptions retain the request (including auth headers).
+            mapped_error = downstream_timeout()
         except httpx.HTTPError as exc:
-            raise downstream_unavailable(
-                self._public_text(str(exc) or "transport error")
-            ) from exc
+            mapped_error = downstream_unavailable(
+                self._public_text(str(exc) or "transport error") or "transport error"
+            )
+        # Raise outside except blocks so __cause__/__context__ stay empty.
+        assert mapped_error is not None
+        raise mapped_error
 
     def _read_bounded_body(self, response: httpx.Response) -> bytes:
         content_length = response.headers.get("content-length")
@@ -259,19 +276,23 @@ class DungeonMindStatblockV1Client:
     def _decode_json(self, body: bytes, *, status_code: int) -> Any:
         try:
             return json.loads(body)
-        except ValueError as exc:
-            raise downstream_unexpected(
-                "downstream response is not JSON",
-                status_code=status_code,
-            ) from exc
+        except ValueError:
+            # Decode errors retain the raw document; raise outside that context.
+            pass
+        raise downstream_unexpected(
+            "downstream response is not JSON",
+            status_code=status_code,
+        )
 
     def _parse_model(self, model_type: type[ModelT], payload: Any) -> ModelT:
         try:
             return model_type.model_validate(payload)
-        except Exception as exc:
-            raise downstream_unexpected(
-                "downstream response failed schema validation"
-            ) from exc
+        except Exception:
+            # Validation errors retain the rejected payload; raise outside that context.
+            pass
+        raise downstream_unexpected(
+            "downstream response failed schema validation"
+        )
 
     def _map_error_response(
         self, status: int, body: bytes

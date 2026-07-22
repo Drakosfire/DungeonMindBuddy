@@ -28,13 +28,21 @@ def redact_secret(value: str, secret: str) -> str:
 
 
 def redact_secret_in_value(value: Any, secret: str) -> Any:
-    """Recursively redact an integration secret from structured payloads."""
+    """Recursively redact an integration secret from structured payloads.
+
+    Both dictionary keys and values are redacted so a secret cannot survive as
+    an object key in exception details or serialized diagnostics.
+    """
     if not secret:
         return value
     if isinstance(value, str):
         return redact_secret(value, secret)
     if isinstance(value, dict):
-        return {key: redact_secret_in_value(item, secret) for key, item in value.items()}
+        redacted: dict[Any, Any] = {}
+        for key, item in value.items():
+            safe_key = redact_secret(key, secret) if isinstance(key, str) else key
+            redacted[safe_key] = redact_secret_in_value(item, secret)
+        return redacted
     if isinstance(value, list):
         return [redact_secret_in_value(item, secret) for item in value]
     return value
