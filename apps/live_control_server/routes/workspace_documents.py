@@ -127,3 +127,32 @@ def post_workspace_document_restore(
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _record_response(record)
+
+
+@router.post("/workspace-documents/{document_id}/source-artifact", response_model=dict)
+def post_workspace_document_source_artifact(
+    document_id: str,
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    """Create an immutable SourceArtifact from a committed workspace revision."""
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        create_source_artifact_from_workspace_document,
+    )
+
+    markdown = body.get("markdown")
+    if not isinstance(markdown, str) or not markdown.strip():
+        raise HTTPException(status_code=422, detail="markdown is required")
+    expected_revision = body.get("expected_revision")
+    if expected_revision is not None and not isinstance(expected_revision, int):
+        raise HTTPException(status_code=422, detail="expected_revision must be an int")
+    try:
+        artifact = create_source_artifact_from_workspace_document(
+            repo_root(),
+            document_id=document_id,
+            expected_revision=expected_revision,
+            markdown=markdown,
+        )
+    except SourceArtifactRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return artifact.model_dump(mode="json")

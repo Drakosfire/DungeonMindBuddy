@@ -1,3 +1,13 @@
+from graph_memory.ingestion.extraction_run import (
+    EXTRACTION_RUN_SCHEMA,
+    EXTRACTION_RUN_VERSION,
+    ExtractionRun,
+    ExtractionRunComponentKind,
+    ExtractionRunComponentRef,
+    ExtractionRunDiagnostics,
+    ExtractionRunStatus,
+    assert_run_not_reviewable_when_incomplete,
+)
 from graph_memory.ingestion.graph_ingest_run import (
     GRAPH_INGEST_RUN_MANIFEST_SCHEMA,
     GRAPH_INGEST_RUN_MANIFEST_VERSION,
@@ -11,12 +21,21 @@ from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestSource,
     GraphIngestStepState,
     GraphIngestStepStatus,
+    adapt_recap_manifest_to_extraction_run,
 )
 from graph_memory.ingestion.graph_ingest_validate import (
     validate_graph_ingest_run_manifest,
 )
 
 __all__ = [
+    "EXTRACTION_RUN_SCHEMA",
+    "EXTRACTION_RUN_VERSION",
+    "ExtractionRun",
+    "ExtractionRunComponentKind",
+    "ExtractionRunComponentRef",
+    "ExtractionRunDiagnostics",
+    "ExtractionRunStatus",
+    "assert_run_not_reviewable_when_incomplete",
     "GRAPH_INGEST_RUN_MANIFEST_SCHEMA",
     "GRAPH_INGEST_RUN_MANIFEST_VERSION",
     "GraphIngestArtifactKind",
@@ -29,5 +48,6 @@ __all__ = [
     "GraphIngestSource",
     "GraphIngestStepState",
     "GraphIngestStepStatus",
+    "adapt_recap_manifest_to_extraction_run",
     "validate_graph_ingest_run_manifest",
 ]

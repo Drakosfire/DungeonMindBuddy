@@ -145,3 +145,95 @@ class GraphIngestRunManifest(_GraphIngestModel):
     @property
     def schema(self) -> str:
         return self.schema_
+
+
+# ---------------------------------------------------------------------------
+# Legacy recap manifest adapter → canonical ExtractionRun
+# ---------------------------------------------------------------------------
+
+_STATUS_MAP: dict[GraphIngestRunStatus, str] = {
+    GraphIngestRunStatus.NOT_STARTED: "draft",
+    GraphIngestRunStatus.SOURCE_READY: "prepared",
+    GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY: "prepared",
+    GraphIngestRunStatus.CANDIDATE_EXTRACTION_READY: "extracted",
+    GraphIngestRunStatus.CANDIDATE_VALIDATION_READY: "validated",
+    GraphIngestRunStatus.PREVIEW_UNION_STORE_READY: "validated",
+    GraphIngestRunStatus.READY_FOR_PROJECTION: "reviewable",
+    GraphIngestRunStatus.FAILED: "failed",
+}
+
+
+def adapt_recap_manifest_to_extraction_run(manifest: GraphIngestRunManifest):
+    """Map a recap/preview manifest into the canonical ExtractionRun contract.
+
+    This module remains the recap/legacy loader surface; ExtractionRun is the
+    canonical exact-run authority for new consumers.
+    """
+    from graph_memory.ingestion.extraction_run import (
+        ExtractionRun,
+        ExtractionRunComponentKind,
+        ExtractionRunComponentRef,
+        ExtractionRunDiagnostics,
+        ExtractionRunStatus,
+    )
+
+    if not manifest.run_id or not manifest.run_id.strip():
+        raise ValueError("recap manifest run_id is required")
+    if not manifest.campaign_id or not manifest.session_id:
+        raise ValueError("recap manifest requires campaign_id and session_id")
+
+    source_artifact_id = manifest.source.source_artifact_id
+    if not source_artifact_id:
+        raise ValueError("recap manifest source.source_artifact_id is required for adaptation")
+
+    components: dict[str, ExtractionRunComponentRef] = {}
+    kind_map = {
+        GraphIngestArtifactKind.SOURCE_SPAN_INDEX: ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+        GraphIngestArtifactKind.CANDIDATE_GRAPH: ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT: ExtractionRunComponentKind.VALIDATION_REPORT,
+        GraphIngestArtifactKind.PASS_TELEMETRY: ExtractionRunComponentKind.PASS_TELEMETRY,
+        GraphIngestArtifactKind.PROVENANCE_INDEX: ExtractionRunComponentKind.PROVENANCE_INDEX,
+    }
+    for key, artifact in manifest.artifacts.items():
+        mapped = kind_map.get(artifact.kind)
+        if mapped is None:
+            continue
+        components[key] = ExtractionRunComponentRef(
+            kind=mapped,
+            uri=artifact.uri,
+            sha256=artifact.sha256,
+            exists=artifact.exists,
+        )
+    components["source_artifact"] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+        uri=manifest.source.input_path_record or manifest.source.normalized_recap_path or "",
+        sha256=manifest.source.normalized_recap_sha256,
+        exists=bool(source_artifact_id),
+    )
+
+    status_value = _STATUS_MAP.get(manifest.status, "incomplete")
+    status = ExtractionRunStatus(status_value)
+    diagnostics = ExtractionRunDiagnostics(
+        messages=list(manifest.warnings),
+        errors=list(manifest.errors),
+    )
+    run = ExtractionRun(
+        run_id=manifest.run_id,
+        source_artifact_id=source_artifact_id,
+        source_domain=manifest.source.source_domain or "recap",
+        status=status,
+        campaign_id=manifest.campaign_id,
+        session_id=manifest.session_id,
+        created_at=manifest.created_at,
+        updated_at=manifest.updated_at,
+        components=components,
+        diagnostics=diagnostics,
+        lineage={
+            "adapter": "graph_ingest_run_manifest_v0",
+            "legacy_status": manifest.status.value,
+        },
+    )
+    if status == ExtractionRunStatus.REVIEWABLE and not run.is_reviewable():
+        run = run.model_copy(update={"status": ExtractionRunStatus.INCOMPLETE})
+    return run
+

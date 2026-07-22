@@ -252,3 +252,23 @@ def evidence_resolution_report_to_dict(report: EvidenceResolutionReport) -> dict
     data["issues"] = [asdict(issue) for issue in report.issues]
     data["issue_counts"] = dict(report.issue_counts)
     return data
+
+
+def build_stable_source_span_id(
+    *,
+    source_artifact_id: str,
+    content_sha256: str,
+    start_line: int,
+    end_line: int,
+) -> str:
+    """Stable span ID namespaced by source artifact revision digest."""
+    if not source_artifact_id.strip():
+        raise ValueError("source_artifact_id is required")
+    if not content_sha256.strip():
+        raise ValueError("content_sha256 is required")
+    if start_line < 1 or end_line < start_line:
+        raise ValueError("span line range is invalid")
+    return (
+        f"{source_artifact_id}:span:{content_sha256[:12]}:"
+        f"{start_line}-{end_line}"
+    )
