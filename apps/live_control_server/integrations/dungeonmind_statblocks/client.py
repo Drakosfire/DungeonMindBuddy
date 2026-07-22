@@ -100,12 +100,25 @@ class DungeonMindStatblockV1Client:
             return self._parse_model(ReadinessResponseV1, payload)
         if status == 503:
             # Server may return a legitimate not_ready readiness body or an
-            # ErrorEnvelopeV1 (auth/config). Prefer readiness; else map errors.
+            # ErrorEnvelopeV1 (auth/config). Invalid shapes fail closed.
             payload = self._decode_json(body, status_code=status)
             try:
                 return ReadinessResponseV1.model_validate(payload)
             except Exception:
-                raise self._map_error_response(status, body) from None
+                pass
+            try:
+                envelope = ErrorEnvelopeV1.model_validate(payload)
+            except Exception as exc:
+                raise downstream_unexpected(
+                    "downstream response failed schema validation",
+                    status_code=status,
+                ) from exc
+            raise downstream_unavailable(
+                envelope.error.message,
+                status_code=status,
+                error_code=envelope.error.code,
+                details=envelope.error.details or {},
+            )
         raise self._map_error_response(status, body)
 
     def get_exact_revision(
@@ -188,13 +201,14 @@ class DungeonMindStatblockV1Client:
         url = f"{self._config.base_url}{path}"
         headers = {INTERNAL_KEY_HEADER: self._config.internal_api_key}
         try:
-            # Enforce no-redirect per request so injected clients cannot override
-            # the credential-forwarding boundary.
+            # Enforce timeout and no-redirect per request so injected clients
+            # cannot override the integration's transport bounds.
             with self._client.stream(
                 method,
                 url,
                 headers=headers,
                 json=json_body,
+                timeout=self._config.timeout_seconds,
                 follow_redirects=False,
             ) as response:
                 if 300 <= response.status_code < 400:
@@ -293,7 +307,18 @@ class DungeonMindStatblockV1Client:
                 details=details,
             )
         if status >= 500:
-            return downstream_unavailable(f"downstream HTTP {status}")
+            code, message, details = self._safe_error_parts(body)
+            if code is not None:
+                return downstream_unavailable(
+                    message or f"downstream HTTP {status}",
+                    status_code=status,
+                    error_code=code,
+                    details=details,
+                )
+            return downstream_unavailable(
+                f"downstream HTTP {status}",
+                status_code=status,
+            )
         return downstream_unexpected(
             f"unexpected downstream HTTP {status}",
             status_code=status,

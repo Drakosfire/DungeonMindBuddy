@@ -263,7 +263,92 @@ def test_readiness_503_error_envelope_is_stable_unavailable() -> None:
     with pytest.raises(StatblockIntegrationError) as exc_info:
         client.get_readiness()
     assert exc_info.value.category == "downstream_unavailable"
-    assert exc_info.value.category != "downstream_unexpected"
+    assert exc_info.value.error_code == "internal_service_misconfigured"
+    assert exc_info.value.message == "Internal service is misconfigured"
+    assert exc_info.value.status_code == 503
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "status": "not_ready",
+            "contract": "evil.contract",
+            "generation_enabled": False,
+            "read_routes_enabled": False,
+            "errors": [],
+        },
+        {"status": "not_ready"},
+        {"arbitrary": True},
+    ],
+)
+def test_readiness_503_invalid_payload_fails_closed(payload: dict) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json=payload)
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_readiness()
+    assert exc_info.value.category == "downstream_unexpected"
+
+
+def test_injected_client_timeout_is_enforced() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    # Injected client disables timeouts; adapter must still apply config timeout.
+    client = DungeonMindStatblockV1Client(
+        config=_config(timeout_seconds=0.05),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            timeout=None,
+            follow_redirects=False,
+        ),
+    )
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_timeout"
+
+
+def test_injected_client_request_carries_config_timeout() -> None:
+    seen_timeouts: list[object] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_timeouts.append(request.extensions.get("timeout"))
+        return httpx.Response(
+            200,
+            json={
+                "status": "available",
+                "contract": "dungeonmind.dungeonbuddy-statblocks",
+                "contract_version": "1.0.0",
+                "capabilities": [],
+            },
+        )
+
+    client = DungeonMindStatblockV1Client(
+        config=_config(timeout_seconds=7.5),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(handler),
+            timeout=None,
+            follow_redirects=False,
+        ),
+    )
+    client.get_health()
+    assert len(seen_timeouts) == 1
+    timeout = seen_timeouts[0]
+    assert timeout is not None
+    if isinstance(timeout, dict):
+        assert timeout.get("read") == 7.5
+    else:
+        assert timeout.read == 7.5
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow")
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_timeout"
+    assert exc_info.value.retryable is True
 
 
 def test_timeout_mapping() -> None:
