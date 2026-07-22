@@ -3010,3 +3010,50 @@ export interface ExtractPromoteErrorBody {
   diagnostics?: Array<{ code: string; message: string; severity?: string }>;
   failureResult?: Record<string, unknown> | null;
 }
+
+export interface ThreatDraftCandidateRefV1 {
+  candidate_id: string;
+  generated_from_draft_version: number;
+  request_id: string;
+  created_at: string;
+  expires_at?: string | null;
+  status: "active" | "superseded" | "rejected" | "expired" | "accepted_source";
+}
+
+export interface GenerateThreatDraftCandidateRequestV1 {
+  expected_draft_version: number;
+  client_request_id?: string | null;
+}
+
+export interface GenerateThreatDraftCandidateResponseV1 {
+  schema: "dmb_generate_threat_draft_candidate_response_v1";
+  draft_id: string;
+  generated_from_draft_version: number;
+  request_id: string;
+  outcome: "success" | "failure";
+  candidate_ref?: ThreatDraftCandidateRefV1 | null;
+  candidate?: Record<string, unknown> | null;
+  failure_category?: string | null;
+  failure_message?: string | null;
+  cache_status?: "stored" | "missing" | "partial" | null;
+}
+
+export interface ReadStatblockCandidateResponseV1 {
+  schema: "dmb_statblock_candidate_read_v1";
+  candidate_id: string;
+  status: "active" | "expired" | "unavailable";
+  candidate?: Record<string, unknown> | null;
+  failure_category?: string | null;
+  failure_message?: string | null;
+}
+
+export interface StatblockIntegrationReadinessV1 {
+  schema: "dmb_statblock_integration_readiness_v1";
+  configured: boolean;
+  available: boolean;
+  downstream_status: string;
+  contract?: string | null;
+  contract_version?: string | null;
+  capabilities: string[];
+  diagnostics: string[];
+}

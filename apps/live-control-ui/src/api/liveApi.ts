@@ -98,6 +98,10 @@ import type {
   PartyRegistrySessionRosterWriteCommitResponse,
   PartyRegistrySessionRosterWritePrepareRequest,
   PartyRegistrySessionRosterWritePrepareResponse,
+  GenerateThreatDraftCandidateRequestV1,
+  GenerateThreatDraftCandidateResponseV1,
+  ReadStatblockCandidateResponseV1,
+  StatblockIntegrationReadinessV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
 
@@ -734,6 +738,32 @@ export async function rebuildPacket(): Promise<{
 export async function getStatblockWorkbenchSample(): Promise<StatblockWorkbenchSampleResponse> {
   return apiFetch<StatblockWorkbenchSampleResponse>(
     "/api/live/statblocks/workbench/sample",
+  );
+}
+
+export async function getStatblockIntegrationReadiness(): Promise<StatblockIntegrationReadinessV1> {
+  return apiFetch<StatblockIntegrationReadinessV1>("/api/live/statblocks/v1/readiness");
+}
+
+export async function generateThreatDraftCandidate(
+  draftId: string,
+  request: GenerateThreatDraftCandidateRequestV1,
+): Promise<GenerateThreatDraftCandidateResponseV1> {
+  return apiFetch<GenerateThreatDraftCandidateResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/candidates:generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function getStatblockCandidate(
+  candidateId: string,
+): Promise<ReadStatblockCandidateResponseV1> {
+  return apiFetch<ReadStatblockCandidateResponseV1>(
+    `/api/live/statblock-candidates/${encodeURIComponent(candidateId)}`,
   );
 }
 
