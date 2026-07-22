@@ -14,6 +14,7 @@ import type {
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
+import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
@@ -21,13 +22,14 @@ import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest";
+type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest" | "build";
 
 function currentRoute(): AppRoute {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   if (path === "/surface" || path === "/live-control") return "surface";
   if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
   if (path === "/plan") return "plan";
+  if (path === "/build") return "build";
   if (path === "/ingest") return "ingest";
   return "index";
 }
@@ -45,6 +47,11 @@ function MirewardIndex() {
           <span className="launcher-kicker">Plan</span>
           <strong>Prep surface</strong>
           <span>Intentional planning canvas with session prep, statblock tools, and reference-chip navigation.</span>
+        </a>
+        <a className="launcher-card" href="/build">
+          <span className="launcher-kicker">Build</span>
+          <strong>Worldbuilding source</strong>
+          <span>Author and commit worldbuilding Markdown sources for later extraction.</span>
         </a>
         <a className="launcher-card" href="/ingest">
           <span className="launcher-kicker">Ingest</span>
@@ -245,6 +252,8 @@ export function App() {
     content = <TiptapSpikeRoute />;
   } else if (route === "plan") {
     content = <PlanSurfacePage />;
+  } else if (route === "build") {
+    content = <BuildSurfacePage />;
   } else if (route === "ingest") {
     content = <MemoryIngestPage />;
   } else {

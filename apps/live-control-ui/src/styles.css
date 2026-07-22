@@ -48,9 +48,47 @@ code {
   max-width: min(1440px, calc(100% - 2rem));
 }
 
+.app-wrap:has(.build-surface-root) {
+  max-width: min(1440px, calc(100% - 2rem));
+}
+
 .ingest-surface-root {
   display: grid;
   gap: 0.75rem;
+}
+
+.build-surface-root {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.build-surface-header h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 2.5vw, 2.5rem);
+  line-height: 1.1;
+}
+
+.build-source-metadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.build-source-metadata div {
+  margin: 0;
+}
+
+.build-source-metadata dt {
+  color: var(--text-muted, #9aa3b5);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.build-source-metadata dd {
+  margin: 0.15rem 0 0;
 }
 
 .ingest-surface-header {

@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
+import { fixtureWorkspaceDocumentRecord } from "./planSurface/config/planSessionDescriptor";
+import { NORTH_GATE_RUNBOOK_TARGET_RELPATH } from "./tiptap/descriptors/tiptapRunbookDescriptors";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
 vi.mock("./api/liveApi", async (importOriginal) => {
@@ -21,6 +23,9 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     getCapabilities: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
+    listWorkspaceDocuments: vi.fn(),
+    createWorkspaceDocument: vi.fn(),
+    getWorkspaceDocument: vi.fn(),
   };
 });
 
@@ -53,6 +58,45 @@ describe("App inspector integration", () => {
     });
     vi.mocked(liveApi.getArtifact).mockResolvedValue(makeRollTableArtifact());
     vi.mocked(liveApi.getCapabilities).mockResolvedValue(makeCapabilityResponse());
+    const planRecord = fixtureWorkspaceDocumentRecord();
+    const runbookRecord = fixtureWorkspaceDocumentRecord({
+      document_id: "22222222-2222-4222-8222-222222222222",
+      title: "North Gate Session Runbook",
+      kind: "runbook",
+      target_relpath: NORTH_GATE_RUNBOOK_TARGET_RELPATH,
+    });
+    vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(async (args) => ({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: args.kind === "runbook" ? [runbookRecord] : [planRecord],
+    }));
+    vi.mocked(liveApi.getWorkspaceDocument).mockImplementation(async (documentId) => {
+      if (documentId === runbookRecord.document_id) return runbookRecord;
+      return planRecord;
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(async (request) => {
+      if (request.kind === "worldbuilding_source") {
+        return {
+          schema_version: "dmb_workspace_document_record_v1",
+          document_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          title: request.title,
+          campaign_id: request.campaign_id,
+          target_session: request.target_session ?? null,
+          kind: "worldbuilding_source",
+          target_relpath: "out/workspace/worldbuilding/cccccccc-cccc-4ccc-8ccc-cccccccccccc.md",
+          status: "active",
+          content_status: "draft",
+          revision: 1,
+          created_at: "2026-07-22T00:00:00Z",
+          updated_at: "2026-07-22T00:00:00Z",
+          source_domain: request.source_domain ?? "worldbuilding",
+          document_class: request.document_class ?? "lore",
+          authority_state: request.authority_state ?? "draft",
+          visibility_state: request.visibility_state ?? "internal",
+        };
+      }
+      if (request.kind === "runbook") return runbookRecord;
+      return planRecord;
+    });
   });
 
   it("renders the launcher at the root route", () => {
@@ -60,6 +104,7 @@ describe("App inspector integration", () => {
 
     expect(screen.getByRole("heading", { name: /mireward local tools/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
+    expect(screen.getByRole("link", { name: /build worldbuilding source/i })).toHaveAttribute("href", "/build");
     expect(screen.getByRole("link", { name: /ingest memory ingest/i })).toHaveAttribute("href", "/ingest");
     expect(screen.getByRole("link", { name: /live play command board/i })).toHaveAttribute(
       "href",
@@ -119,6 +164,16 @@ describe("App inspector integration", () => {
     expect(liveApi.getPlanView).toHaveBeenCalled();
     expect(liveApi.getGraphIngestRuns).toHaveBeenCalled();
     expect(liveApi.getGoldReviewSessions).toHaveBeenCalled();
+  });
+
+  it("renders build surface from /build", async () => {
+    window.history.pushState({}, "", "/build");
+    render(<App />);
+
+    expect(await screen.findByTestId("build-surface")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
+    expect(screen.getByTestId("build-source-metadata")).toHaveTextContent("worldbuilding_source");
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalled();
   });
 
   it("renders the shared editor toolbar collapsed on the Tiptap spike route", async () => {
