@@ -205,6 +205,16 @@ def _validate_record(
                 "corrupt generation reconciliation record",
                 status_code=500,
             )
+    elif record.status == "abandoned":
+        if (
+            record.candidate_id is not None
+            or record.candidate_payload is not None
+            or record.claim_expires_at is not None
+        ):
+            raise GenerationReconciliationError(
+                "corrupt generation reconciliation record",
+                status_code=500,
+            )
     return record
 
 
@@ -259,6 +269,29 @@ def _write_record_unlocked(
     return record
 
 
+def _parse_record_filename(path: Path) -> tuple[int, str]:
+    stem = path.stem
+    if not stem.startswith("v") or "__" not in stem[1:]:
+        raise GenerationReconciliationError(
+            "corrupt generation reconciliation record path",
+            status_code=500,
+        )
+    version_part, request_id = stem.split("__", 1)
+    try:
+        draft_version = int(version_part[1:])
+    except ValueError:
+        raise GenerationReconciliationError(
+            "corrupt generation reconciliation record path",
+            status_code=500,
+        ) from None
+    if draft_version < 1 or not request_id:
+        raise GenerationReconciliationError(
+            "corrupt generation reconciliation record path",
+            status_code=500,
+        )
+    return draft_version, request_id
+
+
 def _list_draft_records_unlocked(
     root: Path, *, draft_id: str
 ) -> list[GenerationReconciliationRecordV1]:
@@ -275,16 +308,27 @@ def _list_draft_records_unlocked(
             "generation reconciliation storage bound exceeded",
             status_code=500,
         )
+    safe_draft = require_draft_id(draft_id)
     for path in paths:
+        draft_version, request_id = _parse_record_filename(path)
         try:
             payload = load_json(path)
             record = GenerationReconciliationRecordV1.model_validate(payload)
+        except GenerationReconciliationError:
+            raise
         except Exception:
             raise GenerationReconciliationError(
                 "corrupt generation reconciliation record",
                 status_code=500,
             ) from None
-        records.append(record)
+        records.append(
+            _validate_record(
+                record,
+                draft_id=safe_draft,
+                draft_version=draft_version,
+                request_id=request_id,
+            )
+        )
     return records
 
 
@@ -314,16 +358,23 @@ def _capacity_usage(
     *,
     ref_candidate_ids: set[str],
 ) -> int:
+    """Count reserved + unbound slots without double-counting existing refs.
+
+    Pending claims always reserve one slot (no locator yet). Received and
+    completed claims reserve a slot only when their candidate_id is not already
+    present in draft refs — otherwise a finalize failure would inflate 63 real
+    refs to 64 and block the final slot.
+    """
     used = len(ref_candidate_ids)
     for record in records:
-        if record.status in {"pending", "received"}:
+        if record.status == "pending":
             used += 1
-        elif (
-            record.status == "completed"
-            and record.candidate_id is not None
-            and record.candidate_id not in ref_candidate_ids
-        ):
-            used += 1
+        elif record.status in {"received", "completed"}:
+            if (
+                record.candidate_id is not None
+                and record.candidate_id not in ref_candidate_ids
+            ):
+                used += 1
     return used
 
 

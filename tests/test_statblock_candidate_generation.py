@@ -869,6 +869,152 @@ def test_finalize_failure_reports_reconciliation_component(
     assert len(reloaded.candidate_refs) == 1
 
 
+def test_received_with_existing_ref_does_not_double_count_capacity(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Finalize failure leaves received+ref; that pair must use one capacity slot."""
+    draft = _create_draft(tmp_path)
+    for index in range(62):
+        append_candidate_ref(
+            tmp_path,
+            draft_id=draft.draft_id,
+            expected_version=1,
+            candidate_ref=ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{index}",
+                generated_from_draft_version=1,
+                request_id=f"req-{index}",
+                created_at="2026-01-01T00:00:00Z",
+            ),
+        )
+
+    def boom_finalize(*args, **kwargs):
+        from apps.live_control_server.services.statblock_generation_reconciliation import (
+            GenerationReconciliationError,
+        )
+
+        raise GenerationReconciliationError("finalize write failed", status_code=500)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation.finalize_generation_request",
+        boom_finalize,
+    )
+    first_client = FakeClient(
+        payload=_candidate_payload(request_id="req-slot62", candidate_id="cand_slot62")
+    )
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-slot62",
+        ),
+        client=first_client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "success"
+    assert first.cache_status == "partial_reconciliation"
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert len(reloaded.candidate_refs) == 63
+
+    # With double-counting, received+ref would look like 64 and block this final slot.
+    final_client = FakeClient(
+        payload=_candidate_payload(request_id="req-final", candidate_id="cand_final")
+    )
+    final = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-final",
+        ),
+        client=final_client,  # type: ignore[arg-type]
+    )
+    assert final.outcome == "success"
+    assert final.cache_status == "partial_reconciliation"
+    assert len(final_client.calls) == 1
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert len(reloaded.candidate_refs) == 64
+
+
+def test_bulk_reconciliation_scan_fails_closed_on_identity_mismatch(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-corrupt",
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Shape-valid Pydantic payload, but embedded identity disagrees with path.
+    corrupt = {
+        "schema": "dmb_statblock_generation_request_v1",
+        "draft_id": draft.draft_id,
+        "draft_version": 2,
+        "request_id": "req-corrupt",
+        "request_digest": f"sha256:{'b' * 64}",
+        "status": "pending",
+        "candidate_id": None,
+        "candidate_payload": None,
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+        "claim_expires_at": "2099-01-01T00:00:00Z",
+    }
+    path.write_text(json.dumps(corrupt), encoding="utf-8")
+
+    client = FakeClient(payload=_candidate_payload(request_id="req-new"))
+    result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-new",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.outcome == "failure"
+    assert result.failure_category == "integrity_failure"
+    assert "identity mismatch" in (result.failure_message or "")
+    assert len(client.calls) == 0
+
+
+def test_bulk_reconciliation_scan_fails_closed_on_status_invariant(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-bad-status",
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Abandoned records must not retain a locator — shape-valid but invariant-breaking.
+    corrupt = {
+        "schema": "dmb_statblock_generation_request_v1",
+        "draft_id": draft.draft_id,
+        "draft_version": 1,
+        "request_id": "req-bad-status",
+        "request_digest": f"sha256:{'c' * 64}",
+        "status": "abandoned",
+        "candidate_id": "cand_orphan1",
+        "candidate_payload": None,
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+        "claim_expires_at": None,
+    }
+    path.write_text(json.dumps(corrupt), encoding="utf-8")
+
+    with pytest.raises(rec.GenerationReconciliationError) as exc_info:
+        rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
+    assert exc_info.value.status_code == 500
+    assert "corrupt" in str(exc_info.value)
+
+
 def test_capacity_reservation_blocks_second_request_before_provider(
     tmp_path: Path,
 ) -> None:
