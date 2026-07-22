@@ -28,10 +28,19 @@ def integration_misconfigured(message: str) -> StatblockIntegrationError:
     return StatblockIntegrationError(category="integration_misconfigured", message=message)
 
 
-def downstream_unavailable(message: str = "DungeonMind statblock service unavailable") -> StatblockIntegrationError:
+def downstream_unavailable(
+    message: str = "DungeonMind statblock service unavailable",
+    *,
+    status_code: int | None = None,
+    error_code: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> StatblockIntegrationError:
     return StatblockIntegrationError(
         category="downstream_unavailable",
         message=message,
+        status_code=status_code,
+        error_code=error_code,
+        details=details or {},
         retryable=True,
     )
 
