@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
+import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
 
 export function BuildSurfacePage() {
@@ -8,6 +9,7 @@ export function BuildSurfacePage() {
 
   return (
     <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock">
+      <BuildIngestToolbar />
       <BuildSurfaceShell onEditorToolsChange={setEditorTools} />
     </AppChrome>
   );
