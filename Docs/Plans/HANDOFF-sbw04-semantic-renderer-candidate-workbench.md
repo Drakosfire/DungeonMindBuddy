@@ -17,7 +17,7 @@
 | Delete mock/corpus-first normal presentation | No; required replacement demolition | No | Yes | Include |
 | Edit candidate mechanics | Yes | Yes | Yes | Successor `SBW05` |
 | Open accepted graph-backed Threat Sheet | Yes | No | Yes | Successor `SBW10` |
-| Embed in Tiptap/Markdown | Yes | Yes | Yes | Successor `SBW11` |
+| Embed in Tiptap/Markdown | Yes | Yes | Yes | Successor `SBW12` |
 
 **Selected capability:** the GM can open and inspect a real `GeneratedStatblockCandidateV1` in the existing Statblock Workbench through a renderer reusable by later surfaces.
 
@@ -115,8 +115,8 @@ Backend paths are out of scope unless one narrow read-response defect in `SBW03`
 | create/append immutable revision | `SBW07` |
 | graph authoring or binding | `SBW08–09` |
 | accepted Threat Sheet resolver | `SBW10` |
-| Tiptap extension/Markdown directive | `SBW11` |
-| combat state | `SBW13` |
+| Tiptap extension/Markdown directive | `SBW12` |
+| combat state | `SBW15` |
 | image generation/selection | later media slices |
 | broad `StatblockViewModule` replacement | only delete an exact predecessor consumer named by this PR |
 
