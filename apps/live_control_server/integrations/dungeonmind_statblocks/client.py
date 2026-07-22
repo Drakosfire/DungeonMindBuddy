@@ -12,6 +12,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.config import 
     StatblockIntegrationConfig,
     StatblockIntegrationConfigError,
     load_statblock_integration_config,
+    validate_candidate_id,
     validate_revision_id,
     validate_statblock_id,
 )
@@ -52,6 +53,10 @@ class StatblockV1Client(Protocol):
     def get_exact_revision(
         self, statblock_id: str, revision_id: str
     ) -> ExactRevisionResourceV1: ...
+
+    def generate_candidate(self, body: dict[str, Any]) -> dict[str, Any]: ...
+
+    def get_candidate(self, candidate_id: str) -> dict[str, Any]: ...
 
 
 class DungeonMindStatblockV1Client:
@@ -114,6 +119,31 @@ class DungeonMindStatblockV1Client:
                 "exact revision response identity does not match request"
             )
         return revision
+
+    def generate_candidate(self, body: dict[str, Any]) -> dict[str, Any]:
+        """SBW03: POST candidate generation; transport returns the Server JSON object."""
+        payload = self._request_json(
+            "POST",
+            f"{API_PREFIX}/statblock-candidates:generate",
+            json_body=body,
+        )
+        if not isinstance(payload, dict):
+            raise downstream_unexpected("generate candidate response must be an object")
+        return payload
+
+    def get_candidate(self, candidate_id: str) -> dict[str, Any]:
+        """SBW03: GET candidate by published `cand_*` identity."""
+        try:
+            safe_candidate_id = validate_candidate_id(candidate_id)
+        except ValueError as exc:
+            raise downstream_invalid_request(str(exc)) from exc
+        payload = self._request_json(
+            "GET",
+            f"{API_PREFIX}/statblock-candidates/{safe_candidate_id}",
+        )
+        if not isinstance(payload, dict):
+            raise downstream_unexpected("candidate response must be an object")
+        return payload
 
     def _ensure_ready(self) -> None:
         if not self._config.enabled:

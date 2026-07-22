@@ -290,9 +290,9 @@ def test_oversized_response_body_rejected_before_parse() -> None:
     assert "bounded body" in exc_info.value.message
 
 
-def test_client_exposes_only_sbw01_operations() -> None:
-    assert not hasattr(DungeonMindStatblockV1Client, "generate_candidate")
-    assert not hasattr(DungeonMindStatblockV1Client, "get_candidate")
+def test_client_exposes_candidate_operations_for_sbw03() -> None:
+    assert hasattr(DungeonMindStatblockV1Client, "generate_candidate")
+    assert hasattr(DungeonMindStatblockV1Client, "get_candidate")
 
 
 def test_internal_key_absent_from_readiness_payload() -> None:

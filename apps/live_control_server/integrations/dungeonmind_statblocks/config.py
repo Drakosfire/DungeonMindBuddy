@@ -24,6 +24,7 @@ _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 # Published DungeonMindServer identity patterns (statblocks_v1.domain.resources).
 _STATBLOCK_ID_RE = re.compile(r"^sb_[a-z0-9]+$")
 _REVISION_ID_RE = re.compile(r"^rev_[a-z0-9]+$")
+_CANDIDATE_ID_RE = re.compile(r"^cand_[a-z0-9]+$")
 
 
 class StatblockIntegrationConfigError(ValueError):
@@ -159,4 +160,11 @@ def validate_revision_id(value: str) -> str:
     cleaned = value.strip()
     if not _REVISION_ID_RE.fullmatch(cleaned):
         raise ValueError("invalid revision_id")
+    return cleaned
+
+
+def validate_candidate_id(value: str) -> str:
+    cleaned = value.strip()
+    if not _CANDIDATE_ID_RE.fullmatch(cleaned):
+        raise ValueError("invalid candidate_id")
     return cleaned
