@@ -1,0 +1,93 @@
+import { useEffect, useMemo, type ReactNode } from "react";
+import type { AnyExtension, Content, Editor, JSONContent } from "@tiptap/core";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+
+import { CalloutNode } from "./extensions/CalloutNode";
+import { RunbookReferenceNode } from "./extensions/RunbookReferenceNode";
+
+export const DEFAULT_MARKDOWN_EDITOR_EXTENSIONS: AnyExtension[] = [
+  StarterKit,
+  CalloutNode,
+  RunbookReferenceNode,
+];
+
+const NO_EXTRA_EXTENSIONS: AnyExtension[] = [];
+
+export function useMarkdownEditorExtensions(extra: AnyExtension[] = NO_EXTRA_EXTENSIONS): AnyExtension[] {
+  return useMemo(
+    () => (extra.length === 0 ? DEFAULT_MARKDOWN_EDITOR_EXTENSIONS : [...DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, ...extra]),
+    [extra],
+  );
+}
+
+export type MarkdownEditorCoreProps = {
+  content: Content;
+  editable?: boolean;
+  /** Full override of the default StarterKit/callout/reference extension set. */
+  baseExtensions?: AnyExtension[];
+  /** Additional extensions appended after baseExtensions. */
+  extensions?: AnyExtension[];
+  /**
+   * Stable identity for the document currently loaded into the editor.
+   * TipTap does not treat `content` as a controlled prop; change this key when
+   * the caller intentionally replaces the whole document (import/reset/load).
+   */
+  documentKey?: string | number;
+  onUpdate?: (json: JSONContent, editor: Editor) => void;
+  onEditorChange?: (editor: Editor | null) => void;
+  className?: string;
+  dataTestId?: string;
+  children?: (editor: Editor) => ReactNode;
+};
+
+export function MarkdownEditorCore({
+  content,
+  editable = true,
+  baseExtensions = DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+  extensions = NO_EXTRA_EXTENSIONS,
+  documentKey = "default",
+  onUpdate,
+  onEditorChange,
+  className,
+  dataTestId,
+  children,
+}: MarkdownEditorCoreProps) {
+  const resolvedExtensions = useMemo(
+    () => (extensions.length === 0 ? baseExtensions : [...baseExtensions, ...extensions]),
+    [baseExtensions, extensions],
+  );
+
+  const editor = useEditor(
+    {
+      extensions: resolvedExtensions,
+      content,
+      editable,
+      onUpdate: ({ editor: nextEditor }) => {
+        onUpdate?.(nextEditor.getJSON(), nextEditor);
+      },
+    },
+    [documentKey],
+  );
+
+  useEffect(() => {
+    onEditorChange?.(editor);
+    return () => onEditorChange?.(null);
+  }, [editor, onEditorChange]);
+
+  useEffect(() => {
+    editor?.setEditable(editable);
+  }, [editable, editor]);
+
+  if (!editor) {
+    return (
+      <div className={className} data-testid={dataTestId} data-markdown-editor-status="initializing" />
+    );
+  }
+
+  return (
+    <div className={className} data-testid={dataTestId} data-markdown-editor-status="ready">
+      {children ? children(editor) : <EditorContent editor={editor} />}
+    </div>
+  );
+}

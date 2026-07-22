@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Content } from "@tiptap/core";
-import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
+import type { Content, Editor } from "@tiptap/core";
+import { EditorContent } from "@tiptap/react";
 
 import type { AppChromeTools } from "../../chrome/AppChrome";
 import {
   GraphNodeChipRuntimeProvider,
   type GraphNodeChipRuntimeValue,
 } from "../../graphReference";
-import { CalloutNode } from "../../tiptap/extensions/CalloutNode";
-import { RunbookReferenceNode } from "../../tiptap/extensions/RunbookReferenceNode";
+import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
+import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
+import {
+  toAppChromeTools,
+  type MarkdownEditorToolbarModel,
+} from "../../tiptap/MarkdownEditorToolbar";
 import {
   CALLOUT_KINDS,
   defaultCalloutLabel,
-  tiptapJsonToSemanticMarkdown,
   type CalloutKind,
 } from "../../tiptap/markdown/calloutMarkdown";
 import {
@@ -80,27 +82,7 @@ export function PlanSurfaceCanvas({
       }),
   );
 
-  const editor = useEditor({
-    extensions: [StarterKit, CalloutNode, RunbookReferenceNode],
-    content: workingState.tiptap_json as Content,
-    editable: canEdit,
-    onUpdate: ({ editor: nextEditor }) => {
-      const tiptapJson = nextEditor.getJSON();
-      const now = new Date().toISOString();
-      writeWorkspaceDocumentLocalState(window.localStorage, {
-        ...workingState,
-        tiptap_json: tiptapJson,
-        updated_at: now,
-        last_local_save_at: now,
-        dirty: true,
-      });
-      if (skipNextDirtyRef.current) {
-        skipNextDirtyRef.current = false;
-        return;
-      }
-      markDirtyRef.current();
-    },
-  });
+  const [editor, setEditor] = useState<Editor | null>(null);
 
   const {
     state: saveState,
@@ -121,10 +103,6 @@ export function PlanSurfaceCanvas({
   useEffect(() => {
     onSaveStatusChange?.(statusLabel);
   }, [onSaveStatusChange, statusLabel]);
-
-  useEffect(() => {
-    editor?.setEditable(canEdit);
-  }, [canEdit, editor]);
 
   const insertCallout = useCallback(
     (kind: CalloutKind) => {
@@ -190,7 +168,7 @@ export function PlanSurfaceCanvas({
 
   const copyMarkdown = useCallback(async () => {
     if (!editor || !navigator.clipboard?.writeText) return;
-    const markdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    const markdown = defaultMarkdownDocumentAdapter.exportMarkdown(editor.getJSON());
     await navigator.clipboard.writeText(markdown);
   }, [editor]);
 
@@ -240,98 +218,98 @@ export function PlanSurfaceCanvas({
     };
   }, [openGraphNodeFromChip, projection?.nodes]);
 
-  useEffect(() => {
-    onEditorToolsChange?.({
-      pinnedActions: [
-        {
-          id: "plan-canvas-edit-lock",
-          eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
-          label: isLocked ? "Unlock editing" : "Lock editing",
-          onClick: toggleLock,
-          pressed: isLocked,
-        },
-      ],
-      sections: [
-        {
-          id: "plan-world-graph-objects",
-          title: "World Graph objects",
-          defaultOpen: true,
-          actions: [],
-          panel: graphRefSearchPanel,
-        },
-        {
-          id: "plan-insert-blocks",
-          title: "Insert blocks",
-          defaultOpen: true,
-          actions: CALLOUT_KINDS.map((kind) => ({
-            id: `plan-insert-${kind}`,
-            eyebrow: "Insert",
-            label: defaultCalloutLabel(kind),
-            onClick: () => insertCallout(kind),
+  const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
+    pinnedActions: [
+      {
+        id: "plan-canvas-edit-lock",
+        eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
+        label: isLocked ? "Unlock editing" : "Lock editing",
+        onClick: toggleLock,
+        pressed: isLocked,
+      },
+    ],
+    sections: [
+      {
+        id: "plan-world-graph-objects",
+        title: "World Graph objects",
+        defaultOpen: true,
+        actions: [],
+        panel: graphRefSearchPanel,
+      },
+      {
+        id: "plan-insert-blocks",
+        title: "Insert blocks",
+        defaultOpen: true,
+        actions: CALLOUT_KINDS.map((kind) => ({
+          id: `plan-insert-${kind}`,
+          eyebrow: "Insert",
+          label: defaultCalloutLabel(kind),
+          onClick: () => insertCallout(kind),
+          disabled: !editor || isLocked,
+        })),
+      },
+      {
+        id: "plan-edit-blocks",
+        title: "Edit blocks",
+        defaultOpen: true,
+        actions: [
+          {
+            id: "plan-remove-block",
+            eyebrow: "Remove",
+            label: "Remove block",
+            onClick: removeActiveBlock,
             disabled: !editor || isLocked,
-          })),
-        },
-        {
-          id: "plan-edit-blocks",
-          title: "Edit blocks",
-          defaultOpen: true,
-          actions: [
-            {
-              id: "plan-remove-block",
-              eyebrow: "Remove",
-              label: "Remove block",
-              onClick: removeActiveBlock,
-              disabled: !editor || isLocked,
+          },
+        ],
+      },
+      {
+        id: "plan-markdown-export",
+        title: "Markdown export",
+        defaultOpen: true,
+        actions: [
+          {
+            id: "plan-copy-markdown",
+            eyebrow: "Export",
+            label: "Copy Markdown",
+            onClick: () => {
+              void copyMarkdown();
             },
-          ],
-        },
-        {
-          id: "plan-markdown-export",
-          title: "Markdown export",
-          defaultOpen: true,
-          actions: [
-            {
-              id: "plan-copy-markdown",
-              eyebrow: "Export",
-              label: "Copy Markdown",
-              onClick: () => {
-                void copyMarkdown();
-              },
-              disabled: !editor,
+            disabled: !editor,
+          },
+        ],
+      },
+      {
+        id: "plan-markdown-save",
+        title: "Markdown save",
+        defaultOpen: true,
+        actions: [
+          {
+            id: "plan-save-markdown",
+            label: "Save to Markdown",
+            onClick: () => {
+              void saveMarkdown();
             },
-          ],
-        },
-        {
-          id: "plan-markdown-save",
-          title: "Markdown save",
-          defaultOpen: true,
-          actions: [
-            {
-              id: "plan-save-markdown",
-              label: "Save to Markdown",
-              onClick: () => {
-                void saveMarkdown();
-              },
-              disabled: saveDisabled,
-            },
-          ],
-        },
-      ],
-    });
-    return () => onEditorToolsChange?.(null);
-  }, [
+            disabled: saveDisabled,
+          },
+        ],
+      },
+    ],
+  }), [
     copyMarkdown,
     editor,
     graphRefSearchPanel,
     insertCallout,
-    insertRunbookReference,
     isLocked,
-    onEditorToolsChange,
     removeActiveBlock,
     saveDisabled,
     saveMarkdown,
     toggleLock,
   ]);
+
+  useEffect(() => {
+    onEditorToolsChange?.(toAppChromeTools(toolbarModel));
+    return () => onEditorToolsChange?.(null);
+  }, [onEditorToolsChange, toolbarModel]);
 
   const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
 
@@ -358,14 +336,38 @@ export function PlanSurfaceCanvas({
         ref={editorShellRef}
         className={`tiptap-spike-editor md-content ${editorThemeClass}`}
         data-md-theme={theme.themeId}
-        data-testid="plan-surface-canvas-editor"
         onClick={(event) => {
           void handleChipActivate(event.target);
         }}
       >
-        <GraphNodeChipRuntimeProvider value={chipRuntime}>
-          <EditorContent editor={editor} />
-        </GraphNodeChipRuntimeProvider>
+        <MarkdownEditorCore
+          content={workingState.tiptap_json as Content}
+          documentKey={planningDocument.documentId}
+          editable={canEdit}
+          onEditorChange={setEditor}
+          onUpdate={(tiptapJson) => {
+            const now = new Date().toISOString();
+            writeWorkspaceDocumentLocalState(window.localStorage, {
+              ...workingState,
+              tiptap_json: tiptapJson,
+              updated_at: now,
+              last_local_save_at: now,
+              dirty: true,
+            });
+            if (skipNextDirtyRef.current) {
+              skipNextDirtyRef.current = false;
+              return;
+            }
+            markDirtyRef.current();
+          }}
+          dataTestId="plan-surface-canvas-editor"
+        >
+          {(ed) => (
+            <GraphNodeChipRuntimeProvider value={chipRuntime}>
+              <EditorContent editor={ed} />
+            </GraphNodeChipRuntimeProvider>
+          )}
+        </MarkdownEditorCore>
       </div>
 
       {(saveState.status === "committed" || saveState.error || saveState.warnings?.length || saveState.diagnostics?.length) && (
