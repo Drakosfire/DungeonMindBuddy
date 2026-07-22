@@ -1,181 +1,231 @@
-# HANDOFF — BLD-05 Build surface shell
+# HANDOFF — BLD-05 Build configured Surface
 
 - **Created:** 2026-07-22
-- **Status:** DRAFT — dispatch only after BLD-01 and BLD-03 are merged and re-anchored
+- **Status:** DRAFT — dispatch only after BLD-01, BLD-02, and BLD-03 are merged and re-anchored.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld05-build-surface-shell.md`
 - **Suggested branch:** `agent/bld05-build-surface-shell`
 
-## Shared vocabulary
+## §0 Capability decomposition decision
 
-| Term | Definition |
-|---|---|
-| Build surface | Editor-first source authoring route; not a graph publication surface. |
-| Source metadata | Domain, document class, authority, visibility, and optional scope shown with the document. |
-| Shell | Route, page, layout, metadata panel, and save controls before extraction launch. |
-| Surface adapter | Build-owned mapping from shared editor state to source-document persistence. |
+| Candidate outcome | Independently useful? | Durable/public contract changed? | Decision |
+|---|---:|---:|---|
+| Add `/build` as a configured shared Surface for worldbuilding source authoring | Yes | Yes | Include |
+| Add extraction launch/status | Yes | Yes | Successor: BLD-06 |
+| Add candidate review/publication | Yes | Yes | Successor: BLD-07 |
+| Generalize a second shell/projection/edit architecture | No — prohibited duplicate architecture | Yes | Reject |
+
+**Selected capability:** a GM can author and reopen a worldbuilding workspace
+document through Build as the second real consumer of the shared Surface system.
 
 ## §1 Mission
 
-A GM can navigate directly to `/build` and author, classify, save, and reopen a
-worldbuilding source document through the shared Markdown editor without a
-session-planning or graph-publication requirement.
+A GM can navigate to `/build` and create, classify, edit, safely save, and reopen
+a `worldbuilding_source` document through the shared Surface, AppChrome, Agent
+Interaction, theme, edit, and Markdown editor architecture without a session or
+graph-publication requirement.
 
-**Invariant:** Build is an explicit source-authoring surface whose terminal
-write is a reviewable source document, never a graph-head mutation.
+**Invariant:** Build supplies configuration and source adapters to the existing
+shared Surface system; it does not create a second shell, projection container,
+edit capability, navigation system, theme system, or graph write path.
 
 ## §2 Context, authority, and boundaries
 
 | Field | Required content |
 |---|---|
-| Parent authority | `Docs/Plans/ROADMAP-build-surface-worldbuilding-ingest.md`, Phase 4 |
+| Parent product authority | `Docs/Plans/ROADMAP-build-surface-worldbuilding-ingest.md`, Phase 4 |
+| Surface authority | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` |
 | Sequencing authority | `Docs/Plans/PLAN-build-surface-worldbuilding-ingest-pr-slices.md`, BLD-05 |
-| Repository rules | `AGENTS.md`, `.cursor/rules/dungeonbuddy-git-workflow.mdc`, `.cursor/rules/external-agent-pr-loop.mdc` |
-| Base revision | Dispatch-time immutable merge SHA containing BLD-01 and BLD-03; current `8ff2339f` is reference only |
-| Predecessor contract | Shared Markdown editor, source-document API/registry, existing AppChrome and route conventions |
-| Exact input consumed | URL route, source document record, source metadata, shared editor props, and save adapter |
-| Named successor | BLD-06 extraction toolbar and run handoff |
-| What remains false | Extraction launch, candidate graph rendering, Graph Review commit, PDF import |
-| Explicit non-goals | New extraction API calls, graph cards, direct graph writes, raw filesystem access, Play redesign, Plan redesign |
+| Identity/persistence predecessor | BLD-02 workspace document API and BLD-03 source linkage types where displayed |
+| Editor predecessor | BLD-01 shared Markdown editor |
+| Repository rules | `AGENTS.md`, UI/git rules, `.cursor/rules/external-agent-pr-loop.mdc` |
+| Base revision | Dispatch-time immutable merge SHA containing BLD-01/02/03 |
+| Exact input consumed | `/build` route, optional workspace document UUID, shared Surface primitives/config, BLD-02 record/content APIs, and shared editor |
+| Named successor | BLD-06 extraction toolbar and exact-run handoff |
+| What remains false | no extraction launch, candidate projection, Graph Review commit, or PDF import |
+| Explicit non-goals | new backend routes, second SurfaceShell architecture, second projection registry/container, Plan/Play redesign, graph cards/writes |
+
+### Locked Surface decision
+
+Build is the second configured product Surface. It must reuse:
+
+```text
+AppChrome
+AgentInteractionProvider / shared app-level projection container
+SurfaceConfig
+SurfaceShell
+shared edit capability
+shared theme tokens
+shared Markdown editor
+```
+
+`BuildSurfacePage` owns route-level data loading and Build adapters.
+`buildSurfaceConfig.ts` declares Build identity, labels, theme, canvas/editor, and
+enabled actions/projections through existing types.
+
+A file named `BuildSurfaceShell.tsx` is permitted only as a thin Build-specific
+composition around the shared `SurfaceShell`. It may not own private tool/edit
+regions, private projection state, a second adaptive drawer/pane, or a parallel
+Agent Interaction provider.
 
 Read in order:
 
-1. `Docs/Plans/ROADMAP-build-surface-worldbuilding-ingest.md`
-2. `Docs/Plans/PLAN-build-surface-worldbuilding-ingest-pr-slices.md`
-3. `apps/live-control-ui/src/App.tsx`
-4. `apps/live-control-ui/src/chrome/AppChrome.tsx`
-5. `apps/live-control-ui/src/chrome/appChromeConfig.ts`
-6. Shared editor and source-document API contracts
-7. Existing AppChrome/App route tests
+1. `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`
+2. Build roadmap and slice plan
+3. BLD-01 shared editor
+4. BLD-02 workspace document API/identity contract
+5. current `App.tsx`, `AppChrome`, Surface config/types, Agent Interaction provider,
+   Plan surface composition, themes, and tests
 
-If current AppChrome has a different navigation ownership seam, preserve the
-existing seam and stop if a second chrome is required.
+Stop if the current repository lacks the shared Surface seam described by the
+authority. Report the actual seam and propose the smallest shared generalization;
+do not implement Build by copying Plan.
 
 ## §3 Observable-path inventory
 
-| Path | Current behavior | Required behavior | Same invariant? | Owning boundary |
+| Path | Current behavior | Required behavior | Same invariant? | Boundary |
 |---|---|---|---:|---|
-| Direct `/build` navigation | No Build page/route | Render real Build shell | Yes | App route |
-| Primary navigation | Plan/Ingest/Play/etc. are configured | Build appears as one consistent surface item | Yes | AppChrome config |
-| New source | No Build source creation flow | Create/open a source record with explicit metadata | Yes | Build page + source API |
-| Editor load | Plan/Spike consumers only | Shared editor loads Build source content | Yes | Build page |
-| Dirty/save state | Surface-specific | Build displays and respects source save state | Yes | Build shell/adapter |
-| Missing source | Route may not have document | Show explicit empty/new-source state | Yes | Build shell |
-| API unavailable | Existing surfaces show errors | Build shows recoverable error without fake content | Yes | Build shell |
-| Browser refresh | Route state may reset | Reload exact source identity and metadata | Yes | Build page/source API |
+| Direct `/build` | no route | render configured Build Surface | Yes | App route + Surface config |
+| Shared chrome/nav | existing surfaces configured | one Build item using existing AppChrome config | Yes | AppChrome |
+| Shared projection/agent host | app-level host exists/transitional seams | Build publishes ambient source context; no private container | Yes | Agent Interaction provider |
+| New source | no Build flow | create BLD-02 `worldbuilding_source` UUID record | Yes | Build page + source API |
+| Existing source | no Build route selection | exact `?documentId=<uuid>` load | Yes | Build page/router |
+| Editor | Plan/Spike consumers | shared editor with Build adapter/tools | Yes | Build canvas/editor adapter |
+| Metadata | no Build panel | explicit domain/class/authority/visibility/scope | Yes | Build source controls |
+| Dirty/save/conflict | surface-specific | preserve content, show truthful lifecycle/conflicts | Yes | Build page/editor adapter |
+| Refresh | route state may reset | reload exact UUID and committed content | Yes | Router/API |
+| Navigation away dirty | existing behavior may vary | existing shared guard or explicit warning; no silent discard | Yes | shared surface/navigation seam |
+| API unavailable/malformed record | existing errors | recoverable error; no fabricated source | Yes | Build page |
+| Extraction/publication | absent | remains absent | Yes | scope/diff |
 
-## §4 Files in scope (allowlist)
+## §4 Files in scope — allowlist
 
 | Action | Path | Purpose |
 |---|---|---|
-| Modify | `apps/live-control-ui/src/App.tsx` | Add `/build` route and page dispatch |
-| Modify | `apps/live-control-ui/src/chrome/appChromeConfig.ts` | Add Build navigation item |
-| Create | `apps/live-control-ui/src/buildSurface/BuildSurfacePage.tsx` | Build page composition |
-| Create | `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.tsx` | Editor/metadata/save layout |
-| Create | `apps/live-control-ui/src/buildSurface/buildSurfaceConfig.ts` | Build source defaults and surface tools |
-| Create | `apps/live-control-ui/src/buildSurface/BuildSurfacePage.test.tsx` | Route/page state proof |
-| Create | `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx` | Metadata, dirty, save/error proof |
-| Modify | `apps/live-control-ui/src/styles.css` | Build shell layout styles only |
-| Modify | `apps/live-control-ui/src/App.test.tsx` | Route and navigation contract proof |
+| Modify | `apps/live-control-ui/src/App.tsx` | Add `/build` route through existing app routing |
+| Modify | `apps/live-control-ui/src/chrome/appChromeConfig.ts` | Add one Build navigation item through existing config |
+| Create | `apps/live-control-ui/src/buildSurface/BuildSurfacePage.tsx` | Route data loading, exact document identity, and Surface context publication |
+| Create | `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.tsx` | Thin Build composition around shared `SurfaceShell` only |
+| Create | `apps/live-control-ui/src/buildSurface/buildSurfaceConfig.ts` | Build `SurfaceConfig`, theme, source metadata controls, and enabled editor actions |
+| Create | `apps/live-control-ui/src/buildSurface/BuildSurfacePage.test.tsx` | Route, UUID reload, error, and context-publication proof |
+| Create | `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx` | Shared-shell composition, metadata, dirty/save/conflict proof |
+| Modify | `apps/live-control-ui/src/App.test.tsx` | Route and navigation compatibility proof |
+| Modify | `apps/live-control-ui/src/styles.css` | Build-specific layout using existing tokens only, if no scoped stylesheet seam exists |
 
-**Bounded discovery exception:** Not applicable — paths are enumerated.
+### Bounded discovery exception
 
-## §5 Files and capabilities explicitly out of scope
+```text
+Directory: apps/live-control-ui/src
+Maximum additional paths: 3
+Allowed path kinds: existing shared SurfaceConfig/SurfaceShell/AgentInteraction/theme type or test files
+Decision rule: only to make Build a second consumer of an existing shared abstraction; no copied/replacement architecture
+Required report: path, existing ownership seam, exact generalized contract, and why Build cannot consume it unchanged
+```
 
-| Path, layer, or capability | Why out of scope |
+## §5 Explicitly out of scope
+
+| Path/capability | Why |
 |---|---|
-| `apps/live-control-ui/src/buildSurface/BuildIngestToolbar.tsx` | Extraction launch belongs to BLD-06 |
-| `apps/live-control-ui/src/api/liveApi.ts` | API client changes belong to BLD-06 unless BLD-02 contract is incomplete; stop if so |
-| `apps/live-control-ui/src/planSurface/**` | Plan is a compatibility consumer, not a Build dependency to redesign |
-| `apps/live-control-ui/src/ingestSurface/**` | Ingest/Graph Review boundary remains separate |
-| `apps/live-control-ui/src/playSurface/**` | Play remains an intentional stub |
-| `apps/live_control_server/**` | No backend capability in this UI shell PR |
-| `corpus/**`, `evals/**` | No content or benchmark mutation |
+| `apps/live-control-ui/src/buildSurface/BuildIngestToolbar.tsx` | BLD-06 |
+| backend files | BLD-02/03 provide required API; needing backend work is a stop |
+| private Build projection registry/container/provider | violates shared Surface authority |
+| copied Plan toolbar/edit/canvas implementation | duplicate architecture |
+| Graph Review or publication APIs | BLD-07 |
+| Plan/Play redesign | independent product work |
+| `corpus/**`, `evals/**` | no content or benchmark mutation |
 
-## §6 Implementation contract and conditional matrices
+## §6 Implementation contract
 
 ```text
 Input:
-  /build route, optional source-document ID, source registry record, source
-  metadata, shared Markdown editor, and BLD-02 save adapter.
+  /build route + optional documentId UUID + shared SurfaceConfig/Shell and Agent
+  Interaction seams + BLD-02 workspace API + shared Markdown editor.
 
 Output:
-  A navigable Build surface with explicit metadata, editor state, save state,
-  and source-document reload behavior.
+  configured Build Surface with exact source identity, metadata, editor state,
+  save/conflict lifecycle, and ambient context publication.
 
 Invariant:
-  Build writes only source documents and remains unable to advance a graph head.
+  Build is a consumer/configuration of shared app architecture and writes only
+  workspace source documents.
 
 Failure behavior:
-  Missing source → explicit new-source/empty state.
-  Load failure → visible recoverable error; no fabricated document.
-  Save failure/conflict → preserve dirty content and show stable error.
-  Invalid metadata → block source save and show field-level validation.
+  no documentId → explicit new-source state
+  unknown UUID → not-found state; never silently create replacement
+  load failure/malformed record → recoverable error, no fabricated content
+  invalid metadata → block save with field errors
+  stale/save failure → preserve dirty content and current identity
+  shared Surface seam absent → stop, do not copy Plan
 
 Replay / idempotency:
-  same URL/source ID → same document load;
-  refresh after save → same source identity and committed content;
-  retry after conflict → re-read current source before retry;
-  navigation away with dirty state → existing surface guard/visible dirty state,
-  never silent discard.
+  same URL UUID → same source load
+  refresh after save → same UUID/revision/content
+  create action → server-issued UUID; no title/path identity
+  retry after conflict → re-read exact source before commit
 
 Trust boundary:
-  Verifies: route selection, source metadata shape, editor/save state, and
-  server responses.
-  Records or trusts without proving: Markdown semantic truth and graph meaning.
+  Verifies route selection, UUID, metadata shape, shared Surface composition,
+  API responses, editor/save state, and ambient pointer context.
+  Does not prove source truth, extraction readiness, or graph meaning.
 ```
 
-### State and fallback matrix
+### §6A State/fallback matrix
 
-| Path | Loading | Success | Miss | Dependency unavailable | Integrity failure | Stale | Retry |
-|---|---|---|---|---|---|---|---|
-| Route mount | Show shell loading state | Render source/editor | New-source state | Error state | No fabricated source | N/A | Reload exact source |
-| Source load | Loading indicator | Populate metadata/editor | Explicit empty state | Recoverable error | Reject malformed record | Show conflict/reload action | Re-read source |
-| Save | Disabled/working state | Clear dirty state on committed response | No target is validation error | Preserve dirty state | Show diagnostics | Preserve dirty state, reload/resolve | Explicit retry |
-| Navigation | Current state visible | Route changes | N/A | Keep current page | Do not hide error | Do not silently discard | User retries |
+| Path | Success | Miss | Unavailable | Integrity failure | Stale | Retry |
+|---|---|---|---|---|---|---|
+| Route mount | configured Build Surface | new-source only with no ID | error state | no fake source | N/A | exact reload |
+| Source load | exact record/editor | UUID 404 | recoverable error | reject malformed | conflict state | re-read exact UUID |
+| Save | committed revision/clear dirty | no target invalid | preserve dirty | diagnostics/block | preserve dirty | explicit retry |
+| Navigation | shared route change | N/A | current page remains | no silent discard | dirty warning/guard | user choice |
+| Agent context | publish pointers only | absent selection allowed | host unavailable is app failure | no corpus body duplication | update pointer | republish |
 
-### Identity matrix
+### §6B Identity matrix
 
-| Situation | Required rule | Ambiguity behavior | Fallback |
+| Situation | Required rule | Ambiguity | Fallback |
 |---|---|---|---|
-| Route source ID | Use durable source-document ID | Unknown ID is explicit not-found | New source only when no ID |
-| Display title | Never acts as identity | Duplicate titles allowed | No label lookup |
-| Source metadata | Persist explicit enum values | Invalid combination blocks save | No default authority |
-| Navigation item | Stable route key `/build` | Duplicate route is test failure | No alternate hidden route |
+| Route/document | exact workspace UUID | unknown 404 | new source only when ID absent |
+| Title | display only | duplicates allowed | no lookup |
+| Metadata | explicit enum/domain matrix | invalid blocks save | no default authority |
+| Surface | existing `build` config ID/route | duplicate config fails tests | no hidden alternate route |
+| Projection/context | pointers only | no content caching as authority | shared provider only |
 
-### Persistence and replay matrix
+### §6C Persistence/replay matrix
 
-| Operation | Durable representation | Round-trip guarantee | Replay behavior | Compatibility | Rollback |
+| Operation | Durable representation | Round trip | Replay | Compatibility | Reversion |
 |---|---|---|---|---|---|
-| New source | BLD-02 registry record | Reload retains metadata and ID | Duplicate handled by API | Plan/runbook unchanged | Delete only through existing API, not this PR |
-| Editor draft | Local/React state owned by Build | Dirty state is visible | Refresh follows existing draft policy | Shared editor contract | No new draft store |
-| Source save | BLD-02 prepare/commit response | Reload reads committed source | Conflict is explicit | Existing save adapter | Existing write rollback |
+| Create/update/save | BLD-02 registry + Markdown | exact UUID/metadata/content | server CAS | plan/runbook unchanged | existing discard/backup |
+| Local dirty state | existing shared/editor policy | visible and identity-bound | no duplicate writes | Plan behavior preserved | abandon/reload |
+| Surface context | app pointer state | UUID/context only | republish on load | other surfaces unchanged | navigate away |
 
-### Predecessor-to-consumer mapping
+### §6D Predecessor mapping
 
-| Predecessor | Consumer | Transformation | Proof |
+| Predecessor | Build consumer | Transformation | Proof |
 |---|---|---|---|
-| App route switch | Build page | Add one route branch without changing existing route behavior | App test |
-| AppChrome item config | Build nav | Add route/label/icon contract consistent with current chrome | AppChrome/App test |
-| Shared editor | Build shell | Supply source adapter and Build tools | Shell test |
-| Source record | Metadata panel | Render explicit domain/class/authority/visibility | Shell test |
+| shared `SurfaceConfig`/`SurfaceShell` | build config/page | configure existing regions and context | shell test |
+| Agent Interaction provider | Build page | publish UUID/source metadata pointers only | page/provider test |
+| BLD-01 editor | Build canvas | inject Build adapter/tools | shell test |
+| BLD-02 record/API | page/metadata | exact UUID/metadata/revision | page test |
+| AppChrome config | nav | one Build item | App test |
 
-## §7 Verification ownership map and commands
+## §7 Verification ownership and commands
 
-| Guarantee | Owning boundary | Command | Expected evidence |
-|---|---|---|---|
-| `/build` route renders | App router | `npm test -- --run src/App.test.tsx` | Direct route test green |
-| Build nav is consistent | AppChrome/config | Same App test | Item/route assertions green |
-| Metadata and dirty/save state work | Build shell | `npm test -- --run src/buildSurface/BuildSurfaceShell.test.tsx` | State/error tests green |
-| Refresh loads exact source | Build page | `npm test -- --run src/buildSurface/BuildSurfacePage.test.tsx` | Source ID preserved |
-| No backend/extraction scope creep | Git | `git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD` | Only §4 paths |
+| Guarantee | Boundary | Command |
+|---|---|---|
+| `/build` route/nav | App router/AppChrome | `npm test -- --run src/App.test.tsx` |
+| exact UUID load/refresh/error | Build page | `npm test -- --run src/buildSurface/BuildSurfacePage.test.tsx` |
+| shared shell/editor/metadata/save states | Build shell | `npm test -- --run src/buildSurface/BuildSurfaceShell.test.tsx` |
+| no Plan/shared architecture regression | shared consumers | `npm test -- --run src/planSurface` |
+| type/build integrity | app | `npm run typecheck && npm run build` |
+| no private duplicate architecture | diff/import inspection | changed-path checks |
 
 ```bash
 cd apps/live-control-ui
 npm test -- --run src/App.test.tsx
 npm test -- --run src/buildSurface/BuildSurfacePage.test.tsx
 npm test -- --run src/buildSurface/BuildSurfaceShell.test.tsx
+npm test -- --run src/planSurface
 npm run typecheck
 npm run build
+cd ../..
 git diff --check
 git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD
 ```
@@ -183,53 +233,35 @@ git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD
 ### Minimal live proof
 
 ```text
-Existing surface used: application shell
-Smallest scenario: direct /build navigation, create/open one source, edit,
-save, refresh, and navigate to another existing surface
-Expected observation: Build persists source state and existing surfaces remain intact
-Evidence captured: focused UI test output and screenshot/manual notes if used
+Existing surface: application shell
+Scenario: navigate directly to /build, create a source, edit/save, refresh exact
+UUID, trigger invalid metadata and stale save, publish ambient selection context,
+and navigate to Plan.
+Expected: Build behaves through shared chrome/surface/editor/provider; dirty data
+is preserved on failure and other surfaces remain intact.
 ```
 
 ## §8 Required handback
 
-1. Base and head SHA.
-2. Focused diff stat limited to §4.
-3. Exact result of every §7 command.
-4. Provenance for each result.
-5. Direct-route and refresh live proof.
-6. Base/head comparison for baseline failures.
-7. Operator waivers; `none` if none.
-8. Paths outside §4; `none` or stop report.
-9. Stop conditions; `none` if none.
-10. Confirmation that BLD-06 owns extraction launch.
-11. Confirmation that Build cannot commit graph changes.
+Record SHAs, actual paths including any bounded discovery, diff, all §7 results
+and provenance, live proof, baseline failures, waivers, stop conditions, and a
+specific statement that no private Surface/projection/edit/provider stack was
+introduced.
 
 ## §9 Acceptance rubric
 
-- [ ] `/build` is a real React route — proved by App route tests.
-- [ ] Build appears in shared navigation without changing other routes — proved by AppChrome/App tests.
-- [ ] A source can be opened, classified, edited, saved, and reloaded — proved by Build page/shell tests.
-- [ ] Load/save/conflict failures remain visible and do not fabricate content — proved by state tests.
-- [ ] Build has no extraction or graph publication behavior — proved by allowlist/diff inspection.
-- [ ] Empty Play remains unchanged — proved by existing App tests.
-- [ ] No path outside §4 changed — proved by changed-path command.
-- [ ] BLD-06 remains unimplemented and unclaimed.
+- [ ] `/build` is a real configured shared Surface.
+- [ ] Build reuses the shared `SurfaceShell`, app-scoped projection/Agent Interaction host, edit capability, editor, and theme tokens.
+- [ ] No Plan implementation was copied into a parallel Build architecture.
+- [ ] Exact workspace UUID drives open/reload; labels and paths never act as identity.
+- [ ] Metadata, dirty/save/conflict, and unavailable states are truthful.
+- [ ] Build writes only workspace source documents and has no extraction/publication action.
+- [ ] Existing Plan/App behavior remains green.
+- [ ] Only §4 and approved bounded-discovery paths changed.
 
 ## Stop conditions
 
-Stop and report if:
-
-- source persistence cannot be consumed through BLD-02’s contract;
-- a new backend route is required;
-- Build needs extraction controls to be useful in this shell PR;
-- AppChrome requires a second navigation architecture;
-- Play/Plan behavior must change to render Build.
-
-```text
-Stop condition:
-Why the current mission cannot absorb it:
-New contract discovered:
-Affected paths:
-Proposed successor slice:
-Authority update needed:
-```
+Stop if a backend change is required, BLD-02 cannot supply the source contract,
+the shared Surface seam is materially different from authority, Build would need
+a private provider/projection/edit stack, extraction controls are required for
+this capability, or Plan/Play must be redesigned.
