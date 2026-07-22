@@ -42,7 +42,10 @@ def _is_corpus_tiptap_target_relpath(value: str) -> bool:
 
 
 def markdown_lossy_diagnostics(markdown: str) -> list[str]:
-    """Return commit-blocking diagnostics for unsupported Markdown constructs."""
+    """Return diagnostics for unsupported Markdown constructs.
+
+    Blocking vs advisory is kind-scoped in prepare/commit (worldbuilding_source only).
+    """
     diagnostics: list[str] = []
     for line_number, line in enumerate(markdown.replace("\r\n", "\n").split("\n"), start=1):
         if not line.strip():
@@ -60,6 +63,45 @@ class TiptapMarkdownWriteError(ValueError):
 
 class TiptapMarkdownWriteConflictError(TiptapMarkdownWriteError):
     status_code = 409
+
+
+def authorize_target_for_record(record: WorkspaceDocumentRecord) -> str:
+    """Authorize and normalize the registry target for this document kind."""
+    if not record.target_relpath or not record.target_relpath.strip():
+        raise TiptapMarkdownWriteError(
+            "workspace document has no target_relpath; cannot write Markdown"
+        )
+    relpath = record.target_relpath.strip()
+
+    if record.kind == "worldbuilding_source":
+        expected_target = f"out/workspace/worldbuilding/{record.document_id}.md"
+        if relpath != expected_target:
+            raise TiptapMarkdownWriteError(
+                "worldbuilding_source target_relpath does not match registry policy"
+            )
+        return normalize_tiptap_target_relpath(relpath)
+
+    if record.kind == "plan":
+        if not _ALLOWED_PLAN_SESSION_PREP_RE.fullmatch(relpath):
+            raise TiptapMarkdownWriteError(
+                "plan target_relpath must match an allowed Session Prep path"
+            )
+        return normalize_tiptap_target_relpath(relpath)
+
+    if record.kind == "runbook":
+        if not _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE.fullmatch(relpath):
+            raise TiptapMarkdownWriteError(
+                "runbook target_relpath must match an allowed Tiptap runbook path"
+            )
+        return normalize_tiptap_target_relpath(relpath)
+
+    raise TiptapMarkdownWriteError(f"unsupported document kind: {record.kind}")
+
+
+def _commit_blocking_lossy(kind: str, markdown: str) -> list[str]:
+    if kind != "worldbuilding_source":
+        return []
+    return markdown_lossy_diagnostics(markdown)
 
 
 class TiptapMarkdownWritePrepareRequest(BaseModel):
@@ -196,6 +238,27 @@ def _resolve_writable_document(
     return record
 
 
+def _prepare_warnings(
+    *,
+    exists: bool,
+    writer_ok: bool,
+    blocking_lossy: list[str],
+    advisory_lossy: list[str],
+) -> list[str]:
+    if exists and writer_ok:
+        warnings = ["Existing file will be replaced after explicit commit."]
+    elif blocking_lossy:
+        warnings = ["Commit blocked: unsupported Markdown would be lossy."]
+    else:
+        warnings = []
+    if advisory_lossy:
+        warnings.append(
+            "Unsupported Markdown constructs are advisory for this document kind; "
+            "commit is allowed."
+        )
+    return warnings
+
+
 def prepare_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWritePrepareRequest
 ) -> TiptapMarkdownWritePrepareResponse:
@@ -204,16 +267,12 @@ def prepare_tiptap_markdown_write(
         request.document_id,
         expected_revision=request.expected_revision,
     )
-    if record.kind == "worldbuilding_source":
-        expected_target = f"out/workspace/worldbuilding/{record.document_id}.md"
-        if record.target_relpath != expected_target:
-            raise TiptapMarkdownWriteError(
-                "worldbuilding_source target_relpath does not match registry policy"
-            )
-    relpath = normalize_tiptap_target_relpath(record.target_relpath or "")
+    relpath = authorize_target_for_record(record)
     target = resolve_tiptap_markdown_target(root, relpath)
     content = _final_content(request.markdown)
     lossy = markdown_lossy_diagnostics(request.markdown)
+    blocking_lossy = _commit_blocking_lossy(record.kind, request.markdown)
+    advisory_lossy = lossy if not blocking_lossy and lossy else []
     exists = target.is_file()
     existing = target.read_text(encoding="utf-8") if exists else ""
     diff = "".join(
@@ -224,7 +283,7 @@ def prepare_tiptap_markdown_write(
             tofile=relpath,
         )
     )
-    writer_ok = not lossy
+    writer_ok = not blocking_lossy
     return TiptapMarkdownWritePrepareResponse(
         document_id=record.document_id,
         title=record.title,
@@ -246,9 +305,12 @@ def prepare_tiptap_markdown_write(
         writer_diff=diff,
         existing_size_bytes=len(existing.encode()) if exists else None,
         new_size_bytes=len(content.encode()),
-        warnings=["Existing file will be replaced after explicit commit."]
-        if exists and writer_ok
-        else (["Commit blocked: unsupported Markdown would be lossy."] if lossy else []),
+        warnings=_prepare_warnings(
+            exists=exists,
+            writer_ok=writer_ok,
+            blocking_lossy=blocking_lossy,
+            advisory_lossy=advisory_lossy,
+        ),
         diagnostics=[*_prepare_diagnostics(relpath), *lossy],
     )
 
@@ -264,6 +326,20 @@ def _prepare_diagnostics(relpath: str) -> list[str]:
     return diagnostics
 
 
+def _restore_prior_file_state(
+    target: Path,
+    *,
+    prior_existed: bool,
+    prior_bytes: bytes | None,
+) -> None:
+    if prior_existed:
+        assert prior_bytes is not None
+        target.write_bytes(prior_bytes)
+        return
+    if target.exists():
+        target.unlink()
+
+
 def commit_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
@@ -272,19 +348,13 @@ def commit_tiptap_markdown_write(
         request.document_id,
         expected_revision=request.expected_revision,
     )
-    if record.kind == "worldbuilding_source":
-        expected_target = f"out/workspace/worldbuilding/{record.document_id}.md"
-        if record.target_relpath != expected_target:
-            raise TiptapMarkdownWriteError(
-                "worldbuilding_source target_relpath does not match registry policy"
-            )
-    lossy = markdown_lossy_diagnostics(request.markdown)
-    if lossy:
+    blocking_lossy = _commit_blocking_lossy(record.kind, request.markdown)
+    if blocking_lossy:
         raise TiptapMarkdownWriteError(
             "commit blocked: unsupported Markdown would be lossy; "
-            + "; ".join(lossy[:3])
+            + "; ".join(blocking_lossy[:3])
         )
-    relpath = normalize_tiptap_target_relpath(record.target_relpath or "")
+    relpath = authorize_target_for_record(record)
     target = resolve_tiptap_markdown_target(root, relpath)
     content = _final_content(request.markdown)
     expected = _confirm_token(
@@ -299,14 +369,16 @@ def commit_tiptap_markdown_write(
             "stale writer confirm token; prepare file write again"
         )
 
+    prior_existed = target.exists()
+    prior_bytes = target.read_bytes() if prior_existed else None
     backup_relpath: str | None = None
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        if target.exists():
+        if prior_existed:
             timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
             backup = target.parent / ".backups" / f"{timestamp}__{target.name}"
             backup.parent.mkdir(parents=True, exist_ok=True)
-            backup.write_bytes(target.read_bytes())
+            backup.write_bytes(prior_bytes or b"")
             backup_relpath = backup.relative_to(root.resolve()).as_posix()
         target.write_text(content, encoding="utf-8", newline="")
     except OSError as exc:
@@ -321,6 +393,19 @@ def commit_tiptap_markdown_write(
             expected_revision=record.revision,
         )
     except WorkspaceDocumentRegistryError as exc:
+        try:
+            _restore_prior_file_state(
+                target,
+                prior_existed=prior_existed,
+                prior_bytes=prior_bytes,
+            )
+        except OSError as rollback_exc:
+            error = TiptapMarkdownWriteError(
+                "file write succeeded but registry commit failed, and file rollback "
+                f"also failed: {exc}; rollback error: {rollback_exc}"
+            )
+            error.status_code = 500
+            raise error from rollback_exc
         raise _map_registry_error(exc) from exc
 
     return TiptapMarkdownWriteCommitResponse(

@@ -29,12 +29,16 @@ def create_doc(
     *,
     target: str = TARGET,
     title: str = "North-gate callout spike",
+    kind: str | None = None,
 ):
+    resolved_kind = kind or (
+        "plan" if target.startswith("corpus/eldyrwild-markdown/") else "runbook"
+    )
     return create_workspace_document(
         root,
         title=title,
         campaign_id="longmont-c2",
-        kind="plan",
+        kind=resolved_kind,  # type: ignore[arg-type]
         target_relpath=target,
     )
 

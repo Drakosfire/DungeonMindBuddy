@@ -47,9 +47,17 @@ describe("MarkdownDocumentAdapter", () => {
     expect(second.diagnostics).toEqual(first.diagnostics);
   });
 
-  it("treats warning diagnostics as commit-blocking", () => {
+  it("treats warning diagnostics as advisory by default", () => {
     const result = defaultMarkdownDocumentAdapter.importMarkdown("| a | b |\n| --- | --- |\n| 1 | 2 |");
-    expect(hasCommitBlockingDiagnostics(result.diagnostics)).toBe(true);
-    expect(commitBlockingDiagnosticMessages(result.diagnostics).length).toBeGreaterThan(0);
+    expect(hasCommitBlockingDiagnostics(result.diagnostics)).toBe(false);
+    expect(commitBlockingDiagnosticMessages(result.diagnostics)).toEqual([]);
+  });
+
+  it("blocks warning diagnostics under worldbuilding_lossless policy", () => {
+    const result = defaultMarkdownDocumentAdapter.importMarkdown("| a | b |\n| --- | --- |\n| 1 | 2 |");
+    expect(hasCommitBlockingDiagnostics(result.diagnostics, "worldbuilding_lossless")).toBe(true);
+    expect(
+      commitBlockingDiagnosticMessages(result.diagnostics, "worldbuilding_lossless").length,
+    ).toBeGreaterThan(0);
   });
 });
