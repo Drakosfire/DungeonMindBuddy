@@ -20,6 +20,12 @@ class GenerateThreatDraftCandidateRequestV1(StrictModel):
     client_request_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
+class PersistenceFailureV1(StrictModel):
+    component: Literal["cache", "candidate_ref"]
+    category: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=1024)
+
+
 class GenerateThreatDraftCandidateResponseV1(StrictModel):
     schema_name: Literal["dmb_generate_threat_draft_candidate_response_v1"] = Field(
         default="dmb_generate_threat_draft_candidate_response_v1",
@@ -34,8 +40,17 @@ class GenerateThreatDraftCandidateResponseV1(StrictModel):
     failure_category: str | None = None
     failure_message: str | None = None
     cache_status: (
-        Literal["stored", "missing", "partial_cache", "partial_ref", "reconciled"] | None
+        Literal[
+            "stored",
+            "missing",
+            "partial_cache",
+            "partial_ref",
+            "partial_both",
+            "reconciled",
+        ]
+        | None
     ) = None
+    persistence_failures: list[PersistenceFailureV1] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 

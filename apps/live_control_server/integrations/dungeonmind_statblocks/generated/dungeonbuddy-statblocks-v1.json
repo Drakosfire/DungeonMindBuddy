@@ -1,0 +1,6643 @@
+{
+  "components": {
+    "schemas": {
+      "AbilityName": {
+        "enum": [
+          "strength",
+          "dexterity",
+          "constitution",
+          "intelligence",
+          "wisdom",
+          "charisma"
+        ],
+        "title": "AbilityName",
+        "type": "string"
+      },
+      "AbilityScores": {
+        "additionalProperties": false,
+        "properties": {
+          "charisma": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Charisma",
+            "type": "integer"
+          },
+          "constitution": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Constitution",
+            "type": "integer"
+          },
+          "dexterity": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Dexterity",
+            "type": "integer"
+          },
+          "intelligence": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Intelligence",
+            "type": "integer"
+          },
+          "strength": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Strength",
+            "type": "integer"
+          },
+          "wisdom": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Wisdom",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "strength",
+          "dexterity",
+          "constitution",
+          "intelligence",
+          "wisdom",
+          "charisma"
+        ],
+        "title": "AbilityScores",
+        "type": "object"
+      },
+      "Activation": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ActivationKind"
+          },
+          "timing_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timing Text"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Trigger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Activation",
+        "type": "object"
+      },
+      "ActivationKind": {
+        "enum": [
+          "passive",
+          "action",
+          "bonus_action",
+          "reaction",
+          "triggered",
+          "legendary",
+          "lair_initiative",
+          "special"
+        ],
+        "title": "ActivationKind",
+        "type": "string"
+      },
+      "AppendRevisionRequestV1": {
+        "additionalProperties": false,
+        "description": "Append an immutable revision under compare-and-swap parent semantics.",
+        "properties": {
+          "accepted_through": {
+            "title": "Accepted Through",
+            "type": "object"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "asset_bindings": {
+            "items": {
+              "$ref": "#/components/schemas/AssetBindingV1-Input"
+            },
+            "title": "Asset Bindings",
+            "type": "array"
+          },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "pattern": "^cand_[a-z0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "change_summary": {
+            "minLength": 1,
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/StatblockDefinitionV1-Input"
+          },
+          "idempotency_key": {
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "parent_revision_id": {
+            "pattern": "^rev_[a-z0-9]+$",
+            "title": "Parent Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "parent_revision_id",
+          "definition",
+          "change_summary"
+        ],
+        "title": "AppendRevisionRequestV1",
+        "type": "object"
+      },
+      "ArmorClassProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "value": {
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "default"
+        ],
+        "title": "ArmorClassProfile",
+        "type": "object"
+      },
+      "AssetBindingV1-Input": {
+        "additionalProperties": false,
+        "description": "Associates a reusable CDN asset with a statblock form or presentation role.",
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/AssetRefV1"
+          },
+          "phase_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Key"
+          },
+          "role": {
+            "enum": [
+              "portrait",
+              "token",
+              "full_body",
+              "encounter_art",
+              "alternate"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "role"
+        ],
+        "title": "AssetBindingV1",
+        "type": "object"
+      },
+      "AssetBindingV1-Output": {
+        "additionalProperties": false,
+        "description": "Associates a reusable CDN asset with a statblock form or presentation role.",
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/AssetRefV1"
+          },
+          "phase_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phase Key"
+          },
+          "role": {
+            "enum": [
+              "portrait",
+              "token",
+              "full_body",
+              "encounter_art",
+              "alternate"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "role"
+        ],
+        "title": "AssetBindingV1",
+        "type": "object"
+      },
+      "AssetBriefV1": {
+        "additionalProperties": false,
+        "description": "Optional generation intent; never part of mechanics.",
+        "properties": {
+          "prompt": {
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "recommended_roles": {
+            "items": {
+              "enum": [
+                "portrait",
+                "token",
+                "full_body",
+                "encounter_art",
+                "alternate"
+              ],
+              "type": "string"
+            },
+            "title": "Recommended Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "AssetBriefV1",
+        "type": "object"
+      },
+      "AssetOptionsV1": {
+        "additionalProperties": false,
+        "properties": {
+          "generate_images": {
+            "default": false,
+            "title": "Generate Images",
+            "type": "boolean"
+          },
+          "include_generation_brief": {
+            "default": true,
+            "title": "Include Generation Brief",
+            "type": "boolean"
+          }
+        },
+        "title": "AssetOptionsV1",
+        "type": "object"
+      },
+      "AssetRefV1": {
+        "additionalProperties": false,
+        "description": "A durable provider-owned asset identifier and canonical CDN address.",
+        "properties": {
+          "alt_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt Text"
+          },
+          "asset_id": {
+            "minLength": 1,
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "generation_provenance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation Provenance"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "mime_type": {
+            "pattern": "^image/[a-z0-9.+-]+$",
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "provider_kind": {
+            "enum": [
+              "cloudflare_images",
+              "cloudflare_r2",
+              "image_pipeline"
+            ],
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/AssetVariantV1"
+            },
+            "title": "Variants",
+            "type": "array"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "asset_id",
+          "provider_kind",
+          "url",
+          "mime_type",
+          "created_at"
+        ],
+        "title": "AssetRefV1",
+        "type": "object"
+      },
+      "AssetVariantV1": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ],
+        "title": "AssetVariantV1",
+        "type": "object"
+      },
+      "AssetWarningCode": {
+        "description": "Stable machine-readable codes for candidate asset partial outcomes.",
+        "enum": [
+          "asset_generator_unconfigured",
+          "asset_generation_failed"
+        ],
+        "title": "AssetWarningCode",
+        "type": "string"
+      },
+      "AssetWarningV1": {
+        "additionalProperties": false,
+        "description": "Typed partial-outcome warning for optional asset generation.",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/AssetWarningCode"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "AssetWarningV1",
+        "type": "object"
+      },
+      "AttackMechanic-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "attack_bonus": {
+            "title": "Attack Bonus",
+            "type": "integer"
+          },
+          "attack_type": {
+            "$ref": "#/components/schemas/AttackType"
+          },
+          "hit_effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Input",
+                  "damage": "#/components/schemas/DamageEffect-Input",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Input",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Input",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Input",
+                  "summon": "#/components/schemas/SummonEffect-Input"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Hit Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "attack",
+            "default": "attack",
+            "enum": [
+              "attack"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "miss_effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Input",
+                  "damage": "#/components/schemas/DamageEffect-Input",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Input",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Input",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Input",
+                  "summon": "#/components/schemas/SummonEffect-Input"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Miss Effects",
+            "type": "array"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RangeProfile-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reach": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Distance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetProfile-Input"
+          }
+        },
+        "required": [
+          "attack_type",
+          "attack_bonus",
+          "target"
+        ],
+        "title": "AttackMechanic",
+        "type": "object"
+      },
+      "AttackMechanic-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "attack_bonus": {
+            "title": "Attack Bonus",
+            "type": "integer"
+          },
+          "attack_type": {
+            "$ref": "#/components/schemas/AttackType"
+          },
+          "hit_effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Output",
+                  "damage": "#/components/schemas/DamageEffect-Output",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Output",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Output",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Output",
+                  "summon": "#/components/schemas/SummonEffect-Output"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Hit Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "attack",
+            "default": "attack",
+            "enum": [
+              "attack"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "miss_effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Output",
+                  "damage": "#/components/schemas/DamageEffect-Output",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Output",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Output",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Output",
+                  "summon": "#/components/schemas/SummonEffect-Output"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Miss Effects",
+            "type": "array"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RangeProfile-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reach": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Distance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetProfile-Output"
+          }
+        },
+        "required": [
+          "attack_type",
+          "attack_bonus",
+          "target"
+        ],
+        "title": "AttackMechanic",
+        "type": "object"
+      },
+      "AttackType": {
+        "enum": [
+          "melee_weapon",
+          "ranged_weapon",
+          "melee_spell",
+          "ranged_spell",
+          "special"
+        ],
+        "title": "AttackType",
+        "type": "string"
+      },
+      "AutomationSupport": {
+        "enum": [
+          "full",
+          "partial",
+          "manual"
+        ],
+        "title": "AutomationSupport",
+        "type": "string"
+      },
+      "CastingMode": {
+        "enum": [
+          "prepared",
+          "known",
+          "innate",
+          "charges",
+          "special"
+        ],
+        "title": "CastingMode",
+        "type": "string"
+      },
+      "ChallengeProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "proficiency_bonus": {
+            "minimum": 0.0,
+            "title": "Proficiency Bonus",
+            "type": "integer"
+          },
+          "rating": {
+            "minLength": 1,
+            "title": "Rating",
+            "type": "string"
+          },
+          "xp_override": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Xp Override"
+          }
+        },
+        "required": [
+          "rating",
+          "proficiency_bonus"
+        ],
+        "title": "ChallengeProfile",
+        "type": "object"
+      },
+      "CommunicationProfile-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "special_modes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Special Modes",
+            "type": "array"
+          },
+          "telepathy_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Distance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CommunicationProfile",
+        "type": "object"
+      },
+      "CommunicationProfile-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "special_modes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Special Modes",
+            "type": "array"
+          },
+          "telepathy_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Distance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CommunicationProfile",
+        "type": "object"
+      },
+      "CompositeMechanic-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Input",
+                  "damage": "#/components/schemas/DamageEffect-Input",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Input",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Input",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Input",
+                  "summon": "#/components/schemas/SummonEffect-Input"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "composite",
+            "default": "composite",
+            "enum": [
+              "composite"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetProfile-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CompositeMechanic",
+        "type": "object"
+      },
+      "CompositeMechanic-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Output",
+                  "damage": "#/components/schemas/DamageEffect-Output",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Output",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Output",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Output",
+                  "summon": "#/components/schemas/SummonEffect-Output"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "composite",
+            "default": "composite",
+            "enum": [
+              "composite"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetProfile-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CompositeMechanic",
+        "type": "object"
+      },
+      "ConditionEffect-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "minLength": 1,
+            "title": "Condition",
+            "type": "string"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Duration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "condition",
+            "default": "condition",
+            "enum": [
+              "condition"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "condition"
+        ],
+        "title": "ConditionEffect",
+        "type": "object"
+      },
+      "ConditionEffect-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "condition": {
+            "minLength": 1,
+            "title": "Condition",
+            "type": "string"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Duration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "condition",
+            "default": "condition",
+            "enum": [
+              "condition"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "condition"
+        ],
+        "title": "ConditionEffect",
+        "type": "object"
+      },
+      "CreateStatblockRequestV1": {
+        "additionalProperties": false,
+        "description": "Accept a reviewed definition into a new logical statblock + first revision.\n\nFree-form ``provenance`` is intentionally absent: callers may supply typed\nacceptance metadata only. Server-owned candidate audit evidence is attached\nwhen ``candidate_id`` is present. ``actor`` is provenance data, not\nauthenticated ownership of ``created_by``.",
+        "properties": {
+          "accepted_through": {
+            "title": "Accepted Through",
+            "type": "object"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "asset_bindings": {
+            "items": {
+              "$ref": "#/components/schemas/AssetBindingV1-Input"
+            },
+            "title": "Asset Bindings",
+            "type": "array"
+          },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "pattern": "^cand_[a-z0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "change_summary": {
+            "minLength": 1,
+            "title": "Change Summary",
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/StatblockDefinitionV1-Input"
+          },
+          "idempotency_key": {
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "definition",
+          "change_summary"
+        ],
+        "title": "CreateStatblockRequestV1",
+        "type": "object"
+      },
+      "CreateStatblockResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "$ref": "#/components/schemas/StatblockRevisionResourceV1"
+          },
+          "statblock": {
+            "$ref": "#/components/schemas/StatblockResourceV1"
+          }
+        },
+        "required": [
+          "statblock",
+          "revision"
+        ],
+        "title": "CreateStatblockResponseV1",
+        "type": "object"
+      },
+      "CreatureIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "alignment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alignment"
+          },
+          "creature_type": {
+            "minLength": 1,
+            "title": "Creature Type",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "minLength": 1,
+            "title": "Size",
+            "type": "string"
+          },
+          "subtypes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subtypes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "size",
+          "creature_type"
+        ],
+        "title": "CreatureIdentity",
+        "type": "object"
+      },
+      "CreaturePhase": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "disabled_element_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Disabled Element Keys",
+            "type": "array"
+          },
+          "enabled_element_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled Element Keys",
+            "type": "array"
+          },
+          "entry_rules_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Rules Text"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "default"
+        ],
+        "title": "CreaturePhase",
+        "type": "object"
+      },
+      "DamageEffect-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "damage": {
+            "$ref": "#/components/schemas/DiceExpression"
+          },
+          "damage_type": {
+            "minLength": 1,
+            "title": "Damage Type",
+            "type": "string"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Duration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "damage",
+            "default": "damage",
+            "enum": [
+              "damage"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "damage",
+          "damage_type"
+        ],
+        "title": "DamageEffect",
+        "type": "object"
+      },
+      "DamageEffect-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "damage": {
+            "$ref": "#/components/schemas/DiceExpression"
+          },
+          "damage_type": {
+            "minLength": 1,
+            "title": "Damage Type",
+            "type": "string"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Duration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "damage",
+            "default": "damage",
+            "enum": [
+              "damage"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "damage",
+          "damage_type"
+        ],
+        "title": "DamageEffect",
+        "type": "object"
+      },
+      "DamageInteraction": {
+        "additionalProperties": false,
+        "properties": {
+          "bypasses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bypasses",
+            "type": "array"
+          },
+          "damage_types": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Damage Types",
+            "type": "array"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DamageInteractionKind"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Qualifiers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "damage_types"
+        ],
+        "title": "DamageInteraction",
+        "type": "object"
+      },
+      "DamageInteractionKind": {
+        "enum": [
+          "vulnerability",
+          "resistance",
+          "immunity"
+        ],
+        "title": "DamageInteractionKind",
+        "type": "string"
+      },
+      "DefenseProfile-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "armor_classes": {
+            "items": {
+              "$ref": "#/components/schemas/ArmorClassProfile"
+            },
+            "minItems": 1,
+            "title": "Armor Classes",
+            "type": "array"
+          },
+          "condition_immunities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Condition Immunities",
+            "type": "array"
+          },
+          "damage_interactions": {
+            "items": {
+              "$ref": "#/components/schemas/DamageInteraction"
+            },
+            "title": "Damage Interactions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "armor_classes"
+        ],
+        "title": "DefenseProfile",
+        "type": "object"
+      },
+      "DefenseProfile-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "armor_classes": {
+            "items": {
+              "$ref": "#/components/schemas/ArmorClassProfile"
+            },
+            "minItems": 1,
+            "title": "Armor Classes",
+            "type": "array"
+          },
+          "condition_immunities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Condition Immunities",
+            "type": "array"
+          },
+          "damage_interactions": {
+            "items": {
+              "$ref": "#/components/schemas/DamageInteraction"
+            },
+            "title": "Damage Interactions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "armor_classes"
+        ],
+        "title": "DefenseProfile",
+        "type": "object"
+      },
+      "DiceExpression": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "die": {
+            "minimum": 2.0,
+            "title": "Die",
+            "type": "integer"
+          },
+          "modifier": {
+            "default": 0,
+            "title": "Modifier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "die"
+        ],
+        "title": "DiceExpression",
+        "type": "object"
+      },
+      "DisableElementsEffect": {
+        "additionalProperties": false,
+        "properties": {
+          "element_keys": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Element Keys",
+            "type": "array"
+          },
+          "kind": {
+            "const": "disable_elements",
+            "default": "disable_elements",
+            "enum": [
+              "disable_elements"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element_keys"
+        ],
+        "title": "DisableElementsEffect",
+        "type": "object"
+      },
+      "Distance": {
+        "additionalProperties": false,
+        "properties": {
+          "unit": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistanceUnit"
+              }
+            ],
+            "default": "feet"
+          },
+          "value": {
+            "minimum": 0.0,
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "Distance",
+        "type": "object"
+      },
+      "DistanceUnit": {
+        "const": "feet",
+        "enum": [
+          "feet"
+        ],
+        "title": "DistanceUnit",
+        "type": "string"
+      },
+      "Duration": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/DurationKind"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Duration",
+        "type": "object"
+      },
+      "DurationKind": {
+        "enum": [
+          "instantaneous",
+          "until_start_turn",
+          "until_end_turn",
+          "rounds",
+          "minutes",
+          "hours",
+          "until_save",
+          "permanent",
+          "special"
+        ],
+        "title": "DurationKind",
+        "type": "string"
+      },
+      "ElementUse": {
+        "additionalProperties": false,
+        "properties": {
+          "choice_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choice Group"
+          },
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "element_key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Element Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element_key",
+          "count"
+        ],
+        "title": "ElementUse",
+        "type": "object"
+      },
+      "EnableElementsEffect": {
+        "additionalProperties": false,
+        "properties": {
+          "element_keys": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Element Keys",
+            "type": "array"
+          },
+          "kind": {
+            "const": "enable_elements",
+            "default": "enable_elements",
+            "enum": [
+              "enable_elements"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "element_keys"
+        ],
+        "title": "EnableElementsEffect",
+        "type": "object"
+      },
+      "EncounterContextV1": {
+        "additionalProperties": false,
+        "properties": {
+          "party_level": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Party Level"
+          },
+          "party_size": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Party Size"
+          },
+          "terrain_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Terrain Notes",
+            "type": "array"
+          }
+        },
+        "title": "EncounterContextV1",
+        "type": "object"
+      },
+      "EnterPhaseEffect": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "enter_phase",
+            "default": "enter_phase",
+            "enum": [
+              "enter_phase"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "phase_key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Phase Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phase_key"
+        ],
+        "title": "EnterPhaseEffect",
+        "type": "object"
+      },
+      "ErrorDetailV1": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetailV1",
+        "type": "object"
+      },
+      "ErrorEnvelopeV1": {
+        "additionalProperties": false,
+        "description": "Top-level typed error body returned by v1 routes (never nested under ``detail``).",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetailV1"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorEnvelopeV1",
+        "type": "object"
+      },
+      "ExactRevisionLocatorV1": {
+        "additionalProperties": false,
+        "description": "Exact persisted revision coordinates for PR15 ``get_revision`` reads.",
+        "properties": {
+          "revision_id": {
+            "pattern": "^rev_[a-z0-9]+$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "statblock_id": {
+            "pattern": "^sb_[a-z0-9]+$",
+            "title": "Statblock Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statblock_id",
+          "revision_id"
+        ],
+        "title": "ExactRevisionLocatorV1",
+        "type": "object"
+      },
+      "ForcedMovementEffect-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "minLength": 1,
+            "title": "Direction",
+            "type": "string"
+          },
+          "distance": {
+            "$ref": "#/components/schemas/Distance"
+          },
+          "kind": {
+            "const": "forced_movement",
+            "default": "forced_movement",
+            "enum": [
+              "forced_movement"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "distance",
+          "direction"
+        ],
+        "title": "ForcedMovementEffect",
+        "type": "object"
+      },
+      "ForcedMovementEffect-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "minLength": 1,
+            "title": "Direction",
+            "type": "string"
+          },
+          "distance": {
+            "$ref": "#/components/schemas/Distance"
+          },
+          "kind": {
+            "const": "forced_movement",
+            "default": "forced_movement",
+            "enum": [
+              "forced_movement"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "distance",
+          "direction"
+        ],
+        "title": "ForcedMovementEffect",
+        "type": "object"
+      },
+      "GenerateCandidateRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "asset_options": {
+            "$ref": "#/components/schemas/AssetOptionsV1"
+          },
+          "context": {
+            "$ref": "#/components/schemas/EncounterContextV1"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/GenerationIntentV1"
+          },
+          "request_id": {
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "ruleset": {
+            "$ref": "#/components/schemas/RulesetRef"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceSnapshotV1"
+          }
+        },
+        "required": [
+          "request_id",
+          "ruleset",
+          "source"
+        ],
+        "title": "GenerateCandidateRequestV1",
+        "type": "object"
+      },
+      "GeneratedStatblockCandidateV1": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_brief": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetBriefV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AssetWarningV1"
+            },
+            "title": "Asset Warnings",
+            "type": "array"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/AssetRefV1"
+            },
+            "title": "Assets",
+            "type": "array"
+          },
+          "candidate_id": {
+            "pattern": "^cand_[a-z0-9]+$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "contract": {
+            "const": "dungeonmind.dungeonbuddy-statblocks",
+            "enum": [
+              "dungeonmind.dungeonbuddy-statblocks"
+            ],
+            "title": "Contract",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": "1.0.0",
+            "enum": [
+              "1.0.0"
+            ],
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/StatblockDefinitionV1-Output"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "generation_receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GenerationReceiptV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_locator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactRevisionLocatorV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "validation_receipt": {
+            "$ref": "#/components/schemas/ValidationReceiptV1"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "contract",
+          "contract_version",
+          "definition",
+          "validation_receipt",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "GeneratedStatblockCandidateV1",
+        "type": "object"
+      },
+      "GenerationIntentV1": {
+        "additionalProperties": false,
+        "properties": {
+          "complexity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complexity"
+          },
+          "must_avoid": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Must Avoid",
+            "type": "array"
+          },
+          "must_include": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Must Include",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "target_cr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Cr"
+          }
+        },
+        "title": "GenerationIntentV1",
+        "type": "object"
+      },
+      "GenerationReceiptV1": {
+        "additionalProperties": false,
+        "description": "Extensible, server-owned audit data populated by the generation service.",
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "caller_scope": {
+            "minLength": 1,
+            "title": "Caller Scope",
+            "type": "string"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "model": {
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "prompt_version": {
+            "minLength": 1,
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider": {
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Request Id"
+          },
+          "provider_response_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Response Id"
+          },
+          "request_id": {
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "schema_fingerprint": {
+            "minLength": 1,
+            "title": "Schema Fingerprint",
+            "type": "string"
+          },
+          "schema_version": {
+            "minLength": 1,
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_definition_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Definition Digest"
+          },
+          "source_description_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Description Digest"
+          },
+          "source_locator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactRevisionLocatorV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "request_id",
+          "provider",
+          "model",
+          "prompt_version",
+          "schema_version",
+          "schema_fingerprint",
+          "generated_at",
+          "caller_scope"
+        ],
+        "title": "GenerationReceiptV1",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealingEffect": {
+        "additionalProperties": false,
+        "properties": {
+          "healing": {
+            "$ref": "#/components/schemas/DiceExpression"
+          },
+          "kind": {
+            "const": "healing",
+            "default": "healing",
+            "enum": [
+              "healing"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "healing"
+        ],
+        "title": "HealingEffect",
+        "type": "object"
+      },
+      "HealthResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "contract": {
+            "const": "dungeonmind.dungeonbuddy-statblocks",
+            "enum": [
+              "dungeonmind.dungeonbuddy-statblocks"
+            ],
+            "title": "Contract",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": "1.0.0",
+            "enum": [
+              "1.0.0"
+            ],
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "contract",
+          "contract_version"
+        ],
+        "title": "HealthResponseV1",
+        "type": "object"
+      },
+      "HitPointProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "displayed_average": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Average"
+          },
+          "fixed_value": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Value"
+          },
+          "formula": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiceExpression"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "enum": [
+              "formula",
+              "fixed"
+            ],
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "title": "HitPointProfile",
+        "type": "object"
+      },
+      "HumanAdjudicatedEffect": {
+        "additionalProperties": false,
+        "properties": {
+          "adjudication_text": {
+            "minLength": 1,
+            "title": "Adjudication Text",
+            "type": "string"
+          },
+          "kind": {
+            "const": "human_adjudicated",
+            "default": "human_adjudicated",
+            "enum": [
+              "human_adjudicated"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adjudication_text"
+        ],
+        "title": "HumanAdjudicatedEffect",
+        "type": "object"
+      },
+      "HumanAdjudicatedMechanic": {
+        "additionalProperties": false,
+        "properties": {
+          "adjudication_tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Adjudication Tags",
+            "type": "array"
+          },
+          "kind": {
+            "const": "human_adjudicated",
+            "default": "human_adjudicated",
+            "enum": [
+              "human_adjudicated"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "title": "HumanAdjudicatedMechanic",
+        "type": "object"
+      },
+      "LairProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "initiative_count": {
+            "anyOf": [
+              {
+                "maximum": 30.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiative Count"
+          },
+          "initiative_tiebreak": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiative Tiebreak"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "regional_rules_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regional Rules Text"
+          }
+        },
+        "title": "LairProfile",
+        "type": "object"
+      },
+      "MovementEffect-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "distance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Distance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "movement",
+            "default": "movement",
+            "enum": [
+              "movement"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "movement_mode_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Movement Mode Key"
+          }
+        },
+        "title": "MovementEffect",
+        "type": "object"
+      },
+      "MovementEffect-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "distance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Distance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "movement",
+            "default": "movement",
+            "enum": [
+              "movement"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "movement_mode_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Movement Mode Key"
+          }
+        },
+        "title": "MovementEffect",
+        "type": "object"
+      },
+      "MovementMode-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "distance": {
+            "$ref": "#/components/schemas/Distance"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/MovementModeKind"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Qualifiers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "mode",
+          "distance"
+        ],
+        "title": "MovementMode",
+        "type": "object"
+      },
+      "MovementMode-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "distance": {
+            "$ref": "#/components/schemas/Distance"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/MovementModeKind"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Qualifiers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "mode",
+          "distance"
+        ],
+        "title": "MovementMode",
+        "type": "object"
+      },
+      "MovementModeKind": {
+        "enum": [
+          "walk",
+          "fly",
+          "swim",
+          "climb",
+          "burrow",
+          "hover",
+          "special"
+        ],
+        "title": "MovementModeKind",
+        "type": "string"
+      },
+      "MovementProfile-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "modes": {
+            "items": {
+              "$ref": "#/components/schemas/MovementMode-Input"
+            },
+            "minItems": 1,
+            "title": "Modes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "modes"
+        ],
+        "title": "MovementProfile",
+        "type": "object"
+      },
+      "MovementProfile-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "modes": {
+            "items": {
+              "$ref": "#/components/schemas/MovementMode-Output"
+            },
+            "minItems": 1,
+            "title": "Modes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "modes"
+        ],
+        "title": "MovementProfile",
+        "type": "object"
+      },
+      "MultiattackMechanic": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "multiattack",
+            "default": "multiattack",
+            "enum": [
+              "multiattack"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "sequences": {
+            "items": {
+              "$ref": "#/components/schemas/ElementUse"
+            },
+            "minItems": 1,
+            "title": "Sequences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sequences"
+        ],
+        "title": "MultiattackMechanic",
+        "type": "object"
+      },
+      "PassiveMechanic-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Input",
+                  "damage": "#/components/schemas/DamageEffect-Input",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Input",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Input",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Input",
+                  "summon": "#/components/schemas/SummonEffect-Input"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "passive",
+            "default": "passive",
+            "enum": [
+              "passive"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "title": "PassiveMechanic",
+        "type": "object"
+      },
+      "PassiveMechanic-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Output",
+                  "damage": "#/components/schemas/DamageEffect-Output",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Output",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Output",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Output",
+                  "summon": "#/components/schemas/SummonEffect-Output"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "passive",
+            "default": "passive",
+            "enum": [
+              "passive"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "title": "PassiveMechanic",
+        "type": "object"
+      },
+      "PhaseTransitionMechanic-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "destination_phase_key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Destination Phase Key",
+            "type": "string"
+          },
+          "effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Input",
+                  "damage": "#/components/schemas/DamageEffect-Input",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Input",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Input",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Input",
+                  "summon": "#/components/schemas/SummonEffect-Input"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "phase_transition",
+            "default": "phase_transition",
+            "enum": [
+              "phase_transition"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination_phase_key"
+        ],
+        "title": "PhaseTransitionMechanic",
+        "type": "object"
+      },
+      "PhaseTransitionMechanic-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "destination_phase_key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Destination Phase Key",
+            "type": "string"
+          },
+          "effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Output",
+                  "damage": "#/components/schemas/DamageEffect-Output",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Output",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Output",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Output",
+                  "summon": "#/components/schemas/SummonEffect-Output"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "phase_transition",
+            "default": "phase_transition",
+            "enum": [
+              "phase_transition"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination_phase_key"
+        ],
+        "title": "PhaseTransitionMechanic",
+        "type": "object"
+      },
+      "ProficiencyDerivation": {
+        "enum": [
+          "standard",
+          "expertise",
+          "explicit_override"
+        ],
+        "title": "ProficiencyDerivation",
+        "type": "string"
+      },
+      "ProficiencyProfile-Input": {
+        "additionalProperties": false,
+        "description": "Authored save/skill bonuses. Proficiency bonus is authored only on challenge.",
+        "properties": {
+          "saving_throws": {
+            "items": {
+              "$ref": "#/components/schemas/SavingThrowBonus"
+            },
+            "title": "Saving Throws",
+            "type": "array"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillBonus"
+            },
+            "title": "Skills",
+            "type": "array"
+          }
+        },
+        "title": "ProficiencyProfile",
+        "type": "object"
+      },
+      "ProficiencyProfile-Output": {
+        "additionalProperties": false,
+        "description": "Authored save/skill bonuses. Proficiency bonus is authored only on challenge.",
+        "properties": {
+          "saving_throws": {
+            "items": {
+              "$ref": "#/components/schemas/SavingThrowBonus"
+            },
+            "title": "Saving Throws",
+            "type": "array"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillBonus"
+            },
+            "title": "Skills",
+            "type": "array"
+          }
+        },
+        "title": "ProficiencyProfile",
+        "type": "object"
+      },
+      "RangeProfile-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "long": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Distance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "normal": {
+            "$ref": "#/components/schemas/Distance"
+          }
+        },
+        "required": [
+          "normal"
+        ],
+        "title": "RangeProfile",
+        "type": "object"
+      },
+      "RangeProfile-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "long": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Distance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "normal": {
+            "$ref": "#/components/schemas/Distance"
+          }
+        },
+        "required": [
+          "normal"
+        ],
+        "title": "RangeProfile",
+        "type": "object"
+      },
+      "ReadinessResponseV1": {
+        "additionalProperties": false,
+        "description": "Authenticated readiness payload (200 ready or 503 not_ready).",
+        "properties": {
+          "contract": {
+            "const": "dungeonmind.dungeonbuddy-statblocks",
+            "enum": [
+              "dungeonmind.dungeonbuddy-statblocks"
+            ],
+            "title": "Contract",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "generation_enabled": {
+            "default": false,
+            "title": "Generation Enabled",
+            "type": "boolean"
+          },
+          "read_routes_enabled": {
+            "default": false,
+            "title": "Read Routes Enabled",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "contract"
+        ],
+        "title": "ReadinessResponseV1",
+        "type": "object"
+      },
+      "RechargeRange": {
+        "additionalProperties": false,
+        "description": "Inclusive d6 recharge window (provider-safe object; not a tuple/array).",
+        "properties": {
+          "maximum": {
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "minimum": {
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Minimum",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minimum",
+          "maximum"
+        ],
+        "title": "RechargeRange",
+        "type": "object"
+      },
+      "ResourceChangeEffect": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "resource_change",
+            "default": "resource_change",
+            "enum": [
+              "resource_change"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "resource_key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Resource Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_key",
+          "amount"
+        ],
+        "title": "ResourceChangeEffect",
+        "type": "object"
+      },
+      "ResourceCost": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "minimum": 1.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "resource_key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Resource Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_key",
+          "amount"
+        ],
+        "title": "ResourceCost",
+        "type": "object"
+      },
+      "ResourcePool": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "maximum": {
+            "minimum": 1.0,
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "refresh": {
+            "minLength": 1,
+            "title": "Refresh",
+            "type": "string"
+          },
+          "rules_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Text"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "maximum",
+          "refresh"
+        ],
+        "title": "ResourcePool",
+        "type": "object"
+      },
+      "ReviseCandidateRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "asset_options": {
+            "$ref": "#/components/schemas/AssetOptionsV1"
+          },
+          "context": {
+            "$ref": "#/components/schemas/EncounterContextV1"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/GenerationIntentV1"
+          },
+          "preserve_element_keys": {
+            "default": true,
+            "title": "Preserve Element Keys",
+            "type": "boolean"
+          },
+          "request_id": {
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "revision_instructions": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Revision Instructions",
+            "type": "array"
+          },
+          "ruleset": {
+            "$ref": "#/components/schemas/RulesetRef"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceSnapshotV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatblockDefinitionV1-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_locator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExactRevisionLocatorV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "request_id",
+          "ruleset",
+          "revision_instructions"
+        ],
+        "title": "ReviseCandidateRequestV1",
+        "type": "object"
+      },
+      "RevisionListResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/StatblockRevisionResourceV1"
+            },
+            "title": "Revisions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revisions"
+        ],
+        "title": "RevisionListResponseV1",
+        "type": "object"
+      },
+      "RuleElement-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/Activation"
+          },
+          "automation_support": {
+            "$ref": "#/components/schemas/AutomationSupport"
+          },
+          "costs": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceCost"
+            },
+            "title": "Costs",
+            "type": "array"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "mechanic": {
+            "discriminator": {
+              "mapping": {
+                "attack": "#/components/schemas/AttackMechanic-Input",
+                "composite": "#/components/schemas/CompositeMechanic-Input",
+                "human_adjudicated": "#/components/schemas/HumanAdjudicatedMechanic",
+                "multiattack": "#/components/schemas/MultiattackMechanic",
+                "passive": "#/components/schemas/PassiveMechanic-Input",
+                "phase_transition": "#/components/schemas/PhaseTransitionMechanic-Input",
+                "save_effect": "#/components/schemas/SaveEffectMechanic-Input",
+                "spellcasting": "#/components/schemas/SpellcastingMechanic-Input"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AttackMechanic-Input"
+              },
+              {
+                "$ref": "#/components/schemas/SaveEffectMechanic-Input"
+              },
+              {
+                "$ref": "#/components/schemas/MultiattackMechanic"
+              },
+              {
+                "$ref": "#/components/schemas/SpellcastingMechanic-Input"
+              },
+              {
+                "$ref": "#/components/schemas/PassiveMechanic-Input"
+              },
+              {
+                "$ref": "#/components/schemas/CompositeMechanic-Input"
+              },
+              {
+                "$ref": "#/components/schemas/PhaseTransitionMechanic-Input"
+              },
+              {
+                "$ref": "#/components/schemas/HumanAdjudicatedMechanic"
+              }
+            ],
+            "title": "Mechanic"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rules_text": {
+            "minLength": 1,
+            "title": "Rules Text",
+            "type": "string"
+          },
+          "section": {
+            "$ref": "#/components/schemas/RuleSection"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "section",
+          "rules_text",
+          "activation",
+          "usage",
+          "mechanic",
+          "automation_support"
+        ],
+        "title": "RuleElement",
+        "type": "object"
+      },
+      "RuleElement-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/Activation"
+          },
+          "automation_support": {
+            "$ref": "#/components/schemas/AutomationSupport"
+          },
+          "costs": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceCost"
+            },
+            "title": "Costs",
+            "type": "array"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key",
+            "type": "string"
+          },
+          "mechanic": {
+            "discriminator": {
+              "mapping": {
+                "attack": "#/components/schemas/AttackMechanic-Output",
+                "composite": "#/components/schemas/CompositeMechanic-Output",
+                "human_adjudicated": "#/components/schemas/HumanAdjudicatedMechanic",
+                "multiattack": "#/components/schemas/MultiattackMechanic",
+                "passive": "#/components/schemas/PassiveMechanic-Output",
+                "phase_transition": "#/components/schemas/PhaseTransitionMechanic-Output",
+                "save_effect": "#/components/schemas/SaveEffectMechanic-Output",
+                "spellcasting": "#/components/schemas/SpellcastingMechanic-Output"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AttackMechanic-Output"
+              },
+              {
+                "$ref": "#/components/schemas/SaveEffectMechanic-Output"
+              },
+              {
+                "$ref": "#/components/schemas/MultiattackMechanic"
+              },
+              {
+                "$ref": "#/components/schemas/SpellcastingMechanic-Output"
+              },
+              {
+                "$ref": "#/components/schemas/PassiveMechanic-Output"
+              },
+              {
+                "$ref": "#/components/schemas/CompositeMechanic-Output"
+              },
+              {
+                "$ref": "#/components/schemas/PhaseTransitionMechanic-Output"
+              },
+              {
+                "$ref": "#/components/schemas/HumanAdjudicatedMechanic"
+              }
+            ],
+            "title": "Mechanic"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rules_text": {
+            "minLength": 1,
+            "title": "Rules Text",
+            "type": "string"
+          },
+          "section": {
+            "$ref": "#/components/schemas/RuleSection"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "section",
+          "rules_text",
+          "activation",
+          "usage",
+          "mechanic",
+          "automation_support"
+        ],
+        "title": "RuleElement",
+        "type": "object"
+      },
+      "RuleSection": {
+        "enum": [
+          "trait",
+          "action",
+          "bonus_action",
+          "reaction",
+          "legendary_action",
+          "lair_action",
+          "regional_effect"
+        ],
+        "title": "RuleSection",
+        "type": "string"
+      },
+      "RulesetEdition": {
+        "enum": [
+          "2014",
+          "2024"
+        ],
+        "title": "RulesetEdition",
+        "type": "string"
+      },
+      "RulesetRef": {
+        "additionalProperties": false,
+        "properties": {
+          "edition": {
+            "$ref": "#/components/schemas/RulesetEdition"
+          },
+          "house_ruleset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "House Ruleset Id"
+          },
+          "system": {
+            "$ref": "#/components/schemas/RulesetSystem"
+          }
+        },
+        "required": [
+          "system",
+          "edition"
+        ],
+        "title": "RulesetRef",
+        "type": "object"
+      },
+      "RulesetSystem": {
+        "const": "dnd5e",
+        "enum": [
+          "dnd5e"
+        ],
+        "title": "RulesetSystem",
+        "type": "string"
+      },
+      "SaveEffectMechanic-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "failure_effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Input",
+                  "damage": "#/components/schemas/DamageEffect-Input",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Input",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Input",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Input",
+                  "summon": "#/components/schemas/SummonEffect-Input"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Failure Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "save_effect",
+            "default": "save_effect",
+            "enum": [
+              "save_effect"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "save": {
+            "$ref": "#/components/schemas/SavingThrow"
+          },
+          "success_effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Input",
+                  "damage": "#/components/schemas/DamageEffect-Input",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Input",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Input",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Input",
+                  "summon": "#/components/schemas/SummonEffect-Input"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Success Effects",
+            "type": "array"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetProfile-Input"
+          }
+        },
+        "required": [
+          "save",
+          "target"
+        ],
+        "title": "SaveEffectMechanic",
+        "type": "object"
+      },
+      "SaveEffectMechanic-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "failure_effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Output",
+                  "damage": "#/components/schemas/DamageEffect-Output",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Output",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Output",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Output",
+                  "summon": "#/components/schemas/SummonEffect-Output"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Failure Effects",
+            "type": "array"
+          },
+          "kind": {
+            "const": "save_effect",
+            "default": "save_effect",
+            "enum": [
+              "save_effect"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "save": {
+            "$ref": "#/components/schemas/SavingThrow"
+          },
+          "success_effects": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "condition": "#/components/schemas/ConditionEffect-Output",
+                  "damage": "#/components/schemas/DamageEffect-Output",
+                  "disable_elements": "#/components/schemas/DisableElementsEffect",
+                  "enable_elements": "#/components/schemas/EnableElementsEffect",
+                  "enter_phase": "#/components/schemas/EnterPhaseEffect",
+                  "forced_movement": "#/components/schemas/ForcedMovementEffect-Output",
+                  "healing": "#/components/schemas/HealingEffect",
+                  "human_adjudicated": "#/components/schemas/HumanAdjudicatedEffect",
+                  "movement": "#/components/schemas/MovementEffect-Output",
+                  "resource_change": "#/components/schemas/ResourceChangeEffect",
+                  "stat_modifier": "#/components/schemas/StatModifierEffect-Output",
+                  "summon": "#/components/schemas/SummonEffect-Output"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DamageEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/HealingEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/ConditionEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/MovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ForcedMovementEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ResourceChangeEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/SummonEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/StatModifierEffect-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EnableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/DisableElementsEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/EnterPhaseEffect"
+                },
+                {
+                  "$ref": "#/components/schemas/HumanAdjudicatedEffect"
+                }
+              ]
+            },
+            "title": "Success Effects",
+            "type": "array"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetProfile-Output"
+          }
+        },
+        "required": [
+          "save",
+          "target"
+        ],
+        "title": "SaveEffectMechanic",
+        "type": "object"
+      },
+      "SavingThrow": {
+        "additionalProperties": false,
+        "properties": {
+          "ability": {
+            "$ref": "#/components/schemas/AbilityName"
+          },
+          "dc": {
+            "minimum": 1.0,
+            "title": "Dc",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ability",
+          "dc"
+        ],
+        "title": "SavingThrow",
+        "type": "object"
+      },
+      "SavingThrowBonus": {
+        "additionalProperties": false,
+        "properties": {
+          "ability": {
+            "$ref": "#/components/schemas/AbilityName"
+          },
+          "derivation": {
+            "$ref": "#/components/schemas/ProficiencyDerivation"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ability",
+          "value",
+          "derivation"
+        ],
+        "title": "SavingThrowBonus",
+        "type": "object"
+      },
+      "Sense-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/SenseKind"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Qualifiers",
+            "type": "array"
+          },
+          "range": {
+            "$ref": "#/components/schemas/Distance"
+          }
+        },
+        "required": [
+          "kind",
+          "range"
+        ],
+        "title": "Sense",
+        "type": "object"
+      },
+      "Sense-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/SenseKind"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Qualifiers",
+            "type": "array"
+          },
+          "range": {
+            "$ref": "#/components/schemas/Distance"
+          }
+        },
+        "required": [
+          "kind",
+          "range"
+        ],
+        "title": "Sense",
+        "type": "object"
+      },
+      "SenseKind": {
+        "enum": [
+          "darkvision",
+          "blindsight",
+          "tremorsense",
+          "truesight",
+          "special"
+        ],
+        "title": "SenseKind",
+        "type": "string"
+      },
+      "SenseProfile-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "passive_perception": {
+            "minimum": 1.0,
+            "title": "Passive Perception",
+            "type": "integer"
+          },
+          "senses": {
+            "items": {
+              "$ref": "#/components/schemas/Sense-Input"
+            },
+            "title": "Senses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "passive_perception"
+        ],
+        "title": "SenseProfile",
+        "type": "object"
+      },
+      "SenseProfile-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "passive_perception": {
+            "minimum": 1.0,
+            "title": "Passive Perception",
+            "type": "integer"
+          },
+          "senses": {
+            "items": {
+              "$ref": "#/components/schemas/Sense-Output"
+            },
+            "title": "Senses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "passive_perception"
+        ],
+        "title": "SenseProfile",
+        "type": "object"
+      },
+      "SkillBonus": {
+        "additionalProperties": false,
+        "description": "Authored skill bonus with explicit ability authority for derivation checks.",
+        "properties": {
+          "ability": {
+            "$ref": "#/components/schemas/AbilityName"
+          },
+          "derivation": {
+            "$ref": "#/components/schemas/ProficiencyDerivation"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "skill": {
+            "minLength": 1,
+            "title": "Skill",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "skill",
+          "ability",
+          "value",
+          "derivation"
+        ],
+        "title": "SkillBonus",
+        "type": "object"
+      },
+      "SourceSnapshotV1": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "description_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description Digest"
+          },
+          "name_hint": {
+            "minLength": 1,
+            "title": "Name Hint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name_hint",
+          "description"
+        ],
+        "title": "SourceSnapshotV1",
+        "type": "object"
+      },
+      "SpellGroup-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "maximum": 9.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "slots": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slots"
+          },
+          "spells": {
+            "items": {
+              "$ref": "#/components/schemas/SpellRef"
+            },
+            "minItems": 1,
+            "title": "Spells",
+            "type": "array"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "required": [
+          "usage",
+          "spells"
+        ],
+        "title": "SpellGroup",
+        "type": "object"
+      },
+      "SpellGroup-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "maximum": 9.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "slots": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slots"
+          },
+          "spells": {
+            "items": {
+              "$ref": "#/components/schemas/SpellRef"
+            },
+            "minItems": 1,
+            "title": "Spells",
+            "type": "array"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "required": [
+          "usage",
+          "spells"
+        ],
+        "title": "SpellGroup",
+        "type": "object"
+      },
+      "SpellRef": {
+        "additionalProperties": false,
+        "description": "Spell identity within a group; level lives only on ``SpellGroup.level``.",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rules_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Text"
+          },
+          "school": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "School"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SpellRef",
+        "type": "object"
+      },
+      "SpellcastingMechanic-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "ability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AbilityName"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attack_bonus": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attack Bonus"
+          },
+          "caster_level": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caster Level"
+          },
+          "casting_mode": {
+            "$ref": "#/components/schemas/CastingMode"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/SpellGroup-Input"
+            },
+            "minItems": 1,
+            "title": "Groups",
+            "type": "array"
+          },
+          "kind": {
+            "const": "spellcasting",
+            "default": "spellcasting",
+            "enum": [
+              "spellcasting"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "save_dc": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save Dc"
+          }
+        },
+        "required": [
+          "casting_mode",
+          "groups"
+        ],
+        "title": "SpellcastingMechanic",
+        "type": "object"
+      },
+      "SpellcastingMechanic-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "ability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AbilityName"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attack_bonus": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attack Bonus"
+          },
+          "caster_level": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caster Level"
+          },
+          "casting_mode": {
+            "$ref": "#/components/schemas/CastingMode"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/SpellGroup-Output"
+            },
+            "minItems": 1,
+            "title": "Groups",
+            "type": "array"
+          },
+          "kind": {
+            "const": "spellcasting",
+            "default": "spellcasting",
+            "enum": [
+              "spellcasting"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "save_dc": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Save Dc"
+          }
+        },
+        "required": [
+          "casting_mode",
+          "groups"
+        ],
+        "title": "SpellcastingMechanic",
+        "type": "object"
+      },
+      "StatModifierEffect-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Duration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "stat_modifier",
+            "default": "stat_modifier",
+            "enum": [
+              "stat_modifier"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "modifier": {
+            "title": "Modifier",
+            "type": "integer"
+          },
+          "stat": {
+            "minLength": 1,
+            "title": "Stat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stat",
+          "modifier"
+        ],
+        "title": "StatModifierEffect",
+        "type": "object"
+      },
+      "StatModifierEffect-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Duration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "stat_modifier",
+            "default": "stat_modifier",
+            "enum": [
+              "stat_modifier"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "modifier": {
+            "title": "Modifier",
+            "type": "integer"
+          },
+          "stat": {
+            "minLength": 1,
+            "title": "Stat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stat",
+          "modifier"
+        ],
+        "title": "StatModifierEffect",
+        "type": "object"
+      },
+      "StatblockDefinitionV1-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "abilities": {
+            "$ref": "#/components/schemas/AbilityScores"
+          },
+          "challenge": {
+            "$ref": "#/components/schemas/ChallengeProfile"
+          },
+          "communication": {
+            "$ref": "#/components/schemas/CommunicationProfile-Input"
+          },
+          "defenses": {
+            "$ref": "#/components/schemas/DefenseProfile-Input"
+          },
+          "flavor_text": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatblockFlavorText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "identity": {
+            "$ref": "#/components/schemas/CreatureIdentity"
+          },
+          "lair": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LairProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "movement": {
+            "$ref": "#/components/schemas/MovementProfile-Input"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/CreaturePhase"
+            },
+            "title": "Phases",
+            "type": "array"
+          },
+          "proficiencies": {
+            "$ref": "#/components/schemas/ProficiencyProfile-Input"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourcePool"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "rule_elements": {
+            "items": {
+              "$ref": "#/components/schemas/RuleElement-Input"
+            },
+            "minItems": 1,
+            "title": "Rule Elements",
+            "type": "array"
+          },
+          "ruleset": {
+            "$ref": "#/components/schemas/RulesetRef"
+          },
+          "senses": {
+            "$ref": "#/components/schemas/SenseProfile-Input"
+          },
+          "vitality": {
+            "$ref": "#/components/schemas/VitalityProfile-Input"
+          }
+        },
+        "required": [
+          "ruleset",
+          "identity",
+          "defenses",
+          "vitality",
+          "movement",
+          "abilities",
+          "proficiencies",
+          "senses",
+          "communication",
+          "challenge",
+          "rule_elements"
+        ],
+        "title": "StatblockDefinitionV1",
+        "type": "object"
+      },
+      "StatblockDefinitionV1-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "abilities": {
+            "$ref": "#/components/schemas/AbilityScores"
+          },
+          "challenge": {
+            "$ref": "#/components/schemas/ChallengeProfile"
+          },
+          "communication": {
+            "$ref": "#/components/schemas/CommunicationProfile-Output"
+          },
+          "defenses": {
+            "$ref": "#/components/schemas/DefenseProfile-Output"
+          },
+          "flavor_text": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatblockFlavorText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "identity": {
+            "$ref": "#/components/schemas/CreatureIdentity"
+          },
+          "lair": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LairProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "movement": {
+            "$ref": "#/components/schemas/MovementProfile-Output"
+          },
+          "phases": {
+            "items": {
+              "$ref": "#/components/schemas/CreaturePhase"
+            },
+            "title": "Phases",
+            "type": "array"
+          },
+          "proficiencies": {
+            "$ref": "#/components/schemas/ProficiencyProfile-Output"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourcePool"
+            },
+            "title": "Resources",
+            "type": "array"
+          },
+          "rule_elements": {
+            "items": {
+              "$ref": "#/components/schemas/RuleElement-Output"
+            },
+            "minItems": 1,
+            "title": "Rule Elements",
+            "type": "array"
+          },
+          "ruleset": {
+            "$ref": "#/components/schemas/RulesetRef"
+          },
+          "senses": {
+            "$ref": "#/components/schemas/SenseProfile-Output"
+          },
+          "vitality": {
+            "$ref": "#/components/schemas/VitalityProfile-Output"
+          }
+        },
+        "required": [
+          "ruleset",
+          "identity",
+          "defenses",
+          "vitality",
+          "movement",
+          "abilities",
+          "proficiencies",
+          "senses",
+          "communication",
+          "challenge",
+          "rule_elements"
+        ],
+        "title": "StatblockDefinitionV1",
+        "type": "object"
+      },
+      "StatblockFlavorText": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "title": "StatblockFlavorText",
+        "type": "object"
+      },
+      "StatblockResourceV1": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "minLength": 1,
+            "title": "Created By",
+            "type": "string"
+          },
+          "latest_revision_id": {
+            "pattern": "^rev_[a-z0-9]+$",
+            "title": "Latest Revision Id",
+            "type": "string"
+          },
+          "statblock_id": {
+            "pattern": "^sb_[a-z0-9]+$",
+            "title": "Statblock Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statblock_id",
+          "latest_revision_id",
+          "created_at",
+          "created_by"
+        ],
+        "title": "StatblockResourceV1",
+        "type": "object"
+      },
+      "StatblockRevisionResourceV1": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_bindings": {
+            "items": {
+              "$ref": "#/components/schemas/AssetBindingV1-Output"
+            },
+            "title": "Asset Bindings",
+            "type": "array"
+          },
+          "canonical_definition": {
+            "minLength": 2,
+            "title": "Canonical Definition",
+            "type": "string"
+          },
+          "contract": {
+            "const": "dungeonmind.dungeonbuddy-statblocks",
+            "enum": [
+              "dungeonmind.dungeonbuddy-statblocks"
+            ],
+            "title": "Contract",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": "1.0.0",
+            "enum": [
+              "1.0.0"
+            ],
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/StatblockDefinitionV1-Output"
+          },
+          "definition_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Definition Digest",
+            "type": "string"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "pattern": "^rev_[a-z0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "provenance": {
+            "title": "Provenance",
+            "type": "object"
+          },
+          "revision_id": {
+            "pattern": "^rev_[a-z0-9]+$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "statblock_id": {
+            "pattern": "^sb_[a-z0-9]+$",
+            "title": "Statblock Id",
+            "type": "string"
+          },
+          "validation_receipt": {
+            "$ref": "#/components/schemas/ValidationReceiptV1"
+          }
+        },
+        "required": [
+          "statblock_id",
+          "revision_id",
+          "contract",
+          "contract_version",
+          "definition",
+          "canonical_definition",
+          "definition_digest",
+          "validation_receipt",
+          "created_at"
+        ],
+        "title": "StatblockRevisionResourceV1",
+        "type": "object"
+      },
+      "SummonEffect-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "creature_description": {
+            "minLength": 1,
+            "title": "Creature Description",
+            "type": "string"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Duration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "summon",
+            "default": "summon",
+            "enum": [
+              "summon"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "creature_description"
+        ],
+        "title": "SummonEffect",
+        "type": "object"
+      },
+      "SummonEffect-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "creature_description": {
+            "minLength": 1,
+            "title": "Creature Description",
+            "type": "string"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Duration"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "const": "summon",
+            "default": "summon",
+            "enum": [
+              "summon"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "creature_description"
+        ],
+        "title": "SummonEffect",
+        "type": "object"
+      },
+      "TargetKind": {
+        "enum": [
+          "creature",
+          "creatures",
+          "self",
+          "point",
+          "area",
+          "object",
+          "structure",
+          "special"
+        ],
+        "title": "TargetKind",
+        "type": "string"
+      },
+      "TargetProfile-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TargetKind"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Qualifiers",
+            "type": "array"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RangeProfile-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "TargetProfile",
+        "type": "object"
+      },
+      "TargetProfile-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TargetKind"
+          },
+          "qualifiers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Qualifiers",
+            "type": "array"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RangeProfile-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "TargetProfile",
+        "type": "object"
+      },
+      "Trigger": {
+        "additionalProperties": false,
+        "properties": {
+          "condition_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Text"
+          },
+          "kind": {
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "source_element_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Element Key"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Trigger",
+        "type": "object"
+      },
+      "Usage": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/UsageKind"
+          },
+          "recharge_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RechargeRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refresh_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Text"
+          },
+          "resource_key": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Key"
+          },
+          "uses": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uses"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Usage",
+        "type": "object"
+      },
+      "UsageKind": {
+        "enum": [
+          "at_will",
+          "recharge",
+          "per_turn",
+          "per_round",
+          "per_day",
+          "once",
+          "resource",
+          "spell_slots",
+          "manual"
+        ],
+        "title": "UsageKind",
+        "type": "string"
+      },
+      "ValidateDefinitionRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/StatblockDefinitionV1-Input"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "title": "ValidateDefinitionRequestV1",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "ValidationIssueV1": {
+        "additionalProperties": false,
+        "description": "A stable, UI-addressable validation finding.",
+        "properties": {
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "title": "Code",
+            "type": "string"
+          },
+          "field_path": {
+            "minLength": 1,
+            "title": "Field Path",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ValidationSeverity"
+          },
+          "suggested_resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Resolution"
+          }
+        },
+        "required": [
+          "code",
+          "severity",
+          "field_path",
+          "message"
+        ],
+        "title": "ValidationIssueV1",
+        "type": "object"
+      },
+      "ValidationMode": {
+        "enum": [
+          "generation_candidate",
+          "editor_preview",
+          "persistence"
+        ],
+        "title": "ValidationMode",
+        "type": "string"
+      },
+      "ValidationReceiptV1": {
+        "additionalProperties": false,
+        "description": "Deterministic outcome except for optional caller-supplied validation time.",
+        "properties": {
+          "canonicalizer_version": {
+            "title": "Canonicalizer Version",
+            "type": "string"
+          },
+          "definition_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Definition Digest",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssueV1"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ValidationMode"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ValidationStatus"
+          },
+          "validated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validated At"
+          },
+          "validator_version": {
+            "title": "Validator Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "mode",
+          "validator_version",
+          "canonicalizer_version",
+          "definition_digest"
+        ],
+        "title": "ValidationReceiptV1",
+        "type": "object"
+      },
+      "ValidationResponseV1": {
+        "additionalProperties": false,
+        "properties": {
+          "definition_digest": {
+            "title": "Definition Digest",
+            "type": "string"
+          },
+          "validation_receipt": {
+            "$ref": "#/components/schemas/ValidationReceiptV1"
+          }
+        },
+        "required": [
+          "validation_receipt",
+          "definition_digest"
+        ],
+        "title": "ValidationResponseV1",
+        "type": "object"
+      },
+      "ValidationSeverity": {
+        "enum": [
+          "info",
+          "warning",
+          "error"
+        ],
+        "title": "ValidationSeverity",
+        "type": "string"
+      },
+      "ValidationStatus": {
+        "enum": [
+          "valid",
+          "warnings",
+          "invalid"
+        ],
+        "title": "ValidationStatus",
+        "type": "string"
+      },
+      "VitalityProfile-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "hit_points": {
+            "$ref": "#/components/schemas/HitPointProfile"
+          }
+        },
+        "required": [
+          "hit_points"
+        ],
+        "title": "VitalityProfile",
+        "type": "object"
+      },
+      "VitalityProfile-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "hit_points": {
+            "$ref": "#/components/schemas/HitPointProfile"
+          }
+        },
+        "required": [
+          "hit_points"
+        ],
+        "title": "VitalityProfile",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "DungeonMindServer-owned DungeonBuddy statblock contract.",
+    "title": "DungeonBuddy Statblocks v1",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/internal/dungeonbuddy/v1/statblock-candidates/{candidate_id}": {
+      "get": {
+        "operationId": "get_statblock_candidate_v1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedStatblockCandidateV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Candidate not found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Candidate expired"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          }
+        },
+        "summary": "Get Candidate",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblock-candidates:generate": {
+      "post": {
+        "operationId": "generate_statblock_candidate_v1",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateCandidateRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedStatblockCandidateV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid request or generation validation failure"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Provider rate limited"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Unexpected generation failure (fail-closed unknown outcome)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Provider timeout"
+          }
+        },
+        "summary": "Generate Candidate",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblock-candidates:revise": {
+      "post": {
+        "operationId": "revise_statblock_candidate_v1",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviseCandidateRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedStatblockCandidateV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Source statblock or revision not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid request or generation validation failure"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Provider rate limited"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Unexpected generation failure (fail-closed unknown outcome)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Provider timeout"
+          }
+        },
+        "summary": "Revise Candidate",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblock-definitions:validate": {
+      "post": {
+        "operationId": "validate_statblock_definition_v1",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateDefinitionRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          }
+        },
+        "summary": "Validate Definition Route",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblocks": {
+      "post": {
+        "operationId": "create_statblock_v1",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStatblockRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateStatblockResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Statblock, revision, or acceptance candidate not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Idempotency conflict, parent mismatch, stale parent, or immutable ID conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Request validation or persistence-mode validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          }
+        },
+        "summary": "Create Statblock",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblocks/health": {
+      "get": {
+        "description": "Authenticated contract discovery; never exposes configuration values.",
+        "operationId": "statblocks_v1_capabilities",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured"
+          }
+        },
+        "summary": "Capabilities",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblocks/health/live": {
+      "get": {
+        "description": "Process-level health: no secrets or dependency probes.",
+        "operationId": "statblocks_v1_liveness",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Statblocks V1 Liveness",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblocks/health/ready": {
+      "get": {
+        "description": "Configuration readiness, not an invasive provider availability probe.",
+        "operationId": "statblocks_v1_readiness",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponseV1"
+                }
+              }
+            },
+            "description": "Configuration is ready"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponseV1"
+                }
+              }
+            },
+            "description": "Configuration is not ready"
+          }
+        },
+        "summary": "Readiness",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblocks/{statblock_id}": {
+      "get": {
+        "operationId": "get_statblock_v1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "statblock_id",
+            "required": true,
+            "schema": {
+              "title": "Statblock Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatblockResourceV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Statblock or revision not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          }
+        },
+        "summary": "Get Statblock",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblocks/{statblock_id}/revisions": {
+      "get": {
+        "operationId": "list_statblock_revisions_v1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "statblock_id",
+            "required": true,
+            "schema": {
+              "title": "Statblock Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisionListResponseV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Statblock or revision not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          }
+        },
+        "summary": "List Revisions",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      },
+      "post": {
+        "operationId": "append_statblock_revision_v1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "statblock_id",
+            "required": true,
+            "schema": {
+              "title": "Statblock Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppendRevisionRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatblockRevisionResourceV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Statblock, revision, or acceptance candidate not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Idempotency conflict, parent mismatch, stale parent, or immutable ID conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Request validation or persistence-mode validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          }
+        },
+        "summary": "Append Revision",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    },
+    "/api/internal/dungeonbuddy/v1/statblocks/{statblock_id}/revisions/{revision_id}": {
+      "get": {
+        "description": "Resolve exactly the locator supplied by the caller; never select latest.",
+        "operationId": "get_statblock_revision_v1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "statblock_id",
+            "required": true,
+            "schema": {
+              "title": "Statblock Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_id",
+            "required": true,
+            "schema": {
+              "title": "Revision Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-DungeonBuddy-Internal-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dungeonbuddy-Internal-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatblockRevisionResourceV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Missing internal API key"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Invalid internal API key"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Statblock or revision not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Internal service misconfigured, provider unavailable, or persistence unavailable"
+          }
+        },
+        "summary": "Get Revision",
+        "tags": [
+          "DungeonBuddy Statblocks v1"
+        ]
+      }
+    }
+  }
+}

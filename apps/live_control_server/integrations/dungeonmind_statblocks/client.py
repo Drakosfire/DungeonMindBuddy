@@ -169,6 +169,8 @@ class DungeonMindStatblockV1Client:
         request_id = body.get("request_id")
         if not isinstance(request_id, str) or not request_id.strip():
             raise downstream_unexpected("generate request missing request_id")
+        if candidate.generation_receipt is None:
+            raise downstream_unexpected("candidate missing generation_receipt")
         if candidate.generation_receipt.request_id != request_id:
             raise downstream_unexpected(
                 "candidate generation_receipt.request_id does not match request"

@@ -3042,8 +3042,14 @@ export interface GenerateThreatDraftCandidateResponseV1 {
     | "missing"
     | "partial_cache"
     | "partial_ref"
+    | "partial_both"
     | "reconciled"
     | null;
+  persistence_failures?: Array<{
+    component: "cache" | "candidate_ref";
+    category: string;
+    message: string;
+  }>;
 }
 
 export interface ReadStatblockCandidateResponseV1 {

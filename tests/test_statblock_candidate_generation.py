@@ -494,6 +494,18 @@ def test_corrupt_cache_on_replay_is_typed_integrity_failure(
     )
     assert first.outcome == "success"
 
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-corrupt",
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["candidate_payload"] = {"not": "a candidate"}
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
     def boom_read(root, candidate_id):
         raise CandidateCacheError("corrupt candidate cache record", status_code=500)
 
@@ -501,6 +513,7 @@ def test_corrupt_cache_on_replay_is_typed_integrity_failure(
         "apps.live_control_server.services.statblock_candidate_generation.read_candidate_payload_or_none",
         boom_read,
     )
+    client.error = downstream_not_found(status_code=404)
     second = generate_candidate_from_draft(
         tmp_path,
         draft_id=draft.draft_id,
@@ -512,7 +525,6 @@ def test_corrupt_cache_on_replay_is_typed_integrity_failure(
     )
     assert second.outcome == "failure"
     assert second.failure_category == "integrity_failure"
-    assert "corrupt" in (second.failure_message or "")
     assert len(client.calls) == 1
 
 
@@ -611,6 +623,8 @@ def test_partial_cache_is_recoverable_on_replay(tmp_path: Path, monkeypatch) -> 
     )
     assert first.outcome == "success"
     assert first.cache_status == "partial_cache"
+    assert len(first.persistence_failures) == 1
+    assert first.persistence_failures[0].component == "cache"
     assert len(client.calls) == 1
 
     monkeypatch.undo()
@@ -627,3 +641,214 @@ def test_partial_cache_is_recoverable_on_replay(tmp_path: Path, monkeypatch) -> 
     assert second.candidate_ref is not None
     assert second.candidate_ref.candidate_id == "cand_fixture1"
     assert len(client.calls) == 1
+
+
+def test_partial_both_reports_cache_and_ref_failures(tmp_path: Path, monkeypatch) -> None:
+    draft = _create_draft(tmp_path)
+    client = FakeClient(payload=_candidate_payload(request_id="req-both"))
+
+    def boom_store(root, candidate):
+        raise CandidateCacheError("disk full", status_code=500)
+
+    def boom_append(*args, **kwargs):
+        raise ThreatDraftStoreError("ref write failed", status_code=500)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation.store_candidate_payload",
+        boom_store,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation.append_candidate_ref",
+        boom_append,
+    )
+    result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-both",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.outcome == "success"
+    assert result.cache_status == "partial_both"
+    assert {item.component for item in result.persistence_failures} == {
+        "cache",
+        "candidate_ref",
+    }
+    assert result.failure_category == "cache_failure"
+    assert "cache:" in (result.failure_message or "")
+    assert "candidate_ref:" in (result.failure_message or "")
+    assert result.candidate is not None
+    assert result.candidate_ref is not None
+
+
+def test_received_locator_recovers_without_regenerate(tmp_path: Path, monkeypatch) -> None:
+    from apps.live_control_server.services.statblock_generation_reconciliation import (
+        GenerationReconciliationError,
+        record_generation_received,
+    )
+
+    draft = _create_draft(tmp_path)
+    client = FakeClient(payload=_candidate_payload(request_id="req-received"))
+
+    def received_then_crash(*args, **kwargs):
+        record_generation_received(*args, **kwargs)
+        raise GenerationReconciliationError("crash after received", status_code=500)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation.record_generation_received",
+        received_then_crash,
+    )
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-received",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "failure"
+    assert first.candidate_ref is not None
+    assert first.candidate is not None
+    assert len(client.calls) == 1
+
+    monkeypatch.undo()
+    second = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-received",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert second.outcome == "success"
+    assert second.candidate_ref is not None
+    assert second.candidate_ref.candidate_id == "cand_fixture1"
+    assert len(client.calls) == 1
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert len(reloaded.candidate_refs) == 1
+
+
+def test_expired_pending_claim_can_retry(tmp_path: Path) -> None:
+    draft = _create_draft(tmp_path)
+    client = FakeClient(error=downstream_timeout())
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-expire",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "failure"
+    assert first.failure_category == "downstream_timeout"
+
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-expire",
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["claim_expires_at"] = "2000-01-01T00:00:00Z"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    client.error = None
+    client.payload = _candidate_payload(request_id="req-expire", candidate_id="cand_retry1")
+    second = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-expire",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert second.outcome == "success"
+    assert second.candidate_ref is not None
+    assert second.candidate_ref.candidate_id == "cand_retry1"
+    assert len(client.calls) == 2
+
+
+def test_capacity_reservation_blocks_second_request_before_provider(
+    tmp_path: Path,
+) -> None:
+    draft = _create_draft(tmp_path)
+    for index in range(63):
+        append_candidate_ref(
+            tmp_path,
+            draft_id=draft.draft_id,
+            expected_version=1,
+            candidate_ref=ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{index}",
+                generated_from_draft_version=1,
+                request_id=f"req-{index}",
+                created_at="2026-01-01T00:00:00Z",
+            ),
+        )
+
+    release = threading.Event()
+    client_a = FakeClient(
+        payload=_candidate_payload(request_id="req-a", candidate_id="cand_slota"),
+        delay_event=release,
+    )
+    client_b = FakeClient(
+        payload=_candidate_payload(request_id="req-b", candidate_id="cand_slotb"),
+    )
+    results: dict[str, object] = {}
+    barrier = threading.Barrier(2)
+
+    def worker_a() -> None:
+        barrier.wait(timeout=2.0)
+        try:
+            results["a"] = generate_candidate_from_draft(
+                tmp_path,
+                draft_id=draft.draft_id,
+                request=GenerateThreatDraftCandidateRequestV1(
+                    expected_draft_version=1,
+                    client_request_id="req-a",
+                ),
+                client=client_a,  # type: ignore[arg-type]
+            )
+        except ThreatDraftStoreError as exc:
+            results["a"] = exc
+
+    def worker_b() -> None:
+        barrier.wait(timeout=2.0)
+        threading.Event().wait(0.05)
+        try:
+            results["b"] = generate_candidate_from_draft(
+                tmp_path,
+                draft_id=draft.draft_id,
+                request=GenerateThreatDraftCandidateRequestV1(
+                    expected_draft_version=1,
+                    client_request_id="req-b",
+                ),
+                client=client_b,  # type: ignore[arg-type]
+            )
+        except ThreatDraftStoreError as exc:
+            results["b"] = exc
+
+    threads = [
+        threading.Thread(target=worker_a),
+        threading.Thread(target=worker_b),
+    ]
+    for thread in threads:
+        thread.start()
+    threading.Event().wait(0.05)
+    release.set()
+    for thread in threads:
+        thread.join(timeout=3.0)
+
+    assert len(client_a.calls) + len(client_b.calls) == 1
+    winner = results["a"] if len(client_a.calls) == 1 else results["b"]
+    loser = results["b"] if len(client_a.calls) == 1 else results["a"]
+    assert getattr(winner, "outcome", None) == "success"
+    assert isinstance(loser, ThreatDraftStoreError)
+    assert loser.status_code == 422
