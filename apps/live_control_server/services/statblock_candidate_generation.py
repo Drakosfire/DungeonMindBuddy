@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
     DungeonMindStatblockV1Client,
@@ -138,6 +138,27 @@ def _map_reconciliation_error(exc: GenerationReconciliationError) -> ThreatDraft
     return None
 
 
+def _cache_status_from_failures(
+    failures: list[PersistenceFailureV1],
+) -> Literal[
+    "stored",
+    "partial_cache",
+    "partial_ref",
+    "partial_reconciliation",
+    "partial_both",
+]:
+    if not failures:
+        return "stored"
+    components = {item.component for item in failures}
+    if components == {"cache"}:
+        return "partial_cache"
+    if components == {"candidate_ref"}:
+        return "partial_ref"
+    if components == {"reconciliation"}:
+        return "partial_reconciliation"
+    return "partial_both"
+
+
 def _persist_candidate_artifacts(
     root: Path,
     *,
@@ -204,15 +225,6 @@ def _persist_candidate_artifacts(
             )
         )
 
-    if not failures:
-        cache_status = "stored"
-    elif len(failures) == 2:
-        cache_status = "partial_both"
-    elif failures[0].component == "cache":
-        cache_status = "partial_cache"
-    else:
-        cache_status = "partial_ref"
-
     try:
         finalize_generation_request(
             root,
@@ -223,18 +235,16 @@ def _persist_candidate_artifacts(
             candidate_id=candidate.candidate_id,
         )
     except GenerationReconciliationError as exc:
-        # Locator already durable in received/completed form; surface partial truth.
+        # Locator already durable in received form; do not mislabel as ref failure.
         failures.append(
             PersistenceFailureV1(
-                component="candidate_ref",
+                component="reconciliation",
                 category="integrity_failure",
                 message=str(exc),
             )
         )
-        if cache_status == "stored":
-            cache_status = "partial_ref"
-        elif cache_status == "partial_cache":
-            cache_status = "partial_both"
+
+    cache_status = _cache_status_from_failures(failures)
 
     return GenerateThreatDraftCandidateResponseV1(
         draft_id=draft_id,
@@ -243,7 +253,7 @@ def _persist_candidate_artifacts(
         outcome="success",
         candidate_ref=candidate_ref,
         candidate=candidate,
-        cache_status=cache_status,  # type: ignore[arg-type]
+        cache_status=cache_status,
         persistence_failures=failures,
         failure_category=failures[0].category if failures else None,
         failure_message=(
@@ -451,12 +461,26 @@ def generate_candidate_from_draft(
             message="generation request is already claimed without a durable candidate",
         )
 
+    if claim_status == "abandoned":
+        # Expired pending is terminal: the provider is non-idempotent and may
+        # already have succeeded without a durable locator binding.
+        return _failure(
+            draft_id=draft.draft_id,
+            draft_version=source_version,
+            request_id=request_id,
+            category="generation_incomplete",
+            message=(
+                "generation request expired without a durable candidate; "
+                "request_id is not retryable"
+            ),
+        )
+
     active_client = client or DungeonMindStatblockV1Client()
     owns_client = client is None
     try:
         candidate = active_client.generate_candidate(body)
     except StatblockIntegrationError as exc:
-        # Pending claim remains until TTL expiry, then may be abandoned/retried.
+        # Pending claim stays until TTL; expiry abandons without provider retry.
         return _failure(
             draft_id=draft.draft_id,
             draft_version=source_version,

@@ -3042,11 +3042,12 @@ export interface GenerateThreatDraftCandidateResponseV1 {
     | "missing"
     | "partial_cache"
     | "partial_ref"
+    | "partial_reconciliation"
     | "partial_both"
     | "reconciled"
     | null;
   persistence_failures?: Array<{
-    component: "cache" | "candidate_ref";
+    component: "cache" | "candidate_ref" | "reconciliation";
     category: string;
     message: string;
   }>;

@@ -732,7 +732,7 @@ def test_received_locator_recovers_without_regenerate(tmp_path: Path, monkeypatc
     assert len(reloaded.candidate_refs) == 1
 
 
-def test_expired_pending_claim_can_retry(tmp_path: Path) -> None:
+def test_expired_pending_claim_does_not_retry_provider(tmp_path: Path) -> None:
     draft = _create_draft(tmp_path)
     client = FakeClient(error=downstream_timeout())
     first = generate_candidate_from_draft(
@@ -770,10 +770,103 @@ def test_expired_pending_claim_can_retry(tmp_path: Path) -> None:
         ),
         client=client,  # type: ignore[arg-type]
     )
-    assert second.outcome == "success"
-    assert second.candidate_ref is not None
-    assert second.candidate_ref.candidate_id == "cand_retry1"
-    assert len(client.calls) == 2
+    assert second.outcome == "failure"
+    assert second.failure_category == "generation_incomplete"
+    assert "not retryable" in (second.failure_message or "")
+    assert len(client.calls) == 1
+    abandoned = json.loads(path.read_text(encoding="utf-8"))
+    assert abandoned["status"] == "abandoned"
+
+
+def test_abandoned_records_count_toward_physical_storage_bound(tmp_path: Path) -> None:
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    for index in range(rec.MAX_RECORDS_PER_DRAFT):
+        request_id = f"req-abandoned-{index}"
+        path = rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=request_id,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        record = rec.GenerationReconciliationRecordV1(
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=request_id,
+            request_digest=f"sha256:{'a' * 64}",
+            status="abandoned",
+            candidate_id=None,
+            candidate_payload=None,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            claim_expires_at=None,
+        )
+        path.write_text(
+            json.dumps(record.model_dump(mode="json", by_alias=True)),
+            encoding="utf-8",
+        )
+
+    client = FakeClient(payload=_candidate_payload(request_id="req-overflow"))
+    result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-overflow",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.outcome == "failure"
+    assert result.failure_category == "integrity_failure"
+    assert "storage bound" in (result.failure_message or "")
+    assert len(client.calls) == 0
+
+    directory = rec._draft_directory(tmp_path, draft.draft_id)
+    assert len(list(directory.glob("v*__*.json"))) == rec.MAX_RECORDS_PER_DRAFT
+    listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
+    assert len(listed) == rec.MAX_RECORDS_PER_DRAFT
+
+
+def test_finalize_failure_reports_reconciliation_component(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _create_draft(tmp_path)
+    client = FakeClient(payload=_candidate_payload(request_id="req-finalize"))
+
+    def boom_finalize(*args, **kwargs):
+        from apps.live_control_server.services.statblock_generation_reconciliation import (
+            GenerationReconciliationError,
+        )
+
+        raise GenerationReconciliationError(
+            "finalize write failed",
+            status_code=500,
+        )
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation.finalize_generation_request",
+        boom_finalize,
+    )
+    result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-finalize",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.outcome == "success"
+    assert result.cache_status == "partial_reconciliation"
+    assert len(result.persistence_failures) == 1
+    assert result.persistence_failures[0].component == "reconciliation"
+    assert result.failure_category == "integrity_failure"
+    assert "reconciliation:" in (result.failure_message or "")
+    assert result.candidate_ref is not None
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert len(reloaded.candidate_refs) == 1
 
 
 def test_capacity_reservation_blocks_second_request_before_provider(

@@ -21,7 +21,7 @@ class GenerateThreatDraftCandidateRequestV1(StrictModel):
 
 
 class PersistenceFailureV1(StrictModel):
-    component: Literal["cache", "candidate_ref"]
+    component: Literal["cache", "candidate_ref", "reconciliation"]
     category: str = Field(min_length=1, max_length=128)
     message: str = Field(min_length=1, max_length=1024)
 
@@ -45,6 +45,7 @@ class GenerateThreatDraftCandidateResponseV1(StrictModel):
             "missing",
             "partial_cache",
             "partial_ref",
+            "partial_reconciliation",
             "partial_both",
             "reconciled",
         ]
