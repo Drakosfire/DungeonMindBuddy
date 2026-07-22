@@ -147,22 +147,67 @@ def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[Test
     assert response.status_code == 422
 
 
-def _live_extraction_payload() -> dict:
+def _live_extraction_payload(*, source_artifact_id: str, spref: str) -> dict:
     from tests.fixtures.graph_memory.category_extraction_helpers import (
         canonical_candidate_graph_from_passes,
     )
 
-    return canonical_candidate_graph_from_passes(spref="session-22:recap:paragraph:001")
+    graph = canonical_candidate_graph_from_passes(spref=spref)
+    graph["source_artifact_ids"] = [source_artifact_id]
+    for collection in ("nodes", "edges", "beats", "ignored_items", "deferred_items", "proposed_writes"):
+        for item in graph.get(collection) or []:
+            if not isinstance(item, dict):
+                continue
+            refs = item.get("evidence_refs") or []
+            stamped = []
+            for ref in refs:
+                if not isinstance(ref, dict):
+                    continue
+                stamped.append(
+                    {
+                        **ref,
+                        "source_artifact_id": source_artifact_id,
+                        "source_ref_id": f"{source_artifact_id}:text",
+                        "source_anchor_id": ref.get("source_anchor_id")
+                        or f"anchor:{ref.get('source_span_ref_id') or spref}",
+                        "label": ref.get("label") or ref.get("source_span_ref_id") or spref,
+                        "evidence_role": ref.get("evidence_role") or "source_evidence",
+                        "can_open_source": True,
+                        "can_highlight_span": True,
+                        "source_span_ref_id": ref.get("source_span_ref_id") or spref,
+                    }
+                )
+            item["evidence_refs"] = stamped
+    return graph
 
 
 def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
-    import evals.graph_memory_layer.graph_preview_runner as runner
+    import src.graph_memory.extraction.graph_preview_runner as prod_runner
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionResult,
     )
 
     def fake_extract(options, *, client=None, progress_callback=None):  # noqa: ANN001
-        graph = _live_extraction_payload()
+        spans = list(options.source_span_index.get("spans") or [])
+        spref = "session-22:recap:paragraph:001"
+        for span in spans:
+            if not isinstance(span, dict):
+                continue
+            candidate = str(
+                span.get("source_span_id")
+                or span.get("source_span_ref_id")
+                or span.get("span_id")
+                or ""
+            ).strip()
+            if candidate:
+                spref = candidate
+                break
+        artifact = str(
+            options.source_artifact_id
+            or options.source_span_index.get("source_artifact_id")
+            or ""
+        ).strip()
+        graph = _live_extraction_payload(source_artifact_id=artifact, spref=spref)
         return CategoryGraphExtractionResult(
             candidate_graph=graph,
             envelope={"candidate_graph": graph},
@@ -172,14 +217,26 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
             model_id=options.model_id or "gpt-5.4-mini",
             total_cost_usd=0.0,
             diagnostics={"extraction_mode": "category_decomposed"},
+            known_entity_mentions={
+                "schema": "dmb_known_entity_mention_sidecar_v0",
+                "version": "0.1",
+                "campaign_id": options.campaign_id,
+                "session_id": options.session_id,
+                "mentions": [],
+                "ambiguous_surfaces": [],
+                "diagnostics": {"mention_count": 0, "empty_contract": True},
+            },
         )
 
-    monkeypatch.setattr(runner, "extract_category_candidate_graph", fake_extract)
+    monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_extract)
 
 
 def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
@@ -202,6 +259,18 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
     assert graph["model_id"] == "gpt-5.4-mini"
     assert graph["candidate_node_count"] >= 1
     assert (ROOT / graph["candidate_graph_path"]).is_file()
+
+    run_id = graph["extraction_run_id"]
+    assert run_id
+    run = get_extraction_run(ROOT, run_id)
+    assert run.status in {ExtractionRunStatus.REVIEWABLE, ExtractionRunStatus.FAILED}
+    assert run.status == ExtractionRunStatus.REVIEWABLE
+    assert run.source_artifact_id == graph["source_artifact_id"]
+    candidate = json.loads((ROOT / graph["candidate_graph_path"]).read_text(encoding="utf-8"))
+    assert run.source_artifact_id in (candidate.get("source_artifact_ids") or [])
+    for node in candidate.get("nodes") or []:
+        for ref in node.get("evidence_refs") or []:
+            assert ref.get("source_artifact_id") == run.source_artifact_id
 
 
 def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_path(
@@ -438,7 +507,7 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
 def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_success(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import evals.graph_memory_layer.graph_preview_runner as runner
+    import src.graph_memory.extraction.graph_preview_runner as prod_runner
 
     client, _corpus, _candidate = client_env
     shutil.rmtree(ROOT / "out/graph_memory/runs/longmont-c2/session-22", ignore_errors=True)
@@ -446,7 +515,7 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
     def fake_extract_blocked(*_args, **_kwargs):  # noqa: ANN002, ANN003
         raise RuntimeError("test llm blocked")
 
-    monkeypatch.setattr(runner, "extract_category_candidate_graph", fake_extract_blocked)
+    monkeypatch.setattr(prod_runner, "extract_category_candidate_graph", fake_extract_blocked)
 
     response = client.post(
         "/api/live/recap-ingest",

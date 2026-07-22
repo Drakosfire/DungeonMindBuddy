@@ -46,6 +46,8 @@ DEFAULT_SOURCE_SPAN_INDEX_DIR_REL = "out/registries/source_span_indexes"
 SOURCE_ARTIFACT_REGISTRY_SCHEMA = "dmb_source_artifact_registry_v1"
 
 _SAFE_ARTIFACT_DIR_RE = re.compile(r"[^A-Za-z0-9._-]+")
+# Single path segment: no slashes, no ``..``, no empty / absolute segments.
+_SAFE_PATH_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 class SourceArtifactRegistryError(ValueError):
@@ -81,6 +83,33 @@ def _normalize_committed_markdown(markdown: str) -> str:
 
 def _artifact_dir_name(source_artifact_id: str) -> str:
     return _SAFE_ARTIFACT_DIR_RE.sub("_", source_artifact_id)
+
+
+def _require_safe_path_segment(value: str, *, field_name: str) -> str:
+    cleaned = (value or "").strip()
+    if not cleaned or not _SAFE_PATH_SEGMENT_RE.fullmatch(cleaned):
+        raise SourceArtifactRegistryError(
+            f"{field_name} must be a single safe path segment",
+            status_code=422,
+        )
+    if cleaned in {".", ".."} or "/" in cleaned or "\\" in cleaned:
+        raise SourceArtifactRegistryError(
+            f"{field_name} must be a single safe path segment",
+            status_code=422,
+        )
+    return cleaned
+
+
+def _resolve_registry_content_path(root: Path, relpath: str) -> Path:
+    """Resolve ``root / relpath`` and reject escapes outside ``root``."""
+    resolved_root = root.resolve()
+    target = (resolved_root / relpath).resolve()
+    if not target.is_relative_to(resolved_root):
+        raise SourceArtifactRegistryError(
+            "recap content path escapes repository root",
+            status_code=422,
+        )
+    return target
 
 
 def source_span_index_relpath(source_artifact_id: str) -> str:
@@ -537,13 +566,12 @@ def create_recap_source_artifact(
     (``out/registries/source_content/recap/<campaign>/<session>/<sha256>.md``).
     The caller's original recap path is read-only input and is never rewritten.
     """
-    cleaned_campaign = (campaign_id or "").strip()
-    cleaned_session = (session_id or "").strip()
-    if not cleaned_campaign or not cleaned_session:
-        raise SourceArtifactRegistryError(
-            "recap SourceArtifact requires campaign_id and session_id",
-            status_code=422,
-        )
+    cleaned_campaign = _require_safe_path_segment(
+        campaign_id or "", field_name="campaign_id"
+    )
+    cleaned_session = _require_safe_path_segment(
+        session_id or "", field_name="session_id"
+    )
     if recap_path is None and recap_text is None:
         raise SourceArtifactRegistryError(
             "recap_path or recap_text is required",
@@ -584,7 +612,7 @@ def create_recap_source_artifact(
         "out/registries/source_content/recap/"
         f"{cleaned_campaign}/{cleaned_session}/{content_sha256}.md"
     )
-    target = root / relpath
+    target = _resolve_registry_content_path(root, relpath)
     target.parent.mkdir(parents=True, exist_ok=True)
     if not target.is_file():
         target.write_text(content, encoding="utf-8")

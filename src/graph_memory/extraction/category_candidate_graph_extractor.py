@@ -467,7 +467,7 @@ def render_category_pass_prompts(
         default_type = pass_spec.default_node_type or ""
         instruction = pass_spec.instruction
         extra = ""
-        if pass_name == "thread_pass":
+        if pass_spec.include_dispositions:
             extra = (
                 "\n\nAlso include JSON keys `ignored_items` and `deferred_items` (arrays, may be empty). "
                 "Each item: `item_id`, `label`, `reason`, `evidence_refs`; deferred may include `suggested_next_step`."
@@ -817,7 +817,7 @@ def consolidate_category_outputs(
         for raw in raw_nodes:
             if isinstance(raw, Mapping):
                 nodes.append(_normalize_node(raw, default_type, semantic_state=semantic_state))
-        if pass_name == "thread_pass":
+        if pass_spec.include_dispositions:
             for raw in payload.get("ignored_items") or []:
                 if isinstance(raw, Mapping):
                     ignored.append(_normalize_disposition(raw, "ignored"))

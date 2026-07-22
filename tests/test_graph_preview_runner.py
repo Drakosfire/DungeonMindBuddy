@@ -447,6 +447,11 @@ def test_production_known_entity_matching_uses_hydrated_spans(
 
 
 def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None:
+    from src.graph_memory.candidate_graph_preview import (
+        candidate_graph_preview_from_dict,
+        validate_candidate_graph_preview,
+    )
+
     source = _admit_worldbuilding(tmp_path, "Mirathorn is a river city.\n")
     span_ref = _first_paragraph_span_id(source)
     result = run_production_extraction(
@@ -467,3 +472,28 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
     for node in nodes:
         assert node["semantic_state"]["canon_state"] == "worldbuilding_draft"
         assert node["semantic_state"]["lifecycle_state"] == "candidate"
+    preview = candidate_graph_preview_from_dict(result.candidate_graph or {})
+    report = validate_candidate_graph_preview(preview)
+    assert report.issue_counts.get("invalid_semantic_state", 0) == 0
+    assert report.issues == ()
+
+
+def test_recap_snapshot_rejects_path_escape(tmp_path: Path) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+    )
+
+    with pytest.raises(SourceArtifactRegistryError, match="safe path segment"):
+        create_recap_source_artifact(
+            tmp_path,
+            campaign_id="../..",
+            session_id="session-24",
+            recap_text="escape attempt\n",
+        )
+    with pytest.raises(SourceArtifactRegistryError, match="safe path segment"):
+        create_recap_source_artifact(
+            tmp_path,
+            campaign_id="longmont-c2",
+            session_id="session-24/../evil",
+            recap_text="escape attempt\n",
+        )

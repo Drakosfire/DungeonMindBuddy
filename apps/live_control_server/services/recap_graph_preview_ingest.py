@@ -81,6 +81,7 @@ def build_recap_graph_preview_bundle(
     context_vocabulary_packet: ContextVocabularyPacket | None = None,
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
+    category_client: Any | None = None,
 ) -> dict[str, Any]:
     """Build a preview graph-ingest run from a normalized recap."""
 
@@ -154,7 +155,7 @@ def build_recap_graph_preview_bundle(
         _repo_relative(run_dir, repo),
         extract_graph,
     )
-    # Explicit profile/adapter admission through the production controller (no LLM).
+    # Canonical ExtractionRun owns model extraction / refusal / failure / success.
     production = run_recap_production_extraction(
         repo_root=repo,
         campaign_id=campaign_id,
@@ -162,15 +163,42 @@ def build_recap_graph_preview_bundle(
         recap_path=normalized,
         profile=graph_extraction_profile,
         model_id=graph_model_id,
-        allow_llm=False,
+        allow_llm=extract_graph,
+        category_client=category_client,
         output_dir=run_dir / "extraction_run",
+        context_vocabulary_packet=context_vocabulary_packet,
+        enable_node_vocabulary_packet=enable_node_vocabulary_packet,
+        enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
     )
     logger.info(
-        "production extraction admitted run_id=%s profile=%s status=%s",
+        "production extraction run_id=%s profile=%s status=%s failure_kind=%s",
         production.run.run_id,
         production.run.profile_id,
         production.run.status.value,
+        production.failure_kind,
     )
+
+    production_candidate: Path | None = None
+    if extract_graph and production.candidate_graph is not None:
+        candidate_component = production.run.components.get("candidate_graph")
+        if candidate_component is not None and str(candidate_component.uri).startswith("repo://"):
+            production_candidate = (repo / str(candidate_component.uri).removeprefix("repo://")).resolve()
+        else:
+            production_candidate = (run_dir / "extraction_run" / "candidate_graph.json").resolve()
+            production_candidate.parent.mkdir(parents=True, exist_ok=True)
+            production_candidate.write_text(
+                json.dumps(production.candidate_graph, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        if production.known_entity_mentions is not None:
+            known_path = run_dir / "extraction_run" / "known_entity_mentions.json"
+            known_path.write_text(
+                json.dumps(production.known_entity_mentions, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+    # Legacy GraphIngest packaging only — never perform a second model call here.
+    legacy_candidate = candidate or production_candidate
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id=campaign_id,
@@ -178,10 +206,10 @@ def build_recap_graph_preview_bundle(
             normalized_recap_path=normalized,
             output_dir=run_dir,
             source_label=f"{campaign_id} session {session} normalized recap",
-            allow_llm=extract_graph,
+            allow_llm=False,
             model_id=graph_model_id,
             comparison_mode="none",
-            candidate_graph_path=candidate,
+            candidate_graph_path=legacy_candidate,
             input_path_record=source_recap_path,
             graph_extraction_profile=requested_profile,
             context_vocabulary_packet=context_vocabulary_packet,
@@ -189,6 +217,17 @@ def build_recap_graph_preview_bundle(
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
         )
     )
+    if (
+        production.known_entity_mentions is not None
+        and legacy_candidate is not None
+        and result.output_dir.is_dir()
+    ):
+        known_out = result.output_dir / "known_entity_mentions.json"
+        known_out.write_text(
+            json.dumps(production.known_entity_mentions, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
     summary = _summary_for_manifest(repo, result.manifest_path)
     logger.info(
         "graph preview bundle finished campaign=%s session=session-%s status=%s manifest=%s "
@@ -200,7 +239,61 @@ def build_recap_graph_preview_bundle(
         _repo_relative(result.candidate_graph_path, repo) if result.candidate_graph_path else None,
         _repo_relative(result.validation_report_path, repo) if result.validation_report_path else None,
     )
-    return _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+
+    if extract_graph and production.failure_kind is not None and production.candidate_graph is None:
+        # Persist llm_blocked on the GraphIngest manifest so materialize/status
+        # reloads from disk still surface the production failure.
+        manifest_payload = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+        diagnostics = dict(manifest_payload.get("diagnostics") or {})
+        diagnostics["extraction_mode"] = "llm_blocked"
+        diagnostics["extraction_run_id"] = production.run.run_id
+        diagnostics["extraction_run_status"] = production.run.status.value
+        diagnostics["failure_kind"] = production.failure_kind
+        manifest_payload["diagnostics"] = diagnostics
+        manifest_payload["errors"] = list(
+            production.diagnostics
+            or [f"extraction failed: {production.failure_kind}"]
+        )
+        result.manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        summary = _summary_for_manifest(repo, result.manifest_path)
+
+    if extract_graph and production.candidate_graph is not None and production.failure_kind is None:
+        manifest_payload = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+        diagnostics = dict(manifest_payload.get("diagnostics") or {})
+        diagnostics["extraction_mode"] = "category_decomposed"
+        diagnostics["extraction_run_id"] = production.run.run_id
+        diagnostics["extraction_run_status"] = production.run.status.value
+        diagnostics["source_artifact_id"] = production.run.source_artifact_id
+        manifest_payload["diagnostics"] = diagnostics
+        health = dict(manifest_payload.get("health") or {})
+        if production.model_id:
+            health["model_id"] = production.model_id
+        manifest_payload["health"] = health
+        result.manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        summary = _summary_for_manifest(repo, result.manifest_path)
+
+    status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+    status["extraction_run_id"] = production.run.run_id
+    status["extraction_run_status"] = production.run.status.value
+    status["source_artifact_id"] = production.run.source_artifact_id
+    if extract_graph and production.candidate_graph is not None and production.failure_kind is None:
+        status["extraction_mode"] = "category_decomposed"
+        if production.model_id:
+            status["model_id"] = production.model_id
+    elif extract_graph and production.failure_kind is not None and production.candidate_graph is None:
+        status["extraction_mode"] = "llm_blocked"
+        status["blocked_reason"] = (
+            production.diagnostics[0]
+            if production.diagnostics
+            else f"extraction failed: {production.failure_kind}"
+        )
+    return status
 
 
 def materialize_recap_preview_supergraph(
@@ -369,6 +462,17 @@ def materialize_recap_preview_supergraph(
         return status
     if summary.status != GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value:
         status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+        if forced_build_status:
+            for key in (
+                "extraction_run_id",
+                "extraction_run_status",
+                "source_artifact_id",
+                "extraction_mode",
+                "blocked_reason",
+                "model_id",
+            ):
+                if forced_build_status.get(key) is not None:
+                    status[key] = forced_build_status[key]
         status["blocked_reason"] = (
             status.get("blocked_reason")
             or "candidate graph required before preview union materialization"
@@ -682,6 +786,12 @@ def _status_from_summary(
     status["extraction_mode"] = diagnostics.get("extraction_mode")
     status["graph_extraction_profile"] = diagnostics.get("graph_extraction_profile")
     status["graph_extraction_profile_options"] = diagnostics.get("graph_extraction_profile_options")
+    if diagnostics.get("extraction_run_id"):
+        status["extraction_run_id"] = diagnostics.get("extraction_run_id")
+    if diagnostics.get("extraction_run_status"):
+        status["extraction_run_status"] = diagnostics.get("extraction_run_status")
+    if diagnostics.get("source_artifact_id"):
+        status["source_artifact_id"] = diagnostics.get("source_artifact_id")
     status["model_id"] = manifest.get("health", {}).get("model_id")
     status["candidate_node_count"] = manifest.get("health", {}).get("node_count", 0)
     status["candidate_edge_count"] = manifest.get("health", {}).get("edge_count", 0)
