@@ -16,10 +16,16 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestRunSummary,
     discover_graph_ingest_runs,
 )
+from apps.live_control_server.services.graph_preview_runner import (
+    run_recap_production_extraction,
+)
 from evals.graph_memory_layer.graph_preview_runner import (
     GraphPreviewRunnerOptions,
     normalize_graph_extraction_profile,
     run_graph_preview_extraction,
+)
+from src.graph_memory.extraction.recap_extraction_profile import (
+    resolve_legacy_graph_extraction_profile,
 )
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 from graph_memory.ingestion.graph_ingest_run import (
@@ -90,11 +96,13 @@ def build_recap_graph_preview_bundle(
     )
     _reject_forbidden_candidate(candidate)
     requested_profile = normalize_graph_extraction_profile(graph_extraction_profile)
+    profile_id, profile_version = resolve_legacy_graph_extraction_profile(graph_extraction_profile)
     profile_sensitive_reuse = extract_graph or graph_extraction_profile is not None
     logger.info(
         "graph preview bundle requested campaign=%s session=session-%s normalized=%s "
         "source_recap_path=%s source_recap_sha256=%s force_graph_run=%s "
-        "candidate_graph_path=%s extract_graph=%s model_id=%s graph_extraction_profile=%s",
+        "candidate_graph_path=%s extract_graph=%s model_id=%s graph_extraction_profile=%s "
+        "profile_id=%s profile_version=%s",
         campaign_id,
         session,
         normalized_recap_path,
@@ -105,6 +113,8 @@ def build_recap_graph_preview_bundle(
         extract_graph,
         graph_model_id,
         graph_extraction_profile,
+        profile_id,
+        profile_version,
     )
 
     desired_statuses = {
@@ -143,6 +153,23 @@ def build_recap_graph_preview_bundle(
         session,
         _repo_relative(run_dir, repo),
         extract_graph,
+    )
+    # Explicit profile/adapter admission through the production controller (no LLM).
+    production = run_recap_production_extraction(
+        repo_root=repo,
+        campaign_id=campaign_id,
+        session_id=f"session-{session}",
+        recap_path=normalized,
+        profile=graph_extraction_profile,
+        model_id=graph_model_id,
+        allow_llm=False,
+        output_dir=run_dir / "extraction_run",
+    )
+    logger.info(
+        "production extraction admitted run_id=%s profile=%s status=%s",
+        production.run.run_id,
+        production.run.profile_id,
+        production.run.status.value,
     )
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
