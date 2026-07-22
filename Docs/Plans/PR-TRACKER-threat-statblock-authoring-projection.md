@@ -299,3 +299,14 @@ This documentation PR does not create implementation-loop judgment records or ch
 - record judgment and doc-sync atomically after review.
 
 Do not fabricate future PR numbers or green judgment records in this design PR.
+
+## 7. Review corrections applied
+
+A post-draft architecture review identified stale slice IDs left from the earlier 15-slice decomposition. Corrected before dispatch:
+
+- `SBW02`: combat → `SBW15`; media → `SBW16+`; `Kernal` → `Kernel`.
+- `SBW04`: Tiptap embed → `SBW12`; combat → `SBW15`.
+- `SBW05`: Markdown/Tiptap embed → `SBW12`.
+- `SBW11`: explicitly independent of `SBW10`, required before `SBW12`.
+- `SBW12`: removed incorrect ownership by `SBW14`; embed/placement repinning is deferred and unnumbered.
+- `SBW01`: documented its intentional older handoff-template shape for review tooling.
