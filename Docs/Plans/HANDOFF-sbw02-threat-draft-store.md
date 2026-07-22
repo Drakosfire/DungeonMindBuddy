@@ -118,10 +118,10 @@ Required report: name the path and why copying the helper would create a second 
 | `StatblockWorkbenchModule.tsx` | UI replacement is `SBW04` |
 | DungeonMind statblock client calls | Generation is `SBW03` |
 | `GeneratedStatblockCandidateV1` cache | Candidate lifecycle is `SBW03` |
-| graph authoring/Kernal files | Publication is `SBW08–09` |
+| graph authoring/Kernel files | Publication is `SBW08–09` |
 | corpus Markdown writer/promotion | ThreatDraft is not corpus truth |
-| combat state | `SBW13` |
-| asset/media storage | `SBW14+` |
+| combat state | `SBW15` |
+| asset/media storage | `SBW16+` |
 | migration of `StatblockDraftArtifactView` | Legacy cleanup occurs when the normal UI is replaced |
 
 ## §6 Implementation contract
