@@ -1,0 +1,29 @@
+{
+  "schema_version": "dmb_pdf_lineage_fixture_v1",
+  "pdf_bytes_utf8": "%PDF-fixture minimal mechanical page\n",
+  "ocr_text": "Stonefist Brute\nArmor Class 15\nHit Points 45\n",
+  "page_map": {
+    "page_count": 1,
+    "regions": [
+      {
+        "region_id": "title",
+        "page": 1,
+        "text": "Stonefist Brute",
+        "bbox": [72.0, 700.0, 300.0, 720.0]
+      },
+      {
+        "region_id": "ac",
+        "page": 1,
+        "text": "Armor Class 15",
+        "bbox": [72.0, 680.0, 220.0, 696.0]
+      },
+      {
+        "region_id": "hp",
+        "page": 1,
+        "text": "Hit Points 45",
+        "bbox": [72.0, 660.0, 220.0, 676.0]
+      }
+    ]
+  },
+  "notes": "Redacted page-lineage fixture only. Not gold."
+}
