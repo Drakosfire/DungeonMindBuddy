@@ -130,8 +130,19 @@ def _save_index(root: Path, index: ThreatDraftIndexV1) -> None:
         raise _storage_unavailable() from None
 
 
+def _require_committed_draft_id(root: Path, draft_id: str) -> str:
+    """Index membership is the commit authority for durable reads/updates."""
+    cleaned = _validated_draft_id(draft_id)
+    index = _load_index(root)
+    if cleaned not in index.draft_ids:
+        raise ThreatDraftStoreError("threat draft not found", status_code=404)
+    return cleaned
+
+
 def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
-    path = _draft_path(root, draft_id)
+    """Load one draft file and require embedded identity to match the requested ID."""
+    cleaned = _validated_draft_id(draft_id)
+    path = _draft_path(root, cleaned)
     try:
         if not path.is_file():
             raise ThreatDraftStoreError("threat draft not found", status_code=404)
@@ -141,7 +152,7 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
     except OSError:
         raise _storage_unavailable() from None
     try:
-        return ThreatDraftV1.model_validate(payload)
+        draft = ThreatDraftV1.model_validate(payload)
     except ThreatDraftStoreError:
         raise
     except Exception:
@@ -149,10 +160,23 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
             "corrupt threat draft record",
             status_code=500,
         ) from None
+    if draft.draft_id != cleaned:
+        raise ThreatDraftStoreError(
+            "threat draft identity mismatch",
+            status_code=500,
+        )
+    return draft
 
 
-def _save_draft_unlocked(root: Path, draft: ThreatDraftV1) -> None:
-    path = _draft_path(root, draft.draft_id)
+def _save_draft_unlocked(root: Path, draft: ThreatDraftV1, *, as_draft_id: str) -> None:
+    """Persist a draft only under the requested/committed ID path."""
+    cleaned = _validated_draft_id(as_draft_id)
+    if draft.draft_id != cleaned:
+        raise ThreatDraftStoreError(
+            "threat draft identity mismatch",
+            status_code=500,
+        )
+    path = _draft_path(root, cleaned)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         write_json(path, draft.model_dump(mode="json", by_alias=True))
@@ -195,7 +219,7 @@ def create_threat_draft(root: Path, request: CreateThreatDraftRequest) -> Threat
     with _store_lock(root):
         draft_written = False
         try:
-            _save_draft_unlocked(root, draft)
+            _save_draft_unlocked(root, draft, as_draft_id=draft.draft_id)
             draft_written = True
             index = _load_index(root)
             if draft.draft_id in index.draft_ids:
@@ -216,9 +240,9 @@ def create_threat_draft(root: Path, request: CreateThreatDraftRequest) -> Threat
 
 
 def get_threat_draft(root: Path, draft_id: str) -> ThreatDraftV1:
-    cleaned = _validated_draft_id(draft_id)
     with _store_lock(root):
-        return _load_draft_unlocked(root, cleaned)
+        committed_id = _require_committed_draft_id(root, draft_id)
+        return _load_draft_unlocked(root, committed_id)
 
 
 def list_threat_drafts(
@@ -277,9 +301,9 @@ def update_threat_draft(
     draft_id: str,
     request: UpdateThreatDraftRequest,
 ) -> ThreatDraftV1:
-    cleaned = _validated_draft_id(draft_id)
     with _store_lock(root):
-        current = _load_draft_unlocked(root, cleaned)
+        committed_id = _require_committed_draft_id(root, draft_id)
+        current = _load_draft_unlocked(root, committed_id)
         if current.version != request.expected_version:
             raise ThreatDraftStoreError(
                 "expected_version mismatch",
@@ -301,5 +325,5 @@ def update_threat_draft(
                 "updated_at": _utc_now_iso(),
             }
         )
-        _save_draft_unlocked(root, updated)
+        _save_draft_unlocked(root, updated, as_draft_id=committed_id)
         return updated

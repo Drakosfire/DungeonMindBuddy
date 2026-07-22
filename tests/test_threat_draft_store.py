@@ -285,6 +285,102 @@ def test_missing_indexed_file_is_integrity_failure(tmp_path: Path) -> None:
     assert "integrity failure" in str(exc_info.value)
 
 
+def test_uncommitted_orphan_is_not_directly_readable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    real_write_json = write_json
+    index_path = _index_path(tmp_path)
+
+    def boom_write(path: Path, data: dict) -> None:
+        if Path(path) == index_path:
+            raise OSError("disk full")
+        real_write_json(path, data)
+
+    def boom_remove(root: Path, draft_id: str) -> None:
+        raise ThreatDraftStoreError(
+            "threat draft storage unavailable",
+            status_code=500,
+        )
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.threat_draft_store.write_json",
+        boom_write,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.threat_draft_store._remove_draft_file",
+        boom_remove,
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        create_threat_draft(tmp_path, _create_request())
+    assert exc_info.value.status_code == 500
+
+    store_root = tmp_path / "out" / "threat_drafts"
+    orphan_files = [
+        path
+        for path in store_root.glob("*.json")
+        if path.name != "index.json"
+    ]
+    assert len(orphan_files) == 1
+    orphan_id = orphan_files[0].stem
+
+    monkeypatch.undo()
+    with pytest.raises(ThreatDraftStoreError) as get_exc:
+        get_threat_draft(tmp_path, orphan_id)
+    assert get_exc.value.status_code == 404
+
+    seed = _create_request()
+    with pytest.raises(ThreatDraftStoreError) as update_exc:
+        update_threat_draft(
+            tmp_path,
+            orphan_id,
+            UpdateThreatDraftRequest(
+                expected_version=1,
+                name=seed.name,
+                description="must not write",
+                threat_kind=seed.threat_kind,
+                generation_intent=seed.generation_intent,
+                encounter_context=seed.encounter_context,
+                graph_context_snapshot=seed.graph_context_snapshot,
+            ),
+        )
+    assert update_exc.value.status_code == 404
+
+
+def test_embedded_identity_mismatch_fails_closed(tmp_path: Path) -> None:
+    alpha = create_threat_draft(tmp_path, _create_request(name="Alpha", description="A"))
+    beta = create_threat_draft(tmp_path, _create_request(name="Beta", description="B"))
+    # Place beta's payload under alpha's filename while index still commits alpha.
+    write_json(
+        _draft_path(tmp_path, alpha.draft_id),
+        beta.model_dump(mode="json", by_alias=True),
+    )
+
+    with pytest.raises(ThreatDraftStoreError) as get_exc:
+        get_threat_draft(tmp_path, alpha.draft_id)
+    assert get_exc.value.status_code == 500
+    assert "identity mismatch" in str(get_exc.value)
+
+    with pytest.raises(ThreatDraftStoreError) as update_exc:
+        update_threat_draft(
+            tmp_path,
+            alpha.draft_id,
+            _update_request(alpha, description="must not escape to beta"),
+        )
+    assert update_exc.value.status_code == 500
+    assert "identity mismatch" in str(update_exc.value)
+
+    # Beta remains the committed prior revision; alpha's path was not rewritten onto beta.
+    loaded_beta = get_threat_draft(tmp_path, beta.draft_id)
+    assert loaded_beta.version == 1
+    assert loaded_beta.description == "B"
+    assert loaded_beta.draft_id == beta.draft_id
+
+    with pytest.raises(ThreatDraftStoreError) as list_exc:
+        list_threat_drafts(tmp_path)
+    assert list_exc.value.status_code == 500
+    assert "identity mismatch" in str(list_exc.value)
+
+
 def test_path_escape_rejected_for_draft_id(tmp_path: Path) -> None:
     with pytest.raises(ThreatDraftStoreError) as exc_info:
         get_threat_draft(tmp_path, "../escape")
