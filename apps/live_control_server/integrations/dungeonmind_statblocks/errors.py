@@ -20,6 +20,26 @@ class StatblockIntegrationError(Exception):
         return self.message
 
 
+def redact_secret(value: str, secret: str) -> str:
+    """Remove an integration secret from operator-visible text."""
+    if not secret or not value:
+        return value
+    return value.replace(secret, "***")
+
+
+def redact_secret_in_value(value: Any, secret: str) -> Any:
+    """Recursively redact an integration secret from structured payloads."""
+    if not secret:
+        return value
+    if isinstance(value, str):
+        return redact_secret(value, secret)
+    if isinstance(value, dict):
+        return {key: redact_secret_in_value(item, secret) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_secret_in_value(item, secret) for item in value]
+    return value
+
+
 def integration_disabled(message: str = "DungeonMind statblock integration is disabled") -> StatblockIntegrationError:
     return StatblockIntegrationError(category="integration_disabled", message=message)
 

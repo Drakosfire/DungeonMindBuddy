@@ -268,6 +268,54 @@ def test_readiness_503_error_envelope_is_stable_unavailable() -> None:
     assert exc_info.value.status_code == 503
 
 
+def test_downstream_error_text_redacts_internal_key() -> None:
+    leaked = f"rejected key {SECRET}"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            503,
+            json={
+                "error": {
+                    "code": "internal_service_misconfigured",
+                    "message": leaked,
+                    "details": {"echo": SECRET},
+                }
+            },
+        )
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_readiness()
+    assert SECRET not in exc_info.value.message
+    assert SECRET not in str(exc_info.value)
+    assert SECRET not in repr(exc_info.value)
+    assert SECRET not in json.dumps(exc_info.value.details)
+    assert "***" in exc_info.value.message
+
+    readiness = evaluate_statblock_integration_readiness(client=client)
+    dumped = json.dumps(readiness.model_dump(mode="json", by_alias=True))
+    assert SECRET not in dumped
+    assert readiness.downstream_status == "downstream_unavailable"
+
+
+def test_malformed_5xx_fails_closed_as_unexpected() -> None:
+    def non_json(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, content=b"<html>boom</html>")
+
+    client = _client(httpx.MockTransport(non_json))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_unexpected"
+
+    def invalid_envelope(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"not": "an-error-envelope"})
+
+    client = _client(httpx.MockTransport(invalid_envelope))
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        client.get_health()
+    assert exc_info.value.category == "downstream_unexpected"
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -341,14 +389,6 @@ def test_injected_client_request_carries_config_timeout() -> None:
         assert timeout.get("read") == 7.5
     else:
         assert timeout.read == 7.5
-    def handler(request: httpx.Request) -> httpx.Response:
-        raise httpx.ReadTimeout("slow")
-
-    client = _client(httpx.MockTransport(handler))
-    with pytest.raises(StatblockIntegrationError) as exc_info:
-        client.get_health()
-    assert exc_info.value.category == "downstream_timeout"
-    assert exc_info.value.retryable is True
 
 
 def test_timeout_mapping() -> None:
