@@ -7,6 +7,15 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Ingest Recap full wizard simplification — captured 2026-07-13, done 2026-07-21
+**Context:** Plan-surface dogfood found the 8-chip ingest tracker contradicting itself (Prove/Memory Done while next action demanded graph extraction; Canonical Missing for titled Session 24 files).
+**Insight:** Tracker + proof honesty landed as a 3-lane readiness model (`buildIngestReadiness`) plus titled-canonical inspect resolution. The Generate Recap Memory / Advanced button matrix was still a multi-path wizard and hard to teach.
+**Action completed:** First-pass UI slim-down of `IngestionModule`: primary surface is header step/action status + load processed recap + session/title + textarea + Generate/extract CTAs; blockers (reconcile/breadcrumb/errors) stay visible; readiness lanes, evidence/proof, file/graph dogfood, and terminal ladder live under one Advanced fold. APIs/state machine unchanged.
+**Surfaces when:** editing `IngestionModule.tsx`, dogfooding `/ingest` Ingest Recap, or simplifying operator ingest UX.
+**Refs:** `apps/live-control-ui/src/modules/ingestReadiness.ts`, `apps/live-control-ui/src/modules/IngestionModule.tsx`, `apps/live-control-ui/src/styles.css`, `src/live_play/recap_ingest_pipeline.py`
+
+---
+
 ## [DONE] Post-merge Ingest = Recap (world graph) + tools — captured 2026-07-21, done 2026-07-21
 **Priority:** high — product identity for `/ingest`; unblocks PC timeline / card parity and collapses preview-vs-world confusion.
 **Context:** After Recap View moved to world-graph projection, Graph Review still opened preview-union `node_views` after merge.

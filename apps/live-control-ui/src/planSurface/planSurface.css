@@ -1450,8 +1450,7 @@
   pointer-events: none;
 }
 
-/* Object reference glance is not a tool switcher — hide Recap/Party/Statblock nav. */
-.plan-toolbox.tool-reference .plan-toolbox-nav,
+/* Object reference glance is not a tool switcher — only Expand/Close stay in the bar. */
 .plan-toolbox-nav[hidden] {
   display: none !important;
 }
@@ -1459,10 +1458,15 @@
 .plan-toolbox-nav {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border, #2a3142);
   flex-shrink: 0;
+}
+
+.plan-toolbox-nav-close {
+  margin-left: auto;
 }
 
 .plan-toolbox-nav button {

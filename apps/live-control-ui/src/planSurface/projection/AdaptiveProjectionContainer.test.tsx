@@ -87,7 +87,7 @@ function OpenReferenceButton() {
 }
 
 describe("AdaptiveProjectionContainer content reference chrome", () => {
-  it("hides toolbox tool nav and uses Reference header without duplicating the object title", async () => {
+  it("hides toolbox tool nav and keeps close in the toolbar without a Reference title", async () => {
     const user = userEvent.setup();
     render(
       <ProjectionProvider config={surfaceConfig}>
@@ -105,11 +105,13 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     });
 
     const nav = document.querySelector(".plan-toolbox-nav");
-    expect(nav).toHaveAttribute("hidden");
-
-    const drawer = document.querySelector("#plan-toolbox-drawer");
-    expect(drawer).toBeTruthy();
-    expect(drawer?.querySelector(".plan-projection-header h2")?.textContent).toBe("Reference");
+    expect(nav).toBeTruthy();
+    expect(nav).not.toHaveAttribute("hidden");
+    expect(screen.queryByRole("button", { name: "Recap" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Party Registry" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Close toolbox" })).toBeInTheDocument();
+    expect(document.querySelector(".plan-projection-header")).toBeNull();
+    expect(screen.queryByRole("heading", { level: 2, name: "Reference" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
   });
 });

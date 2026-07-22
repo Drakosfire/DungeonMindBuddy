@@ -182,7 +182,7 @@ describe("SurfaceShell", () => {
       />,
     );
 
-    await screen.findByText("Raw Recap Ingestion");
+    await screen.findByTestId("ingestion-header-status");
     const callsBeforeExpand = inspectSpy.mock.calls.length;
     expect(callsBeforeExpand).toBeGreaterThan(0);
 

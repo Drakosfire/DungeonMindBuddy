@@ -95,6 +95,45 @@ async function fillRecapInputs(
   fireEvent.change(titleField, { target: { value: sessionTitle } });
 }
 
+async function openAdvanced(user: ReturnType<typeof setupIngestUser> | ReturnType<typeof userEvent.setup>) {
+  const summary = screen.getByText("Advanced", { selector: "summary" });
+  const details = summary.closest("details");
+  if (details && !details.open) {
+    await user.click(summary);
+  }
+}
+
+async function openTerminalPath(user: ReturnType<typeof setupIngestUser> | ReturnType<typeof userEvent.setup>) {
+  await openAdvanced(user);
+  const summary = screen.getByText("Terminal path stays available");
+  const details = summary.closest("details");
+  if (details && !details.open) {
+    await user.click(summary);
+  }
+}
+
+async function openAdvancedGraphDogfood(
+  user: ReturnType<typeof setupIngestUser> | ReturnType<typeof userEvent.setup>,
+) {
+  await openAdvanced(user);
+  const summary = screen.getByText("Advanced graph dogfood");
+  const details = summary.closest("details");
+  if (details && !details.open) {
+    await user.click(summary);
+  }
+}
+
+async function openAdvancedFileControls(
+  user: ReturnType<typeof setupIngestUser> | ReturnType<typeof userEvent.setup>,
+) {
+  await openAdvanced(user);
+  const summary = screen.getByText("Advanced file controls");
+  const details = summary.closest("details");
+  if (details && !details.open) {
+    await user.click(summary);
+  }
+}
+
 describe("IngestionModule", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
@@ -196,16 +235,25 @@ describe("IngestionModule", () => {
         onLayoutSaved={vi.fn()}
       />,
     );
-    expect(await screen.findByText("Raw Recap Ingestion")).toBeInTheDocument();
+    expect(await screen.findByTestId("ingestion-header-status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Prior processed recap")).toBeInTheDocument();
+    expect(screen.getByLabelText("Raw recap text")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate Recap Memory" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Ingest Recap" })).not.toBeInTheDocument();
+    const advancedSummary = screen.getByText("Advanced", { selector: "summary" });
+    expect(advancedSummary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Advanced", { selector: "summary" })).toBeInTheDocument();
   });
 
   it("disables stage preview with empty raw text", async () => {
+    const user = setupIngestUser();
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
+    await openTerminalPath(user);
     expect(screen.getByRole("button", { name: "Stage + Preview" })).toBeDisabled();
     await waitFor(() =>
       expect(
-        screen.getByText(/paste or load a recap|Inspect or load a session/i),
-      ).toBeInTheDocument(),
+        screen.getAllByText(/paste or load a recap|Inspect or load a session/i).length,
+      ).toBeGreaterThan(0),
     );
   });
 
@@ -223,6 +271,7 @@ describe("IngestionModule", () => {
       "Session 22 Recap\n\nThe group turns their focus...",
     );
     await user.type(screen.getByLabelText("Session title"), "Session 21 - Mireward Road and Lysandro");
+    await openTerminalPath(user);
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
 
     await waitFor(() =>
@@ -246,8 +295,10 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await openTerminalPath(user);
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
 
+    await openAdvanced(user);
     await waitFor(() =>
       expect(screen.getByLabelText("Canonical preview diff")).toBeInTheDocument(),
     );
@@ -277,6 +328,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\nDifferent pasted text.");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await openTerminalPath(user);
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
 
     await waitFor(() => {
@@ -290,6 +342,7 @@ describe("IngestionModule", () => {
   it("disables apply normalize before preview and without a specific session title", async () => {
     const user = userEvent.setup();
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
+    await openTerminalPath(user);
     const applyButton = screen.getByRole("button", { name: "Apply + Normalize" });
     expect(applyButton).toBeDisabled();
 
@@ -306,6 +359,7 @@ describe("IngestionModule", () => {
     await user.type(screen.getByLabelText("Session title"), "ingest");
 
     expect(screen.getByRole("button", { name: "Generate Recap Memory" })).toBeDisabled();
+    await openAdvanced(user);
     expect(screen.getAllByText(/Session title is required/).length).toBeGreaterThan(0);
   });
 
@@ -316,7 +370,9 @@ describe("IngestionModule", () => {
 
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "Session 22 - Mireward Road and Lysandro");
+    await openTerminalPath(user);
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
+    await openAdvanced(user);
     await waitFor(() =>
       expect(screen.getByLabelText("Canonical preview diff")).toBeInTheDocument(),
     );
@@ -347,6 +403,7 @@ describe("IngestionModule", () => {
     await user.type(recapSessionInput, "21");
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "Session 21 - Mireward Road and Lysandro");
+    await openTerminalPath(user);
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Apply + Normalize" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Apply + Normalize" }));
@@ -360,14 +417,13 @@ describe("IngestionModule", () => {
       expect(screen.getAllByText("breadcrumb_required").length).toBeGreaterThan(0),
     );
     expect(screen.getByText("Breadcrumb required before retrieval")).toBeInTheDocument();
-    expect(screen.getByText(/Expected v1 boundary: breadcrumb required/i)).toBeInTheDocument();
     expect(screen.getByText(/not retrieval-ready/i)).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        screen.getByText("Next: Build Frontmatter Seed, then breadcrumb and session memory."),
-      ).toBeInTheDocument(),
+        screen.getAllByText("Next: Build Frontmatter Seed, then breadcrumb and session memory.")
+          .length,
+      ).toBeGreaterThan(0),
     );
-    await user.click(screen.getByText("Terminal path stays available"));
     expect(screen.getByText("Materialize waits for breadcrumb_found.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeDisabled();
   });
@@ -434,11 +490,10 @@ describe("IngestionModule", () => {
       }),
     );
     expect(screen.getByText("Ingestion ready_for_planning_activation")).toBeInTheDocument();
-    expect(
-      screen.getAllByText(
-        /Recap memory ready; preview union on disk.*Review Graph Review for coverage/,
-      ).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getByTestId("ingestion-header-status")).toHaveTextContent(
+      /Recap memory ready; preview union on disk.*Review Graph Review for coverage/,
+    );
+    await openAdvanced(user);
     expect(screen.getByText("records: 10")).toBeInTheDocument();
   });
 
@@ -478,6 +533,7 @@ describe("IngestionModule", () => {
     expect(screen.getByText(/Recap memory and graph projection were generated from the existing staged notes/i)).toBeInTheDocument();
     expect(screen.queryByText("Full ingest paused")).not.toBeInTheDocument();
     expect(screen.queryByText("Graph (advanced)")).not.toBeInTheDocument();
+    await openAdvanced(user);
     expect(screen.getAllByText("Graph").length).toBeGreaterThan(0);
   });
 
@@ -540,6 +596,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={24} />);
 
     await waitFor(() => expect(screen.getByLabelText("Session title")).toHaveValue("Session 23 - Mireward"));
+    await openAdvanced(user);
     expect(screen.getByText("What was ingested?")).toBeInTheDocument();
     expect(screen.getAllByText("records: 3").length).toBeGreaterThan(0);
     expect(screen.getByText(/The party held the gate/)).toBeInTheDocument();
@@ -583,6 +640,7 @@ describe("IngestionModule", () => {
       "Session 22 Recap\n\n...",
       "Session 22 - Mireward Road and Lysandro",
     );
+    await openTerminalPath(user);
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Apply + Normalize" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Apply + Normalize" }));
@@ -620,6 +678,7 @@ describe("IngestionModule", () => {
       "Session 22 Recap\n\n...",
       "Session 22 - Mireward Road and Lysandro",
     );
+    await openTerminalPath(user);
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Run Breadcrumb Ingest" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Run Breadcrumb Ingest" }));
@@ -631,7 +690,7 @@ describe("IngestionModule", () => {
     );
     expect(screen.getAllByText("breadcrumb_found").length).toBeGreaterThan(0);
     await waitFor(() =>
-      expect(screen.getByText("Next: Materialize Session Memory.")).toBeInTheDocument(),
+      expect(screen.getAllByText("Next: Materialize Session Memory.").length).toBeGreaterThan(0),
     );
     expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeEnabled();
   });
@@ -657,6 +716,7 @@ describe("IngestionModule", () => {
     await user.type(recapSessionInput, "21");
     await user.type(screen.getByLabelText("Raw recap text"), "Session 22 Recap\n\n...");
     await user.type(screen.getByLabelText("Session title"), "Session 21 - Mireward Road and Lysandro");
+    await openTerminalPath(user);
     await user.click(screen.getByRole("button", { name: "Stage + Preview" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeEnabled(),
@@ -747,6 +807,7 @@ describe("IngestionModule", () => {
         }),
       ),
     );
+    await openAdvanced(user);
     expect((await screen.findAllByText(/preview graph materialized/i)).length).toBeGreaterThan(0);
   });
 
@@ -814,7 +875,7 @@ describe("IngestionModule", () => {
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.click(screen.getByText("Advanced graph dogfood"));
+    await openAdvancedGraphDogfood(user);
     const extractToggle = await screen.findByLabelText(
       "Extract graph from recap with category extraction (gpt-5.4-mini)",
     );
@@ -870,7 +931,7 @@ describe("IngestionModule", () => {
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.click(screen.getByText("Advanced graph dogfood"));
+    await openAdvancedGraphDogfood(user);
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
     await user.click(screen.getByLabelText("Extract graph from recap with category extraction (gpt-5.4-mini)"));
     expect(screen.getByLabelText("Candidate graph path")).toBeDisabled();
@@ -928,7 +989,7 @@ describe("IngestionModule", () => {
     });
 
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
-    await user.click(screen.getByText("Advanced graph dogfood"));
+    await openAdvancedGraphDogfood(user);
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
     await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Materialize Preview Supergraph" }));
@@ -942,6 +1003,7 @@ describe("IngestionModule", () => {
         }),
       ),
     );
+    await openAdvanced(user);
     expect(screen.getByText("status: preview_union_store_ready")).toBeInTheDocument();
     expect(screen.getByText(/Nodes in this preview union \(2\)/)).toBeInTheDocument();
     expect(screen.getByText("Stafl")).toBeInTheDocument();
@@ -953,7 +1015,7 @@ describe("IngestionModule", () => {
     const user = userEvent.setup();
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
     expect(screen.queryByText(/Replace saved raw notes/)).not.toBeInTheDocument();
-    await user.click(screen.getByText("Advanced file controls"));
+    await openAdvancedFileControls(user);
     await user.click(screen.getByLabelText(/Show file replacement/));
     expect(screen.getByText(/Replace saved raw notes/)).toBeInTheDocument();
     expect(screen.getByText(/Replace existing canonical recap file/)).toBeInTheDocument();
@@ -1157,6 +1219,7 @@ describe("IngestionModule", () => {
 
     render(<IngestionModule campaignId="longmont-c2" session={24} />);
 
+    await openAdvanced(user);
     await waitFor(() =>
       expect(screen.getByText(/A preview graph already exists for this session/)).toBeInTheDocument(),
     );
@@ -1243,6 +1306,8 @@ describe("IngestionModule", () => {
           .length,
       ).toBeGreaterThan(0),
     );
+    const user = setupIngestUser();
+    await openAdvanced(user);
     expect(screen.getByText("Recap memory")).toBeInTheDocument();
     expect(screen.getByText("Graph preview")).toBeInTheDocument();
     expect(screen.getAllByText("Ready").length).toBeGreaterThan(0);

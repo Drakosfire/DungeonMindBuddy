@@ -128,14 +128,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Surfaces when:** Hermes radio on Ask prep memory, `run_hermes_conversation`, `DUNGEONMIND_LIVE_HERMES_MODE`, `integrations/hermes/plugins/dungeonbuddy`, PR008B agent interaction, graph query across World Graph
 **Refs:** `Docs/Plans/archive/2026-07-15/hermes-campaign-authoring-foundation-reset/superseded-hermes-ladder/HANDOFF-self-continuity-hermes-agent-interaction-bar.md`, `apps/live_control_server/services/live_agent_loop.py`, `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`
 
-## [READY] Ingest Recap full wizard simplification — captured 2026-07-13
-**Context:** Plan-surface dogfood found the 8-chip ingest tracker contradicting itself (Prove/Memory Done while next action demanded graph extraction; Canonical Missing for titled Session 24 files).
-**Insight:** Tracker + proof honesty landed as a 3-lane readiness model (`buildIngestReadiness`) plus titled-canonical inspect resolution. The Generate Recap Memory / Advanced button matrix is still a multi-path wizard and remains hard to teach.
-**Action:** Collapse Ingest Recap controls into one primary path (paste/load → generate memory+graph) with advanced steps behind disclosure only; keep readiness lanes as the single status surface.
-**Surfaces when:** editing `IngestionModule.tsx`, dogfooding `/ingest` Ingest Recap, or simplifying operator ingest UX.
-**Refs:** `apps/live-control-ui/src/modules/ingestReadiness.ts`, `apps/live-control-ui/src/modules/IngestionModule.tsx`, `src/live_play/recap_ingest_pipeline.py`
-
-
 ## [READY] Plan board hydrates from Session Prep.md — captured 2026-07-13
 **Context:** PR008A `/plan?dogfood=1` dogfood note; promoted 2026-07-13 after confirming load (not Agent graph dogfood) is the next Plan prep-loop gap. Design checkpoint step 2 in `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`.
 **Insight:** On load, the TipTap working board shows starter scaffold sections (Session intent / Memory / Scenes / Reference chips) rather than the full corpus Session Prep document. Save already writes `Session N Prep.md`; reload does not re-read it. Feels like a broken markdown loader.

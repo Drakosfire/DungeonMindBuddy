@@ -136,39 +136,34 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
         className={containerClass}
         aria-label={active ? `${active.title} projection` : "Plan toolbox"}
       >
-        <header className="plan-projection-header">
-          <div>
-            <p className="plan-surface-kicker">{active?.kind === "content" ? "Reference" : "Command Board"}</p>
-            {/* Content references keep the object name on the card only — no duplicate header title. */}
-            <h2>{active?.kind === "content" ? "Reference" : "Toolbox"}</h2>
-          </div>
-          <div className="plan-projection-header-actions">
-            {active?.kind === "content" && active.glanceOnly ? (
+        <nav className="plan-toolbox-nav" aria-label="Toolbox tools">
+          {active?.kind === "content" ? (
+            active.glanceOnly ? (
               <button type="button" onClick={expandContent}>
                 Expand
               </button>
-            ) : null}
-            <button type="button" onClick={close} aria-label="Close toolbox">
-              ×
-            </button>
-          </div>
-        </header>
-        <nav
-          className="plan-toolbox-nav"
-          aria-label="Toolbox tools"
-          hidden={active?.kind === "content"}
-        >
-          {config.tools.map((tool) => (
-            <button
-              key={tool.id}
-              type="button"
-              className={activeToolId === tool.id ? "active" : undefined}
-              aria-pressed={activeToolId === tool.id}
-              onClick={() => void openToolFromNav(tool.id)}
-            >
-              {tool.label}
-            </button>
-          ))}
+            ) : null
+          ) : (
+            config.tools.map((tool) => (
+              <button
+                key={tool.id}
+                type="button"
+                className={activeToolId === tool.id ? "active" : undefined}
+                aria-pressed={activeToolId === tool.id}
+                onClick={() => void openToolFromNav(tool.id)}
+              >
+                {tool.label}
+              </button>
+            ))
+          )}
+          <button
+            type="button"
+            className="plan-toolbox-nav-close"
+            onClick={close}
+            aria-label="Close toolbox"
+          >
+            ×
+          </button>
         </nav>
         <div className="plan-projection-body">
           {!active ? null : active.kind === "tool" ? (
