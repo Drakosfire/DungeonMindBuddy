@@ -390,3 +390,87 @@ def test_api_worldbuilding_create_list_and_patch(client: TestClient) -> None:
     )
     assert patch_response.status_code == 200
     assert patch_response.json()["authority_state"] == "canonical"
+
+
+def test_concurrent_commits_to_distinct_documents_preserve_both(root: Path) -> None:
+    import threading
+
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest,
+        TiptapMarkdownWritePrepareRequest,
+        commit_tiptap_markdown_write,
+        prepare_tiptap_markdown_write,
+    )
+
+    docs = [
+        create_workspace_document(
+            root,
+            title=f"Lore {idx}",
+            campaign_id="eldyrwild",
+            kind="worldbuilding_source",
+            source_domain="worldbuilding",
+            document_class="lore",
+            authority_state="draft",
+            visibility_state="internal",
+        )
+        for idx in range(2)
+    ]
+    markdowns = [f"# Lore {idx}\n\nBody {idx}.\n" for idx in range(2)]
+    prepared = [
+        prepare_tiptap_markdown_write(
+            root=root,
+            request=TiptapMarkdownWritePrepareRequest(
+                document_id=doc.document_id,
+                markdown=markdowns[idx],
+                expected_revision=1,
+            ),
+        )
+        for idx, doc in enumerate(docs)
+    ]
+    barrier = threading.Barrier(2)
+    results: list[object] = []
+    errors: list[BaseException] = []
+
+    def worker(idx: int) -> None:
+        barrier.wait()
+        try:
+            results.append(
+                commit_tiptap_markdown_write(
+                    root=root,
+                    request=TiptapMarkdownWriteCommitRequest(
+                        document_id=docs[idx].document_id,
+                        markdown=markdowns[idx],
+                        writer_confirm_token=prepared[idx].writer_confirm_token or "",
+                        expected_revision=1,
+                    ),
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001 - surface to main thread
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(idx,)) for idx in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+    assert not errors
+    assert len(results) == 2
+    records = {
+        get_workspace_document(root, doc.document_id).document_id: get_workspace_document(
+            root, doc.document_id
+        )
+        for doc in docs
+    }
+    assert len(records) == 2
+    for idx, doc in enumerate(docs):
+        loaded = records[doc.document_id]
+        assert loaded.content_status == "committed"
+        assert loaded.revision == 2
+        assert loaded.status == "active"
+        target = root / loaded.target_relpath
+        assert target.read_text(encoding="utf-8") == markdowns[idx]
+    payload = (root / "out/registries/workspace_documents.json").read_text(encoding="utf-8")
+    assert docs[0].document_id in payload
+    assert docs[1].document_id in payload

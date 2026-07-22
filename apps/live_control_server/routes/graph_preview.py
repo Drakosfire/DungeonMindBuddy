@@ -169,6 +169,21 @@ def get_graph_ingest_runs(
     return GraphIngestRunsResponse(runs=runs).model_dump(mode="json")
 
 
+@router.get("/extraction-runs/{run_id}")
+def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
+    """Exact ExtractionRun reload. Never substitutes latest."""
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+    )
+
+    try:
+        run = get_extraction_run(repo_root(), run_id)
+    except GraphRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return run.model_dump(mode="json")
+
+
 @router.get("/graph-ingest/latest", response_model=GraphIngestLatestRunResponse)
 def get_latest_graph_ingest_run(
     campaign_id: Annotated[str, Query()],

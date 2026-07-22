@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -466,3 +467,72 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
     assert graph["extraction_mode"] == "llm_blocked"
     assert graph["blocked_reason"] == "test llm blocked"
     assert any("preview graph extraction blocked" in warning for warning in body["warnings"])
+
+
+def test_real_recap_manifest_adapts_to_extraction_run(
+    client_env: tuple[TestClient, Path, Path],
+) -> None:
+    """Regression: real recap preview producer manifest adapts to ExtractionRun."""
+    from graph_memory.ingestion.graph_ingest_run import (
+        GraphIngestRunManifest,
+        adapt_recap_manifest_to_extraction_run,
+    )
+
+    client, _corpus, candidate = client_env
+    _prepare_normalized(client)
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "materialize_preview_supergraph",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
+        },
+    )
+    assert response.status_code == 200
+    graph = response.json()["ingest_report"]["graph_preview"]
+    manifest_path = ROOT / graph["manifest_path"]
+    assert manifest_path.is_file()
+    assert manifest_path.name == "graph_ingest_run_manifest.json"
+
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = GraphIngestRunManifest.model_validate(payload)
+    run = adapt_recap_manifest_to_extraction_run(manifest)
+
+    assert run.run_id == manifest.run_id
+    assert run.campaign_id == manifest.campaign_id == "longmont-c2"
+    assert run.session_id == manifest.session_id
+    assert run.source_domain == (manifest.source.source_domain or "recap")
+    assert run.source_artifact_id == manifest.source.source_artifact_id
+    assert run.source_artifact_id
+    assert run.lineage["adapter"] == "graph_ingest_run_manifest_v0"
+    assert run.lineage["legacy_status"] == manifest.status.value
+
+    # Component mappings preserve recap artifact URIs and digests.
+    assert "source_artifact" in run.components
+    source_component = run.components["source_artifact"]
+    assert source_component.uri in {
+        manifest.source.input_path_record or "",
+        manifest.source.normalized_recap_path or "",
+    }
+    assert source_component.sha256 == manifest.source.normalized_recap_sha256
+
+    role_to_component = {
+        "source_span_index": "source_span_index",
+        "candidate_graph": "candidate_graph",
+        "candidate_validation_report": "validation_report",
+        "pass_outputs": "pass_outputs",
+        "pass_telemetry": "pass_telemetry",
+        "consolidation_diagnostics": "consolidation_diagnostics",
+        "raw_model_response": "raw_model_response",
+        "provenance_index": "provenance_index",
+    }
+    for key, artifact in manifest.artifacts.items():
+        mapped_key = role_to_component.get(key)
+        if mapped_key is None:
+            continue
+        assert mapped_key in run.components, f"missing adapted component for manifest role {key}"
+        mapped = run.components[mapped_key]
+        assert mapped.uri == artifact.uri
+        assert mapped.sha256 == artifact.sha256

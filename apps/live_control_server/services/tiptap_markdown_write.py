@@ -11,11 +11,14 @@ from typing import Literal
 import blake3
 from pydantic import BaseModel, Field
 
+from apps.live_control_server.services.registry_file_lock import (
+    workspace_document_mutation_lock,
+)
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
     WorkspaceDocumentRegistryError,
     get_workspace_document,
-    mark_workspace_document_committed,
+    mark_workspace_document_committed_unlocked,
 )
 
 _ALLOWED_EVAL_TIPTAP_MARKDOWN_RE = re.compile(
@@ -407,6 +410,13 @@ def _rollback_after_failure(
 def commit_tiptap_markdown_write(
     *, root: Path, request: TiptapMarkdownWriteCommitRequest
 ) -> TiptapMarkdownWriteCommitResponse:
+    with workspace_document_mutation_lock(root, request.document_id):
+        return _commit_tiptap_markdown_write_unlocked(root=root, request=request)
+
+
+def _commit_tiptap_markdown_write_unlocked(
+    *, root: Path, request: TiptapMarkdownWriteCommitRequest
+) -> TiptapMarkdownWriteCommitResponse:
     record = _resolve_writable_document(
         root,
         request.document_id,
@@ -457,7 +467,7 @@ def commit_tiptap_markdown_write(
         _raise_write_failure(f"failed to write Tiptap Markdown file: {exc}", cause=exc)
 
     try:
-        committed_record = mark_workspace_document_committed(
+        committed_record = mark_workspace_document_committed_unlocked(
             root,
             record.document_id,
             expected_revision=record.revision,
