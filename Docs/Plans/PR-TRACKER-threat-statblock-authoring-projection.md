@@ -1,23 +1,26 @@
 # PR Tracker — Threat + Statblock Authoring and Projection
 
-**Status:** ACTIVE SLICE / REVIEW AUTHORITY
-**Date:** 2026-07-21
-**Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
-**Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)
-**Contract owner:** DungeonMindServer statblock v1; DungeonBuddy consumes generated contracts and owns workflow/projection/graph/runtime.
+**Status:** ACTIVE SLICE / REVIEW AUTHORITY  
+**Date:** 2026-07-22  
+**Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
+**Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
+**Contract owner:** DungeonMindServer owns statblock mechanics, validation, persistence, revisions, and provider assets. DungeonBuddy owns drafts, orchestration, graph identity/bindings, projections, documents, combat runtime, and media selection.
 
 This tracker is the implementation sequencing authority for this workstream. It does not override Campaign Supergraph sequencing for unrelated graph infrastructure.
 
 ## 1. Slice conventions
 
-- Stable slice IDs are `SBW01` etc.; future GitHub PR numbers are assigned only when dispatching.
-- One PR establishes one independently useful capability.
-- A PR may touch backend, UI, and tests only when all paths prove one invariant.
-- No PR may silently add graph writes, mechanics persistence, media generation, or combat mutation when its mission excludes them.
-- Any new durable schema must be versioned and fixture-tested.
-- Replacement paths are deleted in the same PR that makes the replacement production-ready unless a named consumer blocks deletion.
+- Stable design IDs are `SBW01` through `SBW18`.
+- Only `SBW01` currently carries a tentative future PR number in its filename. Assign actual GitHub PR numbers when dispatching against a known merged base.
+- Every handoff after `SBW01` is **pre-designed**, not automatically ready. Re-anchor its base SHA, paths, generated contracts, fixtures, commands, and stop conditions at dispatch.
+- One PR establishes one independently useful capability and one invariant.
+- Cross-layer work is allowed only when every changed layer establishes or proves that same invariant.
+- No PR may silently add graph writes, mechanics persistence, document persistence, media selection, combat mutation, or autonomous confirmation when its mission excludes them.
+- Any new durable schema is versioned and proved by exact round-trip/reload tests.
+- Exact IDs and revisions are authoritative. Display labels, corpus paths, artifact names, and “latest” never silently substitute.
+- Replacement paths are deleted when the replacement becomes production-ready unless the PR names the exact remaining consumer and deletion owner.
 
-Required demolition block in every PR:
+Required demolition block in every implementation handback:
 
 ```text
 Replaced path:
@@ -27,360 +30,330 @@ Named remaining consumer:
 Required deletion owner:
 ```
 
-## 2. SBW01 — Server-owned DungeonMind statblock v1 client and readiness
+## 2. Sequence summary
 
-**Status:** READY
+| Slice | Status | Depends on | One outcome |
+|---|---|---|---|
+| `SBW01` | READY | Server v1 merged | One server-owned Buddy→DungeonMind client/readiness boundary. |
+| `SBW02` | BLOCKED | `SBW01` conventions | Versioned durable non-canonical ThreatDraft CRUD. |
+| `SBW03` | BLOCKED | `SBW01–02` | One exact draft version generates one traceable candidate. |
+| `SBW04` | BLOCKED | `SBW03` | Shared renderer + real read-only candidate workbench. |
+| `SBW05` | BLOCKED | `SBW04` | Complete typed editing + exact-digest preview validation. |
+| `SBW06` | BLOCKED | `SBW05` | New candidate from exact source with lineage/status. |
+| `SBW07` | BLOCKED | `SBW05`; `SBW06` optional | Idempotent immutable first mechanics revision. |
+| `SBW08` | PARALLEL READY after graph stabilization | Current graph contracts | Typed external-resource and Threat binding graph contract. |
+| `SBW09` | BLOCKED | `SBW07–08` + graph confirm | Governed Threat + exact binding publication. |
+| `SBW10` | BLOCKED | `SBW09` | Exact-revision Threat Sheet projection. |
+| `SBW11` | READY after document re-anchor | Current document/writer contracts | Fresh Plan open hydrates committed content safely. |
+| `SBW12` | BLOCKED | `SBW10–11` | Exact revision-pinned Markdown/Tiptap block. |
+| `SBW13` | BLOCKED | `SBW06–07`, `SBW10` | Append immutable child revision + compare; no migration. |
+| `SBW14` | BLOCKED | `SBW13` + graph replacement semantics | Adopt child for one exact Threat binding only. |
+| `SBW15` | BLOCKED | `SBW10` | Exact-revision combat seed/insertion/reload/drilldown. |
+| `SBW16` | BLOCKED | `SBW04` | Explicit optional candidate image generation. |
+| `SBW17` | BLOCKED | `SBW10`, `SBW16` | Durable image selection for exact target/role. |
+| `SBW18` | DEFERRED | `SBW17` dogfood + operator choice | 3D use-case/provider/contract reconnaissance. |
 
-**Mission:** Establish one DungeonBuddy backend adapter that can authenticate to DungeonMindServer statblock v1, read health/readiness, and perform typed request/response/error translation without exposing credentials or adding product workflow.
+## 3. Slice contracts
 
-**Invariant:** Every later statblock operation crosses one server-owned typed client boundary; no UI or service constructs privileged DungeonMind HTTP requests directly.
+### SBW01 — Server-owned DungeonMind statblock v1 client and readiness
 
-**Repository:** DungeonMindBuddy only.
+**Handoff:** [`HANDOFF-pr382-statblock-v1-backend-client-readiness.md`](HANDOFF-pr382-statblock-v1-backend-client-readiness.md)  
+**Status:** READY FOR DISPATCH.
 
-**Depends on:** Merged DungeonMindServer statblock v1 route and the existing generated-client/fingerprint proof.
+**Mission:** establish one server-owned authenticated client/readiness/error boundary for all later DungeonMind statblock operations.
 
-**Deliverables:**
+**Invariant:** no browser, route, or feature service constructs privileged DungeonMind HTTP calls directly.
 
-- Server-side configuration for base URL, internal key, enabled flag, and timeout.
-- A narrowly scoped client/adapter with methods matching v1 operations, initially proving health/readiness and exact revision read or fixture-backed transport.
-- Stable typed error categories: unavailable, authentication/configuration, timeout, rate limit, invalid request/validation, not found, conflict, downstream unexpected.
-- A DungeonBuddy readiness projection that reports configured/available capabilities honestly.
-- Unit tests with a fake transport; no real credentials or network dependency.
+**Acceptance:** honest configured/available capabilities; bounded timeout; auth/rate-limit/not-found/conflict/schema errors remain distinct; exact read fixture retains IDs/digest; credentials never leave server/log-safe boundary.
 
-**Expected paths:**
+**Non-goals:** drafts, generation workflow, UI, persistence, graph, documents, combat, media.
 
-- new integration module under `apps/live_control_server/services/` or a bounded new `integrations/` package;
-- `apps/live_control_server/routes/live.py` only if a narrow readiness endpoint is needed;
-- `apps/live-control-ui/src/api/types.ts` / `liveApi.ts` only if readiness is surfaced now;
-- focused Python tests.
+**Demolition:** none; foundational boundary.
 
-**Non-goals:** ThreatDrafts, candidate generation, UI workbench changes, graph writes, persistence, Markdown, combat, images, Server changes.
+---
 
-**Acceptance:**
+### SBW02 — Versioned ThreatDraft store and CRUD API
 
-- Missing config produces deterministic unavailable readiness.
-- Invalid key maps distinctly from downstream validation.
-- Timeout is bounded and typed.
-- Exact response parsing uses generated/contract-derived DTOs or fixture-locked server models, not permissive dictionaries.
-- Tests prove internal key never appears in a response or log assertion.
+**Handoff:** [`HANDOFF-sbw02-threat-draft-store.md`](HANDOFF-sbw02-threat-draft-store.md)  
+**Status:** pre-designed; blocked on `SBW01` route/config conventions.
 
-**Demolition:** None; establishes a new boundary.
+**Mission:** persist and revise a non-canonical threat concept independently of downstream providers.
 
-**Stop conditions:** The generated contract cannot be consumed server-side without introducing a handwritten canonical schema; the Server readiness contract is insufficient to distinguish enabled capabilities; authentication requires a browser token.
+**Invariant:** successful authored updates preserve `draft_id` and increment version exactly once.
 
-**Named successor:** `SBW02` and `SBW03`.
+**Acceptance:** strict `ThreatDraftV1`; atomic create/read/list/update; stale 409 writes nothing; restart reload exact; graph context stores pointers only; no Server/graph/corpus calls.
 
-## 3. SBW02 — Versioned ThreatDraft store and CRUD API
+**Demolition:** retain legacy `StatblockDraftArtifactView` until `SBW04` replaces its user-facing consumer.
 
-**Status:** BLOCKED on SBW01 route/config conventions only; domain design ready.
+---
 
-**Mission:** Add a durable, non-canonical, versioned `ThreatDraftV1` that can be created, edited, listed, read, and reloaded with no generation or graph side effects.
+### SBW03 — Generate candidate from one exact ThreatDraft version
 
-**Invariant:** Authored threat prose has stable identity and survives independently of provider calls, candidates, accepted mechanics, and graph publication.
+**Handoff:** [`HANDOFF-sbw03-generate-candidate-from-draft.md`](HANDOFF-sbw03-generate-candidate-from-draft.md)  
+**Status:** blocked on `SBW01–02`.
 
-**Repository:** DungeonMindBuddy only.
+**Mission:** generate and reload one typed candidate from one exact draft version.
 
-**Deliverables:**
+**Invariant:** every outcome is bound to draft ID/version/request ID; authored fields remain unchanged.
 
-- Strict `ThreatDraftV1` and nested intent/context/pointer models.
-- File-backed or existing service-store-aligned repository with atomic writes and bounded IDs.
-- Create/list/read/update endpoints.
-- Optimistic version check on update; stale update fails 409.
-- Graph context snapshot accepts only revision/node/source-anchor pointers already produced by existing graph/Plan paths.
-- UI-independent tests for reload and version conflict.
+**Acceptance:** deterministic request mapping; images default false; stale version blocks before downstream; typed success/failure; reloadable candidate ref/cache with non-authoritative status; replay/partial failure truthful.
 
-**Non-goals:** Generate, validate, candidate cache, accept, graph write, renderer, media.
+**Demolition:** none yet; mock UI remains until `SBW04`.
 
-**Acceptance:** Draft survives restart/reload; version increments; invalid campaign/world/focus/pointer shapes fail closed; update never changes `draft_id`; no graph head or DungeonMind call occurs.
+---
 
-**Demolition:** Do not delete transitional `StatblockDraftArtifactView` yet; normal UI still consumes it until SBW04.
+### SBW04 — Shared semantic renderer and real candidate workbench
 
-**Stop conditions:** Existing generic artifact store cannot enforce version/reload semantics without broad migration; draft storage would require using corpus Markdown as the record.
+**Handoff:** [`HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`](HANDOFF-sbw04-semantic-renderer-candidate-workbench.md)  
+**Status:** blocked on `SBW03`.
 
-**Named successor:** `SBW03`.
+**Mission:** make a real typed candidate reviewable through one renderer reusable by later projections.
 
-## 4. SBW03 — Generate candidate from one exact ThreatDraft version
+**Invariant:** structured definition and receipts are the only mechanics sources.
 
-**Status:** BLOCKED on SBW01+SBW02.
+**Acceptance:** fixture matrix covers simple, spellcasting, legendary/lair, phased, and human-adjudicated definitions; missing/expired/unavailable states retain identity; shared token/accessibility rules; normal mock/corpus-first presentation removed.
 
-**Mission:** Map one exact ThreatDraft version into `GenerateCandidateRequestV1`, call DungeonMindServer, retain typed candidate metadata, and leave the draft intact on every failure.
+**Demolition:** remove mock generation/render and corpus promotion/retrieval controls from the normal workbench. Retain backend predecessors only for named consumers.
 
-**Invariant:** One generation result is traceable to one immutable draft version and request ID; provider outcome never mutates authored concept or graph truth.
+---
 
-**Repository:** DungeonMindBuddy only unless a discovered Server contract defect is reported separately.
+### SBW05 — Complete-definition edit and preview validation
 
-**Deliverables:**
+**Handoff:** [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](HANDOFF-sbw05-typed-candidate-edit-validation.md)  
+**Status:** blocked on `SBW04`.
 
-- Backend generate endpoint keyed by `draft_id` + expected draft version.
-- Deterministic request mapping for ruleset, source snapshot, intent, encounter context, and `generate_images=false` default.
-- Candidate reference/status appended to the draft through an atomic draft update.
-- Bounded candidate-response cache or read-through locator sufficient for reload; cache explicitly non-authoritative.
-- Typed failure envelope preserving retryability and request ID.
-- API tests with fake DungeonMind adapter.
+**Mission:** edit a complete typed working definition and validate the exact digest through DungeonMindServer.
 
-**Non-goals:** Renderer, mechanical editing, validation UI, accept, graph, images.
+**Invariant:** validation applies only to the submitted complete-definition digest; any edit invalidates it.
 
-**Acceptance:** stale draft version rejects before downstream call; success records candidate reference; timeout/refusal/validation/provider failure preserves the draft; exact retry semantics are declared and tested; no candidate is labeled accepted.
+**Acceptance:** no sparse patches/schema fork; complex unknown structures preserved; errors/warnings distinct; issue paths map or remain global; failure retains edits; persistence is honestly session-only unless separately designed.
 
-**Demolition:** None yet; mock workbench remains until SBW04 presents the replacement.
+**Demolition:** remove any UI claiming Markdown-only edits change mechanics.
 
-**Stop conditions:** Candidate expiry makes reload impossible without a server candidate-read route; request mapping requires hidden corpus discovery rather than explicit pointers.
+---
 
-**Named successor:** `SBW04`.
+### SBW06 — Candidate revise/regenerate and lineage
 
-## 5. SBW04 — Shared semantic statblock renderer and read-only candidate workbench
+**Handoff:** [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md)  
+**Status:** blocked on `SBW05`.
 
-**Status:** BLOCKED on SBW03.
+**Mission:** create a new candidate from one exact edited definition, candidate, or accepted revision while preserving source lineage.
 
-**Mission:** Render a real typed candidate in the existing Statblock Workbench through one reusable semantic renderer and replace the normal mock/corpus-first generation presentation.
+**Invariant:** revision creates a new candidate ID; source proposals/revisions are never overwritten.
 
-**Invariant:** Candidate review, later full view, Markdown embed, and combat drilldown share one structured-definition rendering kernel.
+**Acceptance:** exact source/no latest; explicit instructions digest; active/superseded/rejected/accepted-source transitions; failure retains source/editor; replay and downstream-success/local-write recovery safe.
 
-**Repository:** DungeonMindBuddy only.
+**Demolition:** remove any regenerate action that replaces current output without lineage.
 
-**Deliverables:**
+---
 
-- Shared statblock renderer components for identity, defense/vitality/movement, abilities/proficiencies, senses/communication, traits/actions/reactions/legendary/lair/phases, flavor, validation, and `human_adjudicated` display.
-- Read-only candidate workbench loaded from a ThreatDraft candidate reference.
-- Honest candidate/draft/validation/provenance status.
-- Empty/unavailable/expired/error states retaining stable pointers.
-- Component fixture coverage across simple, spellcasting, legendary/lair, phased, and human-adjudicated examples.
+### SBW07 — Persist accepted mechanics as immutable first revision
 
-**Non-goals:** Editor, validation calls, accept, graph, combat, Markdown node, images.
+**Handoff:** [`HANDOFF-sbw07-persist-accepted-mechanics.md`](HANDOFF-sbw07-persist-accepted-mechanics.md)  
+**Status:** blocked on `SBW05`; `SBW06` optional for first save.
 
-**Acceptance:** renderer consumes generated contract types; candidate reload renders identically; no canonical Markdown parse; unsupported mechanics remain visible; route works from Plan's existing statblock tool projection.
+**Mission:** idempotently persist one validation-clean definition and record its exact immutable locator on the draft.
 
-**Demolition:** Remove mock generate/render from the normal workbench and remove corpus promotion/retrieval activation from the normal candidate path. Retain backend predecessors only if tests or a named legacy route still consume them; name deletion owner.
+**Invariant:** mechanics saved means exact `(statblock_id, revision_id, definition_digest)` and never implies graph publication.
 
-**Stop conditions:** Existing CSS/layout requires a separate renderer per host; renderer must reinterpret or regenerate accepted `rules_text`; fixture reveals a contract shape the generated client cannot represent.
+**Acceptance:** stale/error validation blocks; double-submit creates once; exact reload proves IDs/digest; post-commit local failure is recoverable; UI says saved/not published.
 
-**Named successor:** `SBW05`, `SBW14`.
+**Demolition:** corpus promotion is not an acceptance path and is deleted from the normal workflow when no named consumer remains.
 
-## 6. SBW05 — Complete-definition candidate editing and preview validation
+---
 
-**Status:** BLOCKED on SBW04.
+### SBW08 — World Graph external resource and binding contract
 
-**Mission:** Let the GM edit a complete typed candidate working copy and validate it through DungeonMindServer without persisting mechanics.
+**Handoff:** [`HANDOFF-sbw08-world-graph-statblock-binding-contract.md`](HANDOFF-sbw08-world-graph-statblock-binding-contract.md)  
+**Status:** parallel-ready after current graph contract changes stabilize.
 
-**Invariant:** Every mechanical edit remains a complete `StatblockDefinitionV1_Input` and receives authoritative Server validation before it can be accepted.
+**Mission:** store, validate, fingerprint, reload, traverse, and project a typed Threat→external-statblock binding.
 
-**Deliverables:**
+**Invariant:** graph state contains external identity and binding metadata only; selected revision/digest participate in semantic identity; mechanics never enter graph.
 
-- Editor state initialized from candidate definition.
-- Explicit controls for first-release supported fields; safe structured fallback editor only if still contract-typed.
-- Validate endpoint through the Buddy backend.
-- Field-path issue mapping and global issue rail.
-- Dirty/validated digest state; any edit invalidates prior validation.
-- Reloadable editor draft or explicitly documented session-only state; do not imply persistence if absent.
+**Acceptance:** strict node/edge state; endpoint/provider/ID agreement; immutable publish/reload/projection; same binding replay idempotent; changed revision distinct; definition-shaped payload rejected.
 
-**Non-goals:** Model revision, immutable save, graph, media, combat.
+**Stop trigger:** generic graph-property architecture or ontology change is required.
 
-**Acceptance:** editing typed fields changes the submitted definition; validation errors block the future accept action; warnings remain visible; `rules_text` edits trigger revalidation; no untyped patch bag or local schema fork.
+---
 
-**Demolition:** Remove any remaining UI that edits only Markdown while claiming mechanics changed.
+### SBW09 — Governed Threat + exact binding publication
 
-**Stop conditions:** A required field cannot be edited without creating a second handwritten schema; validation paths cannot map to fields; the UI must silently discard unknown rule elements.
+**Handoff:** [`HANDOFF-sbw09-governed-threat-binding-publication.md`](HANDOFF-sbw09-governed-threat-binding-publication.md)  
+**Status:** blocked on `SBW07–08` and current graph confirm path.
 
-**Named successor:** `SBW06`, `SBW07`.
+**Mission:** prepare, review, confirm, and verify a planned Threat plus exact mechanics binding.
 
-## 7. SBW06 — Candidate revise/regenerate and lineage
+**Invariant:** only reviewed revision-bound graph effects commit; saved mechanics remain valid when publication fails.
 
-**Status:** BLOCKED on SBW05.
+**Acceptance:** explicit existing/new identity; planned/GM/campaign defaults; no-write preview; proposal/token/parent-bound confirm; stale/replay safe; partial state recoverable; exact committed revision proves node/resource/binding.
 
-**Mission:** Create a new typed candidate from an edited definition or exact revision plus explicit revision instructions, preserving candidate and draft lineage.
+**Demolition:** no direct graph-file or statblock-specific writer may exist.
 
-**Invariant:** Regeneration creates a new proposal; it never overwrites a draft version, accepted revision, or prior candidate silently.
+---
 
-**Deliverables:** revise endpoint; instruction model; source definition vs exact revision locator rules; preserve-element-key option; candidate lineage in draft review state; supersede/reject actions; typed downstream failures.
+### SBW10 — Exact-revision Threat Sheet
 
-**Non-goals:** Persistence, graph, compare accepted revisions, media generation.
+**Handoff:** [`HANDOFF-sbw10-exact-revision-threat-sheet.md`](HANDOFF-sbw10-exact-revision-threat-sheet.md)  
+**Status:** blocked on `SBW09`.
 
-**Acceptance:** new candidate has a new ID; exact source is disclosed; prior candidate remains inspectable/statused; stale draft or source locator fails closed; provider failure leaves editor/draft intact.
+**Mission:** open a graph Threat as one composed identity + exact mechanics projection.
 
-**Demolition:** Remove any “regenerate” action that reuses mock output or replaces current state without lineage.
+**Invariant:** every displayed mechanic matches the exact selected binding IDs/digest; no latest/name/corpus/cache substitution.
 
-**Stop conditions:** Server revise semantics cannot preserve exact source provenance; candidate cache cannot distinguish superseded/rejected/expired.
+**Acceptance:** deterministic binding selection or explicit ambiguity; two Threats can share mechanics with distinct lore; Server unavailable preserves identity/locator; shared renderer; exact graph revision stability.
 
-**Named successor:** `SBW12`; also enriches SBW07 acceptance choices.
+**Demolition:** replace named artifact/corpus statblock-view consumers with exact revision identity.
 
-## 8. SBW07 — Persist accepted mechanics as immutable revision
+---
 
-**Status:** BLOCKED on SBW05; SBW06 optional for first save.
+### SBW11 — Committed Plan-document hydration
 
-**Mission:** Save one validated complete definition into DungeonMindServer as a logical statblock + immutable first revision and record the exact accepted mechanics reference on the ThreatDraft.
+**Handoff:** [`HANDOFF-sbw11-plan-document-content-hydration.md`](HANDOFF-sbw11-plan-document-content-hydration.md)  
+**Status:** can dispatch after current document/writer re-anchor.
 
-**Invariant:** “Saved mechanics” always means an exact persisted `(statblock_id, revision_id, digest)`; it does not imply graph publication.
+**Mission:** reopen a registered Plan document from committed Markdown after a fresh browser/session state.
 
-**Deliverables:** acceptance request/confirmation UI; stable idempotency key; create-statblock backend operation; persisted `AcceptedMechanicsRefV1`; `mechanics_saved` state; exact revision reload/proof; retry and conflict behavior.
+**Invariant:** exact registered committed content hydrates deterministically; compatible dirty local work is never overwritten; missing committed content never masquerades as starter/saved data.
 
-**Non-goals:** Threat node, binding graph write, preferred campaign revision, Markdown, combat, image selection.
+**Acceptance:** safe read by document ID only; save→fresh reload; dirty-local revision/fingerprint precedence; stale conflict; missing/unsupported diagnostics; existing writer unchanged.
 
-**Acceptance:** double-submit replays safely; validation errors cannot save; Server success survives Buddy response retry; reload resolves exact revision and digest; UI says mechanics saved/not published.
+**Non-goal:** statblock block itself.
 
-**Demolition:** Corpus write is no longer an acceptance path and should be deleted from the normal workbench if not already removed in SBW04.
+---
 
-**Stop conditions:** Idempotency cannot be stably derived/persisted; accepted reference cannot be written atomically to draft state; exact revision read disagrees with create response.
+### SBW12 — Revision-pinned Markdown/Tiptap embed
 
-**Named successor:** `SBW09`, `SBW10`.
+**Handoff:** [`HANDOFF-sbw12-revision-pinned-markdown-tiptap-embed.md`](HANDOFF-sbw12-revision-pinned-markdown-tiptap-embed.md)  
+**Status:** blocked on `SBW10–11`.
 
-## 9. SBW08 — World Graph external statblock resource and binding contract
+**Mission:** store and render an exact statblock locator as a typed Plan document block across commit/fresh reload.
 
-**Status:** READY in parallel after current graph-contract changes settle.
+**Invariant:** provider/statblock/revision/view/threat attributes round-trip semantically and never select latest or copy canonical mechanics.
 
-**Mission:** Extend Kernel/contribution/projection contracts to represent an external DungeonMind statblock resource node and typed `ThreatStatblockBinding` edge state, without publishing a product Threat.
+**Acceptance:** strict directive grammar; Tiptap node/commands; invalid attrs make zero backend calls; exact shared projection; missing/unavailable retains locator; mixed document and fresh reload pass.
 
-**Invariant:** The graph can traverse Threat ↔ statblock relationships while canonical mechanics remain external and exact revision metadata remains typed and inspectable.
+**Demolition:** remove live embeds that copy pending Markdown as mechanics source when replaced.
 
-**Repository:** DungeonMindBuddy only.
+---
 
-**Deliverables:** strict external-resource/binding state models; materialization from `GraphContributionAssertion.value`; validation; projection/node-view/relationship-view exposure; semantic assertion identity/fingerprint behavior; fixtures/tests; no copied definition.
+### SBW13 — Append immutable revision and compare
 
-**Non-goals:** Workbench, Server calls, product graph proposal, ThreatDraft, persistence, preferred-revision UI.
+**Handoff:** [`HANDOFF-sbw13-append-revision-compare.md`](HANDOFF-sbw13-append-revision-compare.md)  
+**Status:** blocked on `SBW06–07`, `SBW10`.
 
-**Acceptance:** resource node validates; binding edge validates only when provider/statblock/revision IDs match; state survives immutable graph publish/reload/projection; same binding reapply is idempotent; changed selected revision is semantically distinct; no statblock definition stored.
+**Mission:** fork an exact parent, append one immutable child, and compare typed mechanics.
 
-**Demolition:** None.
+**Invariant:** child has one exact expected parent; parent remains readable; no use migrates.
 
-**Stop conditions:** arbitrary edge state cannot be introduced without a general graph property-contract decision; graph semantic identity would ignore selected revision and collapse distinct bindings; external-resource nodes violate an active ontology contract.
+**Acceptance:** stale parent/no latest; idempotent append/recovery; semantic diff covers rule elements, phases, spellcasting, rules/adjudicated text; bindings/embeds/placements/combat unchanged.
 
-**Named successor:** `SBW09`.
+**Demolition:** remove in-place save semantics for accepted revisions.
 
-## 10. SBW09 — Governed Threat + exact statblock binding publication
+---
 
-**Status:** BLOCKED on SBW07+SBW08 and available Graph Review confirm path.
+### SBW14 — Governed one-binding revision adoption
 
-**Mission:** Prepare, review, confirm, and reload a planned Threat plus exact statblock binding through the existing governed World Graph write path.
+**Handoff:** [`HANDOFF-sbw14-governed-binding-revision-upgrade.md`](HANDOFF-sbw14-governed-binding-revision-upgrade.md)  
+**Status:** blocked on `SBW13` and graph replacement/supersession semantics.
 
-**Invariant:** A generated/saved statblock becomes campaign memory only through a revision-bound human-reviewed graph proposal and atomic Kernel publication.
+**Mission:** replace one exact Threat binding’s selected revision through governed review.
 
-**Deliverables:** map ThreatDraft + AcceptedMechanicsRef into authored source/contribution proposal; existing-object resolution; Threat node + external resource + binding edge review items; required metadata; preview UI; proposal-bound confirmation; pending publication recovery; exact committed revision verification.
+**Invariant:** exactly one binding changes; every sibling binding, embed, placement, and combatant remains unchanged.
 
-**Non-goals:** Full Threat Sheet styling, Markdown, combat, revision upgrade, autonomous Hermes commit.
+**Acceptance:** exact current/new IDs/digests/same logical statblock; one no-write replacement preview; stale/replay safe; exact graph verification; multiple-active binding integrity check; sibling non-mutation ledger.
 
-**Acceptance:** no confirm with zero/unreviewed effects; stale graph parent rejects; exact retry is idempotent; existing Threat can bind without duplicate node; new Threat defaults planned/GM/campaign-scoped; Server-saved mechanics remain usable if graph publish fails; reload proves node/edge at receipt revision.
+**Non-goal:** bulk, preferred/latest, document/combat migration.
 
-**Demolition:** No direct graph-file or statblock-specific bypass writer may remain. Reuse normal graph authoring/Kernel path.
+---
 
-**Stop conditions:** current graph authoring prepare/commit cannot carry typed edge state; existing-object resolution cannot distinguish a new Threat from an existing one; graph write would require changing statblock mechanics.
+### SBW15 — Exact-revision combat adapter
 
-**Named successor:** `SBW10`.
+**Handoff:** [`HANDOFF-sbw15-exact-revision-combat-adapter.md`](HANDOFF-sbw15-exact-revision-combat-adapter.md)  
+**Status:** blocked on `SBW10`.
 
-## 11. SBW10 — Exact-revision Threat Sheet and full statblock view
+**Mission:** derive deterministic `CombatantSeedV1` and insert mutable exact-revision combatants into the existing tracker.
 
-**Status:** BLOCKED on SBW09.
+**Invariant:** exact locator/snapshot remain immutable while HP/init/conditions/notes mutate only combat state.
 
-**Mission:** Open a graph Threat and compose its identity, exact selected statblock revision, binding, and media into one reusable Threat Sheet/full view.
+**Acceptance:** typed seed; exact derivation/no corpus fallback; network replay safety; save/load/export locator+snapshot; offline row operation; exact drilldown; no active auto-upgrade.
 
-**Invariant:** Every displayed mechanical field is traceable to the exact revision named by the binding or placement; the Threat remains a distinct world object.
+**Demolition:** replace legacy artifact/corpus combat-add identity when no named consumer remains.
 
-**Deliverables:** resolver from graph binding to backend exact revision read; composed view model; summary/full views using shared renderer; graph/Plan open action; loading/missing/denied/downstream unavailable states; exact locator details behind opt-in diagnostics.
+---
 
-**Non-goals:** Edit accepted revision, Markdown node, combat mutation, images generation.
+### SBW16 — Optional candidate image generation
 
-**Acceptance:** graph reload opens the same revision; same statblock may render for two Threats with distinct lore; no display-name lookup; unavailable Server preserves Threat identity and locator; latest revision does not silently replace selected revision.
+**Handoff:** [`HANDOFF-sbw16-optional-image-generation.md`](HANDOFF-sbw16-optional-image-generation.md)  
+**Status:** blocked on `SBW04`; parallel thereafter.
 
-**Demolition:** Remove generated-statblock view paths that identify canonical content by corpus artifact ID when the new exact-revision path replaces their named consumer.
+**Mission:** explicitly request optional images during supported candidate generate/revise operations and display typed asset outcomes.
 
-**Stop conditions:** projection resolver cannot access binding state; UI requires direct browser call to Server; shared renderer cannot accept an exact revision definition.
+**Invariant:** image outcome is non-blocking presentation work; mechanics validity/digest remain independent; only typed durable `AssetRefV1` is trusted.
 
-**Named successor:** `SBW11`, `SBW12`, `SBW13`.
+**Acceptance:** default false; real readiness/Server contract; partial image failure retains candidate mechanics; safe MIME/URL rendering; candidate reload assets; no selection/upload/delete/3D.
 
-## 12. SBW11 — Revision-pinned Markdown/Tiptap statblock embed
+**Cross-repo stop:** if image-only regeneration requires a new Server route, dispatch a separate DungeonMindServer PR first.
 
-**Status:** BLOCKED on SBW10.
+---
 
-**Mission:** Add a Tiptap/Markdown statblock node that stores an exact DungeonMind revision locator and renders the shared projection inside the Plan board.
+### SBW17 — Durable image selection and binding
 
-**Invariant:** The document stores a stable typed locator; rendered mechanics are resolved projections, not copied canonical Markdown.
+**Handoff:** [`HANDOFF-sbw17-durable-image-selection-binding.md`](HANDOFF-sbw17-durable-image-selection-binding.md)  
+**Status:** blocked on `SBW10`, `SBW16`.
 
-**Deliverables:** Markdown syntax/parser/serializer; Tiptap node; exact revision resolver; summary/full mode; unresolved state; insert action from Threat Sheet/workbench; reload and save tests; portable export explicitly separate if included.
+**Mission:** persist one trusted provider asset for one exact Threat/binding presentation role and compose it into existing views.
 
-**Non-goals:** Automatic latest upgrade, graph write, generic arbitrary React embed framework, combat.
+**Invariant:** exact provider asset + target + role change presentation state only; mechanics, graph identity, and provider ownership remain unchanged.
 
-**Acceptance:** save/reload preserves attributes byte-semantically; exact revision renders; missing revision remains editable and retains locator; newer revision does not change embed; document writer's existing prepare/commit safety remains intact.
+**Acceptance:** trusted server-side asset resolution; strict target/role matrix; optimistic replace/unbind; candidate expiry survives; deterministic slot precedence; CDN failure honest; binding-level media never silently transfers; digest unchanged.
 
-**Demolition:** Remove any statblock embed/path that copies pending Markdown as the live source when its consumer is replaced.
+**Demolition:** remove transient/data-URI/provider URL usage as durable selected media where replaced.
 
-**Stop conditions:** Markdown parser cannot round-trip directive attributes; Tiptap schema change would corrupt existing documents; resolver bypasses backend/auth boundary.
+---
 
-**Named successor:** `SBW12`.
+### SBW18 — 3D media contract reconnaissance
 
-## 13. SBW12 — Append revision, compare, and explicit upgrade
+**Handoff:** [`HANDOFF-sbw18-3d-media-contract-reconnaissance.md`](HANDOFF-sbw18-3d-media-contract-reconnaissance.md)  
+**Status:** DEFERRED / NOT READY.
 
-**Status:** BLOCKED on SBW10+SBW06.
+**Mission:** select one concrete 3D use case/provider and define a distinct model/job/storage contract with evidence and split successor handoffs.
 
-**Mission:** Fork an accepted exact revision into an editable/revisable candidate, append an immutable child revision, compare it, and explicitly update chosen bindings/placements/embeds.
+**Invariant:** 3D is a typed media resource with canonical file, preview, variants, provenance, job state, ownership, and delivery requirements—not an image URL with a different extension.
 
-**Invariant:** New mechanics create a new revision; existing pinned uses remain unchanged until a scoped human action upgrades them.
+**Acceptance:** operator-selected use case/provider; official evidence; licensing/retention/ownership decision; format/MIME/CDN/range proof; identity/job/persistence matrices; separate Server and Buddy implementation handoffs; documentation/fixtures only.
 
-**Deliverables:** open-as-candidate; append request with exact parent; stale-parent conflict; semantic compare view; campaign preferred selection if implemented; per-binding/per-placement/per-embed upgrade actions; audit/reload proof.
+**Stop:** no selected use case/provider, no durable download, unresolved licensing, unstable identity/idempotency, insecure delivery, or cross-repo implementation coupling.
 
-**Non-goals:** Bulk silent migration, automatic latest, combatant upgrade during active combat, merging divergent revision branches.
+## 4. Critical review gates
 
-**Acceptance:** append creates new ID/digest; old revision remains readable; one embed/placement upgrade does not alter another; stale parent fails; compare includes rule elements and human-adjudicated text; no silent rebase.
+Before dispatching any slice:
 
-**Demolition:** Remove in-place edit/save semantics for accepted revisions.
+1. Fetch current `main` and record immutable base SHA.
+2. Read the complete canonical handoff; do not dispatch a chat summary.
+3. Verify all predecessor PRs named by the handoff are merged.
+4. Re-anchor expected paths and generated type/fixture names.
+5. Confirm no stop condition is already true.
+6. Update the handoff only through a reviewed docs change when repository drift changes the contract materially.
+7. Assign the actual GitHub PR number/branch after the base is known.
+8. Require the implementation handback to distinguish author-local, independently rerun, CI, and manual evidence.
 
-**Stop conditions:** binding replacement cannot be governed without a new graph proposal type; compare cannot preserve element identity; active combat state would be rewritten.
+## 5. Cumulative proof record
 
-**Named successor:** later revision-branch/variant UX if dogfood demands it.
+After `SBW15` and `SBW17`, add one report under `Docs/Reports/` proving the real Shepherds' Flock/Mireward flow:
 
-## 14. SBW13 — Exact-revision combat adapter
+```text
+World Graph/Hermes context
+→ ThreatDraft
+→ typed candidate
+→ edit/validate/revise
+→ immutable mechanics
+→ governed Threat binding
+→ exact Threat Sheet
+→ committed Plan embed fresh reload
+→ child revision compare and optional one-binding adoption
+→ combat runtime
+→ image generation + selection
+```
 
-**Status:** BLOCKED on SBW10.
-
-**Mission:** Derive a deterministic CombatantSeed from one exact statblock revision and insert it into the existing combat tracker with stable reload/export and full-view drilldown.
-
-**Invariant:** Combat state is mutable encounter state pinned to immutable mechanics; no runtime mutation writes back to the statblock or graph.
-
-**Deliverables:** expanded combat-minimum adapter; `CombatantSeedV1`; tracker insertion endpoint/action; exact locator + operational snapshot in persistence/export; drilldown through SBW10 resolver; human-adjudicated notices.
-
-**Non-goals:** Full Play migration, rules automation, combat revision upgrade, graph write, encounter builder redesign.
-
-**Acceptance:** add one or several instances; current/max HP behavior correct; reload/export retains locator and snapshot; revision unavailable still leaves operational row with honest drilldown failure; HP/conditions do not change revision digest; corpus path/Markdown not required.
-
-**Demolition:** Replace `addGeneratedStatblockToCombat` artifact/corpus identity for the normal path; delete old path if no named consumer.
-
-**Stop conditions:** existing combat persistence cannot version the locator without destructive migration; initiative modifier derivation is ambiguous under contract; tracker assumes Markdown is canonical.
-
-**Named successor:** Campaign Supergraph PR009 / Play projection migration uses this adapter.
-
-## 15. SBW14 — Image generation, selection, and binding
-
-**Status:** BLOCKED on SBW04; parallel thereafter.
-
-**Mission:** Request optional image generation through DungeonMindServer, display typed partial outcomes, and let the GM select/bind CDN assets to Threat or statblock form roles.
-
-**Invariant:** Media is durable presentation state with provider-owned asset identity; it is not mechanics and cannot invalidate otherwise accepted mechanics.
-
-**Deliverables:** generate-images option/action; asset brief review; candidate assets/warnings; selection model; Threat vs binding/form role choice; exact CDN refs; reload; shared renderer media slots; safe delete/unbind semantics.
-
-**Non-goals:** 3D, local binary storage, deleting by arbitrary URL, mechanics digest change, blocking candidate generation on image failure.
-
-**Acceptance:** unconfigured generator returns typed warning; successful asset has durable ID/CDN URL; selection survives reload; changing portrait/token leaves revision digest unchanged; one asset can have variants; credentials remain server-side.
-
-**Demolition:** Remove any data-URI or transient provider URL used as a durable statblock image where replaced.
-
-**Stop conditions:** asset contract lacks ownership-safe delete/unbind; generated URL is not durable; UI needs untyped provider-specific payloads.
-
-**Named successor:** `SBW15`.
-
-## 16. SBW15 — 3D media contract and job pipeline
-
-**Status:** DEFERRED until SBW14 dogfood and provider selection.
-
-**Mission:** Define and prove a separate model-asset contract and asynchronous job lifecycle for generated 3D assets without widening image-only `AssetRefV1` dishonestly.
-
-**Invariant:** A 3D model is a typed media resource with durable files, preview, lineage, and job state—not an image URL with a different extension.
-
-**Deliverables:** provider/use-case decision; media contract; formats/MIME; preview relationship; job lifecycle; CDN/storage; validation; one fixture/proof path. Implementation may be design-only if no provider is selected.
-
-**Non-goals:** Blocking core statblock workflow; rigging/animation/printing guarantees without a chosen use case; arbitrary file upload platform.
-
-**Acceptance:** contract represents at least canonical model + preview + provenance + variants/job state; no use of image-only fields; ownership/deletion defined; consumer projection can decline unsupported formats honestly.
-
-**Stop conditions:** no selected user use case or provider; storage cannot serve model MIME/range requests; licensing/retention unresolved.
-
-## 17. Cumulative proof record
-
-After `SBW13` and `SBW14`, add one dogfood report under `Docs/Reports/` proving the Shepherds' Flock scene workflow end to end. This report is evidence, not a replacement for per-PR tests or roadmap authority.
+The report records IDs, revisions, receipts, failure injections, screenshots/recordings where appropriate, and demolition outcomes. It does not replace the owning-boundary tests or authorize `SBW18`.
