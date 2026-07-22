@@ -3,15 +3,25 @@ from __future__ import annotations
 
 import re
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 SCHEMA = "dmb_threat_draft_v1"
 SUMMARY_SCHEMA = "dmb_threat_draft_summary_v1"
+INDEX_SCHEMA = "dmb_threat_draft_index_v1"
+LIST_SCHEMA = "dmb_threat_draft_list_v1"
+
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _MAX_TEXT = 20_000
 _MAX_LIST = 64
 _MAX_NAME = 200
+_MAX_SHORT = 64
+_MAX_CR = 32
+_MAX_LIST_ELEMENT = 500
+
+DEFAULT_LIST_LIMIT = 50
+MAX_LIST_LIMIT = 100
 
 
 class StrictModel(BaseModel):
@@ -25,24 +35,57 @@ def _require_id(value: str, *, label: str) -> str:
     return cleaned
 
 
+def require_draft_id(value: str) -> str:
+    """Draft identity is always a UUID; reject path/traversal forms."""
+    cleaned = value.strip()
+    try:
+        return str(UUID(cleaned))
+    except ValueError as exc:
+        raise ValueError("invalid draft_id") from exc
+
+
+def _bounded_string_list(values: list[str], *, label: str) -> list[str]:
+    bounded: list[str] = []
+    for item in values:
+        if not isinstance(item, str):
+            raise ValueError(f"invalid {label} element")
+        cleaned = item.strip()
+        if not cleaned:
+            raise ValueError(f"empty {label} element")
+        if len(cleaned) > _MAX_LIST_ELEMENT:
+            raise ValueError(f"{label} element exceeds max length")
+        bounded.append(cleaned)
+    return bounded
+
+
 class RulesetRefV1(StrictModel):
-    system: str = Field(min_length=1, max_length=64)
-    edition: str = Field(min_length=1, max_length=64)
-    house_ruleset_id: str | None = None
+    system: str = Field(min_length=1, max_length=_MAX_SHORT)
+    edition: str = Field(min_length=1, max_length=_MAX_SHORT)
+    house_ruleset_id: str | None = Field(default=None, max_length=_MAX_SHORT)
 
 
 class GenerationIntentV1(StrictModel):
     ruleset: RulesetRefV1
-    target_cr: str | None = None
-    complexity: str | None = None
+    target_cr: str | None = Field(default=None, max_length=_MAX_CR)
+    complexity: str | None = Field(default=None, max_length=_MAX_SHORT)
     must_include: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     must_avoid: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
+
+    @field_validator("must_include", "must_avoid")
+    @classmethod
+    def _instruction_items(cls, values: list[str]) -> list[str]:
+        return _bounded_string_list(values, label="generation instruction")
 
 
 class EncounterContextV1(StrictModel):
     party_level: int | None = Field(default=None, ge=1, le=30)
     party_size: int | None = Field(default=None, ge=1, le=20)
     terrain_notes: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
+
+    @field_validator("terrain_notes")
+    @classmethod
+    def _terrain_items(cls, values: list[str]) -> list[str]:
+        return _bounded_string_list(values, label="terrain note")
 
 
 class GraphContextSnapshotV1(StrictModel):
@@ -66,20 +109,6 @@ class FocusV1(StrictModel):
     prep_label: str | None = Field(default=None, max_length=_MAX_NAME)
 
 
-class ThreatDraftCandidateRefV1(StrictModel):
-    candidate_id: str
-    generated_from_draft_version: int = Field(ge=1)
-    request_id: str
-    created_at: str
-    expires_at: str | None = None
-    status: Literal["active", "superseded", "rejected", "expired", "accepted_source"] = "active"
-
-    @field_validator("candidate_id", "request_id")
-    @classmethod
-    def _ids(cls, value: str) -> str:
-        return _require_id(value, label="candidate ref id")
-
-
 class ThreatDraftV1(StrictModel):
     schema_name: Literal["dmb_threat_draft_v1"] = Field(default=SCHEMA, alias="schema")
     draft_id: str
@@ -90,30 +119,36 @@ class ThreatDraftV1(StrictModel):
     name: str = Field(min_length=1, max_length=_MAX_NAME)
     slug_hint: str | None = Field(default=None, max_length=_MAX_NAME)
     description: str = Field(min_length=1, max_length=_MAX_TEXT)
-    threat_kind: str = Field(min_length=1, max_length=64)
+    threat_kind: str = Field(min_length=1, max_length=_MAX_SHORT)
     intended_roles: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     tags: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     generation_intent: GenerationIntentV1
     encounter_context: EncounterContextV1 = Field(default_factory=EncounterContextV1)
     graph_context_snapshot: GraphContextSnapshotV1
-    candidate_refs: list[ThreatDraftCandidateRefV1] = Field(default_factory=list)
-    accepted_mechanics_ref: dict | None = None
-    workflow_state: Literal[
-        "drafting",
-        "candidate_ready",
-        "mechanics_saved",
-        "publication_pending",
-    ] = "drafting"
+    # Passive placeholders; SBW02 never mutates candidate/mechanics lifecycle fields.
+    candidate_refs: list[dict] = Field(default_factory=list, max_length=0)
+    accepted_mechanics_ref: None = None
+    workflow_state: Literal["drafting"] = "drafting"
     created_by: str = Field(min_length=1, max_length=_MAX_NAME)
     created_at: str
     updated_at: str
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    @field_validator("draft_id", "world_id", "campaign_id")
+    @field_validator("draft_id")
+    @classmethod
+    def _draft_id(cls, value: str) -> str:
+        return require_draft_id(value)
+
+    @field_validator("world_id", "campaign_id")
     @classmethod
     def _identity_ids(cls, value: str) -> str:
         return _require_id(value, label="identity id")
+
+    @field_validator("intended_roles", "tags")
+    @classmethod
+    def _role_tag_items(cls, values: list[str]) -> list[str]:
+        return _bounded_string_list(values, label="role or tag")
 
 
 class ThreatDraftSummaryV1(StrictModel):
@@ -132,6 +167,20 @@ class ThreatDraftSummaryV1(StrictModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+class ThreatDraftIndexV1(StrictModel):
+    schema_name: Literal["dmb_threat_draft_index_v1"] = Field(
+        default=INDEX_SCHEMA, alias="schema"
+    )
+    draft_ids: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    @field_validator("draft_ids")
+    @classmethod
+    def _draft_ids(cls, values: list[str]) -> list[str]:
+        return [require_draft_id(item) for item in values]
+
+
 class CreateThreatDraftRequest(StrictModel):
     world_id: str
     campaign_id: str
@@ -139,7 +188,7 @@ class CreateThreatDraftRequest(StrictModel):
     name: str = Field(min_length=1, max_length=_MAX_NAME)
     slug_hint: str | None = Field(default=None, max_length=_MAX_NAME)
     description: str = Field(min_length=1, max_length=_MAX_TEXT)
-    threat_kind: str = Field(min_length=1, max_length=64)
+    threat_kind: str = Field(min_length=1, max_length=_MAX_SHORT)
     intended_roles: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     tags: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     generation_intent: GenerationIntentV1
@@ -154,6 +203,11 @@ class CreateThreatDraftRequest(StrictModel):
     def _scope_ids(cls, value: str) -> str:
         return _require_id(value, label="scope id")
 
+    @field_validator("intended_roles", "tags")
+    @classmethod
+    def _role_tag_items(cls, values: list[str]) -> list[str]:
+        return _bounded_string_list(values, label="role or tag")
+
 
 class UpdateThreatDraftRequest(StrictModel):
     expected_version: int = Field(ge=1)
@@ -161,7 +215,7 @@ class UpdateThreatDraftRequest(StrictModel):
     name: str = Field(min_length=1, max_length=_MAX_NAME)
     slug_hint: str | None = Field(default=None, max_length=_MAX_NAME)
     description: str = Field(min_length=1, max_length=_MAX_TEXT)
-    threat_kind: str = Field(min_length=1, max_length=64)
+    threat_kind: str = Field(min_length=1, max_length=_MAX_SHORT)
     intended_roles: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     tags: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     generation_intent: GenerationIntentV1
@@ -170,11 +224,19 @@ class UpdateThreatDraftRequest(StrictModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    @field_validator("intended_roles", "tags")
+    @classmethod
+    def _role_tag_items(cls, values: list[str]) -> list[str]:
+        return _bounded_string_list(values, label="role or tag")
+
 
 class ThreatDraftListResponse(StrictModel):
     schema_name: Literal["dmb_threat_draft_list_v1"] = Field(
-        default="dmb_threat_draft_list_v1", alias="schema"
+        default=LIST_SCHEMA, alias="schema"
     )
-    drafts: list[ThreatDraftSummaryV1] = Field(default_factory=list)
+    drafts: list[ThreatDraftSummaryV1] = Field(default_factory=list, max_length=MAX_LIST_LIMIT)
+    limit: int = Field(ge=1, le=MAX_LIST_LIMIT)
+    offset: int = Field(ge=0)
+    total: int = Field(ge=0)
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)

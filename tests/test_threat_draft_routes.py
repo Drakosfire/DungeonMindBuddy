@@ -41,14 +41,25 @@ def test_threat_draft_routes_crud_and_stale(monkeypatch, tmp_path: Path) -> None
     draft_id = created["draft_id"]
     assert created["schema"] == "dmb_threat_draft_v1"
     assert created["version"] == 1
+    assert created["workflow_state"] == "drafting"
+    assert created["candidate_refs"] == []
 
-    read_response = client.get(f"/api/live/threat-drafts/{draft_id}")
+    # Fresh app instance simulates process restart against durable store files.
+    restarted = TestClient(create_app())
+    read_response = restarted.get(f"/api/live/threat-drafts/{draft_id}")
     assert read_response.status_code == 200
     assert read_response.json()["draft_id"] == draft_id
 
-    list_response = client.get("/api/live/threat-drafts", params={"campaign_id": "campaign_1"})
+    list_response = restarted.get(
+        "/api/live/threat-drafts",
+        params={"campaign_id": "campaign_1", "limit": 10, "offset": 0},
+    )
     assert list_response.status_code == 200
-    assert len(list_response.json()["drafts"]) == 1
+    body = list_response.json()
+    assert body["total"] == 1
+    assert body["limit"] == 10
+    assert body["offset"] == 0
+    assert len(body["drafts"]) == 1
 
     update_body = {
         "expected_version": 1,
@@ -59,11 +70,11 @@ def test_threat_draft_routes_crud_and_stale(monkeypatch, tmp_path: Path) -> None
         "encounter_context": created["encounter_context"],
         "graph_context_snapshot": created["graph_context_snapshot"],
     }
-    update_response = client.put(f"/api/live/threat-drafts/{draft_id}", json=update_body)
+    update_response = restarted.put(f"/api/live/threat-drafts/{draft_id}", json=update_body)
     assert update_response.status_code == 200
     assert update_response.json()["version"] == 2
 
-    stale = client.put(f"/api/live/threat-drafts/{draft_id}", json=update_body)
+    stale = restarted.put(f"/api/live/threat-drafts/{draft_id}", json=update_body)
     assert stale.status_code == 409
 
 
@@ -74,3 +85,26 @@ def test_threat_draft_rejects_extra_fields(monkeypatch, tmp_path: Path) -> None:
     payload["unexpected"] = "nope"
     response = client.post("/api/live/threat-drafts", json=payload)
     assert response.status_code == 422
+
+
+def test_threat_draft_rejects_unbounded_fields(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    payload = _payload()
+    payload["tags"] = ["t" * 501]
+    response = client.post("/api/live/threat-drafts", json=payload)
+    assert response.status_code == 422
+
+
+def test_threat_draft_list_rejects_oversized_limit(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    response = client.get("/api/live/threat-drafts", params={"limit": 101})
+    assert response.status_code == 422
+
+
+def test_threat_draft_rejects_path_escape_id(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: tmp_path)
+    client = TestClient(create_app())
+    response = client.get("/api/live/threat-drafts/../escape")
+    assert response.status_code in {404, 422}

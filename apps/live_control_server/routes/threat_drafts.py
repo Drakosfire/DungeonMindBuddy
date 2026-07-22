@@ -7,6 +7,8 @@ from fastapi import APIRouter, HTTPException, Query
 
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.threat_draft import (
+    DEFAULT_LIST_LIMIT,
+    MAX_LIST_LIMIT,
     CreateThreatDraftRequest,
     ThreatDraftListResponse,
     ThreatDraftV1,
@@ -40,16 +42,25 @@ def post_threat_draft(body: CreateThreatDraftRequest) -> dict[str, Any]:
 def get_threat_drafts(
     campaign_id: Annotated[str | None, Query()] = None,
     world_id: Annotated[str | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIST_LIMIT)] = DEFAULT_LIST_LIMIT,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict[str, Any]:
     try:
-        drafts = list_threat_drafts(
+        drafts, total = list_threat_drafts(
             repo_root(),
             campaign_id=campaign_id,
             world_id=world_id,
+            limit=limit,
+            offset=offset,
         )
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return ThreatDraftListResponse(drafts=drafts).model_dump(mode="json", by_alias=True)
+    return ThreatDraftListResponse(
+        drafts=drafts,
+        limit=limit,
+        offset=offset,
+        total=total,
+    ).model_dump(mode="json", by_alias=True)
 
 
 @router.get("/{draft_id}")
