@@ -130,7 +130,10 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const [activeBlockBoundary, setActiveBlockBoundary] = useState<RunbookBlockBoundary>(RUNBOOK_BLOCK_BOUNDARIES.local);
   const activeBlockRef = useRef<HTMLElement | null>(null);
   const editorShellRef = useRef<HTMLDivElement | null>(null);
-  const skipNextUpdateRef = useRef(true);
+  // Arm only for reset/import remounts (documentKey change can emit a hydration update).
+  // Must stay false on ordinary mount — that path does not emit onUpdate, so a pre-armed
+  // skip would discard the first real user edit.
+  const skipNextUpdateRef = useRef(false);
   const [contentEpoch, setContentEpoch] = useState(0);
 
   const [editor, setEditor] = useState<Editor | null>(null);

@@ -100,6 +100,36 @@ async function renderLoadedSpike(path = "/tiptap-callout-spike") {
   expect(await screen.findByTestId("tiptap-editor")).toBeInTheDocument();
 }
 
+async function waitForEditorReady() {
+  await waitFor(() => {
+    expect(
+      screen.getByTestId("tiptap-editor").querySelector('[data-markdown-editor-status="ready"]'),
+    ).not.toBeNull();
+  });
+}
+
+async function waitForEnabledToolAction(
+  toolsHolder: { current: AppChromeTools | null },
+  sectionId: string,
+  label: string,
+) {
+  await waitFor(() => {
+    const action = toolsHolder.current?.sections
+      ?.find((section) => section.id === sectionId)
+      ?.actions.find((entry) => entry.label === label);
+    expect(action).toBeDefined();
+    expect(action?.disabled).toBeFalsy();
+  });
+  return toolsHolder.current!.sections!
+    .find((section) => section.id === sectionId)!
+    .actions.find((entry) => entry.label === label)!;
+}
+
+function countMarkdownMarker(marker: string): number {
+  const exportText = screen.getByTestId("markdown-export").textContent ?? "";
+  return exportText.split(marker).length - 1;
+}
+
 describe("semantic callout Markdown bridge", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/tiptap-callout-spike");
@@ -519,6 +549,109 @@ describe("semantic callout Markdown bridge", () => {
     const html = readFileSync("../../evals/c2_live_prep/mireward-prep/live-play.html", "utf8");
 
     expect(html).toContain("content/tiptap/north-gate-session-runbook.md");
+  });
+
+  it("persists the first edit after ordinary mount", async () => {
+    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    render(
+      <TiptapCalloutBridgeSpike
+        onEditorToolsChange={(nextTools) => {
+          toolsHolder.current = nextTools;
+        }}
+      />,
+    );
+
+    await waitForEditorReady();
+    expect(screen.getByText("Loaded starter content")).toBeInTheDocument();
+    const warningCountBefore = countMarkdownMarker("> [!WARNING]");
+
+    const insertWarning = await waitForEnabledToolAction(
+      toolsHolder,
+      "tiptap-insert-blocks",
+      "Warning",
+    );
+    act(() => insertWarning.onClick());
+
+    await waitFor(() => {
+      expect(countMarkdownMarker("> [!WARNING]")).toBe(warningCountBefore + 1);
+    });
+    expect(screen.getByText("Saved locally")).toBeInTheDocument();
+    const stored = window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID));
+    expect(stored).toContain('"dirty":true');
+    expect(stored).toContain("> [!WARNING]");
+  });
+
+  it("persists the first edit after reset", async () => {
+    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    render(
+      <TiptapCalloutBridgeSpike
+        onEditorToolsChange={(nextTools) => {
+          toolsHolder.current = nextTools;
+        }}
+      />,
+    );
+    await waitForEditorReady();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset local draft" }));
+    expect(await screen.findByText("Reset to starter")).toBeInTheDocument();
+    await waitForEditorReady();
+    const warningCountBefore = countMarkdownMarker("> [!WARNING]");
+
+    const insertWarning = await waitForEnabledToolAction(
+      toolsHolder,
+      "tiptap-insert-blocks",
+      "Warning",
+    );
+    act(() => insertWarning.onClick());
+
+    await waitFor(() => {
+      expect(countMarkdownMarker("> [!WARNING]")).toBe(warningCountBefore + 1);
+    });
+    expect(screen.getByText("Saved locally")).toBeInTheDocument();
+    expect(window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID))).toContain(
+      '"dirty":true',
+    );
+  });
+
+  it("persists the first edit after imported Markdown remount", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("# Imported title\n\nImported body.\n", {
+        status: 200,
+        headers: { "Content-Type": "text/markdown" },
+      }),
+    );
+    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    render(
+      <TiptapCalloutBridgeSpike
+        onEditorToolsChange={(nextTools) => {
+          toolsHolder.current = nextTools;
+        }}
+      />,
+    );
+    await waitForEditorReady();
+
+    fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
+    expect(await screen.findByText(/Imported committed Markdown from evals\/c2_live_prep/)).toBeInTheDocument();
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("Imported body.");
+    await waitForEditorReady();
+    expect(countMarkdownMarker("> [!WARNING]")).toBe(0);
+
+    const insertWarning = await waitForEnabledToolAction(
+      toolsHolder,
+      "tiptap-insert-blocks",
+      "Warning",
+    );
+    act(() => insertWarning.onClick());
+
+    await waitFor(() => {
+      expect(countMarkdownMarker("> [!WARNING]")).toBe(1);
+    });
+    expect(screen.getByText("Saved locally")).toBeInTheDocument();
+    const stored = window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID));
+    expect(stored).toContain('"dirty":true');
+    expect(stored).toContain("Imported body");
+    expect(stored).toContain("> [!WARNING]");
+    fetchMock.mockRestore();
   });
 
   it("does not render page-local tool copy", async () => {

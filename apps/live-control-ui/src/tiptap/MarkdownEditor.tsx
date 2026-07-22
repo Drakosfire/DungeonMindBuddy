@@ -14,13 +14,11 @@ import {
 } from "./MarkdownEditorToolbar";
 
 export type MarkdownEditorProps = MarkdownEditorCoreProps & {
-  adapter?: MarkdownDocumentAdapter;
   toolbar?: MarkdownEditorToolbarModel;
   onToolbarChange?: (tools: AppChromeTools | null) => void;
 };
 
 export function MarkdownEditor({
-  adapter: _adapter = defaultMarkdownDocumentAdapter,
   toolbar,
   onToolbarChange,
   ...coreProps
