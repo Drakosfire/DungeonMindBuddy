@@ -427,7 +427,9 @@ def _recover_uncertain_with_stored_body(
     stored body is the immutable generate payload for Server replay.
 
     Abandoned recovery must reach Server even when draft refs are at capacity;
-    attach may then report partial_ref rather than blocking recovery.
+    attach may then report partial_ref rather than blocking recovery. When the
+    active reconciliation bound is full, reclaim frees a completed slot first so
+    the store remains scannable afterward.
     """
     if record.request_body is None:
         return _failure(
