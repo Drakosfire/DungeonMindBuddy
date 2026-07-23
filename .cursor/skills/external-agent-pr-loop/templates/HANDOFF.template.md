@@ -1,12 +1,33 @@
 ---
-# Optional workflow contract: literal Markdown the worker may use for the PR body.
-# Keep this summary subordinate to the complete handoff below.
+# Literal Markdown the worker MUST use as the PR-body skeleton.
+# The complete checked-in handoff remains authoritative.
 pr_body_template: |
   ## Outcome
   {{TODO: copy §1 Mission exactly}}
 
-  ## Scope and verification
-  {{TODO: base/head, actual changed paths, §7 results, provenance, waivers, and deferred successors}}
+  ## Merge-ready invariant
+  {{TODO: copy §1 Invariant exactly}}
+
+  ## Evidence required to merge
+  | Guarantee | Owning boundary | Required evidence | Result |
+  |---|---|---|---|
+  | {{TODO: copy each material §7 guarantee}} | {{TODO}} | {{TODO: command/scenario + evidence class}} | {{TODO: pass/fail/not run + provenance}} |
+
+  ## Scope and explicit deferrals
+  {{TODO: base/head, actual changed paths, paths outside §4, and named successors still false}}
+
+  ## Evidence produced
+  ### Automated
+  {{TODO}}
+  ### Adversarial
+  {{TODO}}
+  ### Regression
+  {{TODO}}
+  ### Manual / dogfood
+  {{TODO}}
+
+  ## Gaps, waivers, and stop conditions
+  {{TODO: none, or exact missing evidence, operator waiver, and stop condition}}
 ---
 
 # HANDOFF — {{TODO: one implementation capability}}
@@ -15,9 +36,9 @@ pr_body_template: |
 **Status:** ACTIVE — dispatch exactly one implementation capability.
 **Canonical handoff path:** `{{TODO: repository path}}`
 
-> **Dispatch gate:** Dispatch is prohibited until capability decomposition is complete, one independently useful mission remains, every expected path is known, required contract matrices are resolved, and every acceptance claim has an owning proof.
+> **Dispatch gate:** Dispatch is prohibited until capability decomposition is complete, one independently useful mission remains, the merge-ready invariant and required evidence survive critique, every expected path is known, required contract matrices are resolved, and every acceptance claim has an owning proof.
 >
-> This checked-in handoff is the complete authority. The worker must not “helpfully” compress, omit, replace, or rewrite it before implementation. A PR-body summary may link here but cannot substitute for it.
+> This checked-in handoff is the complete authority. The worker must not compress, omit, replace, or rewrite it before implementation. The PR description must use the frontmatter skeleton and remain a truthful merge contract; it cannot substitute for the handoff.
 
 ## Shared vocabulary
 
@@ -28,10 +49,11 @@ pr_body_template: |
 | **Public/durable contract** | A persisted format, identifier, API, event, schema, file representation, caller-facing type, or externally consumed interface that must remain interpretable beyond one call stack. |
 | **Observable path** | A user-visible or externally observable route through the behavior, including success, miss, error, retry, persistence, and operator paths. |
 | **Owning boundary** | The layer where a guarantee becomes true and therefore must be proved: serializer, store, service, route, component, workflow, CLI, or equivalent. |
-| **Invariant** | The single property every changed layer establishes or proves. |
-| **Stop condition** | A discovered fact that invalidates the current slice boundaries and requires a report before implementation continues. |
+| **Invariant** | The single property every changed layer and observable path establishes or proves. |
+| **Evidence ledger** | The mapping from each invariant clause to its owning boundary, required proof, produced result, provenance, and merge-blocking stop condition. |
+| **Stop condition** | A discovered fact that invalidates the current slice boundaries or required proof and must be reported before implementation continues. |
 
-## §1 Mission
+## §1 Mission and merge-ready invariant
 
 One sentence describing one independently useful outcome and its value. The word “and” is allowed only when it does not join separate outcomes.
 
@@ -39,7 +61,21 @@ One sentence describing one independently useful outcome and its value. The word
 <caller or user> can <single capability> so that <value>.
 ```
 
-**Invariant:** `<one property every changed layer establishes or proves>`
+**Merge-ready invariant:** `<one sentence naming the coherent identity, revision, authority, durable/local state, observable paths, and safe mismatch behavior this slice must preserve>`
+
+### Pre-dispatch critique
+
+Complete before implementation launches:
+
+| Question | Answer |
+|---|---|
+| Can one invariant govern every claimed observable path? | `<yes, or split/reconnaissance required>` |
+| What adversarial sequence is most likely to falsify it? | `<ordered sequence>` |
+| Would the proposed §7 evidence actually detect that failure? | `<why / why not>` |
+| Which owning boundary is easiest to under-test? | `<boundary>` |
+| What fact would force this slice to stop or split? | `<stop condition>` |
+
+Do not dispatch until the invariant and evidence plan survive this critique.
 
 ## §2 Context, authority, and boundaries
 
@@ -62,17 +98,23 @@ Read authoritative inputs in order before changing code:
 4. `<implementation seam>`
 5. `<existing owning tests>`
 
-If the base moved, an authority conflicts, or the predecessor shape differs from this handoff, stop and report the consequence before implementation.
+If the base moved, an authority conflicts, the predecessor shape differs, or the invariant cannot be preserved, stop and report the consequence before implementation.
 
-## §3 Observable-path inventory
+## §3 Observable-path and adversarial-sequence inventory
 
-Mandatory for user-facing, multi-entry, stateful, persistence, or multi-source work. Otherwise: `Not applicable — <one-sentence reason>`.
+Mandatory for user-facing, multi-entry, stateful, persistence, concurrent, partially durable, or multi-source work. Otherwise: `Not applicable — <one-sentence reason>`.
 
 | Path | Current behavior | Required behavior | Same invariant as §1? | Owning boundary |
 |---|---|---|---:|---|
 | `<entry / interaction path>` | `<today>` | `<after this slice>` | Yes / No | `<layer>` |
 
-Inventory success, ordinary miss, error/unavailable, stale context, retry/replay, save/reload, traversal, and operator paths where relevant. A `No` in “Same invariant” is a split trigger unless the row is explicitly removed from this mission.
+Inventory success, ordinary miss, error/unavailable, stale context, retry/replay, save/reload, traversal, and operator paths where relevant. A `No` is a split trigger unless the row is removed from the mission.
+
+For stateful, concurrent, cross-surface, navigation, or commit work, enumerate ordered failure sequences:
+
+| Sequence | Required safe outcome | Owning proof |
+|---|---|---|
+| `<step 1 → step 2 → failure/interleaving>` | `<truthful state, blocked mutation, or recovery>` | `<§7 row>` |
 
 ## §4 Files in scope (allowlist)
 
@@ -128,7 +170,7 @@ Trust boundary:
   Records or trusts without proving:
 ```
 
-For irreversible work:
+For irreversible or partially durable work:
 
 ```text
 Commit point:
@@ -184,13 +226,13 @@ Required when adapting an existing API, event, schema, file, fixture, or error p
 
 Invented “close enough” fixture vocabulary is not acceptable proof.
 
-## §7 Verification ownership map and commands
+## §7 Evidence required to merge
 
-Every behavioral guarantee must be exercised at its owning boundary. Lower-level helper coverage is necessary when useful but cannot prove a higher-level claim.
+Every material invariant clause must be exercised at its owning boundary and, where applicable, through the adversarial sequence that could falsify it. Lower-level helper coverage is useful but cannot prove a higher-level claim.
 
-| Guarantee | Owning boundary | Command or manual scenario | Expected evidence |
-|---|---|---|---|
-| `<guarantee>` | `<serializer/store/service/route/component/workflow/CLI>` | `<exact command or scenario>` | `<observable result>` |
+| Guarantee / invariant clause | Owning boundary | Evidence class | Command or manual scenario | Expected evidence | Stop condition |
+|---|---|---|---|---|---|
+| `<guarantee>` | `<serializer/store/service/route/component/workflow/CLI>` | `<contract/adversarial/regression/manual/dogfood>` | `<exact command or scenario>` | `<observable result>` | `<result that blocks merge>` |
 
 Run every applicable command and record exact results:
 
@@ -198,24 +240,25 @@ Run every applicable command and record exact results:
 <focused owning-boundary test>
 <contract or exact round-trip test>
 <integration / failure-injection test>
+<repository-specific regression suite>
 <repository-specific build, formatting, or lint command>
 git diff --check
 git diff --stat <base>...HEAD -- <§4 paths>
 git diff --name-only <base>...HEAD
 ```
 
-### Minimal live proof
+### Minimal live / dogfood proof
 
 `Not applicable — <reason>` or:
 
 ```text
 Existing surface used:
-Smallest scenario:
+Smallest realistic scenario:
 Expected observation:
 Evidence captured:
 ```
 
-If live proof requires new search, persistence, notes, classifications, management controls, reports, or a dedicated panel, stop for split review.
+If proof requires new search, persistence, notes, classifications, management controls, reports, or a dedicated panel, stop for split review.
 
 ### Baseline failure protocol
 
@@ -226,28 +269,34 @@ For any required command already failing on base:
 - do not call the gate green;
 - name the explicit operator waiver required if it remains an acceptance gate.
 
-## §8 Required handback
+## §8 Required PR description and handback
 
-The PR body or implementation handback must include:
+The PR description must remain current and include:
 
-1. Base SHA/revision and head SHA/revision.
-2. Actual changed paths and focused diff stat limited to §4.
-3. Every §7 command/scenario and exact result.
-4. Provenance of each result: author-local, independently rerun local, or CI.
-5. Live/manual evidence when applicable.
-6. Baseline failures with base/head comparison.
-7. Explicit operator waivers; `none` when none exist.
-8. Paths outside §4; `none` or a stop report.
-9. Stop conditions encountered and resolution; `none` when none exist.
-10. Successor capabilities deferred and still false.
-11. Confirmation that the authoritative handoff was implemented without compression or omitted constraints.
+1. §1 Mission copied exactly.
+2. §1 merge-ready invariant copied exactly.
+3. The §7 evidence ledger: required evidence, produced result, and provenance.
+4. Base SHA/revision and head SHA/revision.
+5. Actual changed paths and focused diff stat limited to §4.
+6. Every §7 command/scenario and exact result.
+7. Provenance of each result: author-local, independently rerun local, CI, or manual/dogfood.
+8. Baseline failures with base/head comparison.
+9. Explicit operator waivers; `none` when none exist.
+10. Paths outside §4; `none` or a stop report.
+11. Stop conditions encountered and resolution; `none` when none exist.
+12. Successor capabilities deferred and still false.
+13. Confirmation that the authoritative handoff was implemented without compressed or omitted constraints.
+
+A generic “Summary / Test plan” PR body does not satisfy this section.
 
 ## §9 Acceptance rubric
 
 The reviewer accepts only when every bullet is true and each behavioral bullet names its §7 proof.
 
 - [ ] Exactly one independently useful capability from §1 was delivered — proved by `<§7 proof>`.
-- [ ] The declared invariant holds across every observable path in §3 — proved by `<§7 proofs>`.
+- [ ] The merge-ready invariant holds across every observable path and adversarial sequence in §3 — proved by `<§7 proofs>`.
+- [ ] The PR description restates the exact invariant and exposes a complete, truthful evidence ledger.
+- [ ] Every required proof has a produced result and provenance, or an explicit operator waiver.
 - [ ] No second public/durable contract was silently introduced — proved by `<diff inspection + contract tests>`.
 - [ ] State, fallback, identity, persistence, and predecessor behavior follow every applicable §6 matrix — proved by `<§7 proofs>`.
 - [ ] Real predecessor vocabulary and shapes are used — proved by `<captured fixture / schema / mapping test>`.
@@ -262,6 +311,9 @@ Stop and report rather than expanding if implementation discovers:
 
 - a second independently useful outcome;
 - a new public/durable contract not owned by §1;
+- an invariant that cannot govern every claimed observable path;
+- required evidence that cannot be produced at the owning boundary;
+- an untested adversarial sequence that can mutate or misreport state;
 - unresolved identity, state, fallback, persistence, replay, or compatibility semantics;
 - a predecessor contract that differs materially from the authoritative fixture/schema/mapping;
 - a required path outside §4 or its bounded discovery exception;
@@ -273,6 +325,8 @@ Stop and report rather than expanding if implementation discovers:
 ```text
 Stop condition:
 Why the current mission cannot absorb it:
+Invariant clause affected:
+Required evidence now missing:
 New public/durable contract discovered:
 Affected observable paths or ownership layers:
 Proposed successor slice:
