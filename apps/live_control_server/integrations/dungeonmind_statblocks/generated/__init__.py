@@ -7,7 +7,10 @@ DungeonMindServer openapi/dungeonbuddy-statblocks-v1.json.
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import (
     GeneratedStatblockCandidateV1,
     GenerationReceiptV1,
+    StatblockDefinitionV1Input,
+    ValidateDefinitionRequestV1,
     ValidationReceiptV1,
+    ValidationResponseV1,
 )
 
 OPENAPI_FINGERPRINT = (
@@ -18,5 +21,8 @@ __all__ = [
     "OPENAPI_FINGERPRINT",
     "GeneratedStatblockCandidateV1",
     "GenerationReceiptV1",
+    "StatblockDefinitionV1Input",
+    "ValidateDefinitionRequestV1",
     "ValidationReceiptV1",
+    "ValidationResponseV1",
 ]

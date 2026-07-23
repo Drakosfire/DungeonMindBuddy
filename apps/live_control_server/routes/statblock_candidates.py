@@ -1,9 +1,10 @@
-"""Statblock candidate generate/read API."""
+"""Statblock candidate generate/read and definition validation API."""
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from pydantic import ValidationError
 
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.statblock_candidate_workflow import (
@@ -12,6 +13,10 @@ from apps.live_control_server.models.statblock_candidate_workflow import (
 from apps.live_control_server.services.statblock_candidate_generation import (
     generate_candidate_from_draft,
     read_candidate,
+)
+from apps.live_control_server.services.statblock_definition_validation import (
+    ValidateDefinitionBuddyRequestV1,
+    validate_definition,
 )
 from apps.live_control_server.services.threat_draft_store import ThreatDraftStoreError
 
@@ -37,4 +42,13 @@ def post_generate_candidate(
 @router.get("/statblock-candidates/{candidate_id}")
 def get_statblock_candidate(candidate_id: str) -> dict[str, Any]:
     result = read_candidate(repo_root(), candidate_id=candidate_id)
+    return result.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/statblock-definitions:validate")
+def post_validate_definition(body: ValidateDefinitionBuddyRequestV1) -> dict[str, Any]:
+    try:
+        result = validate_definition(definition=body.definition)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
     return result.model_dump(mode="json", by_alias=True)
