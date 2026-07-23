@@ -14,6 +14,7 @@ from typing import Any
 
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestRunSummary,
+    UNUSABLE_SOURCE_RECAP_DIGEST,
     discover_graph_ingest_runs,
 )
 from apps.live_control_server.services.graph_preview_runner import (
@@ -121,6 +122,13 @@ def _manifest_is_candidate_reusable(repo: Path, manifest_path: str | None) -> bo
     return _manifest_has_known_entity_mentions(
         repo, manifest_path
     ) and _manifest_has_production_lineage(repo, manifest_path)
+
+
+def _manifest_is_manual_candidate_reusable(repo: Path, manifest_path: str | None) -> bool:
+    """Fixture/manual candidate runs require known-entity sidecar + projection span linkage."""
+    return _manifest_has_known_entity_mentions(
+        repo, manifest_path
+    ) and _manifest_has_usable_source_span_linkage(repo, manifest_path)
 
 
 def inspect_recap_graph_preview_status(
@@ -539,7 +547,7 @@ def materialize_recap_preview_supergraph(
         and (
             _manifest_is_candidate_reusable(repo, summary.manifest_path)
             if extract_graph
-            else _manifest_has_known_entity_mentions(repo, summary.manifest_path)
+            else _manifest_is_manual_candidate_reusable(repo, summary.manifest_path)
         )
     ):
         ensure_graph_ingest_projection_payload(
@@ -579,11 +587,12 @@ def materialize_recap_preview_supergraph(
         summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
         and not force_graph_run
         and not extract_graph
-        and not _manifest_has_known_entity_mentions(repo, summary.manifest_path)
+        and not _manifest_is_manual_candidate_reusable(repo, summary.manifest_path)
     ):
         status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
         status["blocked_reason"] = (
-            "existing preview-ready run is missing known_entity_mentions; "
+            "existing preview-ready run is missing known_entity_mentions or "
+            "usable SourceSpanIndex projection linkage; "
             "re-run with force_graph_run or extract_graph to rebuild"
         )
         status["next_actions"] = ["force_graph_run", "extract_graph"]
@@ -622,6 +631,14 @@ def materialize_recap_preview_supergraph(
         status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
         status["blocked_reason"] = (
             "candidate-ready run is missing known_entity_mentions; "
+            "re-run with force_graph_run or extract_graph to rebuild"
+        )
+        status["next_actions"] = ["force_graph_run", "extract_graph"]
+        return status
+    if not _manifest_has_usable_source_span_linkage(repo, summary.manifest_path):
+        status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+        status["blocked_reason"] = (
+            "candidate-ready run is missing usable SourceSpanIndex projection linkage; "
             "re-run with force_graph_run or extract_graph to rebuild"
         )
         status["next_actions"] = ["force_graph_run", "extract_graph"]
@@ -735,6 +752,11 @@ def _lineage_for_normalized_recap(
     Digests use the same trailing-newline normalization as SourceArtifact admission
     so newline-only differences do not masquerade as content changes, and so
     discovery compares against packaged ``normalized_recap_sha256`` values.
+
+    If the path resolves to an existing file that cannot produce a canonical digest
+    (empty, whitespace-only, unreadable, or invalid UTF-8), return
+    ``UNUSABLE_SOURCE_RECAP_DIGEST`` so discovery fails closed instead of falling
+    back to path-only matching.
     """
     from apps.live_control_server.services.source_artifact_registry import (
         SourceArtifactRegistryError,
@@ -750,22 +772,20 @@ def _lineage_for_normalized_recap(
             return normalized_recap_path.replace("\\", "/"), None
         return None, None
     try:
-        normalized_text = _normalize_source_text(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, SourceArtifactRegistryError):
-        # Empty / unreadable: keep path for fallback; no digest means path-only match.
-        normalized_text = None
-    source_recap_sha256 = (
-        f"sha256:{hashlib.sha256(normalized_text.encode('utf-8')).hexdigest()}"
-        if normalized_text is not None
-        else None
-    )
-    try:
         source_recap_path = path.resolve().relative_to(repo.resolve()).as_posix()
     except ValueError:
         if not Path(normalized_recap_path).is_absolute():
             source_recap_path = normalized_recap_path.replace("\\", "/")
         else:
             source_recap_path = None
+    try:
+        normalized_text = _normalize_source_text(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, SourceArtifactRegistryError):
+        # Existing-but-invalid source: never downgrade to path-only matching.
+        return source_recap_path, UNUSABLE_SOURCE_RECAP_DIGEST
+    source_recap_sha256 = (
+        f"sha256:{hashlib.sha256(normalized_text.encode('utf-8')).hexdigest()}"
+    )
     return source_recap_path, source_recap_sha256
 
 
@@ -793,9 +813,10 @@ def _latest_matching_run(
             repo, run, graph_extraction_profile
         ):
             continue
-        # Extracted / preview-ready runs must carry the known-entity sidecar.
-        # When extract_graph reuse is requested, also require production lineage so
-        # pre-controller candidate-ready runs are rebuilt.
+        # Extracted / preview-ready runs must carry the known-entity sidecar and a
+        # usable SourceSpanIndex projection linkage. When extract_graph reuse is
+        # requested, also require production lineage so pre-controller candidate-
+        # ready runs are rebuilt.
         if run.status in {
             GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value,
             GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value,
@@ -811,10 +832,10 @@ def _latest_matching_run(
                         run.manifest_path,
                     )
                     continue
-            elif not _manifest_has_known_entity_mentions(repo, run.manifest_path):
+            elif not _manifest_is_manual_candidate_reusable(repo, run.manifest_path):
                 logger.info(
-                    "skipping reusable run missing known_entity_mentions campaign=%s session=session-%s "
-                    "status=%s manifest=%s",
+                    "skipping reusable run missing known_entity_mentions or SourceSpanIndex linkage "
+                    "campaign=%s session=session-%s status=%s manifest=%s",
                     campaign_id,
                     session,
                     run.status,
@@ -1106,6 +1127,52 @@ def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -
     except ValueError:
         return False
     return sidecar_path.is_file()
+
+
+def _manifest_has_usable_source_span_linkage(repo: Path, manifest_path: str | None) -> bool:
+    """True when projection and artifact SourceSpanIndex URIs resolve to one verified file.
+
+    Projection reads only ``source.source_span_index_uri``. Candidate-ready runs —
+    production or fixture — must keep that URI aligned with
+    ``artifacts.source_span_index`` and the claimed digest.
+    """
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
+    if not manifest_path:
+        return False
+    try:
+        manifest_full = (repo / manifest_path).resolve()
+        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    span_ref = artifacts.get(GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value)
+    if not isinstance(span_ref, dict):
+        return False
+    span_uri = span_ref.get("uri")
+    if not isinstance(span_uri, str) or not span_uri.strip():
+        return False
+    claimed_digest = span_ref.get("sha256")
+    if not isinstance(claimed_digest, str) or not claimed_digest.strip():
+        return False
+    source_span_uri = source.get("source_span_index_uri")
+    if not isinstance(source_span_uri, str) or not source_span_uri.strip():
+        return False
+    try:
+        artifact_path = _resolve_repo_uri_path(repo, span_uri)
+        projection_path = _resolve_repo_uri_path(repo, source_span_uri)
+    except ValueError:
+        return False
+    if not artifact_path.is_file() or not projection_path.is_file():
+        return False
+    if artifact_path.resolve() != projection_path.resolve():
+        return False
+    packaged_digest = normalize_content_digest(claimed_digest)
+    actual_digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest().lower()
+    return bool(packaged_digest) and packaged_digest == actual_digest
 
 
 def _summary_matches_graph_extraction_profile(

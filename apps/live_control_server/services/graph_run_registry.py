@@ -412,19 +412,34 @@ def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
 def _connected_lineage_records(
     records: list[ExtractionRun], run: ExtractionRun
 ) -> list[ExtractionRun]:
-    """Collect the selected run plus its reciprocal supersession chain."""
+    """Collect the selected run plus its connected supersession component.
+
+    Walks both outgoing pointers on connected records and incoming pointers from
+    siblings that name a connected run, so non-reciprocal inbound links are still
+    included for ``validate_extraction_run_lineage``.
+    """
     by_id = {record.run_id: record for record in records}
     connected_ids: set[str] = {run.run_id}
-    frontier = [run.run_id]
-    while frontier:
-        current_id = frontier.pop()
-        current = by_id.get(current_id)
-        if current is None:
-            continue
-        for linked_id in (current.supersedes_run_id, current.superseded_by_run_id):
-            if linked_id and linked_id not in connected_ids:
-                connected_ids.add(linked_id)
-                frontier.append(linked_id)
+    changed = True
+    while changed:
+        changed = False
+        for current_id in list(connected_ids):
+            current = by_id.get(current_id)
+            if current is None:
+                continue
+            for linked_id in (current.supersedes_run_id, current.superseded_by_run_id):
+                if linked_id and linked_id in by_id and linked_id not in connected_ids:
+                    connected_ids.add(linked_id)
+                    changed = True
+        for record in records:
+            if record.run_id in connected_ids:
+                continue
+            if (
+                record.supersedes_run_id in connected_ids
+                or record.superseded_by_run_id in connected_ids
+            ):
+                connected_ids.add(record.run_id)
+                changed = True
     return [by_id[run_id] for run_id in connected_ids if run_id in by_id]
 
 

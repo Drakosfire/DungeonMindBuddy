@@ -1097,6 +1097,156 @@ def test_manifest_production_lineage_refuses_missing_projection_span_uri(
     assert "source_span_index" in (manifest.get("artifacts") or {})
 
 
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        pytest.param(lambda p: p.write_text("", encoding="utf-8"), id="empty"),
+        pytest.param(lambda p: p.write_text("   \n\t\n", encoding="utf-8"), id="whitespace"),
+        pytest.param(lambda p: p.write_bytes(b"\xff\xfe invalid utf-8"), id="invalid-utf8"),
+    ],
+)
+def test_build_and_inspect_refuse_reuse_when_current_recap_cannot_digest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    corrupt,
+) -> None:
+    """Existing-but-invalid recap bytes must not path-match a prior run."""
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+    )
+
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/invalid_current_recap",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    _bind_production_lineage(tmp_path, old_result)
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    old_manifest = old_result.manifest_path.relative_to(tmp_path).as_posix()
+
+    reused = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        force_graph_run=False,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    assert calls == []
+    assert reused["manifest_path"] == old_manifest
+
+    corrupt(source)
+
+    inspected = ingest_service.inspect_recap_graph_preview_status(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+    )
+    assert inspected.get("manifest_path") != old_manifest
+
+    with pytest.raises((ValueError, SourceArtifactRegistryError, OSError, UnicodeDecodeError)):
+        ingest_service.build_recap_graph_preview_bundle(
+            repo_root=tmp_path,
+            campaign_id="longmont-c2",
+            session=24,
+            normalized_recap_path=str(source),
+            extract_graph=True,
+            force_graph_run=False,
+            graph_extraction_profile="category_encounter_job_preview",
+        )
+    # Build must not silently reuse the prior run for the invalid current source.
+    assert all(
+        getattr(call, "input_path_record", None) != old_manifest for call in calls
+    )
+
+
+def test_manual_candidate_materialization_requires_projection_span_uri(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """extract_graph=False materialization must still require usable SourceSpanIndex linkage."""
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/manual_missing_span_uri",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    ingest_service, _calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert ingest_service._manifest_has_known_entity_mentions(tmp_path, manifest_rel)
+    assert ingest_service._manifest_has_usable_source_span_linkage(tmp_path, manifest_rel)
+    assert ingest_service._manifest_is_manual_candidate_reusable(tmp_path, manifest_rel)
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    source_block = dict(manifest.get("source") or {})
+    source_block.pop("source_span_index_uri", None)
+    manifest["source"] = source_block
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    assert not ingest_service._manifest_has_usable_source_span_linkage(tmp_path, manifest_rel)
+    assert not ingest_service._manifest_is_manual_candidate_reusable(tmp_path, manifest_rel)
+
+    status = ingest_service.materialize_recap_preview_supergraph(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        manifest_path=manifest_rel,
+        extract_graph=False,
+        force_graph_run=False,
+    )
+    assert status["status"] == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value
+    assert "SourceSpanIndex" in (status.get("blocked_reason") or "")
+    assert status.get("preview_union_store_path") is None
+
+
+def test_manifest_source_match_requires_full_digest_not_artifact_id_prefix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same-prefix SourceArtifact IDs must not count as content equality."""
+    from apps.live_control_server.services.graph_ingest_run_registry import (
+        _manifest_matches_source_recap,
+    )
+
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/prefix_digest_collision",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    _bind_production_lineage(tmp_path, old_result)
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    artifact_id = str(manifest["source"]["source_artifact_id"])
+    # Drop packaged digests so matching would have to rely on registry full digest
+    # or (incorrectly) the ID prefix.
+    manifest["source"]["normalized_recap_sha256"] = ""
+    artifacts = dict(manifest.get("artifacts") or {})
+    if "normalized_recap" in artifacts:
+        artifacts["normalized_recap"] = {**artifacts["normalized_recap"], "sha256": ""}
+    manifest["artifacts"] = artifacts
+    # Point at a non-existent registry record that still embeds the digest prefix,
+    # so the old substring matcher would incorrectly accept it.
+    prefix = artifact_id.rsplit(":", 1)[-1]
+    manifest["source"]["source_artifact_id"] = (
+        f"artifact:recap:other-campaign:session-99:{prefix}"
+    )
+    assert prefix and prefix in manifest["source"]["source_artifact_id"]
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    crafted = f"sha256:{prefix}{'0' * (64 - len(prefix))}"
+    assert not _manifest_matches_source_recap(
+        tmp_path,
+        old_result.manifest_path,
+        source_recap_path=source.relative_to(tmp_path).as_posix(),
+        source_recap_sha256=crafted,
+    )
+
+
 def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
