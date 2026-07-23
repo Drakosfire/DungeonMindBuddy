@@ -112,10 +112,10 @@ def materialize_preview_union_store_from_graph_ingest_run(
             store_payload.get("diagnostics", {}), "preview union diagnostics"
         )
         store = UnionSupergraphStore.model_validate(store_payload)
+        _write_json(output_path, store.model_dump(mode="json", by_alias=True))
         validation_report = _validation_report(
             manifest, output_path, repo_root, store_payload, valid=True
         )
-        _write_json(output_path, store.model_dump(mode="json", by_alias=True))
         _write_json(report_path, validation_report)
     except Exception:
         output_path.unlink(missing_ok=True)
@@ -327,12 +327,16 @@ def _validation_report(
     *,
     valid: bool,
 ) -> dict[str, Any]:
+    import hashlib
+
+    store_digest = f"sha256:{hashlib.sha256(output_path.read_bytes()).hexdigest()}"
     return {
         "schema": PREVIEW_UNION_VALIDATION_REPORT_SCHEMA,
         "version": PREVIEW_UNION_VALIDATION_REPORT_VERSION,
         "campaign_id": manifest.campaign_id,
         "session_id": manifest.session_id,
         "preview_union_store_path": _safe_artifact_uri(output_path, repo_root),
+        "preview_union_store_sha256": store_digest,
         "valid": valid,
         "errors": [],
         "warnings": [],
@@ -357,14 +361,19 @@ def _updated_manifest(
     repo_root: Path,
     store_payload: Mapping[str, Any],
 ) -> GraphIngestRunManifest:
+    import hashlib
+
     now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     artifacts = dict(manifest.artifacts)
+    store_digest = f"sha256:{hashlib.sha256(output_path.read_bytes()).hexdigest()}"
+    report_digest = f"sha256:{hashlib.sha256(report_path.read_bytes()).hexdigest()}"
     store_ref = GraphIngestArtifactRef(
         kind=GraphIngestArtifactKind.PREVIEW_UNION_STORE,
         uri=_safe_artifact_uri(output_path, repo_root),
         schema=PREVIEW_UNION_SCHEMA,
         exists=True,
         preview_only=True,
+        sha256=store_digest,
     )
     report_ref = GraphIngestArtifactRef(
         kind=GraphIngestArtifactKind.PREVIEW_UNION_VALIDATION_REPORT,
@@ -372,6 +381,7 @@ def _updated_manifest(
         schema=PREVIEW_UNION_VALIDATION_REPORT_SCHEMA,
         exists=True,
         preview_only=True,
+        sha256=report_digest,
     )
     artifacts["preview_union_store"] = store_ref
     artifacts["preview_union_validation_report"] = report_ref

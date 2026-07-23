@@ -466,20 +466,183 @@ def assert_candidate_ready_evidence(repo_root: Path, payload: Mapping[str, Any])
     """Raise when a candidate-ready GraphIngest run lacks usable evidence linkage."""
     errors = validate_manifest_source_span_index_linkage(repo_root, payload)
     errors.extend(validate_manifest_known_entity_mentions(repo_root, payload))
+    errors.extend(validate_manifest_candidate_graph(repo_root, payload))
     if errors:
         raise ValueError(
             "candidate-ready GraphIngest evidence is unusable: " + "; ".join(errors)
         )
 
 
-def known_entity_mentions_artifact_declared(payload: Mapping[str, Any]) -> bool:
-    """True when the manifest declares a known_entity_mentions artifact URI."""
+def assert_manifest_backed_projection_evidence(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+) -> None:
+    """Fail closed before any manifest-backed projection cache hit or rebuild."""
+    assert_candidate_ready_evidence(repo_root, payload)
+    errors = validate_manifest_preview_union_store(repo_root, payload)
+    if errors:
+        raise ValueError(
+            "manifest-backed projection evidence is unusable: " + "; ".join(errors)
+        )
+
+
+def _validate_required_artifact_digest(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+    *,
+    kind: str,
+) -> list[str]:
+    """Require artifact URI + sha256 and verify file bytes."""
+    errors: list[str] = []
     artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
-    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if kind not in artifacts:
+        errors.append(f"artifacts.{kind} is required")
+        return errors
+    artifact = artifacts.get(kind)
     if not isinstance(artifact, dict):
-        return False
+        errors.append(f"artifacts.{kind} must be an object")
+        return errors
     uri = artifact.get("uri")
-    return isinstance(uri, str) and bool(uri.strip())
+    if not isinstance(uri, str) or not uri.strip():
+        errors.append(f"artifacts.{kind}.uri is required")
+        return errors
+    claimed_digest = artifact.get("sha256")
+    if not isinstance(claimed_digest, str) or not claimed_digest.strip():
+        errors.append(f"artifacts.{kind}.sha256 is required")
+        return errors
+    try:
+        path = _resolve_manifest_uri(repo_root, uri)
+    except ValueError as exc:
+        errors.append(f"artifacts.{kind} URI escapes repo root: {exc}")
+        return errors
+    if not path.is_file():
+        errors.append(f"artifacts.{kind} file is missing")
+        return errors
+    actual_digest = hashlib.sha256(path.read_bytes()).hexdigest().lower()
+    if normalize_content_digest(claimed_digest) != actual_digest:
+        errors.append(f"artifacts.{kind}.sha256 does not match file bytes")
+    return errors
+
+
+def validate_manifest_candidate_graph(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+) -> list[str]:
+    """Fail closed when candidate_graph bytes do not match the recorded digest."""
+    errors = _validate_required_artifact_digest(
+        repo_root, payload, kind=GraphIngestArtifactKind.CANDIDATE_GRAPH.value
+    )
+    if errors:
+        return errors
+    # Validation report must be digest-bound to the same candidate bytes when present.
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    report = artifacts.get(GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT.value)
+    if not isinstance(report, dict):
+        errors.append("artifacts.candidate_validation_report is required")
+        return errors
+    report_errors = _validate_required_artifact_digest(
+        repo_root,
+        payload,
+        kind=GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT.value,
+    )
+    if report_errors:
+        return report_errors
+    try:
+        report_path = _resolve_manifest_uri(repo_root, str(report["uri"]))
+        report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError, ValueError, KeyError) as exc:
+        errors.append(f"candidate_validation_report is unreadable: {exc}")
+        return errors
+    if not isinstance(report_payload, dict):
+        errors.append("candidate_validation_report payload must be an object")
+        return errors
+    claimed_candidate = normalize_content_digest(report_payload.get("candidate_graph_sha256"))
+    candidate = artifacts[GraphIngestArtifactKind.CANDIDATE_GRAPH.value]
+    candidate_path = _resolve_manifest_uri(repo_root, str(candidate["uri"]))
+    actual_candidate = hashlib.sha256(candidate_path.read_bytes()).hexdigest().lower()
+    if not claimed_candidate:
+        errors.append("candidate_validation_report.candidate_graph_sha256 is required")
+    elif claimed_candidate != actual_candidate:
+        errors.append(
+            "candidate_validation_report.candidate_graph_sha256 does not match "
+            "candidate_graph bytes"
+        )
+    return errors
+
+
+def validate_manifest_preview_union_store(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+) -> list[str]:
+    """Fail closed when preview union store/report digests do not match file bytes."""
+    errors = _validate_required_artifact_digest(
+        repo_root, payload, kind=GraphIngestArtifactKind.PREVIEW_UNION_STORE.value
+    )
+    errors.extend(
+        _validate_required_artifact_digest(
+            repo_root,
+            payload,
+            kind=GraphIngestArtifactKind.PREVIEW_UNION_VALIDATION_REPORT.value,
+        )
+    )
+    if errors:
+        return errors
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    store = artifacts[GraphIngestArtifactKind.PREVIEW_UNION_STORE.value]
+    report = artifacts[GraphIngestArtifactKind.PREVIEW_UNION_VALIDATION_REPORT.value]
+    store_path = _resolve_manifest_uri(repo_root, str(store["uri"]))
+    report_path = _resolve_manifest_uri(repo_root, str(report["uri"]))
+    try:
+        report_payload = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        errors.append(f"preview_union_validation_report is unreadable: {exc}")
+        return errors
+    if not isinstance(report_payload, dict):
+        errors.append("preview_union_validation_report payload must be an object")
+        return errors
+    claimed_store = normalize_content_digest(report_payload.get("preview_union_store_sha256"))
+    actual_store = hashlib.sha256(store_path.read_bytes()).hexdigest().lower()
+    if not claimed_store:
+        errors.append("preview_union_validation_report.preview_union_store_sha256 is required")
+    elif claimed_store != actual_store:
+        errors.append(
+            "preview_union_validation_report.preview_union_store_sha256 does not match "
+            "preview_union_store bytes"
+        )
+    return errors
+
+
+def load_verified_source_span_index(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+):
+    """Parse SourceSpanIndex only after canonical linkage validation succeeds."""
+    from graph_memory.source_span import SourceSpanIndex
+
+    errors = validate_manifest_source_span_index_linkage(repo_root, payload)
+    if errors:
+        raise ValueError("SourceSpanIndex unusable: " + "; ".join(errors))
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    artifact = artifacts.get(GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value)
+    assert isinstance(artifact, dict)
+    index_path = _resolve_manifest_uri(repo_root, str(artifact["uri"]))
+    index_payload = json.loads(index_path.read_text(encoding="utf-8"))
+    if not isinstance(index_payload, dict):
+        raise ValueError("SourceSpanIndex payload must be an object")
+    index = source_span_index_from_dict(index_payload)
+    if not isinstance(index, SourceSpanIndex):
+        raise ValueError("SourceSpanIndex parse failed")
+    return index
+
+
+def known_entity_mentions_artifact_declared(payload: Mapping[str, Any]) -> bool:
+    """True when the manifest includes a known_entity_mentions artifact entry.
+
+    Presence of the artifact key (even with a blank URI) counts as declared so
+    malformed required evidence cannot downgrade to "absent".
+    """
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    return GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value in artifacts
 
 
 def load_verified_known_entity_mentions(
@@ -488,17 +651,18 @@ def load_verified_known_entity_mentions(
 ) -> dict[str, Any] | None:
     """Return the sidecar object only after digest/schema validation.
 
-    Returns ``None`` when the artifact is undeclared. Raises when it is declared
-    but fails validation — never silently treats invalid bytes as "no sidecar".
+    Returns ``None`` when the artifact key is absent. Raises when the key is
+    present but fails validation — never silently treats invalid bytes as absent.
     """
     if not known_entity_mentions_artifact_declared(payload):
         return None
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if not isinstance(artifact, dict):
+        raise ValueError("artifacts.known_entity_mentions must be an object")
     errors = validate_manifest_known_entity_mentions(repo_root, payload)
     if errors:
         raise ValueError("known_entity_mentions unusable: " + "; ".join(errors))
-    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
-    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
-    assert isinstance(artifact, dict)
     uri = str(artifact["uri"])
     sidecar_path = _resolve_manifest_uri(repo_root, uri)
     sidecar_payload = json.loads(sidecar_path.read_text(encoding="utf-8"))

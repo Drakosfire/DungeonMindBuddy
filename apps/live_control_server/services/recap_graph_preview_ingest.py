@@ -696,6 +696,7 @@ def ensure_graph_ingest_projection_payload(
         build_plan_union_supergraph_projection_payload,
     )
     from graph_memory.ingestion.graph_ingest_validate import (
+        assert_manifest_backed_projection_evidence,
         known_entity_mentions_digest,
         load_reusable_projection_payload,
         load_verified_known_entity_mentions,
@@ -705,6 +706,8 @@ def ensure_graph_ingest_projection_payload(
     manifest_full = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
     payload_data = json.loads(manifest_full.read_text(encoding="utf-8"))
     artifacts = payload_data.get("artifacts") if isinstance(payload_data.get("artifacts"), dict) else {}
+
+    assert_manifest_backed_projection_evidence(repo, payload_data)
 
     # Declared-but-invalid sidecars must fail closed — never rebuild as "no sidecar".
     verified_sidecar = load_verified_known_entity_mentions(repo, payload_data)

@@ -66,6 +66,7 @@ def build_plan_union_supergraph_projection(
     if preview_union_store_path is not None:
         store = load_preview_union_store(preview_union_store_path)
     elif graph_run_manifest_path is not None:
+        _assert_manifest_backed_projection_evidence(graph_run_manifest_path)
         known_entity_mentions = _load_manifest_known_entity_mentions(graph_run_manifest_path)
         persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
         # Digest/contract gating lives in _load_projection_payload_from_manifest so a
@@ -103,6 +104,36 @@ def build_plan_union_supergraph_projection(
         paragraph_text_by_span_id=paragraph_text_by_span_id,
         known_entity_mentions=known_entity_mentions,
     )
+
+
+def _assert_manifest_backed_projection_evidence(graph_run_manifest_path: Path) -> None:
+    from graph_memory.ingestion.graph_ingest_validate import (
+        assert_manifest_backed_projection_evidence,
+    )
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("graph-ingest manifest payload must be an object")
+    assert_manifest_backed_projection_evidence(root, payload)
+
+
+def _load_verified_source_span_rows(
+    graph_run_manifest_path: Path,
+) -> list[dict[str, Any]]:
+    """Return canonical SourceSpanIndex span dicts after linkage validation."""
+    from dataclasses import asdict
+
+    from graph_memory.ingestion.graph_ingest_validate import load_verified_source_span_index
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("graph-ingest manifest payload must be an object")
+    index = load_verified_source_span_index(root, payload)
+    return [asdict(span) for span in index.spans]
 
 
 def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dict[str, Any] | None:
@@ -160,48 +191,37 @@ def _load_verified_manifest_recap_text(graph_run_manifest_path: Path) -> str:
 
 
 def _load_source_span_index(graph_run_manifest_path: Path) -> list[dict[str, Any]] | None:
-    root = repo_root().resolve()
-    payload = json.loads(_resolve_repo_contained_path(graph_run_manifest_path, root).read_text(encoding="utf-8"))
-    uri = ((payload.get("source") or {}).get("source_span_index_uri"))
-    if not isinstance(uri, str) or not uri:
-        return None
-    index_path = _resolve_repo_contained_path(root / uri, root)
-    if not index_path.is_file():
-        return None
-    index = json.loads(index_path.read_text(encoding="utf-8"))
-    spans = index.get("spans", [])
-    return [span for span in spans if isinstance(span, dict)]
+    return _load_verified_source_span_rows(graph_run_manifest_path)
 
 
 def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProjectionSourceSpan]:
-    raw_spans = _load_source_span_index(graph_run_manifest_path)
-    if raw_spans is None:
-        return []
-
+    raw_spans = _load_verified_source_span_rows(graph_run_manifest_path)
     recap_text = _load_verified_manifest_recap_text(graph_run_manifest_path)
     lines = recap_text.splitlines() if recap_text else []
 
     spans: list[RecapProjectionSourceSpan] = []
     for span in raw_spans:
-        span_id = span.get("span_id") or span.get("source_span_ref_id") or span.get("source_span_id")
+        span_id = span.get("source_span_id") or span.get("span_id") or span.get("source_span_ref_id")
         if not isinstance(span_id, str):
             continue
         line_start = (
-            span.get("line_start")
-            if isinstance(span.get("line_start"), int)
-            else span.get("start_line")
+            span.get("start_line")
             if isinstance(span.get("start_line"), int)
+            else span.get("line_start")
+            if isinstance(span.get("line_start"), int)
             else None
         )
         line_end = (
-            span.get("line_end")
-            if isinstance(span.get("line_end"), int)
-            else span.get("end_line")
+            span.get("end_line")
             if isinstance(span.get("end_line"), int)
+            else span.get("line_end")
+            if isinstance(span.get("line_end"), int)
             else None
         )
-        excerpt = str(span.get("text_excerpt") or span.get("text") or "")
-        if not excerpt.strip() and lines and isinstance(line_start, int) and isinstance(line_end, int):
+        # Never trust optional text/text_excerpt from the index file; reconstruct
+        # excerpts only from the digest-verified normalized recap.
+        excerpt = ""
+        if lines and isinstance(line_start, int) and isinstance(line_end, int):
             if line_start >= 1 and line_end >= line_start:
                 excerpt = "\n".join(lines[line_start - 1 : line_end])
         spans.append(
@@ -229,24 +249,18 @@ def _load_manifest_source_span_full_text_index(
     Canonical v1 SourceSpanIndex entries do not embed text. Reconstruct from the
     digest-verified ``source.normalized_recap_path`` using line bounds.
     """
-    raw_spans = _load_source_span_index(graph_run_manifest_path)
-    if raw_spans is None:
-        return {}
-
+    raw_spans = _load_verified_source_span_rows(graph_run_manifest_path)
     recap_text = _load_verified_manifest_recap_text(graph_run_manifest_path)
     lines = recap_text.splitlines() if recap_text else []
 
     full_text_by_span_id: dict[str, str] = {}
     for span in raw_spans:
-        if span.get("kind") not in {None, "paragraph", "span"}:
-            continue
-        span_id = span.get("span_id") or span.get("source_span_ref_id") or span.get("source_span_id")
-        text = span.get("text") or span.get("text_excerpt")
-        if not (isinstance(text, str) and text.strip()) and lines:
-            start = span.get("line_start") if isinstance(span.get("line_start"), int) else span.get("start_line")
-            end = span.get("line_end") if isinstance(span.get("line_end"), int) else span.get("end_line")
-            if isinstance(start, int) and isinstance(end, int) and start >= 1 and end >= start:
-                text = "\n".join(lines[start - 1 : end])
+        span_id = span.get("source_span_id") or span.get("span_id") or span.get("source_span_ref_id")
+        start = span.get("start_line") if isinstance(span.get("start_line"), int) else span.get("line_start")
+        end = span.get("end_line") if isinstance(span.get("end_line"), int) else span.get("line_end")
+        text = None
+        if lines and isinstance(start, int) and isinstance(end, int) and start >= 1 and end >= start:
+            text = "\n".join(lines[start - 1 : end])
         if isinstance(span_id, str) and isinstance(text, str) and text.strip():
             full_text_by_span_id[span_id] = text
     return full_text_by_span_id
@@ -273,6 +287,10 @@ def load_preview_union_store_from_graph_run_manifest(
 ) -> Any:
     """Load a preview-only union-supergraph store referenced by a graph-ingest manifest."""
 
+    from graph_memory.ingestion.graph_ingest_validate import (
+        validate_manifest_preview_union_store,
+    )
+
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
     manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -296,6 +314,12 @@ def load_preview_union_store_from_graph_run_manifest(
     _reject_forbidden_lifecycle_flags(
         manifest.diagnostics.model_dump(mode="json"), "manifest diagnostics"
     )
+
+    store_errors = validate_manifest_preview_union_store(root, manifest_payload)
+    if store_errors:
+        raise ValueError(
+            "preview union store evidence is unusable: " + "; ".join(store_errors)
+        )
 
     artifact = manifest.artifacts.get(GraphIngestArtifactKind.PREVIEW_UNION_STORE.value)
     if artifact is None:

@@ -1627,7 +1627,208 @@ def test_non_object_known_entity_mention_entries_fail_validation(
     assert any("ambiguous_surfaces[0] must be a string" in error for error in errors)
 
 
-def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
+def _materialized_projection_ready_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, output_dir: str
+):
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        output_dir,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.union_supergraph_projection_adapter.repo_root",
+        lambda: tmp_path,
+    )
+    materialize_preview_union_store_from_graph_ingest_run(
+        PreviewUnionMaterializeOptions(
+            manifest_path=old_result.manifest_path,
+            repo_root=tmp_path,
+        )
+    )
+    return old_result
+
+
+def test_blank_known_entity_uri_rejects_projection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/blank_known_uri"
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"]["known_entity_mentions"]["uri"] = ""
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="known_entity_mentions|evidence"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_missing_source_span_uri_rejects_projection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/missing_span_uri"
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    source = dict(manifest.get("source") or {})
+    source.pop("source_span_index_uri", None)
+    manifest["source"] = source
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="SourceSpanIndex|evidence"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_missing_source_span_file_rejects_projection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/missing_span_file"
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    span_path = tmp_path / manifest["artifacts"]["source_span_index"]["uri"]
+    span_path.unlink()
+    with pytest.raises(ValueError, match="SourceSpanIndex|evidence|missing"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_mutated_source_span_index_with_stale_sha_rejects_projection_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hashlib
+
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/mutated_span_index_stale_sha"
+    )
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    projection_path = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert projection_path is not None
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    span_path = tmp_path / manifest["artifacts"]["source_span_index"]["uri"]
+    mutated = json.loads(span_path.read_text(encoding="utf-8"))
+    mutated["spans"] = [
+        {
+            **mutated["spans"][0],
+            "text_excerpt": "FORGED_EVIDENCE_TEXT",
+            "text": "FORGED_EVIDENCE_TEXT",
+        }
+    ]
+    span_path.write_text(json.dumps(mutated, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # Leave stale SourceSpanIndex SHA and corrupt projection cache SHA to force rebuild.
+    projection_path.write_text(
+        json.dumps({**json.loads(projection_path.read_text()), "mentions": []}, indent=2)
+        + "\n",
+        encoding="utf-8",
+    )
+    assert (
+        hashlib.sha256(span_path.read_bytes()).hexdigest()
+        != manifest["artifacts"]["source_span_index"]["sha256"].removeprefix("sha256:")
+    )
+
+    with pytest.raises(ValueError, match="SourceSpanIndex|evidence|sha256"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_mutated_candidate_graph_with_stale_sha_rejects_materialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/mutated_candidate_stale_sha",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    candidate_path = tmp_path / manifest["artifacts"]["candidate_graph"]["uri"]
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["candidate_nodes"] = list(candidate.get("candidate_nodes") or []) + [
+        {"id": "node:forged", "kind": "character", "label": "Forged", "evidence_refs": []}
+    ]
+    candidate_path.write_text(json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="candidate_graph|evidence|sha256"):
+        materialize_preview_union_store_from_graph_ingest_run(
+            PreviewUnionMaterializeOptions(
+                manifest_path=old_result.manifest_path,
+                repo_root=tmp_path,
+            )
+        )
+
+
+def test_mutated_preview_union_store_with_stale_sha_rejects_projection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/mutated_union_store"
+    )
+    # Force rebuild by deleting projection cache if present.
+    projection = old_result.manifest_path.parent / "projection_payload.json"
+    if projection.is_file():
+        projection.unlink()
+        manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+        manifest.get("artifacts", {}).pop("projection_payload", None)
+        old_result.manifest_path.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    store_path = tmp_path / manifest["artifacts"]["preview_union_store"]["uri"]
+    store = json.loads(store_path.read_text(encoding="utf-8"))
+    store["nodes"]["character_forged"] = {
+        "id": "character_forged",
+        "kind": "character",
+        "label": "Forged",
+    }
+    store_path.write_text(json.dumps(store, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="preview_union_store|evidence|sha256"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_manifest_source_match_requires_full_digest_not_artifact_id_prefix(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Same-prefix SourceArtifact IDs must not count as content equality."""

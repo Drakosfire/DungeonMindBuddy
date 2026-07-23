@@ -187,6 +187,8 @@ def test_materializer_rejects_failed_candidate_manifest(
 def test_materializer_rejects_forbidden_candidate_diagnostics(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import hashlib
+
     monkeypatch.chdir(tmp_path)
     manifest_path = _candidate_ready_run(tmp_path)
     manifest = _load_json(manifest_path)
@@ -194,6 +196,17 @@ def test_materializer_rejects_forbidden_candidate_diagnostics(
     candidate = _load_json(candidate_path)
     candidate["diagnostics"]["production_retrieval"] = True
     candidate_path.write_text(json.dumps(candidate))
+    candidate_digest = f"sha256:{hashlib.sha256(candidate_path.read_bytes()).hexdigest()}"
+    manifest["artifacts"]["candidate_graph"]["sha256"] = candidate_digest
+    report_uri = manifest["artifacts"]["candidate_validation_report"]["uri"]
+    report_path = tmp_path / report_uri
+    report = _load_json(report_path)
+    report["candidate_graph_sha256"] = candidate_digest
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    manifest["artifacts"]["candidate_validation_report"]["sha256"] = (
+        f"sha256:{hashlib.sha256(report_path.read_bytes()).hexdigest()}"
+    )
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
     with pytest.raises(ValueError, match="candidate graph diagnostics"):
         materialize_preview_union_store_from_graph_ingest_run(

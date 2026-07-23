@@ -356,6 +356,7 @@ def test_api_rejects_store_with_recap_path_outside_repo(
         result.preview_union_store_path,
         recap_path=str(_existing_path_outside_root(tmp_path)),
     )
+    _restamp_preview_union_store_digest(tmp_path, result)
 
     response = _client().get(
         "/api/live/graph-preview/union-supergraph/projection",
@@ -370,6 +371,12 @@ def test_api_rejects_store_with_recap_path_outside_repo(
 
 
 def _preview_union_ready_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from src.graph_memory.source_span import source_span_index_to_dict
+
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(adapter_module, "repo_root", lambda: tmp_path)
     source = tmp_path / "session_24_normalized_recap.md"
@@ -380,6 +387,18 @@ def _preview_union_ready_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     candidate.write_text(
         CATEGORY_CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8"
     )
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        recap_path=source,
+    )
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    graph = json.loads(candidate.read_text(encoding="utf-8"))
+    graph["source_artifact_ids"] = [artifact.source_artifact_id]
+    candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     runner_result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id="longmont-c2",
@@ -387,11 +406,34 @@ def _preview_union_ready_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             normalized_recap_path=source,
             output_dir=Path("runs/candidate_ready"),
             candidate_graph_path=candidate,
+            source_span_index=span_payload,
+            source_artifact_id=artifact.source_artifact_id,
         )
     )
     assert runner_result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
     return materialize_preview_union_store_from_graph_ingest_run(
         PreviewUnionMaterializeOptions(manifest_path=runner_result.manifest_path)
+    )
+
+
+def _restamp_preview_union_store_digest(tmp_path: Path, result) -> None:
+    import hashlib
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    store_uri = manifest["artifacts"]["preview_union_store"]["uri"]
+    store_path = tmp_path / store_uri
+    store_digest = f"sha256:{hashlib.sha256(store_path.read_bytes()).hexdigest()}"
+    manifest["artifacts"]["preview_union_store"]["sha256"] = store_digest
+    report_uri = manifest["artifacts"]["preview_union_validation_report"]["uri"]
+    report_path = tmp_path / report_uri
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["preview_union_store_sha256"] = store_digest
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest["artifacts"]["preview_union_validation_report"]["sha256"] = (
+        f"sha256:{hashlib.sha256(report_path.read_bytes()).hexdigest()}"
+    )
+    result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 
 

@@ -663,6 +663,7 @@ def _write_validation_report(
         "campaign_id": campaign_id,
         "session_id": session_id,
         "candidate_graph_path": safe_relative_artifact_uri(candidate_graph_path),
+        "candidate_graph_sha256": compute_sha256(candidate_graph_path),
         "valid": not errors,
         "errors": errors,
         "warnings": warnings,
@@ -897,6 +898,7 @@ def run_graph_preview_extraction(
             GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT,
             validation_report_path,
             "dmb_candidate_graph_validation_report_v0",
+            compute_sha256(validation_report_path),
         )
         known_span_ids = {
             span_id
@@ -1047,6 +1049,7 @@ def run_graph_preview_extraction(
                 GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT,
                 validation_report_path,
                 "dmb_candidate_graph_validation_report_v0",
+                compute_sha256(validation_report_path),
             )
             artifacts["pass_outputs"] = _artifact(
                 GraphIngestArtifactKind.PASS_TELEMETRY,
