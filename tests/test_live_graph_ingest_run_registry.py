@@ -373,10 +373,10 @@ def _service_fake_runner_with_candidate(
 
         candidate = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
         from evals.graph_memory_layer.graph_preview_runner import (
-            _stamp_candidate_graph_identity,
+            _with_candidate_graph_identity,
         )
 
-        candidate = _stamp_candidate_graph_identity(
+        candidate = _with_candidate_graph_identity(
             candidate,
             campaign_id=campaign_id,
             session_id=session_id,
@@ -1066,9 +1066,35 @@ def test_build_recap_graph_preview_bundle_packages_immutable_source_when_not_rev
     )
     manual_candidate = None
     if with_manual_candidate:
+        from apps.live_control_server.services.source_artifact_registry import (
+            create_recap_source_artifact,
+        )
+        from evals.graph_memory_layer.graph_preview_runner import (
+            _with_candidate_graph_identity,
+        )
+
+        artifact = create_recap_source_artifact(
+            tmp_path,
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            recap_path=source,
+        )
         manual_candidate = tmp_path / "manual_candidate.json"
+        graph = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
+        # Identity must be present on the submitted fixture; admission never rewrites it.
         manual_candidate.write_text(
-            CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+            json.dumps(
+                _with_candidate_graph_identity(
+                    graph,
+                    campaign_id="longmont-c2",
+                    session_id="session-24",
+                    source_artifact_id=artifact.source_artifact_id,
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
         )
 
     status = ingest_service.build_recap_graph_preview_bundle(
@@ -2858,6 +2884,116 @@ def test_foreign_candidate_identity_rejected_at_materialization(
     assert after["status"] != GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
 
 
+def test_manual_candidate_admission_rejects_identityless_candidate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Manual candidate admission must not invent packaging identity on missing fields."""
+    from apps.live_control_server.services.recap_graph_preview_ingest import (
+        build_recap_graph_preview_bundle,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "normalized.md"
+    source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    bad_candidate = tmp_path / "identityless_candidate.json"
+    graph = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
+    graph.pop("campaign_id", None)
+    graph.pop("session_id", None)
+    graph.pop("source_artifact_ids", None)
+    bad_candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="campaign_id|session_id|source_artifact_ids"):
+        build_recap_graph_preview_bundle(
+            repo_root=tmp_path,
+            campaign_id="longmont-c2",
+            session=24,
+            normalized_recap_path=str(source),
+            candidate_graph_path=bad_candidate.relative_to(tmp_path).as_posix(),
+            extract_graph=False,
+            force_graph_run=True,
+        )
+
+
+def test_manual_candidate_admission_rejects_foreign_candidate_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Foreign campaign/session on manual admission must fail before candidate_validation_ready."""
+    from apps.live_control_server.services.recap_graph_preview_ingest import (
+        build_recap_graph_preview_bundle,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "normalized.md"
+    source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    foreign_candidate = tmp_path / "foreign_candidate.json"
+    graph = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
+    graph["campaign_id"] = "foreign-campaign"
+    graph["session_id"] = "session-99"
+    graph["source_artifact_ids"] = ["artifact:recap:foreign-campaign:session-99"]
+    foreign_candidate.write_text(
+        json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="does not match|!= packaging"):
+        build_recap_graph_preview_bundle(
+            repo_root=tmp_path,
+            campaign_id="longmont-c2",
+            session=24,
+            normalized_recap_path=str(source),
+            candidate_graph_path=foreign_candidate.relative_to(tmp_path).as_posix(),
+            extract_graph=False,
+            force_graph_run=True,
+        )
+
+
+def test_manual_candidate_admission_rejects_extra_foreign_source_artifact_ids(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Manual admission requires source_artifact_ids set equality, not superset containment."""
+    from apps.live_control_server.services.recap_graph_preview_ingest import (
+        build_recap_graph_preview_bundle,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+    )
+    from evals.graph_memory_layer.graph_preview_runner import (
+        _with_candidate_graph_identity,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "normalized.md"
+    source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        recap_path=source,
+    )
+    extra_candidate = tmp_path / "extra_source_candidate.json"
+    graph = _with_candidate_graph_identity(
+        json.loads(CANDIDATE_PATH.read_text(encoding="utf-8")),
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        source_artifact_id=artifact.source_artifact_id,
+    )
+    graph["source_artifact_ids"] = [
+        artifact.source_artifact_id,
+        "artifact:recap:foreign-campaign:session-99",
+    ]
+    extra_candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must equal exactly"):
+        build_recap_graph_preview_bundle(
+            repo_root=tmp_path,
+            campaign_id="longmont-c2",
+            session=24,
+            normalized_recap_path=str(source),
+            candidate_graph_path=extra_candidate.relative_to(tmp_path).as_posix(),
+            extract_graph=False,
+            force_graph_run=True,
+        )
+
+
 def test_overlay_changed_after_digest_capture_uses_verified_overlay(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2872,7 +3008,6 @@ def test_overlay_changed_after_digest_capture_uses_verified_overlay(
     from apps.live_control_server.services.graph_authoring_overlay_store import (
         GraphAuthoringOverlayStore,
     )
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
     from tests.test_graph_authoring_overlay_models import object_assertion
 
     old_result = _materialized_projection_ready_run(
@@ -2924,11 +3059,11 @@ def test_overlay_changed_after_digest_capture_uses_verified_overlay(
     real_bundle = overlay_mod.load_authored_overlay_bundle
 
     def bundle_then_mutate_file(**kwargs):
-        overlay, summary, digest = real_bundle(**kwargs)
+        overlay, summary, identity = real_bundle(**kwargs)
         store.save_overlay(overlay_b)
         mutated_digest = hashlib.sha256(overlay_path.read_bytes()).hexdigest().lower()
         assert mutated_digest != digest_a
-        return overlay, summary, digest
+        return overlay, summary, identity
 
     monkeypatch.setattr(overlay_mod, "load_authored_overlay_bundle", bundle_then_mutate_file)
 
@@ -2941,7 +3076,7 @@ def test_overlay_changed_after_digest_capture_uses_verified_overlay(
     assert projection_path is not None
     payload = json.loads(projection_path.read_text(encoding="utf-8"))
     deps = payload.get("projection_depends_on") or {}
-    assert normalize_content_digest(deps.get("authored_overlay_sha256")) == digest_a
+    assert deps.get("authored_overlay_identity") == f"valid:sha256:{digest_a}"
     node_labels = [
         view.get("label")
         for view in (payload.get("node_views") or {}).values()
@@ -2996,12 +3131,12 @@ def test_overlay_appearing_after_missing_capture_does_not_enrich(
     real_bundle = overlay_mod.load_authored_overlay_bundle
 
     def bundle_then_create_file(**kwargs):
-        overlay, summary, digest = real_bundle(**kwargs)
-        assert digest is None
+        overlay, summary, identity = real_bundle(**kwargs)
+        assert identity == "absent"
         assert summary.loaded is False
         store.save_overlay(late_overlay)
         assert store.overlay_path("longmont-c2").is_file()
-        return overlay, summary, digest
+        return overlay, summary, identity
 
     monkeypatch.setattr(overlay_mod, "load_authored_overlay_bundle", bundle_then_create_file)
 
@@ -3014,7 +3149,7 @@ def test_overlay_appearing_after_missing_capture_does_not_enrich(
     assert projection_path is not None
     payload = json.loads(projection_path.read_text(encoding="utf-8"))
     deps = payload.get("projection_depends_on") or {}
-    assert deps.get("authored_overlay_sha256") in (None, "", "sha256:")
+    assert deps.get("authored_overlay_identity") == "absent"
     node_labels = [
         view.get("label")
         for view in (payload.get("node_views") or {}).values()
@@ -3023,6 +3158,74 @@ def test_overlay_appearing_after_missing_capture_does_not_enrich(
     assert "TOCTOU_OVERLAY_LATE_B" not in node_labels
     authored = payload.get("authored_overlay") or {}
     assert authored.get("loaded") is False
+
+
+def test_overlay_absent_vs_invalid_have_distinct_cache_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Absent and invalid overlays must not share the same projection cache identity."""
+    import hashlib
+
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+    from apps.live_control_server.services.graph_authoring_overlay_store import (
+        GraphAuthoringOverlayStore,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/overlay_absent_vs_invalid"
+    )
+    corpus_root = tmp_path / "corpus"
+    monkeypatch.setattr(
+        "src.live_play.recap_stage_paths.corpus_root",
+        lambda: corpus_root,
+    )
+    store = GraphAuthoringOverlayStore(corpus_root)
+    overlay_path = store.overlay_path("longmont-c2")
+    assert not overlay_path.is_file()
+
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    first_path = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert first_path is not None
+    first_payload = json.loads(first_path.read_text(encoding="utf-8"))
+    first_identity = (first_payload.get("projection_depends_on") or {}).get(
+        "authored_overlay_identity"
+    )
+    assert first_identity == "absent"
+    first_authored = first_payload.get("authored_overlay") or {}
+    assert first_authored.get("loaded") is False
+    first_sha = hashlib.sha256(first_path.read_bytes()).hexdigest()
+
+    overlay_path.parent.mkdir(parents=True, exist_ok=True)
+    overlay_path.write_text("{not valid overlay json", encoding="utf-8")
+    invalid_digest = hashlib.sha256(overlay_path.read_bytes()).hexdigest().lower()
+    invalid_identity = f"invalid:sha256:{invalid_digest}"
+    assert invalid_identity != first_identity
+
+    second_path = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert second_path is not None
+    second_payload = json.loads(second_path.read_text(encoding="utf-8"))
+    second_identity = (second_payload.get("projection_depends_on") or {}).get(
+        "authored_overlay_identity"
+    )
+    assert second_identity == invalid_identity
+    assert second_identity != first_identity
+    second_sha = hashlib.sha256(second_path.read_bytes()).hexdigest()
+    assert second_sha != first_sha
+    second_authored = second_payload.get("authored_overlay") or {}
+    assert second_authored.get("loaded") is False
+    diagnostics = second_authored.get("diagnostics") or []
+    assert any(
+        isinstance(item, dict) and item.get("code") == "authored_overlay_schema_error"
+        for item in diagnostics
+    )
 
 
 def test_materializer_cas_aborts_on_concurrent_manifest_change(

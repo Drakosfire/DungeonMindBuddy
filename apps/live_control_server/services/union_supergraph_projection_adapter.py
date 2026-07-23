@@ -135,9 +135,9 @@ def _load_manifest_backed_projection_snapshot(
     campaign_id = str(peek.get("campaign_id") or "").strip()
     overlay = None
     overlay_summary = None
-    overlay_digest = None
+    overlay_identity = "absent"
     if campaign_id:
-        overlay, overlay_summary, overlay_digest = load_authored_overlay_bundle(
+        overlay, overlay_summary, overlay_identity = load_authored_overlay_bundle(
             campaign_id=campaign_id,
             campaign_rel=campaign_rel,
             corpus_root=corpus_root,
@@ -146,7 +146,7 @@ def _load_manifest_backed_projection_snapshot(
         root,
         manifest_path,
         session_id=session_id,
-        authored_overlay_sha256=overlay_digest,
+        authored_overlay_identity=overlay_identity,
     )
     # Always attach the bundle result (including missing-overlay summary) so
     # enrichment never re-reads disk on the manifest-backed path.
@@ -231,24 +231,22 @@ def _load_verified_source_span_rows(
     return [asdict(span) for span in index.spans]
 
 
-def current_authored_overlay_sha256(
+def current_authored_overlay_identity(
     *,
     campaign_id: str,
     campaign_rel: str | None = None,
     corpus_root: Path | None = None,
-) -> str | None:
+) -> str:
     from apps.live_control_server.services.graph_authoring_overlay_projection import (
         load_authored_overlay_bundle,
     )
 
-    _overlay, summary, digest = load_authored_overlay_bundle(
+    _overlay, _summary, identity = load_authored_overlay_bundle(
         campaign_id=campaign_id,
         campaign_rel=campaign_rel,
         corpus_root=corpus_root,
     )
-    if not summary.loaded or not summary.overlay_path:
-        return None
-    return digest
+    return identity
 
 
 def _load_projection_payload_from_manifest(
@@ -258,27 +256,35 @@ def _load_projection_payload_from_manifest(
     campaign_rel: str | None = None,
     corpus_root: Path | None = None,
 ) -> dict[str, Any] | None:
-    from graph_memory.ingestion.graph_ingest_validate import load_reusable_projection_payload
+    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
+        load_reusable_projection_from_snapshot,
+        load_verified_projection_ready_snapshot,
+    )
 
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         return None
+    if session_id is None:
+        session_id = str(payload.get("session_id") or "").strip() or None
+    if not session_id:
+        return None
     campaign_id = str(payload.get("campaign_id") or "").strip()
-    overlay_digest = None
+    overlay_identity = "absent"
     if campaign_id:
-        overlay_digest = current_authored_overlay_sha256(
+        overlay_identity = current_authored_overlay_identity(
             campaign_id=campaign_id,
             campaign_rel=campaign_rel,
             corpus_root=corpus_root,
         )
-    return load_reusable_projection_payload(
+    snapshot = load_verified_projection_ready_snapshot(
         root,
-        payload,
-        authored_overlay_sha256=overlay_digest,
-        requested_session_id=session_id,
+        manifest_path,
+        session_id=session_id,
+        authored_overlay_identity=overlay_identity,
     )
+    return load_reusable_projection_from_snapshot(snapshot, root)
 
 
 def _load_verified_manifest_recap_text(graph_run_manifest_path: Path) -> str:

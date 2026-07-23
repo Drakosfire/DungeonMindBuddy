@@ -377,7 +377,16 @@ def _candidate_ready_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
         load_source_span_index(tmp_path, artifact.source_artifact_id)
     )
     graph = json.loads(candidate.read_text(encoding="utf-8"))
-    graph["source_artifact_ids"] = [artifact.source_artifact_id]
+    from evals.graph_memory_layer.graph_preview_runner import (
+        _with_candidate_graph_identity,
+    )
+
+    graph = _with_candidate_graph_identity(
+        graph,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        source_artifact_id=artifact.source_artifact_id,
+    )
     candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(

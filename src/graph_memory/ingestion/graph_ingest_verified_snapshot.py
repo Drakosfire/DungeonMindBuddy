@@ -39,7 +39,7 @@ from graph_memory.union_supergraph.model import UnionSupergraphStore
 
 PROJECTION_SCHEMA = "dmb_recap_graph_projection_v0"
 PROJECTION_DEPENDENCY_CONTRACT_SCHEMA = "dmb_projection_dependency_contract_v1"
-PROJECTION_DEPENDENCY_CONTRACT_VERSION = "1.0"
+PROJECTION_DEPENDENCY_CONTRACT_VERSION = "1.1"
 PROJECTION_CONTRACT_VERSION = PROJECTION_DEPENDENCY_CONTRACT_VERSION
 REQUIRED_REPORT_LIFECYCLE = {
     "preview_only": True,
@@ -61,6 +61,28 @@ def format_digest(hex_or_prefixed: str | None) -> str | None:
     return f"sha256:{digest}"
 
 
+def normalize_authored_overlay_identity(value: str | None) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "absent"
+    if text == "absent" or text.startswith("valid:") or text.startswith("invalid:"):
+        return text
+    digest = normalize_content_digest(text)
+    if digest:
+        return f"valid:sha256:{digest}"
+    return "absent"
+
+
+def authored_overlay_identity_from_mapping(raw: Mapping[str, Any]) -> str:
+    identity = raw.get("authored_overlay_identity")
+    if identity is not None and str(identity).strip():
+        return normalize_authored_overlay_identity(str(identity))
+    legacy_digest = normalize_content_digest(raw.get("authored_overlay_sha256"))
+    if legacy_digest:
+        return f"valid:sha256:{legacy_digest}"
+    return "absent"
+
+
 @dataclass(frozen=True)
 class ProjectionDependencyContract:
     projection_schema: str
@@ -75,7 +97,7 @@ class ProjectionDependencyContract:
     version: str = PROJECTION_DEPENDENCY_CONTRACT_VERSION
     known_entity_mentions_sha256: str | None = None
     preview_union_store_sha256: str | None = None
-    authored_overlay_sha256: str | None = None
+    authored_overlay_identity: str = "absent"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -97,7 +119,7 @@ class ProjectionDependencyContract:
             "candidate_validation_report_sha256": format_digest(
                 self.candidate_validation_report_sha256
             ),
-            "authored_overlay_sha256": format_digest(self.authored_overlay_sha256),
+            "authored_overlay_identity": self.authored_overlay_identity,
         }
 
     @classmethod
@@ -147,7 +169,7 @@ class ProjectionDependencyContract:
             candidate_validation_report_sha256=_required_digest(
                 "candidate_validation_report_sha256"
             ),
-            authored_overlay_sha256=_optional_digest("authored_overlay_sha256"),
+            authored_overlay_identity=authored_overlay_identity_from_mapping(raw),
         )
 
     def __eq__(self, other: object) -> bool:
@@ -172,8 +194,7 @@ class ProjectionDependencyContract:
             == normalize_content_digest(other.candidate_graph_sha256)
             and normalize_content_digest(self.candidate_validation_report_sha256)
             == normalize_content_digest(other.candidate_validation_report_sha256)
-            and normalize_content_digest(self.authored_overlay_sha256)
-            == normalize_content_digest(other.authored_overlay_sha256)
+            and self.authored_overlay_identity == other.authored_overlay_identity
         )
 
 
@@ -620,6 +641,11 @@ def _validate_candidate_identity(
             f"candidate_graph source_artifact_ids {sorted(normalized)!r} "
             f"missing packaged {expected_source_artifact_id!r}"
         )
+    if normalized != {expected_source_artifact_id}:
+        raise ValueError(
+            f"candidate_graph source_artifact_ids {sorted(normalized)!r} "
+            f"must equal exactly {[expected_source_artifact_id]!r}"
+        )
 
     diagnostics = candidate_graph.get("diagnostics")
     if isinstance(diagnostics, dict):
@@ -877,7 +903,7 @@ def _load_verified_snapshot(
     *,
     allowed_statuses: set[GraphIngestRunStatus],
     session_id: str | None = None,
-    authored_overlay_sha256: str | None = None,
+    authored_overlay_identity: str = "absent",
     include_union: bool,
 ) -> VerifiedManifestBackedGraphSnapshot:
     manifest_payload, manifest_sha256 = _load_manifest(manifest_path)
@@ -952,7 +978,9 @@ def _load_verified_snapshot(
         preview_union_store_sha256=preview_union_store_sha256,
         candidate_graph_sha256=candidate_digest,
         candidate_validation_report_sha256=candidate_report_digest,
-        authored_overlay_sha256=normalize_content_digest(authored_overlay_sha256) or None,
+        authored_overlay_identity=normalize_authored_overlay_identity(
+            authored_overlay_identity
+        ),
     )
 
     return VerifiedManifestBackedGraphSnapshot(
@@ -996,7 +1024,7 @@ def load_verified_projection_ready_snapshot(
     manifest_path: Path,
     *,
     session_id: str,
-    authored_overlay_sha256: str | None = None,
+    authored_overlay_identity: str = "absent",
 ) -> VerifiedManifestBackedGraphSnapshot:
     """Load projection-ready snapshot including union store. Status must be PREVIEW_UNION_STORE_READY or READY_FOR_PROJECTION."""
     return _load_verified_snapshot(
@@ -1004,7 +1032,7 @@ def load_verified_projection_ready_snapshot(
         manifest_path,
         allowed_statuses=PROJECTION_READY_STATUSES,
         session_id=session_id,
-        authored_overlay_sha256=authored_overlay_sha256,
+        authored_overlay_identity=authored_overlay_identity,
         include_union=True,
     )
 
@@ -1012,9 +1040,9 @@ def load_verified_projection_ready_snapshot(
 def build_projection_dependency_contract_from_snapshot(
     snapshot: VerifiedManifestBackedGraphSnapshot,
     *,
-    authored_overlay_sha256: str | None = None,
+    authored_overlay_identity: str = "absent",
 ) -> ProjectionDependencyContract:
-    overlay = normalize_content_digest(authored_overlay_sha256) or None
+    overlay_identity = normalize_authored_overlay_identity(authored_overlay_identity)
     return ProjectionDependencyContract(
         projection_schema=PROJECTION_SCHEMA,
         projection_contract_version=PROJECTION_CONTRACT_VERSION,
@@ -1026,7 +1054,7 @@ def build_projection_dependency_contract_from_snapshot(
         preview_union_store_sha256=snapshot.preview_union_store_sha256,
         candidate_graph_sha256=snapshot.candidate_graph_sha256,
         candidate_validation_report_sha256=snapshot.candidate_validation_report_sha256,
-        authored_overlay_sha256=overlay,
+        authored_overlay_identity=overlay_identity,
     )
 
 

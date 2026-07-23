@@ -54,10 +54,16 @@ def _candidate_ready_run(tmp_path: Path) -> Path:
         load_source_span_index(tmp_path, artifact.source_artifact_id)
     )
     # Stamp fixture candidate with the digest-qualified artifact identity.
-    graph = json.loads(candidate.read_text(encoding="utf-8"))
-    graph["campaign_id"] = "longmont-c2"
-    graph["session_id"] = "session-24"
-    graph["source_artifact_ids"] = [artifact.source_artifact_id]
+    from evals.graph_memory_layer.graph_preview_runner import (
+        _with_candidate_graph_identity,
+    )
+
+    graph = _with_candidate_graph_identity(
+        json.loads(candidate.read_text(encoding="utf-8")),
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        source_artifact_id=artifact.source_artifact_id,
+    )
     candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
@@ -161,9 +167,32 @@ def test_materializer_rejects_source_span_only_manifest(
 def test_materializer_rejects_failed_candidate_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from evals.graph_memory_layer.graph_preview_runner import (
+        _with_candidate_graph_identity,
+    )
+    from src.graph_memory.source_span import source_span_index_to_dict
+
     monkeypatch.chdir(tmp_path)
     source, candidate = _copy_inputs(tmp_path)
-    payload = _load_json(candidate)
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        recap_path=source,
+    )
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    payload = _with_candidate_graph_identity(
+        _load_json(candidate),
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        source_artifact_id=artifact.source_artifact_id,
+    )
     payload["diagnostics"]["canon_promotion"] = True
     candidate.write_text(json.dumps(payload))
     runner_result = run_graph_preview_extraction(
@@ -173,6 +202,8 @@ def test_materializer_rejects_failed_candidate_manifest(
             normalized_recap_path=source,
             output_dir=Path("runs/failed_candidate"),
             candidate_graph_path=candidate,
+            source_span_index=span_payload,
+            source_artifact_id=artifact.source_artifact_id,
         )
     )
 

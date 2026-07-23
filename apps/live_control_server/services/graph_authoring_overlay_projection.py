@@ -154,8 +154,8 @@ def load_authored_overlay_bundle(
     campaign_id: str,
     campaign_rel: str | None = None,
     corpus_root: Path | None = None,
-) -> tuple[AuthoredGraphOverlay | None, AuthoredOverlayProjectionSummary, str | None]:
-    """Load overlay, summary, and digest from a single overlay file read."""
+) -> tuple[AuthoredGraphOverlay | None, AuthoredOverlayProjectionSummary, str]:
+    """Load overlay, summary, and dependency identity token from a single file read."""
     store = _resolve_store(corpus_root)
     overlay_path = store.overlay_path(campaign_id, campaign_rel=campaign_rel)
     if not overlay_path.is_file():
@@ -169,9 +169,9 @@ def load_authored_overlay_bundle(
                     severity="info",
                 )
             ],
-        ), None
+        ), "absent"
+    overlay_bytes = overlay_path.read_bytes()
     try:
-        overlay_bytes = overlay_path.read_bytes()
         payload = json.loads(overlay_bytes.decode("utf-8"))
         if payload.get("schema_version") != AUTHORED_GRAPH_OVERLAY_SCHEMA:
             raise GraphAuthoringOverlayStoreError(
@@ -179,6 +179,7 @@ def load_authored_overlay_bundle(
             )
         overlay = AuthoredGraphOverlay.model_validate(payload)
     except (GraphAuthoringOverlayStoreError, ValidationError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        digest = hashlib.sha256(overlay_bytes).hexdigest().lower()
         return None, AuthoredOverlayProjectionSummary(
             loaded=False,
             overlay_path=str(overlay_path),
@@ -189,7 +190,7 @@ def load_authored_overlay_bundle(
                     severity="error",
                 )
             ],
-        ), None
+        ), f"invalid:sha256:{digest}"
     digest = hashlib.sha256(overlay_bytes).hexdigest().lower()
     active_assertions = [item for item in overlay.assertions if item.status == "authored"]
     summary = AuthoredOverlayProjectionSummary(
@@ -197,7 +198,7 @@ def load_authored_overlay_bundle(
         overlay_path=str(overlay_path),
         assertion_count=len(active_assertions),
     )
-    return overlay, summary, digest
+    return overlay, summary, f"valid:sha256:{digest}"
 
 
 def _existing_graph_node_refs_from_assertion(

@@ -726,24 +726,64 @@ def _resolve_packaged_source_artifact_id(
     return f"artifact:recap:{campaign_id}:{session_id}"
 
 
-def _stamp_candidate_graph_identity(
+def _require_candidate_graph_identity(
     candidate_graph: Mapping[str, Any],
     *,
     campaign_id: str,
     session_id: str,
     source_artifact_id: str,
 ) -> dict[str, Any]:
+    """Validate candidate identity without rewriting submitted fields."""
+    graph = dict(candidate_graph)
+
+    candidate_campaign = graph.get("campaign_id")
+    if not candidate_campaign or not str(candidate_campaign).strip():
+        raise ValueError("candidate_graph.campaign_id is required")
+    if str(candidate_campaign).strip() != campaign_id:
+        raise ValueError(
+            f"candidate_graph.campaign_id {candidate_campaign!r} != packaging {campaign_id!r}"
+        )
+
+    candidate_session = graph.get("session_id")
+    if not candidate_session or not str(candidate_session).strip():
+        raise ValueError("candidate_graph.session_id is required")
+    if str(candidate_session).strip() != session_id:
+        raise ValueError(
+            f"candidate_graph.session_id {candidate_session!r} != packaging {session_id!r}"
+        )
+
+    expected = source_artifact_id.strip()
+    if not expected:
+        raise ValueError("source_artifact_id is required for candidate identity")
+
+    bound_ids = graph.get("source_artifact_ids")
+    if not isinstance(bound_ids, list) or not bound_ids:
+        raise ValueError("candidate_graph.source_artifact_ids is required")
+    normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
+    if not normalized:
+        raise ValueError("candidate_graph.source_artifact_ids is required")
+    expected_set = {expected}
+    if normalized != expected_set:
+        raise ValueError(
+            f"candidate_graph source_artifact_ids {sorted(normalized)!r} "
+            f"must equal exactly {sorted(expected_set)!r}"
+        )
+    return graph
+
+
+def _with_candidate_graph_identity(
+    candidate_graph: Mapping[str, Any],
+    *,
+    campaign_id: str,
+    session_id: str,
+    source_artifact_id: str,
+) -> dict[str, Any]:
+    """Test/helper-only: construct a fixture candidate with explicit identity."""
     graph = dict(candidate_graph)
     graph["campaign_id"] = campaign_id
     graph["session_id"] = session_id
     expected = source_artifact_id.strip()
-    bound_ids = graph.get("source_artifact_ids")
-    normalized: list[str] = []
-    if isinstance(bound_ids, list):
-        normalized = [str(item).strip() for item in bound_ids if str(item).strip()]
-    if expected and expected not in normalized:
-        normalized.insert(0, expected)
-    graph["source_artifact_ids"] = normalized or ([expected] if expected else [])
+    graph["source_artifact_ids"] = [expected] if expected else []
     return graph
 
 
@@ -781,9 +821,11 @@ def _assert_packaged_source_artifact_identity(
         return
     bound_ids = candidate_graph.get("source_artifact_ids")
     if isinstance(bound_ids, list):
-        if expected not in bound_ids:
+        normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
+        if normalized != {expected}:
             raise ValueError(
-                f"candidate_graph source_artifact_ids {bound_ids!r} missing packaged {expected!r}"
+                f"candidate_graph source_artifact_ids {sorted(normalized)!r} "
+                f"must equal exactly {[expected]!r}"
             )
         return
     legacy_artifacts = candidate_graph.get("source_artifacts")
@@ -900,13 +942,12 @@ def run_graph_preview_extraction(
         if options.candidate_graph_path.resolve() != candidate_graph_path.resolve():
             shutil.copy2(options.candidate_graph_path, candidate_graph_path)
         candidate_graph = json.loads(candidate_graph_path.read_text())
-        candidate_graph = _stamp_candidate_graph_identity(
+        candidate_graph = _require_candidate_graph_identity(
             candidate_graph,
             campaign_id=campaign_id,
             session_id=session_id,
             source_artifact_id=packaged_source_artifact_id,
         )
-        write_json(candidate_graph_path, candidate_graph)
         validation = _write_validation_report(
             output_dir=output_dir,
             campaign_id=campaign_id,
@@ -1021,7 +1062,7 @@ def run_graph_preview_extraction(
                 client=category_client,
                 progress_callback=_progress,
             )
-            candidate_graph = _stamp_candidate_graph_identity(
+            candidate_graph = _require_candidate_graph_identity(
                 extraction.candidate_graph,
                 campaign_id=campaign_id,
                 session_id=session_id,
