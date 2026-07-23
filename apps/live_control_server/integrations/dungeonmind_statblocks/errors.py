@@ -97,11 +97,15 @@ def downstream_rate_limited(
     message: str = "DungeonMind statblock rate limited",
     *,
     status_code: int = 429,
+    error_code: str | None = None,
+    details: dict[str, Any] | None = None,
 ) -> StatblockIntegrationError:
     return StatblockIntegrationError(
         category="downstream_rate_limited",
         message=message,
         status_code=status_code,
+        error_code=error_code,
+        details=details or {},
         retryable=True,
     )
 

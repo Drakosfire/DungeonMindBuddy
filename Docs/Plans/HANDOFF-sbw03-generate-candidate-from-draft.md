@@ -306,25 +306,37 @@ Materialization (`cache` / `draft_ref`: `missing` \| `stored`/`attached` \| `fai
 | Current | Event | Next | Required evidence | Server call | Response | Compactable |
 |---|---|---|---|---|---|---|
 | (none) | first claim | `dispatched_unknown` | capacity available | no | claim accepted | no |
-| `dispatched_unknown` | timeout / restart | `dispatched_unknown` | stored `request_body` | recovery generate allowed | retryable uncertainty | no |
+| `dispatched_unknown` | timeout / restart / transport | `dispatched_unknown` | stored `request_body` | recovery generate allowed | retryable uncertainty | no |
+| `dispatched_unknown` | auth 401/403 (pre-route) | `dispatched_unknown` | — | retry allowed after repair | failure (auth category) | **never** |
+| `dispatched_unknown` | pre-route validation (no durable code) | `dispatched_unknown` | — | retry allowed | failure | **never** |
 | `dispatched_unknown` | generation in progress | `dispatched_unknown` | — | no further generate | `generation_incomplete` | no |
 | `dispatched_unknown` | candidate success | `candidate_received` | Server `candidate_id` + receipt lineage | — | success / partial_* | no |
 | `candidate_received` | cache failure | `candidate_received` | — | no regenerate | `partial_cache` | no |
 | `candidate_received` | ref failure / full refs | `candidate_received` | — | no regenerate | `partial_ref` | no |
 | `candidate_received` | ref attached | `reconciled` | draft ref `(candidate_id, request_id)` | no | success | if lineage proof |
-| `dispatched_unknown` | auth failure | `terminal_failure` | `downstream_authentication_failed` + http_status | no | failure (same category) | if terminal fields complete |
-| `dispatched_unknown` | validation failure | `terminal_failure` | `downstream_validation_failed` + http_status | no | failure (same category) | if terminal fields complete |
-| `dispatched_unknown` | idempotency conflict | `terminal_failure` | `idempotency_conflict` + http 409 | no | HTTP 409 | if terminal fields complete |
-| `dispatched_unknown` | candidate expiry | `terminal_expired` | `downstream_expired` + http 410 | no | failure `downstream_expired` | if terminal fields complete |
+| `dispatched_unknown` | Server durable failure code | `terminal_failure` | `terminal_code ∈ SERVER_OPERATION_TERMINAL_FAILURE_CODES` | no | failure (same category/HTTP) | `operation_terminal` |
+| `dispatched_unknown` | idempotency conflict | `terminal_failure` | `idempotency_conflict` + http 409 | no | HTTP 409 | `operation_terminal` |
+| `dispatched_unknown` | Server durable expiry code | `terminal_expired` | `candidate_expired` \| `generation_replay_expired` | no | failure `downstream_expired` | `operation_terminal` |
 | any durable | same-key same-body replay | unchanged | digest match | no (unless unknown) | identical external result | — |
 | any durable | changed-body reuse | conflict | digest mismatch | **never** | HTTP 409 | — |
 | `reconciled` / terminal | draft advancement | tombstone or full | journal key by source version | no | historical replay | — |
 | op / tombstone bound full | new unique claim | refused | — | no | backpressure | never by deleting unresolved |
 
-**Actual integration categories (DungeonMind client):**
-`downstream_authentication_failed`, `downstream_validation_failed`, `downstream_invalid_request`, `downstream_expired`, `downstream_timeout`, `downstream_unavailable`, `downstream_rate_limited`, `downstream_conflict` (`idempotency_conflict` / `generation_in_progress`), `downstream_not_found`.
+**Terminality proof boundary (Server PR23):** only public ErrorEnvelope codes that originate from Server’s durable generate-operation record may create `terminal_*` authority / `operation_terminal` tombstones:
 
-Retryable uncertainty stays `dispatched_unknown`: timeout, unavailable, rate limited, generation in progress.
+```text
+SERVER_OPERATION_TERMINAL_FAILURE_CODES =
+  provider_refused | provider_incomplete | provider_timeout |
+  rate_limited | provider_unavailable | validation_failed |
+  ruleset_mismatch | source_digest_mismatch | idempotency_conflict
+
+SERVER_OPERATION_TERMINAL_EXPIRED_CODES =
+  candidate_expired | generation_replay_expired
+```
+
+**Must NOT terminalize:** authentication (401/403 router dependency before the generate operation), Buddy/client transport timeout, connection unavailable without a durable code, and pre-route request validation that lacks an allowlisted code. Those stay `dispatched_unknown` so recovery bodies remain available (e.g. timeout → later auth failure → auth repair → recover candidate).
+
+**Transport categories (non-authority):** `downstream_authentication_failed`, `downstream_timeout`, `downstream_unavailable`, `downstream_rate_limited`, `downstream_validation_failed`, `downstream_invalid_request`, `downstream_conflict`, `downstream_expired`, `downstream_not_found`. Category alone never proves terminality; `error_code` must match the allowlist above.
 
 Terminal journal-write failure is never swallowed: response carries Server category **and** `persistence_failures` with `component=reconciliation` (or 409 detail notes journal failure for idempotency conflicts).
 
@@ -338,10 +350,13 @@ reconciled:
   AND candidate_id present
   AND durable_evidence.ref_entries contains exact (candidate_id, request_id)
   # ref_entries is None => NOT compactable (fail closed)
+  # compaction_proof on tombstone = draft_ref_lineage
 
 terminal_failure | terminal_expired:
-  terminal_code + terminal_message + failure_category + http_status all present
-  # compaction_proof on tombstone = server_terminal
+  terminal_code is in the Server durable-operation allowlist for that outcome
+  AND terminal_message + failure_category + http_status all present
+  # compaction_proof on tombstone = operation_terminal
+  # auth/transport/pre-route codes are structurally rejected by record_terminal
 ```
 
 Tombstones retain `request_digest`, `failure_category`, and `http_status` so replay preserves external semantics (including HTTP 409 for idempotency conflicts). Compaction loop maintains a running tombstone count and never writes beyond `MAX_TOMBSTONES_PER_DRAFT`.

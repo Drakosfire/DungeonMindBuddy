@@ -468,6 +468,7 @@ def test_rate_limit_and_error_envelope_mapping() -> None:
     with pytest.raises(StatblockIntegrationError) as exc_info:
         client.get_health()
     assert exc_info.value.category == "downstream_rate_limited"
+    assert exc_info.value.error_code == "rate_limited"
 
 
 def test_malformed_json_fails_closed() -> None:

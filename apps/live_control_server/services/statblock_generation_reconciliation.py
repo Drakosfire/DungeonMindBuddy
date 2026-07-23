@@ -52,8 +52,42 @@ OperationStatus = Literal[
     "terminal_expired",
 ]
 TombstoneOutcome = Literal["reconciled", "terminal_failure", "terminal_expired"]
-CompactionProof = Literal["draft_ref_lineage", "server_terminal"]
+CompactionProof = Literal["draft_ref_lineage", "operation_terminal"]
 MaterializationState = Literal["missing", "stored", "attached", "failed"]
+
+# Public ErrorEnvelope codes from DungeonMindServer's durable generate-operation
+# record (PR23). Authentication, transport, and pre-route validation are NOT
+# in this set and must never create operation_terminal tombstones.
+SERVER_OPERATION_TERMINAL_FAILURE_CODES = frozenset(
+    {
+        "provider_refused",
+        "provider_incomplete",
+        "provider_timeout",
+        "rate_limited",
+        "provider_unavailable",
+        "validation_failed",
+        "ruleset_mismatch",
+        "source_digest_mismatch",
+        "idempotency_conflict",
+    }
+)
+SERVER_OPERATION_TERMINAL_EXPIRED_CODES = frozenset(
+    {
+        "candidate_expired",
+        "generation_replay_expired",
+    }
+)
+
+
+def server_operation_terminal_outcome(
+    error_code: str | None,
+) -> Literal["terminal_failure", "terminal_expired"] | None:
+    """Map a Server error code to terminal authority, or None if not durable proof."""
+    if error_code in SERVER_OPERATION_TERMINAL_EXPIRED_CODES:
+        return "terminal_expired"
+    if error_code in SERVER_OPERATION_TERMINAL_FAILURE_CODES:
+        return "terminal_failure"
+    return None
 ClaimOutcome = Literal[
     "claimed",
     "dispatched_retry",
@@ -421,6 +455,12 @@ def _validate_operation(
                 "corrupt generation reconciliation record",
                 status_code=500,
             )
+        expected = server_operation_terminal_outcome(record.terminal_code)
+        if expected != record.status:
+            raise GenerationReconciliationError(
+                "corrupt generation reconciliation record",
+                status_code=500,
+            )
         if record.request_body is None:
             raise GenerationReconciliationError(
                 "corrupt generation reconciliation record",
@@ -471,7 +511,13 @@ def _validate_tombstone(
                 "corrupt generation reconciliation tombstone",
                 status_code=500,
             )
-        if tombstone.compaction_proof != "server_terminal":
+        expected = server_operation_terminal_outcome(tombstone.terminal_code)
+        if expected != tombstone.outcome:
+            raise GenerationReconciliationError(
+                "corrupt generation reconciliation tombstone",
+                status_code=500,
+            )
+        if tombstone.compaction_proof != "operation_terminal":
             raise GenerationReconciliationError(
                 "corrupt generation reconciliation tombstone",
                 status_code=500,
@@ -684,7 +730,7 @@ def _is_compactable(
         )
     if record.status in {"terminal_failure", "terminal_expired"}:
         return bool(
-            record.terminal_code
+            server_operation_terminal_outcome(record.terminal_code) == record.status
             and record.terminal_message
             and record.failure_category
             and record.http_status is not None
@@ -714,10 +760,10 @@ def _compact_operation_unlocked(
         proof: CompactionProof = "draft_ref_lineage"
     elif record.status == "terminal_failure":
         outcome = "terminal_failure"
-        proof = "server_terminal"
+        proof = "operation_terminal"
     elif record.status == "terminal_expired":
         outcome = "terminal_expired"
-        proof = "server_terminal"
+        proof = "operation_terminal"
     else:
         raise GenerationReconciliationError(
             "generation operation not compactable",
@@ -1157,6 +1203,11 @@ def record_terminal(
             "terminal outcome requires failure_category and http_status",
             status_code=500,
         )
+    if server_operation_terminal_outcome(terminal_code) != outcome:
+        raise GenerationReconciliationError(
+            "terminal outcome requires a Server durable operation error code",
+            status_code=500,
+        )
     with _reconciliation_lock(root):
         existing = _read_entry_unlocked(
             root,
@@ -1217,7 +1268,7 @@ def record_terminal(
         )
         written = _write_operation_unlocked(root, record)
         if compact:
-            # Terminal compaction uses server_terminal proof fields on the record.
+            # Terminal compaction uses operation_terminal proof (Server durable code).
             return _try_compact_unlocked(root, written, ref_entries=None)
         return written
 

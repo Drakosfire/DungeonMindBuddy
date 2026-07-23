@@ -42,6 +42,7 @@ from apps.live_control_server.services.statblock_generation_reconciliation impor
     record_generation_received,
     record_terminal,
     request_digest_for_body,
+    server_operation_terminal_outcome,
     update_materialization,
     validate_request_id,
 )
@@ -171,16 +172,6 @@ def _failure(
     )
 
 
-_TERMINAL_FAILURE_CATEGORIES = frozenset(
-    {
-        "downstream_validation_failed",
-        "downstream_authentication_failed",
-        "downstream_invalid_request",
-    }
-)
-_TERMINAL_EXPIRED_CATEGORIES = frozenset({"downstream_expired"})
-
-
 def _http_status_for_integration_error(exc: StatblockIntegrationError) -> int:
     if exc.status_code is not None:
         return exc.status_code
@@ -194,6 +185,12 @@ def _http_status_for_integration_error(exc: StatblockIntegrationError) -> int:
         return 400
     if exc.error_code == "idempotency_conflict":
         return 409
+    if exc.error_code == "provider_timeout":
+        return 504
+    if exc.error_code == "rate_limited":
+        return 429
+    if exc.error_code == "provider_unavailable":
+        return 503
     return 500
 
 
@@ -499,65 +496,47 @@ def _call_server_generate(
                 message=exc.message
                 or "generation request is already in progress downstream",
             )
-        if exc.error_code == "idempotency_conflict":
-            journal_failure: PersistenceFailureV1 | None = None
-            if root is not None and request_digest is not None:
-                journal_failure = _record_terminal_from_server(
-                    root,
-                    draft_id=draft_id,
-                    draft_version=draft_version,
-                    request_id=request_id,
-                    request_digest=request_digest,
-                    outcome="terminal_failure",
-                    terminal_code="idempotency_conflict",
-                    terminal_message=exc.message or "generation idempotency conflict",
-                    failure_category="idempotency_conflict",
-                    http_status=409,
-                )
-            message = exc.message or "generation idempotency conflict"
-            if journal_failure is not None:
-                message = f"{message}; terminal journal write failed: {journal_failure.message}"
-            raise ThreatDraftStoreError(message, status_code=409) from None
 
         http_status = _http_status_for_integration_error(exc)
-        journal_failure = None
+        terminal_outcome = server_operation_terminal_outcome(exc.error_code)
+        journal_failure: PersistenceFailureV1 | None = None
         if (
-            root is not None
+            terminal_outcome is not None
+            and root is not None
             and request_digest is not None
-            and exc.category in _TERMINAL_FAILURE_CATEGORIES
+            and exc.error_code is not None
         ):
+            # Only Server durable generate-operation codes may terminalize.
+            # Auth / transport / pre-route validation stay dispatched_unknown.
+            failure_category = (
+                "downstream_expired"
+                if terminal_outcome == "terminal_expired"
+                else (exc.category if exc.error_code != "idempotency_conflict" else "idempotency_conflict")
+            )
             journal_failure = _record_terminal_from_server(
                 root,
                 draft_id=draft_id,
                 draft_version=draft_version,
                 request_id=request_id,
                 request_digest=request_digest,
-                outcome="terminal_failure",
-                terminal_code=exc.error_code or exc.category,
-                terminal_message=exc.message or exc.category,
-                failure_category=exc.category,
-                http_status=http_status,
+                outcome=terminal_outcome,
+                terminal_code=exc.error_code,
+                terminal_message=exc.message or exc.error_code,
+                failure_category=failure_category,
+                http_status=(
+                    410
+                    if terminal_outcome == "terminal_expired"
+                    else http_status
+                ),
             )
-        elif (
-            root is not None
-            and request_digest is not None
-            and (
-                exc.category in _TERMINAL_EXPIRED_CATEGORIES
-                or exc.error_code in {"candidate_expired", "generation_expired"}
-            )
-        ):
-            journal_failure = _record_terminal_from_server(
-                root,
-                draft_id=draft_id,
-                draft_version=draft_version,
-                request_id=request_id,
-                request_digest=request_digest,
-                outcome="terminal_expired",
-                terminal_code=exc.error_code or "candidate_expired",
-                terminal_message=exc.message or "candidate expired",
-                failure_category="downstream_expired",
-                http_status=http_status if http_status == 410 else 410,
-            )
+            if exc.error_code == "idempotency_conflict" or http_status == 409:
+                message = exc.message or "generation idempotency conflict"
+                if journal_failure is not None:
+                    message = (
+                        f"{message}; terminal journal write failed: "
+                        f"{journal_failure.message}"
+                    )
+                raise ThreatDraftStoreError(message, status_code=409) from None
 
         failures = [journal_failure] if journal_failure is not None else None
         return _failure(

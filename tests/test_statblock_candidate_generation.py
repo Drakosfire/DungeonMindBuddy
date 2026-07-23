@@ -1657,11 +1657,11 @@ def test_tombstone_compaction_never_exceeds_bound(tmp_path: Path) -> None:
                     request_id=f"req-tomb-{index}",
                     request_digest=digest,
                     outcome="terminal_failure",
-                    terminal_code="downstream_validation_failed",
+                    terminal_code="validation_failed",
                     terminal_message="seed",
                     failure_category="downstream_validation_failed",
                     http_status=422,
-                    compaction_proof="server_terminal",
+                    compaction_proof="operation_terminal",
                     compacted_at="2026-01-01T00:00:00Z",
                 ).model_dump(mode="json", by_alias=True)
             ),
@@ -1687,7 +1687,7 @@ def test_tombstone_compaction_never_exceeds_bound(tmp_path: Path) -> None:
                     request_digest=rec.request_digest_for_body(op_body),
                     request_body=op_body,
                     status="terminal_failure",
-                    terminal_code="downstream_validation_failed",
+                    terminal_code="validation_failed",
                     terminal_message="eligible",
                     failure_category="downstream_validation_failed",
                     http_status=422,
@@ -1773,17 +1773,14 @@ def test_finalize_without_ref_entries_does_not_compact(tmp_path: Path) -> None:
     assert stored["schema"] == rec.OPERATION_SCHEMA
 
 
-def test_terminal_auth_and_expiry_use_real_categories_and_replay(
-    tmp_path: Path,
-) -> None:
+def test_auth_failure_does_not_terminalize_or_compact(tmp_path: Path) -> None:
+    """401/403 are pre-route auth; they must not create operation_terminal tombstones."""
     from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
         downstream_authentication_failed,
-        downstream_validation_failed,
     )
     from apps.live_control_server.services import statblock_generation_reconciliation as rec
 
     draft = _create_draft(tmp_path)
-
     auth_client = FakeClient(
         error=downstream_authentication_failed(status_code=401)
     )
@@ -1798,33 +1795,178 @@ def test_terminal_auth_and_expiry_use_real_categories_and_replay(
     )
     assert auth.outcome == "failure"
     assert auth.failure_category == "downstream_authentication_failed"
-    auth_path = rec._record_path(
-        tmp_path, draft_id=draft.draft_id, draft_version=1, request_id="req-auth"
+    auth_stored = json.loads(
+        rec._record_path(
+            tmp_path, draft_id=draft.draft_id, draft_version=1, request_id="req-auth"
+        ).read_text(encoding="utf-8")
     )
-    auth_stored = json.loads(auth_path.read_text(encoding="utf-8"))
-    assert auth_stored["schema"] == rec.TOMBSTONE_SCHEMA
-    assert auth_stored["failure_category"] == "downstream_authentication_failed"
-    assert auth_stored["http_status"] == 401
-    assert auth_stored["compaction_proof"] == "server_terminal"
+    assert auth_stored["schema"] == rec.OPERATION_SCHEMA
+    assert auth_stored["status"] == "dispatched_unknown"
+    assert auth_stored["request_body"] is not None
 
-    auth_replay_client = FakeClient(
-        payload=_candidate_payload(request_id="req-auth")
+
+def test_timeout_then_auth_failure_preserves_recovery_until_auth_repair(
+    tmp_path: Path,
+) -> None:
+    """Timeout may hide Server success; later 401 must not compact away recovery."""
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_authentication_failed,
     )
-    auth_replay = generate_candidate_from_draft(
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    timed_out = generate_candidate_from_draft(
         tmp_path,
         draft_id=draft.draft_id,
         request=GenerateThreatDraftCandidateRequestV1(
             expected_draft_version=1,
-            client_request_id="req-auth",
+            client_request_id="req-auth-repair",
         ),
-        client=auth_replay_client,  # type: ignore[arg-type]
+        client=FakeClient(error=downstream_timeout()),  # type: ignore[arg-type]
     )
-    assert auth_replay.outcome == "failure"
-    assert auth_replay.failure_category == "downstream_authentication_failed"
-    assert len(auth_replay_client.calls) == 0
-    assert auth_replay_client.get_calls == []
+    assert timed_out.outcome == "failure"
+    assert timed_out.failure_category == "downstream_timeout"
 
-    expired_client = FakeClient(error=downstream_expired(status_code=410))
+    auth_blocked = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-auth-repair",
+        ),
+        client=FakeClient(error=downstream_authentication_failed(status_code=401)),  # type: ignore[arg-type]
+    )
+    assert auth_blocked.outcome == "failure"
+    assert auth_blocked.failure_category == "downstream_authentication_failed"
+    mid = json.loads(
+        rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id="req-auth-repair",
+        ).read_text(encoding="utf-8")
+    )
+    assert mid["schema"] == rec.OPERATION_SCHEMA
+    assert mid["status"] == "dispatched_unknown"
+    assert mid["request_body"] is not None
+
+    repaired = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-auth-repair",
+        ),
+        client=FakeClient(
+            payload=_candidate_payload(
+                request_id="req-auth-repair", candidate_id="cand_authrepair"
+            )
+        ),  # type: ignore[arg-type]
+    )
+    assert repaired.outcome == "success"
+    assert repaired.candidate is not None
+    assert repaired.candidate.candidate_id == "cand_authrepair"
+
+
+def test_durable_provider_failure_terminalizes_and_replays(tmp_path: Path) -> None:
+    """Server-durable provider outcomes compact and replay without another call."""
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_rate_limited,
+        downstream_unavailable,
+    )
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    first_client = FakeClient(
+        error=downstream_unavailable(
+            "provider timed out",
+            status_code=504,
+            error_code="provider_timeout",
+        )
+    )
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-prov-timeout",
+        ),
+        client=first_client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "failure"
+    assert first.failure_category == "downstream_unavailable"
+    stored = json.loads(
+        rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id="req-prov-timeout",
+        ).read_text(encoding="utf-8")
+    )
+    assert stored["schema"] == rec.TOMBSTONE_SCHEMA
+    assert stored["outcome"] == "terminal_failure"
+    assert stored["terminal_code"] == "provider_timeout"
+    assert stored["compaction_proof"] == "operation_terminal"
+    assert stored["http_status"] == 504
+
+    replay_client = FakeClient(
+        payload=_candidate_payload(request_id="req-prov-timeout")
+    )
+    replay = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-prov-timeout",
+        ),
+        client=replay_client,  # type: ignore[arg-type]
+    )
+    assert replay.outcome == "failure"
+    assert replay.failure_category == "downstream_unavailable"
+    assert len(replay_client.calls) == 0
+
+    rate_client = FakeClient(
+        error=downstream_rate_limited(
+            "slow",
+            status_code=429,
+            error_code="rate_limited",
+        )
+    )
+    rate = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-rate",
+        ),
+        client=rate_client,  # type: ignore[arg-type]
+    )
+    assert rate.outcome == "failure"
+    assert rate.failure_category == "downstream_rate_limited"
+    rate_stored = json.loads(
+        rec._record_path(
+            tmp_path, draft_id=draft.draft_id, draft_version=1, request_id="req-rate"
+        ).read_text(encoding="utf-8")
+    )
+    assert rate_stored["terminal_code"] == "rate_limited"
+    assert rate_stored["compaction_proof"] == "operation_terminal"
+
+
+def test_server_expired_operation_codes_terminalize_and_replay(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_expired,
+        downstream_validation_failed,
+    )
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    expired_client = FakeClient(
+        error=downstream_expired(
+            "candidate expired",
+            status_code=410,
+            error_code="candidate_expired",
+        )
+    )
     expired = generate_candidate_from_draft(
         tmp_path,
         draft_id=draft.draft_id,
@@ -1842,7 +1984,8 @@ def test_terminal_auth_and_expiry_use_real_categories_and_replay(
         ).read_text(encoding="utf-8")
     )
     assert exp_stored["outcome"] == "terminal_expired"
-    assert exp_stored["failure_category"] == "downstream_expired"
+    assert exp_stored["terminal_code"] == "candidate_expired"
+    assert exp_stored["compaction_proof"] == "operation_terminal"
     assert exp_stored["http_status"] == 410
 
     expired_replay = generate_candidate_from_draft(
@@ -1852,10 +1995,50 @@ def test_terminal_auth_and_expiry_use_real_categories_and_replay(
             expected_draft_version=1,
             client_request_id="req-exp",
         ),
-        client=FakeClient(error=downstream_validation_failed("should not call")),  # type: ignore[arg-type]
+        client=FakeClient(
+            error=downstream_validation_failed(
+                "should not call", error_code="validation_failed"
+            )
+        ),  # type: ignore[arg-type]
     )
     assert expired_replay.outcome == "failure"
     assert expired_replay.failure_category == "downstream_expired"
+
+
+def test_pre_route_validation_without_operation_code_stays_unknown(
+    tmp_path: Path,
+) -> None:
+    """Generic 422 without a Server durable code must not terminalize."""
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_validation_failed,
+    )
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    client = FakeClient(
+        error=downstream_validation_failed("schema rejected", status_code=422)
+    )
+    result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-preroute",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.outcome == "failure"
+    assert result.failure_category == "downstream_validation_failed"
+    stored = json.loads(
+        rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id="req-preroute",
+        ).read_text(encoding="utf-8")
+    )
+    assert stored["schema"] == rec.OPERATION_SCHEMA
+    assert stored["status"] == "dispatched_unknown"
 
 
 def test_idempotency_conflict_tombstone_replays_as_http_409(tmp_path: Path) -> None:
@@ -1965,7 +2148,11 @@ def test_terminal_journal_write_failure_is_not_swallowed(tmp_path: Path) -> None
 
     draft = _create_draft(tmp_path)
     client = FakeClient(
-        error=downstream_validation_failed("refused", status_code=422)
+        error=downstream_validation_failed(
+            "definition invalid",
+            status_code=422,
+            error_code="validation_failed",
+        )
     )
 
     def boom(*_args, **_kwargs):

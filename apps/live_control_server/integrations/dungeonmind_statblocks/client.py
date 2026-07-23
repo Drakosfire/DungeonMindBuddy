@@ -339,7 +339,13 @@ class DungeonMindStatblockV1Client:
                 details=details,
             )
         if status == 429:
-            return downstream_rate_limited(status_code=status)
+            code, message, details = self._safe_error_parts(body)
+            return downstream_rate_limited(
+                message or "rate limited",
+                status_code=status,
+                error_code=code,
+                details=details,
+            )
         if status == 400:
             code, message, details = self._safe_error_parts(body)
             return downstream_invalid_request(
