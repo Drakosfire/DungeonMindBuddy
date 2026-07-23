@@ -7,6 +7,15 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] SBW03 operation-authority durability model — captured 2026-07-22, done 2026-07-23
+**Context:** PR 388 review loop (SBW03 generate-candidate); layered pending/abandoned/completed patches hit permanent-backpressure architecture
+**Insight:** Bounded storage via refusing new work while never deleting unresolved evidence is a correct *constraint*, but insufficient as a *model*. Without explicit terminality + proof-based compaction, abandoned slots never free, “safe” completed eviction breaks draft-advance replay, and known candidates can remain classified abandoned under partial persistence. Terminality must use Server durable generate-operation codes (`operation_terminal`), not HTTP/auth categories.
+**Action completed:** Shipped and merged in PR `#388` (`889acf96`); ladder integrated to `main` via PR `#381` (`b8dbe68c`). Operation-authority journal with proof-based tombstones and Server PR23 allowlisted terminal codes.
+**Surfaces when:** editing `statblock_generation_reconciliation.py`, SBW03/04 handoffs, candidate generation recovery/compaction, ThreatDraft generate idempotency
+**Refs:** PR 388, PR 381, `apps/live_control_server/services/statblock_generation_reconciliation.py`, `Docs/Plans/HANDOFF-sbw03-generate-candidate-from-draft.md`
+
+---
+
 ## [DONE] Party-collective via standing_context promote seam — captured 2026-07-18, done 2026-07-19
 **Priority:** high — remaining C1S3 typed-load failure after aliases + creature: `node:heroes-party` missing evidence_refs.
 **Context:** Deterministic party-collective seed (`proposed_action: anchor`, type `group`) ships with `evidence_refs: []`; validate_candidate_graph_preview requires evidence on every node.
