@@ -425,6 +425,9 @@ def _recover_uncertain_with_stored_body(
 
     Does not require the draft to still be at the claim's source version — the
     stored body is the immutable generate payload for Server replay.
+
+    Abandoned recovery must reach Server even when draft refs are at capacity;
+    attach may then report partial_ref rather than blocking recovery.
     """
     if record.request_body is None:
         return _failure(
@@ -444,7 +447,10 @@ def _recover_uncertain_with_stored_body(
             message="generation request body digest mismatch",
         )
 
+    body = record.request_body
     if record.status == "abandoned":
+        # Reclaim without capacity gate (claim_generation_request special-cases
+        # abandoned), then Server-replay with the stored body.
         try:
             claim_status, claim = claim_generation_request(
                 root,
@@ -474,8 +480,6 @@ def _recover_uncertain_with_stored_body(
                 client=client,
             )
         body = claim.request_body or record.request_body
-    else:
-        body = record.request_body
 
     candidate_or_failure = _call_server_generate(
         body=body,

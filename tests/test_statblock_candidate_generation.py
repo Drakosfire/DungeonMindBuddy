@@ -889,9 +889,131 @@ def test_recovered_candidate_mismatched_receipt_request_id_fails_closed(
     assert reloaded.candidate_refs == []
 
 
+def test_abandoned_recovery_material_is_never_pruned_for_new_requests(
+    tmp_path: Path,
+) -> None:
+    """New request IDs must not delete abandoned bodies needed for Server replay."""
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    append_candidate_ref(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_version=1,
+        candidate_ref=ThreatDraftCandidateRefV1(
+            candidate_id="cand_shared",
+            generated_from_draft_version=1,
+            request_id="req-shared",
+            created_at="2026-01-01T00:00:00Z",
+        ),
+    )
+
+    # One abandoned v1 recovery record that must survive later claims.
+    recover_id = "req-mustkeep"
+    recover_body = map_draft_to_generate_request(draft, request_id=recover_id)
+    recover_path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id=recover_id,
+    )
+    recover_path.parent.mkdir(parents=True, exist_ok=True)
+    recover_record = rec.GenerationReconciliationRecordV1(
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id=recover_id,
+        request_digest=rec.request_digest_for_body(recover_body),
+        request_body=recover_body,
+        status="abandoned",
+        candidate_id=None,
+        candidate_payload=None,
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+        claim_expires_at=None,
+    )
+    recover_path.write_text(
+        json.dumps(recover_record.model_dump(mode="json", by_alias=True)),
+        encoding="utf-8",
+    )
+
+    # Fill the active physical bound with completed records already present in
+    # draft refs so they do not inflate candidate capacity.
+    for index in range(rec.MAX_RECORDS_PER_DRAFT):
+        request_id = f"req-active-{index}"
+        body = {"request_id": request_id, "marker": index}
+        path = rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=request_id,
+        )
+        payload = _candidate_payload(
+            request_id=request_id, candidate_id="cand_shared"
+        ).model_dump(mode="json")
+        record = rec.GenerationReconciliationRecordV1(
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=request_id,
+            request_digest=rec.request_digest_for_body(body),
+            request_body=body,
+            status="completed",
+            candidate_id="cand_shared",
+            candidate_payload=payload,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            claim_expires_at=None,
+        )
+        path.write_text(
+            json.dumps(record.model_dump(mode="json", by_alias=True)),
+            encoding="utf-8",
+        )
+
+    # New request_id fails on active bound — without deleting recovery material.
+    blocked = FakeClient(payload=_candidate_payload(request_id="req-new"))
+    blocked_result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-new",
+        ),
+        client=blocked,  # type: ignore[arg-type]
+    )
+    assert blocked_result.outcome == "failure"
+    assert "storage bound" in (blocked_result.failure_message or "")
+    assert recover_path.is_file()
+    assert json.loads(recover_path.read_text(encoding="utf-8"))["status"] == "abandoned"
+    assert blocked.calls == []
+
+    # Advance draft; original abandoned request remains recoverable via stored body.
+    current = get_threat_draft(tmp_path, draft.draft_id)
+    _advance_draft(tmp_path, current)
+    assert get_threat_draft(tmp_path, draft.draft_id).version == 2
+
+    client = FakeClient(
+        payload=_candidate_payload(request_id=recover_id, candidate_id="cand_kept1")
+    )
+    recovered = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id=recover_id,
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert recovered.outcome == "success"
+    assert recovered.candidate_ref is not None
+    assert recovered.candidate_ref.candidate_id == "cand_kept1"
+    assert recovered.candidate_ref.generated_from_draft_version == 1
+    assert len(client.calls) == 1
+    assert recover_path.is_file()
+
+
 def test_abandoned_records_are_pruned_and_do_not_brick_generation(
     tmp_path: Path,
 ) -> None:
+    """Abandoned files do not count toward the active physical bound."""
     from apps.live_control_server.services import statblock_generation_reconciliation as rec
 
     draft = _create_draft(tmp_path)
@@ -938,17 +1060,83 @@ def test_abandoned_records_are_pruned_and_do_not_brick_generation(
     assert len(client.calls) == 1
 
     directory = rec._draft_directory(tmp_path, draft.draft_id)
-    remaining = list(directory.glob("v*__*.json"))
-    assert len(remaining) <= rec.MAX_RECORDS_PER_DRAFT
+    # All abandoned files retained; plus the new active record.
+    assert len(list(directory.glob("v*__*.json"))) == rec.MAX_RECORDS_PER_DRAFT + 1
     listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
     assert any(item.request_id == "req-overflow" for item in listed)
-    assert all(
-        item.status != "abandoned" or item.request_id != "req-overflow"
-        for item in listed
+    assert sum(1 for item in listed if item.status == "abandoned") == rec.MAX_RECORDS_PER_DRAFT
+
+
+def test_abandoned_recovery_at_ref_capacity_returns_partial_ref(
+    tmp_path: Path,
+) -> None:
+    """Full draft refs must not block Server recovery of an abandoned request."""
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    for index in range(64):
+        append_candidate_ref(
+            tmp_path,
+            draft_id=draft.draft_id,
+            expected_version=1,
+            candidate_ref=ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{index}",
+                generated_from_draft_version=1,
+                request_id=f"req-{index}",
+                created_at="2026-01-01T00:00:00Z",
+            ),
+        )
+
+    recover_id = "req-atcap"
+    body = map_draft_to_generate_request(draft, request_id=recover_id)
+    path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id=recover_id,
     )
-    # At least one abandoned file was pruned to make room.
-    assert len(listed) < rec.MAX_RECORDS_PER_DRAFT + 1
-    assert sum(1 for item in listed if item.status == "abandoned") < rec.MAX_RECORDS_PER_DRAFT
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = rec.GenerationReconciliationRecordV1(
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id=recover_id,
+        request_digest=rec.request_digest_for_body(body),
+        request_body=body,
+        status="abandoned",
+        candidate_id=None,
+        candidate_payload=None,
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+        claim_expires_at=None,
+    )
+    path.write_text(
+        json.dumps(record.model_dump(mode="json", by_alias=True)),
+        encoding="utf-8",
+    )
+
+    client = FakeClient(
+        payload=_candidate_payload(request_id=recover_id, candidate_id="cand_recoveredcap")
+    )
+    result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id=recover_id,
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.outcome == "success"
+    assert result.cache_status == "partial_ref"
+    assert result.candidate_ref is not None
+    assert result.candidate_ref.candidate_id == "cand_recoveredcap"
+    assert any(item.component == "candidate_ref" for item in result.persistence_failures)
+    assert len(client.calls) == 1
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert len(reloaded.candidate_refs) == 64
+    final = json.loads(path.read_text(encoding="utf-8"))
+    assert final["status"] in {"received", "completed"}
+    assert final["candidate_id"] == "cand_recoveredcap"
 
 
 def test_expired_pending_claim_recovers_via_server_replay(tmp_path: Path) -> None:

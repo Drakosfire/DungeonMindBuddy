@@ -403,9 +403,9 @@ def _abandon_record_unlocked(
 ) -> GenerationReconciliationRecordV1:
     """Expire a pending claim while retaining the exact request body for replay.
 
-    Abandoned files do not reserve candidate capacity. They are pruned when a
-    *new* request_id needs physical storage so they cannot permanently brick a
-    draft.
+    Abandoned files do not reserve candidate capacity and are never pruned to
+    make room for new request IDs — the stored body is the only local material
+    that can recover an unresolved Server operation after draft advance.
     """
     abandoned = record.model_copy(
         update={
@@ -422,42 +422,6 @@ def _abandon_record_unlocked(
 
 def _active_record_count(records: list[GenerationReconciliationRecordV1]) -> int:
     return sum(1 for record in records if record.status != "abandoned")
-
-
-def _prune_abandoned_unlocked(
-    root: Path,
-    records: list[GenerationReconciliationRecordV1],
-    *,
-    keep_request_id: str | None = None,
-    need_slots: int = 1,
-) -> list[GenerationReconciliationRecordV1]:
-    """Delete abandoned files until total file count leaves room for new writes."""
-    abandoned = [
-        record
-        for record in records
-        if record.status == "abandoned"
-        and (keep_request_id is None or record.request_id != keep_request_id)
-    ]
-    # Oldest first.
-    abandoned.sort(key=lambda item: (item.updated_at, item.request_id))
-    remaining = list(records)
-    while len(remaining) + need_slots > MAX_RECORDS_PER_DRAFT and abandoned:
-        victim = abandoned.pop(0)
-        _delete_record_unlocked(
-            root,
-            draft_id=victim.draft_id,
-            draft_version=victim.draft_version,
-            request_id=victim.request_id,
-        )
-        remaining = [
-            item
-            for item in remaining
-            if not (
-                item.draft_version == victim.draft_version
-                and item.request_id == victim.request_id
-            )
-        ]
-    return remaining
 
 
 def _capacity_usage(
@@ -519,8 +483,9 @@ def claim_generation_request(
     DungeonMindServer now provides durable generate idempotency (PR23): the
     same request_id may safely re-call generate after an uncertain timeout and
     recover the original candidate. Expired/abandoned local claims retain the
-    exact request body so recovery works even after the draft advances; they
-    are pruned when a *new* request_id needs physical storage.
+    exact request body so recovery works even after the draft advances. Abandoned
+    recovery material is never pruned for new writes; the physical bound applies
+    only to active (pending/received/completed) records.
     """
     body_digest = request_digest_for_body(request_body)
     if body_digest != request_digest:
@@ -561,31 +526,39 @@ def claim_generation_request(
             if existing.status == "pending":
                 # Live local claim: allow Server idempotent probe / recovery.
                 return "pending_retry", existing
-            # abandoned: fall through and reclaim after capacity check
+            if existing.status == "abandoned":
+                # Reclaim without capacity gate — recovery must reach Server even
+                # when draft refs are full; attach may still return partial_ref.
+                now_iso = _utc_now_iso()
+                expires_at = (now + PENDING_TTL).isoformat().replace("+00:00", "Z")
+                record = existing.model_copy(
+                    update={
+                        "status": "pending",
+                        "candidate_id": None,
+                        "candidate_payload": None,
+                        "claim_expires_at": expires_at,
+                        "updated_at": now_iso,
+                        "request_digest": request_digest,
+                        "request_body": request_body,
+                    }
+                )
+                _write_record_unlocked(root, record)
+                return "abandoned_retry", record
 
         usage = _capacity_usage(records, ref_candidate_ids=ref_candidate_ids)
-        # Reclaiming an abandoned record for this request_id replaces that slot;
-        # abandoned records do not count toward candidate-ref capacity.
         if usage >= MAX_CANDIDATE_REFS:
             raise GenerationReconciliationError(
                 "candidate_refs limit exceeded",
                 status_code=422,
             )
 
-        # Physical bound counts total files. Prune abandoned files so they cannot
-        # permanently brick generation for new request IDs.
-        if existing is None:
-            records = _prune_abandoned_unlocked(
-                root,
-                records,
-                keep_request_id=None,
-                need_slots=1,
+        # Physical bound applies to active records only. Abandoned recovery
+        # material is retained and never deleted to free slots for new IDs.
+        if existing is None and _active_record_count(records) >= MAX_RECORDS_PER_DRAFT:
+            raise GenerationReconciliationError(
+                "generation reconciliation storage bound exceeded",
+                status_code=500,
             )
-            if len(records) >= MAX_RECORDS_PER_DRAFT:
-                raise GenerationReconciliationError(
-                    "generation reconciliation storage bound exceeded",
-                    status_code=500,
-                )
 
         now_iso = _utc_now_iso()
         expires_at = (now + PENDING_TTL).isoformat().replace("+00:00", "Z")
@@ -599,7 +572,7 @@ def claim_generation_request(
                 status="pending",
                 candidate_id=None,
                 candidate_payload=None,
-                created_at=existing.created_at if existing is not None else now_iso,
+                created_at=now_iso,
                 updated_at=now_iso,
                 claim_expires_at=expires_at,
             )
@@ -608,10 +581,7 @@ def claim_generation_request(
         except ValueError as exc:
             raise GenerationReconciliationError(str(exc), status_code=422) from None
         _write_record_unlocked(root, record)
-        outcome: ClaimOutcome = (
-            "abandoned_retry" if existing is not None else "claimed"
-        )
-        return outcome, record
+        return "claimed", record
 
 
 def record_generation_received(
@@ -653,7 +623,7 @@ def record_generation_received(
                     status_code=409,
                 )
             return existing
-        if existing.status != "pending":
+        if existing.status not in {"pending", "abandoned"}:
             raise GenerationReconciliationError(
                 "generation reconciliation conflict",
                 status_code=409,
