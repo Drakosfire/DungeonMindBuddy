@@ -34,13 +34,15 @@ BLD-00 docs adoption
       → BLD-02 worldbuilding workspace persistence
           → BLD-03 canonical source/run contract graduation
               ├→ BLD-04 generic extraction runtime + profile protocol ─┐
-              └→ BLD-05 configured Build surface ─────────────────────┴→ BLD-06 extraction controls
+              └→ BLD-05a workspace-document authoring seam
+                    → BLD-05 thin Build surface consumer ─────────────┴→ BLD-06 extraction controls
                                                                          → BLD-07 generic Graph Review binding
                                                                              → BLD-08 worldbuilding profile/pilot
                                                                                  → BLD-09 PDF/OCR lineage pilot
 ```
 
-BLD-04 and BLD-05 may proceed in parallel after BLD-03. BLD-06 waits for both.
+BLD-04 may proceed in parallel with BLD-05a after BLD-03. BLD-05 waits for BLD-05a.
+BLD-06 waits for BLD-04 and BLD-05. PR #390 (parallel Build shell) is superseded/draft.
 
 ---
 
@@ -79,7 +81,8 @@ BLD-04 and BLD-05 may proceed in parallel after BLD-03. BLD-06 waits for both.
 | BLD-02 | [`HANDOFF-bld02-source-document-persistence.md`](HANDOFF-bld02-source-document-persistence.md) | BLD-01 |
 | BLD-03 | [`HANDOFF-bld03-source-artifact-run-contracts.md`](HANDOFF-bld03-source-artifact-run-contracts.md) | BLD-02 |
 | BLD-04 | [`HANDOFF-bld04-generic-extraction-runtime.md`](HANDOFF-bld04-generic-extraction-runtime.md) | BLD-03 |
-| BLD-05 | [`HANDOFF-bld05-build-surface-shell.md`](HANDOFF-bld05-build-surface-shell.md) | BLD-01 + BLD-02 + BLD-03 |
+| BLD-05a | [`HANDOFF-bld05a-workspace-document-authoring-seam.md`](HANDOFF-bld05a-workspace-document-authoring-seam.md) | BLD-01 + BLD-02 + BLD-03 |
+| BLD-05 | [`HANDOFF-bld05-build-surface-shell.md`](HANDOFF-bld05-build-surface-shell.md) | BLD-05a (rebuild; PR #390 superseded) |
 | BLD-06 | [`HANDOFF-bld06-build-extraction-toolbar.md`](HANDOFF-bld06-build-extraction-toolbar.md) | BLD-04 + BLD-05 |
 | BLD-07 | [`HANDOFF-bld07-graph-review-generic-run-handoff.md`](HANDOFF-bld07-graph-review-generic-run-handoff.md) | BLD-06 + current extract-promote bridge |
 | BLD-08 | [`HANDOFF-bld08-worldbuilding-profile-pilot.md`](HANDOFF-bld08-worldbuilding-profile-pilot.md) | BLD-07 |
@@ -342,7 +345,19 @@ uv run pytest tests/test_source_adapters.py \
 
 ---
 
-## BLD-05 — Add Build as a configured shared Surface
+## BLD-05a — Workspace document authoring seam
+
+**Capability:** registry-authorized content snapshot, shared local-state with
+base fingerprint, shared authoring state machine, and nullable session scope so
+Plan/runbook/Build share one coherent revision contract.
+
+**Depends on:** BLD-01 + BLD-02 + BLD-03.
+
+**Handoff:** [`HANDOFF-bld05a-workspace-document-authoring-seam.md`](HANDOFF-bld05a-workspace-document-authoring-seam.md)
+
+**Note:** PR #390 is draft/superseded; do not merge the parallel Build shell.
+
+## BLD-05 — Add Build as a thin configured Surface consumer
 
 **Capability:** `/build` provides source authoring through the shared Surface,
 editor, AppChrome, theme, projection, and Agent Interaction architecture.

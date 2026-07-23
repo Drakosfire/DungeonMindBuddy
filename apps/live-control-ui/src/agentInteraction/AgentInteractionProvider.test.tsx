@@ -228,4 +228,19 @@ describe("AgentInteractionProvider", () => {
     expect(stored).not.toContain("context" + "_packet");
     expect(stored).not.toContain("/tmp/raw.json");
   });
+
+  it("rehydrates build scope with null sessionNumber", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+
+    act(() => {
+      result.current.rehydrateScope({
+        campaignId: "eldyrwild",
+        sessionNumber: null,
+        surfaceId: "build",
+        documentId: FIXTURE_DOC_ID,
+      });
+    });
+
+    expect(result.current.scope?.sessionNumber).toBeNull();
+  });
 });

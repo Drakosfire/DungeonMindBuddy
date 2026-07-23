@@ -115,9 +115,10 @@ Build must reuse the shared Surface architecture and AppChrome composition:
 - one Agent Interaction continuity host.
 
 `BuildSurfacePage` may supply Build-specific configuration and adapters.
-`BuildSurfaceShell` may only be a thin composition around the shared
-`SurfaceShell`; it must not introduce another navigation, tool, projection,
-editor, or persistence stack.
+Build must consume the shared workspace-document authoring seam (BLD-05a:
+snapshot read, local-state v3, authoring state machine). It must not invent a
+parallel shell, local-draft schema, or content-read path. The live-control
+module `SurfaceShell` is not that authoring seam.
 
 ### 2.4 Extraction profiles own executable extraction policy explicitly
 

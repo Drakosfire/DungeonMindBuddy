@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import * as liveApi from "../api/liveApi";
+import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { fixtureWorkspaceDocumentRecord } from "./config/planSessionDescriptor";
 import { mockPlanView } from "../test/fixtures";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
@@ -17,6 +18,22 @@ vi.mock("./config/planSessionDescriptor", async (importOriginal) => {
     resolvePlanningDocument: vi.fn(async () => actual.fixturePlanDocumentDescriptor()),
   };
 });
+
+function fixtureWorkspaceDocumentSnapshot(
+  overrides: Partial<WorkspaceDocumentSnapshot> = {},
+): WorkspaceDocumentSnapshot {
+  const record = fixtureWorkspaceDocumentRecord();
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record,
+    markdown: "",
+    content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    file_fingerprint: "absent",
+    file_exists: false,
+    loaded_revision: record.revision,
+    ...overrides,
+  };
+}
 
 const projectionWithNode = {
   schema: "dmb_world_graph_projection_v1" as const,
@@ -92,6 +109,7 @@ describe("Plan surface insert chip", () => {
       records: [fixtureWorkspaceDocumentRecord()],
     });
     vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
+    vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue(fixtureWorkspaceDocumentSnapshot());
     localStorage.clear();
     window.history.pushState({}, "", "/plan");
   });

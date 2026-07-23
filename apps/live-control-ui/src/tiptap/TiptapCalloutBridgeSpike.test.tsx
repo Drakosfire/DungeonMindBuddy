@@ -7,10 +7,11 @@ import {
   commitTiptapMarkdownWrite,
   createWorkspaceDocument,
   getWorkspaceDocument,
+  getWorkspaceDocumentSnapshot,
   listWorkspaceDocuments,
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
-import type { WorkspaceDocumentRecord } from "../api/types";
+import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
 import { FIXTURE_DOC_ID, fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
 import { TiptapCalloutBridgeSpike } from "./TiptapCalloutBridgeSpike";
 import {
@@ -32,6 +33,7 @@ vi.mock("../api/liveApi", () => ({
   commitTiptapMarkdownWrite: vi.fn(),
   listWorkspaceDocuments: vi.fn(),
   getWorkspaceDocument: vi.fn(),
+  getWorkspaceDocumentSnapshot: vi.fn(),
   createWorkspaceDocument: vi.fn(),
 }));
 
@@ -39,10 +41,12 @@ const prepareMock = vi.mocked(prepareTiptapMarkdownWrite);
 const commitMock = vi.mocked(commitTiptapMarkdownWrite);
 const listMock = vi.mocked(listWorkspaceDocuments);
 const getMock = vi.mocked(getWorkspaceDocument);
+const snapshotMock = vi.mocked(getWorkspaceDocumentSnapshot);
 const createMock = vi.mocked(createWorkspaceDocument);
 
 const SPIKE_DOC_ID = "22222222-2222-4222-8222-222222222222";
 const SPIKE_TARGET_RELPATH = "evals/c2_live_prep/mireward-prep/content/tiptap/north-gate-callout-spike.md";
+const EMPTY_CONTENT_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 const northGateRecord = (): WorkspaceDocumentRecord => fixtureWorkspaceDocumentRecord({
   document_id: FIXTURE_DOC_ID,
@@ -81,6 +85,18 @@ const preparedResponse = {
   diagnostics: ["dry-run only; no file was written"],
 };
 
+function snapshotFor(record: WorkspaceDocumentRecord): WorkspaceDocumentSnapshot {
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record,
+    markdown: "",
+    content_sha256: EMPTY_CONTENT_SHA256,
+    file_fingerprint: "absent",
+    file_exists: false,
+    loaded_revision: record.revision,
+  };
+}
+
 function setupRegistryMocks() {
   listMock.mockResolvedValue({
     schema_version: "dmb_workspace_document_registry_v1",
@@ -89,6 +105,11 @@ function setupRegistryMocks() {
   getMock.mockImplementation(async (documentId: string) => {
     if (documentId === FIXTURE_DOC_ID) return northGateRecord();
     if (documentId === SPIKE_DOC_ID) return spikeRecord();
+    throw new Error(`Unknown document id "${documentId}"`);
+  });
+  snapshotMock.mockImplementation(async (documentId: string) => {
+    if (documentId === FIXTURE_DOC_ID) return snapshotFor(northGateRecord());
+    if (documentId === SPIKE_DOC_ID) return snapshotFor(spikeRecord());
     throw new Error(`Unknown document id "${documentId}"`);
   });
   createMock.mockResolvedValue(northGateRecord());
@@ -364,6 +385,8 @@ describe("semantic callout Markdown bridge", () => {
       kind: "runbook",
       targetSession: northGateDescriptor.session,
       surface: "runbook",
+      baseRevision: 1,
+      baseContentSha256: EMPTY_CONTENT_SHA256,
       starterContent: northGateDescriptor.starterContent,
     });
     state.exported_markdown = "# Existing local draft\n";
@@ -520,6 +543,8 @@ describe("semantic callout Markdown bridge", () => {
       kind: "runbook",
       targetSession: northGateDescriptor.session,
       surface: "runbook",
+      baseRevision: 1,
+      baseContentSha256: EMPTY_CONTENT_SHA256,
       starterContent: northGateDescriptor.starterContent,
     });
     state.tiptap_json = {

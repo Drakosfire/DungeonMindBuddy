@@ -3,11 +3,16 @@ import type { Content, Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
 import type { AppChromeTools } from "../chrome/AppChrome";
-import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../api/liveApi";
+import {
+  commitTiptapMarkdownWrite,
+  getWorkspaceDocumentSnapshot,
+  prepareTiptapMarkdownWrite,
+} from "../api/liveApi";
 import type {
   TiptapMarkdownWriteCommitResponse,
   TiptapMarkdownWritePrepareResponse,
 } from "../api/types";
+import { openWorkspaceDocumentAuthoringState } from "../workspaceDocument/openWorkspaceDocumentAuthoringState";
 import { defaultMarkdownDocumentAdapter } from "./MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "./MarkdownEditorCore";
 import {
@@ -85,6 +90,10 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const [workingState, setWorkingState] = useState<WorkspaceDocumentLocalState | null>(null);
   const [localStateStatus, setLocalStateStatus] = useState<LocalStateStatus>("Loaded starter content");
   const [documentRevision, setDocumentRevision] = useState(1);
+  const [baseContentSha256, setBaseContentSha256] = useState("");
+  // Arm for async snapshot open / reset / import remounts (documentKey change can emit a hydration update).
+  // Do not pre-arm before the editor exists — that would discard the first real user edit.
+  const skipNextUpdateRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,20 +101,33 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       try {
         const loaded = await resolveRunbookSpikeDocument();
         if (cancelled) return;
+        const snapshot = await getWorkspaceDocumentSnapshot(loaded.documentId);
+        if (cancelled) return;
         const stored = readWorkspaceDocumentLocalState(window.localStorage, loaded.documentId);
-        const initial = stored ?? buildInitialWorkspaceDocumentLocalState({
-          documentId: loaded.documentId,
-          title: loaded.title,
-          campaignId: loaded.campaignId,
-          kind: "runbook",
-          targetSession: loaded.session,
+        const opened = openWorkspaceDocumentAuthoringState({
+          snapshot,
+          stored,
           surface: "runbook",
-          starterContent: loaded.starterContent,
+          kind: "runbook",
+          emptyMarkdownFallback: loaded.starterContent,
         });
+        if (opened.status === "conflict") {
+          setDocumentLoadError(
+            opened.reconciliation.conflictReason ?? "Local draft conflicts with server content.",
+          );
+          return;
+        }
+        if (opened.status === "reject" || !opened.localState) {
+          setDocumentLoadError(opened.reconciliation.rejectReason ?? "Local draft was rejected.");
+          return;
+        }
+        writeWorkspaceDocumentLocalState(window.localStorage, opened.localState);
         setDescriptor(loaded);
-        setWorkingState(initial);
-        setDocumentRevision(loaded.revision ?? 1);
-        setLocalStateStatus(stored ? "Loaded local draft" : "Loaded starter content");
+        setWorkingState(opened.localState);
+        setDocumentRevision(snapshot.loaded_revision);
+        setBaseContentSha256(snapshot.content_sha256);
+        skipNextUpdateRef.current = true;
+        setLocalStateStatus(stored && opened.localState.dirty ? "Loaded local draft" : "Loaded starter content");
         setDocumentLoadError(null);
       } catch (error) {
         if (!cancelled) {
@@ -130,10 +152,6 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
   const [activeBlockBoundary, setActiveBlockBoundary] = useState<RunbookBlockBoundary>(RUNBOOK_BLOCK_BOUNDARIES.local);
   const activeBlockRef = useRef<HTMLElement | null>(null);
   const editorShellRef = useRef<HTMLDivElement | null>(null);
-  // Arm only for reset/import remounts (documentKey change can emit a hydration update).
-  // Must stay false on ordinary mount — that path does not emit onUpdate, so a pre-armed
-  // skip would discard the first real user edit.
-  const skipNextUpdateRef = useRef(false);
   const [contentEpoch, setContentEpoch] = useState(0);
 
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -207,6 +225,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       kind: "runbook",
       targetSession: descriptor.session,
       surface: "runbook",
+      baseRevision: documentRevision,
+      baseContentSha256,
       starterContent: descriptor.starterContent,
       now,
     });
@@ -220,7 +240,7 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
     setWriteStatus("");
     clearActiveBlockDecoration();
     setActiveBlockBoundary(RUNBOOK_BLOCK_BOUNDARIES.local);
-  }, [clearActiveBlockDecoration, descriptor, workingState]);
+  }, [baseContentSha256, clearActiveBlockDecoration, descriptor, documentRevision, workingState]);
 
   const importCommittedMarkdown = useCallback(async () => {
     if (!descriptor || !workingState) return;
@@ -237,11 +257,18 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
       return;
     }
 
-    const importPath = `/${descriptor.targetRelpath}`;
     try {
-      const response = await fetch(importPath);
-      if (!response.ok) throw new Error(`Import failed for ${descriptor.targetRelpath}: ${response.status} ${response.statusText}`.trim());
-      const markdown = await response.text();
+      const snapshot = await getWorkspaceDocumentSnapshot(descriptor.documentId);
+      const markdown = snapshot.markdown.trim()
+        ? snapshot.markdown
+        : await (async () => {
+          const importPath = `/${descriptor.targetRelpath}`;
+          const response = await fetch(importPath);
+          if (!response.ok) {
+            throw new Error(`Import failed for ${descriptor.targetRelpath}: ${response.status} ${response.statusText}`.trim());
+          }
+          return response.text();
+        })();
       const imported = defaultMarkdownDocumentAdapter.importMarkdown(markdown);
       const now = new Date().toISOString();
       const importedState: WorkspaceDocumentLocalState = {
@@ -252,6 +279,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
           kind: "runbook",
           targetSession: descriptor.session,
           surface: "runbook",
+          baseRevision: snapshot.loaded_revision,
+          baseContentSha256: snapshot.content_sha256,
           starterContent: descriptor.starterContent,
           now,
         }),
@@ -264,6 +293,8 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
 
       writeWorkspaceDocumentLocalState(window.localStorage, importedState);
       setWorkingState(importedState);
+      setDocumentRevision(snapshot.loaded_revision);
+      setBaseContentSha256(snapshot.content_sha256);
       skipNextUpdateRef.current = true;
       setContentEpoch((epoch) => epoch + 1);
       setLocalStateStatus("Imported committed Markdown");
@@ -330,8 +361,21 @@ export function TiptapCalloutBridgeSpike({ onEditorToolsChange }: TiptapCalloutB
         writer_confirm_token: preparedWrite.writer_confirm_token,
         expected_revision: documentRevision,
       });
+      const refreshed = await getWorkspaceDocumentSnapshot(workingState.document_id);
+      const now = new Date().toISOString();
+      const nextLocalState: WorkspaceDocumentLocalState = {
+        ...workingState,
+        base_revision: refreshed.loaded_revision,
+        base_content_sha256: refreshed.content_sha256,
+        dirty: false,
+        updated_at: now,
+        last_local_save_at: now,
+      };
+      writeWorkspaceDocumentLocalState(window.localStorage, nextLocalState);
+      setWorkingState(nextLocalState);
+      setDocumentRevision(refreshed.loaded_revision);
+      setBaseContentSha256(refreshed.content_sha256);
       setCommitResult(response);
-      setDocumentRevision(response.registry_revision);
       setWriteStatus("File written. Local draft remains available for further edits.");
     } catch (error) {
       setWriteStatus("");

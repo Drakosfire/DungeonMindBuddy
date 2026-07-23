@@ -30,6 +30,7 @@ import {
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import * as liveApi from "../api/liveApi";
+import type { WorkspaceDocumentSnapshot } from "../api/types";
 
 const worldGraphProjection = {
   schema: "dmb_world_graph_projection_v1" as const,
@@ -143,6 +144,22 @@ function latestLiveQueryBody(): Record<string, unknown> {
   return JSON.parse(String(last[1]?.body ?? "{}")) as Record<string, unknown>;
 }
 
+function fixtureWorkspaceDocumentSnapshot(
+  overrides: Partial<WorkspaceDocumentSnapshot> = {},
+): WorkspaceDocumentSnapshot {
+  const record = fixtureWorkspaceDocumentRecord();
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record,
+    markdown: "",
+    content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    file_fingerprint: "absent",
+    file_exists: false,
+    loaded_revision: record.revision,
+    ...overrides,
+  };
+}
+
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -154,6 +171,7 @@ describe("PlanSurfaceShell", () => {
     });
     vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
+    vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue(fixtureWorkspaceDocumentSnapshot());
     localStorage.clear();
     // Default multi-campaign lens matches Ask drawer expectations (Union · C1+C2).
     window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");

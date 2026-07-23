@@ -1400,6 +1400,16 @@ export interface WorkspaceDocumentRevisionRequest {
   expected_revision?: number | null;
 }
 
+export interface WorkspaceDocumentSnapshot {
+  schema_version: "dmb_workspace_document_snapshot_v1";
+  record: WorkspaceDocumentRecord;
+  markdown: string;
+  content_sha256: string;
+  file_fingerprint: string;
+  file_exists: boolean;
+  loaded_revision: number;
+}
+
 export interface TiptapMarkdownWritePrepareRequest {
   document_id: string;
   markdown: string;

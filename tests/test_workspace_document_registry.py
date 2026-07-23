@@ -474,3 +474,74 @@ def test_concurrent_commits_to_distinct_documents_preserve_both(root: Path) -> N
     payload = (root / "out/registries/workspace_documents.json").read_text(encoding="utf-8")
     assert docs[0].document_id in payload
     assert docs[1].document_id in payload
+
+
+def test_snapshot_draft_without_file_returns_empty_markdown(root: Path) -> None:
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_workspace_document_snapshot,
+    )
+
+    created = create_workspace_document(
+        root,
+        title="WB Draft",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    snapshot = get_workspace_document_snapshot(root, created.document_id)
+    assert snapshot.record.document_id == created.document_id
+    assert snapshot.loaded_revision == created.revision
+    assert snapshot.file_exists is False
+    assert snapshot.markdown == ""
+    assert snapshot.content_sha256
+    assert snapshot.file_fingerprint == "absent"
+
+
+def test_snapshot_committed_missing_file_is_integrity_failure(root: Path) -> None:
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_workspace_document_snapshot,
+    )
+
+    created = create_workspace_document(
+        root,
+        title="WB Committed",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    mark_workspace_document_committed(root, created.document_id)
+    with pytest.raises(WorkspaceDocumentRegistryError, match="missing"):
+        get_workspace_document_snapshot(root, created.document_id)
+
+
+def test_snapshot_api_returns_committed_markdown(client: TestClient, root: Path) -> None:
+    created = create_workspace_document(
+        root,
+        title="WB with file",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    assert created.target_relpath is not None
+    target = root / created.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    body = "# Lore\n\nHello snapshot.\n"
+    target.write_text(body, encoding="utf-8")
+    mark_workspace_document_committed(root, created.document_id)
+
+    response = client.get(f"/api/live/workspace-documents/{created.document_id}/snapshot")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["markdown"] == body.replace("\r\n", "\n").replace("\r", "\n")
+    assert payload["file_exists"] is True
+    assert payload["loaded_revision"] == payload["record"]["revision"]
+    assert payload["content_sha256"]

@@ -55,6 +55,7 @@ import type {
   TiptapMarkdownWritePrepareResponse,
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
+  WorkspaceDocumentSnapshot,
   CreateWorkspaceDocumentRequest,
   UpdateWorkspaceDocumentMetadataRequest,
   WorkspaceDocumentRevisionRequest,
@@ -899,6 +900,12 @@ export async function listWorkspaceDocuments(args: {
 export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {
   return apiFetch<WorkspaceDocumentRecord>(
     `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
+  );
+}
+
+export async function getWorkspaceDocumentSnapshot(documentId: string): Promise<WorkspaceDocumentSnapshot> {
+  return apiFetch<WorkspaceDocumentSnapshot>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot`,
   );
 }
 
