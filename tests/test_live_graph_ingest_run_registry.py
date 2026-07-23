@@ -276,45 +276,126 @@ def _service_fake_runner_with_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
-    from types import SimpleNamespace
+    from datetime import UTC, datetime
 
-    from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+    from apps.live_control_server.services.graph_run_registry import (
+        ExtractionRunRegistryDocument,
+        extraction_runs_path,
+    )
+    from graph_memory.ingestion.extraction_run import (
+        ExtractionRun,
+        ExtractionRunComponentKind,
+        ExtractionRunComponentRef,
+        ExtractionRunStatus,
+    )
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionResult
+    from src.graph_memory.source_span import (
+        source_span_index_from_dict,
+        source_span_index_to_dict,
+    )
 
     actual_runner = ingest_service.run_graph_preview_extraction
     calls: list[GraphPreviewRunnerOptions] = []
     artifact_id = "artifact:test:service-fake:recap"
+    run_counter = {"n": 0}
+
+    def _write_json(path: Path, payload: dict) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+    def _file_sha256(path: Path) -> str:
+        import hashlib
+
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def _append_extraction_run(run: ExtractionRun) -> None:
+        path = extraction_runs_path(tmp_path)
+        if path.is_file():
+            document = ExtractionRunRegistryDocument.model_validate(
+                json.loads(path.read_text(encoding="utf-8"))
+            )
+        else:
+            document = ExtractionRunRegistryDocument()
+        document.records.append(run)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(document.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
     def fake_production(**_kwargs):  # noqa: ANN003
+        run_counter["n"] += 1
+        run_id = f"er_service_fake_{run_counter['n']}"
+        out = tmp_path / "out" / "graph_memory" / "runs" / "extraction" / run_id
+        out.mkdir(parents=True, exist_ok=True)
+
+        span_payload = source_span_index_to_dict(
+            source_span_index_from_dict(
+                {
+                    "schema": "dmb_source_span_index_v1",
+                    "version": "1.0",
+                    "source_artifact_id": artifact_id,
+                    "content_sha256": "abc123deadbeef",
+                    "source_ref_id": f"{artifact_id}:text",
+                    "spans": [
+                        {
+                            "source_span_id": f"{artifact_id}:span:abc123deadbe:1-3",
+                            "source_ref_id": f"{artifact_id}:text",
+                            "source_artifact_id": artifact_id,
+                            "content_sha256": "abc123deadbeef",
+                            "start_line": 1,
+                            "end_line": 3,
+                        }
+                    ],
+                }
+            )
+        )
+        span_path = out / "source_span_index.json"
+        _write_json(span_path, span_payload)
+
         candidate = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
         candidate["source_artifact_ids"] = [artifact_id]
-        run = SimpleNamespace(
-            run_id="er_service_fake",
-            status=ExtractionRunStatus.REVIEWABLE,
+        candidate_path = out / "candidate_graph.json"
+        _write_json(candidate_path, candidate)
+
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        run = ExtractionRun(
+            run_id=run_id,
             source_artifact_id=artifact_id,
-            components={},
-            profile_id="recap_session_default@1.0.0",
+            source_domain="recap",
+            status=ExtractionRunStatus.REVIEWABLE,
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            created_at=now,
+            updated_at=now,
+            components={
+                ExtractionRunComponentKind.SOURCE_ARTIFACT.value: ExtractionRunComponentRef(
+                    kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+                    uri=f"repo://normalized.md",
+                    sha256="abc123deadbeef",
+                    exists=True,
+                ),
+                ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value: ExtractionRunComponentRef(
+                    kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+                    uri=f"repo://{span_path.relative_to(tmp_path).as_posix()}",
+                    sha256=_file_sha256(span_path),
+                    exists=True,
+                ),
+                ExtractionRunComponentKind.CANDIDATE_GRAPH.value: ExtractionRunComponentRef(
+                    kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+                    uri=f"repo://{candidate_path.relative_to(tmp_path).as_posix()}",
+                    sha256=_file_sha256(candidate_path),
+                    exists=True,
+                ),
+            },
         )
+        _append_extraction_run(run)
         return ProductionExtractionResult(
             run=run,
             candidate_graph=candidate,
-            source_span_index={
-                "schema": "dmb_source_span_index_v1",
-                "version": "1.0",
-                "source_artifact_id": artifact_id,
-                "content_sha256": "abc123deadbeef",
-                "source_ref_id": f"{artifact_id}:text",
-                "spans": [
-                    {
-                        "source_span_id": f"{artifact_id}:span:abc123deadbe:1-3",
-                        "source_ref_id": f"{artifact_id}:text",
-                        "source_artifact_id": artifact_id,
-                        "content_sha256": "abc123deadbeef",
-                        "start_line": 1,
-                        "end_line": 3,
-                    }
-                ],
-            },
+            source_span_index=span_payload,
             known_entity_mentions={
                 "schema": "dmb_known_entity_mention_sidecar_v0",
                 "version": "0.1",
@@ -330,34 +411,129 @@ def _service_fake_runner_with_candidate(
 
     def fake_runner(options: GraphPreviewRunnerOptions):
         calls.append(options)
-        candidate = tmp_path / "service_fake_candidate.json"
-        payload = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
-        if options.source_artifact_id:
-            payload["source_artifact_ids"] = [options.source_artifact_id]
-        candidate.write_text(
-            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        return actual_runner(
-            GraphPreviewRunnerOptions(
-                campaign_id=options.campaign_id,
-                session_id=options.session_id,
-                normalized_recap_path=options.normalized_recap_path,
-                output_dir=options.output_dir,
-                source_label=options.source_label,
-                model_id=options.model_id,
-                allow_llm=False,
-                comparison_mode=options.comparison_mode,
-                candidate_graph_path=candidate,
-                input_path_record=options.input_path_record,
-                graph_extraction_profile=options.graph_extraction_profile,
-                source_span_index=options.source_span_index,
-                source_artifact_id=options.source_artifact_id,
-            )
-        )
+        return actual_runner(options)
 
     monkeypatch.setattr(ingest_service, "run_recap_production_extraction", fake_production)
     monkeypatch.setattr(ingest_service, "run_graph_preview_extraction", fake_runner)
     return ingest_service, calls
+
+
+def _bind_production_lineage(
+    tmp_path: Path,
+    result,
+    *,
+    source_artifact_id: str | None = None,
+) -> str:
+    """Register a real REVIEWABLE ExtractionRun bound to packaged digests."""
+    import hashlib
+    from datetime import UTC, datetime
+
+    from apps.live_control_server.services.graph_run_registry import (
+        ExtractionRunRegistryDocument,
+        extraction_runs_path,
+    )
+    from graph_memory.ingestion.extraction_run import (
+        ExtractionRun,
+        ExtractionRunComponentKind,
+        ExtractionRunComponentRef,
+        ExtractionRunStatus,
+    )
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    artifacts = dict(manifest.get("artifacts") or {})
+    source = dict(manifest.get("source") or {})
+    resolved_artifact_id = (
+        source_artifact_id
+        or str(source.get("source_artifact_id") or "").strip()
+        or "artifact:test:stamped-lineage:recap"
+    )
+    source["source_artifact_id"] = resolved_artifact_id
+    manifest["source"] = source
+
+    def _digest(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def _ensure_artifact_sha(kind: str) -> tuple[str, Path]:
+        ref = dict(artifacts.get(kind) or {})
+        uri = ref.get("uri")
+        assert isinstance(uri, str)
+        path = tmp_path / uri
+        assert path.is_file()
+        digest = _digest(path)
+        ref["sha256"] = f"sha256:{digest}"
+        artifacts[kind] = ref
+        return digest, path
+
+    candidate_digest, candidate_path = _ensure_artifact_sha("candidate_graph")
+    span_digest, span_path = _ensure_artifact_sha("source_span_index")
+
+    graph = json.loads(candidate_path.read_text(encoding="utf-8"))
+    graph["source_artifact_ids"] = [resolved_artifact_id]
+    candidate_path.write_text(
+        json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    candidate_digest = _digest(candidate_path)
+    artifacts["candidate_graph"] = {
+        **artifacts["candidate_graph"],
+        "sha256": f"sha256:{candidate_digest}",
+    }
+
+    run_id = f"er_bound_{candidate_digest[:12]}"
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    run = ExtractionRun(
+        run_id=run_id,
+        source_artifact_id=resolved_artifact_id,
+        source_domain="recap",
+        status=ExtractionRunStatus.REVIEWABLE,
+        campaign_id=str(manifest.get("campaign_id") or "longmont-c2"),
+        session_id=str(manifest.get("session_id") or "session-24"),
+        created_at=now,
+        updated_at=now,
+        components={
+            ExtractionRunComponentKind.SOURCE_ARTIFACT.value: ExtractionRunComponentRef(
+                kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+                uri=str(source.get("normalized_recap_path") or "normalized.md"),
+                sha256=str(source.get("normalized_recap_sha256") or "deadbeef"),
+                exists=True,
+            ),
+            ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value: ExtractionRunComponentRef(
+                kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+                uri=f"repo://{span_path.relative_to(tmp_path).as_posix()}",
+                sha256=span_digest,
+                exists=True,
+            ),
+            ExtractionRunComponentKind.CANDIDATE_GRAPH.value: ExtractionRunComponentRef(
+                kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+                uri=f"repo://{candidate_path.relative_to(tmp_path).as_posix()}",
+                sha256=candidate_digest,
+                exists=True,
+            ),
+        },
+    )
+    path = extraction_runs_path(tmp_path)
+    if path.is_file():
+        document = ExtractionRunRegistryDocument.model_validate(
+            json.loads(path.read_text(encoding="utf-8"))
+        )
+    else:
+        document = ExtractionRunRegistryDocument()
+    document.records.append(run)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(document.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    diagnostics = dict(manifest.get("diagnostics") or {})
+    diagnostics["extraction_run_id"] = run_id
+    diagnostics["extraction_run_status"] = ExtractionRunStatus.REVIEWABLE.value
+    diagnostics["source_artifact_id"] = resolved_artifact_id
+    manifest["diagnostics"] = diagnostics
+    manifest["artifacts"] = artifacts
+    result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return run_id
 
 
 def _stamp_production_lineage(
@@ -366,6 +542,7 @@ def _stamp_production_lineage(
     *,
     source_artifact_id: str = "artifact:test:stamped-lineage:recap",
 ) -> None:
+    """Fabricate lineage metadata only — must NOT satisfy the reuse gate."""
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     diagnostics = dict(manifest.get("diagnostics") or {})
     diagnostics["extraction_run_id"] = "er_stamped_lineage"
@@ -449,7 +626,7 @@ def test_build_recap_graph_preview_bundle_reuses_matching_profile_run(
         "out/graph_memory/runs/encounter_profile",
         graph_extraction_profile="category_encounter_job_preview",
     )
-    _stamp_production_lineage(tmp_path, old_result)
+    _bind_production_lineage(tmp_path, old_result)
     ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
 
     status = ingest_service.build_recap_graph_preview_bundle(
@@ -506,6 +683,42 @@ def test_build_recap_graph_preview_bundle_skips_pre_migration_run_missing_extrac
     )
 
 
+def test_build_recap_graph_preview_bundle_skips_fabricated_production_lineage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Self-asserted manifest lineage without an ExtractionRun registry record must rebuild."""
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/fabricated_lineage",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    _stamp_production_lineage(tmp_path, old_result)
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+
+    assert not ingest_service._manifest_has_production_lineage(
+        tmp_path, old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+
+    status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert calls
+    assert (
+        status["manifest_path"]
+        != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+    assert ingest_service._manifest_has_production_lineage(
+        tmp_path, status["manifest_path"]
+    )
+
+
 def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -518,7 +731,7 @@ def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_d
     old_result.manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
     )
-    _stamp_production_lineage(tmp_path, old_result)
+    _bind_production_lineage(tmp_path, old_result)
 
     ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
     default_status = ingest_service.build_recap_graph_preview_bundle(
@@ -555,6 +768,7 @@ def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_d
 def test_build_recap_graph_preview_bundle_candidate_path_does_not_reuse_existing_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """An explicit candidate path must not reuse a prior run; production owns packaging."""
     old_result, source = _profiled_candidate_ready_run(
         tmp_path, monkeypatch, "out/graph_memory/runs/existing_candidate"
     )
@@ -575,7 +789,9 @@ def test_build_recap_graph_preview_bundle_candidate_path_does_not_reuse_existing
     )
 
     assert calls
-    assert calls[0].candidate_graph_path == explicit_candidate.resolve()
+    # Reviewable production candidate is authoritative over a manual fixture path.
+    assert calls[0].candidate_graph_path != explicit_candidate.resolve()
+    assert calls[0].source_artifact_id == "artifact:test:service-fake:recap"
     assert (
         status["manifest_path"]
         != old_result.manifest_path.relative_to(tmp_path).as_posix()

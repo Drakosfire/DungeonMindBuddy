@@ -212,6 +212,7 @@ def build_recap_graph_preview_bundle(
             )
         if production.known_entity_mentions is not None:
             known_path = run_dir / "extraction_run" / "known_entity_mentions.json"
+            known_path.parent.mkdir(parents=True, exist_ok=True)
             known_path.write_text(
                 json.dumps(production.known_entity_mentions, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -225,7 +226,9 @@ def build_recap_graph_preview_bundle(
         )
 
     # Legacy GraphIngest packaging only — never perform a second model call here.
-    legacy_candidate = candidate or production_candidate
+    # When the production ExtractionRun is reviewable, its candidate is authoritative
+    # over any manually supplied candidate_graph_path.
+    legacy_candidate = production_candidate or candidate
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id=campaign_id,
@@ -312,6 +315,11 @@ def build_recap_graph_preview_bundle(
         result.manifest_path.write_text(
             json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
+        )
+        _assert_packaged_identity_matches_extraction_run(
+            repo=repo,
+            manifest_path=result.manifest_path,
+            production_run=production.run,
         )
         summary = _summary_for_manifest(repo, result.manifest_path)
 
@@ -731,8 +739,52 @@ def _latest_matching_run(
     return None
 
 
+def _load_extraction_run_record(repo: Path, run_id: str) -> Any | None:
+    """Load one ExtractionRun registry record by id without re-validating all runs.
+
+    The reuse gate needs the persisted claim (status, source artifact, component
+    digests). Full SourceArtifact/evidence integrity was enforced when the run
+    became REVIEWABLE; reloading every sibling record's evidence here would make
+    lineage checks depend on unrelated registry state.
+    """
+    from apps.live_control_server.services.graph_run_registry import extraction_runs_path
+    from graph_memory.ingestion.extraction_run import ExtractionRun
+
+    path = extraction_runs_path(repo)
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    records = payload.get("records") if isinstance(payload, dict) else None
+    if not isinstance(records, list):
+        return None
+    for row in records:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("run_id") or "").strip() != run_id.strip():
+            continue
+        try:
+            return ExtractionRun.model_validate(row)
+        except Exception:  # noqa: BLE001 - malformed record is not reusable lineage
+            return None
+    return None
+
+
 def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> bool:
-    """True when the run proves a reviewable production ExtractionRun lineage."""
+    """True when the run's ExtractionRun registry record proves reviewable lineage.
+
+    Manifest diagnostics alone are insufficient: the referenced ExtractionRun must
+    exist, be REVIEWABLE, match the packaged source artifact, and the packaged
+    candidate (and preferably SourceSpanIndex) digests must equal the immutable
+    ExtractionRun component digests.
+    """
+    from graph_memory.ingestion.extraction_run import (
+        ExtractionRunComponentKind,
+        normalize_content_digest,
+    )
+
     if not manifest_path:
         return False
     try:
@@ -744,14 +796,31 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
         return False
     diagnostics = payload.get("diagnostics") if isinstance(payload.get("diagnostics"), dict) else {}
     run_id = diagnostics.get("extraction_run_id")
-    run_status = diagnostics.get("extraction_run_status")
     source_artifact_id = diagnostics.get("source_artifact_id")
     if not isinstance(run_id, str) or not run_id.strip():
         return False
-    if str(run_status or "").strip() != ExtractionRunStatus.REVIEWABLE.value:
-        return False
     if not isinstance(source_artifact_id, str) or not source_artifact_id.strip():
         return False
+
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    manifest_source_id = str(source.get("source_artifact_id") or "").strip()
+    if not manifest_source_id or manifest_source_id != source_artifact_id.strip():
+        return False
+
+    run = _load_extraction_run_record(repo, run_id.strip())
+    if run is None:
+        return False
+    if run.status != ExtractionRunStatus.REVIEWABLE:
+        return False
+    if run.source_artifact_id != source_artifact_id.strip():
+        return False
+    if run.source_artifact_id != manifest_source_id:
+        return False
+
+    candidate_component = run.components.get(ExtractionRunComponentKind.CANDIDATE_GRAPH.value)
+    if candidate_component is None or not (candidate_component.sha256 or "").strip():
+        return False
+
     artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
     candidate = artifacts.get(GraphIngestArtifactKind.CANDIDATE_GRAPH.value)
     if not isinstance(candidate, dict):
@@ -766,17 +835,94 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
         return False
     if not candidate_path.is_file():
         return False
+
+    packaged_bytes = candidate_path.read_bytes()
+    packaged_digest = normalize_content_digest(
+        candidate.get("sha256") or f"sha256:{hashlib.sha256(packaged_bytes).hexdigest()}"
+    )
+    component_digest = normalize_content_digest(candidate_component.sha256)
+    if not packaged_digest or packaged_digest != component_digest:
+        return False
+    if packaged_digest != hashlib.sha256(packaged_bytes).hexdigest().lower():
+        return False
+
     try:
-        graph = json.loads(candidate_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        graph = json.loads(packaged_bytes.decode("utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return False
     if not isinstance(graph, dict):
         return False
     bound_ids = graph.get("source_artifact_ids") or []
-    if not isinstance(bound_ids, list):
+    if not isinstance(bound_ids, list) or source_artifact_id not in bound_ids:
         return False
-    return source_artifact_id in bound_ids
 
+    span_component = run.components.get(ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value)
+    span_ref = artifacts.get(GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value)
+    if span_component is not None and (span_component.sha256 or "").strip() and isinstance(span_ref, dict):
+        span_uri = span_ref.get("uri")
+        if isinstance(span_uri, str) and span_uri.strip():
+            span_path = (
+                (repo / span_uri).resolve() if not Path(span_uri).is_absolute() else Path(span_uri)
+            )
+            try:
+                span_path.relative_to(repo.resolve())
+            except ValueError:
+                return False
+            if not span_path.is_file():
+                return False
+            span_bytes = span_path.read_bytes()
+            packaged_span_digest = normalize_content_digest(
+                span_ref.get("sha256") or f"sha256:{hashlib.sha256(span_bytes).hexdigest()}"
+            )
+            if packaged_span_digest != normalize_content_digest(span_component.sha256):
+                return False
+            if packaged_span_digest != hashlib.sha256(span_bytes).hexdigest().lower():
+                return False
+
+    return True
+
+
+def _assert_packaged_identity_matches_extraction_run(
+    *,
+    repo: Path,
+    manifest_path: Path,
+    production_run: Any,
+) -> None:
+    """Assert GraphIngest packaging and ExtractionRun share one SourceArtifact ID."""
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    expected = str(getattr(production_run, "source_artifact_id", "") or "").strip()
+    if not expected:
+        raise ValueError("ExtractionRun source_artifact_id is required")
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    if str(source.get("source_artifact_id") or "").strip() != expected:
+        raise ValueError("GraphIngest source.source_artifact_id does not match ExtractionRun")
+    diagnostics = payload.get("diagnostics") if isinstance(payload.get("diagnostics"), dict) else {}
+    if str(diagnostics.get("source_artifact_id") or "").strip() != expected:
+        raise ValueError("GraphIngest diagnostics.source_artifact_id does not match ExtractionRun")
+
+    span_uri = source.get("source_span_index_uri")
+    if isinstance(span_uri, str) and span_uri.strip():
+        span_path = (repo / span_uri).resolve()
+        span_index = json.loads(span_path.read_text(encoding="utf-8"))
+        if str(span_index.get("source_artifact_id") or "").strip() != expected:
+            raise ValueError("packaged SourceSpanIndex source_artifact_id does not match ExtractionRun")
+
+    provenance_uri = source.get("provenance_index_uri")
+    if isinstance(provenance_uri, str) and provenance_uri.strip():
+        provenance = json.loads((repo / provenance_uri).resolve().read_text(encoding="utf-8"))
+        for row in provenance.get("source_artifacts") or []:
+            if isinstance(row, dict) and str(row.get("artifact_id") or "").strip() != expected:
+                raise ValueError("provenance_index artifact_id does not match ExtractionRun")
+
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    candidate = artifacts.get(GraphIngestArtifactKind.CANDIDATE_GRAPH.value)
+    if isinstance(candidate, dict):
+        uri = candidate.get("uri")
+        if isinstance(uri, str) and uri.strip():
+            graph = json.loads((repo / uri).resolve().read_text(encoding="utf-8"))
+            bound = graph.get("source_artifact_ids") or []
+            if expected not in bound:
+                raise ValueError("candidate_graph is not bound to ExtractionRun source_artifact_id")
 
 def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -> bool:
     """True when the run declares a readable known_entity_mentions artifact."""

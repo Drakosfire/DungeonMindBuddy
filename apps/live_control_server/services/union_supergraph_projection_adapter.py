@@ -143,34 +143,55 @@ def _load_source_span_index(graph_run_manifest_path: Path) -> list[dict[str, Any
 
 
 def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProjectionSourceSpan]:
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     raw_spans = _load_source_span_index(graph_run_manifest_path)
     if raw_spans is None:
         return []
+
+    recap_text = ""
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    bundle_uri = source.get("source_span_bundle_uri")
+    if isinstance(bundle_uri, str) and bundle_uri.strip():
+        full_text_path = _resolve_repo_contained_path(
+            Path(bundle_uri) / "recap_full_text.md", root
+        )
+        if full_text_path.is_file():
+            recap_text = full_text_path.read_text(encoding="utf-8")
+    lines = recap_text.splitlines() if recap_text else []
+
     spans: list[RecapProjectionSourceSpan] = []
     for span in raw_spans:
         span_id = span.get("span_id") or span.get("source_span_ref_id") or span.get("source_span_id")
         if not isinstance(span_id, str):
             continue
+        line_start = (
+            span.get("line_start")
+            if isinstance(span.get("line_start"), int)
+            else span.get("start_line")
+            if isinstance(span.get("start_line"), int)
+            else None
+        )
+        line_end = (
+            span.get("line_end")
+            if isinstance(span.get("line_end"), int)
+            else span.get("end_line")
+            if isinstance(span.get("end_line"), int)
+            else None
+        )
+        excerpt = str(span.get("text_excerpt") or span.get("text") or "")
+        if not excerpt.strip() and lines and isinstance(line_start, int) and isinstance(line_end, int):
+            if line_start >= 1 and line_end >= line_start:
+                excerpt = "\n".join(lines[line_start - 1 : line_end])
         spans.append(
             RecapProjectionSourceSpan(
                 span_id=span_id,
                 kind=str(span.get("kind") or "span"),
                 ordinal=span.get("ordinal") if isinstance(span.get("ordinal"), int) else None,
-                text_excerpt=str(span.get("text_excerpt") or span.get("text") or "")[:240] or None,
-                line_start=(
-                    span.get("line_start")
-                    if isinstance(span.get("line_start"), int)
-                    else span.get("start_line")
-                    if isinstance(span.get("start_line"), int)
-                    else None
-                ),
-                line_end=(
-                    span.get("line_end")
-                    if isinstance(span.get("line_end"), int)
-                    else span.get("end_line")
-                    if isinstance(span.get("end_line"), int)
-                    else None
-                ),
+                text_excerpt=excerpt[:240] or None,
+                line_start=line_start,
+                line_end=line_end,
             )
         )
     return spans
@@ -184,16 +205,39 @@ def _load_manifest_source_span_full_text_index(
     Distinct from ``_load_manifest_source_spans``, whose ``text_excerpt`` is
     capped at 240 chars for the paragraph-jump source-span list; relationship
     excerpts need the complete paragraph.
+
+    Canonical v1 SourceSpanIndex entries do not embed text. Reconstruct from the
+    source-span bundle's ``recap_full_text.md`` using line bounds when needed.
     """
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     raw_spans = _load_source_span_index(graph_run_manifest_path)
     if raw_spans is None:
         return {}
+
+    recap_text = ""
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    bundle_uri = source.get("source_span_bundle_uri")
+    if isinstance(bundle_uri, str) and bundle_uri.strip():
+        full_text_path = _resolve_repo_contained_path(
+            Path(bundle_uri) / "recap_full_text.md", root
+        )
+        if full_text_path.is_file():
+            recap_text = full_text_path.read_text(encoding="utf-8")
+    lines = recap_text.splitlines() if recap_text else []
+
     full_text_by_span_id: dict[str, str] = {}
     for span in raw_spans:
-        if span.get("kind") not in {None, "paragraph"}:
+        if span.get("kind") not in {None, "paragraph", "span"}:
             continue
         span_id = span.get("span_id") or span.get("source_span_ref_id") or span.get("source_span_id")
         text = span.get("text") or span.get("text_excerpt")
+        if not (isinstance(text, str) and text.strip()) and lines:
+            start = span.get("line_start") if isinstance(span.get("line_start"), int) else span.get("start_line")
+            end = span.get("line_end") if isinstance(span.get("line_end"), int) else span.get("end_line")
+            if isinstance(start, int) and isinstance(end, int) and start >= 1 and end >= start:
+                text = "\n".join(lines[start - 1 : end])
         if isinstance(span_id, str) and isinstance(text, str) and text.strip():
             full_text_by_span_id[span_id] = text
     return full_text_by_span_id

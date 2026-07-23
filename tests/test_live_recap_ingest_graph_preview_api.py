@@ -388,6 +388,10 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
         _enrich_evidence_ref,
         _span_lookup_key,
     )
+    from src.graph_memory.source_span import (
+        SOURCE_SPAN_INDEX_SCHEMA,
+        source_span_index_from_dict,
+    )
 
     client, _corpus, _candidate = client_env
     _prepare_normalized(client)
@@ -408,9 +412,34 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
     assert graph["status"] == "candidate_validation_ready"
     run_dir = ROOT / graph["run_dir"]
     candidate = json.loads((ROOT / graph["candidate_graph_path"]).read_text(encoding="utf-8"))
-    span_index = json.loads((run_dir / "source_span_index.json").read_text(encoding="utf-8"))
-    assert span_index.get("schema") == "dmb_source_span_index_v1"
+    span_index_path = run_dir / "source_span_index.json"
+    span_index = json.loads(span_index_path.read_text(encoding="utf-8"))
+    assert span_index.get("schema") == SOURCE_SPAN_INDEX_SCHEMA
     assert span_index.get("source_artifact_id") == graph["source_artifact_id"]
+    # Canonical v1 loader must accept the packaged file (no invented :full_text entries).
+    validated = source_span_index_from_dict(span_index)
+    assert validated.source_artifact_id == graph["source_artifact_id"]
+    assert validated.spans
+    assert all(":span:" in span.source_span_id for span in validated.spans)
+    assert not any(
+        str(span.get("source_span_id") or "").endswith(":full_text")
+        for span in (span_index.get("spans") or [])
+        if isinstance(span, dict)
+    )
+
+    manifest = json.loads((ROOT / graph["manifest_path"]).read_text(encoding="utf-8"))
+    assert manifest["source"]["source_artifact_id"] == graph["source_artifact_id"]
+    assert (
+        manifest["artifacts"]["source_span_index"]["schema"] == SOURCE_SPAN_INDEX_SCHEMA
+    )
+    provenance = json.loads((run_dir / "provenance_index.json").read_text(encoding="utf-8"))
+    assert all(
+        row.get("artifact_id") == graph["source_artifact_id"]
+        for row in provenance.get("source_artifacts") or []
+        if isinstance(row, dict)
+    )
+    assert graph["source_artifact_id"] in (candidate.get("source_artifact_ids") or [])
+    assert (run_dir / "source_spans" / "recap_full_text.md").is_file()
 
     span_lookup = {
         key: sp
