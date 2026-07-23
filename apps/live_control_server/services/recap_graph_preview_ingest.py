@@ -57,14 +57,16 @@ def _production_immutable_source_path(repo: Path, production: Any) -> Path | Non
         get_source_artifact,
     )
 
-    component = getattr(production.run, "components", {}).get("source_artifact")
+    run = getattr(production, "run", None)
+    components = getattr(run, "components", {}) or {}
+    component = components.get("source_artifact")
     if component is not None and str(getattr(component, "uri", "") or "").strip():
         try:
             path = _resolve_repo_uri_path(repo, str(component.uri))
         except ValueError:
             return None
         return path if path.is_file() else None
-    source_artifact_id = str(getattr(production.run, "source_artifact_id", "") or "").strip()
+    source_artifact_id = str(getattr(run, "source_artifact_id", "") or "").strip()
     if not source_artifact_id:
         return None
     try:
@@ -76,6 +78,31 @@ def _production_immutable_source_path(repo: Path, production: Any) -> Path | Non
     except ValueError:
         return None
     return path if path.is_file() else None
+
+
+def _production_has_immutable_source(production: Any) -> bool:
+    """True when production admitted a SourceArtifact or canonical SourceSpanIndex."""
+    if getattr(production, "source_span_index", None) is not None:
+        return True
+    run = getattr(production, "run", None)
+    if run is None:
+        return False
+    if str(getattr(run, "source_artifact_id", "") or "").strip():
+        return True
+    components = getattr(run, "components", {}) or {}
+    return components.get("source_artifact") is not None
+
+
+def _packaging_source_path(repo: Path, production: Any, *, fallback: Path) -> Path:
+    """Prefer immutable SourceArtifact bytes whenever production produced them."""
+    if not _production_has_immutable_source(production):
+        return fallback
+    immutable_source = _production_immutable_source_path(repo, production)
+    if immutable_source is None:
+        raise ValueError(
+            "production ExtractionRun is missing immutable SourceArtifact bytes for packaging"
+        )
+    return immutable_source
 
 
 def _production_candidate_is_packageable(production: Any) -> bool:
@@ -264,14 +291,10 @@ def build_recap_graph_preview_bundle(
     # When the production ExtractionRun is reviewable, its candidate is authoritative
     # over any manually supplied candidate_graph_path.
     legacy_candidate = production_candidate or candidate
-    packaging_source = normalized
-    if extract_graph and _production_candidate_is_packageable(production):
-        immutable_source = _production_immutable_source_path(repo, production)
-        if immutable_source is None:
-            raise ValueError(
-                "reviewable ExtractionRun is missing immutable SourceArtifact bytes for packaging"
-            )
-        packaging_source = immutable_source
+    # Whenever production admitted a SourceArtifact / canonical SourceSpanIndex,
+    # package from those immutable bytes — including source-only, manual-candidate,
+    # and failed-extraction paths that still supply the canonical index.
+    packaging_source = _packaging_source_path(repo, production, fallback=normalized)
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id=campaign_id,
@@ -707,6 +730,17 @@ def _projection_payload_is_known_entity_aware(projection_path: Path) -> bool:
 def _lineage_for_normalized_recap(
     repo: Path, normalized_recap_path: str | None
 ) -> tuple[str | None, str | None]:
+    """Return (repo-relative path, content digest) for discovery matching.
+
+    Digests use the same trailing-newline normalization as SourceArtifact admission
+    so newline-only differences do not masquerade as content changes, and so
+    discovery compares against packaged ``normalized_recap_sha256`` values.
+    """
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        _normalize_source_text,
+    )
+
     if not normalized_recap_path:
         return None, None
     try:
@@ -715,7 +749,16 @@ def _lineage_for_normalized_recap(
         if not Path(normalized_recap_path).is_absolute():
             return normalized_recap_path.replace("\\", "/"), None
         return None, None
-    source_recap_sha256 = f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+    try:
+        normalized_text = _normalize_source_text(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, SourceArtifactRegistryError):
+        # Empty / unreadable: keep path for fallback; no digest means path-only match.
+        normalized_text = None
+    source_recap_sha256 = (
+        f"sha256:{hashlib.sha256(normalized_text.encode('utf-8')).hexdigest()}"
+        if normalized_text is not None
+        else None
+    )
     try:
         source_recap_path = path.resolve().relative_to(repo.resolve()).as_posix()
     except ValueError:
@@ -915,19 +958,24 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     if packaged_span_digest != hashlib.sha256(span_bytes).hexdigest().lower():
         return False
 
+    # Projection reads source.source_span_index_uri only — require it and bind it
+    # to the same verified SourceSpanIndex artifact bytes.
     source_span_uri = source.get("source_span_index_uri")
-    if isinstance(source_span_uri, str) and source_span_uri.strip():
-        try:
-            source_span_path = _resolve_repo_uri_path(repo, source_span_uri)
-        except ValueError:
-            return False
-        if not source_span_path.is_file():
-            return False
-        if (
-            hashlib.sha256(source_span_path.read_bytes()).hexdigest().lower()
-            != packaged_span_digest
-        ):
-            return False
+    if not isinstance(source_span_uri, str) or not source_span_uri.strip():
+        return False
+    try:
+        source_span_path = _resolve_repo_uri_path(repo, source_span_uri)
+    except ValueError:
+        return False
+    if not source_span_path.is_file():
+        return False
+    if source_span_path.resolve() != span_path.resolve():
+        return False
+    if (
+        hashlib.sha256(source_span_path.read_bytes()).hexdigest().lower()
+        != packaged_span_digest
+    ):
+        return False
 
     # Packaged review source must still match the immutable SourceArtifact digest.
     packaged_source_digest = normalize_content_digest(

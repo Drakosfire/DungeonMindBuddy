@@ -193,12 +193,22 @@ def _manifest_matches_source_recap(
     source_recap_path: str | None,
     source_recap_sha256: str | None,
 ) -> bool:
+    """Match a GraphIngest run to the caller's current recap.
+
+    When a content digest is available, require an exact digest match (or a
+    SourceArtifact ID that embeds that digest). Path equality is a fallback
+    only when no digest can be calculated — otherwise an edited recap at the
+    same path would reuse a stale extraction.
+    """
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
     source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-    if source_recap_sha256:
+    requested_digest = normalize_content_digest(source_recap_sha256)
+    if requested_digest:
         actual_hashes = [
             source.get("normalized_recap_sha256"),
             (payload.get("artifacts") or {}).get("normalized_recap", {}).get("sha256")
@@ -206,11 +216,16 @@ def _manifest_matches_source_recap(
             else None,
         ]
         if any(
-            value == source_recap_sha256
+            normalize_content_digest(value) == requested_digest
             for value in actual_hashes
             if isinstance(value, str)
         ):
             return True
+        artifact_id = str(source.get("source_artifact_id") or "").strip()
+        # Recap SourceArtifact IDs embed a 12-char content-digest prefix.
+        if artifact_id and requested_digest[:12] and requested_digest[:12] in artifact_id:
+            return True
+        return False
     if not source_recap_path:
         return False
     raw_values = [

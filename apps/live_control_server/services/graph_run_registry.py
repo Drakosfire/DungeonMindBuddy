@@ -409,6 +409,25 @@ def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
     raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
 
 
+def _connected_lineage_records(
+    records: list[ExtractionRun], run: ExtractionRun
+) -> list[ExtractionRun]:
+    """Collect the selected run plus its reciprocal supersession chain."""
+    by_id = {record.run_id: record for record in records}
+    connected_ids: set[str] = {run.run_id}
+    frontier = [run.run_id]
+    while frontier:
+        current_id = frontier.pop()
+        current = by_id.get(current_id)
+        if current is None:
+            continue
+        for linked_id in (current.supersedes_run_id, current.superseded_by_run_id):
+            if linked_id and linked_id not in connected_ids:
+                connected_ids.add(linked_id)
+                frontier.append(linked_id)
+    return [by_id[run_id] for run_id in connected_ids if run_id in by_id]
+
+
 def get_reviewable_extraction_run(root: Path, run_id: str) -> ExtractionRun:
     """Load one REVIEWABLE ExtractionRun and assert its current evidence integrity.
 
@@ -418,6 +437,10 @@ def get_reviewable_extraction_run(root: Path, run_id: str) -> ExtractionRun:
     SourceArtifact existence, scope, immutable source bytes, SourceSpanIndex
     binding, and candidate digests are still enforced via
     ``assert_run_reviewable_evidence``.
+
+    Registry-document invariants that still apply:
+    - every ``run_id`` must be unique
+    - the selected run's connected supersession lineage must be valid
     """
     path = extraction_runs_path(root)
     if not path.is_file():
@@ -429,14 +452,38 @@ def get_reviewable_extraction_run(root: Path, run_id: str) -> ExtractionRun:
             f"malformed extraction run registry: {exc}",
             status_code=500,
         ) from exc
-    run = next((record for record in document.records if record.run_id == run_id), None)
-    if run is None:
+
+    seen: set[str] = set()
+    matches: list[ExtractionRun] = []
+    for record in document.records:
+        if record.run_id in seen:
+            raise GraphRunRegistryError(
+                f"duplicate extraction run id: {record.run_id}",
+                status_code=500,
+            )
+        seen.add(record.run_id)
+        if record.run_id == run_id:
+            matches.append(record)
+    if not matches:
         raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
+    if len(matches) != 1:
+        raise GraphRunRegistryError(
+            f"duplicate extraction run id: {run_id}",
+            status_code=500,
+        )
+    run = matches[0]
     try:
         validate_extraction_run_record(run)
     except ValueError as exc:
         raise GraphRunRegistryError(
             f"malformed extraction run registry record: {exc}",
+            status_code=500,
+        ) from exc
+    try:
+        validate_extraction_run_lineage(_connected_lineage_records(document.records, run))
+    except ValueError as exc:
+        raise GraphRunRegistryError(
+            f"malformed extraction run lineage: {exc}",
             status_code=500,
         ) from exc
     if run.status != ExtractionRunStatus.REVIEWABLE:

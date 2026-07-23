@@ -10,6 +10,7 @@ from apps.live_control_server.services.graph_run_registry import (
     GraphRunRegistryError,
     create_extraction_run,
     get_extraction_run,
+    get_reviewable_extraction_run,
     supersede_extraction_run,
     update_extraction_run_status,
 )
@@ -421,6 +422,51 @@ def test_reviewable_happy_path_and_terminal_protection(tmp_path: Path) -> None:
             status=ExtractionRunStatus.DRAFT,
             expected_revision=promoted.revision,
         )
+
+
+def test_get_reviewable_extraction_run_rejects_duplicate_run_ids(tmp_path: Path) -> None:
+    """Targeted loader must refuse duplicate run IDs, like the full registry loader."""
+    from datetime import UTC, datetime
+
+    from apps.live_control_server.services.graph_run_registry import (
+        ExtractionRunRegistryDocument,
+        extraction_runs_path,
+    )
+    from graph_memory.ingestion.extraction_run import ExtractionRun
+
+    record, _digest = _committed_worldbuilding(tmp_path)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=record.document_id,
+        expected_revision=record.revision,
+    )
+    components = _reviewable_components(tmp_path, artifact)
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    duplicate_id = "er_duplicate_targeted_loader"
+    first = ExtractionRun(
+        run_id=duplicate_id,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+        status=ExtractionRunStatus.REVIEWABLE,
+        campaign_id=artifact.campaign_id,
+        session_id=None,
+        created_at=now,
+        updated_at=now,
+        components=components,
+    )
+    second = first.model_copy(deep=True)
+    path = extraction_runs_path(tmp_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    document = ExtractionRunRegistryDocument(records=[first, second])
+    path.write_text(
+        json.dumps(document.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(GraphRunRegistryError, match="duplicate extraction run id"):
+        get_reviewable_extraction_run(tmp_path, duplicate_id)
+    with pytest.raises(GraphRunRegistryError, match="duplicate extraction run id"):
+        get_extraction_run(tmp_path, duplicate_id)
 
 
 def test_stale_revision_and_supersession(tmp_path: Path) -> None:

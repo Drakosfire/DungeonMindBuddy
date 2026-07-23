@@ -273,7 +273,10 @@ def test_build_recap_graph_preview_bundle_unknown_profile_fails_closed(
 
 
 def _service_fake_runner_with_candidate(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    failure_kind: str | None = None,
 ):
     import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
     import hashlib
@@ -333,6 +336,7 @@ def _service_fake_runner_with_candidate(
         campaign_id = str(kwargs.get("campaign_id") or "longmont-c2")
         session_id = str(kwargs.get("session_id") or "session-24")
         recap_path = Path(kwargs["recap_path"])
+        allow_llm = bool(kwargs.get("allow_llm"))
         artifact = create_recap_source_artifact(
             tmp_path,
             campaign_id=campaign_id,
@@ -351,40 +355,56 @@ def _service_fake_runner_with_candidate(
         _write_json(candidate_path, candidate)
 
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        run = ExtractionRun(
-            run_id=run_id,
-            source_artifact_id=artifact.source_artifact_id,
-            source_domain="recap",
-            status=ExtractionRunStatus.REVIEWABLE,
-            campaign_id=campaign_id,
-            session_id=session_id,
-            created_at=now,
-            updated_at=now,
-            components={
-                ExtractionRunComponentKind.SOURCE_ARTIFACT.value: ExtractionRunComponentRef(
-                    kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
-                    uri=artifact.uri,
-                    sha256=artifact.content_sha256 or "",
-                    exists=True,
-                ),
-                ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value: ExtractionRunComponentRef(
-                    kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
-                    uri=f"repo://{span_path.relative_to(tmp_path).as_posix()}",
-                    sha256=_file_sha256(span_path),
-                    exists=True,
-                ),
-                ExtractionRunComponentKind.CANDIDATE_GRAPH.value: ExtractionRunComponentRef(
+        resolved_failure = failure_kind
+        if not allow_llm and resolved_failure is None:
+            run_status = ExtractionRunStatus.PREPARED
+            packageable_candidate = None
+        elif resolved_failure is not None:
+            run_status = ExtractionRunStatus.FAILED
+            packageable_candidate = candidate
+        else:
+            run_status = ExtractionRunStatus.REVIEWABLE
+            packageable_candidate = candidate
+
+        components = {
+            ExtractionRunComponentKind.SOURCE_ARTIFACT.value: ExtractionRunComponentRef(
+                kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+                uri=artifact.uri,
+                sha256=artifact.content_sha256 or "",
+                exists=True,
+            ),
+            ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value: ExtractionRunComponentRef(
+                kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+                uri=f"repo://{span_path.relative_to(tmp_path).as_posix()}",
+                sha256=_file_sha256(span_path),
+                exists=True,
+            ),
+        }
+        if packageable_candidate is not None:
+            components[ExtractionRunComponentKind.CANDIDATE_GRAPH.value] = (
+                ExtractionRunComponentRef(
                     kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
                     uri=f"repo://{candidate_path.relative_to(tmp_path).as_posix()}",
                     sha256=_file_sha256(candidate_path),
                     exists=True,
-                ),
-            },
+                )
+            )
+
+        run = ExtractionRun(
+            run_id=run_id,
+            source_artifact_id=artifact.source_artifact_id,
+            source_domain="recap",
+            status=run_status,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            created_at=now,
+            updated_at=now,
+            components=components,
         )
         _append_extraction_run(run)
         return ProductionExtractionResult(
             run=run,
-            candidate_graph=candidate,
+            candidate_graph=packageable_candidate,
             source_span_index=span_payload,
             known_entity_mentions={
                 "schema": "dmb_known_entity_mention_sidecar_v0",
@@ -392,8 +412,11 @@ def _service_fake_runner_with_candidate(
                 "mentions": [],
                 "ambiguous_surfaces": [],
                 "diagnostics": {"mention_count": 0, "empty_contract": True},
-            },
-            failure_kind=None,
+            }
+            if packageable_candidate is not None
+            else None,
+            failure_kind=resolved_failure,
+            diagnostics=[f"forced failure: {resolved_failure}"] if resolved_failure else [],
             model_id="gpt-5.4-mini",
             profile_id="recap_session_default",
             profile_version="1.0.0",
@@ -915,6 +938,163 @@ def test_build_recap_graph_preview_bundle_packages_immutable_source_bytes(
         for row in provenance.get("source_artifacts") or []
         if isinstance(row, dict)
     )
+
+
+def _assert_packaged_from_immutable_source(
+    *,
+    tmp_path: Path,
+    source: Path,
+    calls: list,
+    status: dict,
+) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+    )
+
+    assert calls
+    packaging_path = Path(calls[0].normalized_recap_path)
+    assert packaging_path.resolve() != source.resolve()
+    artifact = get_source_artifact(tmp_path, status["source_artifact_id"])
+    immutable = tmp_path / artifact.uri.removeprefix("repo://")
+    assert packaging_path.resolve() == immutable.resolve()
+    packaged = (tmp_path / status["run_dir"] / "normalized_recap_source.md").read_bytes()
+    assert packaged == immutable.read_bytes()
+    span_index = json.loads(
+        (tmp_path / status["run_dir"] / "source_span_index.json").read_text(encoding="utf-8")
+    )
+    assert span_index["content_sha256"] == artifact.content_sha256
+
+
+@pytest.mark.parametrize(
+    ("extract_graph", "with_manual_candidate", "failure_kind", "expected_status"),
+    [
+        (False, False, None, GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value),
+        (False, True, None, GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value),
+        (True, False, "refusal", GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value),
+        (True, False, "validation", GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY.value),
+    ],
+)
+def test_build_recap_graph_preview_bundle_packages_immutable_source_when_not_reviewable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    extract_graph: bool,
+    with_manual_candidate: bool,
+    failure_kind: str | None,
+    expected_status: str,
+) -> None:
+    """Newline-normalized packaging must use SourceArtifact bytes even without a reviewable candidate."""
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "newline_normalized.md"
+    source.write_text(
+        RECAP_PATH.read_text(encoding="utf-8").rstrip("\n") + "\n\n\n",
+        encoding="utf-8",
+    )
+    ingest_service, calls = _service_fake_runner_with_candidate(
+        tmp_path, monkeypatch, failure_kind=failure_kind
+    )
+    manual_candidate = None
+    if with_manual_candidate:
+        manual_candidate = tmp_path / "manual_candidate.json"
+        manual_candidate.write_text(
+            CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+
+    status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=extract_graph,
+        force_graph_run=True,
+        candidate_graph_path=(
+            manual_candidate.relative_to(tmp_path).as_posix()
+            if manual_candidate is not None
+            else None
+        ),
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert status["status"] == expected_status
+    if failure_kind is not None:
+        assert status["extraction_mode"] == "llm_blocked"
+    _assert_packaged_from_immutable_source(
+        tmp_path=tmp_path, source=source, calls=calls, status=status
+    )
+
+
+def test_build_recap_graph_preview_bundle_rejects_reuse_when_recap_content_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Edited bytes at the same path must not reuse a prior GraphIngest run."""
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/changed_recap_reuse",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    _bind_production_lineage(tmp_path, old_result)
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+
+    reused = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        force_graph_run=False,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    assert calls == []
+    assert (
+        reused["manifest_path"]
+        == old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+
+    source.write_text(
+        source.read_text(encoding="utf-8") + "\nEdited into recap B.\n",
+        encoding="utf-8",
+    )
+    rebuilt = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        force_graph_run=False,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    assert calls
+    assert (
+        rebuilt["manifest_path"]
+        != old_result.manifest_path.relative_to(tmp_path).as_posix()
+    )
+
+
+def test_manifest_production_lineage_refuses_missing_projection_span_uri(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing source.source_span_index_uri must fail closed even when artifacts entry is intact."""
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/missing_projection_span_uri",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    _bind_production_lineage(tmp_path, old_result)
+    ingest_service, _calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert ingest_service._manifest_has_production_lineage(tmp_path, manifest_rel)
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    source_block = dict(manifest.get("source") or {})
+    source_block.pop("source_span_index_uri", None)
+    manifest["source"] = source_block
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    assert not ingest_service._manifest_has_production_lineage(tmp_path, manifest_rel)
+    assert "source_span_index" in (manifest.get("artifacts") or {})
 
 
 def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
