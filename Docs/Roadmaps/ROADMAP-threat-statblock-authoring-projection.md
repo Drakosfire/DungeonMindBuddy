@@ -61,7 +61,7 @@ Workstream IDs are stable design identifiers. GitHub PR numbers are assigned whe
 | `SBW01` | MERGED `#386` (`2ab5b28b`, 2026-07-22) | DungeonBuddy backend can call and classify DungeonMind statblock v1 readiness/read operations through one server-owned client. |
 | `SBW02` | MERGED `#387` (`0d4831ee`, 2026-07-22) | Persistent versioned `ThreatDraftV1` CRUD with no generation side effects. |
 | `SBW03` | MERGED `#388` (`889acf96`, 2026-07-23) | One exact draft version generates one typed candidate; failure preserves the draft. Operation-authority durability journal with Server durable-code terminality. |
-| `SBW04` | NEXT — PRE-DESIGNED; re-anchor to tip before dispatch | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. |
+| `SBW04` | IMPLEMENTING — `feat/sbw04-semantic-renderer` | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. |
 | `SBW05` | PRE-DESIGNED — bites `SBW05a–c` | Complete-definition typed editing and editor-preview validation. |
 | `SBW06` | PRE-DESIGNED — bites `SBW06-contract` + `SBW06a–d`; **after SBW07** | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
 | `SBW07` | PRE-DESIGNED — bites `SBW07-contract` + `SBW07a–c`; **before SBW06** | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |

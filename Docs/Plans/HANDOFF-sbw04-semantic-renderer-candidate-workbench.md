@@ -1,7 +1,7 @@
 # HANDOFF — SBW04 Shared semantic statblock renderer and read-only candidate workbench
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — NEXT dispatch. Re-anchor paths and base SHA to current `main` (`549ba802` or newer) before opening the implementation PR.  
+**Status:** IMPLEMENTING — `feat/sbw04-semantic-renderer`; base includes Milestone B bite-schedule docs.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`  
 **Workstream:** `SBW04`  
 **Repository:** `Drakosfire/DungeonMindBuddy`
