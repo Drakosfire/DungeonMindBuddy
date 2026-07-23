@@ -186,7 +186,7 @@ SBW04 (Milestone A gate)
 | `SBW05a` | Validate transport: client + Buddy route + digest association | Submitted definition digest matches receipt; transport vs validation-issue semantics distinct |
 | `SBW05b` | Editor library + state machine + field/control matrix + preservation fallback | Complex fixture round-trips; edit clears eligibility; session-only disclosed |
 | `SBW05c` | Workbench edit/validate host | Live edit→validate→stale-on-edit; no save durability claim |
-| `SBW07-contract` | Acceptance authority + partial states + ThreatDraft schema delta (docs only) | Reviewer can approve/reject the transition table alone |
+| `SBW07-contract` | Mandatory acceptance-operation journal + authority/materialization/workflow separation + unknown-transport replay table (docs only) | Reviewer can approve/reject the closed schema + transition table alone; no optional pending field |
 | `SBW07a` | Create/read Server client + fixtures | Exact IDs/digest parse; no draft mutation |
 | `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Post-commit local failure never deletes Server revision; recovery converges |
 | `SBW07c` | Accept UI + corpus-promotion demolition | “Saved ≠ published”; demolition ledger complete |

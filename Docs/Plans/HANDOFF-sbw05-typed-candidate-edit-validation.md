@@ -58,7 +58,7 @@ This is not one slice if it must also generate a revised candidate, create/appen
 | Base revision | Actual merged SHA containing `SBW01–04` |
 | Predecessor contract | Shared semantic renderer and exact candidate read payload |
 | Exact input consumed | Complete candidate definition copied into local editor state; exact candidate/draft locators |
-| Named successor | `SBW06` revise/regenerate and `SBW07` immutable mechanics save |
+| Named successor | `SBW07` immutable mechanics save (before revise), then `SBW06` revise/regenerate |
 | What remains false | No accepted mechanics exist; validation is advisory eligibility state only |
 | Explicit non-goals | Partial patch API, local validator, model revision, persistence save, graph, embed, combat, media |
 

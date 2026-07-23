@@ -170,7 +170,7 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 
 | Bite | Mission | Exclusions |
 |---|---|---|
-| `SBW07-contract` | Doc-only acceptance authority + partial-state transition table | Implementation code |
+| `SBW07-contract` | Doc-only mandatory `AcceptanceOperationV1` journal + authority/materialization/workflow separation + unknown-transport replay table | Implementation code |
 | `SBW07a` | Create/read Server client + fixtures | Draft mutation, UI, demolition |
 | `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | UI, corpus demolition, graph |
 | `SBW07c` | Accept UI + corpus-promotion demolition | Graph, append revision |

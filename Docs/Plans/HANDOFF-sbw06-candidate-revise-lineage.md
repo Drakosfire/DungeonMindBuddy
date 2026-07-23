@@ -35,7 +35,7 @@ Before any `SBW06a+` code PR, the contract PR must publish:
 |---|---:|---:|---:|---|
 | Revise/regenerate from exact edited definition or accepted revision | Yes | Yes | Yes | Include |
 | Preserve candidate lineage and superseded/rejected statuses | No; required for truthful revision | Yes | Yes | Include under same invariant |
-| Save immutable mechanics | Yes | Yes | Yes | Successor `SBW07` |
+| Save immutable mechanics | Already required | Yes | Yes | **Predecessor `SBW07` (must be merged first)** |
 | Compare accepted revisions | Yes | No | Yes | Successor `SBW13` |
 | Upgrade graph bindings/embeds | Yes | Yes | Yes | Successor `SBW14` |
 
@@ -63,20 +63,21 @@ This is not one slice if implementation must also create/append a durable statbl
 |---|---|
 | Parent authority | Integration design §6.4; tracker `SBW06`; DungeonMindServer revise-candidate contract |
 | Repository rules | `AGENTS.md`; external-agent PR loop rules/template |
-| Base revision | Actual merged SHA containing `SBW01–05` |
-| Predecessor contract | Exact candidate refs; complete typed editor working copy; validation digest/receipt state |
+| Base revision | Actual merged SHA containing `SBW01–05` **and `SBW07`** |
+| Predecessor contract | Exact candidate refs; complete typed editor working copy; validation digest/receipt state; **`SBW07` accepted-mechanics locators for `source_locator` revise** |
 | Exact input consumed | Source kind + exact source locator/value + explicit revision instructions + request/idempotency key |
-| Named successor | `SBW07` immutable save and `SBW13` accepted revision append/compare |
-| What remains false | New candidate remains a proposal; no mechanics or graph truth is changed |
-| Explicit non-goals | Save, append accepted revision, compare view, graph, embed, combat, media, silent latest selection |
+| Named successor | `SBW13` accepted revision append/compare (not `SBW07` — save precedes this slice) |
+| What remains false | New candidate remains a proposal; no new mechanics identity or graph truth is changed |
+| Explicit non-goals | First immutable save (already `SBW07`), append accepted revision, compare view, graph, embed, combat, media, silent latest selection |
 
 Read in order:
 
 1. integration design and tracker
 2. merged `SBW05` editor/validation contracts
-3. current DungeonMindServer revise-candidate generated API/types/fixtures
-4. `SBW03` generation/cache/ref lifecycle
-5. workbench candidate state tests
+3. merged `SBW07` accepted-mechanics ref / locator contract
+4. current DungeonMindServer revise-candidate generated API/types/fixtures
+5. `SBW03` generation/cache/ref lifecycle
+6. workbench candidate state tests
 
 ## §3 Observable-path inventory
 
@@ -123,7 +124,7 @@ Required report: identify exact source variants and idempotency/error vocabulary
 
 | Capability | Why excluded |
 |---|---|
-| create first immutable statblock revision | `SBW07` |
+| create first immutable statblock revision | Predecessor `SBW07` (already merged; this slice consumes locators only) |
 | append accepted child revision | `SBW13` |
 | accepted revision comparison | `SBW13` |
 | preferred/binding/embed upgrade | `SBW14` |
@@ -285,6 +286,7 @@ Stop if:
 
 ## Final dispatch check
 
-- [ ] Re-anchor after `SBW05`.
+- [ ] Re-anchor after `SBW07` (and `SBW05`).
 - [ ] Capture real revise fixtures and source variants.
-- [ ] Confirm accepted mechanics, graph, compare, upgrade, and media remain false.
+- [ ] Confirm first-save is already true via `SBW07`; graph, compare, upgrade, and media remain false.
+- [ ] `SBW06-contract` transition table approved before `SBW06a+` code.

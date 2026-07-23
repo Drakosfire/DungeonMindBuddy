@@ -10,8 +10,8 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 ## [READY] Milestone B contract-freeze PRs before durability code — captured 2026-07-23
 **Priority:** high — prevents another SBW03-style review fix loop on acceptance/revise.
 **Context:** Milestone B bite schedule (roadmap §5.1) after SBW03 operation-authority redesign required many review rounds on terminality/compaction.
-**Insight:** Stateful/idempotent/partial slices need a doc-only transition-table PR approved before implementation. Durability + UI + demolition must not share one PR. SBW07 before SBW06.
-**Action:** For `SBW07-contract` / `SBW06-contract`, review the table alone; reject code PRs that ship without an approved table. Keep bites small (05a–c, 07a–c, 06a–d).
+**Insight:** Stateful/idempotent/partial slices need a doc-only transition-table PR approved before implementation. Durability + UI + demolition must not share one PR. SBW07 before SBW06. SBW07-contract must mandate a durable acceptance-operation journal (not an optional ThreatDraft pending flag); unknown transport stays recoverable via same-key replay; `mechanics_saved` only after reconcile.
+**Action:** For `SBW07-contract` / `SBW06-contract`, review the closed schema + table alone; reject code PRs that ship without an approved table. Keep bites small (05a–c, 07a–c, 06a–d).
 **Surfaces when:** dispatching SBW05–07, opening accept/revise PRs, reviewing Milestone B handbacks, tempted to combine orchestration+UI
 **Refs:** `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md` §5.1, `Docs/Plans/HANDOFF-sbw07-persist-accepted-mechanics.md` §12, `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`
 
