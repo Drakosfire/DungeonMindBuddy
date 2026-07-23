@@ -30,10 +30,10 @@ _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 LOCK_NAME = ".reconciliation.lock"
 PENDING_TTL = timedelta(minutes=15)
 MAX_RECORDS_PER_DRAFT = 128
-# Abandoned recovery bodies are retained, but not forever: unique timed-out
-# request_ids may not accumulate unbounded files/bytes. New active claims never
-# prune abandoned material to free slots; only the abandoned cohort itself is
-# capped (oldest abandoned deleted when a newly abandoned record needs room).
+# Abandoned recovery bodies are never deleted to make room — they may be the
+# only local material for an unobserved Server success after draft advance.
+# Growth is bounded by refusing new request_id claims once the abandoned cohort
+# is full; expired pendings stay pending until a slot frees via recovery.
 MAX_ABANDONED_RECORDS_PER_DRAFT = 128
 ClaimStatus = Literal["pending", "received", "completed", "abandoned"]
 ClaimOutcome = Literal[
@@ -368,7 +368,9 @@ def _list_draft_records_unlocked(
         )
     # Abandoned recovery material is retained up to MAX_ABANDONED_RECORDS_PER_DRAFT
     # and does not consume the active physical bound. Fail closed when either
-    # cohort exceeds its bound (corruption / runaway writes).
+    # cohort exceeds its bound (corruption / runaway writes). Admission control
+    # refuses new request IDs at the abandoned cap — records are never deleted
+    # to free abandoned slots.
     if _active_record_count(records) > MAX_RECORDS_PER_DRAFT:
         raise GenerationReconciliationError(
             "generation reconciliation storage bound exceeded",
@@ -415,64 +417,30 @@ def _record_age_key(record: GenerationReconciliationRecordV1) -> tuple[str, str,
     return (record.updated_at, record.created_at, record.request_id)
 
 
-def _prune_oldest_abandoned_unlocked(
-    root: Path,
-    records: list[GenerationReconciliationRecordV1],
-    *,
-    keep_at_most: int,
-    protect_request_ids: set[str] | None = None,
-) -> list[GenerationReconciliationRecordV1]:
-    """Delete oldest abandoned records until count <= keep_at_most.
-
-    Never used to free slots for new active request IDs — only to keep the
-    abandoned recovery cohort itself bounded.
-    """
-    protect = protect_request_ids or set()
-    abandoned = [
-        record
-        for record in records
-        if record.status == "abandoned" and record.request_id not in protect
-    ]
-    abandoned.sort(key=_record_age_key)
-    overflow = len(abandoned) - keep_at_most
-    if overflow <= 0:
-        return records
-    victims = {record.request_id for record in abandoned[:overflow]}
-    for record in abandoned[:overflow]:
-        _delete_record_unlocked(root, record)
-    return [record for record in records if record.request_id not in victims]
-
-
-def _free_active_slot_unlocked(
+def _try_free_safe_active_slot_unlocked(
     root: Path,
     records: list[GenerationReconciliationRecordV1],
     *,
     exclude_request_id: str,
     ref_candidate_ids: set[str],
-) -> list[GenerationReconciliationRecordV1]:
-    """Delete one completed record so abandoned recovery can become active.
+) -> list[GenerationReconciliationRecordV1] | None:
+    """Delete one completed record only when its candidate is already on the draft.
 
-    Prefer completed records whose candidate is already attached in draft refs
-    (outcome durable on the draft). Fall back to the oldest completed record.
-    Never deletes pending/received open work or the recovery target itself.
+    Completed partial_ref / partial_both records may be the only durable
+    request-to-candidate locator — never delete those. Returns None when no
+    safe eviction candidate exists.
     """
-    completed = [
+    safe = [
         record
         for record in records
-        if record.status == "completed" and record.request_id != exclude_request_id
+        if record.status == "completed"
+        and record.request_id != exclude_request_id
+        and record.candidate_id is not None
+        and record.candidate_id in ref_candidate_ids
     ]
-    preferred = [
-        record
-        for record in completed
-        if record.candidate_id is not None and record.candidate_id in ref_candidate_ids
-    ]
-    pool = preferred or completed
-    if not pool:
-        raise GenerationReconciliationError(
-            "generation reconciliation storage bound exceeded",
-            status_code=500,
-        )
-    victim = min(pool, key=_record_age_key)
+    if not safe:
+        return None
+    victim = min(safe, key=_record_age_key)
     _delete_record_unlocked(root, victim)
     return [record for record in records if record.request_id != victim.request_id]
 
@@ -482,19 +450,14 @@ def _abandon_record_unlocked(
 ) -> GenerationReconciliationRecordV1:
     """Expire a pending claim while retaining the exact request body for replay.
 
-    Abandoned files do not reserve candidate capacity and are never pruned to
-    make room for new request IDs. The abandoned cohort itself is capped at
-    MAX_ABANDONED_RECORDS_PER_DRAFT (oldest abandoned deleted only when a newly
-    abandoned record needs room).
+    Abandoned files do not reserve candidate capacity and are never deleted —
+    not for new request IDs, and not to admit another abandoned record. When the
+    abandoned cohort is full, the expired pending is left as pending so its
+    body remains recoverable.
     """
     records = _list_draft_records_unlocked(root, draft_id=record.draft_id)
     if _abandoned_record_count(records) >= MAX_ABANDONED_RECORDS_PER_DRAFT:
-        _prune_oldest_abandoned_unlocked(
-            root,
-            records,
-            keep_at_most=MAX_ABANDONED_RECORDS_PER_DRAFT - 1,
-            protect_request_ids={record.request_id},
-        )
+        return record
     abandoned = record.model_copy(
         update={
             "status": "abandoned",
@@ -568,11 +531,12 @@ def claim_generation_request(
     same request_id may safely re-call generate after an uncertain timeout and
     recover the original candidate. Expired/abandoned local claims retain the
     exact request body so recovery works even after the draft advances. Abandoned
-    recovery material is never pruned to free slots for new request IDs; the
-    active physical bound applies only to pending/received/completed records,
-    and the abandoned cohort has its own retention bound. Reclaiming abandoned
-    into active must free a completed slot first when the active bound is full
-    so the next scan cannot observe more than MAX_RECORDS_PER_DRAFT actives.
+    recovery material is never deleted; the abandoned cohort is bounded by
+    refusing new request_id claims at capacity. Reclaiming abandoned into active
+    may free only a completed record whose candidate is already attached on the
+    draft — never a completed locator that is the sole request-to-candidate map.
+    When no safe slot exists, the record stays abandoned and the caller may still
+    Server-replay without destroying other locators.
     """
     body_digest = request_digest_for_body(request_body)
     if body_digest != request_digest:
@@ -616,16 +580,20 @@ def claim_generation_request(
             if existing.status == "abandoned":
                 # Reclaim without candidate-ref capacity gate — recovery must
                 # reach Server even when draft refs are full; attach may still
-                # return partial_ref. Active physical bound still applies: free
-                # a completed slot first so reactivation cannot create a store
-                # the next scan rejects.
+                # return partial_ref. Active physical bound: only reclaim when
+                # there is room or a safe (already-attached) completed eviction.
                 if _active_record_count(records) >= MAX_RECORDS_PER_DRAFT:
-                    records = _free_active_slot_unlocked(
+                    freed = _try_free_safe_active_slot_unlocked(
                         root,
                         records,
                         exclude_request_id=request_id,
                         ref_candidate_ids=ref_candidate_ids,
                     )
+                    if freed is None:
+                        # Stay abandoned — caller Server-replays without
+                        # destroying another request's only locator.
+                        return "abandoned_retry", existing
+                    records = freed
                 now_iso = _utc_now_iso()
                 expires_at = (now + PENDING_TTL).isoformat().replace("+00:00", "Z")
                 record = existing.model_copy(
@@ -649,9 +617,13 @@ def claim_generation_request(
                 status_code=422,
             )
 
-        # Physical bound applies to active records only. Abandoned recovery
-        # material is retained (up to its own retention bound) and never deleted
-        # to free slots for new IDs.
+        # Refuse new request IDs when either cohort is full. Never delete
+        # abandoned recovery bodies to admit new work.
+        if existing is None and _abandoned_record_count(records) >= MAX_ABANDONED_RECORDS_PER_DRAFT:
+            raise GenerationReconciliationError(
+                "generation reconciliation abandoned retention bound exceeded",
+                status_code=500,
+            )
         if existing is None and _active_record_count(records) >= MAX_RECORDS_PER_DRAFT:
             raise GenerationReconciliationError(
                 "generation reconciliation storage bound exceeded",
@@ -690,6 +662,7 @@ def record_generation_received(
     request_id: str,
     request_digest: str,
     candidate: GeneratedStatblockCandidateV1,
+    ref_candidate_ids: set[str] | None = None,
 ) -> GenerationReconciliationRecordV1:
     """Durably bind the candidate locator immediately after downstream success."""
     with _reconciliation_lock(root):
@@ -727,16 +700,21 @@ def record_generation_received(
                 status_code=409,
             )
         if existing.status == "abandoned":
-            # Promoting abandoned → received increases the active cohort. Free a
-            # completed slot first when full so the next scan stays within bound.
+            # Promoting abandoned → received increases the active cohort. Only
+            # free a completed record whose candidate is already on the draft.
             records = _list_draft_records_unlocked(root, draft_id=draft_id)
             if _active_record_count(records) >= MAX_RECORDS_PER_DRAFT:
-                _free_active_slot_unlocked(
+                freed = _try_free_safe_active_slot_unlocked(
                     root,
                     records,
                     exclude_request_id=request_id,
-                    ref_candidate_ids=set(),
+                    ref_candidate_ids=ref_candidate_ids or set(),
                 )
+                if freed is None:
+                    raise GenerationReconciliationError(
+                        "generation reconciliation storage bound exceeded",
+                        status_code=500,
+                    )
         record = existing.model_copy(
             update={
                 "status": "received",

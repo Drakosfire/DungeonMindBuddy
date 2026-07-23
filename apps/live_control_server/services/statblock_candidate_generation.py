@@ -189,6 +189,7 @@ def _persist_candidate_artifacts(
     candidate: GeneratedStatblockCandidateV1,
     request_id: str,
     request_digest: str,
+    ref_candidate_ids: set[str] | None = None,
 ) -> GenerateThreatDraftCandidateResponseV1:
     try:
         candidate_ref = _candidate_ref_from_payload(
@@ -207,6 +208,9 @@ def _persist_candidate_artifacts(
             failure_message=str(exc),
             cache_status="missing",
         )
+
+    failures: list[PersistenceFailureV1] = []
+    reconciliation_bound = False
     try:
         # Durably bind locator before any disposable cache/ref write.
         record_generation_received(
@@ -216,24 +220,36 @@ def _persist_candidate_artifacts(
             request_id=request_id,
             request_digest=request_digest,
             candidate=candidate,
+            ref_candidate_ids=ref_candidate_ids,
         )
     except GenerationReconciliationError as exc:
         mapped = _map_reconciliation_error(exc)
         if mapped is not None:
             raise mapped from None
-        return GenerateThreatDraftCandidateResponseV1(
-            draft_id=draft_id,
-            generated_from_draft_version=draft_version,
-            request_id=request_id,
-            outcome="failure",
-            candidate_ref=candidate_ref,
-            candidate=candidate,
-            failure_category="integrity_failure",
-            failure_message=str(exc),
-            cache_status="missing",
-        )
+        # Active bound with no safe eviction: keep abandoned recovery body and
+        # still surface the Server candidate rather than reporting total failure.
+        if "storage bound" in str(exc):
+            reconciliation_bound = True
+            failures.append(
+                PersistenceFailureV1(
+                    component="reconciliation",
+                    category="integrity_failure",
+                    message=str(exc),
+                )
+            )
+        else:
+            return GenerateThreatDraftCandidateResponseV1(
+                draft_id=draft_id,
+                generated_from_draft_version=draft_version,
+                request_id=request_id,
+                outcome="failure",
+                candidate_ref=candidate_ref,
+                candidate=candidate,
+                failure_category="integrity_failure",
+                failure_message=str(exc),
+                cache_status="missing",
+            )
 
-    failures: list[PersistenceFailureV1] = []
     try:
         store_candidate_payload(root, candidate)
     except CandidateCacheError as exc:
@@ -261,24 +277,25 @@ def _persist_candidate_artifacts(
             )
         )
 
-    try:
-        finalize_generation_request(
-            root,
-            draft_id=draft_id,
-            draft_version=draft_version,
-            request_id=request_id,
-            request_digest=request_digest,
-            candidate_id=candidate.candidate_id,
-        )
-    except GenerationReconciliationError as exc:
-        # Locator already durable in received form; do not mislabel as ref failure.
-        failures.append(
-            PersistenceFailureV1(
-                component="reconciliation",
-                category="integrity_failure",
-                message=str(exc),
+    if not reconciliation_bound:
+        try:
+            finalize_generation_request(
+                root,
+                draft_id=draft_id,
+                draft_version=draft_version,
+                request_id=request_id,
+                request_digest=request_digest,
+                candidate_id=candidate.candidate_id,
             )
-        )
+        except GenerationReconciliationError as exc:
+            # Locator already durable in received form; do not mislabel as ref failure.
+            failures.append(
+                PersistenceFailureV1(
+                    component="reconciliation",
+                    category="integrity_failure",
+                    message=str(exc),
+                )
+            )
 
     cache_status = _cache_status_from_failures(failures)
 
@@ -428,8 +445,9 @@ def _recover_uncertain_with_stored_body(
 
     Abandoned recovery must reach Server even when draft refs are at capacity;
     attach may then report partial_ref rather than blocking recovery. When the
-    active reconciliation bound is full, reclaim frees a completed slot first so
-    the store remains scannable afterward.
+    active reconciliation bound is full, reclaim frees only a completed record
+    whose candidate is already on the draft; otherwise the abandoned body is
+    retained and Server replay still proceeds without destroying other locators.
     """
     if record.request_body is None:
         return _failure(
@@ -449,10 +467,10 @@ def _recover_uncertain_with_stored_body(
             message="generation request body digest mismatch",
         )
 
+    refs = ref_candidate_ids or set()
     body = record.request_body
     if record.status == "abandoned":
-        # Reclaim without capacity gate (claim_generation_request special-cases
-        # abandoned), then Server-replay with the stored body.
+        # Reclaim when safe; otherwise keep abandoned and Server-replay anyway.
         try:
             claim_status, claim = claim_generation_request(
                 root,
@@ -461,7 +479,7 @@ def _recover_uncertain_with_stored_body(
                 request_id=record.request_id,
                 request_digest=request_digest,
                 request_body=record.request_body,
-                ref_candidate_ids=ref_candidate_ids or set(),
+                ref_candidate_ids=refs,
             )
         except GenerationReconciliationError as exc:
             mapped = _map_reconciliation_error(exc)
@@ -480,6 +498,7 @@ def _recover_uncertain_with_stored_body(
                 record=claim,
                 request_digest=request_digest,
                 client=client,
+                ref_candidate_ids=refs,
             )
         body = claim.request_body or record.request_body
 
@@ -499,7 +518,9 @@ def _recover_uncertain_with_stored_body(
         candidate=candidate_or_failure,
         request_id=record.request_id,
         request_digest=request_digest,
+        ref_candidate_ids=refs,
     )
+
 
 def _replay_from_record(
     root: Path,
@@ -507,6 +528,7 @@ def _replay_from_record(
     record,
     request_digest: str,
     client: StatblockV1Client | None,
+    ref_candidate_ids: set[str] | None = None,
 ) -> GenerateThreatDraftCandidateResponseV1:
     if record.request_digest != request_digest:
         raise ThreatDraftStoreError(
@@ -525,6 +547,7 @@ def _replay_from_record(
         candidate=candidate_or_failure,
         request_id=record.request_id,
         request_digest=request_digest,
+        ref_candidate_ids=ref_candidate_ids,
     )
 
 
@@ -607,11 +630,18 @@ def generate_candidate_from_draft(
             existing_digest=existing.request_digest,
             existing_body=existing.request_body,
         )
+        ref_ids: set[str] = set()
+        try:
+            current = get_threat_draft(root, draft_id)
+            ref_ids = {ref.candidate_id for ref in current.candidate_refs}
+        except ThreatDraftStoreError:
+            ref_ids = set()
         return _replay_from_record(
             root,
             record=existing,
             request_digest=request_digest,
             client=client,
+            ref_candidate_ids=ref_ids,
         )
 
     if existing is not None and existing.status in {"pending", "abandoned"}:
@@ -672,6 +702,7 @@ def generate_candidate_from_draft(
             record=claim,
             request_digest=request_digest,
             client=client,
+            ref_candidate_ids=ref_candidate_ids,
         )
 
     # claimed / pending_retry / abandoned_retry: call Server. PR23 makes
@@ -695,6 +726,7 @@ def generate_candidate_from_draft(
         candidate=candidate_or_failure,
         request_id=request_id,
         request_digest=request_digest,
+        ref_candidate_ids=ref_candidate_ids,
     )
 
 

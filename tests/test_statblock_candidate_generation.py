@@ -894,8 +894,8 @@ def test_abandoned_recovery_material_is_never_pruned_for_new_requests(
 ) -> None:
     """New request IDs must not delete abandoned bodies needed for Server replay.
 
-    Recovery at a full active bound may evict a completed record to free a slot,
-    but the resulting store must remain scannable (active count ≤ bound).
+    Recovery at a full active bound may free only a completed record whose
+    candidate is already on the draft; the resulting store must remain scannable.
     """
     from apps.live_control_server.services import statblock_generation_reconciliation as rec
 
@@ -1013,12 +1013,11 @@ def test_abandoned_recovery_material_is_never_pruned_for_new_requests(
     assert len(client.calls) == 1
     assert recover_path.is_file()
 
-    # Post-recovery scan must succeed: reclaim freed a completed slot so active
-    # count never exceeds the bound.
+    # Post-recovery scan must succeed: reclaim freed a safe completed slot so
+    # active count never exceeds the bound.
     listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
     assert rec._active_record_count(listed) <= rec.MAX_RECORDS_PER_DRAFT
     assert any(item.request_id == recover_id for item in listed)
-    # Oldest completed (req-active-0) was the eviction candidate.
     assert not rec._record_path(
         tmp_path,
         draft_id=draft.draft_id,
@@ -1027,72 +1026,15 @@ def test_abandoned_recovery_material_is_never_pruned_for_new_requests(
     ).is_file()
 
 
-def test_abandoned_records_do_not_brick_active_bound(
+def test_abandoned_cohort_full_refuses_new_requests_without_deleting_bodies(
     tmp_path: Path,
 ) -> None:
-    """Abandoned files do not count toward the active physical bound."""
+    """Abandoned cap blocks new request IDs; existing bodies stay recoverable."""
     from apps.live_control_server.services import statblock_generation_reconciliation as rec
 
     draft = _create_draft(tmp_path)
-    for index in range(rec.MAX_ABANDONED_RECORDS_PER_DRAFT):
-        request_id = f"req-abandoned-{index}"
-        path = rec._record_path(
-            tmp_path,
-            draft_id=draft.draft_id,
-            draft_version=1,
-            request_id=request_id,
-        )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        body = {"request_id": request_id, "marker": index}
-        record = rec.GenerationReconciliationRecordV1(
-            draft_id=draft.draft_id,
-            draft_version=1,
-            request_id=request_id,
-            request_digest=rec.request_digest_for_body(body),
-            request_body=body,
-            status="abandoned",
-            candidate_id=None,
-            candidate_payload=None,
-            created_at="2026-01-01T00:00:00Z",
-            updated_at=f"2026-01-01T00:00:{index:02d}Z",
-            claim_expires_at=None,
-        )
-        path.write_text(
-            json.dumps(record.model_dump(mode="json", by_alias=True)),
-            encoding="utf-8",
-        )
-
-    client = FakeClient(payload=_candidate_payload(request_id="req-overflow"))
-    result = generate_candidate_from_draft(
-        tmp_path,
-        draft_id=draft.draft_id,
-        request=GenerateThreatDraftCandidateRequestV1(
-            expected_draft_version=1,
-            client_request_id="req-overflow",
-        ),
-        client=client,  # type: ignore[arg-type]
-    )
-    assert result.outcome == "success"
-    assert result.candidate_ref is not None
-    assert len(client.calls) == 1
-
-    directory = rec._draft_directory(tmp_path, draft.draft_id)
-    # All abandoned files retained (at retention bound); plus the new active record.
-    assert len(list(directory.glob("v*__*.json"))) == rec.MAX_ABANDONED_RECORDS_PER_DRAFT + 1
-    listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
-    assert any(item.request_id == "req-overflow" for item in listed)
-    assert sum(1 for item in listed if item.status == "abandoned") == (
-        rec.MAX_ABANDONED_RECORDS_PER_DRAFT
-    )
-
-
-def test_abandoned_retention_bound_prunes_oldest_on_new_abandon(
-    tmp_path: Path,
-) -> None:
-    """Newly abandoned records may evict oldest abandoned; cohort stays bounded."""
-    from apps.live_control_server.services import statblock_generation_reconciliation as rec
-
-    draft = _create_draft(tmp_path)
+    oldest_id = "req-oldabandon-0"
+    oldest_body = map_draft_to_generate_request(draft, request_id=oldest_id)
     for index in range(rec.MAX_ABANDONED_RECORDS_PER_DRAFT):
         request_id = f"req-oldabandon-{index}"
         path = rec._record_path(
@@ -1102,7 +1044,11 @@ def test_abandoned_retention_bound_prunes_oldest_on_new_abandon(
             request_id=request_id,
         )
         path.parent.mkdir(parents=True, exist_ok=True)
-        body = {"request_id": request_id, "marker": index}
+        body = (
+            oldest_body
+            if request_id == oldest_id
+            else {"request_id": request_id, "marker": index}
+        )
         record = rec.GenerationReconciliationRecordV1(
             draft_id=draft.draft_id,
             draft_version=1,
@@ -1121,7 +1067,7 @@ def test_abandoned_retention_bound_prunes_oldest_on_new_abandon(
             encoding="utf-8",
         )
 
-    # Expired pending that will become abandoned on the next claim scan.
+    # Expired pending must not delete oldest abandoned to make room.
     expire_id = "req-expire-into-abandon"
     expire_body = map_draft_to_generate_request(draft, request_id=expire_id)
     expire_path = rec._record_path(
@@ -1148,32 +1094,160 @@ def test_abandoned_retention_bound_prunes_oldest_on_new_abandon(
         encoding="utf-8",
     )
 
-    client = FakeClient(payload=_candidate_payload(request_id="req-afterbound"))
-    result = generate_candidate_from_draft(
+    blocked = FakeClient(payload=_candidate_payload(request_id="req-afterbound"))
+    blocked_result = generate_candidate_from_draft(
         tmp_path,
         draft_id=draft.draft_id,
         request=GenerateThreatDraftCandidateRequestV1(
             expected_draft_version=1,
             client_request_id="req-afterbound",
         ),
-        client=client,  # type: ignore[arg-type]
+        client=blocked,  # type: ignore[arg-type]
     )
-    assert result.outcome == "success"
-    assert len(client.calls) == 1
+    assert blocked_result.outcome == "failure"
+    assert "abandoned retention bound" in (blocked_result.failure_message or "")
+    assert blocked.calls == []
 
-    listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
-    abandoned = [item for item in listed if item.status == "abandoned"]
-    assert len(abandoned) == rec.MAX_ABANDONED_RECORDS_PER_DRAFT
-    abandoned_ids = {item.request_id for item in abandoned}
-    assert expire_id in abandoned_ids
-    # Oldest abandoned file was pruned to make room for the newly abandoned one.
-    assert "req-oldabandon-0" not in abandoned_ids
-    assert not rec._record_path(
+    oldest_path = rec._record_path(
         tmp_path,
         draft_id=draft.draft_id,
         draft_version=1,
-        request_id="req-oldabandon-0",
-    ).is_file()
+        request_id=oldest_id,
+    )
+    assert oldest_path.is_file()
+    assert json.loads(oldest_path.read_text(encoding="utf-8"))["status"] == "abandoned"
+    # Expired pending kept as pending rather than deleting another recovery body.
+    assert json.loads(expire_path.read_text(encoding="utf-8"))["status"] == "pending"
+
+    listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
+    assert rec._abandoned_record_count(listed) == rec.MAX_ABANDONED_RECORDS_PER_DRAFT
+
+    # After draft advance, the oldest abandoned request remains Server-recoverable.
+    current = get_threat_draft(tmp_path, draft.draft_id)
+    _advance_draft(tmp_path, current)
+    assert get_threat_draft(tmp_path, draft.draft_id).version == 2
+
+    client = FakeClient(
+        payload=_candidate_payload(request_id=oldest_id, candidate_id="cand_oldest1")
+    )
+    recovered = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id=oldest_id,
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert recovered.outcome == "success"
+    assert recovered.candidate is not None
+    assert recovered.candidate.candidate_id == "cand_oldest1"
+    assert len(client.calls) == 1
+    assert oldest_path.is_file()
+
+
+def test_abandoned_recovery_does_not_evict_unattached_completed_locators(
+    tmp_path: Path,
+) -> None:
+    """Completed partial_ref locators must not be deleted to free an active slot."""
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    # No draft refs — every completed record below is an unattached locator.
+    recover_id = "req-needslot"
+    recover_body = map_draft_to_generate_request(draft, request_id=recover_id)
+    recover_path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id=recover_id,
+    )
+    recover_path.parent.mkdir(parents=True, exist_ok=True)
+    recover_path.write_text(
+        json.dumps(
+            rec.GenerationReconciliationRecordV1(
+                draft_id=draft.draft_id,
+                draft_version=1,
+                request_id=recover_id,
+                request_digest=rec.request_digest_for_body(recover_body),
+                request_body=recover_body,
+                status="abandoned",
+                candidate_id=None,
+                candidate_payload=None,
+                created_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+                claim_expires_at=None,
+            ).model_dump(mode="json", by_alias=True)
+        ),
+        encoding="utf-8",
+    )
+
+    locator_ids: list[str] = []
+    for index in range(rec.MAX_RECORDS_PER_DRAFT):
+        request_id = f"req-locator-{index}"
+        locator_ids.append(request_id)
+        candidate_id = f"cand_loc{index}"
+        body = {"request_id": request_id, "marker": index}
+        path = rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=request_id,
+        )
+        payload = _candidate_payload(
+            request_id=request_id, candidate_id=candidate_id
+        ).model_dump(mode="json")
+        path.write_text(
+            json.dumps(
+                rec.GenerationReconciliationRecordV1(
+                    draft_id=draft.draft_id,
+                    draft_version=1,
+                    request_id=request_id,
+                    request_digest=rec.request_digest_for_body(body),
+                    request_body=body,
+                    status="completed",
+                    candidate_id=candidate_id,
+                    candidate_payload=payload,
+                    created_at="2026-01-01T00:00:00Z",
+                    updated_at=f"2026-01-01T00:00:{index:02d}Z",
+                    claim_expires_at=None,
+                ).model_dump(mode="json", by_alias=True)
+            ),
+            encoding="utf-8",
+        )
+
+    client = FakeClient(
+        payload=_candidate_payload(request_id=recover_id, candidate_id="cand_recovered")
+    )
+    result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id=recover_id,
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.outcome == "success"
+    assert result.candidate is not None
+    assert result.candidate.candidate_id == "cand_recovered"
+    assert len(client.calls) == 1
+    assert any(item.component == "reconciliation" for item in result.persistence_failures)
+
+    # Every unattached completed locator remains; abandoned body retained.
+    for request_id in locator_ids:
+        assert rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=request_id,
+        ).is_file()
+    assert recover_path.is_file()
+    assert json.loads(recover_path.read_text(encoding="utf-8"))["status"] == "abandoned"
+
+    listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
+    assert rec._active_record_count(listed) == rec.MAX_RECORDS_PER_DRAFT
+    assert rec._abandoned_record_count(listed) == 1
 
 
 def test_abandoned_recovery_at_ref_capacity_returns_partial_ref(
