@@ -17,13 +17,16 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.config import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
     downstream_timeout,
+    integration_misconfigured,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+    StatblockDefinitionV1Input,
     ValidationResponseV1,
 )
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services import statblock_definition_validation as validation_service
 from apps.live_control_server.services.statblock_definition_validation import (
+    ValidateDefinitionBuddyRequestV1,
     associate_validation_digest,
     validate_definition,
 )
@@ -34,6 +37,12 @@ SECRET = "test-internal-key"
 
 def _fixture(name: str) -> dict:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def _definition() -> StatblockDefinitionV1Input:
+    return StatblockDefinitionV1Input.model_validate(
+        _fixture("candidate-response.json")["definition"]
+    )
 
 
 def _client(transport: httpx.MockTransport) -> DungeonMindStatblockV1Client:
@@ -93,16 +102,16 @@ def test_validate_definition_service_maps_invalid_receipt_as_success() -> None:
             return ValidationResponseV1.model_validate(invalid)
 
     result = validate_definition(
-        definition=_fixture("candidate-response.json")["definition"],
+        definition=_definition(),
         client=FakeClient(),  # type: ignore[arg-type]
     )
     assert result.outcome == "success"
     assert result.definition_digest == invalid["definition_digest"]
     assert result.validation_receipt is not None
-    assert result.validation_receipt["status"] == "invalid"
-    issues = result.validation_receipt["issues"]
-    assert any(issue["severity"] == "error" for issue in issues)
-    assert any(issue["severity"] == "warning" for issue in issues)
+    assert result.validation_receipt.status == "invalid"
+    issues = result.validation_receipt.issues or []
+    assert any(issue.severity == "error" for issue in issues)
+    assert any(issue.severity == "warning" for issue in issues)
 
 
 def test_validate_definition_service_maps_transport_failure() -> None:
@@ -111,12 +120,28 @@ def test_validate_definition_service_maps_transport_failure() -> None:
             raise downstream_timeout()
 
     result = validate_definition(
-        definition=_fixture("candidate-response.json")["definition"],
+        definition=_definition(),
         client=FakeClient(),  # type: ignore[arg-type]
     )
     assert result.outcome == "failure"
     assert result.failure_category == "downstream_timeout"
     assert result.validation_receipt is None
+
+
+def test_validate_definition_service_maps_constructor_misconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Production path constructs the client; misconfig must not become an unhandled 500."""
+
+    def boom() -> DungeonMindStatblockV1Client:
+        raise integration_misconfigured("statblock integration base_url is missing")
+
+    monkeypatch.setattr(validation_service, "DungeonMindStatblockV1Client", boom)
+    result = validate_definition(definition=_definition())
+    assert result.outcome == "failure"
+    assert result.failure_category == "integration_misconfigured"
+    assert result.validation_receipt is None
+    assert "base_url" in (result.failure_message or "")
 
 
 def test_validate_definition_route(monkeypatch) -> None:
@@ -145,6 +170,24 @@ def test_validate_definition_route(monkeypatch) -> None:
     assert body["outcome"] == "success"
     assert body["definition_digest"] == invalid["definition_digest"]
     assert body["validation_receipt"]["status"] == "invalid"
+
+
+def test_validate_definition_route_rejects_extra_definition_fields() -> None:
+    definition = _fixture("candidate-response.json")["definition"]
+    definition = {**definition, "unexpected_top_level": True}
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/live/statblock-definitions:validate",
+        json={"definition": definition},
+    )
+    assert response.status_code == 422
+
+
+def test_buddy_request_forbids_untyped_definition_bags() -> None:
+    with pytest.raises(Exception):
+        ValidateDefinitionBuddyRequestV1.model_validate(
+            {"definition": {"identity": {"name": "partial"}}}
+        )
 
 
 def test_client_exposes_validate_definition_for_sbw05a() -> None:

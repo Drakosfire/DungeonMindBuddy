@@ -1,7 +1,7 @@
 """SBW05a: authoritative definition validation via DungeonMindServer."""
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import ConfigDict, Field
 
@@ -15,13 +15,14 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.errors import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     StatblockDefinitionV1Input,
     ValidateDefinitionRequestV1,
+    ValidationReceiptV1,
     ValidationResponseV1,
 )
 from apps.live_control_server.models.statblock_candidate_workflow import StrictModel
 
 
 class ValidateDefinitionBuddyRequestV1(StrictModel):
-    definition: dict[str, Any] | StatblockDefinitionV1Input
+    definition: StatblockDefinitionV1Input
 
 
 class ValidateDefinitionBuddyResponseV1(StrictModel):
@@ -31,7 +32,7 @@ class ValidateDefinitionBuddyResponseV1(StrictModel):
     )
     outcome: Literal["success", "failure"]
     definition_digest: str | None = None
-    validation_receipt: dict[str, Any] | None = None
+    validation_receipt: ValidationReceiptV1 | None = None
     failure_category: str | None = None
     failure_message: str | None = None
 
@@ -49,27 +50,25 @@ def associate_validation_digest(response: ValidationResponseV1) -> str:
 
 def validate_definition(
     *,
-    definition: dict[str, Any] | StatblockDefinitionV1Input,
+    definition: StatblockDefinitionV1Input,
     client: StatblockV1Client | None = None,
 ) -> ValidateDefinitionBuddyResponseV1:
     """Submit an exact complete definition to Server validate; no local mechanics rules."""
-    typed = (
-        definition
-        if isinstance(definition, StatblockDefinitionV1Input)
-        else StatblockDefinitionV1Input.model_validate(definition)
-    )
-    request = ValidateDefinitionRequestV1(definition=typed)
-    active = client or DungeonMindStatblockV1Client()
-    owns = client is None
+    request = ValidateDefinitionRequestV1(definition=definition)
+    owns = False
+    active: StatblockV1Client | None = client
     try:
+        # Construct inside the try: DungeonMindStatblockV1Client() can raise
+        # integration_misconfigured before any network call.
+        if active is None:
+            active = DungeonMindStatblockV1Client()
+            owns = True
         downstream = active.validate_definition(request)
         digest = associate_validation_digest(downstream)
         return ValidateDefinitionBuddyResponseV1(
             outcome="success",
             definition_digest=digest,
-            validation_receipt=downstream.validation_receipt.model_dump(
-                mode="json", by_alias=True
-            ),
+            validation_receipt=downstream.validation_receipt,
         )
     except StatblockIntegrationError as exc:
         return ValidateDefinitionBuddyResponseV1(
@@ -78,5 +77,5 @@ def validate_definition(
             failure_message=exc.message,
         )
     finally:
-        if owns and hasattr(active, "close"):
+        if owns and active is not None and hasattr(active, "close"):
             active.close()
