@@ -28,14 +28,85 @@ function readCandidateIdFromLocation(): string {
   return params.get("candidateId")?.trim() ?? "";
 }
 
-function statusCopy(status: Exclude<ReadStatblockCandidateResponseV1["status"], "active">): string {
+function isIntegrityFailureCategory(category: string | null | undefined): boolean {
+  if (!category) return false;
+  return (
+    category === "integrity_failure" ||
+    category === "contract_failure" ||
+    category.endsWith("_integrity_failure")
+  );
+}
+
+export type CandidateStatusPresentation = {
+  title: string;
+  body: string;
+  stateKind: "expired" | "missing" | "integrity_failure" | "dependency_unavailable";
+};
+
+export function presentCandidateStatus(
+  status: Exclude<ReadStatblockCandidateResponseV1["status"], "active">,
+  failureCategory: string | null | undefined,
+): CandidateStatusPresentation {
   if (status === "expired") {
-    return "This candidate has expired. The exact candidate ID is retained; generate a new candidate rather than falling back to mock or corpus output.";
+    return {
+      title: "Candidate expired",
+      stateKind: "expired",
+      body: "This candidate has expired. The exact candidate ID is retained; generate a new candidate rather than falling back to mock or corpus output.",
+    };
   }
   if (status === "missing") {
-    return "No candidate exists for this exact ID. There is no fallback to another candidate, mock draft, or corpus file.";
+    return {
+      title: "Candidate missing",
+      stateKind: "missing",
+      body: "No candidate exists for this exact ID. There is no fallback to another candidate, mock draft, or corpus file.",
+    };
   }
-  return "The candidate service is unavailable. Retry the exact ID; mock mechanics are not used as a fallback.";
+  if (isIntegrityFailureCategory(failureCategory)) {
+    return {
+      title: "Candidate integrity failure",
+      stateKind: "integrity_failure",
+      body: "This candidate cannot be trusted because of a local contract or cache integrity failure. The exact candidate ID is retained; this is not a DungeonMindServer outage. Do not fall back to mock or corpus output.",
+    };
+  }
+  return {
+    title: "Candidate service unavailable",
+    stateKind: "dependency_unavailable",
+    body: "The candidate service is unavailable. Retry the exact ID; mock mechanics are not used as a fallback.",
+  };
+}
+
+function CandidateStatusPanel({
+  candidateId,
+  status,
+  failureCategory,
+  failureMessage,
+  onRetry,
+}: {
+  candidateId: string;
+  status: Exclude<ReadStatblockCandidateResponseV1["status"], "active">;
+  failureCategory: string | null;
+  failureMessage: string | null;
+  onRetry: () => void;
+}) {
+  const presentation = presentCandidateStatus(status, failureCategory);
+  return (
+    <section className="statblock-section" role="status" data-candidate-status={presentation.stateKind}>
+      <h3>{presentation.title}</h3>
+      <p>
+        Exact ID retained: <code>{candidateId}</code>
+      </p>
+      <p className="module-muted">{presentation.body}</p>
+      {failureCategory ? (
+        <p className="module-muted">
+          Category: <code>{failureCategory}</code>
+          {failureMessage ? ` — ${failureMessage}` : ""}
+        </p>
+      ) : null}
+      <button type="button" onClick={onRetry}>
+        Retry exact candidate
+      </button>
+    </section>
+  );
 }
 
 export function StatblockWorkbenchModule() {
@@ -223,22 +294,13 @@ export function StatblockWorkbenchModule() {
       ) : null}
 
       {loadState.kind === "status" ? (
-        <section className="statblock-section" role="status">
-          <h3>Candidate {loadState.status}</h3>
-          <p>
-            Exact ID retained: <code>{loadState.candidateId}</code>
-          </p>
-          <p className="module-muted">{statusCopy(loadState.status)}</p>
-          {loadState.failureCategory ? (
-            <p className="module-muted">
-              Category: <code>{loadState.failureCategory}</code>
-              {loadState.failureMessage ? ` — ${loadState.failureMessage}` : ""}
-            </p>
-          ) : null}
-          <button type="button" onClick={() => void loadCandidate(loadState.candidateId)}>
-            Retry exact candidate
-          </button>
-        </section>
+        <CandidateStatusPanel
+          candidateId={loadState.candidateId}
+          status={loadState.status}
+          failureCategory={loadState.failureCategory}
+          failureMessage={loadState.failureMessage}
+          onRetry={() => void loadCandidate(loadState.candidateId)}
+        />
       ) : null}
 
       {activeCandidate ? <StatblockRenderer candidate={activeCandidate} mode="review" /> : null}

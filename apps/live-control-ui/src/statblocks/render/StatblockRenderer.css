@@ -72,6 +72,34 @@
   white-space: pre-wrap;
 }
 
+.statblock-rule-meta {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.35rem 0;
+}
+
+.statblock-rule-meta div {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.5rem;
+}
+
+.statblock-rule-meta dt {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.statblock-rule-meta dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.statblock-mechanic-details,
+.statblock-structured-list {
+  margin: 0.35rem 0;
+  padding-left: 1.25rem;
+}
+
 .statblock-badge {
   display: inline-block;
   margin-left: 0.5rem;

@@ -1,9 +1,15 @@
 import type {
   AbilityScores,
+  Activation,
+  CreaturePhase,
+  DamageInteraction,
   GeneratedStatblockCandidateV1,
   HitPointProfile,
+  LairProfile,
+  ResourcePool,
   RuleElement_Output,
   StatblockDefinitionV1_Output,
+  Usage,
   ValidationIssueV1,
   ValidationReceiptV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
@@ -17,6 +23,60 @@ export type AbilityRow = {
   label: string;
 };
 
+export type FormattedDamageInteraction = {
+  key: string;
+  kind: string;
+  damageTypes: string;
+  qualifiers: string | null;
+  bypasses: string | null;
+};
+
+export type FormattedResource = {
+  key: string;
+  name: string;
+  maximum: number;
+  refresh: string;
+  rulesText: string | null;
+};
+
+export type FormattedPhase = {
+  key: string;
+  name: string;
+  isDefault: boolean;
+  enabledElementKeys: string[];
+  disabledElementKeys: string[];
+  entryRulesText: string | null;
+};
+
+export type FormattedLair = {
+  name: string | null;
+  description: string | null;
+  initiativeCount: number | null;
+  initiativeTiebreak: number | null;
+  regionalRulesText: string | null;
+};
+
+export type FormattedActivation = {
+  kind: string;
+  trigger: string | null;
+  timingText: string | null;
+};
+
+export type FormattedUsage = {
+  kind: string;
+  summary: string;
+};
+
+export type FormattedCost = {
+  resourceKey: string;
+  amount: number;
+};
+
+export type FormattedMechanicDetail = {
+  kind: string;
+  lines: string[];
+};
+
 export type FormattedRuleElement = {
   key: string;
   name: string;
@@ -27,6 +87,10 @@ export type FormattedRuleElement = {
   mechanicKind: string;
   humanAdjudicated: boolean;
   unsupportedMechanic: boolean;
+  activation: FormattedActivation;
+  usage: FormattedUsage;
+  costs: FormattedCost[];
+  mechanicDetails: FormattedMechanicDetail;
 };
 
 export type StatblockViewModel = {
@@ -46,6 +110,11 @@ export type StatblockViewModel = {
   skills: string;
   sensesSummary: string;
   languagesSummary: string;
+  damageInteractions: FormattedDamageInteraction[];
+  conditionImmunities: string[];
+  resources: FormattedResource[];
+  phases: FormattedPhase[];
+  lair: FormattedLair | null;
   flavorSummary: string | null;
   ruleElements: FormattedRuleElement[];
   validation: {
@@ -79,6 +148,17 @@ const ABILITY_LABEL: Record<keyof AbilityScores, string> = {
   wisdom: "WIS",
   charisma: "CHA",
 };
+
+const KNOWN_MECHANIC_KINDS = new Set([
+  "attack",
+  "save_effect",
+  "multiattack",
+  "spellcasting",
+  "passive",
+  "composite",
+  "phase_transition",
+  "human_adjudicated",
+]);
 
 export function abilityModifier(score: number): number {
   return Math.floor((score - 10) / 2);
@@ -124,19 +204,141 @@ function mechanicKind(mechanic: RuleElement_Output["mechanic"]): string {
   return "unknown";
 }
 
+function formatActivation(activation: Activation): FormattedActivation {
+  const triggerParts = [
+    activation.trigger?.kind ? `kind ${activation.trigger.kind}` : null,
+    activation.trigger?.source_element_key ? `source ${activation.trigger.source_element_key}` : null,
+    activation.trigger?.condition_text ?? null,
+  ].filter(Boolean);
+  return {
+    kind: activation.kind,
+    trigger: triggerParts.length ? triggerParts.join("; ") : null,
+    timingText: activation.timing_text ?? null,
+  };
+}
+
+function formatUsage(usage: Usage): FormattedUsage {
+  const parts = [usage.kind.replace(/_/g, " ")];
+  if (usage.uses != null) parts.push(`${usage.uses} uses`);
+  if (usage.recharge_range) {
+    parts.push(`recharge ${usage.recharge_range.minimum}–${usage.recharge_range.maximum}`);
+  }
+  if (usage.resource_key) parts.push(`resource ${usage.resource_key}`);
+  if (usage.refresh_text) parts.push(usage.refresh_text);
+  return { kind: usage.kind, summary: parts.join(" · ") };
+}
+
+function formatTarget(
+  target:
+    | { kind?: string; count?: number | null; area?: string | null; qualifiers?: string[] | null; notes?: string | null }
+    | null
+    | undefined,
+): string | null {
+  if (!target) return null;
+  const parts = [
+    target.kind ? String(target.kind).replace(/_/g, " ") : null,
+    target.count != null ? `count ${target.count}` : null,
+    target.area ?? null,
+    target.qualifiers?.length ? target.qualifiers.join(", ") : null,
+    target.notes ?? null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
+}
+
+function formatMechanicDetails(mechanic: RuleElement_Output["mechanic"]): FormattedMechanicDetail {
+  const kind = mechanicKind(mechanic);
+  const lines: string[] = [];
+
+  if (!mechanic || typeof mechanic !== "object") {
+    return { kind, lines: ["No typed mechanic payload"] };
+  }
+
+  switch (kind) {
+    case "attack": {
+      const attack = mechanic as Extract<RuleElement_Output["mechanic"], { attack_type: string }>;
+      lines.push(`Attack type: ${attack.attack_type.replace(/_/g, " ")}`);
+      lines.push(`Attack bonus: ${formatModifier(attack.attack_bonus)}`);
+      if (attack.reach) lines.push(`Reach: ${formatDistance(attack.reach)}`);
+      if (attack.range?.normal) {
+        const long = attack.range.long ? ` / ${formatDistance(attack.range.long)}` : "";
+        lines.push(`Range: ${formatDistance(attack.range.normal)}${long}`);
+      }
+      const target = formatTarget(attack.target);
+      if (target) lines.push(`Target: ${target}`);
+      if (attack.hit_effects?.length) lines.push(`Hit effects: ${attack.hit_effects.length}`);
+      if (attack.miss_effects?.length) lines.push(`Miss effects: ${attack.miss_effects.length}`);
+      break;
+    }
+    case "save_effect": {
+      const save = mechanic as Extract<RuleElement_Output["mechanic"], { save: { ability: string; dc: number } }>;
+      lines.push(`Save: ${save.save.ability} DC ${save.save.dc}`);
+      const target = formatTarget(save.target);
+      if (target) lines.push(`Target: ${target}`);
+      if (save.failure_effects?.length) lines.push(`On failure: ${save.failure_effects.length} effect(s)`);
+      if (save.success_effects?.length) lines.push(`On success: ${save.success_effects.length} effect(s)`);
+      break;
+    }
+    case "multiattack": {
+      const multi = mechanic as Extract<RuleElement_Output["mechanic"], { sequences: Array<{ element_key: string; count: number }> }>;
+      for (const sequence of multi.sequences ?? []) {
+        const choice = "choice_group" in sequence && sequence.choice_group ? ` [${sequence.choice_group}]` : "";
+        lines.push(`${sequence.count}× ${sequence.element_key}${choice}`);
+      }
+      if (!lines.length) lines.push("No sequences declared");
+      break;
+    }
+    case "spellcasting": {
+      const casting = mechanic as Extract<
+        RuleElement_Output["mechanic"],
+        { casting_mode: string; groups: Array<{ spells: Array<{ name: string }>; usage: Usage; level?: number | null; slots?: number | null }> }
+      >;
+      lines.push(`Casting mode: ${casting.casting_mode}`);
+      if (casting.ability) lines.push(`Ability: ${casting.ability}`);
+      if (casting.save_dc != null) lines.push(`Save DC: ${casting.save_dc}`);
+      if (casting.attack_bonus != null) lines.push(`Spell attack: ${formatModifier(casting.attack_bonus)}`);
+      if (casting.caster_level != null) lines.push(`Caster level: ${casting.caster_level}`);
+      for (const group of casting.groups ?? []) {
+        const usage = formatUsage(group.usage).summary;
+        const level = group.level != null ? `L${group.level}` : "cantrip/special";
+        const slots = group.slots != null ? `${group.slots} slots` : "no slot count";
+        const spells = group.spells.map((spell) => spell.name).join(", ") || "(no spells)";
+        lines.push(`Group ${level} · ${slots} · ${usage}: ${spells}`);
+      }
+      break;
+    }
+    case "passive":
+    case "composite": {
+      const effects = "effects" in mechanic ? mechanic.effects : undefined;
+      lines.push(`Effects: ${effects?.length ?? 0}`);
+      if ("target" in mechanic && mechanic.target) {
+        const target = formatTarget(mechanic.target);
+        if (target) lines.push(`Target: ${target}`);
+      }
+      break;
+    }
+    case "phase_transition": {
+      const phase = mechanic as Extract<RuleElement_Output["mechanic"], { destination_phase_key: string }>;
+      lines.push(`Destination phase: ${phase.destination_phase_key}`);
+      if (phase.effects?.length) lines.push(`Transition effects: ${phase.effects.length}`);
+      break;
+    }
+    case "human_adjudicated": {
+      const human = mechanic as Extract<RuleElement_Output["mechanic"], { adjudication_tags?: string[] }>;
+      const tags = human.adjudication_tags?.length ? human.adjudication_tags.join(", ") : "no tags";
+      lines.push(`Adjudication tags: ${tags}`);
+      break;
+    }
+    default:
+      lines.push("Typed mechanic details unavailable for this kind");
+      break;
+  }
+
+  return { kind, lines };
+}
+
 function formatRuleElement(element: RuleElement_Output): FormattedRuleElement {
   const kind = mechanicKind(element.mechanic);
   const humanAdjudicated = kind === "human_adjudicated";
-  const knownKinds = new Set([
-    "attack",
-    "save_effect",
-    "multiattack",
-    "spellcasting",
-    "passive",
-    "composite",
-    "phase_transition",
-    "human_adjudicated",
-  ]);
   return {
     key: element.key,
     name: element.name,
@@ -146,7 +348,56 @@ function formatRuleElement(element: RuleElement_Output): FormattedRuleElement {
     automationSupport: element.automation_support,
     mechanicKind: kind,
     humanAdjudicated,
-    unsupportedMechanic: !knownKinds.has(kind),
+    unsupportedMechanic: !KNOWN_MECHANIC_KINDS.has(kind),
+    activation: formatActivation(element.activation),
+    usage: formatUsage(element.usage),
+    costs: (element.costs ?? []).map((cost) => ({
+      resourceKey: cost.resource_key,
+      amount: cost.amount,
+    })),
+    mechanicDetails: formatMechanicDetails(element.mechanic),
+  };
+}
+
+function formatDamageInteraction(entry: DamageInteraction): FormattedDamageInteraction {
+  return {
+    key: entry.key,
+    kind: entry.kind,
+    damageTypes: entry.damage_types.join(", "),
+    qualifiers: entry.qualifiers?.length ? entry.qualifiers.join(", ") : null,
+    bypasses: entry.bypasses?.length ? entry.bypasses.join(", ") : null,
+  };
+}
+
+function formatResource(pool: ResourcePool): FormattedResource {
+  return {
+    key: pool.key,
+    name: pool.name,
+    maximum: pool.maximum,
+    refresh: pool.refresh,
+    rulesText: pool.rules_text ?? null,
+  };
+}
+
+function formatPhase(phase: CreaturePhase): FormattedPhase {
+  return {
+    key: phase.key,
+    name: phase.name,
+    isDefault: phase.default,
+    enabledElementKeys: phase.enabled_element_keys ?? [],
+    disabledElementKeys: phase.disabled_element_keys ?? [],
+    entryRulesText: phase.entry_rules_text ?? null,
+  };
+}
+
+function formatLair(lair: LairProfile | null | undefined): FormattedLair | null {
+  if (!lair) return null;
+  return {
+    name: lair.name ?? null,
+    description: lair.description ?? null,
+    initiativeCount: lair.initiative_count ?? null,
+    initiativeTiebreak: lair.initiative_tiebreak ?? null,
+    regionalRulesText: lair.regional_rules_text ?? null,
   };
 }
 
@@ -225,6 +476,11 @@ export function buildStatblockViewModel(
         .join(", ") || "—",
     sensesSummary: senseParts.join(", "),
     languagesSummary: languageParts.length ? languageParts.join(", ") : "—",
+    damageInteractions: (definition.defenses.damage_interactions ?? []).map(formatDamageInteraction),
+    conditionImmunities: definition.defenses.condition_immunities ?? [],
+    resources: (definition.resources ?? []).map(formatResource),
+    phases: (definition.phases ?? []).map(formatPhase),
+    lair: formatLair(definition.lair),
     flavorSummary: definition.flavor_text?.summary ?? definition.flavor_text?.description ?? null,
     ruleElements: definition.rule_elements.map(formatRuleElement),
     validation: candidate.validation_receipt

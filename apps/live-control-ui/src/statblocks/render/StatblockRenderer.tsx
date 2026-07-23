@@ -5,13 +5,162 @@ import {
   buildStatblockViewModel,
   formatModifier,
   groupRuleElementsBySection,
+  type FormattedRuleElement,
   type StatblockRenderMode,
+  type StatblockViewModel,
 } from "./statblockViewModel";
 
 export type StatblockRendererProps = {
   candidate: GeneratedStatblockCandidateV1;
   mode?: StatblockRenderMode;
 };
+
+function RuleElementBlock({ element }: { element: FormattedRuleElement }) {
+  return (
+    <div className="statblock-rule-element" data-element-key={element.key} data-mechanic-kind={element.mechanicKind}>
+      <div>
+        <span className="statblock-rule-element-name">{element.name}</span>
+        {element.humanAdjudicated ? <span className="statblock-badge">Human adjudicated</span> : null}
+        {element.unsupportedMechanic ? <span className="statblock-badge">Unsupported mechanic</span> : null}
+      </div>
+      {element.summary ? <p className="module-muted">{element.summary}</p> : null}
+      <dl className="statblock-rule-meta" aria-label={`${element.name} activation and usage`}>
+        <div>
+          <dt>Activation</dt>
+          <dd>
+            {element.activation.kind}
+            {element.activation.trigger ? ` · trigger ${element.activation.trigger}` : ""}
+            {element.activation.timingText ? ` · ${element.activation.timingText}` : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Usage</dt>
+          <dd>{element.usage.summary}</dd>
+        </div>
+        {element.costs.length ? (
+          <div>
+            <dt>Costs</dt>
+            <dd>{element.costs.map((cost) => `${cost.amount}× ${cost.resourceKey}`).join(", ")}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <ul className="statblock-mechanic-details" aria-label={`${element.name} mechanic details`}>
+        {element.mechanicDetails.lines.map((line) => (
+          <li key={`${element.key}-${line}`}>{line}</li>
+        ))}
+      </ul>
+      <p className="statblock-rule-element-text">{element.rulesText}</p>
+    </div>
+  );
+}
+
+function DefensesExtras({ view }: { view: StatblockViewModel }) {
+  if (!view.damageInteractions.length && !view.conditionImmunities.length) return null;
+  return (
+    <section className="statblock-renderer-section" aria-label="Damage interactions and condition immunities">
+      <h4>Defenses</h4>
+      {view.damageInteractions.length ? (
+        <ul className="statblock-structured-list" data-region="damage-interactions">
+          {view.damageInteractions.map((entry) => (
+            <li key={entry.key}>
+              <strong>{entry.kind}</strong>: {entry.damageTypes}
+              {entry.qualifiers ? ` (${entry.qualifiers})` : ""}
+              {entry.bypasses ? `; bypasses ${entry.bypasses}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {view.conditionImmunities.length ? (
+        <p data-region="condition-immunities">
+          Condition immunities: {view.conditionImmunities.join(", ")}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function ResourcesSection({ view }: { view: StatblockViewModel }) {
+  if (!view.resources.length) return null;
+  return (
+    <section className="statblock-renderer-section" aria-label="Resources">
+      <h4>Resources</h4>
+      <ul className="statblock-structured-list" data-region="resources">
+        {view.resources.map((resource) => (
+          <li key={resource.key}>
+            <strong>{resource.name}</strong> · max {resource.maximum} · refresh {resource.refresh}
+            {resource.rulesText ? ` — ${resource.rulesText}` : ""}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function PhasesSection({ view }: { view: StatblockViewModel }) {
+  if (!view.phases.length) return null;
+  return (
+    <section className="statblock-renderer-section" aria-label="Phases">
+      <h4>Phases</h4>
+      <ul className="statblock-structured-list" data-region="phases">
+        {view.phases.map((phase) => (
+          <li key={phase.key}>
+            <strong>{phase.name}</strong>
+            {phase.isDefault ? " (default)" : ""}
+            {phase.enabledElementKeys.length
+              ? ` · enables ${phase.enabledElementKeys.join(", ")}`
+              : ""}
+            {phase.disabledElementKeys.length
+              ? ` · disables ${phase.disabledElementKeys.join(", ")}`
+              : ""}
+            {phase.entryRulesText ? ` — ${phase.entryRulesText}` : ""}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function LairSection({ view }: { view: StatblockViewModel }) {
+  if (!view.lair) return null;
+  const lair = view.lair;
+  return (
+    <section className="statblock-renderer-section" aria-label="Lair">
+      <h4>Lair</h4>
+      <dl className="statblock-renderer-core" data-region="lair">
+        {lair.name ? (
+          <div>
+            <dt>Name</dt>
+            <dd>{lair.name}</dd>
+          </div>
+        ) : null}
+        {lair.description ? (
+          <div>
+            <dt>Description</dt>
+            <dd>{lair.description}</dd>
+          </div>
+        ) : null}
+        {lair.initiativeCount != null ? (
+          <div>
+            <dt>Initiative count</dt>
+            <dd>{lair.initiativeCount}</dd>
+          </div>
+        ) : null}
+        {lair.initiativeTiebreak != null ? (
+          <div>
+            <dt>Initiative tiebreak</dt>
+            <dd>{lair.initiativeTiebreak}</dd>
+          </div>
+        ) : null}
+        {lair.regionalRulesText ? (
+          <div>
+            <dt>Regional rules</dt>
+            <dd>{lair.regionalRulesText}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </section>
+  );
+}
 
 export function StatblockRenderer({ candidate, mode = "review" }: StatblockRendererProps) {
   const view = buildStatblockViewModel(candidate, mode);
@@ -95,26 +244,20 @@ export function StatblockRenderer({ candidate, mode = "review" }: StatblockRende
         </div>
       </dl>
 
+      <DefensesExtras view={view} />
+      <ResourcesSection view={view} />
+
       {sections.map(({ section, elements }) => (
         <section key={section} className="statblock-renderer-section" aria-label={`${section} rule elements`}>
           <h4>{section.replace(/_/g, " ")}</h4>
           {elements.map((element) => (
-            <div key={element.key} className="statblock-rule-element" data-element-key={element.key}>
-              <div>
-                <span className="statblock-rule-element-name">{element.name}</span>
-                {element.humanAdjudicated ? (
-                  <span className="statblock-badge">Human adjudicated</span>
-                ) : null}
-                {element.unsupportedMechanic ? (
-                  <span className="statblock-badge">Unsupported mechanic</span>
-                ) : null}
-              </div>
-              {element.summary ? <p className="module-muted">{element.summary}</p> : null}
-              <p className="statblock-rule-element-text">{element.rulesText}</p>
-            </div>
+            <RuleElementBlock key={element.key} element={element} />
           ))}
         </section>
       ))}
+
+      <PhasesSection view={view} />
+      <LairSection view={view} />
 
       {view.validation ? (
         <section className="statblock-renderer-section" aria-label="Validation receipt">
