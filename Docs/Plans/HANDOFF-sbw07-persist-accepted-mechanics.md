@@ -312,7 +312,7 @@ This section is the **approve-or-reject contract** for `SBW07-contract`. Impleme
 
 | Concern | Where it lives | Closed values | May fail independently? |
 |---|---|---|---|
-| **Operation authority** | Acceptance operation journal (sibling durable store; not ThreatDraft fields) | `dispatched_unknown` \| `server_committed` \| `reconciled` \| `terminal_failure` \| `terminal_conflict` | No — this is the recovery spine |
+| **Operation authority** | Acceptance operation journal (sibling durable store; not ThreatDraft fields) | `dispatched_unknown` \| `server_committed` \| `reconciled` \| `terminal_failure` | No — this is the recovery spine |
 | **ThreatDraft materialization** | `accepted_mechanics_ref` + materialization flags on the operation | `draft_ref`: `missing` \| `attached` \| `failed` | Yes — after Server commit |
 | **Product workflow state** | `ThreatDraftV1.workflow_state` | `drafting` \| `candidate_ready` \| `mechanics_saved` | Yes — only advances to `mechanics_saved` on `reconciled` |
 
@@ -358,21 +358,37 @@ Every acceptance attempt that may call Server create **must** persist this recor
 | `validation_receipt_digest` | yes | Definition digest the gate accepted |
 | `authority_state` | yes | Closed enum below |
 | `locator` | null until known | `{ provider, statblock_id, revision_id, definition_digest, contract, contract_version }` once Server create (or same-key replay) returns it |
-| `materialization.draft_ref` | yes | `missing` \| `attached` \| `failed` |
-| `terminal_code` / `failure_category` / `http_status` | only on terminal_* | Present only with authoritative non-commit / conflict proof |
+| `materialization.draft_ref` | yes | `missing` \| `attached` \| `failed` \| `conflicted` (`conflicted` = draft already holds a different locator) |
+| `terminal_code` / `failure_category` / `http_status` | only on `terminal_failure` | Present only with authoritative non-commit proof |
 | `created_at` / `updated_at` | yes | ISO timestamps |
 
-Capacity (initial): `MAX_ACCEPTANCE_OPERATIONS_PER_DRAFT = 32`. Unresolved `dispatched_unknown` / unattached `server_committed` are **never** compacted away to admit new work.
+### Cardinality policy (closed)
+
+```text
+Choice: At most ONE acceptance operation per draft may be in
+  {dispatched_unknown, server_committed, reconciled} at a time.
+Not chosen: multiple concurrent committed proposals + later selection
+  (incompatible with singular accepted_mechanics_ref; replacement is out of slice).
+```
+
+Consequences:
+
+- New distinct accept claim (new `operation_id` / new `idempotency_key`) is **refused** while any operation is `dispatched_unknown`, `server_committed`, or `reconciled`.
+- After `terminal_failure` only, a **new** key/operation may claim (prior create did not commit).
+- `reconciled` closes first-save for this draft in SBW07; replacing `accepted_mechanics_ref` is a later slice.
+- Historical `terminal_failure` records may be retained for audit; they do not consume the singular active slot.
+- Capacity: `MAX_ACCEPTANCE_OPERATION_RECORDS_PER_DRAFT = 32` (history bound). Active unresolved/committed count must remain ≤ 1. Unresolved `dispatched_unknown` / unattached `server_committed` are **never** compacted away to admit new work.
 
 ### Authority states
 
 | State | Meaning | Product may claim `mechanics_saved`? |
 |---|---|---|
 | `dispatched_unknown` | Claim written; Server create outcome **unknown** (in flight, timeout, response loss, auth failure before durable create proof, restart mid-flight) | **No** |
-| `server_committed` | Exact locator/digest known from Server create or same-key replay; draft-ref may be missing/failed | **No** — use recovery UX (`server_committed_reference_pending` as **display label only**) |
-| `reconciled` | `AcceptedMechanicsRefV1` atomically on ThreatDraft; `materialization.draft_ref=attached` | **Yes** — only here |
+| `server_committed` | Exact locator/digest known from Server create or same-key **same-body** replay; draft-ref may be missing/failed/conflicted | **No** — use recovery UX (`server_committed_reference_pending` as **display label only**) |
+| `reconciled` | `AcceptedMechanicsRefV1` atomically on ThreatDraft with **this** operation's locator; `materialization.draft_ref=attached` | **Yes** — only here |
 | `terminal_failure` | Authoritative proof create did **not** commit (allowlisted Server durable failure code) | No |
-| `terminal_conflict` | Same idempotency key + **changed** create-request digest (Server or local digest mismatch) | No |
+
+**Not an authority state:** changed-body / wrong-key input conflicts. Those are **attempt responses** only; they must not rewrite the original operation's `authority_state`.
 
 **Display label (not an authority state):** `server_committed_reference_pending` means authority=`server_committed` ∧ `draft_ref ≠ attached`. It must never be stored as `workflow_state` or as `mechanics_saved_*`.
 
@@ -381,53 +397,65 @@ Capacity (initial): `MAX_ACCEPTANCE_OPERATIONS_PER_DRAFT = 32`. Unresolved `disp
 | State | Meaning |
 |---|---|
 | `acceptance_blocked` | Missing/stale validation receipt, validation errors, or digest mismatch — **no journal claim yet** |
+| `acceptance_busy` | Another operation already occupies the singular active slot — **no new claim** |
 
 ### Authoritative transition table
 
 | Current | Event | Next | Required evidence | Server create? | Response truth | Compact/delete Server? |
 |---|---|---|---|---|---|---|
-| (none) / eligible | begin accept | `dispatched_unknown` | validation receipt bound to digest + persisted `AcceptanceOperationV1` (key, digest, body, source draft/version) | pending | submitting / unknown | no |
+| (none) / eligible; no active op | begin accept | `dispatched_unknown` | validation receipt bound to digest + persisted `AcceptanceOperationV1` (key, digest, body, source draft/version) | pending | submitting / unknown | no |
+| active op exists (`dispatched_unknown` \| `server_committed` \| `reconciled`) | begin accept with **new** key | unchanged (no new claim) | singular-slot check | no | `acceptance_busy` | no |
 | any editable without claim | validate errors / stale receipt | `acceptance_blocked` | receipt digest ≠ current OR errors present | no | blocked | no |
-| `dispatched_unknown` | process restart / response loss / transport timeout / connection unavailable | `dispatched_unknown` | stored `request_body` + `create_request_digest` | **same-key replay required** | typed uncertainty; no failed claim | no |
-| `dispatched_unknown` | auth 401/403 without durable create proof | `dispatched_unknown` | claim retained | retry **after** auth repair, same key | auth failure category; still unknown | **never** |
-| `dispatched_unknown` | same-key replay → original resource/revision | `server_committed` | exact IDs/digest from Server; write `locator` before draft-ref attempt | replay only | Server mechanics exist; draft ref pending | no |
+| `dispatched_unknown` | process restart / response loss / transport timeout / connection unavailable | `dispatched_unknown` | stored `request_body` + `create_request_digest` | **same-key same-body replay required** | typed uncertainty; no failed claim | no |
+| `dispatched_unknown` | auth 401/403 without durable create proof | `dispatched_unknown` | claim retained | retry **after** auth repair, same key + same body | auth failure category; still unknown | **never** |
+| `dispatched_unknown` | same-key **same-body** replay → original resource/revision | `server_committed` | exact IDs/digest from Server; write `locator` before draft-ref attempt | replay only | Server mechanics exist; draft ref pending | no |
 | `dispatched_unknown` | create success (first response) | `server_committed` | exact IDs/digest; `locator` durable | done | Server mechanics exist | no |
-| `dispatched_unknown` | same-key + **changed** request digest | `terminal_conflict` | digest mismatch proof (local and/or Server 409 idempotency) | **never** alternate create | conflict | no |
-| `dispatched_unknown` | Server durable non-commit code (allowlisted) | `terminal_failure` | terminal code + category + HTTP | no further create | typed failure | no |
-| `server_committed` | draft-ref write success (version CAS) | `reconciled` | atomic `AcceptedMechanicsRefV1` + `workflow_state=mechanics_saved` | no | **mechanics_saved**; not published | no |
-| `server_committed` | draft-ref write failure | `server_committed` (`draft_ref=failed`) | locator retained | no | `server_committed_reference_pending` | **never** |
-| `server_committed` | draft version CAS miss (stale draft mutation) | `server_committed` | reload draft; retry attach with current `expected_version`; locator unchanged | no | pending ref; no second create | no |
+| `dispatched_unknown` (original) | attempt presents **same key + changed** request digest (local detect before call, or caller error) | **`dispatched_unknown` unchanged** | original `request_body` / digest retained | **never** with changed body | attempt response: input conflict; recover via original body replay | no |
+| `dispatched_unknown` (original) | Server idempotency **409** on a **changed-body** attempt | **`dispatched_unknown` unchanged** | 409 proves a Server create record exists for that key with a **different** digest — evidence original may have committed; **not** proof original failed | **never** alternate create; **must** replay original stored body next | attempt response: input conflict; original still unknown pending original-body recovery | no |
+| `dispatched_unknown` | Server durable non-commit code (allowlisted) on **original** same-body path | `terminal_failure` | terminal code + category + HTTP | no further create for this op | typed failure | no |
+| `server_committed` | draft `accepted_mechanics_ref` is null; draft-ref write success (version CAS) | `reconciled` | atomic `AcceptedMechanicsRefV1` (= this locator) + `workflow_state=mechanics_saved` | no | **mechanics_saved**; not published | no |
+| `server_committed` | draft-ref write failure (I/O) while ref still null | `server_committed` (`draft_ref=failed`) | locator retained | no | `server_committed_reference_pending` | **never** |
+| `server_committed` | draft version CAS miss while ref still null | `server_committed` | reload draft; retry attach **only if** ref still null or equals this locator | no | pending ref; no second create | no |
+| `server_committed` | draft already has `accepted_mechanics_ref` with a **different** locator | `server_committed` (`draft_ref=conflicted`) | both locators retained (draft ref + operation locator); never overwrite | no | explicit `accepted_ref_conflict`; no silent attach; no delete of either Server revision | **never** |
+| `server_committed` | draft `accepted_mechanics_ref` already equals this locator | `reconciled` | idempotent attach / materialization repair | no | **mechanics_saved** | no |
 | `server_committed` | draft missing / deleted | `server_committed` | locator retained; expose recovery/error | no | Server mechanics exist; draft ref impossible until draft restored | **never** |
-| `server_committed` | exact-read confirms locator/digest | `server_committed` (or `reconciled` if attach also succeeds) | read equality | read only | verification ok | no |
+| `server_committed` | exact-read confirms locator/digest | `server_committed` (or `reconciled` if attach also succeeds under rules above) | read equality | read only | verification ok | no |
 | `reconciled` | reload | `reconciled` | exact revision read digest equality | read | same IDs/digest; workflow `mechanics_saved` | no |
-| any durable | same-key same-body replay | unchanged | digest match | no (unless still `dispatched_unknown`) | identical external result | — |
+| any durable | same-key **same-body** replay | unchanged | digest match | no (unless still `dispatched_unknown`) | identical external result | — |
 
 ### Version / workflow CAS semantics (closed)
 
 ```text
 1. Claim records source_draft_id + source_draft_version (audit / lineage).
-2. Atomic AcceptedMechanicsRef write uses ThreatDraft expected_version CAS
-   (same store primitive as other draft mutations). On success:
+2. Atomic AcceptedMechanicsRef write is allowed only when:
+     - draft.accepted_mechanics_ref is null, OR
+     - draft.accepted_mechanics_ref equals this operation's locator.
+   On success (version CAS):
      - accepted_mechanics_ref = exact locator fields
      - workflow_state = mechanics_saved
      - operation.authority_state = reconciled
      - materialization.draft_ref = attached
-3. CAS miss: do not change authority; do not create; reload + retry attach.
-4. workflow_state becomes mechanics_saved ONLY in step 2.
-5. Authoring edits that advance draft.version while authority=server_committed
-   do not invalidate the locator; they only change the CAS token for attach.
+3. CAS miss with ref still null/same: do not change authority; reload + retry attach.
+4. If reload shows a different accepted_mechanics_ref: do NOT retry overwrite.
+   Stay server_committed; surface accepted_ref_conflict; retain both locators;
+   never delete either Server revision. Selection/replacement is out of SBW07.
+5. workflow_state becomes mechanics_saved ONLY in step 2.
+6. Authoring edits that advance draft.version while authority=server_committed
+   do not invalidate the locator; they only change the CAS token for attach
+   when the attach is still legal under rule 2.
 ```
 
 ### ThreatDraft schema delta (declared here; implemented in `SBW07b`)
 
 ```text
 # On ThreatDraftV1 (product materialization only):
-accepted_mechanics_ref: AcceptedMechanicsRefV1 | null
+accepted_mechanics_ref: AcceptedMechanicsRefV1 | null   # singular; no replacement in SBW07
 workflow_state: drafting | candidate_ready | mechanics_saved
 
 # Sibling journal (mandatory; not optional):
-AcceptanceOperationV1[] under draft state root
+AcceptanceOperationV1 records under draft state root
   schema = dmb_statblock_acceptance_operation_v1
+  active unresolved/committed count ≤ 1
 ```
 
 `AcceptedMechanicsRefV1` fields (exact):
@@ -446,17 +474,18 @@ accepted_at
 ### Idempotency (aligned with Server create replay)
 
 - Persist `AcceptanceOperationV1` (including `idempotency_key`, `create_request_digest`, `request_body`) **before** outbound create.
-- Same key + same full create-request digest → same logical resource/revision (Server returns original).
-- Same key + changed definition **or** metadata → `terminal_conflict`; never alternate create.
+- Same key + same full create-request digest → same logical resource/revision (Server returns original); original operation may advance `dispatched_unknown` → `server_committed`.
+- Same key + changed definition **or** metadata → **reject the attempt** with conflict; **do not** mutate the original operation's authority (it remains `dispatched_unknown` or whatever it already was). Recover by replaying the **original** stored body.
+- Server idempotency 409 on a changed-body attempt is evidence a create record exists for that key with a different digest — treat as attempt conflict + recover original via stored body; never interpret as original `terminal_failure`.
 - UI double-submit → one operation_id / one idempotency key.
 - Never invent local `statblock_id` / `revision_id`.
 
 ### Transport / terminality proof boundary
 
-**Must remain `dispatched_unknown` (not failed):** Buddy/client transport timeout, connection unavailable without durable Server create proof, response loss after possible commit, authentication 401/403 before durable create proof, pre-route validation without an allowlisted non-commit code.
+**Must remain `dispatched_unknown` (not failed):** Buddy/client transport timeout, connection unavailable without durable Server create proof, response loss after possible commit, authentication 401/403 before durable create proof, pre-route validation without an allowlisted non-commit code, and changed-body conflict responses against the original key.
 
-**May become `terminal_failure` only** when Server returns an allowlisted durable create-operation failure code proving non-commit (re-anchor exact code list from Server create idempotency contract at `SBW07a` fixture capture). Category strings alone never terminalize.
+**May become `terminal_failure` only** when Server returns an allowlisted durable create-operation failure code proving non-commit on the **original same-body** path (re-anchor exact code list from Server create idempotency contract at `SBW07a` fixture capture). Category strings alone never terminalize. Idempotency 409 is never a terminal-failure proof for the original operation.
 
 ### Explicitly still false after SBW07
 
-Graph Threat/binding, append child revision, preferred/latest, Markdown embed, combat, media, corpus promotion as acceptance, treating `server_committed` as `mechanics_saved`, and shipping `SBW06` before this slice.
+Graph Threat/binding, append child revision, preferred/latest, Markdown embed, combat, media, corpus promotion as acceptance, treating `server_committed` as `mechanics_saved`, replacing an existing `accepted_mechanics_ref`, multi-proposal selection, mutating original authority on changed-body conflict, and shipping `SBW06` before this slice.
