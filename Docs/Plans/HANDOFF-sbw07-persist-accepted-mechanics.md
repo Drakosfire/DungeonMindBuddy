@@ -155,8 +155,12 @@ Invariant:
 Failure behavior:
   validation errors/stale receipt -> block before downstream
   integration/auth/timeout -> typed uncertainty or failure category; authority stays
-    dispatched_unknown until same-key replay, conflict, or authoritative non-commit proof
-  Server conflict/idempotency mismatch -> terminal_conflict; no alternate create
+    dispatched_unknown until same-key same-body replay or authoritative non-commit proof
+  same key + changed body (local or Server 409) -> reject attempt only; original operation
+    authority unchanged; recover via original stored body; no alternate create
+  active acceptance slot occupied -> acceptance_busy; no new claim
+  server_committed + different existing accepted_mechanics_ref -> accepted_ref_conflict;
+    never overwrite or delete either Server revision
   malformed create response/exact-read mismatch -> integrity failure; no accepted ref
   downstream success + local ref write failure -> authority server_committed; expose
     server_committed_reference_pending recovery; do not delete Server resource
@@ -164,10 +168,10 @@ Failure behavior:
     server_committed; mark verification pending honestly; never claim mechanics_saved
 
 Replay / idempotency:
-  same idempotency key + same definition digest/metadata -> same logical resource/revision
-  same key + changed definition/metadata -> conflict
+  same idempotency key + same full create-request digest -> same logical resource/revision
+  same key + changed definition/metadata -> attempt conflict; original op unchanged
   UI double-submit -> one operation
-  retry after partial failure -> reconcile by idempotency/exact locator before create
+  retry after partial failure -> reconcile by same-key same-body / exact locator before create
 
 Trust boundary:
   Verifies: validation receipt/digest association, complete definition, Server response, exact IDs/digest, draft version
