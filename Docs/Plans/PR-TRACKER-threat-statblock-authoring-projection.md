@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE SLICE / REVIEW AUTHORITY  
 **Date:** 2026-07-23  
-**Integration tip:** `889acf96` — SBW01–03 merged; next dispatch `SBW04`  
+**Integration tip:** `b8dbe68c` on `main` — SBW01–03 landed via `#381`; next dispatch `SBW04`  
 
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  

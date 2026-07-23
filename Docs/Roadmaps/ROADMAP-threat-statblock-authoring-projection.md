@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP  
 **Date:** 2026-07-23  
-**Integration tip:** `889acf96` on `agent/statblock-authoring-roadmap` (SBW01–03 merged; Milestone A needs SBW04)  
+**Integration tip:** `b8dbe68c` on `main` (PR `#381` merge; SBW01–03 landed; Milestone A needs SBW04)  
 
 **Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
 **PR tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  

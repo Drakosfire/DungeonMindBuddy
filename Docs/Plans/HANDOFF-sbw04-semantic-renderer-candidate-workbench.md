@@ -1,7 +1,7 @@
 # HANDOFF — SBW04 Shared semantic statblock renderer and read-only candidate workbench
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — NEXT dispatch. Re-anchor paths and base SHA to post-`SBW03` tip (`889acf96` / current `main` after ladder merge) before opening the implementation PR.  
+**Status:** PRE-DESIGNED — NEXT dispatch. Re-anchor paths and base SHA to current `main` (`b8dbe68c` or newer) before opening the implementation PR.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`  
 **Workstream:** `SBW04`  
 **Repository:** `Drakosfire/DungeonMindBuddy`
