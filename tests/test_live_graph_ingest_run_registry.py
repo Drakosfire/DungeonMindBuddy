@@ -1558,10 +1558,10 @@ def test_projection_payload_sha_mismatch_rejects_cache_reuse(
     assert "MUTATED_CACHE" not in labels
 
 
-def test_mutated_recap_full_text_blocks_projection_excerpts(
+def test_mutated_recap_full_text_does_not_poison_projection_excerpts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Projection excerpts must not come from an undigested bundle recap copy."""
+    """Undigested bundle recap copies must not supply projection excerpts."""
     from apps.live_control_server.services.union_supergraph_projection_adapter import (
         build_plan_union_supergraph_projection,
     )
@@ -1591,11 +1591,16 @@ def test_mutated_recap_full_text_blocks_projection_excerpts(
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="recap_full_text|verified normalized recap"):
-        build_plan_union_supergraph_projection(
-            session_id="session-24",
-            graph_run_manifest_path=old_result.manifest_path,
-        )
+    projection = build_plan_union_supergraph_projection(
+        session_id="session-24",
+        graph_run_manifest_path=old_result.manifest_path,
+    )
+    payload = projection.model_dump() if hasattr(projection, "model_dump") else projection
+    if isinstance(payload, dict):
+        blob = json.dumps(payload)
+    else:
+        blob = str(payload)
+    assert "MUTATED_BUNDLE_TEXT" not in blob
 
 
 def test_non_object_known_entity_mention_entries_fail_validation(
@@ -1695,7 +1700,9 @@ def test_missing_source_span_uri_rejects_projection(
     old_result.manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    with pytest.raises(ValueError, match="SourceSpanIndex|evidence"):
+    with pytest.raises(
+        ValueError, match="SourceSpanIndex|evidence|source_span_index_uri"
+    ):
         build_plan_union_supergraph_projection(
             session_id="session-24",
             graph_run_manifest_path=old_result.manifest_path,
@@ -2503,3 +2510,245 @@ def test_registry_summary_not_promotable_on_run_id_scope_mismatch(
     assert runs[0].promotable is False
     assert runs[0].promotable_reason is not None
     assert "campaign/session" in runs[0].promotable_reason
+
+
+def test_foreign_session_store_rejects_despite_matching_union_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Parsed store identity wins over a re-signed report that only mirrors the manifest."""
+    import hashlib
+
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/foreign_session_store"
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    store_path = tmp_path / manifest["artifacts"]["preview_union_store"]["uri"]
+    store = json.loads(store_path.read_text(encoding="utf-8"))
+    store["focus_session_id"] = "session-99"
+    store_path.write_text(json.dumps(store, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    store_digest = hashlib.sha256(store_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["preview_union_store"]["sha256"] = f"sha256:{store_digest}"
+
+    report_path = tmp_path / manifest["artifacts"]["preview_union_validation_report"]["uri"]
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    # Report continues to claim the *manifest* campaign/session identity.
+    assert report["campaign_id"] == manifest["campaign_id"]
+    assert report["session_id"] == manifest["session_id"]
+    report["preview_union_store_sha256"] = f"sha256:{store_digest}"
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_digest = hashlib.sha256(report_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["preview_union_validation_report"]["sha256"] = (
+        f"sha256:{report_digest}"
+    )
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="focus_session_id does not match"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_stale_union_after_candidate_restamp_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Valid C2 + candidate report with unchanged U1/report must not project."""
+    import hashlib
+
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/stale_u1_after_c2"
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    candidate_path = tmp_path / manifest["artifacts"]["candidate_graph"]["uri"]
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    nodes = list(candidate.get("candidate_nodes") or [])
+    nodes.append(
+        {
+            "id": "node:c2-only",
+            "kind": "character",
+            "label": "C2Only",
+            "evidence_refs": [],
+        }
+    )
+    candidate["candidate_nodes"] = nodes
+    candidate_path.write_text(
+        json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    candidate_digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["candidate_graph"]["sha256"] = f"sha256:{candidate_digest}"
+
+    report_path = tmp_path / manifest["artifacts"]["candidate_validation_report"]["uri"]
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["candidate_graph_sha256"] = f"sha256:{candidate_digest}"
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_digest = hashlib.sha256(report_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["candidate_validation_report"]["sha256"] = (
+        f"sha256:{report_digest}"
+    )
+    # Leave preview_union_store + preview_union_validation_report unchanged.
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="candidate_graph_sha256|does not match verified candidate",
+    ):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_verified_snapshot_does_not_reread_protected_union_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Consumers must use the read-once snapshot; a second store read must not occur."""
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/no_store_reread"
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    store_path = (tmp_path / manifest["artifacts"]["preview_union_store"]["uri"]).resolve()
+    reads = {"n": 0}
+    original_read_bytes = Path.read_bytes
+
+    def guarded_read_bytes(self: Path, *args: object, **kwargs: object) -> bytes:
+        try:
+            resolved = self.resolve()
+        except OSError:
+            resolved = self
+        if resolved == store_path:
+            reads["n"] += 1
+            if reads["n"] > 1:
+                raise AssertionError(
+                    "preview_union_store reopened after verified snapshot read"
+                )
+        return original_read_bytes(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+    projection = build_plan_union_supergraph_projection(
+        session_id="session-24",
+        graph_run_manifest_path=old_result.manifest_path,
+    )
+    assert projection.session_id == "session-24"
+    assert reads["n"] == 1
+
+
+def test_ensure_projection_cas_aborts_on_concurrent_manifest_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CAS must refuse to persist when the manifest token changes mid-build."""
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+    import apps.live_control_server.services.union_supergraph_projection_adapter as adapter
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/cas_abort"
+    )
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    manifest_full = old_result.manifest_path
+    marker = "2099-01-01T00:00:00Z"
+    real_build = adapter.build_projection_payload_from_verified_snapshot
+
+    def mutating_build(snapshot, **kwargs):
+        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
+        payload["updated_at"] = marker
+        manifest_full.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        return real_build(snapshot, **kwargs)
+
+    monkeypatch.setattr(
+        adapter,
+        "build_projection_payload_from_verified_snapshot",
+        mutating_build,
+    )
+
+    with pytest.raises(ValueError, match="changed concurrently|refusing to overwrite"):
+        ingest_service.ensure_graph_ingest_projection_payload(
+            repo_root=tmp_path,
+            manifest_path=manifest_rel,
+            session_id="session-24",
+        )
+
+    after = json.loads(manifest_full.read_text(encoding="utf-8"))
+    assert after.get("updated_at") == marker
+    assert "projection_payload" not in (after.get("artifacts") or {})
+    assert not (manifest_full.parent / "projection_payload.json").exists()
+
+
+def test_old_projection_contract_version_forces_cache_miss_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Persisted depends_on with an old projection_contract_version must rebuild."""
+    import hashlib
+
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
+        PROJECTION_CONTRACT_VERSION,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/old_contract_version"
+    )
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    first = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert first is not None
+    first_sha = hashlib.sha256(first.read_bytes()).hexdigest()
+    first_payload = json.loads(first.read_text(encoding="utf-8"))
+    assert (
+        first_payload.get("projection_depends_on", {}).get("projection_contract_version")
+        == PROJECTION_CONTRACT_VERSION
+    )
+
+    stale_deps = dict(first_payload["projection_depends_on"])
+    stale_deps["projection_contract_version"] = "0.9"
+    first_payload["projection_depends_on"] = stale_deps
+    first.write_text(
+        json.dumps(first_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    stale_sha = hashlib.sha256(first.read_bytes()).hexdigest()
+    assert stale_sha != first_sha
+    new_proj_digest = stale_sha
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    artifact = dict(manifest["artifacts"]["projection_payload"])
+    artifact["sha256"] = f"sha256:{new_proj_digest}"
+    artifact["depends_on"] = stale_deps
+    manifest["artifacts"]["projection_payload"] = artifact
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    rebuilt = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert rebuilt is not None
+    rebuilt_sha = hashlib.sha256(rebuilt.read_bytes()).hexdigest()
+    assert rebuilt_sha != stale_sha
+    rebuilt_payload = json.loads(rebuilt.read_text(encoding="utf-8"))
+    assert (
+        rebuilt_payload.get("projection_depends_on", {}).get(
+            "projection_contract_version"
+        )
+        == PROJECTION_CONTRACT_VERSION
+    )

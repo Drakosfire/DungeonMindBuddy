@@ -63,22 +63,31 @@ def build_plan_union_supergraph_projection(
     """Build a backend-neutral graph projection for a /plan session lens."""
 
     known_entity_mentions: dict[str, Any] | None = None
+    source_spans: list[RecapProjectionSourceSpan] = []
+    paragraph_text_by_span_id: dict[str, str] = {}
     if preview_union_store_path is not None:
         store = load_preview_union_store(preview_union_store_path)
     elif graph_run_manifest_path is not None:
-        _assert_manifest_backed_projection_evidence(graph_run_manifest_path)
-        _assert_requested_session_matches_manifest(
+        snapshot, reusable = _load_manifest_backed_projection_snapshot(
             graph_run_manifest_path, session_id=session_id
         )
-        known_entity_mentions = _load_manifest_known_entity_mentions(graph_run_manifest_path)
-        persisted = _load_projection_payload_from_manifest(
-            graph_run_manifest_path, session_id=session_id
+        if reusable is not None:
+            return RecapGraphProjection.model_validate(reusable)
+        if snapshot.preview_union_store is None:
+            raise ValueError("projection-ready snapshot is missing preview_union_store")
+        store = snapshot.preview_union_store
+        known_entity_mentions = snapshot.known_entity_mentions
+        source_spans = _source_spans_from_snapshot(snapshot)
+        paragraph_text_by_span_id = snapshot.paragraph_text_by_span_id()
+        markdown = snapshot.normalized_recap_text
+        return build_recap_graph_projection(
+            store,
+            session_id=session_id,
+            markdown=markdown or "",
+            source_spans=source_spans,
+            paragraph_text_by_span_id=paragraph_text_by_span_id,
+            known_entity_mentions=known_entity_mentions,
         )
-        # Digest/contract gating lives in _load_projection_payload_from_manifest so a
-        # stale cached projection cannot become the "rebuild" input.
-        if persisted is not None:
-            return RecapGraphProjection.model_validate(persisted)
-        store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
     elif store_path is not None:
         store = load_union_supergraph_store(store_path)
     elif preview_source:
@@ -91,16 +100,6 @@ def build_plan_union_supergraph_projection(
             campaign_id=getattr(store, "campaign_id", None) or "longmont-c2",
             session_id=session_id,
         )
-    source_spans = (
-        _load_manifest_source_spans(graph_run_manifest_path)
-        if graph_run_manifest_path is not None
-        else []
-    )
-    paragraph_text_by_span_id = (
-        _load_manifest_source_span_full_text_index(graph_run_manifest_path)
-        if graph_run_manifest_path is not None
-        else {}
-    )
     return build_recap_graph_projection(
         store,
         session_id=session_id,
@@ -109,6 +108,70 @@ def build_plan_union_supergraph_projection(
         paragraph_text_by_span_id=paragraph_text_by_span_id,
         known_entity_mentions=known_entity_mentions,
     )
+
+
+def _load_manifest_backed_projection_snapshot(
+    graph_run_manifest_path: Path,
+    *,
+    session_id: str,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+):
+    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
+        load_reusable_projection_from_snapshot,
+        load_verified_projection_ready_snapshot,
+    )
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    # Peek campaign for overlay digest before full snapshot load.
+    peek = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(peek, dict):
+        raise ValueError("graph-ingest manifest payload must be an object")
+    campaign_id = str(peek.get("campaign_id") or "").strip()
+    overlay_digest = (
+        current_authored_overlay_sha256(
+            campaign_id=campaign_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+        if campaign_id
+        else None
+    )
+    snapshot = load_verified_projection_ready_snapshot(
+        root,
+        manifest_path,
+        session_id=session_id,
+        authored_overlay_sha256=overlay_digest,
+    )
+    reusable = load_reusable_projection_from_snapshot(snapshot, root)
+    return snapshot, reusable
+
+
+def _source_spans_from_snapshot(snapshot) -> list[RecapProjectionSourceSpan]:
+    lines = snapshot.normalized_recap_text.splitlines() if snapshot.normalized_recap_text else []
+    spans: list[RecapProjectionSourceSpan] = []
+    for ordinal, span in enumerate(snapshot.span_rows()):
+        span_id = span.get("source_span_id") or span.get("span_id") or span.get("source_span_ref_id")
+        if not isinstance(span_id, str):
+            continue
+        line_start = span.get("start_line") if isinstance(span.get("start_line"), int) else None
+        line_end = span.get("end_line") if isinstance(span.get("end_line"), int) else None
+        excerpt = ""
+        if lines and isinstance(line_start, int) and isinstance(line_end, int):
+            if line_start >= 1 and line_end >= line_start:
+                excerpt = "\n".join(lines[line_start - 1 : line_end])
+        spans.append(
+            RecapProjectionSourceSpan(
+                span_id=span_id,
+                kind="paragraph",
+                ordinal=ordinal,
+                text_excerpt=excerpt or None,
+                line_start=line_start,
+                line_end=line_end,
+            )
+        )
+    return spans
 
 
 def _assert_manifest_backed_projection_evidence(graph_run_manifest_path: Path) -> None:
@@ -523,6 +586,22 @@ def build_plan_union_supergraph_projection_payload(
 ) -> dict[str, Any]:
     """Build a JSON-safe projection payload for future API route integration."""
 
+    if graph_run_manifest_path is not None:
+        snapshot, reusable = _load_manifest_backed_projection_snapshot(
+            graph_run_manifest_path,
+            session_id=session_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+        if reusable is not None:
+            return reusable
+        return build_projection_payload_from_verified_snapshot(
+            snapshot,
+            session_id=session_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+
     from apps.live_control_server.services.graph_authoring_overlay_projection import (
         enrich_projection_payload_with_authored_overlay,
     )
@@ -531,30 +610,46 @@ def build_plan_union_supergraph_projection_payload(
         session_id=session_id,
         store_path=store_path,
         preview_source=preview_source,
-        graph_run_manifest_path=graph_run_manifest_path,
         preview_union_store_path=preview_union_store_path,
     )
     payload = projection.model_dump(mode="json")
-    if graph_run_manifest_path is not None:
-        from graph_memory.ingestion.graph_ingest_validate import (
-            known_entity_mentions_digest,
-            load_verified_known_entity_mentions,
-        )
+    return enrich_projection_payload_with_authored_overlay(
+        payload,
+        campaign_id=projection.campaign_id,
+        campaign_rel=campaign_rel,
+        corpus_root=corpus_root,
+    )
 
-        root = repo_root().resolve()
-        try:
-            manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
-            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError, ValueError, FileNotFoundError):
-            manifest_payload = None
-        if isinstance(manifest_payload, dict):
-            # Raises when a declared sidecar fails validation.
-            verified = load_verified_known_entity_mentions(root, manifest_payload)
-            if verified is not None:
-                digest = known_entity_mentions_digest(root, manifest_payload)
-                if digest:
-                    payload["known_entity_mentions_contract"] = True
-                    payload["known_entity_mentions_sha256"] = f"sha256:{digest}"
+
+def build_projection_payload_from_verified_snapshot(
+    snapshot: Any,
+    *,
+    session_id: str,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+) -> dict[str, Any]:
+    """Build a projection payload from an already-verified snapshot (no artifact reopen)."""
+
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        enrich_projection_payload_with_authored_overlay,
+    )
+
+    if snapshot.preview_union_store is None:
+        raise ValueError("projection-ready snapshot is missing preview_union_store")
+    projection = build_recap_graph_projection(
+        snapshot.preview_union_store,
+        session_id=session_id,
+        markdown=snapshot.normalized_recap_text or "",
+        source_spans=_source_spans_from_snapshot(snapshot),
+        paragraph_text_by_span_id=snapshot.paragraph_text_by_span_id(),
+        known_entity_mentions=snapshot.known_entity_mentions,
+    )
+    payload = projection.model_dump(mode="json")
+    if snapshot.known_entity_mentions_sha256:
+        payload["known_entity_mentions_contract"] = True
+        payload["known_entity_mentions_sha256"] = (
+            f"sha256:{snapshot.known_entity_mentions_sha256}"
+        )
     return enrich_projection_payload_with_authored_overlay(
         payload,
         campaign_id=projection.campaign_id,

@@ -208,7 +208,7 @@ def test_materializer_rejects_forbidden_candidate_diagnostics(
     )
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
-    with pytest.raises(ValueError, match="candidate graph diagnostics"):
+    with pytest.raises(ValueError, match="candidate graph diagnostics|forbidden lifecycle|production_retrieval"):
         materialize_preview_union_store_from_graph_ingest_run(
             PreviewUnionMaterializeOptions(manifest_path=manifest_path)
         )
@@ -227,7 +227,10 @@ def test_materializer_rejects_mutated_packaged_recap_bytes(
     original = packaged_recap.read_text(encoding="utf-8")
     packaged_recap.write_text(original + "\nMutated after packaging.\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="packaged recap bytes|candidate-ready GraphIngest evidence"):
+    with pytest.raises(
+        ValueError,
+        match="packaged recap bytes|candidate-ready GraphIngest evidence|normalized recap sha256",
+    ):
         materialize_preview_union_store_from_graph_ingest_run(
             PreviewUnionMaterializeOptions(manifest_path=manifest_path, repo_root=tmp_path)
         )

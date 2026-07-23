@@ -894,7 +894,19 @@ def projection_build_dependencies(
     *,
     authored_overlay_sha256: str | None = None,
 ) -> dict[str, Any]:
-    """Collect digests/identity that a reusable projection must remain bound to."""
+    """Collect digests/identity that a reusable projection must remain bound to.
+
+    Prefer ``VerifiedManifestBackedGraphSnapshot.dependency_contract`` for
+    production paths; this helper remains for test fixtures that stamp deps
+    without loading a full snapshot.
+    """
+    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
+        PROJECTION_CONTRACT_VERSION,
+        PROJECTION_DEPENDENCY_CONTRACT_SCHEMA,
+        PROJECTION_DEPENDENCY_CONTRACT_VERSION,
+        PROJECTION_SCHEMA,
+    )
+
     artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
     source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
 
@@ -919,6 +931,10 @@ def projection_build_dependencies(
         else None
     )
     return {
+        "schema": PROJECTION_DEPENDENCY_CONTRACT_SCHEMA,
+        "version": PROJECTION_DEPENDENCY_CONTRACT_VERSION,
+        "projection_schema": PROJECTION_SCHEMA,
+        "projection_contract_version": PROJECTION_CONTRACT_VERSION,
         "preview_union_store_sha256": _artifact_digest(
             GraphIngestArtifactKind.PREVIEW_UNION_STORE.value
         ),
@@ -927,6 +943,12 @@ def projection_build_dependencies(
             GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value
         ),
         "known_entity_mentions_sha256": known,
+        "candidate_graph_sha256": _artifact_digest(
+            GraphIngestArtifactKind.CANDIDATE_GRAPH.value
+        ),
+        "candidate_validation_report_sha256": _artifact_digest(
+            GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT.value
+        ),
         "session_id": str(payload.get("session_id") or "").strip() or None,
         "campaign_id": str(payload.get("campaign_id") or "").strip() or None,
         "authored_overlay_sha256": overlay,

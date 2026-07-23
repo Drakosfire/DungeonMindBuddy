@@ -51,102 +51,125 @@ class PreviewUnionMaterializeResult:
 def materialize_preview_union_store_from_graph_ingest_run(
     options: PreviewUnionMaterializeOptions,
 ) -> PreviewUnionMaterializeResult:
+    from graph_memory.ingestion.graph_ingest_run_lock import (
+        graph_ingest_manifest_mutation_lock,
+        manifest_content_token,
+    )
+    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
+        load_verified_candidate_ready_snapshot,
+    )
+
     manifest_path = options.manifest_path.resolve()
     run_dir = manifest_path.parent
     repo_root = (options.repo_root or Path.cwd()).resolve()
-    manifest_payload = _load_json(manifest_path)
-    _require_valid_manifest(manifest_payload, context="input graph-ingest manifest")
-    manifest = GraphIngestRunManifest.model_validate(manifest_payload)
-    if manifest.status not in _ALLOWED_SOURCE_STATUSES:
-        raise ValueError(
-            "graph-ingest manifest must be candidate_validation_ready to materialize "
-            f"preview union store, got {manifest.status.value}"
-        )
-    _reject_forbidden_diagnostics(
-        manifest.diagnostics.model_dump(mode="json"), "manifest diagnostics"
-    )
 
-    candidate_artifact = manifest.artifacts.get("candidate_graph")
-    if candidate_artifact is None:
-        raise ValueError("graph-ingest manifest is missing artifacts.candidate_graph")
-    from graph_memory.ingestion.graph_ingest_validate import assert_candidate_ready_evidence
-
-    assert_candidate_ready_evidence(repo_root, manifest_payload)
-    candidate_graph_path = _resolve_repo_relative_uri(candidate_artifact.uri, repo_root)
-    normalized_recap_path = _resolve_required_source_path(manifest, repo_root)
-    candidate_graph = _load_json(candidate_graph_path)
-    _reject_forbidden_diagnostics(
-        _extract_diagnostics(candidate_graph), "candidate graph diagnostics"
-    )
-
-    output_path = _default_or_safe_output_path(options.output_path, run_dir)
-    report_path = output_path.with_name("preview_union_validation_report.json")
-
-    import_input_path = run_dir / "candidate_graph_import_input.json"
-
-    try:
-        _write_json(
-            import_input_path,
-            _normalize_candidate_graph_for_import(candidate_graph, manifest),
-        )
-        store_payload = build_preview_union_supergraph(
-            [
-                CandidateGraphInput(
-                    path=import_input_path,
-                    session_id=manifest.session_id,
-                    recap_path=normalized_recap_path,
-                )
-            ],
-            focus_session_id=manifest.session_id,
-            graph_id=f"{manifest.campaign_id}:preview-union-supergraph",
-        )
-        _rewrite_store_source_artifact_paths(
-            store_payload,
-            repo_root=repo_root,
-        )
-        store_payload["campaign_id"] = manifest.campaign_id
-        store_payload.setdefault("diagnostics", {})["preview_only"] = True
+    with graph_ingest_manifest_mutation_lock(manifest_path):
+        token_t0 = manifest_content_token(manifest_path)
+        snapshot = load_verified_candidate_ready_snapshot(repo_root, manifest_path)
+        if snapshot.manifest_sha256 != token_t0:
+            raise ValueError(
+                "graph-ingest manifest changed during verified snapshot load"
+            )
+        manifest = GraphIngestRunManifest.model_validate(snapshot.manifest_payload)
+        if manifest.status not in _ALLOWED_SOURCE_STATUSES:
+            raise ValueError(
+                "graph-ingest manifest must be candidate_validation_ready to materialize "
+                f"preview union store, got {manifest.status.value}"
+            )
         _reject_forbidden_diagnostics(
-            store_payload.get("diagnostics", {}), "preview union diagnostics"
+            manifest.diagnostics.model_dump(mode="json"), "manifest diagnostics"
         )
-        store = UnionSupergraphStore.model_validate(store_payload)
-        _write_json(output_path, store.model_dump(mode="json", by_alias=True))
-        validation_report = _validation_report(
-            manifest, output_path, repo_root, store_payload, valid=True
+        _reject_forbidden_diagnostics(
+            _extract_diagnostics(snapshot.candidate_graph), "candidate graph diagnostics"
         )
-        _write_json(report_path, validation_report)
-    except Exception:
-        output_path.unlink(missing_ok=True)
-        report_path.unlink(missing_ok=True)
-        import_input_path.unlink(missing_ok=True)
-        raise
 
-    updated_manifest = _updated_manifest(
-        manifest,
-        output_path=output_path,
-        report_path=report_path,
-        repo_root=repo_root,
-        store_payload=store_payload,
-    )
-    updated_manifest_path = (
-        manifest_path
-        if options.update_manifest
-        else manifest_path.with_name(
-            "graph_ingest_run_manifest.preview_union_ready.json"
-        )
-    )
-    updated_payload = updated_manifest.model_dump(mode="json", by_alias=True)
-    _require_valid_manifest(updated_payload, context="updated graph-ingest manifest")
-    _write_json(updated_manifest_path, updated_payload)
+        # Write verified candidate bytes to a stable import path without reopening
+        # the digest-bound candidate artifact.
+        output_path = _default_or_safe_output_path(options.output_path, run_dir)
+        report_path = output_path.with_name("preview_union_validation_report.json")
+        import_input_path = run_dir / "candidate_graph_import_input.json"
+        normalized_recap_path = _resolve_required_source_path(manifest, repo_root)
 
-    return PreviewUnionMaterializeResult(
-        manifest_path=updated_manifest_path,
-        preview_union_store_path=output_path,
-        status=GraphIngestRunStatus.PREVIEW_UNION_STORE_READY,
-        node_count=len(store_payload.get("nodes", {})),
-        edge_count=len(store_payload.get("edges", {})),
-        evidence_ref_count=len(store_payload.get("evidence", {})),
-    )
+        try:
+            _write_json(
+                import_input_path,
+                _normalize_candidate_graph_for_import(
+                    snapshot.candidate_graph, manifest
+                ),
+            )
+            store_payload = build_preview_union_supergraph(
+                [
+                    CandidateGraphInput(
+                        path=import_input_path,
+                        session_id=manifest.session_id,
+                        recap_path=normalized_recap_path,
+                    )
+                ],
+                focus_session_id=manifest.session_id,
+                graph_id=f"{manifest.campaign_id}:preview-union-supergraph",
+            )
+            _rewrite_store_source_artifact_paths(
+                store_payload,
+                repo_root=repo_root,
+            )
+            store_payload["campaign_id"] = manifest.campaign_id
+            store_payload.setdefault("diagnostics", {})["preview_only"] = True
+            _reject_forbidden_diagnostics(
+                store_payload.get("diagnostics", {}), "preview union diagnostics"
+            )
+            store = UnionSupergraphStore.model_validate(store_payload)
+            _write_json(output_path, store.model_dump(mode="json", by_alias=True))
+            validation_report = _validation_report(
+                manifest,
+                output_path,
+                repo_root,
+                store_payload,
+                valid=True,
+                candidate_graph_sha256=snapshot.candidate_graph_sha256,
+                candidate_validation_report_sha256=(
+                    snapshot.candidate_validation_report_sha256
+                ),
+            )
+            _write_json(report_path, validation_report)
+        except Exception:
+            output_path.unlink(missing_ok=True)
+            report_path.unlink(missing_ok=True)
+            import_input_path.unlink(missing_ok=True)
+            raise
+
+        updated_manifest = _updated_manifest(
+            manifest,
+            output_path=output_path,
+            report_path=report_path,
+            repo_root=repo_root,
+            store_payload=store_payload,
+        )
+        updated_manifest_path = (
+            manifest_path
+            if options.update_manifest
+            else manifest_path.with_name(
+                "graph_ingest_run_manifest.preview_union_ready.json"
+            )
+        )
+        updated_payload = updated_manifest.model_dump(mode="json", by_alias=True)
+        _require_valid_manifest(updated_payload, context="updated graph-ingest manifest")
+
+        token_t1 = manifest_content_token(manifest_path)
+        if options.update_manifest and token_t1 != token_t0:
+            raise ValueError(
+                "graph-ingest manifest changed concurrently during materialization; "
+                "refusing to overwrite newer run state"
+            )
+        _write_json(updated_manifest_path, updated_payload)
+
+        return PreviewUnionMaterializeResult(
+            manifest_path=updated_manifest_path,
+            preview_union_store_path=output_path,
+            status=GraphIngestRunStatus.PREVIEW_UNION_STORE_READY,
+            node_count=len(store_payload.get("nodes", {})),
+            edge_count=len(store_payload.get("edges", {})),
+            evidence_ref_count=len(store_payload.get("evidence", {})),
+        )
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -270,12 +293,31 @@ def _normalize_candidate_graph_for_import(
                 }
             )
         graph = {"nodes": nodes, "edges": edges}
-    graph["campaign_id"] = graph.get("campaign_id") or manifest.campaign_id
-    graph["session_id"] = graph.get("session_id") or manifest.session_id
-    graph["source_artifact_ids"] = graph.get("source_artifact_ids") or [
+    # Require identity agreement with the verified snapshot/manifest — never invent
+    # foreign campaign/session defaults over a mismatched candidate.
+    if graph.get("campaign_id") is not None and str(graph["campaign_id"]).strip() != manifest.campaign_id:
+        raise ValueError("candidate_graph.campaign_id does not match manifest")
+    if graph.get("session_id") is not None and str(graph["session_id"]).strip() != manifest.session_id:
+        raise ValueError("candidate_graph.session_id does not match manifest")
+    expected_source = (
         manifest.source.source_artifact_id
         or f"artifact:recap:{manifest.campaign_id}:{manifest.session_id}"
-    ]
+    )
+    bound_ids = graph.get("source_artifact_ids")
+    if bound_ids is not None:
+        if not isinstance(bound_ids, list):
+            raise ValueError("candidate_graph.source_artifact_ids must be a list")
+        normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
+        if expected_source not in normalized:
+            raise ValueError(
+                "candidate_graph.source_artifact_ids does not include packaged "
+                f"source_artifact_id {expected_source!r}"
+            )
+    graph["campaign_id"] = manifest.campaign_id
+    graph["session_id"] = manifest.session_id
+    graph["source_artifact_ids"] = (
+        list(bound_ids) if isinstance(bound_ids, list) and bound_ids else [expected_source]
+    )
     return graph
 
 
@@ -324,10 +366,18 @@ def _validation_report(
     store_payload: Mapping[str, Any],
     *,
     valid: bool,
+    candidate_graph_sha256: str,
+    candidate_validation_report_sha256: str,
 ) -> dict[str, Any]:
     import hashlib
 
     store_digest = f"sha256:{hashlib.sha256(output_path.read_bytes()).hexdigest()}"
+    candidate_digest = candidate_graph_sha256
+    if not candidate_digest.startswith("sha256:"):
+        candidate_digest = f"sha256:{candidate_digest}"
+    candidate_report_digest = candidate_validation_report_sha256
+    if not candidate_report_digest.startswith("sha256:"):
+        candidate_report_digest = f"sha256:{candidate_report_digest}"
     return {
         "schema": PREVIEW_UNION_VALIDATION_REPORT_SCHEMA,
         "version": PREVIEW_UNION_VALIDATION_REPORT_VERSION,
@@ -335,6 +385,8 @@ def _validation_report(
         "session_id": manifest.session_id,
         "preview_union_store_path": _safe_artifact_uri(output_path, repo_root),
         "preview_union_store_sha256": store_digest,
+        "candidate_graph_sha256": candidate_digest,
+        "candidate_validation_report_sha256": candidate_report_digest,
         "valid": valid,
         "errors": [],
         "warnings": [],

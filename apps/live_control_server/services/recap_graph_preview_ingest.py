@@ -693,93 +693,117 @@ def ensure_graph_ingest_projection_payload(
     if not manifest_path:
         return None
     from apps.live_control_server.services.union_supergraph_projection_adapter import (
-        build_plan_union_supergraph_projection_payload,
+        build_projection_payload_from_verified_snapshot,
         current_authored_overlay_sha256,
     )
-    from graph_memory.ingestion.graph_ingest_validate import (
-        assert_manifest_backed_projection_evidence,
-        assert_requested_session_matches_manifest,
-        known_entity_mentions_digest,
-        load_reusable_projection_payload,
-        load_verified_known_entity_mentions,
-        projection_build_dependencies,
+    from graph_memory.ingestion.graph_ingest_run_lock import (
+        graph_ingest_manifest_mutation_lock,
+        manifest_content_token,
+    )
+    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
+        PROJECTION_SCHEMA,
+        load_reusable_projection_from_snapshot,
+        load_verified_projection_ready_snapshot,
     )
 
     repo = repo_root.resolve()
     manifest_full = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
-    payload_data = json.loads(manifest_full.read_text(encoding="utf-8"))
-    artifacts = payload_data.get("artifacts") if isinstance(payload_data.get("artifacts"), dict) else {}
 
-    assert_manifest_backed_projection_evidence(repo, payload_data)
-    assert_requested_session_matches_manifest(payload_data, session_id=session_id)
+    with graph_ingest_manifest_mutation_lock(manifest_full):
+        token_t0 = manifest_content_token(manifest_full)
+        peek = json.loads(manifest_full.read_text(encoding="utf-8"))
+        if not isinstance(peek, dict):
+            raise ValueError("graph-ingest manifest payload must be an object")
+        campaign_id = str(peek.get("campaign_id") or "").strip()
+        overlay_digest = (
+            current_authored_overlay_sha256(campaign_id=campaign_id) if campaign_id else None
+        )
+        snapshot = load_verified_projection_ready_snapshot(
+            repo,
+            manifest_full,
+            session_id=session_id,
+            authored_overlay_sha256=overlay_digest,
+        )
+        if snapshot.manifest_sha256 != token_t0:
+            raise ValueError(
+                "graph-ingest manifest changed during verified snapshot load"
+            )
 
-    # Declared-but-invalid sidecars must fail closed — never rebuild as "no sidecar".
-    verified_sidecar = load_verified_known_entity_mentions(repo, payload_data)
-    sidecar_digest = (
-        known_entity_mentions_digest(repo, payload_data)
-        if verified_sidecar is not None
-        else None
-    )
-    has_known_entity = sidecar_digest is not None
-    campaign_id = str(payload_data.get("campaign_id") or "").strip()
-    overlay_digest = (
-        current_authored_overlay_sha256(campaign_id=campaign_id) if campaign_id else None
-    )
+        reusable = load_reusable_projection_from_snapshot(snapshot, repo)
+        artifacts = (
+            snapshot.manifest_payload.get("artifacts")
+            if isinstance(snapshot.manifest_payload.get("artifacts"), dict)
+            else {}
+        )
+        if reusable is not None:
+            existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
+            if isinstance(existing, dict):
+                uri = existing.get("uri")
+                if isinstance(uri, str) and uri.strip():
+                    return _resolve_existing_repo_path(
+                        repo, uri, field_name="projection_payload"
+                    )
 
-    reusable = load_reusable_projection_payload(
-        repo,
-        payload_data,
-        authored_overlay_sha256=overlay_digest,
-        requested_session_id=session_id,
-    )
-    if reusable is not None:
-        existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
-        if isinstance(existing, dict):
-            uri = existing.get("uri")
-            if isinstance(uri, str) and uri.strip():
-                return _resolve_existing_repo_path(
-                    repo, uri, field_name="projection_payload"
-                )
+        # Build from the already-verified snapshot; do not reopen protected artifacts.
+        projection_payload = build_projection_payload_from_verified_snapshot(
+            snapshot,
+            session_id=session_id,
+        )
+        depends_on = snapshot.dependency_contract.to_dict()
+        if snapshot.known_entity_mentions_sha256 and isinstance(projection_payload, dict):
+            projection_payload = {
+                **projection_payload,
+                "known_entity_mentions_contract": True,
+                "known_entity_mentions_sha256": (
+                    f"sha256:{snapshot.known_entity_mentions_sha256}"
+                ),
+                "projection_depends_on": depends_on,
+            }
+        elif isinstance(projection_payload, dict):
+            projection_payload = {
+                **projection_payload,
+                "projection_depends_on": depends_on,
+            }
 
-    projection_payload = build_plan_union_supergraph_projection_payload(
-        session_id=session_id,
-        graph_run_manifest_path=manifest_full,
-    )
-    depends_on = projection_build_dependencies(
-        repo,
-        payload_data,
-        authored_overlay_sha256=overlay_digest,
-    )
-    if has_known_entity and isinstance(projection_payload, dict):
-        projection_payload = {
-            **projection_payload,
-            "known_entity_mentions_contract": True,
-            "known_entity_mentions_sha256": f"sha256:{sidecar_digest}",
-            "projection_depends_on": depends_on,
+        token_t1 = manifest_content_token(manifest_full)
+        if token_t1 != token_t0:
+            raise ValueError(
+                "graph-ingest manifest changed concurrently during projection "
+                "persistence; refusing to overwrite newer run state"
+            )
+
+        # Re-parse under lock so we mutate current bytes, not a stale pre-lock copy.
+        payload_data = json.loads(manifest_full.read_text(encoding="utf-8"))
+        if not isinstance(payload_data, dict):
+            raise ValueError("graph-ingest manifest payload must be an object")
+        artifacts = dict(
+            payload_data.get("artifacts")
+            if isinstance(payload_data.get("artifacts"), dict)
+            else {}
+        )
+
+        projection_path = manifest_full.parent / "projection_payload.json"
+        projection_path.write_text(
+            json.dumps(projection_payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        artifacts[GraphIngestArtifactKind.PROJECTION_PAYLOAD.value] = {
+            "kind": GraphIngestArtifactKind.PROJECTION_PAYLOAD.value,
+            "uri": _repo_relative(projection_path, repo),
+            "schema": PROJECTION_SCHEMA,
+            "exists": True,
+            "preview_only": True,
+            "sha256": (
+                f"sha256:{hashlib.sha256(projection_path.read_bytes()).hexdigest()}"
+            ),
+            "depends_on": depends_on,
         }
-    elif isinstance(projection_payload, dict):
-        projection_payload = {
-            **projection_payload,
-            "projection_depends_on": depends_on,
-        }
-    projection_path = manifest_full.parent / "projection_payload.json"
-    projection_path.write_text(
-        json.dumps(projection_payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    artifacts = dict(artifacts)
-    artifacts[GraphIngestArtifactKind.PROJECTION_PAYLOAD.value] = {
-        "kind": GraphIngestArtifactKind.PROJECTION_PAYLOAD.value,
-        "uri": _repo_relative(projection_path, repo),
-        "schema": "dmb_recap_graph_projection_v0",
-        "exists": True,
-        "preview_only": True,
-        "sha256": f"sha256:{hashlib.sha256(projection_path.read_bytes()).hexdigest()}",
-        "depends_on": depends_on,
-    }
-    payload_data["artifacts"] = artifacts
-    manifest_full.write_text(json.dumps(payload_data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return projection_path
+        payload_data["artifacts"] = artifacts
+        manifest_full.write_text(
+            json.dumps(payload_data, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return projection_path
 
 
 def _stamp_known_entity_artifact_digest(
