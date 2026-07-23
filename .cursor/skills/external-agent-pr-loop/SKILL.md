@@ -17,10 +17,11 @@ description: >-
 # External-agent PR loop — runbook
 
 This is *how* to run each stage in the smallest possible token budget. The
-non-negotiable invariants (must-include §4 allowlist, "test the boundary that
-owns the rubric", atomic doc-sync, rubric-as-learning-surface) live in
-`.cursor/rules/external-agent-pr-loop.mdc`. Read that rule once for the
-contract; come back here for the procedure.
+non-negotiable invariants — critique before dispatch, one merge-ready invariant,
+a truthful PR evidence ledger, §4 allowlist, owning-boundary/sequence proof,
+atomic doc-sync, and rubric-as-learning-surface — live in
+`.cursor/rules/external-agent-pr-loop.mdc`. Read that rule once for the contract;
+come back here for the procedure.
 
 For **in-IDE** subagents (the parent agent dispatches a `Task` and reads its
 output), follow `.cursor/rules/subagent-delegation.mdc` instead. In this
@@ -29,17 +30,21 @@ unless a hard blocker makes delegation impossible.
 
 ## The loop
 
-```
-HANDOFF write  →  external PR opens  →  judgment record  →  doc sync (atomic)
-   (parent)         (external agent)        (parent)       (doc-sync subagent)
+```text
+invariant + evidence critique
+  → HANDOFF write
+  → external PR opens with merge contract
+  → judgment record
+  → doc sync (atomic)
 ```
 
 The cycle does **not** end at "merged green" — it ends when plan YAML,
-checklist, and handoff status all match `main`.
+checklist, handoff status, learned invariant, and evidence requirements all
+match `main`.
 
 ---
 
-## Stage 1 — Author the HANDOFF
+## Stage 1 — Critique and author the HANDOFF
 
 > **Re-anchor first.** A HANDOFF is downstream of the workstream-scope
 > re-anchor (CHECKLIST Reanchor block + PLAN frontmatter +
@@ -56,13 +61,18 @@ archive index can match handoff ↔ PR at a glance (see `AGENTS.md` §
 1. Copy `templates/HANDOFF.template.md` from this skill folder to
    `Docs/Plans/HANDOFF-pr<N>-<short-slug>.md`.
 2. Fill every `{{TODO: …}}` slot. Do **not** delete a section; the worker and
-   the reviewer scripts both expect §1–§9.
-3. **Optional:** keep the YAML frontmatter block at the top (`pr_body_template`)
-   when you want one canonical PR-body shape (especially for parallel external
-   workers). The worker pastes that markdown into GitHub; it is **not** parsed
-   by `review_external_pr.py` today — it is discipline-only. Delete the whole
-   `---` … `---` block if you prefer a prose-only handoff.
-4. Run the **collision-risk pre-flight** before sending:
+   reviewer scripts both expect §1–§9.
+3. Complete the §1 pre-dispatch critique before implementation launches:
+   - can one invariant govern every claimed observable path;
+   - what adversarial sequence is most likely to falsify it;
+   - would the proposed §7 evidence actually detect that failure;
+   - what fact forces a split or stop.
+4. Keep the YAML `pr_body_template` frontmatter. It is the mandatory PR-body
+   skeleton. The worker copies it into GitHub and keeps the invariant, required
+   evidence, produced results, provenance, gaps, waivers, and stop conditions
+   current. `review_external_pr.py` does not parse the body today, so reviewers
+   must compare it manually against §1 and §7.
+5. Run the **collision-risk pre-flight** before sending:
 
    ```bash
    rg -l "test_<basename>" tests/ || true
@@ -72,18 +82,26 @@ archive index can match handoff ↔ PR at a glance (see `AGENTS.md` §
    If anything matches, name the conflict in §5 explicitly. The agent cannot
    see your WIP branches or other open PRs.
 
-### Rubric ↔ verification pairing (the round-1 trap)
+### Invariant ↔ evidence pairing
 
-For every §9 rubric bullet that asserts a behavioral guarantee (e.g. "byte-
-identical when flag X is unset", "error payload on load fail, never raises"),
-§7 MUST include a command that exercises that guarantee at the boundary the
-rubric describes (harness, dispatcher, writer — whichever owns the contract).
-Loader-side or unit-side coverage is necessary but not sufficient.
+For every §9 rubric bullet that asserts a behavioral guarantee, §7 MUST name:
 
-This trap is exactly what cost PR #4 a round of rework: §9 named two harness-
-boundary safety properties, §7 only covered them at the loader boundary, the
-worker built faithfully to the lower bar, and the harness `try/except` arm went
-untested. Round 2 added the missing harness tests.
+- the owning boundary;
+- the evidence class;
+- the command or scenario;
+- the expected observation;
+- the result that blocks merge.
+
+For stateful, concurrent, cross-surface, navigation, or partially durable work,
+§3 must enumerate the ordered failure sequence and §7 must exercise it. A helper
+unit test cannot prove a workflow invariant.
+
+Two fix-loop lessons anchor this rule:
+
+- PR #4 named harness-boundary safety properties but tested only the loader.
+- PR #399 initially tested individual authoring pieces while missing
+  post-commit interleavings, surface-to-agent leakage, editor hydration/first
+  transaction behavior, and parent update re-entry.
 
 ---
 
@@ -93,6 +111,17 @@ untested. Round 2 added the missing harness tests.
 Three idempotent subcommands, all read-only by default; only `verify` mutates
 the working tree (auto-stash + checkout + restore) and only `post` writes to
 GitHub.
+
+Before reading implementation details, compare the PR description to the
+handoff:
+
+1. Outcome matches §1 Mission verbatim.
+2. Merge-ready invariant matches §1 verbatim.
+3. Every material §7 guarantee appears in the evidence ledger.
+4. Required evidence is distinguished from evidence actually produced.
+5. Missing proof, waivers, and stop conditions are visible.
+
+A generic “Summary / Test plan” body is a review finding.
 
 ### 2a. Fetch + check allowlist / denylist / §7 commands
 
@@ -134,11 +163,11 @@ restores `main`, pops the stash. Returns
 `{passed, head_sha, results: [{command, exit_code, tail, passed_count?}]}`.
 
 Never trust the PR description's "all green" — sandbox / runner differences
-and silent skips happen.
+and silent skips happen. Treat the handoff's `verification_commands[]` as
+authoritative for command count; prose counts often drift.
 
-Treat **§0** / `fetch`'s `verification_commands[]` as authoritative for how many
-§7 commands exist — handoff prose counts often drift; see `Backlog.md`
-(2026-05-10, HANDOFF §0 vs parser) before "fixing" the extractor.
+After commands pass, review the adversarial sequences manually. A green command
+list does not prove that §7 selected the right sequence or owning boundary.
 
 ### 2c. Post the verdict
 
@@ -153,14 +182,13 @@ pr_number: <N>
 verdict: approve         # or request_changes / comment
 ---
 
-<review body — anything before the first @comment marker.
-Multi-line, backticks, code fences, headings — all native markdown.>
+<review body — begin with invariant disposition and evidence gaps.>
 
 @comment <path>:<line>[:<side>]
 <inline-comment markdown until the next @comment or EOF>
 
 @comment <path>:<line>
-<another inline comment — side defaults to RIGHT (the new file)>
+<another inline comment — side defaults to RIGHT>
 ```
 
 Then:
@@ -170,68 +198,67 @@ uv run python scripts/review_external_pr.py post \
   --review-md /tmp/pr-<N>-round<R>-review.md
 ```
 
-**Self-review 422.** If you opened the PR and you are reviewing it (common on
-this repo — parent and Codex worker often share an account), GitHub blocks
+**Self-review 422.** If you opened the PR and you are reviewing it, GitHub blocks
 `REQUEST_CHANGES` and `APPROVE`. The script automatically falls back to
-`event: COMMENT` and prepends a verdict banner to the body. The verdict
-*signal* is preserved; the merge button just doesn't get auto-greened.
+`event: COMMENT` and prepends a verdict banner. The verdict signal is preserved.
 
-**Inline-comment anchoring.** `<line>` must be a line that appears as
-**added or modified** in the PR's "Files changed" view, not a context line.
-GitHub returns 422 with no useful message otherwise. `<side>` defaults to
-`RIGHT` (the new file).
+**Inline-comment anchoring.** `<line>` must be an added or modified line in the
+PR's Files changed view, not a context line. `<side>` defaults to `RIGHT`.
+
+### 2d. Re-review after fixes
+
+Review only the new delta first, then re-evaluate the complete merge-ready
+invariant and evidence ledger. A patch closes a finding only when it eliminates
+the failure sequence rather than moving it elsewhere. New adversarial sequences
+become new §7 requirements and judgment-record learning.
 
 ---
 
 ## Stage 3 — Capture the judgment record
 
-After accepting / closing the PR, prepend (or update) an entry under
+After accepting / closing the PR, prepend or update an entry under
 `external_pull_requests[]` in the relevant `Docs/Plans/PLAN-*.md`. Use
 `templates/external_pr_yaml.template` as the skeleton.
+
+Record:
+
+- the invariant judged;
+- evidence that proved it;
+- missing evidence or waivers;
+- fix-loop lessons added to `rubric_when_we_judge`.
 
 **Two non-negotiable properties:**
 
 1. **The rubric is a learning surface.** Every supersession MUST add a bullet
    under `rubric_when_we_judge`. Every accepted PR SHOULD leave the rubric
    tightened — same bullets two PRs in a row is a smell.
-2. **Stale-note discipline.** Notes that describe what the PR *did* age well.
-   Notes that describe what is *still pending* age badly. Re-verify any
-   temporal claim in `judgment_record.notes` before quoting it elsewhere.
+2. **Stale-note discipline.** Notes that describe what the PR did age well.
+   Notes that describe what is still pending age badly. Re-verify temporal
+   claims before quoting them elsewhere.
 
 ---
 
 ## Stage 4 — Merge + atomic doc-sync (one batch)
 
-After the verdict is APPROVE, the **next single unit of work** runs the
-merge ceremony AND updates plan + checklist + handoff. **Do it as one edit
-batch.** Splitting across turns leaves a contradictory-state window where a
-fresh agent reads "pending" while `main` already has the change.
+After the verdict is APPROVE, the **next single unit of work** runs the merge
+ceremony AND updates plan + checklist + handoff. Do it as one edit batch.
+Splitting across turns leaves a contradictory-state window.
 
 ### 4.0 Delegation policy (mandatory)
 
 For token economy, Stage 4b doc-sync is **subagent-first**:
 
-- Dispatch an in-IDE execution subagent for doc-sync edits (prefer `composer-2`
-  tier for this mechanical sync work).
-- Prefer auto/background execution (`run_in_background: true`) when the task
-  can proceed unattended; foreground only when immediate human steering is
-  required.
-- The parent remains accountable for correctness: review the subagent diff,
-  run any required checks, and ensure the final batch is atomic before closing
-  the cycle.
-- Only skip delegation if there is a concrete blocker (subagent tooling outage,
-  permission limitation, or unresolved conflict that requires parent-only
-  judgment). If skipped, note the reason in the session log/doc-sync notes.
+- Dispatch an in-IDE execution subagent for doc-sync edits.
+- Prefer auto/background execution when the task can proceed unattended.
+- The parent remains accountable for reviewing the diff and checks.
+- Skip delegation only for a concrete tooling, permission, or judgment blocker;
+  record the reason.
 
-> **The doc-sync edit list below IS the workstream-scope re-anchor act,
-> written down.** When in doubt about which fields a re-anchor must cover —
-> or what makes the workstream-scope sources trustworthy in the first
-> place — read `.cursor/rules/anchor.mdc` (on-demand). The five-step
-> "act-of-re-anchoring" checklist there is what 4b implements concretely.
+> The doc-sync edit list below is the workstream-scope re-anchor act. Read
+> `.cursor/rules/anchor.mdc` when canonical-source or scope questions arise.
 
 After local `main` updates post-merge, confirm the integration tip with
-`git rev-parse HEAD` / `git show -s` — not `git log --oneline` alone when merge
-commits may be omitted (`AGENTS.md`, Git history and merge commits).
+`git rev-parse HEAD` / `git show -s`.
 
 ### 4a. Merge ceremony — one subcommand
 
@@ -257,59 +284,46 @@ Returns JSON with the data the post-merge atomic doc-sync needs:
 }
 ```
 
-The subcommand pre-checks dirty-tree overlap (which PR-touched files
-intersect `git status --porcelain`), stashes only when overlap exists, runs
-`git pull --ff-only`, and pops afterward — replacing the 9-call
-`gh + git + sed` ceremony.
+The subcommand pre-checks dirty-tree overlap, stashes only when overlap exists,
+runs `git pull --ff-only`, and pops afterward.
 
 Defaults that match this repo:
-- `--strategy merge` (matches PR #2/#3/#4 merge-commit shape; override for
-  squash/rebase).
-- `--delete-branch` is on; pass `--no-delete-branch` to keep the head ref.
-- Refuses to merge unless `mergeStateStatus == CLEAN`; pass `--force` to
-  override (rebase-required, branch-protection-blocked, etc.).
 
-**Idempotent.** If the PR is already merged (you re-run after a partial
-sync), the subcommand short-circuits to capture-state mode and emits the
-same JSON without touching GitHub or the local tree. Useful when the
-post-merge `git pull` failed and you need to recover the merge data without
-re-merging.
+- `--strategy merge`; override for squash/rebase.
+- `--delete-branch` is on; use `--no-delete-branch` to keep the head ref.
+- Refuses to merge unless `mergeStateStatus == CLEAN`; `--force` is explicit.
 
-**When pop conflicts.** If `stash_pop_clean: false` in the output, the
-command exits 1 and leaves the conflict for you to resolve manually
-(`git status` to see, `git stash drop` after fixing). The merge itself is
-already done on `origin/main` — only the local working-tree restore failed.
+**Idempotent.** If the PR is already merged, the command short-circuits to
+capture-state mode and emits the same JSON without touching GitHub.
+
+**When pop conflicts.** If `stash_pop_clean: false`, the merge already happened
+on `origin/main`; resolve the local restore manually.
 
 ### 4b. Doc-sync edits (same turn as 4a)
 
-With `merge_commit` and `merged_at` from 4a's JSON output, update ALL of
-the following in one edit batch:
+With `merge_commit` and `merged_at` from 4a, update all of the following in one
+edit batch.
 
 #### Plan (`Docs/Plans/PLAN-*.md`)
 
-- Frontmatter: bump `version`, set `last_updated_at` to UTC now.
-- `changelog`: prepend a one-liner referencing the merge commit short hash.
-- `execution_state`: `next_gate_command`, `integration_notes` (full merge
-  hash), `flagged_followups`, `milestone_progress`.
-- `external_pull_requests[]`: prepend the new entry from Stage 3 (use
-  `templates/external_pr_yaml.template`).
-- *Current state snapshot* prose, *Primary files* for the affected phase,
-  *workstream checklist* checkboxes.
+- Frontmatter: bump `version`, set `last_updated_at`.
+- `changelog`: prepend a merge line.
+- `execution_state`: next gate, integration notes, follow-ups, progress.
+- `external_pull_requests[]`: prepend/update the Stage 3 entry.
+- Current-state prose, primary files, and checklist state.
+- Carry forward the accepted invariant and newly learned evidence requirements.
 
 #### Checklist (`Docs/Plans/CHECKLIST-*.md`)
 
-- *Reanchor block*: `Last green artifact (path)`, `Open promotion-decision artifact` (or equivalent: distinguish measurement/promotion artifacts from failing committed `--check` gates),
-  `Next command to run`.
-- *Phase Evidence*: file list, test counts, command outputs from §7.
-- *Session log*: prepend a new entry. Use
-  `templates/session_log.template`.
+- Reanchor block: last green artifact, open decision artifact, next command.
+- Phase Evidence: file list, command results, adversarial/manual proof.
+- Session log: prepend a new entry using `templates/session_log.template`.
 
 #### Handoff
 
-- One-line completion banner at top with merge hash + round commits +
-  key follow-ups.
-- Move file to `Docs/Plans/archive/<YYYY-MM-DD>/handoffs/`.
-- Update that date's archive `README.md` `handoffs/` row.
+- Completion banner with merge hash, review rounds, and follow-ups.
+- Move to `Docs/Plans/archive/<YYYY-MM-DD>/handoffs/`.
+- Update that archive's `README.md`.
 
 ---
 
@@ -320,59 +334,49 @@ the following in one edit batch:
 | Command | Purpose | Mutates? |
 |---|---|---|
 | `fetch <N> --handoff <path> [--extract-rubric]` | PR metadata + allowlist + denylist + §7 commands (+ optional §9 bullets) | no |
-| `verify <N> --handoff <path> [--parse-counts]` | Stash, checkout, run §7, restore (+ optional `passed_count` per command) | yes (auto-restored) |
+| `verify <N> --handoff <path> [--parse-counts]` | Stash, checkout, run §7, restore | yes (auto-restored) |
 | `post --review-md <path>` | Post review with inline comments | yes (GitHub) |
 | `merge <N>` | Merge, ff local main, auto-stash overlap, emit doc-sync data | yes (GitHub + local tree) |
 
 ### Common pitfalls
 
+- ❌ Dispatching before the invariant and required evidence survive critique.
 - ❌ Briefing without §4 allowlist or §7 verification.
-- ❌ Silently expanding scope in review for a "tiny adjacent fix" — revert,
-  re-brief.
-- ❌ Accepting a green PR description without rerunning §7 yourself.
-- ❌ Treating "merged" as the end of the cycle — the next agent reads stale
-  docs.
-- ❌ Doing Stage 4b doc-sync manually in the strong parent model when a
-  subagent could do it (wastes expensive tokens and breaks the default path).
-- ❌ Reusing a `judgment_record.notes` block weeks later without re-verifying
-  its temporal claims.
-- ❌ Identical `rubric_when_we_judge` two PRs in a row after a supersession —
-  supersessions teach the rubric.
-- ❌ Reproducing the manual `gh + git + sed` dance instead of using
-  `scripts/review_external_pr.py`.
-- ❌ Writing a one-shot Python wrapper to JSON-encode review bodies (use
-  `--review-md`).
-- ❌ Building inline-comment payloads in shell with backticked code blocks
-  (heredoc / `cat <<EOF`) — the shell tries to interpret backticks as
-  command substitution.
-- ❌ Hand-anchoring inline comments to context lines (anchor to additions /
-  modifications only).
-- ❌ Writing a §9 rubric bullet for a behavioral guarantee without naming the
-  §7 command that tests it at the right boundary.
+- ❌ Deleting the mandatory `pr_body_template` or opening a generic Summary/Test plan PR.
+- ❌ Silently expanding scope in review for a “tiny adjacent fix.”
+- ❌ Accepting a green PR description without rerunning §7.
+- ❌ Testing only a helper when the guarantee lives in a workflow or ordered sequence.
+- ❌ Treating merged as the end of the cycle.
+- ❌ Doing Stage 4b in the strong parent model when a subagent can do it.
+- ❌ Reusing stale judgment notes without verification.
+- ❌ Identical `rubric_when_we_judge` after a supersession.
+- ❌ Reproducing the manual `gh + git + sed` dance.
+- ❌ Writing one-shot JSON wrappers for review bodies; use `--review-md`.
+- ❌ Anchoring inline comments to context lines.
+- ❌ Writing a §9 behavioral claim without owning-boundary and adversarial proof.
 
 ### When the scripts can't help
 
-- Handoff structure diverges from §1–§9 — `fetch` will produce empty
-  allowlists; do manual review.
-- GitHub API outage — fall back to `gh pr review` interactive or the web UI.
-- A §7 command needs interactive input (GUI test, browser launch) — add a
-  fixture or mark `xfail`; do not bypass.
+- Handoff structure diverges from §1–§9 — `fetch` may produce empty allowlists;
+  do manual review.
+- PR-body invariant/evidence comparison is manual until tooling parses it.
+- GitHub API outage — fall back to `gh pr review` or the web UI.
+- A §7 command needs interactive input — add a fixture or record a manual proof;
+  do not silently bypass it.
 
 ---
 
 ## References
 
 - Contract / invariants: `.cursor/rules/external-agent-pr-loop.mdc`
-- Re-anchor act (on-demand, scopes + canonical sources + 5-step checklist):
-  `.cursor/rules/anchor.mdc`
-- Sibling rules: `subagent-delegation.mdc` (two-model workflow + delegation),
-  `dungeonbuddy-git-workflow.mdc`
-- Templates (this skill folder):
+- Merge contract design: `Docs/Design/DESIGN-merge-ready-invariant-evidence.md`
+- Re-anchor act: `.cursor/rules/anchor.mdc`
+- Sibling rules: `subagent-delegation.mdc`, `dungeonbuddy-git-workflow.mdc`
+- Templates:
   - `templates/HANDOFF.template.md`
   - `templates/external_pr_yaml.template`
   - `templates/session_log.template`
-- Canonical handoff (PR #3): `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-phase-b-route-equivalence-artifact-output.md`
-- Canonical handoff with the boundary-test rubric (PR #4): `Docs/Plans/archive/2026-05-10/handoffs/HANDOFF-phase-c-route-equivalence-shadow-consumer.md`
-- Plan with `external_pull_requests[]`: `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md`
-- Checklist with Reanchor + Session log: `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md`
+- Canonical handoffs: `Docs/Plans/archive/2026-05-10/handoffs/`
+- Plan example: `Docs/Plans/PLAN-split-corpus-retrieval-to-autonomous-demo.md`
+- Checklist example: `Docs/Plans/CHECKLIST-dynamic-lexical-retrieval-rollout.md`
 - Cross-project learning: `~/.cursor/learnings/Backlog.md` — `[READY] External-agent PR loop`.
