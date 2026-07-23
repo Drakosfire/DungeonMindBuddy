@@ -361,9 +361,9 @@ def _list_draft_records_unlocked(
                 request_id=request_id,
             )
         )
-    # Abandoned files may temporarily exceed the physical bound; claim prunes them
-    # before writing a new active record. Fail closed only when active records alone
-    # exceed the bound (corruption / runaway pending).
+    # Abandoned recovery material may exceed the active physical bound; it is
+    # retained deliberately for Server replay. Fail closed only when active
+    # records alone exceed the bound (corruption / runaway pending).
     if _active_record_count(records) > MAX_RECORDS_PER_DRAFT:
         raise GenerationReconciliationError(
             "generation reconciliation storage bound exceeded",
@@ -376,26 +376,6 @@ def _is_pending_expired(record: GenerationReconciliationRecordV1, *, now: dateti
     if record.status != "pending" or not record.claim_expires_at:
         return False
     return _parse_iso(record.claim_expires_at) <= now
-
-
-def _delete_record_unlocked(
-    root: Path,
-    *,
-    draft_id: str,
-    draft_version: int,
-    request_id: str,
-) -> None:
-    path = _record_path(
-        root,
-        draft_id=draft_id,
-        draft_version=draft_version,
-        request_id=request_id,
-    )
-    try:
-        if path.is_file():
-            path.unlink()
-    except OSError:
-        raise _storage_unavailable() from None
 
 
 def _abandon_record_unlocked(
