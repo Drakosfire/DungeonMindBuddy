@@ -271,9 +271,58 @@ Stop if:
 - downstream success can be lost without any durable candidate locator;
 - a path outside the allowlist is required.
 
+## §12 Operation-authority durability model (normative)
+
+**Success claim**
+
+```text
+For every candidate-generation request that may have reached DungeonMindServer,
+Buddy retains a valid recovery path, an independently durable candidate locator,
+or authoritative proof the operation is terminal. Storage pressure never destroys
+unresolved evidence.
+```
+
+### Authority states
+
+| Status | Meaning |
+|---|---|
+| `dispatched_unknown` | Pre-dispatch claim written; Server outcome unknown (timeouts live here) |
+| `candidate_received` | Server returned `candidate_id`; locator durable in journal before cache/ref |
+| `reconciled` | Success authority closed; `materialization.draft_ref == attached` |
+| `terminal_failure` | Authoritative non-success with terminal proof fields |
+| `terminal_expired` | Server-proven expiry (not local wall-clock alone) |
+
+Materialization (`cache` / `draft_ref`: `missing` \| `stored`/`attached` \| `failed`) is tracked separately and must not demote authority.
+
+### Compaction
+
+Full records may be replaced by `dmb_statblock_generation_tombstone_v1` only when:
+
+1. `reconciled` with draft-ref lineage proof, or
+2. `terminal_failure` / `terminal_expired` with stored terminal proof.
+
+Tombstones retain `request_digest` for same-key body-conflict (409). Replay never falls through to the current draft-version gate merely because a full record was compacted.
+
+### Capacity
+
+- Full operations: `MAX_OPERATION_RECORDS_PER_DRAFT = 128`
+- Tombstones: `MAX_TOMBSTONES_PER_DRAFT = 512`
+- Draft refs: 64 (unchanged)
+
+New unique request IDs may be refused under honest backpressure. Unresolved `dispatched_unknown` / unattached `candidate_received` are never deleted to admit new work.
+
+### Schemas
+
+- Full: `dmb_statblock_generation_operation_v2`
+- Tombstone: `dmb_statblock_generation_tombstone_v1`
+- Legacy `dmb_statblock_generation_request_v1` upgrades on read (`pending`/`abandoned` → `dispatched_unknown`, etc.)
+
+Implementation: `apps/live_control_server/services/statblock_generation_reconciliation.py` + orchestrator in `statblock_candidate_generation.py`.
+
 ## Final dispatch check
 
 - [ ] Re-anchor after `SBW01–02` merge.
 - [ ] Capture real Server success and error vocabulary.
 - [ ] Confirm candidate cache is disposable/non-authoritative.
 - [ ] Confirm `SBW04+` remain unimplemented.
+- [ ] Operation-authority durability model (§12) implemented and proven under adversarial transitions.

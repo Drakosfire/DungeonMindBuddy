@@ -32,13 +32,18 @@ from apps.live_control_server.services.statblock_candidate_cache import (
     store_candidate_payload,
 )
 from apps.live_control_server.services.statblock_generation_reconciliation import (
+    GenerationOperationV2,
     GenerationReconciliationError,
+    GenerationTombstoneV1,
     claim_generation_request,
     finalize_generation_request,
     load_received_candidate,
     read_reconciliation,
     record_generation_received,
+    record_terminal_expired,
+    record_terminal_failure,
     request_digest_for_body,
+    update_materialization,
     validate_request_id,
 )
 from apps.live_control_server.services.threat_draft_store import (
@@ -191,6 +196,7 @@ def _persist_candidate_artifacts(
     request_digest: str,
     ref_candidate_ids: set[str] | None = None,
 ) -> GenerateThreatDraftCandidateResponseV1:
+    del ref_candidate_ids
     try:
         candidate_ref = _candidate_ref_from_payload(
             candidate, draft_version=draft_version, request_id=request_id
@@ -210,9 +216,8 @@ def _persist_candidate_artifacts(
         )
 
     failures: list[PersistenceFailureV1] = []
-    reconciliation_bound = False
     try:
-        # Durably bind locator before any disposable cache/ref write.
+        # Authority first: candidate_received before disposable cache/ref writes.
         record_generation_received(
             root,
             draft_id=draft_id,
@@ -220,39 +225,28 @@ def _persist_candidate_artifacts(
             request_id=request_id,
             request_digest=request_digest,
             candidate=candidate,
-            ref_candidate_ids=ref_candidate_ids,
         )
     except GenerationReconciliationError as exc:
         mapped = _map_reconciliation_error(exc)
         if mapped is not None:
             raise mapped from None
-        # Active bound with no safe eviction: keep abandoned recovery body and
-        # still surface the Server candidate rather than reporting total failure.
-        if "storage bound" in str(exc):
-            reconciliation_bound = True
-            failures.append(
-                PersistenceFailureV1(
-                    component="reconciliation",
-                    category="integrity_failure",
-                    message=str(exc),
-                )
-            )
-        else:
-            return GenerateThreatDraftCandidateResponseV1(
-                draft_id=draft_id,
-                generated_from_draft_version=draft_version,
-                request_id=request_id,
-                outcome="failure",
-                candidate_ref=candidate_ref,
-                candidate=candidate,
-                failure_category="integrity_failure",
-                failure_message=str(exc),
-                cache_status="missing",
-            )
+        return GenerateThreatDraftCandidateResponseV1(
+            draft_id=draft_id,
+            generated_from_draft_version=draft_version,
+            request_id=request_id,
+            outcome="failure",
+            candidate_ref=candidate_ref,
+            candidate=candidate,
+            failure_category="integrity_failure",
+            failure_message=str(exc),
+            cache_status="missing",
+        )
 
+    cache_state: Literal["stored", "failed"] = "stored"
     try:
         store_candidate_payload(root, candidate)
     except CandidateCacheError as exc:
+        cache_state = "failed"
         failures.append(
             PersistenceFailureV1(
                 component="cache",
@@ -261,6 +255,7 @@ def _persist_candidate_artifacts(
             )
         )
 
+    ref_attached = False
     try:
         append_candidate_ref(
             root,
@@ -268,6 +263,7 @@ def _persist_candidate_artifacts(
             expected_version=draft_version,
             candidate_ref=candidate_ref,
         )
+        ref_attached = True
     except ThreatDraftStoreError as exc:
         failures.append(
             PersistenceFailureV1(
@@ -277,25 +273,38 @@ def _persist_candidate_artifacts(
             )
         )
 
-    if not reconciliation_bound:
-        try:
-            finalize_generation_request(
+    try:
+        if ref_attached:
+            update_materialization(
                 root,
                 draft_id=draft_id,
                 draft_version=draft_version,
                 request_id=request_id,
                 request_digest=request_digest,
-                candidate_id=candidate.candidate_id,
+                cache=cache_state,
+                draft_ref="attached",
+                ref_entries=[(candidate.candidate_id, request_id)],
+                compact_if_eligible=True,
             )
-        except GenerationReconciliationError as exc:
-            # Locator already durable in received form; do not mislabel as ref failure.
-            failures.append(
-                PersistenceFailureV1(
-                    component="reconciliation",
-                    category="integrity_failure",
-                    message=str(exc),
-                )
+        else:
+            update_materialization(
+                root,
+                draft_id=draft_id,
+                draft_version=draft_version,
+                request_id=request_id,
+                request_digest=request_digest,
+                cache=cache_state,
+                draft_ref="failed",
+                compact_if_eligible=False,
             )
+    except GenerationReconciliationError as exc:
+        failures.append(
+            PersistenceFailureV1(
+                component="reconciliation",
+                category="integrity_failure",
+                message=str(exc),
+            )
+        )
 
     cache_status = _cache_status_from_failures(failures)
 
@@ -399,6 +408,8 @@ def _call_server_generate(
     draft_version: int,
     request_id: str,
     client: StatblockV1Client | None,
+    root: Path | None = None,
+    request_digest: str | None = None,
 ) -> GeneratedStatblockCandidateV1 | GenerateThreatDraftCandidateResponseV1:
     active_client = client or DungeonMindStatblockV1Client()
     owns_client = client is None
@@ -415,10 +426,59 @@ def _call_server_generate(
                 or "generation request is already in progress downstream",
             )
         if exc.error_code == "idempotency_conflict":
+            if root is not None and request_digest is not None:
+                try:
+                    record_terminal_failure(
+                        root,
+                        draft_id=draft_id,
+                        draft_version=draft_version,
+                        request_id=request_id,
+                        request_digest=request_digest,
+                        terminal_code="idempotency_conflict",
+                        terminal_message=exc.message or "generation idempotency conflict",
+                    )
+                except GenerationReconciliationError:
+                    pass
             raise ThreatDraftStoreError(
                 exc.message or "generation idempotency conflict",
                 status_code=409,
             ) from None
+        # Definitive downstream validation / auth refusals become terminal.
+        if exc.category in {
+            "downstream_validation_failed",
+            "downstream_unauthorized",
+            "downstream_forbidden",
+        }:
+            if root is not None and request_digest is not None:
+                try:
+                    record_terminal_failure(
+                        root,
+                        draft_id=draft_id,
+                        draft_version=draft_version,
+                        request_id=request_id,
+                        request_digest=request_digest,
+                        terminal_code=exc.error_code or exc.category,
+                        terminal_message=exc.message or exc.category,
+                    )
+                except GenerationReconciliationError:
+                    pass
+        if exc.category == "downstream_gone" or exc.error_code in {
+            "candidate_expired",
+            "generation_expired",
+        }:
+            if root is not None and request_digest is not None:
+                try:
+                    record_terminal_expired(
+                        root,
+                        draft_id=draft_id,
+                        draft_version=draft_version,
+                        request_id=request_id,
+                        request_digest=request_digest,
+                        terminal_code=exc.error_code or "candidate_expired",
+                        terminal_message=exc.message or "candidate expired",
+                    )
+                except GenerationReconciliationError:
+                    pass
         return _failure(
             draft_id=draft_id,
             draft_version=draft_version,
@@ -434,21 +494,11 @@ def _call_server_generate(
 def _recover_uncertain_with_stored_body(
     root: Path,
     *,
-    record,
+    record: GenerationOperationV2,
     client: StatblockV1Client | None,
     ref_candidate_ids: set[str] | None = None,
 ) -> GenerateThreatDraftCandidateResponseV1:
-    """Recover pending/abandoned claims using the durable request body.
-
-    Does not require the draft to still be at the claim's source version — the
-    stored body is the immutable generate payload for Server replay.
-
-    Abandoned recovery must reach Server even when draft refs are at capacity;
-    attach may then report partial_ref rather than blocking recovery. When the
-    active reconciliation bound is full, reclaim frees only a completed record
-    whose candidate is already on the draft; otherwise the abandoned body is
-    retained and Server replay still proceeds without destroying other locators.
-    """
+    """Recover dispatched_unknown using the durable request body."""
     if record.request_body is None:
         return _failure(
             draft_id=record.draft_id,
@@ -468,46 +518,62 @@ def _recover_uncertain_with_stored_body(
         )
 
     refs = ref_candidate_ids or set()
-    body = record.request_body
-    if record.status == "abandoned":
-        # Reclaim when safe; otherwise keep abandoned and Server-replay anyway.
-        try:
-            claim_status, claim = claim_generation_request(
-                root,
-                draft_id=record.draft_id,
-                draft_version=record.draft_version,
-                request_id=record.request_id,
-                request_digest=request_digest,
-                request_body=record.request_body,
-                ref_candidate_ids=refs,
-            )
-        except GenerationReconciliationError as exc:
-            mapped = _map_reconciliation_error(exc)
-            if mapped is not None:
-                raise mapped from None
-            return _failure(
-                draft_id=record.draft_id,
-                draft_version=record.draft_version,
-                request_id=record.request_id,
-                category="integrity_failure",
-                message=str(exc),
-            )
-        if claim_status in {"received", "completed"}:
-            return _replay_from_record(
-                root,
-                record=claim,
-                request_digest=request_digest,
-                client=client,
-                ref_candidate_ids=refs,
-            )
-        body = claim.request_body or record.request_body
+    # Refresh claim / observe durable outcomes without inventing terminality.
+    try:
+        claim_status, claim = claim_generation_request(
+            root,
+            draft_id=record.draft_id,
+            draft_version=record.draft_version,
+            request_id=record.request_id,
+            request_digest=request_digest,
+            request_body=record.request_body,
+            ref_candidate_ids=refs,
+        )
+    except GenerationReconciliationError as exc:
+        mapped = _map_reconciliation_error(exc)
+        if mapped is not None:
+            raise mapped from None
+        return _failure(
+            draft_id=record.draft_id,
+            draft_version=record.draft_version,
+            request_id=record.request_id,
+            category="integrity_failure",
+            message=str(exc),
+        )
 
+    if claim_status in {
+        "candidate_received",
+        "reconciled",
+        "tombstone_reconciled",
+    }:
+        return _replay_from_authority(
+            root,
+            entry=claim,
+            request_digest=request_digest,
+            client=client,
+            ref_candidate_ids=refs,
+        )
+    if claim_status in {
+        "terminal_failure",
+        "terminal_expired",
+        "tombstone_terminal_failure",
+        "tombstone_terminal_expired",
+    }:
+        return _terminal_response(entry=claim, request_digest=request_digest)
+
+    body = (
+        claim.request_body
+        if isinstance(claim, GenerationOperationV2) and claim.request_body is not None
+        else record.request_body
+    )
     candidate_or_failure = _call_server_generate(
         body=body,
         draft_id=record.draft_id,
         draft_version=record.draft_version,
         request_id=record.request_id,
         client=client,
+        root=root,
+        request_digest=request_digest,
     )
     if isinstance(candidate_or_failure, GenerateThreatDraftCandidateResponseV1):
         return candidate_or_failure
@@ -522,6 +588,161 @@ def _recover_uncertain_with_stored_body(
     )
 
 
+def _terminal_response(
+    *,
+    entry: GenerationOperationV2 | GenerationTombstoneV1,
+    request_digest: str,
+) -> GenerateThreatDraftCandidateResponseV1:
+    if entry.request_digest != request_digest:
+        raise ThreatDraftStoreError(
+            "generation request replay conflict",
+            status_code=409,
+        )
+    if isinstance(entry, GenerationTombstoneV1):
+        code = entry.terminal_code or entry.outcome
+        message = entry.terminal_message or entry.outcome
+        category = (
+            "downstream_gone"
+            if entry.outcome == "terminal_expired"
+            else "downstream_validation_failed"
+        )
+    else:
+        code = entry.terminal_code or entry.status
+        message = entry.terminal_message or entry.status
+        category = (
+            "downstream_gone"
+            if entry.status == "terminal_expired"
+            else "downstream_validation_failed"
+        )
+    return _failure(
+        draft_id=entry.draft_id,
+        draft_version=entry.draft_version,
+        request_id=entry.request_id,
+        category=category,
+        message=f"{code}: {message}",
+    )
+
+
+def _candidate_from_tombstone(
+    root: Path,
+    *,
+    tombstone: GenerationTombstoneV1,
+    client: StatblockV1Client | None,
+) -> GeneratedStatblockCandidateV1 | GenerateThreatDraftCandidateResponseV1:
+    if not tombstone.candidate_id:
+        return _failure(
+            draft_id=tombstone.draft_id,
+            draft_version=tombstone.draft_version,
+            request_id=tombstone.request_id,
+            category="integrity_failure",
+            message="tombstone missing candidate_id",
+        )
+    try:
+        cached = read_candidate_payload_or_none(root, tombstone.candidate_id)
+    except CandidateCacheError as exc:
+        return _failure(
+            draft_id=tombstone.draft_id,
+            draft_version=tombstone.draft_version,
+            request_id=tombstone.request_id,
+            category="integrity_failure",
+            message=str(exc),
+        )
+    if cached is not None:
+        try:
+            _bound_request_id_from_candidate(cached, request_id=tombstone.request_id)
+        except GenerationReconciliationError as exc:
+            return _failure(
+                draft_id=tombstone.draft_id,
+                draft_version=tombstone.draft_version,
+                request_id=tombstone.request_id,
+                category="integrity_failure",
+                message=str(exc),
+            )
+        return cached
+
+    active_client = client or DungeonMindStatblockV1Client()
+    owns_client = client is None
+    try:
+        payload = active_client.get_candidate(tombstone.candidate_id)
+        _bound_request_id_from_candidate(payload, request_id=tombstone.request_id)
+        return payload
+    except GenerationReconciliationError as exc:
+        return _failure(
+            draft_id=tombstone.draft_id,
+            draft_version=tombstone.draft_version,
+            request_id=tombstone.request_id,
+            category="integrity_failure",
+            message=str(exc),
+        )
+    except StatblockIntegrationError as exc:
+        return _failure(
+            draft_id=tombstone.draft_id,
+            draft_version=tombstone.draft_version,
+            request_id=tombstone.request_id,
+            category=exc.category,
+            message=exc.message,
+        )
+    finally:
+        if owns_client and isinstance(active_client, DungeonMindStatblockV1Client):
+            active_client.close()
+
+
+def _replay_from_authority(
+    root: Path,
+    *,
+    entry: GenerationOperationV2 | GenerationTombstoneV1,
+    request_digest: str,
+    client: StatblockV1Client | None,
+    ref_candidate_ids: set[str] | None = None,
+) -> GenerateThreatDraftCandidateResponseV1:
+    if entry.request_digest != request_digest:
+        raise ThreatDraftStoreError(
+            "generation request replay conflict",
+            status_code=409,
+        )
+    if isinstance(entry, GenerationTombstoneV1):
+        if entry.outcome in {"terminal_failure", "terminal_expired"}:
+            return _terminal_response(entry=entry, request_digest=request_digest)
+        candidate_or_failure = _candidate_from_tombstone(
+            root, tombstone=entry, client=client
+        )
+        if isinstance(candidate_or_failure, GenerateThreatDraftCandidateResponseV1):
+            return candidate_or_failure
+        # Tombstone already reconciled — return success without regenerating.
+        candidate_ref = _candidate_ref_from_payload(
+            candidate_or_failure,
+            draft_version=entry.draft_version,
+            request_id=entry.request_id,
+        )
+        return GenerateThreatDraftCandidateResponseV1(
+            draft_id=entry.draft_id,
+            generated_from_draft_version=entry.draft_version,
+            request_id=entry.request_id,
+            outcome="success",
+            candidate_ref=candidate_ref,
+            candidate=candidate_or_failure,
+            cache_status="stored",
+        )
+
+    if entry.status in {"terminal_failure", "terminal_expired"}:
+        return _terminal_response(entry=entry, request_digest=request_digest)
+
+    candidate_or_failure = _candidate_from_record_or_client(
+        root, record=entry, client=client
+    )
+    if isinstance(candidate_or_failure, GenerateThreatDraftCandidateResponseV1):
+        return candidate_or_failure
+    return _persist_candidate_artifacts(
+        root,
+        draft_id=entry.draft_id,
+        draft_version=entry.draft_version,
+        candidate=candidate_or_failure,
+        request_id=entry.request_id,
+        request_digest=request_digest,
+        ref_candidate_ids=ref_candidate_ids,
+    )
+
+
 def _replay_from_record(
     root: Path,
     *,
@@ -530,23 +751,11 @@ def _replay_from_record(
     client: StatblockV1Client | None,
     ref_candidate_ids: set[str] | None = None,
 ) -> GenerateThreatDraftCandidateResponseV1:
-    if record.request_digest != request_digest:
-        raise ThreatDraftStoreError(
-            "generation request replay conflict",
-            status_code=409,
-        )
-    candidate_or_failure = _candidate_from_record_or_client(
-        root, record=record, client=client
-    )
-    if isinstance(candidate_or_failure, GenerateThreatDraftCandidateResponseV1):
-        return candidate_or_failure
-    return _persist_candidate_artifacts(
+    return _replay_from_authority(
         root,
-        draft_id=record.draft_id,
-        draft_version=record.draft_version,
-        candidate=candidate_or_failure,
-        request_id=record.request_id,
+        entry=record,
         request_digest=request_digest,
+        client=client,
         ref_candidate_ids=ref_candidate_ids,
     )
 
@@ -600,8 +809,7 @@ def generate_candidate_from_draft(
     request_id = _resolve_request_id(request)
     source_version = request.expected_draft_version
 
-    # Replay/recovery before version gates so received/completed/pending/abandoned
-    # lineage survives draft advance when a durable request body or locator exists.
+    # Replay/recovery before version gates — full records and tombstones.
     try:
         existing = read_reconciliation(
             root,
@@ -621,7 +829,36 @@ def generate_candidate_from_draft(
             message=str(exc),
         )
 
-    if existing is not None and existing.status in {"received", "completed"}:
+    ref_ids: set[str] = set()
+    try:
+        current = get_threat_draft(root, draft_id)
+        ref_ids = {ref.candidate_id for ref in current.candidate_refs}
+    except ThreatDraftStoreError:
+        ref_ids = set()
+
+    if isinstance(existing, GenerationTombstoneV1):
+        # Same-key body conflict: when the source draft version is still current,
+        # recompute the body digest and compare to the tombstone digest.
+        request_digest = _digest_for_source_version(
+            root,
+            draft_id=draft_id,
+            source_version=source_version,
+            request_id=request_id,
+            existing_digest=existing.request_digest,
+            existing_body=None,
+        )
+        return _replay_from_authority(
+            root,
+            entry=existing,
+            request_digest=request_digest,
+            client=client,
+            ref_candidate_ids=ref_ids,
+        )
+
+    if existing is not None and existing.status in {
+        "candidate_received",
+        "reconciled",
+    }:
         request_digest = _digest_for_source_version(
             root,
             draft_id=draft_id,
@@ -630,29 +867,23 @@ def generate_candidate_from_draft(
             existing_digest=existing.request_digest,
             existing_body=existing.request_body,
         )
-        ref_ids: set[str] = set()
-        try:
-            current = get_threat_draft(root, draft_id)
-            ref_ids = {ref.candidate_id for ref in current.candidate_refs}
-        except ThreatDraftStoreError:
-            ref_ids = set()
-        return _replay_from_record(
+        return _replay_from_authority(
             root,
-            record=existing,
+            entry=existing,
             request_digest=request_digest,
             client=client,
             ref_candidate_ids=ref_ids,
         )
 
-    if existing is not None and existing.status in {"pending", "abandoned"}:
-        # Prefer current draft refs for capacity when reclaiming abandoned, but do
-        # not require draft.version == source_version.
-        ref_ids: set[str] = set()
-        try:
-            current = get_threat_draft(root, draft_id)
-            ref_ids = {ref.candidate_id for ref in current.candidate_refs}
-        except ThreatDraftStoreError:
-            ref_ids = set()
+    if existing is not None and existing.status in {
+        "terminal_failure",
+        "terminal_expired",
+    }:
+        return _terminal_response(
+            entry=existing, request_digest=existing.request_digest
+        )
+
+    if existing is not None and existing.status == "dispatched_unknown":
         return _recover_uncertain_with_stored_body(
             root,
             record=existing,
@@ -673,6 +904,7 @@ def generate_candidate_from_draft(
     body = map_draft_to_generate_request(draft, request_id=request_id)
     request_digest = request_digest_for_body(body)
     ref_candidate_ids = {ref.candidate_id for ref in draft.candidate_refs}
+    ref_entries = [(ref.candidate_id, ref.request_id) for ref in draft.candidate_refs]
 
     try:
         claim_status, claim = claim_generation_request(
@@ -683,6 +915,7 @@ def generate_candidate_from_draft(
             request_digest=request_digest,
             request_body=body,
             ref_candidate_ids=ref_candidate_ids,
+            ref_entries=ref_entries,
         )
     except GenerationReconciliationError as exc:
         mapped = _map_reconciliation_error(exc)
@@ -696,29 +929,39 @@ def generate_candidate_from_draft(
             message=str(exc),
         )
 
-    if claim_status in {"completed", "received"}:
-        return _replay_from_record(
+    if claim_status in {
+        "candidate_received",
+        "reconciled",
+        "tombstone_reconciled",
+    }:
+        return _replay_from_authority(
             root,
-            record=claim,
+            entry=claim,
             request_digest=request_digest,
             client=client,
             ref_candidate_ids=ref_candidate_ids,
         )
+    if claim_status in {
+        "terminal_failure",
+        "terminal_expired",
+        "tombstone_terminal_failure",
+        "tombstone_terminal_expired",
+    }:
+        return _terminal_response(entry=claim, request_digest=request_digest)
 
-    # claimed / pending_retry / abandoned_retry: call Server. PR23 makes
-    # generate idempotent, so uncertain timeouts may safely re-POST the same
-    # request_id and recover the original candidate without a second persist.
+    # claimed / dispatched_retry: call Server. PR23 makes generate idempotent.
     candidate_or_failure = _call_server_generate(
         body=body,
         draft_id=draft.draft_id,
         draft_version=source_version,
         request_id=request_id,
         client=client,
+        root=root,
+        request_digest=request_digest,
     )
     if isinstance(candidate_or_failure, GenerateThreatDraftCandidateResponseV1):
         return candidate_or_failure
 
-    # Immediate durable locator bind — before cache/ref — so crash recovery works.
     return _persist_candidate_artifacts(
         root,
         draft_id=draft.draft_id,
