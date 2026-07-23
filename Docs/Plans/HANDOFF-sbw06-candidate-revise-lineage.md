@@ -1,12 +1,33 @@
 # HANDOFF — SBW06 Candidate revise/regenerate and lineage
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after `SBW05` merges; re-anchor base, routes, and generated types.  
+**Status:** PRE-DESIGNED — dispatch **after `SBW07` merges** as bites `SBW06-contract` → `SBW06a–d` (roadmap §5.1). Re-anchor base, routes, and generated types.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`  
 **Workstream:** `SBW06`  
 **Repository:** `Drakosfire/DungeonMindBuddy`
 
-> Dispatch one capability: create a new candidate proposal from an exact source and preserve lineage. Do not persist mechanics, compare accepted revisions, update graph bindings, or generate media.
+> Dispatch one capability across a contract PR plus four code PRs: create a new candidate proposal from an exact source and preserve lineage. Do not persist mechanics, compare accepted revisions, update graph bindings, or generate media.
+
+## Bite schedule
+
+| Bite | PR mission | Allowlist focus | Still false |
+|---|---|---|---|
+| `SBW06-contract` | Doc-only: revise journal choice + lineage/status transition table | Docs only; no implementation | All code |
+| `SBW06a` | Revise from edited `source_definition` | Client + revision service + tests | Status UI, accepted-revision source |
+| `SBW06b` | Candidate-ref status + lineage persistence | Draft store/ref transitions + tests | UI, accepted-revision revise |
+| `SBW06c` | Revise UI | Workbench + liveApi | Accepted-revision source |
+| `SBW06d` | Revise from accepted `source_locator` | Service/route/tests using SBW07 locators | Graph, compare, media |
+
+**Why after SBW07:** accepted-revision source needs exact locators; revise durability is deferred until first mechanics save is proven (SBW03 lesson).
+
+## §12 Revise contract freeze (fill in `SBW06-contract` PR)
+
+Before any `SBW06a+` code PR, the contract PR must publish:
+
+1. Whether revise reuses the SBW03 generate journal or a **separate** revise operation journal (recommendation: separate journal keyed by revise `request_id`, reusing Server durable-code terminality patterns without reopening generate semantics).
+2. Closed status transition table for `ThreatDraftCandidateRefV1.status`.
+3. Partial-completion rule: Server revise success + local ref-write failure → truthful recoverable state.
+4. Source mutual exclusion: `source_definition` XOR `source_locator`; no latest/display-name fallback.
 
 ## §0 Capability decomposition decision
 
@@ -14,7 +35,7 @@
 |---|---:|---:|---:|---|
 | Revise/regenerate from exact edited definition or accepted revision | Yes | Yes | Yes | Include |
 | Preserve candidate lineage and superseded/rejected statuses | No; required for truthful revision | Yes | Yes | Include under same invariant |
-| Save immutable mechanics | Yes | Yes | Yes | Successor `SBW07` |
+| Save immutable mechanics | Already required | Yes | Yes | **Predecessor `SBW07` (must be merged first)** |
 | Compare accepted revisions | Yes | No | Yes | Successor `SBW13` |
 | Upgrade graph bindings/embeds | Yes | Yes | Yes | Successor `SBW14` |
 
@@ -42,20 +63,21 @@ This is not one slice if implementation must also create/append a durable statbl
 |---|---|
 | Parent authority | Integration design §6.4; tracker `SBW06`; DungeonMindServer revise-candidate contract |
 | Repository rules | `AGENTS.md`; external-agent PR loop rules/template |
-| Base revision | Actual merged SHA containing `SBW01–05` |
-| Predecessor contract | Exact candidate refs; complete typed editor working copy; validation digest/receipt state |
+| Base revision | Actual merged SHA containing `SBW01–05` **and `SBW07`** |
+| Predecessor contract | Exact candidate refs; complete typed editor working copy; validation digest/receipt state; **`SBW07` accepted-mechanics locators for `source_locator` revise** |
 | Exact input consumed | Source kind + exact source locator/value + explicit revision instructions + request/idempotency key |
-| Named successor | `SBW07` immutable save and `SBW13` accepted revision append/compare |
-| What remains false | New candidate remains a proposal; no mechanics or graph truth is changed |
-| Explicit non-goals | Save, append accepted revision, compare view, graph, embed, combat, media, silent latest selection |
+| Named successor | `SBW13` accepted revision append/compare (not `SBW07` — save precedes this slice) |
+| What remains false | New candidate remains a proposal; no new mechanics identity or graph truth is changed |
+| Explicit non-goals | First immutable save (already `SBW07`), append accepted revision, compare view, graph, embed, combat, media, silent latest selection |
 
 Read in order:
 
 1. integration design and tracker
 2. merged `SBW05` editor/validation contracts
-3. current DungeonMindServer revise-candidate generated API/types/fixtures
-4. `SBW03` generation/cache/ref lifecycle
-5. workbench candidate state tests
+3. merged `SBW07` accepted-mechanics ref / locator contract
+4. current DungeonMindServer revise-candidate generated API/types/fixtures
+5. `SBW03` generation/cache/ref lifecycle
+6. workbench candidate state tests
 
 ## §3 Observable-path inventory
 
@@ -102,7 +124,7 @@ Required report: identify exact source variants and idempotency/error vocabulary
 
 | Capability | Why excluded |
 |---|---|
-| create first immutable statblock revision | `SBW07` |
+| create first immutable statblock revision | Predecessor `SBW07` (already merged; this slice consumes locators only) |
 | append accepted child revision | `SBW13` |
 | accepted revision comparison | `SBW13` |
 | preferred/binding/embed upgrade | `SBW14` |
@@ -264,6 +286,7 @@ Stop if:
 
 ## Final dispatch check
 
-- [ ] Re-anchor after `SBW05`.
+- [ ] Re-anchor after `SBW07` (and `SBW05`).
 - [ ] Capture real revise fixtures and source variants.
-- [ ] Confirm accepted mechanics, graph, compare, upgrade, and media remain false.
+- [ ] Confirm first-save is already true via `SBW07`; graph, compare, upgrade, and media remain false.
+- [ ] `SBW06-contract` transition table approved before `SBW06a+` code.

@@ -7,6 +7,14 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Milestone B contract-freeze PRs before durability code — captured 2026-07-23
+**Priority:** high — prevents another SBW03-style review fix loop on acceptance/revise.
+**Context:** Milestone B bite schedule (roadmap §5.1) after SBW03 operation-authority redesign required many review rounds on terminality/compaction.
+**Insight:** Stateful/idempotent/partial slices need a doc-only transition-table PR approved before implementation. Durability + UI + demolition must not share one PR. SBW07 before SBW06. SBW07-contract must mandate a durable acceptance-operation journal (not an optional ThreatDraft pending flag); unknown transport stays recoverable via same-key replay; `mechanics_saved` only after reconcile.
+**Action:** For `SBW07-contract` / `SBW06-contract`, review the closed schema + table alone; reject code PRs that ship without an approved table. Keep bites small (05a–c, 07a–c, 06a–d).
+**Surfaces when:** dispatching SBW05–07, opening accept/revise PRs, reviewing Milestone B handbacks, tempted to combine orchestration+UI
+**Refs:** `Docs/Roadmaps/ROADMAP-threat-statblock-authoring-projection.md` §5.1, `Docs/Plans/HANDOFF-sbw07-persist-accepted-mechanics.md` §12, `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`
+
 ## [READY] Ecology/resource as its own extraction pass (not actor/object) — captured 2026-07-18
 **Priority:** medium — confirmed design; not the immediate C1S3 promote unblock.
 **Context:** Operator agreed (2026-07-18): named session creatures stay in `actor_pass` (`creature`); species / flora / fauna / products / habitat need a dedicated ecology/resource pass. C1S3 showed Bubbles correctly in actor_pass but also duplicated as `item` (object_pass) and scare-mystery (thread_pass). Mirathorn dogfood already recommended this pass for species+product explosion.

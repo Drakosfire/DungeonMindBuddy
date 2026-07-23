@@ -2,7 +2,8 @@
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP  
 **Date:** 2026-07-23  
-**Integration tip:** `b8dbe68c` on `main` (PR `#381` merge; SBW01–03 landed; Milestone A needs SBW04)  
+**Integration tip:** `549ba802` on `main` (SBW01–03 landed; Milestone A needs SBW04; Milestone B bite schedule locked)  
+ 
 
 **Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
 **PR tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
@@ -61,9 +62,9 @@ Workstream IDs are stable design identifiers. GitHub PR numbers are assigned whe
 | `SBW02` | MERGED `#387` (`0d4831ee`, 2026-07-22) | Persistent versioned `ThreatDraftV1` CRUD with no generation side effects. |
 | `SBW03` | MERGED `#388` (`889acf96`, 2026-07-23) | One exact draft version generates one typed candidate; failure preserves the draft. Operation-authority durability journal with Server durable-code terminality. |
 | `SBW04` | NEXT — PRE-DESIGNED; re-anchor to tip before dispatch | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. |
-| `SBW05` | PRE-DESIGNED | Complete-definition typed editing and editor-preview validation. |
-| `SBW06` | PRE-DESIGNED | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
-| `SBW07` | PRE-DESIGNED | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |
+| `SBW05` | PRE-DESIGNED — bites `SBW05a–c` | Complete-definition typed editing and editor-preview validation. |
+| `SBW06` | PRE-DESIGNED — bites `SBW06-contract` + `SBW06a–d`; **after SBW07** | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
+| `SBW07` | PRE-DESIGNED — bites `SBW07-contract` + `SBW07a–c`; **before SBW06** | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |
 | `SBW08` | PRE-DESIGNED / PARALLEL | Typed external-resource node + `ThreatStatblockBinding` edge state in Kernel/projection contracts; no product write yet. |
 | `SBW09` | PRE-DESIGNED | Preview/confirm Threat + exact binding publication with recoverable partial completion. |
 | `SBW10` | PRE-DESIGNED | Exact-revision Threat Sheet/full statblock read projection opened from graph/Plan. |
@@ -111,8 +112,9 @@ SBW11 Plan-document hydration
   must finish before SBW12
 
 SBW06 revise/regenerate
-  starts after SBW05
-  required before SBW13, not before first mechanics save
+  starts after SBW07 (first mechanics save) for Milestone B execution
+  also requires SBW05 editor/validation contracts
+  required before SBW13; not on the critical path to first save
 
 SBW13 append + compare
   starts after SBW06 and accepted-revision read exists
@@ -148,14 +150,51 @@ Exit:
 
 ### Milestone B — Human-adjudicated mechanics workflow
 
-Slices: `SBW05–SBW07`.
+Slices: `SBW05–SBW07`, executed as **small reviewable bites** (see §5.1).
 
 Exit:
 
-- The GM can edit the complete definition, validate, revise/regenerate, and save one immutable revision.
+- The GM can edit the complete definition, validate, and save one immutable revision.
+- Revise/regenerate (`SBW06`) lands after first save and completes the milestone dogfood loop.
 - Error validation blocks save; warnings remain visible.
 - Accepted mechanics survive reload with exact IDs and digest.
 - No graph truth is claimed yet.
+
+### 5.1 Milestone B bite schedule (normative)
+
+Process rules (from SBW03 review loop):
+
+1. One invariant / one success claim per PR.
+2. No durability + UI + demolition in the same PR.
+3. Stateful/idempotent/partial paths ship a **doc-only contract PR** (transition table) and get review approval **before** implementation code.
+4. Adversarial tests cover that PR’s boundaries only.
+5. Prefer more PRs over widening allowlists mid-review.
+
+Execution order:
+
+```text
+SBW04 (Milestone A gate)
+  → SBW05a → SBW05b → SBW05c
+  → SBW07-contract (doc-only approve)
+  → SBW07a → SBW07b → SBW07c
+  → SBW06-contract (doc-only approve)
+  → SBW06a → SBW06b → SBW06c → SBW06d
+```
+
+| Bite | Mission | Merge bar (one claim) |
+|---|---|---|
+| `SBW05a` | Validate transport: client + Buddy route + digest association | Submitted definition digest matches receipt; transport vs validation-issue semantics distinct |
+| `SBW05b` | Editor library + state machine + field/control matrix + preservation fallback | Complex fixture round-trips; edit clears eligibility; session-only disclosed |
+| `SBW05c` | Workbench edit/validate host | Live edit→validate→stale-on-edit; no save durability claim |
+| `SBW07-contract` | Mandatory acceptance-operation journal + authority/materialization/workflow separation + unknown-transport replay table (docs only) | Reviewer can approve/reject the closed schema + transition table alone; no optional pending field |
+| `SBW07a` | Create/read Server client + fixtures | Exact IDs/digest parse; no draft mutation |
+| `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Post-commit local failure never deletes Server revision; recovery converges |
+| `SBW07c` | Accept UI + corpus-promotion demolition | “Saved ≠ published”; demolition ledger complete |
+| `SBW06-contract` | Revise journal choice + lineage/status transition table (docs only) | Reviewer can approve/reject the table alone |
+| `SBW06a` | Revise from edited `source_definition` | New `candidate_id`; source unchanged; failure retains edits/instructions |
+| `SBW06b` | Candidate-ref status + lineage persistence | Explicit transitions; no in-place candidate mutation |
+| `SBW06c` | Revise UI | New candidate + inspect prior; timeout retains instructions |
+| `SBW06d` | Revise from accepted `source_locator` | Exact IDs/digest; no latest fallback |
 
 ### Milestone C — World Graph publication
 

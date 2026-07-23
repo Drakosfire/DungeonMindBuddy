@@ -1,12 +1,22 @@
 # HANDOFF — SBW05 Complete-definition candidate editing and preview validation
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after `SBW04` merges; re-anchor paths, fixtures, and base SHA.  
+**Status:** PRE-DESIGNED — dispatch after `SBW04` merges as bites `SBW05a` → `SBW05b` → `SBW05c` (roadmap §5.1). Re-anchor paths, fixtures, and base SHA.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw05-typed-candidate-edit-validation.md`  
 **Workstream:** `SBW05`  
 **Repository:** `Drakosfire/DungeonMindBuddy`
 
-> Dispatch one capability: edit a complete typed candidate working copy and obtain authoritative preview validation. Do not save mechanics, revise with a model, publish graph truth, or add media/combat behavior.
+> Dispatch one capability across three PRs: edit a complete typed candidate working copy and obtain authoritative preview validation. Do not save mechanics, revise with a model, publish graph truth, or add media/combat behavior.
+
+## Bite schedule
+
+| Bite | PR mission | Allowlist focus | Still false |
+|---|---|---|---|
+| `SBW05a` | Validate transport: client method + Buddy route + digest association tests | Backend client/service/route/tests only | Editor UI, workbench, save, revise |
+| `SBW05b` | Editor library + state machine + field/control matrix + structured fallback | `apps/live-control-ui/src/statblocks/editor/**` + unit tests | Workbench accept/save, durable editor schema |
+| `SBW05c` | Workbench edit/validate host + live proof | Workbench module + liveApi wiring | Revise, accept/save, graph |
+
+Each bite uses this handoff’s §6 contract; do not expand the parent allowlist mid-review.
 
 ## §0 Capability decomposition decision
 
@@ -48,7 +58,7 @@ This is not one slice if it must also generate a revised candidate, create/appen
 | Base revision | Actual merged SHA containing `SBW01–04` |
 | Predecessor contract | Shared semantic renderer and exact candidate read payload |
 | Exact input consumed | Complete candidate definition copied into local editor state; exact candidate/draft locators |
-| Named successor | `SBW06` revise/regenerate and `SBW07` immutable mechanics save |
+| Named successor | `SBW07` immutable mechanics save (before revise), then `SBW06` revise/regenerate |
 | What remains false | No accepted mechanics exist; validation is advisory eligibility state only |
 | Explicit non-goals | Partial patch API, local validator, model revision, persistence save, graph, embed, combat, media |
 
