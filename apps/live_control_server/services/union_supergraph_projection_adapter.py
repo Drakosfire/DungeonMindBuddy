@@ -106,43 +106,57 @@ def build_plan_union_supergraph_projection(
 
 
 def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dict[str, Any] | None:
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
-    from graph_memory.ingestion.graph_ingest_validate import known_entity_mentions_digest
+    from graph_memory.ingestion.graph_ingest_validate import load_reusable_projection_payload
 
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    artifacts = payload.get("artifacts")
-    if not isinstance(artifacts, dict):
+    if not isinstance(payload, dict):
         return None
-    artifact = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
-    if not isinstance(artifact, dict):
-        return None
-    uri = artifact.get("uri")
-    if not isinstance(uri, str) or not uri.strip():
-        return None
-    projection_path = _resolve_repo_contained_path(Path(uri), root)
-    projection_payload = json.loads(projection_path.read_text(encoding="utf-8"))
-    if not isinstance(projection_payload, dict):
-        return None
+    return load_reusable_projection_payload(root, payload)
 
-    known_ref = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
-    known_uri = known_ref.get("uri") if isinstance(known_ref, dict) else None
-    sidecar_declared = isinstance(known_uri, str) and bool(known_uri.strip())
-    if sidecar_declared:
-        # Sidecar present: reject chipless or digest-mismatched caches before rebuild.
-        if projection_payload.get("known_entity_mentions_contract") is not True:
-            return None
-        sidecar_digest = known_entity_mentions_digest(root, payload)
-        if sidecar_digest is None:
-            return None
-        if (
-            normalize_content_digest(projection_payload.get("known_entity_mentions_sha256"))
-            != sidecar_digest
-        ):
-            return None
-    return projection_payload
 
+def _load_verified_manifest_recap_text(graph_run_manifest_path: Path) -> str:
+    """Load packaged recap text from the digest-verified normalized_recap_path.
+
+    Prefer ``source.normalized_recap_path`` over the undigested bundle copy. When
+    ``recap_full_text.md`` exists, require byte equality with that verified source.
+    """
+    import hashlib
+
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    normalized_path = source.get("normalized_recap_path")
+    if not isinstance(normalized_path, str) or not normalized_path.strip():
+        raise ValueError(
+            "source.normalized_recap_path is required for projection excerpts"
+        )
+    recap_path = _resolve_repo_contained_path(Path(normalized_path), root)
+    if not recap_path.is_file():
+        raise ValueError("source.normalized_recap_path file is missing")
+    recap_bytes = recap_path.read_bytes()
+    claimed = normalize_content_digest(source.get("normalized_recap_sha256"))
+    actual = hashlib.sha256(recap_bytes).hexdigest().lower()
+    if claimed and claimed != actual:
+        raise ValueError(
+            "packaged recap bytes do not match source.normalized_recap_sha256"
+        )
+
+    bundle_uri = source.get("source_span_bundle_uri")
+    if isinstance(bundle_uri, str) and bundle_uri.strip():
+        full_text_path = _resolve_repo_contained_path(
+            Path(bundle_uri) / "recap_full_text.md", root
+        )
+        if full_text_path.is_file() and full_text_path.read_bytes() != recap_bytes:
+            raise ValueError(
+                "source_span_bundle recap_full_text.md does not match "
+                "verified normalized recap"
+            )
+    return recap_bytes.decode("utf-8")
 
 
 def _load_source_span_index(graph_run_manifest_path: Path) -> list[dict[str, Any]] | None:
@@ -160,22 +174,11 @@ def _load_source_span_index(graph_run_manifest_path: Path) -> list[dict[str, Any
 
 
 def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProjectionSourceSpan]:
-    root = repo_root().resolve()
-    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     raw_spans = _load_source_span_index(graph_run_manifest_path)
     if raw_spans is None:
         return []
 
-    recap_text = ""
-    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-    bundle_uri = source.get("source_span_bundle_uri")
-    if isinstance(bundle_uri, str) and bundle_uri.strip():
-        full_text_path = _resolve_repo_contained_path(
-            Path(bundle_uri) / "recap_full_text.md", root
-        )
-        if full_text_path.is_file():
-            recap_text = full_text_path.read_text(encoding="utf-8")
+    recap_text = _load_verified_manifest_recap_text(graph_run_manifest_path)
     lines = recap_text.splitlines() if recap_text else []
 
     spans: list[RecapProjectionSourceSpan] = []
@@ -224,24 +227,13 @@ def _load_manifest_source_span_full_text_index(
     excerpts need the complete paragraph.
 
     Canonical v1 SourceSpanIndex entries do not embed text. Reconstruct from the
-    source-span bundle's ``recap_full_text.md`` using line bounds when needed.
+    digest-verified ``source.normalized_recap_path`` using line bounds.
     """
-    root = repo_root().resolve()
-    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     raw_spans = _load_source_span_index(graph_run_manifest_path)
     if raw_spans is None:
         return {}
 
-    recap_text = ""
-    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-    bundle_uri = source.get("source_span_bundle_uri")
-    if isinstance(bundle_uri, str) and bundle_uri.strip():
-        full_text_path = _resolve_repo_contained_path(
-            Path(bundle_uri) / "recap_full_text.md", root
-        )
-        if full_text_path.is_file():
-            recap_text = full_text_path.read_text(encoding="utf-8")
+    recap_text = _load_verified_manifest_recap_text(graph_run_manifest_path)
     lines = recap_text.splitlines() if recap_text else []
 
     full_text_by_span_id: dict[str, str] = {}
@@ -263,24 +255,17 @@ def _load_manifest_source_span_full_text_index(
 def _load_manifest_known_entity_mentions(
     graph_run_manifest_path: Path,
 ) -> dict[str, Any] | None:
-    """Load the known-entity mention sidecar from a graph-ingest run manifest."""
+    """Load known-entity mentions only after digest/schema validation succeeds."""
+    from graph_memory.ingestion.graph_ingest_validate import (
+        load_verified_known_entity_mentions,
+    )
+
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    artifacts = payload.get("artifacts")
-    if not isinstance(artifacts, dict):
+    if not isinstance(payload, dict):
         return None
-    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
-    if not isinstance(artifact, dict):
-        return None
-    uri = artifact.get("uri")
-    if not isinstance(uri, str) or not uri.strip():
-        return None
-    sidecar_path = _resolve_repo_contained_path(Path(uri), root)
-    if not sidecar_path.is_file():
-        return None
-    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
-    return sidecar if isinstance(sidecar, dict) else None
+    return load_verified_known_entity_mentions(root, payload)
 
 
 def load_preview_union_store_from_graph_run_manifest(
@@ -465,6 +450,7 @@ def build_plan_union_supergraph_projection_payload(
     if graph_run_manifest_path is not None:
         from graph_memory.ingestion.graph_ingest_validate import (
             known_entity_mentions_digest,
+            load_verified_known_entity_mentions,
         )
 
         root = repo_root().resolve()
@@ -474,10 +460,13 @@ def build_plan_union_supergraph_projection_payload(
         except (OSError, json.JSONDecodeError, ValueError, FileNotFoundError):
             manifest_payload = None
         if isinstance(manifest_payload, dict):
-            digest = known_entity_mentions_digest(root, manifest_payload)
-            if digest:
-                payload["known_entity_mentions_contract"] = True
-                payload["known_entity_mentions_sha256"] = f"sha256:{digest}"
+            # Raises when a declared sidecar fails validation.
+            verified = load_verified_known_entity_mentions(root, manifest_payload)
+            if verified is not None:
+                digest = known_entity_mentions_digest(root, manifest_payload)
+                if digest:
+                    payload["known_entity_mentions_contract"] = True
+                    payload["known_entity_mentions_sha256"] = f"sha256:{digest}"
     return enrich_projection_payload_with_authored_overlay(
         payload,
         campaign_id=projection.campaign_id,

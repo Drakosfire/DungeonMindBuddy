@@ -1440,6 +1440,193 @@ def test_empty_object_known_entity_sidecar_fails_validation(
     assert not ingest_service._manifest_has_known_entity_mentions(tmp_path, manifest_rel)
 
 
+def test_declared_sidecar_digest_mismatch_blocks_projection_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Changing sidecar bytes without updating the manifest digest must fail closed."""
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/sidecar_digest_mismatch_blocks",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.union_supergraph_projection_adapter.repo_root",
+        lambda: tmp_path,
+    )
+    materialize_preview_union_store_from_graph_ingest_run(
+        PreviewUnionMaterializeOptions(
+            manifest_path=old_result.manifest_path,
+            repo_root=tmp_path,
+        )
+    )
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    first = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert first is not None
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    known_path = tmp_path / manifest["artifacts"]["known_entity_mentions"]["uri"]
+    claimed = manifest["artifacts"]["known_entity_mentions"]["sha256"]
+    mutated = json.loads(known_path.read_text(encoding="utf-8"))
+    mutated["diagnostics"] = {**(mutated.get("diagnostics") or {}), "mutated": "S2"}
+    known_path.write_text(
+        json.dumps(mutated, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    # Leave manifest digest pointing at S1.
+    assert claimed == json.loads(old_result.manifest_path.read_text(encoding="utf-8"))[
+        "artifacts"
+    ]["known_entity_mentions"]["sha256"]
+
+    with pytest.raises(ValueError, match="known_entity_mentions unusable|sha256"):
+        ingest_service.ensure_graph_ingest_projection_payload(
+            repo_root=tmp_path,
+            manifest_path=manifest_rel,
+            session_id="session-24",
+        )
+
+
+def test_projection_payload_sha_mismatch_rejects_cache_reuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """artifacts.projection_payload.sha256 must bind actual projection file bytes."""
+    import hashlib
+
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/projection_sha_mismatch",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.union_supergraph_projection_adapter.repo_root",
+        lambda: tmp_path,
+    )
+    materialize_preview_union_store_from_graph_ingest_run(
+        PreviewUnionMaterializeOptions(
+            manifest_path=old_result.manifest_path,
+            repo_root=tmp_path,
+        )
+    )
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    projection_path = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert projection_path is not None
+    original = json.loads(projection_path.read_text(encoding="utf-8"))
+    embedded_sidecar = original.get("known_entity_mentions_sha256")
+    mutated = {
+        **original,
+        "mentions": [{"mention_id": "mutated", "node_id": "x", "label": "MUTATED_CACHE"}],
+    }
+    projection_path.write_text(
+        json.dumps(mutated, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    # Preserve stale manifest SHA and embedded sidecar digest claim.
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["artifacts"]["projection_payload"]["sha256"]
+    assert embedded_sidecar
+    assert (
+        hashlib.sha256(projection_path.read_bytes()).hexdigest()
+        != manifest["artifacts"]["projection_payload"]["sha256"].removeprefix("sha256:")
+    )
+
+    rebuilt = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert rebuilt is not None
+    after = json.loads(rebuilt.read_text(encoding="utf-8"))
+    labels = {row.get("label") for row in after.get("mentions") or []}
+    assert "MUTATED_CACHE" not in labels
+
+
+def test_mutated_recap_full_text_blocks_projection_excerpts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Projection excerpts must not come from an undigested bundle recap copy."""
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/mutated_bundle_recap_full_text",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.union_supergraph_projection_adapter.repo_root",
+        lambda: tmp_path,
+    )
+    materialize_preview_union_store_from_graph_ingest_run(
+        PreviewUnionMaterializeOptions(
+            manifest_path=old_result.manifest_path,
+            repo_root=tmp_path,
+        )
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    bundle_uri = manifest["source"]["source_span_bundle_uri"]
+    full_text = tmp_path / bundle_uri / "recap_full_text.md"
+    assert full_text.is_file()
+    full_text.write_text(
+        full_text.read_text(encoding="utf-8") + "\nMUTATED_BUNDLE_TEXT\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="recap_full_text|verified normalized recap"):
+        build_plan_union_supergraph_projection(
+            session_id="session-24",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_non_object_known_entity_mention_entries_fail_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Malformed mention list entries must not coerce into an empty sidecar."""
+    import hashlib
+
+    from graph_memory.ingestion.graph_ingest_validate import (
+        validate_manifest_known_entity_mentions,
+    )
+
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/corrupt_known_entity_mentions",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    known_path = tmp_path / manifest["artifacts"]["known_entity_mentions"]["uri"]
+    corrupt = {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "session_id": "session-24",
+        "mentions": ["corrupt entry"],
+        "ambiguous_surfaces": [123],
+    }
+    known_path.write_text(
+        json.dumps(corrupt, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    digest = hashlib.sha256(known_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["known_entity_mentions"]["sha256"] = f"sha256:{digest}"
+    errors = validate_manifest_known_entity_mentions(tmp_path, manifest)
+    assert any("mentions[0] must be an object" in error for error in errors)
+    assert any("ambiguous_surfaces[0] must be a string" in error for error in errors)
+
+
 def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

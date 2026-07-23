@@ -695,23 +695,35 @@ def ensure_graph_ingest_projection_payload(
     from apps.live_control_server.services.union_supergraph_projection_adapter import (
         build_plan_union_supergraph_projection_payload,
     )
-    from graph_memory.ingestion.graph_ingest_validate import known_entity_mentions_digest
+    from graph_memory.ingestion.graph_ingest_validate import (
+        known_entity_mentions_digest,
+        load_reusable_projection_payload,
+        load_verified_known_entity_mentions,
+    )
 
     repo = repo_root.resolve()
     manifest_full = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
     payload_data = json.loads(manifest_full.read_text(encoding="utf-8"))
     artifacts = payload_data.get("artifacts") if isinstance(payload_data.get("artifacts"), dict) else {}
-    existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
-    sidecar_digest = known_entity_mentions_digest(repo, payload_data)
+
+    # Declared-but-invalid sidecars must fail closed — never rebuild as "no sidecar".
+    verified_sidecar = load_verified_known_entity_mentions(repo, payload_data)
+    sidecar_digest = (
+        known_entity_mentions_digest(repo, payload_data)
+        if verified_sidecar is not None
+        else None
+    )
     has_known_entity = sidecar_digest is not None
-    if isinstance(existing, dict) and existing.get("exists") is True:
-        uri = existing.get("uri")
-        if isinstance(uri, str):
-            projection_path = _resolve_existing_repo_path(repo, uri, field_name="projection_payload")
-            if _projection_payload_matches_known_entity_digest(
-                projection_path, sidecar_digest=sidecar_digest
-            ):
-                return projection_path
+
+    reusable = load_reusable_projection_payload(repo, payload_data)
+    if reusable is not None:
+        existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
+        if isinstance(existing, dict):
+            uri = existing.get("uri")
+            if isinstance(uri, str) and uri.strip():
+                return _resolve_existing_repo_path(
+                    repo, uri, field_name="projection_payload"
+                )
 
     projection_payload = build_plan_union_supergraph_projection_payload(
         session_id=session_id,
@@ -745,29 +757,6 @@ def ensure_graph_ingest_projection_payload(
     payload_data["artifacts"] = artifacts
     manifest_full.write_text(json.dumps(payload_data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return projection_path
-
-
-def _projection_payload_matches_known_entity_digest(
-    projection_path: Path, *, sidecar_digest: str | None
-) -> bool:
-    """Reuse a cached projection only when it was built from the current sidecar digest."""
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
-
-    try:
-        payload = json.loads(projection_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    if not isinstance(payload, dict):
-        return False
-    if sidecar_digest is None:
-        # No usable sidecar — keep only projections that also lack the contract.
-        return payload.get("known_entity_mentions_contract") is not True
-    if payload.get("known_entity_mentions_contract") is not True:
-        return False
-    return (
-        normalize_content_digest(payload.get("known_entity_mentions_sha256"))
-        == sidecar_digest
-    )
 
 
 def _stamp_known_entity_artifact_digest(

@@ -422,6 +422,19 @@ def validate_manifest_known_entity_mentions(
     if errors:
         return errors
 
+    for index, row in enumerate(sidecar_payload["mentions"]):
+        if not isinstance(row, Mapping):
+            errors.append(
+                f"known_entity_mentions.mentions[{index}] must be an object"
+            )
+    for index, surface in enumerate(sidecar_payload["ambiguous_surfaces"]):
+        if not isinstance(surface, str):
+            errors.append(
+                f"known_entity_mentions.ambiguous_surfaces[{index}] must be a string"
+            )
+    if errors:
+        return errors
+
     if sidecar_payload["schema"] != KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA:
         errors.append(
             f"known_entity_mentions schema must be {KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA}"
@@ -457,6 +470,121 @@ def assert_candidate_ready_evidence(repo_root: Path, payload: Mapping[str, Any])
         raise ValueError(
             "candidate-ready GraphIngest evidence is unusable: " + "; ".join(errors)
         )
+
+
+def known_entity_mentions_artifact_declared(payload: Mapping[str, Any]) -> bool:
+    """True when the manifest declares a known_entity_mentions artifact URI."""
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if not isinstance(artifact, dict):
+        return False
+    uri = artifact.get("uri")
+    return isinstance(uri, str) and bool(uri.strip())
+
+
+def load_verified_known_entity_mentions(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Return the sidecar object only after digest/schema validation.
+
+    Returns ``None`` when the artifact is undeclared. Raises when it is declared
+    but fails validation — never silently treats invalid bytes as "no sidecar".
+    """
+    if not known_entity_mentions_artifact_declared(payload):
+        return None
+    errors = validate_manifest_known_entity_mentions(repo_root, payload)
+    if errors:
+        raise ValueError("known_entity_mentions unusable: " + "; ".join(errors))
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    assert isinstance(artifact, dict)
+    uri = str(artifact["uri"])
+    sidecar_path = _resolve_manifest_uri(repo_root, uri)
+    sidecar_payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    if not isinstance(sidecar_payload, dict):
+        raise ValueError("known_entity_mentions payload must be an object")
+    return sidecar_payload
+
+
+def validate_projection_payload_artifact(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+) -> list[str]:
+    """Fail closed when projection_payload file bytes do not match claimed sha256."""
+    errors: list[str] = []
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    artifact = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
+    if not isinstance(artifact, dict):
+        errors.append("artifacts.projection_payload is required")
+        return errors
+    uri = artifact.get("uri")
+    if not isinstance(uri, str) or not uri.strip():
+        errors.append("artifacts.projection_payload.uri is required")
+        return errors
+    claimed_digest = artifact.get("sha256")
+    if not isinstance(claimed_digest, str) or not claimed_digest.strip():
+        errors.append("artifacts.projection_payload.sha256 is required")
+        return errors
+    try:
+        projection_path = _resolve_manifest_uri(repo_root, uri)
+    except ValueError as exc:
+        errors.append(f"projection_payload URI escapes repo root: {exc}")
+        return errors
+    if not projection_path.is_file():
+        errors.append("projection_payload file is missing")
+        return errors
+    actual_digest = hashlib.sha256(projection_path.read_bytes()).hexdigest().lower()
+    if normalize_content_digest(claimed_digest) != actual_digest:
+        errors.append("artifacts.projection_payload.sha256 does not match file bytes")
+    return errors
+
+
+def load_reusable_projection_payload(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Return cached projection JSON only when artifact digest + sidecar binding match.
+
+    Raises when a known-entity artifact is declared but fails validation (do not
+    downgrade to a reusable no-sidecar cache). Returns ``None`` on ordinary cache miss.
+    """
+    declared = known_entity_mentions_artifact_declared(payload)
+    if declared:
+        errors = validate_manifest_known_entity_mentions(repo_root, payload)
+        if errors:
+            raise ValueError("known_entity_mentions unusable: " + "; ".join(errors))
+        sidecar_digest = known_entity_mentions_digest(repo_root, payload)
+    else:
+        sidecar_digest = None
+
+    projection_errors = validate_projection_payload_artifact(repo_root, payload)
+    if projection_errors:
+        return None
+
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    artifact = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
+    assert isinstance(artifact, dict)
+    projection_path = _resolve_manifest_uri(repo_root, str(artifact["uri"]))
+    try:
+        projection_payload = json.loads(projection_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    if not isinstance(projection_payload, dict):
+        return None
+
+    if sidecar_digest is None:
+        if projection_payload.get("known_entity_mentions_contract") is True:
+            return None
+    else:
+        if projection_payload.get("known_entity_mentions_contract") is not True:
+            return None
+        if (
+            normalize_content_digest(projection_payload.get("known_entity_mentions_sha256"))
+            != sidecar_digest
+        ):
+            return None
+    return projection_payload
 
 
 def known_entity_mentions_digest(repo_root: Path, payload: Mapping[str, Any]) -> str | None:

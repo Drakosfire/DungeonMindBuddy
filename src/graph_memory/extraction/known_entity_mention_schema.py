@@ -76,14 +76,23 @@ class KnownEntityMentionSidecar:
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> KnownEntityMentionSidecar:
-        mentions = tuple(
-            KnownEntityMention.from_mapping(item)
-            for item in (raw.get("mentions") or [])
-            if isinstance(item, Mapping)
-        )
-        ambiguous = tuple(
-            str(s) for s in (raw.get("ambiguous_surfaces") or []) if str(s).strip()
-        )
+        mentions_raw = raw.get("mentions") or []
+        if not isinstance(mentions_raw, list):
+            raise ValueError("mentions must be a list")
+        mentions: list[KnownEntityMention] = []
+        for index, item in enumerate(mentions_raw):
+            if not isinstance(item, Mapping):
+                raise ValueError(f"mentions[{index}] must be an object")
+            mentions.append(KnownEntityMention.from_mapping(item))
+        ambiguous_raw = raw.get("ambiguous_surfaces") or []
+        if not isinstance(ambiguous_raw, list):
+            raise ValueError("ambiguous_surfaces must be a list")
+        ambiguous: list[str] = []
+        for index, surface in enumerate(ambiguous_raw):
+            if not isinstance(surface, str):
+                raise ValueError(f"ambiguous_surfaces[{index}] must be a string")
+            if surface.strip():
+                ambiguous.append(surface)
         return cls(
             schema=str(raw.get("schema") or KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA),
             version=str(raw.get("version") or KNOWN_ENTITY_MENTION_SIDECAR_VERSION),
@@ -100,8 +109,8 @@ class KnownEntityMentionSidecar:
                 else None
             ),
             roster_carry_forward=bool(raw.get("roster_carry_forward")),
-            mentions=mentions,
-            ambiguous_surfaces=ambiguous,
+            mentions=tuple(mentions),
+            ambiguous_surfaces=tuple(ambiguous),
             diagnostics=dict(raw.get("diagnostics") or {}),
         )
 
