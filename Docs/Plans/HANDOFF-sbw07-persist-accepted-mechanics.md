@@ -354,7 +354,7 @@ Every acceptance attempt that may call Server create **must** persist this recor
 | `schema` | yes | `dmb_statblock_acceptance_operation_v1` |
 | `operation_id` | yes | Stable Buddy operation id (UUID / `accop_…`) |
 | `idempotency_key` | yes | Exact key sent to Server create; unique per accept attempt intent |
-| `create_request_digest` | yes | Canonical digest over the **full** Server `CreateStatblockRequestV1` payload (definition **and** metadata: `change_summary`, `candidate_id`, `actor`, `accepted_through`, `asset_bindings`, `idempotency_key`). Server replay compares this class of digest before returning original resources. |
+| `create_request_digest` | yes | **Buddy-local** canonical digest over the stored `request_body` (full create payload: definition **and** metadata fields Buddy sends). Binds this operation to its replay body. **Does not** claim equality with DungeonMindServer’s private internal digest or projection; adapter mapping to Server belongs in `SBW07a`. |
 | `request_body` | yes | Exact replayable create-request JSON (same bytes/canonicalization as digest input) |
 | `source_draft_id` | yes | ThreatDraft id at claim time |
 | `source_draft_version` | yes | ThreatDraft `version` at claim time |
@@ -363,7 +363,7 @@ Every acceptance attempt that may call Server create **must** persist this recor
 | `authority_state` | yes | Closed enum below |
 | `locator` | null until known | `{ provider, statblock_id, revision_id, definition_digest, contract, contract_version }` once Server create (or same-key replay) returns it |
 | `materialization.draft_ref` | yes | `missing` \| `attached` \| `failed` \| `conflicted` (`conflicted` = draft already holds a different locator) |
-| `terminal_code` / `failure_category` / `http_status` | only on `terminal_failure` | Present only with authoritative non-commit proof |
+| `terminal_code` / `failure_category` / `http_status` | only on `terminal_failure` | Present only when SBW07a-captured evidence proves persistence did not begin |
 | `created_at` / `updated_at` | yes | ISO timestamps |
 
 ### Cardinality policy (closed)
@@ -375,10 +375,20 @@ Not chosen: multiple concurrent committed proposals + later selection
   (incompatible with singular accepted_mechanics_ref; replacement is out of slice).
 ```
 
+**Atomic singular-slot claim (docs contract):**
+
+```text
+Checking for an active acceptance operation and inserting the new
+dispatched_unknown operation occur under one draft-scoped lock or atomic
+transaction. The lock is released before calling DungeonMindServer.
+```
+
+Concurrency proof and filesystem/store implementation belong in `SBW07b`, not this contract PR.
+
 Consequences:
 
 - New distinct accept claim (new `operation_id` / new `idempotency_key`) is **refused** while any operation is `dispatched_unknown`, `server_committed`, or `reconciled`.
-- After `terminal_failure` only, a **new** key/operation may claim (prior create did not commit).
+- After `terminal_failure` only, a **new** key/operation may claim (prior create did not begin / did not commit per SBW07a-captured proof).
 - `reconciled` closes first-save for this draft in SBW07; replacing `accepted_mechanics_ref` is a later slice.
 - Historical `terminal_failure` records may be retained for audit; they do not consume the singular active slot.
 - Capacity: `MAX_ACCEPTANCE_OPERATION_RECORDS_PER_DRAFT = 32` (history bound). Active unresolved/committed count must remain ≤ 1. Unresolved `dispatched_unknown` / unattached `server_committed` are **never** compacted away to admit new work.
@@ -390,7 +400,7 @@ Consequences:
 | `dispatched_unknown` | Claim written; Server create outcome **unknown** (in flight, timeout, response loss, auth failure before durable create proof, restart mid-flight) | **No** |
 | `server_committed` | Exact locator/digest known from Server create or same-key **same-body** replay; draft-ref may be missing/failed/conflicted | **No** — use recovery UX (`server_committed_reference_pending` as **display label only**) |
 | `reconciled` | `AcceptedMechanicsRefV1` atomically on ThreatDraft with **this** operation's locator; `materialization.draft_ref=attached` | **Yes** — only here |
-| `terminal_failure` | Authoritative proof create did **not** commit (allowlisted Server durable failure code) | No |
+| `terminal_failure` | Server error **explicitly captured in `SBW07a` fixtures** as proving persistence did not begin; all other post-dispatch failures stay `dispatched_unknown` | No |
 
 **Not an authority state:** changed-body / wrong-key input conflicts. Those are **attempt responses** only; they must not rewrite the original operation's `authority_state`.
 
@@ -407,16 +417,16 @@ Consequences:
 
 | Current | Event | Next | Required evidence | Server create? | Response truth | Compact/delete Server? |
 |---|---|---|---|---|---|---|
-| (none) / eligible; no active op | begin accept | `dispatched_unknown` | validation receipt bound to digest + persisted `AcceptanceOperationV1` (key, digest, body, source draft/version) | pending | submitting / unknown | no |
-| active op exists (`dispatched_unknown` \| `server_committed` \| `reconciled`) | begin accept with **new** key | unchanged (no new claim) | singular-slot check | no | `acceptance_busy` | no |
+| (none) / eligible; no active op | begin accept (atomic claim) | `dispatched_unknown` | under draft-scoped lock/tx: singular-slot empty **and** `AcceptanceOperationV1` inserted (key, Buddy-local digest, body, source draft/version); **lock released before Server call** | pending | submitting / unknown | no |
+| active op exists (`dispatched_unknown` \| `server_committed` \| `reconciled`) | begin accept with **new** key | unchanged (no new claim) | singular-slot check under same draft-scoped lock/tx | no | `acceptance_busy` | no |
 | any editable without claim | validate errors / stale receipt | `acceptance_blocked` | receipt digest ≠ current OR errors present | no | blocked | no |
-| `dispatched_unknown` | process restart / response loss / transport timeout / connection unavailable | `dispatched_unknown` | stored `request_body` + `create_request_digest` | **same-key same-body replay required** | typed uncertainty; no failed claim | no |
+| `dispatched_unknown` | process restart / response loss / transport timeout / connection unavailable | `dispatched_unknown` | stored `request_body` + Buddy-local `create_request_digest` | **same-key same-body replay required** | typed uncertainty; no failed claim | no |
 | `dispatched_unknown` | auth 401/403 without durable create proof | `dispatched_unknown` | claim retained | retry **after** auth repair, same key + same body | auth failure category; still unknown | **never** |
 | `dispatched_unknown` | same-key **same-body** replay → original resource/revision | `server_committed` | exact IDs/digest from Server; write `locator` before draft-ref attempt | replay only | Server mechanics exist; draft ref pending | no |
 | `dispatched_unknown` | create success (first response) | `server_committed` | exact IDs/digest; `locator` durable | done | Server mechanics exist | no |
-| `dispatched_unknown` (original) | attempt presents **same key + changed** request digest (local detect before call, or caller error) | **`dispatched_unknown` unchanged** | original `request_body` / digest retained | **never** with changed body | attempt response: input conflict; recover via original body replay | no |
-| `dispatched_unknown` (original) | Server idempotency **409** on a **changed-body** attempt | **`dispatched_unknown` unchanged** | 409 proves a Server create record exists for that key with a **different** digest — evidence original may have committed; **not** proof original failed | **never** alternate create; **must** replay original stored body next | attempt response: input conflict; original still unknown pending original-body recovery | no |
-| `dispatched_unknown` | Server durable non-commit code (allowlisted) on **original** same-body path | `terminal_failure` | terminal code + category + HTTP | no further create for this op | typed failure | no |
+| `dispatched_unknown` (original) | attempt presents **same key + changed** Buddy-local digest / body (local detect before call) | **`dispatched_unknown` unchanged** | original `request_body` / Buddy-local digest retained | **never** with changed body | attempt response: input conflict; recover via original body replay | no |
+| `dispatched_unknown` (original) | Server idempotency **409** on a **changed-body** attempt | **`dispatched_unknown` unchanged** | treat as attempt conflict; original may have committed — **must** next replay original stored body (do not interpret 409 as original failure) | **never** alternate create | attempt response: input conflict; original still unknown pending original-body recovery | no |
+| `dispatched_unknown` | Server error on **original** same-body path that `SBW07a` fixtures capture as proving persistence did **not** begin | `terminal_failure` | fixture-captured terminal evidence + category + HTTP | no further create for this op | typed failure | no |
 | `server_committed` | draft `accepted_mechanics_ref` is null; draft-ref write success (version CAS) | `reconciled` | atomic `AcceptedMechanicsRefV1` (= this locator) + `workflow_state=mechanics_saved` | no | **mechanics_saved**; not published | no |
 | `server_committed` | draft-ref write failure (I/O) while ref still null | `server_committed` (`draft_ref=failed`) | locator retained | no | `server_committed_reference_pending` | **never** |
 | `server_committed` | draft version CAS miss while ref still null | `server_committed` | reload draft; retry attach **only if** ref still null or equals this locator | no | pending ref; no second create | no |
@@ -475,20 +485,30 @@ accepted_from_draft_version
 accepted_at
 ```
 
-### Idempotency (aligned with Server create replay)
+### Idempotency (Buddy-local binding; Server adapter in `SBW07a`)
 
-- Persist `AcceptanceOperationV1` (including `idempotency_key`, `create_request_digest`, `request_body`) **before** outbound create.
-- Same key + same full create-request digest → same logical resource/revision (Server returns original); original operation may advance `dispatched_unknown` → `server_committed`.
-- Same key + changed definition **or** metadata → **reject the attempt** with conflict; **do not** mutate the original operation's authority (it remains `dispatched_unknown` or whatever it already was). Recover by replaying the **original** stored body.
-- Server idempotency 409 on a changed-body attempt is evidence a create record exists for that key with a different digest — treat as attempt conflict + recover original via stored body; never interpret as original `terminal_failure`.
+- Persist `AcceptanceOperationV1` (including `idempotency_key`, Buddy-local `create_request_digest`, `request_body`) **before** outbound create.
+- Buddy guarantees only:
+  - same Buddy operation + same stored canonical body → replay allowed
+  - same Buddy operation + changed body → reject locally (original authority unchanged)
+- Precise adapter mapping onto Server create/idempotency semantics belongs in `SBW07a` (fixtures + client); this contract does **not** assert Buddy’s digest equals Server’s private internal digest.
+- Server idempotency 409 on a changed-body attempt: attempt conflict; recover original via stored body; never interpret as original `terminal_failure`.
 - UI double-submit → one operation_id / one idempotency key.
 - Never invent local `statblock_id` / `revision_id`.
 
 ### Transport / terminality proof boundary
 
-**Must remain `dispatched_unknown` (not failed):** Buddy/client transport timeout, connection unavailable without durable Server create proof, response loss after possible commit, authentication 401/403 before durable create proof, pre-route validation without an allowlisted non-commit code, and changed-body conflict responses against the original key.
+**Conservative terminal rule (frozen here):**
 
-**May become `terminal_failure` only** when Server returns an allowlisted durable create-operation failure code proving non-commit on the **original same-body** path (re-anchor exact code list from Server create idempotency contract at `SBW07a` fixture capture). Category strings alone never terminalize. Idempotency 409 is never a terminal-failure proof for the original operation.
+```text
+An operation may become terminal_failure only from a Server error explicitly
+captured in SBW07a fixtures as proving that persistence did not begin.
+All other post-dispatch failures remain dispatched_unknown.
+```
+
+**Must remain `dispatched_unknown` (not failed):** Buddy/client transport timeout, connection unavailable, response loss after possible commit, authentication 401/403, persistence/write uncertainty, process restart, pre-route validation without SBW07a-captured non-begin proof, changed-body conflict responses, and any Server error not yet fixture-proven as “persistence did not begin.”
+
+This contract PR does **not** enumerate a full Server exception taxonomy. Exact transport mapping and fixture capture belong in `SBW07a`. Idempotency 409 is never a terminal-failure proof for the original operation.
 
 ### Explicitly still false after SBW07
 
