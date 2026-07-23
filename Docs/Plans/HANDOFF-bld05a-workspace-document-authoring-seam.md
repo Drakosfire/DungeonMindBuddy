@@ -1,9 +1,10 @@
 # HANDOFF — BLD-05a Workspace document authoring seam
 
 - **Created:** 2026-07-23
-- **Status:** ACTIVE / MERGEABLE against `main`
+- **Status:** ACTIVE / REQUEST_CHANGES (PR #399 round 1) — complete shared lifecycle before merge
 - **Suggested branch:** `agent/bld05a-workspace-document-authoring-seam`
 - **Supersedes for Build product work:** PR #390 (draft) parallel `buildSurface/**` shell
+- **PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/399
 
 ## §0 Capability
 

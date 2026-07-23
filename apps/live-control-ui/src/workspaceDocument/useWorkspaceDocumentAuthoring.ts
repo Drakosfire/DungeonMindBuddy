@@ -6,11 +6,16 @@ import {
   getWorkspaceDocumentSnapshot,
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
-import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
+import type {
+  TiptapMarkdownWriteCommitResponse,
+  WorkspaceDocumentRecord,
+  WorkspaceDocumentSnapshot,
+} from "../api/types";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 import {
   buildInitialWorkspaceDocumentLocalState,
+  clearWorkspaceDocumentLocalState,
   readWorkspaceDocumentLocalState,
   writeWorkspaceDocumentLocalState,
   type WorkspaceDocumentLocalKind,
@@ -19,24 +24,34 @@ import {
 } from "../tiptap/state/tiptapLocalState";
 import { openWorkspaceDocumentAuthoringState } from "./openWorkspaceDocumentAuthoringState";
 import type { ReconcileLocalDraftResult } from "./reconcileLocalDraft";
+import {
+  initialAuthoringMachineState,
+  isEditorInteractive,
+  isSaveDisabled,
+  reduceAuthoringMachine,
+  statusLabelForPhase,
+  type WorkspaceDocumentAuthoringMachineState,
+  type WorkspaceDocumentAuthoringPhase,
+} from "./workspaceDocumentAuthoringMachine";
 
-export type WorkspaceDocumentAuthoringStatus =
-  | "idle"
-  | "loading"
-  | "ready"
-  | "conflict"
-  | "error"
-  | "saving";
+export type WorkspaceDocumentAuthoringStatus = WorkspaceDocumentAuthoringPhase;
 
 export interface UseWorkspaceDocumentAuthoringArgs {
   documentId: string;
   surface: WorkspaceDocumentLocalSurface;
   kind: WorkspaceDocumentLocalKind;
-  storage?: Pick<Storage, "getItem" | "setItem">;
+  storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
+  /** Starter TipTap JSON when snapshot markdown is empty (Plan/runbook drafts). */
+  emptyMarkdownFallback?: unknown;
+  /** When false, allow save even if local state is not dirty (Plan legacy UX). Default true. */
+  requireDirtyToSave?: boolean;
+  /** Optional extra save gate (e.g. Plan durable target path). */
+  canSave?: () => boolean;
 }
 
 export interface WorkspaceDocumentAuthoringValue {
   status: WorkspaceDocumentAuthoringStatus;
+  phase: WorkspaceDocumentAuthoringPhase;
   error: string | null;
   snapshot: WorkspaceDocumentSnapshot | null;
   record: WorkspaceDocumentRecord | null;
@@ -46,55 +61,84 @@ export interface WorkspaceDocumentAuthoringValue {
   dirty: boolean;
   statusLabel: string;
   saveDisabled: boolean;
+  lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   setEditor: (editor: Editor | null) => void;
   markDirty: () => void;
   saveMarkdown: () => Promise<void>;
   reloadFromSnapshot: () => Promise<void>;
-  discardLocalDraft: () => void;
+  discardLocalDraft: () => Promise<void>;
 }
 
-function statusLabelFor(args: {
-  status: WorkspaceDocumentAuthoringStatus;
-  dirty: boolean;
-  contentStatus: WorkspaceDocumentContentStatus | null;
-  conflictReason?: string;
-  error?: string | null;
-}): string {
-  if (args.status === "loading") return "Loading document…";
-  if (args.status === "saving") return "Saving…";
-  if (args.status === "conflict") return args.conflictReason ?? "Conflict — reload or discard local draft.";
-  if (args.status === "error") return args.error ?? "Unable to load document.";
-  if (args.dirty) return "Unsaved local changes";
-  if (args.contentStatus === "committed") return "Committed";
-  return "Draft";
+function applyCommitReceiptToLocalState(args: {
+  receipt: TiptapMarkdownWriteCommitResponse;
+  surface: WorkspaceDocumentLocalSurface;
+  kind: WorkspaceDocumentLocalKind;
+  tiptapJson: unknown;
+  markdown: string;
+}): WorkspaceDocumentLocalState {
+  const now = new Date().toISOString();
+  const record = args.receipt.committed_record;
+  return {
+    ...buildInitialWorkspaceDocumentLocalState({
+      documentId: record.document_id,
+      title: record.title,
+      campaignId: record.campaign_id,
+      kind: args.kind,
+      targetSession: record.target_session,
+      surface: args.surface,
+      baseRevision: args.receipt.committed_revision,
+      baseContentSha256: args.receipt.normalized_content_sha256,
+      starterContent: args.tiptapJson,
+      now,
+    }),
+    tiptap_json: args.tiptapJson,
+    exported_markdown: args.markdown,
+    dirty: false,
+    updated_at: now,
+    last_local_save_at: now,
+  };
 }
-
-type WorkspaceDocumentContentStatus = WorkspaceDocumentRecord["content_status"];
 
 export function useWorkspaceDocumentAuthoring(
   args: UseWorkspaceDocumentAuthoringArgs,
 ): WorkspaceDocumentAuthoringValue {
   const storage = args.storage ?? window.localStorage;
-  const [status, setStatus] = useState<WorkspaceDocumentAuthoringStatus>("loading");
-  const [error, setError] = useState<string | null>(null);
+  const [machine, setMachine] = useState<WorkspaceDocumentAuthoringMachineState>(
+    initialAuthoringMachineState,
+  );
   const [snapshot, setSnapshot] = useState<WorkspaceDocumentSnapshot | null>(null);
   const [reconciliation, setReconciliation] = useState<ReconcileLocalDraftResult | null>(null);
   const [localState, setLocalState] = useState<WorkspaceDocumentLocalState | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [documentKey, setDocumentKey] = useState(args.documentId);
+  const [lastCommitReceipt, setLastCommitReceipt] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
   const expectedRevisionRef = useRef<number | null>(null);
+  const skipNextEditorUpdateRef = useRef(false);
+  const requireDirtyToSave = args.requireDirtyToSave !== false;
+  const emptyMarkdownFallback = args.emptyMarkdownFallback;
+  const canSave = args.canSave;
 
-  const loadSnapshot = useCallback(async () => {
-    setStatus("loading");
-    setError(null);
+  const dispatch = useCallback((event: Parameters<typeof reduceAuthoringMachine>[1]) => {
+    setMachine((current) => reduceAuthoringMachine(current, event));
+  }, []);
+
+  const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
+    dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
     try {
+      if (options?.clearLocalFirst) {
+        clearWorkspaceDocumentLocalState(storage, args.documentId);
+      }
       const nextSnapshot = await getWorkspaceDocumentSnapshot(args.documentId);
-      const stored = readWorkspaceDocumentLocalState(storage, args.documentId);
+      const stored = options?.clearLocalFirst
+        ? null
+        : readWorkspaceDocumentLocalState(storage, args.documentId);
       const opened = openWorkspaceDocumentAuthoringState({
+        documentId: args.documentId,
         snapshot: nextSnapshot,
         stored,
         surface: args.surface,
         kind: args.kind,
+        emptyMarkdownFallback,
       });
       expectedRevisionRef.current = nextSnapshot.loaded_revision;
       setSnapshot(nextSnapshot);
@@ -103,34 +147,42 @@ export function useWorkspaceDocumentAuthoring(
       if (opened.status === "conflict") {
         setLocalState(stored);
         setDocumentKey(`${args.documentId}:conflict:${nextSnapshot.loaded_revision}`);
-        setStatus("conflict");
+        dispatch({
+          type: "OPEN_CONFLICT",
+          reason: opened.reconciliation.conflictReason ?? "Local draft conflicts with server content.",
+        });
         return;
       }
       if (opened.status === "reject" || !opened.localState) {
         setLocalState(null);
-        setStatus("error");
-        setError(opened.reconciliation.rejectReason ?? "Local draft was rejected.");
+        dispatch({
+          type: "OPEN_FAILED",
+          message: opened.reconciliation.rejectReason ?? "Local draft was rejected.",
+        });
         return;
       }
 
       writeWorkspaceDocumentLocalState(storage, opened.localState);
       setLocalState(opened.localState);
+      skipNextEditorUpdateRef.current = true;
       setDocumentKey(
         `${args.documentId}:${nextSnapshot.loaded_revision}:${opened.localState.dirty ? "dirty" : "clean"}`,
       );
-      setStatus("ready");
+      dispatch({ type: "OPEN_READY", dirty: opened.localState.dirty });
     } catch (loadError) {
       setSnapshot(null);
       setReconciliation(null);
       setLocalState(null);
-      setStatus("error");
-      setError(loadError instanceof Error ? loadError.message : "Unable to load workspace document.");
+      dispatch({
+        type: "OPEN_FAILED",
+        message: loadError instanceof Error ? loadError.message : "Unable to load workspace document.",
+      });
     }
-  }, [args.documentId, args.kind, args.surface, storage]);
+  }, [args.documentId, args.kind, args.surface, dispatch, emptyMarkdownFallback, storage]);
 
   useEffect(() => {
-    void loadSnapshot();
-  }, [loadSnapshot]);
+    void openFromSnapshot();
+  }, [openFromSnapshot]);
 
   const markDirty = useCallback(() => {
     setLocalState((current) => {
@@ -140,9 +192,14 @@ export function useWorkspaceDocumentAuthoring(
       writeWorkspaceDocumentLocalState(storage, next);
       return next;
     });
-  }, [storage]);
+    dispatch({ type: "EDIT" });
+  }, [dispatch, storage]);
 
   const persistEditorState = useCallback((nextEditor: Editor) => {
+    if (skipNextEditorUpdateRef.current) {
+      skipNextEditorUpdateRef.current = false;
+      return;
+    }
     setLocalState((current) => {
       if (!current) return current;
       const now = new Date().toISOString();
@@ -158,9 +215,11 @@ export function useWorkspaceDocumentAuthoring(
       writeWorkspaceDocumentLocalState(storage, next);
       return next;
     });
-  }, [storage]);
+    dispatch({ type: "EDIT" });
+  }, [dispatch, storage]);
 
   const handleSetEditor = useCallback((nextEditor: Editor | null) => {
+    skipNextEditorUpdateRef.current = true;
     setEditor(nextEditor);
   }, []);
 
@@ -179,83 +238,109 @@ export function useWorkspaceDocumentAuthoring(
     if (!editor || !snapshot || !localState) return;
     const markdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
     if (!markdown.trim()) {
-      setError("Document is empty; add content before saving.");
-      setStatus("error");
+      dispatch({ type: "SAVE_FAILED", message: "Document is empty; add content before saving." });
       return;
     }
 
     const expectedRevision = expectedRevisionRef.current ?? snapshot.loaded_revision;
-    setStatus("saving");
-    setError(null);
+    const tiptapJson = editor.getJSON();
     try {
+      dispatch({ type: "PREPARE_STARTED" });
       const prepared = await prepareTiptapMarkdownWrite({
         document_id: args.documentId,
         markdown,
         expected_revision: expectedRevision,
       });
       if (!prepared.writer_ok || !prepared.writer_confirm_token) {
-        setStatus("ready");
-        setError("Markdown save could not be prepared.");
+        dispatch({ type: "SAVE_FAILED", message: "Markdown save could not be prepared." });
         return;
       }
 
+      dispatch({ type: "COMMIT_STARTED" });
       const committed = await commitTiptapMarkdownWrite({
         document_id: args.documentId,
         markdown,
         writer_confirm_token: prepared.writer_confirm_token,
         expected_revision: expectedRevision,
       });
+      setLastCommitReceipt(committed);
 
-      const refreshed = await getWorkspaceDocumentSnapshot(args.documentId);
-      expectedRevisionRef.current = refreshed.loaded_revision;
-      const opened = openWorkspaceDocumentAuthoringState({
-        snapshot: refreshed,
-        stored: null,
+      // Commit receipt is authoritative — advance local base before any verification GET.
+      dispatch({ type: "COMMIT_SUCCEEDED" });
+      expectedRevisionRef.current = committed.committed_revision;
+      const receiptLocal = applyCommitReceiptToLocalState({
+        receipt: committed,
         surface: args.surface,
         kind: args.kind,
+        tiptapJson,
+        markdown,
       });
-      if (!opened.localState) {
-        setStatus("error");
-        setError("Save succeeded but the refreshed snapshot could not be opened.");
-        return;
-      }
-      const nextLocalState: WorkspaceDocumentLocalState = {
-        ...opened.localState,
-        title: committed.title,
-        dirty: false,
-      };
-      writeWorkspaceDocumentLocalState(storage, nextLocalState);
-      setSnapshot(refreshed);
-      setReconciliation(opened.reconciliation);
-      setLocalState(nextLocalState);
-      setDocumentKey(`${args.documentId}:${refreshed.loaded_revision}:committed`);
-      setStatus("ready");
-    } catch (saveError) {
-      setStatus("ready");
-      setError(saveError instanceof Error ? saveError.message : "Markdown save failed.");
-    }
-  }, [args.documentId, args.kind, args.surface, editor, localState, snapshot, storage]);
+      writeWorkspaceDocumentLocalState(storage, receiptLocal);
+      setLocalState(receiptLocal);
+      setSnapshot((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          record: committed.committed_record,
+          markdown,
+          content_sha256: committed.normalized_content_sha256,
+          file_fingerprint: committed.file_fingerprint ?? current.file_fingerprint,
+          file_exists: true,
+          loaded_revision: committed.committed_revision,
+        };
+      });
+      setDocumentKey(`${args.documentId}:${committed.committed_revision}:committed`);
 
-  const discardLocalDraft = useCallback(() => {
-    if (!snapshot) return;
-    void loadSnapshot();
-  }, [loadSnapshot, snapshot]);
+      dispatch({ type: "VERIFICATION_STARTED" });
+      try {
+        const refreshed = await getWorkspaceDocumentSnapshot(args.documentId);
+        expectedRevisionRef.current = refreshed.loaded_revision;
+        setSnapshot(refreshed);
+        dispatch({ type: "VERIFICATION_SUCCEEDED", dirty: false });
+      } catch (verifyError) {
+        dispatch({
+          type: "VERIFICATION_FAILED",
+          message: verifyError instanceof Error
+            ? verifyError.message
+            : "Commit succeeded; snapshot verification failed.",
+        });
+      }
+    } catch (saveError) {
+      dispatch({
+        type: "SAVE_FAILED",
+        message: saveError instanceof Error ? saveError.message : "Markdown save failed.",
+      });
+    }
+  }, [args.documentId, args.kind, args.surface, dispatch, editor, localState, snapshot, storage]);
+
+  const discardLocalDraft = useCallback(async () => {
+    await openFromSnapshot({ clearLocalFirst: true });
+  }, [openFromSnapshot]);
+
+  const reloadFromSnapshot = useCallback(async () => {
+    // Preserve local draft; reopen may re-enter conflict intentionally.
+    dispatch({ type: "RELOAD_STARTED" });
+    await openFromSnapshot();
+  }, [dispatch, openFromSnapshot]);
 
   const dirty = localState?.dirty ?? false;
+  const phase = machine.phase;
   const statusLabel = useMemo(
-    () => statusLabelFor({
-      status,
-      dirty,
+    () => statusLabelForPhase({
+      phase,
       contentStatus: snapshot?.record.content_status ?? null,
-      conflictReason: reconciliation?.conflictReason,
-      error,
+      conflictReason: machine.conflictReason ?? reconciliation?.conflictReason,
+      error: machine.error,
     }),
-    [dirty, error, reconciliation?.conflictReason, snapshot?.record.content_status, status],
+    [machine.conflictReason, machine.error, phase, reconciliation?.conflictReason, snapshot?.record.content_status],
   );
 
+  const legacyStatus: WorkspaceDocumentAuthoringStatus = phase;
+
   return {
-    status,
-    error,
+    status: legacyStatus,
+    phase,
+    error: machine.error,
     snapshot,
     record: snapshot?.record ?? null,
     reconciliation,
@@ -263,11 +348,16 @@ export function useWorkspaceDocumentAuthoring(
     documentKey,
     dirty,
     statusLabel,
-    saveDisabled: !editor || status === "loading" || status === "saving" || status === "conflict",
+    saveDisabled: !editor
+      || !isEditorInteractive(phase)
+      || isSaveDisabled(phase)
+      || (requireDirtyToSave && !dirty)
+      || (canSave ? !canSave() : false),
+    lastCommitReceipt,
     setEditor: handleSetEditor,
     markDirty,
     saveMarkdown,
-    reloadFromSnapshot: loadSnapshot,
+    reloadFromSnapshot,
     discardLocalDraft,
   };
 }

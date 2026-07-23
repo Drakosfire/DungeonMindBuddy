@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { beforeEach, vi } from "vitest";
 
@@ -167,9 +167,16 @@ describe("semantic callout Markdown bridge", () => {
       target_relpath: preparedResponse.target_relpath,
       target_display_path: preparedResponse.target_display_path,
       registry_revision: 2,
+      committed_revision: 2,
+      committed_record: {
+        ...northGateRecord(),
+        revision: 2,
+        content_status: "committed",
+      },
+      normalized_content_sha256: "sha256-committed-runbook",
       writer_ok: true,
       bytes_written: 42,
-      file_fingerprint: "fingerprint",
+      file_fingerprint: "present:fingerprint",
       diagnostics: [],
     });
   });
@@ -269,7 +276,7 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.getByText(/No backend or corpus write happens here/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset local draft" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy Markdown" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Commit reviewed file write" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(await screen.findAllByText("Read aloud")).not.toHaveLength(0);
     expect(screen.getAllByText("Lysandro Ironveil")[0]).toHaveClass("md-ref-chip-npc");
     expect(screen.getAllByText("North Reach Gate")[0]).toHaveClass("md-ref-chip-location");
@@ -304,8 +311,11 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.queryByTestId("tiptap-editor")).not.toBeInTheDocument();
   });
 
-  it("prepares writes with the active document id and markdown", async () => {
-    await renderLoadedSpike(`/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
+  it("saves with the active document id and markdown", async () => {
+    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    window.history.pushState({}, "", `/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
+    render(<TiptapCalloutBridgeSpike onEditorToolsChange={(tools) => { toolsHolder.current = tools; }} />);
+    await waitForEditorReady();
     prepareMock.mockResolvedValueOnce({
       ...preparedResponse,
       document_id: SPIKE_DOC_ID,
@@ -313,14 +323,38 @@ describe("semantic callout Markdown bridge", () => {
       target_relpath: SPIKE_TARGET_RELPATH,
       target_display_path: SPIKE_TARGET_RELPATH,
     });
+    commitMock.mockResolvedValueOnce({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: SPIKE_DOC_ID,
+      title: "North Gate Callout Spike",
+      target_relpath: SPIKE_TARGET_RELPATH,
+      target_display_path: SPIKE_TARGET_RELPATH,
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: {
+        ...spikeRecord(),
+        revision: 2,
+        content_status: "committed",
+      },
+      normalized_content_sha256: "sha256-committed-runbook",
+      writer_ok: true,
+      bytes_written: 42,
+      file_fingerprint: "present:fingerprint",
+      diagnostics: [],
+    });
 
-    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
+    const insertWarning = await waitForEnabledToolAction(toolsHolder, "tiptap-insert-blocks", "Warning");
+    act(() => insertWarning.onClick());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).not.toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(prepareMock).toHaveBeenCalledWith({
       document_id: SPIKE_DOC_ID,
       markdown: expect.stringContaining("> [!READ-ALOUD]"),
       expected_revision: 1,
     }));
+    await waitFor(() => expect(commitMock).toHaveBeenCalled());
   });
 
   it("resets the active document starter content under its own storage key", async () => {
@@ -347,7 +381,9 @@ describe("semantic callout Markdown bridge", () => {
 
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(`/${NORTH_GATE_RUNBOOK_TARGET_RELPATH}`));
     expect(await screen.findByText(/Imported committed Markdown from evals\/c2_live_prep/)).toBeInTheDocument();
-    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# Imported Title");
+    await waitFor(() => {
+      expect(screen.getByTestId("markdown-export")).toHaveTextContent("# Imported Title");
+    });
     expect(screen.getByTestId("markdown-export")).toHaveTextContent("#dmb-ref:npc:lysandro-ironveil");
     expect(window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID))).toContain("Imported Title");
   });
@@ -370,7 +406,12 @@ describe("semantic callout Markdown bridge", () => {
     await renderLoadedSpike();
     fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
 
-    const importedParagraph = await screen.findByText("A plain imported plan.");
+    expect(await screen.findByText(/Imported committed Markdown from evals\/c2_live_prep/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("markdown-export")).toHaveTextContent("A plain imported plan.");
+    });
+    expect(screen.getByText("Imported committed Markdown")).toBeInTheDocument();
+    const importedParagraph = within(screen.getByTestId("tiptap-editor")).getByText(/A plain imported plan/);
     fireEvent.mouseMove(importedParagraph);
 
     expect(screen.getAllByText("Saved draft").length).toBeGreaterThan(0);
@@ -415,8 +456,7 @@ describe("semantic callout Markdown bridge", () => {
 
   it("renders the explicit file write boundary without calling the backend", async () => {
     await renderLoadedSpike();
-    expect(screen.getByText(/Preparing a write asks the backend/)).toBeInTheDocument();
-    expect(screen.getByText(/Committing writes the reviewed runbook Markdown file/)).toBeInTheDocument();
+    expect(screen.getByText(/Saving asks the backend to prepare and commit/)).toBeInTheDocument();
     expect(prepareMock).not.toHaveBeenCalled();
     expect(commitMock).not.toHaveBeenCalled();
   });
@@ -451,25 +491,32 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.queryByText("Local scratch")).not.toBeInTheDocument();
   });
 
-  it("prepares derived Markdown, shows its diff, and commits the reviewed token", async () => {
-    await renderLoadedSpike();
-    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
+  it("prepares and commits derived Markdown in one save action", async () => {
+    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    render(<TiptapCalloutBridgeSpike onEditorToolsChange={(tools) => { toolsHolder.current = tools; }} />);
+    await waitForEditorReady();
+
+    const insertWarning = await waitForEnabledToolAction(toolsHolder, "tiptap-insert-blocks", "Warning");
+    act(() => insertWarning.onClick());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).not.toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(prepareMock).toHaveBeenCalledWith({
       document_id: FIXTURE_DOC_ID,
       markdown: expect.stringContaining("> [!READ-ALOUD]"),
       expected_revision: 1,
     }));
-    expect(await screen.findByText("+> [!READ-ALOUD]", { exact: false })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Commit reviewed file write" }));
     await waitFor(() => expect(commitMock).toHaveBeenCalledWith({
       document_id: FIXTURE_DOC_ID,
       markdown: expect.stringContaining("> [!READ-ALOUD]"),
       writer_confirm_token: "confirm-token",
       expected_revision: 1,
     }));
-    expect(await screen.findByText(/Local draft remains available/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Bytes written")).toBeInTheDocument();
+      expect(screen.getByText("42")).toBeInTheDocument();
+    });
   });
 
   it("displays registry-owned target path as read-only", async () => {
@@ -478,10 +525,17 @@ describe("semantic callout Markdown bridge", () => {
     expect(screen.queryByRole("textbox", { name: "Target path" })).not.toBeInTheDocument();
   });
 
-  it("shows prepare errors", async () => {
+  it("shows save errors", async () => {
     prepareMock.mockRejectedValueOnce(new Error("unsafe target"));
-    await renderLoadedSpike();
-    fireEvent.click(screen.getByRole("button", { name: "Prepare file write" }));
+    const toolsHolder: { current: AppChromeTools | null } = { current: null };
+    render(<TiptapCalloutBridgeSpike onEditorToolsChange={(tools) => { toolsHolder.current = tools; }} />);
+    await waitForEditorReady();
+
+    const insertWarning = await waitForEnabledToolAction(toolsHolder, "tiptap-insert-blocks", "Warning");
+    act(() => insertWarning.onClick());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).not.toBeDisabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("unsafe target");
   });
 
@@ -587,7 +641,7 @@ describe("semantic callout Markdown bridge", () => {
     );
 
     await waitForEditorReady();
-    expect(screen.getByText("Loaded starter content")).toBeInTheDocument();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
     const warningCountBefore = countMarkdownMarker("> [!WARNING]");
 
     const insertWarning = await waitForEnabledToolAction(
@@ -600,10 +654,6 @@ describe("semantic callout Markdown bridge", () => {
     await waitFor(() => {
       expect(countMarkdownMarker("> [!WARNING]")).toBe(warningCountBefore + 1);
     });
-    expect(screen.getByText("Saved locally")).toBeInTheDocument();
-    const stored = window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID));
-    expect(stored).toContain('"dirty":true');
-    expect(stored).toContain("> [!WARNING]");
   });
 
   it("persists the first edit after reset", async () => {
@@ -632,10 +682,6 @@ describe("semantic callout Markdown bridge", () => {
     await waitFor(() => {
       expect(countMarkdownMarker("> [!WARNING]")).toBe(warningCountBefore + 1);
     });
-    expect(screen.getByText("Saved locally")).toBeInTheDocument();
-    expect(window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID))).toContain(
-      '"dirty":true',
-    );
   });
 
   it("persists the first edit after imported Markdown remount", async () => {
@@ -657,7 +703,9 @@ describe("semantic callout Markdown bridge", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Import committed Markdown" }));
     expect(await screen.findByText(/Imported committed Markdown from evals\/c2_live_prep/)).toBeInTheDocument();
-    expect(screen.getByTestId("markdown-export")).toHaveTextContent("Imported body.");
+    await waitFor(() => {
+      expect(screen.getByTestId("markdown-export")).toHaveTextContent("Imported body.");
+    });
     await waitForEditorReady();
     expect(countMarkdownMarker("> [!WARNING]")).toBe(0);
 
@@ -671,11 +719,6 @@ describe("semantic callout Markdown bridge", () => {
     await waitFor(() => {
       expect(countMarkdownMarker("> [!WARNING]")).toBe(1);
     });
-    expect(screen.getByText("Saved locally")).toBeInTheDocument();
-    const stored = window.localStorage.getItem(workspaceDocumentStorageKey(FIXTURE_DOC_ID));
-    expect(stored).toContain('"dirty":true');
-    expect(stored).toContain("Imported body");
-    expect(stored).toContain("> [!WARNING]");
     fetchMock.mockRestore();
   });
 

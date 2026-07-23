@@ -144,4 +144,46 @@ describe("BuildSurfacePage", () => {
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
   });
+
+  it("follows browser back/forward documentId changes", async () => {
+    const otherId = "22222222-2222-4222-8222-222222222222";
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id: string) => ({
+      schema_version: "dmb_workspace_document_snapshot_v1",
+      record: {
+        schema_version: "dmb_workspace_document_record_v1",
+        document_id: id,
+        title: id === DOC_ID ? "Doc A" : "Doc B",
+        campaign_id: "eldyrwild",
+        target_session: null,
+        kind: "worldbuilding_source",
+        target_relpath: `out/workspace/worldbuilding/${id}.md`,
+        status: "active",
+        content_status: "draft",
+        revision: 1,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: "worldbuilding",
+        document_class: "lore",
+        authority_state: "draft",
+        visibility_state: "internal",
+      },
+      markdown: `# ${id}\n`,
+      content_sha256: `sha-${id}`,
+      file_fingerprint: "absent",
+      file_exists: false,
+      loaded_revision: 1,
+    }));
+
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}`);
+    renderBuildPage();
+    expect(await screen.findByText("Doc A")).toBeInTheDocument();
+
+    window.history.pushState({}, "", `/build?documentId=${otherId}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(await screen.findByText("Doc B")).toBeInTheDocument();
+
+    window.history.pushState({}, "", "/build");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(await screen.findByTestId("build-new-source-form")).toBeInTheDocument();
+  });
 });

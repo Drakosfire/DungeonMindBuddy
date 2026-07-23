@@ -545,3 +545,187 @@ def test_snapshot_api_returns_committed_markdown(client: TestClient, root: Path)
     assert payload["file_exists"] is True
     assert payload["loaded_revision"] == payload["record"]["revision"]
     assert payload["content_sha256"]
+
+
+def test_snapshot_and_commit_never_mix_revisions(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Snapshot under document lock is entirely old or entirely new — never mixed."""
+    import hashlib
+    import threading
+
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest,
+        TiptapMarkdownWritePrepareRequest,
+        commit_tiptap_markdown_write,
+        prepare_tiptap_markdown_write,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_workspace_document_snapshot,
+        get_workspace_document_snapshot_unlocked,
+    )
+
+    created = create_workspace_document(
+        root,
+        title="Coherent Lore",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    v1 = "# Lore\n\nRevision one.\n"
+    prepared_v1 = prepare_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=created.document_id,
+            markdown=v1,
+            expected_revision=created.revision,
+        ),
+    )
+    committed_v1 = commit_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=created.document_id,
+            markdown=v1,
+            writer_confirm_token=prepared_v1.writer_confirm_token or "",
+            expected_revision=created.revision,
+        ),
+    )
+    prior_revision = committed_v1.committed_revision
+    prior_digest = hashlib.sha256(v1.encode("utf-8")).hexdigest()
+
+    v2 = "# Lore\n\nRevision two.\n"
+    prepared_v2 = prepare_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=created.document_id,
+            markdown=v2,
+            expected_revision=prior_revision,
+        ),
+    )
+
+    entered_snapshot = threading.Event()
+    release_snapshot = threading.Event()
+    real_unlocked = get_workspace_document_snapshot_unlocked
+
+    def delayed_unlocked(snapshot_root: Path, document_id: str):
+        entered_snapshot.set()
+        assert release_snapshot.wait(timeout=5), "timed out waiting to release snapshot"
+        return real_unlocked(snapshot_root, document_id)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.workspace_document_registry.get_workspace_document_snapshot_unlocked",
+        delayed_unlocked,
+    )
+
+    snapshot_errors: list[BaseException] = []
+    snapshot_result: list[object] = []
+
+    def snapshot_worker() -> None:
+        try:
+            snapshot_result.append(get_workspace_document_snapshot(root, created.document_id))
+        except BaseException as exc:  # noqa: BLE001 - surface to main thread
+            snapshot_errors.append(exc)
+
+    snapshot_thread = threading.Thread(target=snapshot_worker)
+    snapshot_thread.start()
+    assert entered_snapshot.wait(timeout=5), "snapshot never entered unlocked body"
+
+    commit_errors: list[BaseException] = []
+    commit_result: list[object] = []
+
+    def commit_worker() -> None:
+        try:
+            commit_result.append(
+                commit_tiptap_markdown_write(
+                    root=root,
+                    request=TiptapMarkdownWriteCommitRequest(
+                        document_id=created.document_id,
+                        markdown=v2,
+                        writer_confirm_token=prepared_v2.writer_confirm_token or "",
+                        expected_revision=prior_revision,
+                    ),
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001 - surface to main thread
+            commit_errors.append(exc)
+
+    commit_thread = threading.Thread(target=commit_worker)
+    commit_thread.start()
+    # Commit must block on the document lock while snapshot holds it.
+    commit_thread.join(timeout=0.2)
+    assert commit_thread.is_alive(), "commit raced through while snapshot held the lock"
+
+    release_snapshot.set()
+    snapshot_thread.join(timeout=5)
+    commit_thread.join(timeout=5)
+
+    assert not snapshot_errors, snapshot_errors
+    assert not commit_errors, commit_errors
+    assert len(snapshot_result) == 1
+    assert len(commit_result) == 1
+
+    snapshot = snapshot_result[0]
+    assert snapshot.loaded_revision == prior_revision
+    assert snapshot.record.revision == prior_revision
+    assert snapshot.markdown == v1
+    assert snapshot.content_sha256 == prior_digest
+
+    committed = commit_result[0]
+    assert committed.committed_revision == prior_revision + 1
+    assert committed.normalized_content_sha256 == hashlib.sha256(v2.encode("utf-8")).hexdigest()
+    assert committed.committed_record.revision == committed.committed_revision
+
+    after = get_workspace_document_snapshot(root, created.document_id)
+    assert after.loaded_revision == committed.committed_revision
+    assert after.markdown == v2
+    assert after.content_sha256 == committed.normalized_content_sha256
+    assert after.file_fingerprint == committed.file_fingerprint
+
+
+def test_commit_receipt_matches_snapshot_fingerprint(root: Path) -> None:
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteCommitRequest,
+        TiptapMarkdownWritePrepareRequest,
+        commit_tiptap_markdown_write,
+        prepare_tiptap_markdown_write,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_workspace_document_snapshot,
+    )
+
+    created = create_workspace_document(
+        root,
+        title="Receipt Lore",
+        campaign_id="eldyrwild",
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    markdown = "# Lore\n\nReceipt body.\n"
+    prepared = prepare_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=created.document_id,
+            markdown=markdown,
+            expected_revision=created.revision,
+        ),
+    )
+    receipt = commit_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=created.document_id,
+            markdown=markdown,
+            writer_confirm_token=prepared.writer_confirm_token or "",
+            expected_revision=created.revision,
+        ),
+    )
+    snapshot = get_workspace_document_snapshot(root, created.document_id)
+    assert receipt.committed_revision == snapshot.loaded_revision
+    assert receipt.normalized_content_sha256 == snapshot.content_sha256
+    assert receipt.file_fingerprint == snapshot.file_fingerprint
+    assert receipt.committed_record.document_id == snapshot.record.document_id

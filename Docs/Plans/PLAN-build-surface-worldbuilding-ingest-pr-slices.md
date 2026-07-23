@@ -3,11 +3,50 @@ document_id: dmb-plan-build-surface-worldbuilding-ingest-pr-slices
 title: Build Surface and Worldbuilding Ingest PR Slices
 document_class: implementation_plan
 status: proposed
-version: 0.2
+version: 0.3
 branch: docs/build-surface-worldbuilding-ingest
 roadmap: ROADMAP-build-surface-worldbuilding-ingest.md
 created_at: "2026-07-22"
-last_updated_at: "2026-07-22"
+last_updated_at: "2026-07-23"
+external_pull_requests:
+  - id: github-pr-399
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/399
+    plan_phase_primary: "BLD-05a"
+    plan_phase_also_touches: "BLD-05"
+    plan_phase_label: >-
+      BLD-05a workspace-document authoring seam plus thin Build consumer.
+      Round-1 review requested changes: complete shared lifecycle (atomic
+      snapshot lock, commit receipt, surface authority, one reducer) rather
+      than surface-specific patches.
+    review_status: open_under_review
+    review_status_meaning: >-
+      Open under review. Round 1 disposition was REQUEST_CHANGES (posted as
+      COMMENT banner due to GitHub self-review 422) on 2026-07-23T22:11:07Z
+      (review_id 4768588721). Round 2 work continues on the same branch to
+      close the three owning contracts before merge.
+    judgment_record:
+      verdict: request_changes
+      evaluated_at: "2026-07-23T22:11:07Z"
+      evaluator: cursor-agent
+      notes: >-
+        PR #399 correctly introduced WorkspaceDocumentSnapshot shape, local-state
+        v3, nullable session scope, explicit Build creation form, and thin Build
+        composition. Round 1 rejected merge because snapshot reads lacked the
+        document mutation lock, discardLocalDraft did not clear storage, post-commit
+        dirty clear depended on a second snapshot GET, Build could open Plan/runbook
+        UUIDs, URL selection ignored popstate, and Plan/runbook still owned separate
+        save lifecycles. Rubric for round 2: one coherent revision across snapshot,
+        commit receipt, local base, editor, URL, surface authority, CAS, labels,
+        and agent context — from one shared authoring lifecycle.
+    rubric_when_we_judge:
+      - "Snapshot under workspace_document_mutation_lock returns entirely old or entirely new revision — never mixed."
+      - "Commit response is an authoritative receipt (committed_record, normalized_content_sha256, file_fingerprint, committed_revision); local base advances from receipt."
+      - "Shared open rejects unexpected kind, forbidden surface/kind, discarded (unless allowed), and UUID mismatch before local state or save."
+      - "discard_local_and_open_server clears UUID-bound localStorage then opens server content."
+      - "Commit success + verification failure remains committed_verification_pending, never reported as save failure."
+      - "Plan, Build, and runbook invoke the same lifecycle transitions; surfaces adapt presentation only."
+      - "Browser back/forward changes loaded UUID and agent context together."
+      - "Clean server drafts labeled Draft, not Committed; agent context distinguishes local dirty vs durable committed."
 ---
 
 # Build Surface and Worldbuilding Ingest PR Slices

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { createWorkspaceDocument } from "../api/liveApi";
 import type {
@@ -6,20 +6,16 @@ import type {
   WorldbuildingVisibilityState,
 } from "../api/types";
 import { AppChrome } from "../chrome/AppChrome";
+import { useWorkspaceDocumentUrlSelection } from "../workspaceDocument/useWorkspaceDocumentUrlSelection";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
 import { BUILD_NEW_SOURCE_HEADING, BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
-
-function readDocumentIdFromLocation(): string | null {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get("documentId")?.trim();
-  return raw || null;
-}
 
 function navigateToDocument(documentId: string): void {
   const url = new URL(window.location.href);
   url.pathname = BUILD_SURFACE_ROUTE;
   url.searchParams.set("documentId", documentId);
   window.history.pushState({}, "", url.toString());
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 interface NewSourceFormState {
@@ -39,8 +35,7 @@ const DEFAULT_FORM: NewSourceFormState = {
 };
 
 export function BuildSurfacePage() {
-  const initialDocumentId = useMemo(() => readDocumentIdFromLocation(), []);
-  const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
+  const documentId = useWorkspaceDocumentUrlSelection();
   const [form, setForm] = useState<NewSourceFormState>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -60,13 +55,17 @@ export function BuildSurfacePage() {
         visibility_state: form.visibilityState,
       });
       navigateToDocument(created.document_id);
-      setDocumentId(created.document_id);
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : "Unable to create worldbuilding source.");
     } finally {
       setCreating(false);
     }
   }, [form]);
+
+  useEffect(() => {
+    if (documentId) return;
+    setCreateError(null);
+  }, [documentId]);
 
   if (!documentId) {
     return (
@@ -140,7 +139,7 @@ export function BuildSurfacePage() {
 
   return (
     <AppChrome activeRoute="build">
-      <BuildSurfaceShell documentId={documentId} />
+      <BuildSurfaceShell key={documentId} documentId={documentId} />
     </AppChrome>
   );
 }

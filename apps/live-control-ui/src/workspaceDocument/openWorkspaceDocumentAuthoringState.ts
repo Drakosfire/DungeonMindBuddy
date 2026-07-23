@@ -8,14 +8,17 @@ import {
   type WorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
 import { reconcileLocalDraft, type ReconcileLocalDraftResult } from "./reconcileLocalDraft";
+import { assertSurfaceAuthority } from "./surfaceAuthority";
 
 export interface OpenWorkspaceDocumentAuthoringArgs {
+  documentId: string;
   snapshot: WorkspaceDocumentSnapshot;
   stored: WorkspaceDocumentLocalState | null;
   surface: WorkspaceDocumentLocalSurface;
   kind: WorkspaceDocumentLocalKind;
   /** Used when snapshot markdown is empty (typical draft with no file yet). */
   emptyMarkdownFallback?: unknown;
+  allowDiscarded?: boolean;
 }
 
 export interface OpenWorkspaceDocumentAuthoringResult {
@@ -68,6 +71,28 @@ function chooseEditorContent(args: {
 export function openWorkspaceDocumentAuthoringState(
   args: OpenWorkspaceDocumentAuthoringArgs,
 ): OpenWorkspaceDocumentAuthoringResult {
+  const authority = assertSurfaceAuthority({
+    requestedDocumentId: args.documentId,
+    requestedKind: args.kind,
+    surface: args.surface,
+    record: args.snapshot.record,
+    loadedRevision: args.snapshot.loaded_revision,
+    allowDiscarded: args.allowDiscarded,
+  });
+  if (!authority.ok) {
+    return {
+      reconciliation: {
+        kind: "reject",
+        markdown: args.snapshot.markdown,
+        localState: null,
+        rejectReason: authority.rejectReason,
+      },
+      localState: null,
+      status: "reject",
+    };
+  }
+
+  const authoritativeKind = authority.authoritativeKind ?? args.kind;
   const reconciliation = reconcileLocalDraft(args.snapshot, args.stored);
 
   if (reconciliation.kind === "conflict") {
@@ -87,7 +112,7 @@ export function openWorkspaceDocumentAuthoringState(
       documentId: args.snapshot.record.document_id,
       title: args.snapshot.record.title,
       campaignId: args.snapshot.record.campaign_id,
-      kind: args.kind,
+      kind: authoritativeKind,
       targetSession: args.snapshot.record.target_session,
       surface: args.surface,
       baseRevision: args.snapshot.loaded_revision,

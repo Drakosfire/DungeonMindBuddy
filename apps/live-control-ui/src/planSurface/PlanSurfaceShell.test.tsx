@@ -1605,6 +1605,12 @@ describe("PlanSurfaceShell", () => {
     const user = userEvent.setup();
     const planTarget =
       "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
+      .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot({
+        loaded_revision: 2,
+        record: fixtureWorkspaceDocumentRecord({ content_status: "committed", revision: 2 }),
+      }));
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
@@ -1633,6 +1639,13 @@ describe("PlanSurfaceShell", () => {
             title: "C2 Session 23 Prep",
             target_relpath: planTarget,
             target_display_path: planTarget,
+            registry_revision: 2,
+            committed_revision: 2,
+            committed_record: fixtureWorkspaceDocumentRecord({
+              content_status: "committed",
+              revision: 2,
+            }),
+            normalized_content_sha256: "abc123sha256",
             writer_ok: true,
             writer_phase: "commit",
             bytes_written: 42,
@@ -1657,7 +1670,7 @@ describe("PlanSurfaceShell", () => {
     expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
     expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
-    expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Saved to Markdown/i);
+    expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Committed/i);
   });
 
   function buildHermesGraphGrounding(

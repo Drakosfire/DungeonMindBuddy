@@ -3,11 +3,7 @@ import { useEffect } from "react";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
-import {
-  BUILD_DOCUMENT_STATUS_COMMITTED,
-  BUILD_DOCUMENT_STATUS_DIRTY,
-  BUILD_SURFACE_LABEL,
-} from "./buildSurfaceConfig";
+import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 
 interface BuildSurfaceShellProps {
   documentId: string;
@@ -29,19 +25,53 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
       surfaceId: "build",
       documentId: authoring.record.document_id,
     });
+    const contentStatus = authoring.record.content_status;
+    const loadedRevision = authoring.snapshot?.loaded_revision ?? authoring.record.revision;
+    const contentSha = authoring.snapshot?.content_sha256 ?? null;
     publishSurfaceContext({
       surfaceId: "build",
       label: `${BUILD_SURFACE_LABEL} · ${authoring.record.title}`,
       campaignId: authoring.record.campaign_id,
       documentId: authoring.record.document_id,
       sessionNumber: null,
-      ambientSummary: authoring.record.document_class ?? "worldbuilding source",
-      sourceEnvelope: null,
+      ambientSummary: [
+        authoring.record.document_class ?? "worldbuilding source",
+        `rev ${loadedRevision}`,
+        authoring.dirty ? "local dirty" : "local clean",
+        contentStatus === "committed" ? "durable committed" : "durable draft",
+        `phase ${authoring.phase}`,
+      ].join(" · "),
+      sourceEnvelope: {
+        schema: "agent_interaction_source_envelope_v1",
+        artifactRefs: [
+          { kind: "workspace_document", value: authoring.record.document_id },
+          ...(authoring.record.target_relpath
+            ? [{ kind: "path" as const, value: authoring.record.target_relpath }]
+            : []),
+        ],
+        provenanceSummary: [
+          `revision=${loadedRevision}`,
+          contentSha ? `content_sha256=${contentSha}` : null,
+          `dirty=${authoring.dirty ? "true" : "false"}`,
+          `content_status=${contentStatus}`,
+          `phase=${authoring.phase}`,
+        ].filter(Boolean).join("; "),
+        warnings: authoring.error ? [authoring.error] : [],
+      },
       updatedAt: new Date().toISOString(),
     });
-  }, [authoring.record, publishSurfaceContext, rehydrateScope]);
+  }, [
+    authoring.dirty,
+    authoring.error,
+    authoring.phase,
+    authoring.record,
+    authoring.snapshot?.content_sha256,
+    authoring.snapshot?.loaded_revision,
+    publishSurfaceContext,
+    rehydrateScope,
+  ]);
 
-  if (authoring.status === "loading") {
+  if (authoring.phase === "loading" || authoring.phase === "unloaded") {
     return (
       <main className="app-status" data-testid="build-surface-loading">
         <p>Loading worldbuilding source…</p>
@@ -49,7 +79,7 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     );
   }
 
-  if (authoring.status === "error") {
+  if (authoring.phase === "load_error") {
     return (
       <main className="app-status app-error" data-testid="build-surface-error">
         <h1>{BUILD_SURFACE_LABEL}</h1>
@@ -58,7 +88,7 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     );
   }
 
-  if (authoring.status === "conflict") {
+  if (authoring.phase === "conflict") {
     return (
       <main className="app-status app-error" data-testid="build-surface-conflict">
         <h1>{BUILD_SURFACE_LABEL}</h1>
@@ -66,21 +96,22 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
         <button type="button" onClick={() => void authoring.reloadFromSnapshot()}>
           Reload from server
         </button>
-        <button type="button" onClick={authoring.discardLocalDraft}>
+        <button type="button" onClick={() => void authoring.discardLocalDraft()}>
           Discard local draft
         </button>
       </main>
     );
   }
 
-  const lifecycleLabel = authoring.dirty ? BUILD_DOCUMENT_STATUS_DIRTY : BUILD_DOCUMENT_STATUS_COMMITTED;
-
   return (
     <main className="build-surface-shell" data-testid="build-surface-shell">
       <header className="build-surface-header">
         <h1>{authoring.record?.title ?? BUILD_SURFACE_LABEL}</h1>
-        <p data-testid="build-document-status">{lifecycleLabel}</p>
+        <p data-testid="build-document-status">{authoring.statusLabel}</p>
         <p data-testid="build-authoring-status">{authoring.statusLabel}</p>
+        {authoring.error ? (
+          <p role="alert" data-testid="build-save-error">{authoring.error}</p>
+        ) : null}
         {authoring.record?.document_class ? (
           <p data-testid="build-document-class">{authoring.record.document_class}</p>
         ) : null}
@@ -91,7 +122,6 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
           documentKey={authoring.documentKey}
           content={authoring.editorContent}
           onEditorChange={authoring.setEditor}
-          onUpdate={() => authoring.markDirty()}
           dataTestId="build-markdown-editor"
         />
       </section>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import difflib
+import hashlib
 import re
 import uuid
 from datetime import UTC, datetime
@@ -151,6 +152,13 @@ class TiptapMarkdownWriteCommitRequest(BaseModel):
 
 
 class TiptapMarkdownWriteCommitResponse(BaseModel):
+    """Authoritative write receipt constructed under the document mutation lock.
+
+    Clients must advance local base revision/fingerprint from this receipt. A later
+    snapshot GET is verification only — never the operation that decides whether the
+    durable commit succeeded.
+    """
+
     schema_version: Literal["dmb_tiptap_markdown_write_commit_v1"] = (
         "dmb_tiptap_markdown_write_commit_v1"
     )
@@ -159,6 +167,9 @@ class TiptapMarkdownWriteCommitResponse(BaseModel):
     target_relpath: str
     target_display_path: str
     registry_revision: int
+    committed_revision: int
+    committed_record: WorkspaceDocumentRecord
+    normalized_content_sha256: str
     writer_ok: bool
     writer_phase: str | None = None
     bytes_written: int | None = None
@@ -493,16 +504,20 @@ def _commit_tiptap_markdown_write_unlocked(
         )
         _raise_write_failure(f"registry commit failed: {exc}", cause=exc)
 
+    content_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
     return TiptapMarkdownWriteCommitResponse(
         document_id=committed_record.document_id,
         title=committed_record.title,
         target_relpath=relpath,
         target_display_path=relpath,
         registry_revision=committed_record.revision,
+        committed_revision=committed_record.revision,
+        committed_record=committed_record,
+        normalized_content_sha256=content_sha256,
         writer_ok=True,
         writer_phase="commit",
         bytes_written=len(content.encode()),
-        file_fingerprint=blake3.blake3(content.encode()).hexdigest(),
+        file_fingerprint=_file_state_token(target),
         backup_relpath=backup_relpath,
         diagnostics=_commit_diagnostics(relpath),
     )

@@ -358,9 +358,21 @@ def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRec
 def get_workspace_document_snapshot(root: Path, document_id: str) -> WorkspaceDocumentSnapshot:
     """Load record + target Markdown as one coherent revision snapshot.
 
+    Holds ``workspace_document_mutation_lock`` across registry-record read, target
+    authorization, file-byte read, and digest/fingerprint construction so a concurrent
+    commit cannot mix revision N metadata with revision N+1 bytes.
+
     ``content_status=committed`` with a missing/unreadable target is an integrity
     failure (409), not an empty editor payload.
     """
+    with workspace_document_mutation_lock(root, document_id):
+        return get_workspace_document_snapshot_unlocked(root, document_id)
+
+
+def get_workspace_document_snapshot_unlocked(
+    root: Path, document_id: str
+) -> WorkspaceDocumentSnapshot:
+    """Snapshot read for callers that already hold ``workspace_document_mutation_lock``."""
     import hashlib
 
     from apps.live_control_server.services.tiptap_markdown_write import (
@@ -369,7 +381,7 @@ def get_workspace_document_snapshot(root: Path, document_id: str) -> WorkspaceDo
         resolve_tiptap_markdown_target,
     )
 
-    record = get_workspace_document(root, document_id)
+    record = load_workspace_document_under_registry_lock(root, document_id)
     if record.target_relpath is None or record.target_relpath == "":
         if record.content_status == "committed":
             raise WorkspaceDocumentRegistryError(

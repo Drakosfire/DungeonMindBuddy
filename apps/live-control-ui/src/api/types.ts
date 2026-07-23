@@ -1448,6 +1448,9 @@ export interface TiptapMarkdownWriteCommitResponse {
   target_relpath: string;
   target_display_path: string;
   registry_revision: number;
+  committed_revision: number;
+  committed_record: WorkspaceDocumentRecord;
+  normalized_content_sha256: string;
   writer_ok: boolean;
   writer_phase?: string | null;
   bytes_written?: number | null;

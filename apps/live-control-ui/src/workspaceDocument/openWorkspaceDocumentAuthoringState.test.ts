@@ -44,6 +44,7 @@ describe("openWorkspaceDocumentAuthoringState", () => {
       content: [{ type: "paragraph", content: [{ type: "text", text: "Starter body" }] }],
     };
     const opened = openWorkspaceDocumentAuthoringState({
+      documentId: DOC_ID,
       snapshot: snapshot(),
       stored: null,
       surface: "build",
@@ -55,6 +56,29 @@ describe("openWorkspaceDocumentAuthoringState", () => {
     expect(opened.localState?.exported_markdown).toContain("Starter body");
     expect(opened.localState?.base_content_sha256).toBe(EMPTY_SHA);
     expect(opened.localState?.dirty).toBe(false);
+  });
+
+  it("rejects plan registry kind on build surface", () => {
+    const opened = openWorkspaceDocumentAuthoringState({
+      documentId: DOC_ID,
+      snapshot: snapshot({
+        record: {
+          ...snapshot().record,
+          kind: "plan",
+          target_session: 4,
+          source_domain: null,
+          document_class: null,
+          authority_state: null,
+          visibility_state: null,
+        },
+      }),
+      stored: null,
+      surface: "build",
+      kind: "worldbuilding_source",
+    });
+    expect(opened.status).toBe("reject");
+    expect(opened.localState).toBeNull();
+    expect(opened.reconciliation.rejectReason).toMatch(/kind/i);
   });
 
   it("keeps clean local draft content when server markdown is empty", () => {
@@ -74,6 +98,7 @@ describe("openWorkspaceDocumentAuthoringState", () => {
     });
     stored.exported_markdown = "Local draft body";
     const opened = openWorkspaceDocumentAuthoringState({
+      documentId: DOC_ID,
       snapshot: snapshot(),
       stored,
       surface: "build",

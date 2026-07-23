@@ -3,7 +3,11 @@ import type { Editor } from "@tiptap/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { commitTiptapMarkdownWrite, prepareTiptapMarkdownWrite } from "../../api/liveApi";
-import { fixturePlanSessionDescriptor, FIXTURE_DOC_ID } from "../config/planSessionDescriptor";
+import {
+  fixturePlanSessionDescriptor,
+  fixtureWorkspaceDocumentRecord,
+  FIXTURE_DOC_ID,
+} from "../config/planSessionDescriptor";
 import { usePlanMarkdownSave } from "./usePlanMarkdownSave";
 
 vi.mock("../../api/liveApi", () => ({
@@ -52,10 +56,16 @@ describe("usePlanMarkdownSave", () => {
       target_relpath: planningDocument.targetRelpath!,
       target_display_path: planningDocument.targetRelpath!,
       registry_revision: 2,
+      committed_revision: 2,
+      committed_record: fixtureWorkspaceDocumentRecord({
+        revision: 2,
+        content_status: "committed",
+      }),
+      normalized_content_sha256: "sha256-committed-plan-prep",
       writer_ok: true,
       writer_phase: "commit",
       bytes_written: 42,
-      file_fingerprint: "abc123",
+      file_fingerprint: "present:abc123",
       diagnostics: ["reviewed Markdown file written"],
     });
   });
