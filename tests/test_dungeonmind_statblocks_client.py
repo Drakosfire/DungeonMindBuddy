@@ -468,6 +468,7 @@ def test_rate_limit_and_error_envelope_mapping() -> None:
     with pytest.raises(StatblockIntegrationError) as exc_info:
         client.get_health()
     assert exc_info.value.category == "downstream_rate_limited"
+    assert exc_info.value.error_code == "rate_limited"
 
 
 def test_malformed_json_fails_closed() -> None:
@@ -570,9 +571,9 @@ def test_oversized_response_body_rejected_before_parse() -> None:
     assert "bounded body" in exc_info.value.message
 
 
-def test_client_exposes_only_sbw01_operations() -> None:
-    assert not hasattr(DungeonMindStatblockV1Client, "generate_candidate")
-    assert not hasattr(DungeonMindStatblockV1Client, "get_candidate")
+def test_client_exposes_candidate_operations_for_sbw03() -> None:
+    assert hasattr(DungeonMindStatblockV1Client, "generate_candidate")
+    assert hasattr(DungeonMindStatblockV1Client, "get_candidate")
 
 
 def test_internal_key_absent_from_readiness_payload() -> None:

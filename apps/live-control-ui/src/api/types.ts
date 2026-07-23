@@ -1,3 +1,5 @@
+import type { GeneratedStatblockCandidateV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
+
 export type SurfaceSlot = "main" | "sidebar" | "bottom" | "overlay";
 
 export interface SurfaceModuleDefinition {
@@ -3009,4 +3011,64 @@ export interface ExtractPromoteErrorBody {
   statusCode?: number;
   diagnostics?: Array<{ code: string; message: string; severity?: string }>;
   failureResult?: Record<string, unknown> | null;
+}
+
+export interface ThreatDraftCandidateRefV1 {
+  candidate_id: string;
+  generated_from_draft_version: number;
+  request_id: string;
+  created_at: string;
+  expires_at?: string | null;
+  status: "active" | "superseded" | "rejected" | "expired" | "accepted_source";
+}
+
+export interface GenerateThreatDraftCandidateRequestV1 {
+  expected_draft_version: number;
+  client_request_id?: string | null;
+}
+
+export interface GenerateThreatDraftCandidateResponseV1 {
+  schema: "dmb_generate_threat_draft_candidate_response_v1";
+  draft_id: string;
+  generated_from_draft_version: number;
+  request_id: string;
+  outcome: "success" | "failure";
+  candidate_ref?: ThreatDraftCandidateRefV1 | null;
+  candidate?: GeneratedStatblockCandidateV1 | null;
+  failure_category?: string | null;
+  failure_message?: string | null;
+  cache_status?:
+    | "stored"
+    | "missing"
+    | "partial_cache"
+    | "partial_ref"
+    | "partial_reconciliation"
+    | "partial_both"
+    | "reconciled"
+    | null;
+  persistence_failures?: Array<{
+    component: "cache" | "candidate_ref" | "reconciliation";
+    category: string;
+    message: string;
+  }>;
+}
+
+export interface ReadStatblockCandidateResponseV1 {
+  schema: "dmb_statblock_candidate_read_v1";
+  candidate_id: string;
+  status: "active" | "expired" | "unavailable" | "missing";
+  candidate?: GeneratedStatblockCandidateV1 | null;
+  failure_category?: string | null;
+  failure_message?: string | null;
+}
+
+export interface StatblockIntegrationReadinessV1 {
+  schema: "dmb_statblock_integration_readiness_v1";
+  configured: boolean;
+  available: boolean;
+  downstream_status: string;
+  contract?: string | null;
+  contract_version?: string | null;
+  capabilities: string[];
+  diagnostics: string[];
 }

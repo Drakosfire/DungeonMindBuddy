@@ -22,6 +22,7 @@ _MAX_LIST_ELEMENT = 500
 
 DEFAULT_LIST_LIMIT = 50
 MAX_LIST_LIMIT = 100
+MAX_CANDIDATE_REFS = _MAX_LIST
 
 
 class StrictModel(BaseModel):
@@ -109,6 +110,20 @@ class FocusV1(StrictModel):
     prep_label: str | None = Field(default=None, max_length=_MAX_NAME)
 
 
+class ThreatDraftCandidateRefV1(StrictModel):
+    candidate_id: str = Field(pattern=r"^cand_[a-z0-9]+$")
+    generated_from_draft_version: int = Field(ge=1)
+    request_id: str = Field(min_length=1, max_length=128)
+    created_at: str = Field(min_length=1, max_length=64)
+    expires_at: str | None = Field(default=None, max_length=64)
+    status: Literal["active", "superseded", "rejected", "expired", "accepted_source"] = "active"
+
+    @field_validator("request_id")
+    @classmethod
+    def _request_id(cls, value: str) -> str:
+        return _require_id(value, label="request_id")
+
+
 class ThreatDraftV1(StrictModel):
     schema_name: Literal["dmb_threat_draft_v1"] = Field(default=SCHEMA, alias="schema")
     draft_id: str
@@ -125,10 +140,12 @@ class ThreatDraftV1(StrictModel):
     generation_intent: GenerationIntentV1
     encounter_context: EncounterContextV1 = Field(default_factory=EncounterContextV1)
     graph_context_snapshot: GraphContextSnapshotV1
-    # Passive placeholders; SBW02 never mutates candidate/mechanics lifecycle fields.
-    candidate_refs: list[dict] = Field(default_factory=list, max_length=0)
+    # Candidate refs are workflow evidence (SBW03); authored concept fields stay separate.
+    candidate_refs: list[ThreatDraftCandidateRefV1] = Field(
+        default_factory=list, max_length=_MAX_LIST
+    )
     accepted_mechanics_ref: None = None
-    workflow_state: Literal["drafting"] = "drafting"
+    workflow_state: Literal["drafting", "candidate_ready"] = "drafting"
     created_by: str = Field(min_length=1, max_length=_MAX_NAME)
     created_at: str
     updated_at: str

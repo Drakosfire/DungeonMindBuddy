@@ -22,6 +22,8 @@ import {
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
   getStatblockWorkbenchSample,
+  getStatblockCandidate,
+  generateThreatDraftCandidate,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
   patchCombatEntity,
@@ -257,6 +259,51 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/workbench/sample");
+  });
+
+  it("generateThreatDraftCandidate posts to exact draft generate route", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: "draft-1",
+        generated_from_draft_version: 1,
+        request_id: "req-1",
+        outcome: "success",
+        candidate_ref: {
+          candidate_id: "cand-1",
+          generated_from_draft_version: 1,
+          request_id: "req-1",
+          created_at: "2026-01-01T00:00:00Z",
+          status: "active",
+        },
+        candidate: { candidate_id: "cand-1" },
+        cache_status: "stored",
+      }),
+    );
+
+    await generateThreatDraftCandidate("draft-1", { expected_draft_version: 1 });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/threat-drafts/draft-1/candidates:generate");
+    expect(init?.method).toBe("POST");
+  });
+
+  it("getStatblockCandidate reads exact candidate id", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_statblock_candidate_read_v1",
+        candidate_id: "cand-1",
+        status: "active",
+        candidate: { candidate_id: "cand-1" },
+      }),
+    );
+
+    await getStatblockCandidate("cand-1");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblock-candidates/cand-1");
   });
 
   it("postStatblockWorkbenchCommand posts command body to Workbench command endpoint", async () => {

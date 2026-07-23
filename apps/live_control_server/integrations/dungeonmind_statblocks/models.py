@@ -1,9 +1,18 @@
-"""Transport-envelope models for DungeonMind statblock v1 responses."""
+"""Transport-envelope models for DungeonMind statblock v1 responses.
+
+Candidate/definition/mechanics DTOs are OpenAPI-generated — import from
+`apps.live_control_server.integrations.dungeonmind_statblocks.generated`.
+This module keeps only Buddy-local health/readiness/exact-revision envelopes.
+"""
 from __future__ import annotations
 
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+    GeneratedStatblockCandidateV1,
+)
 
 # Published v1 identity (DungeonMindServer statblocks_v1).
 ContractNameV1 = Literal["dungeonmind.dungeonbuddy-statblocks"]
@@ -12,6 +21,19 @@ ContractVersionV1 = Literal["1.0.0"]
 _STATBLOCK_ID_PATTERN = r"^sb_[a-z0-9]+$"
 _REVISION_ID_PATTERN = r"^rev_[a-z0-9]+$"
 _DEFINITION_DIGEST_PATTERN = r"^sha256:[0-9a-f]{64}$"
+
+__all__ = [
+    "ContractNameV1",
+    "ContractVersionV1",
+    "ErrorDetailV1",
+    "ErrorEnvelopeV1",
+    "ExactRevisionResourceV1",
+    "GeneratedStatblockCandidateV1",
+    "HealthResponseV1",
+    "ReadinessResponseV1",
+    "StatblockIntegrationReadinessV1",
+    "StrictModel",
+]
 
 
 class StrictModel(BaseModel):

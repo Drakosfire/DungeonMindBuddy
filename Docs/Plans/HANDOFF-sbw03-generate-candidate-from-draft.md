@@ -271,9 +271,118 @@ Stop if:
 - downstream success can be lost without any durable candidate locator;
 - a path outside the allowlist is required.
 
+## §12 Operation-authority durability model (normative)
+
+**Success claim**
+
+```text
+For every candidate-generation request that may have reached DungeonMindServer,
+Buddy retains a valid recovery path, an independently durable candidate locator,
+or authoritative proof the operation is terminal. Storage pressure never destroys
+unresolved evidence.
+
+A request may be replayed after timeout, restart, draft advancement, cache loss,
+ref failure, and compaction. It either resolves to the same candidate, the same
+terminal outcome (same category + HTTP semantics), or an explicit body conflict.
+Every compaction is supported by independent durable evidence; every transition
+preserves storage invariants; capacity exhaustion produces backpressure rather
+than evidence loss.
+```
+
+### Authority states
+
+| Status | Meaning |
+|---|---|
+| `dispatched_unknown` | Pre-dispatch claim written; Server outcome unknown (timeouts live here) |
+| `candidate_received` | Server returned `candidate_id`; locator durable in journal before cache/ref |
+| `reconciled` | Success authority closed; `materialization.draft_ref == attached` |
+| `terminal_failure` | Authoritative non-success with terminal proof fields |
+| `terminal_expired` | Server-proven expiry (not local wall-clock alone) |
+
+Materialization (`cache` / `draft_ref`: `missing` \| `stored`/`attached` \| `failed`) is tracked separately and must not demote authority.
+
+### Authoritative transition table
+
+| Current | Event | Next | Required evidence | Server call | Response | Compactable |
+|---|---|---|---|---|---|---|
+| (none) | first claim | `dispatched_unknown` | capacity available | no | claim accepted | no |
+| `dispatched_unknown` | timeout / restart / transport | `dispatched_unknown` | stored `request_body` | recovery generate allowed | retryable uncertainty | no |
+| `dispatched_unknown` | auth 401/403 (pre-route) | `dispatched_unknown` | — | retry allowed after repair | failure (auth category) | **never** |
+| `dispatched_unknown` | pre-route validation (no durable code) | `dispatched_unknown` | — | retry allowed | failure | **never** |
+| `dispatched_unknown` | generation in progress | `dispatched_unknown` | — | no further generate | `generation_incomplete` | no |
+| `dispatched_unknown` | candidate success | `candidate_received` | Server `candidate_id` + receipt lineage | — | success / partial_* | no |
+| `candidate_received` | cache failure | `candidate_received` | — | no regenerate | `partial_cache` | no |
+| `candidate_received` | ref failure / full refs | `candidate_received` | — | no regenerate | `partial_ref` | no |
+| `candidate_received` | ref attached | `reconciled` | draft ref `(candidate_id, request_id)` | no | success | if lineage proof |
+| `dispatched_unknown` | Server durable failure code | `terminal_failure` | `terminal_code ∈ SERVER_OPERATION_TERMINAL_FAILURE_CODES` | no | failure (same category/HTTP) | `operation_terminal` |
+| `dispatched_unknown` | idempotency conflict | `terminal_failure` | `idempotency_conflict` + http 409 | no | HTTP 409 | `operation_terminal` |
+| `dispatched_unknown` | Server durable expiry code | `terminal_expired` | `candidate_expired` \| `generation_replay_expired` | no | failure `downstream_expired` | `operation_terminal` |
+| any durable | same-key same-body replay | unchanged | digest match | no (unless unknown) | identical external result | — |
+| any durable | changed-body reuse | conflict | digest mismatch | **never** | HTTP 409 | — |
+| `reconciled` / terminal | draft advancement | tombstone or full | journal key by source version | no | historical replay | — |
+| op / tombstone bound full | new unique claim | refused | — | no | backpressure | never by deleting unresolved |
+
+**Terminality proof boundary (Server PR23):** only public ErrorEnvelope codes that originate from Server’s durable generate-operation record may create `terminal_*` authority / `operation_terminal` tombstones:
+
+```text
+SERVER_OPERATION_TERMINAL_FAILURE_CODES =
+  provider_refused | provider_incomplete | provider_timeout |
+  rate_limited | provider_unavailable | validation_failed |
+  ruleset_mismatch | source_digest_mismatch | idempotency_conflict
+
+SERVER_OPERATION_TERMINAL_EXPIRED_CODES =
+  candidate_expired | generation_replay_expired
+```
+
+**Must NOT terminalize:** authentication (401/403 router dependency before the generate operation), Buddy/client transport timeout, connection unavailable without a durable code, and pre-route request validation that lacks an allowlisted code. Those stay `dispatched_unknown` so recovery bodies remain available (e.g. timeout → later auth failure → auth repair → recover candidate).
+
+**Transport categories (non-authority):** `downstream_authentication_failed`, `downstream_timeout`, `downstream_unavailable`, `downstream_rate_limited`, `downstream_validation_failed`, `downstream_invalid_request`, `downstream_conflict`, `downstream_expired`, `downstream_not_found`. Category alone never proves terminality; `error_code` must match the allowlist above.
+
+Terminal journal-write failure is never swallowed: response carries Server category **and** `persistence_failures` with `component=reconciliation` (or 409 detail notes journal failure for idempotency conflicts).
+
+### Compaction predicate
+
+```text
+compactable(operation, durable_evidence) -> true | false
+
+reconciled:
+  materialization.draft_ref == attached
+  AND candidate_id present
+  AND durable_evidence.ref_entries contains exact (candidate_id, request_id)
+  # ref_entries is None => NOT compactable (fail closed)
+  # compaction_proof on tombstone = draft_ref_lineage
+
+terminal_failure | terminal_expired:
+  terminal_code is in the Server durable-operation allowlist for that outcome
+  AND terminal_message + failure_category + http_status all present
+  # compaction_proof on tombstone = operation_terminal
+  # auth/transport/pre-route codes are structurally rejected by record_terminal
+```
+
+Tombstones retain `request_digest`, `failure_category`, and `http_status` so replay preserves external semantics (including HTTP 409 for idempotency conflicts). Compaction loop maintains a running tombstone count and never writes beyond `MAX_TOMBSTONES_PER_DRAFT`.
+
+### Capacity
+
+- Full operations: `MAX_OPERATION_RECORDS_PER_DRAFT = 128`
+- Tombstones: `MAX_TOMBSTONES_PER_DRAFT = 512`
+- Draft refs: 64 (unchanged)
+
+New unique request IDs may be refused under honest backpressure. Unresolved `dispatched_unknown` / unattached `candidate_received` are never deleted to admit new work. After every allowed transition the journal remains readable and within bounds.
+
+### Schemas
+
+- Full: `dmb_statblock_generation_operation_v2` (includes `failure_category`, `http_status` for terminal)
+- Tombstone: `dmb_statblock_generation_tombstone_v1` (includes `failure_category`, `http_status`, `compaction_proof`)
+- Legacy `dmb_statblock_generation_request_v1` upgrades on read (`pending`/`abandoned` → `dispatched_unknown`, etc.)
+
+Journal API surface: `claim`, `record_candidate`, `record_terminal`, `update_materialization`, `compact`/`_try_compact`, `read`/`replay_lookup`.
+
+Implementation: `apps/live_control_server/services/statblock_generation_reconciliation.py` + orchestrator in `statblock_candidate_generation.py`.
+
 ## Final dispatch check
 
-- [ ] Re-anchor after `SBW01–02` merge.
-- [ ] Capture real Server success and error vocabulary.
-- [ ] Confirm candidate cache is disposable/non-authoritative.
-- [ ] Confirm `SBW04+` remain unimplemented.
+- [x] Re-anchor after `SBW01–02` merge.
+- [x] Capture real Server success and error vocabulary.
+- [x] Confirm candidate cache is disposable/non-authoritative.
+- [x] Confirm `SBW04+` remain unimplemented.
+- [x] Operation-authority durability model (§12) implemented and proven under adversarial transitions.

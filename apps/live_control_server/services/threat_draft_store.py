@@ -6,12 +6,14 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Literal
 
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
+    MAX_CANDIDATE_REFS,
     MAX_LIST_LIMIT,
     CreateThreatDraftRequest,
+    ThreatDraftCandidateRefV1,
     ThreatDraftIndexV1,
     ThreatDraftSummaryV1,
     ThreatDraftV1,
@@ -324,6 +326,71 @@ def update_threat_draft(
                 "graph_context_snapshot": request.graph_context_snapshot,
                 "updated_at": _utc_now_iso(),
             }
+        )
+        _save_draft_unlocked(root, updated, as_draft_id=committed_id)
+        return updated
+
+
+def append_candidate_ref(
+    root: Path,
+    *,
+    draft_id: str,
+    expected_version: int,
+    candidate_ref: ThreatDraftCandidateRefV1,
+    workflow_state: Literal["drafting", "candidate_ready"] | None = "candidate_ready",
+) -> ThreatDraftV1:
+    """Append candidate workflow evidence for a committed draft version.
+
+    Authored concept fields and draft version are unchanged; only candidate_refs,
+    optional workflow_state, and updated_at may change.
+
+    Historical lineage is preserved: a ref generated from an earlier draft version
+    may still be attached after the draft advances.
+    """
+    if candidate_ref.generated_from_draft_version != expected_version:
+        raise ThreatDraftStoreError(
+            "candidate ref source version mismatch",
+            status_code=422,
+        )
+
+    with _store_lock(root):
+        committed_id = _require_committed_draft_id(root, draft_id)
+        current = _load_draft_unlocked(root, committed_id)
+        if expected_version > current.version:
+            raise ThreatDraftStoreError(
+                "expected_version mismatch",
+                status_code=409,
+            )
+
+        refs = list(current.candidate_refs)
+        existing = next(
+            (ref for ref in refs if ref.candidate_id == candidate_ref.candidate_id),
+            None,
+        )
+        if existing is not None:
+            if existing.model_dump(mode="json") != candidate_ref.model_dump(mode="json"):
+                raise ThreatDraftStoreError(
+                    "candidate ref identity conflict",
+                    status_code=409,
+                )
+            return current
+
+        if len(refs) >= MAX_CANDIDATE_REFS:
+            raise ThreatDraftStoreError(
+                "candidate_refs limit exceeded",
+                status_code=422,
+            )
+        refs.append(candidate_ref)
+        updates: dict = {
+            "candidate_refs": refs,
+            "updated_at": _utc_now_iso(),
+        }
+        if workflow_state is not None:
+            updates["workflow_state"] = workflow_state
+        # Validate the full record before write so an over-limit or invalid
+        # payload cannot be persisted and fail on reload.
+        updated = ThreatDraftV1.model_validate(
+            current.model_copy(update=updates).model_dump(mode="json", by_alias=True)
         )
         _save_draft_unlocked(root, updated, as_draft_id=committed_id)
         return updated

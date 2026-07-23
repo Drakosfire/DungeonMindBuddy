@@ -492,7 +492,7 @@ def test_request_fields_are_bounded() -> None:
         )
 
 
-def test_store_exposes_no_candidate_lifecycle_api() -> None:
+def test_store_exposes_candidate_ref_append_for_sbw03() -> None:
     import apps.live_control_server.services.threat_draft_store as store
 
-    assert not hasattr(store, "append_candidate_ref")
+    assert hasattr(store, "append_candidate_ref")
