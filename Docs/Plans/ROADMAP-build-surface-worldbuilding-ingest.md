@@ -3,10 +3,10 @@ document_id: dmb-roadmap-build-surface-worldbuilding-ingest
 title: Build Surface and Worldbuilding Ingest Roadmap
 document_class: roadmap
 status: proposed
-version: 0.2
+version: 0.3
 branch: docs/build-surface-worldbuilding-ingest
 created_at: "2026-07-22"
-last_updated_at: "2026-07-22"
+last_updated_at: "2026-07-23"
 ---
 
 # Build Surface and Worldbuilding Ingest Roadmap
@@ -18,6 +18,7 @@ last_updated_at: "2026-07-22"
 - **Surface authority:** [`../Design/ARCHITECTURE-plan-surface-toolbox.md`](../Design/ARCHITECTURE-plan-surface-toolbox.md)
 - **Workspace identity contract:** [`../Design/CONTRACT-workspace-document-identity-v1.md`](../Design/CONTRACT-workspace-document-identity-v1.md)
 - **Publication bridge:** [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
+- **PR merge contract:** [`../Design/DESIGN-merge-ready-invariant-evidence.md`](../Design/DESIGN-merge-ready-invariant-evidence.md)
 
 This roadmap proposes the path from the current Plan/Ingest/TipTap dogfood to a
 Build surface that authors Markdown source documents and launches reviewable
@@ -152,6 +153,19 @@ Graph Review continues to use the existing governed publication implementation:
 
 No application-local duplicate of `extract_promote_ops.py` may be created.
 
+### 2.6 Every implementation PR is governed by one invariant and an evidence ledger
+
+Before a handoff is dispatched, the proposed merge-ready invariant and required
+evidence must be critiqued. The PR description then restates that invariant
+verbatim and records required proof beside produced proof, provenance, gaps,
+waivers, and stop conditions.
+
+For stateful or partially durable work, evidence must exercise the ordered
+failure sequences that can falsify coherence across server state, durable
+artifacts, editor/local state, URL selection, graph state, surface authority,
+and Agent Interaction context. A generic summary and test list are not merge
+evidence.
+
 ---
 
 ## 3. Current state
@@ -229,13 +243,13 @@ Review**, never **Promote directly**.
 
 Adopt this roadmap and slice plan, then update the active tracker atomically.
 Resolve the workspace-document → SourceArtifact identity boundary, established
-contract paths, Surface reuse obligation, profile ownership, and publication
-owner before dispatch.
+contract paths, Surface reuse obligation, profile ownership, publication owner,
+and PR merge contract before dispatch.
 
 **Exit gate:** BLD-01 may be PREPARED as a stacked draft PR against this docs
 head; it becomes ACTIVE/MERGEABLE only after BLD-00 merge, tracker adoption,
-rebase, and immutable merge-SHA anchoring. Later slices may be PREPARED against
-predecessor heads while remaining draft.
+rebase, immutable merge-SHA anchoring, and invariant/evidence critique. Later
+slices may be PREPARED against predecessor heads while remaining draft.
 
 ### Phase 1 — Shared TipTap Markdown editor
 
@@ -273,22 +287,45 @@ worldbuilding source to run without category tuning.
 **Exit gate:** recap and worldbuilding fixture runs use the same runtime,
 failures are explicit, and every reviewable candidate resolves to evidence.
 
-### Phase 4 — Build surface v0
+### Phase 4A — Build authoring seam and surface v0
 
-Add `/build` as a configured shared Surface with editor-first composition,
-metadata, save/reopen, and exact document identity. Add primary navigation only
-when the source-authoring loop is functional.
+Harden the shared workspace-document lifecycle first, then add `/build` as a
+thin configured Surface with editor-first composition, metadata, save/reopen,
+and exact document identity. Primary navigation is added only when the
+source-authoring loop is functional.
 
-**Exit gate:** the operator can author and reopen a worldbuilding source through
-the product UI without direct filesystem access.
+**Exit gate:** one merge-ready invariant holds across snapshot, commit receipt,
+local/editor base, URL selection, surface authority, lifecycle labels, and Agent
+Interaction context; the operator can author and reopen a worldbuilding source
+without direct filesystem access.
+
+### Phase 4B — Bounded authoring polish and dogfood
+
+After Phase 4A merges, use the next PR only to polish and dogfood the shared
+authoring experience: state and conflict language, save/recovery affordances,
+document navigation, creation/classification usability, agent-context
+visibility, and visual consistency across Plan, Build, and runbook.
+
+This slice may expose architectural defects, but it does not add extraction or a
+new foundational contract by default.
+
+**Exit gate:** realistic authoring and recovery scenarios are understandable,
+repeatable, and regression-covered across all three consumers; findings that
+require a new invariant are recorded rather than absorbed silently.
 
 ### Phase 5 — Build extraction controls
+
+Before planning or launching this phase, critique its proposed merge-ready
+invariant and evidence ledger against the hardened authoring seam and Phase 4B
+dogfood findings. Existing stacked implementation is proposal input, not
+sequencing authority, until that critique is complete.
 
 Bind extraction to a committed source revision, launch and recover an exact run,
 and open that run in Graph Review. No latest-run fallback is permitted.
 
-**Exit gate:** refresh/retry preserves exact run identity and Build contains no
-publication action.
+**Exit gate:** refresh/retry preserves exact run identity, Build contains no
+publication action, and the PR's required adversarial, regression, and dogfood
+evidence is complete.
 
 ### Phase 6 — Generic Graph Review run loading
 
@@ -330,6 +367,7 @@ and duplicate copies do not silently create duplicate durable identities.
 - Ecology/resource taxonomy in the first profile.
 - Replacing Graph Review with a Build-specific review cockpit.
 - Activating all handoffs merely because this documentation PR merges.
+- Planning farther ahead while the current seam or its merge evidence remains unresolved.
 
 ---
 
@@ -351,7 +389,9 @@ A slice becomes ACTIVE/MERGEABLE only after:
 1. its predecessor is merged;
 2. the active tracker records adoption / the predecessor merge SHA;
 3. the implementation branch is rebased onto that immutable merge SHA;
-4. the handoff is re-anchored to that base.
+4. the handoff is re-anchored to that base;
+5. the proposed merge-ready invariant and required evidence survive critique;
+6. the PR description restates that invariant and maintains a truthful evidence ledger.
 
 After PR 382 merges:
 
@@ -363,10 +403,11 @@ After PR 382 merges:
 4. assign actual PR numbers when implementation PRs open (draft PRs may already
    exist under PREPARED);
 5. after each accepted implementation PR, atomically sync tracker, handoff
-   status/archive, and next base SHA.
+   status/archive, next base SHA, invariant, and learned evidence requirements.
 
-No implementation PR may be marked ready to merge while still PREPARED/DRAFT or
-while based on an unmerged predecessor tip.
+No implementation PR may be marked ready to merge while still PREPARED/DRAFT,
+while based on an unmerged predecessor tip, or while required evidence remains
+missing without an explicit operator waiver.
 
 ---
 
@@ -389,3 +430,10 @@ Required evidence:
 9. Graph Review alone owns prepare/confirm and graph-head advancement.
 10. Worldbuilding profile behavior is versioned, bounded, and repeat-tested.
 11. PDF-derived candidates retain original PDF/page/OCR lineage.
+12. Each implementation PR states one merge-ready invariant and maps every
+    material clause to owning-boundary proof, produced result, provenance, and a
+    merge-blocking stop condition.
+13. Stateful and partially durable slices include adversarial sequence evidence,
+    not only helper or happy-path tests.
+14. Phase 5 is critiqued after Phase 4B dogfood before its handoff is finalized or
+    existing stacked work is treated as merge authority.
