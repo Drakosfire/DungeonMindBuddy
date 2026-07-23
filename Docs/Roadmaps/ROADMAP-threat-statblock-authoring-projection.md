@@ -1,7 +1,9 @@
 # Roadmap — Threat + Statblock Authoring and Projection
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP  
-**Date:** 2026-07-22  
+**Date:** 2026-07-23  
+**Integration tip:** `889acf96` on `agent/statblock-authoring-roadmap` (SBW01–03 merged; Milestone A needs SBW04)  
+
 **Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
 **PR tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
 **DungeonBuddy domain boundary:** [`../Design/DECISION-statblock-contract-consumer-boundary.md`](../Design/DECISION-statblock-contract-consumer-boundary.md)  
@@ -55,10 +57,10 @@ Workstream IDs are stable design identifiers. GitHub PR numbers are assigned whe
 
 | Slice | Status | Outcome |
 |---|---|---|
-| `SBW01` | READY after docs merge/re-anchor | DungeonBuddy backend can call and classify DungeonMind statblock v1 readiness/read operations through one server-owned client. |
-| `SBW02` | PRE-DESIGNED | Persistent versioned `ThreatDraftV1` CRUD with no generation side effects. |
-| `SBW03` | PRE-DESIGNED | One exact draft version generates one typed candidate; failure preserves the draft. |
-| `SBW04` | PRE-DESIGNED | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. |
+| `SBW01` | MERGED `#386` (`2ab5b28b`, 2026-07-22) | DungeonBuddy backend can call and classify DungeonMind statblock v1 readiness/read operations through one server-owned client. |
+| `SBW02` | MERGED `#387` (`0d4831ee`, 2026-07-22) | Persistent versioned `ThreatDraftV1` CRUD with no generation side effects. |
+| `SBW03` | MERGED `#388` (`889acf96`, 2026-07-23) | One exact draft version generates one typed candidate; failure preserves the draft. Operation-authority durability journal with Server durable-code terminality. |
+| `SBW04` | NEXT — PRE-DESIGNED; re-anchor to tip before dispatch | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. |
 | `SBW05` | PRE-DESIGNED | Complete-definition typed editing and editor-preview validation. |
 | `SBW06` | PRE-DESIGNED | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
 | `SBW07` | PRE-DESIGNED | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |

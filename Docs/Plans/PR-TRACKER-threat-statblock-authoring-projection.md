@@ -1,7 +1,9 @@
 # PR Tracker — Threat + Statblock Authoring and Projection
 
 **Status:** ACTIVE SLICE / REVIEW AUTHORITY  
-**Date:** 2026-07-22  
+**Date:** 2026-07-23  
+**Integration tip:** `889acf96` — SBW01–03 merged; next dispatch `SBW04`  
+
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Contract owner:** DungeonMindServer statblock v1; DungeonBuddy consumes generated contracts and owns workflow, projection, graph bindings, Plan documents, media selection, and runtime combat state.
@@ -33,10 +35,10 @@ Required deletion owner:
 
 | Slice | Status | Dependency | Outcome | Canonical handoff |
 |---|---|---|---|---|
-| `SBW01` | READY after docs merge/re-anchor | DungeonMindServer v1 merged | Server-owned DungeonMind client, readiness, and typed errors | [`HANDOFF-pr382-statblock-v1-backend-client-readiness.md`](HANDOFF-pr382-statblock-v1-backend-client-readiness.md) |
-| `SBW02` | PRE-DESIGNED | `SBW01` | Versioned non-canonical `ThreatDraftV1` CRUD/reload | [`HANDOFF-sbw02-threat-draft-store.md`](HANDOFF-sbw02-threat-draft-store.md) |
-| `SBW03` | PRE-DESIGNED | `SBW01–02` | Generate one candidate from one exact draft version | [`HANDOFF-sbw03-generate-candidate-from-draft.md`](HANDOFF-sbw03-generate-candidate-from-draft.md) |
-| `SBW04` | PRE-DESIGNED | `SBW03` | Shared semantic renderer + real read-only candidate workbench | [`HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`](HANDOFF-sbw04-semantic-renderer-candidate-workbench.md) |
+| `SBW01` | MERGED `#386` | DungeonMindServer v1 merged | Server-owned DungeonMind client, readiness, and typed errors | [`HANDOFF-pr382-statblock-v1-backend-client-readiness.md`](HANDOFF-pr382-statblock-v1-backend-client-readiness.md) |
+| `SBW02` | MERGED `#387` | `SBW01` | Versioned non-canonical `ThreatDraftV1` CRUD/reload | [`HANDOFF-sbw02-threat-draft-store.md`](HANDOFF-sbw02-threat-draft-store.md) |
+| `SBW03` | MERGED `#388` | `SBW01–02` | Generate one candidate from one exact draft version | [`HANDOFF-sbw03-generate-candidate-from-draft.md`](HANDOFF-sbw03-generate-candidate-from-draft.md) |
+| `SBW04` | NEXT — PRE-DESIGNED; re-anchor before dispatch | `SBW03` | Shared semantic renderer + real read-only candidate workbench | [`HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`](HANDOFF-sbw04-semantic-renderer-candidate-workbench.md) |
 | `SBW05` | PRE-DESIGNED | `SBW04` | Complete-definition editing + authoritative preview validation | [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](HANDOFF-sbw05-typed-candidate-edit-validation.md) |
 | `SBW06` | PRE-DESIGNED | `SBW05` | Revise/regenerate candidate lineage | [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md) |
 | `SBW07` | PRE-DESIGNED | `SBW05` | Persist accepted mechanics as exact immutable first revision | [`HANDOFF-sbw07-persist-accepted-mechanics.md`](HANDOFF-sbw07-persist-accepted-mechanics.md) |

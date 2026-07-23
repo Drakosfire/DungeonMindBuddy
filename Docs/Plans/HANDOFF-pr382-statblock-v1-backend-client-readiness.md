@@ -1,6 +1,6 @@
 # HANDOFF — PR382 DungeonMind statblock v1 backend client and readiness
 
-**Status:** READY FOR DISPATCH
+**Status:** MERGED — GitHub PR `#386` → `agent/statblock-authoring-roadmap` as `2ab5b28b` (2026-07-22).  
 **Workstream:** `SBW01`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Planned base:** `main` after the roadmap/design documentation PR merges; re-anchor to actual `main` SHA at dispatch

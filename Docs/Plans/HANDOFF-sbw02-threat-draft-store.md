@@ -1,7 +1,7 @@
 # HANDOFF — SBW02 Versioned ThreatDraft store and CRUD API
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after `SBW01` merges and this handoff is re-anchored to the actual base SHA.  
+**Status:** MERGED — GitHub PR `#387` → `agent/statblock-authoring-roadmap` as `0d4831ee` (2026-07-22).  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw02-threat-draft-store.md`  
 **Workstream:** `SBW02`  
 **Repository:** `Drakosfire/DungeonMindBuddy`

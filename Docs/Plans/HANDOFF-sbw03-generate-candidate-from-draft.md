@@ -1,7 +1,7 @@
 # HANDOFF — SBW03 Generate one typed candidate from one exact ThreatDraft version
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after `SBW01` and `SBW02` merge; re-anchor all paths and the base SHA.  
+**Status:** MERGED — GitHub PR `#388` → `agent/statblock-authoring-roadmap` as `889acf96` (2026-07-23). Operation-authority durability model included.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw03-generate-candidate-from-draft.md`  
 **Workstream:** `SBW03`  
 **Repository:** `Drakosfire/DungeonMindBuddy`
