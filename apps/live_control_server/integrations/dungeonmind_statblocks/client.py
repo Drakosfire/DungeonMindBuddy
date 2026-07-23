@@ -41,6 +41,10 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.models import 
     ReadinessResponseV1,
     StrictModel,
 )
+from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+    ValidateDefinitionRequestV1,
+    ValidationResponseV1,
+)
 
 # Health/readiness envelopes are tiny; exact-revision payloads include definition.
 MAX_RESPONSE_BODY_BYTES = 1_048_576
@@ -60,6 +64,10 @@ class StatblockV1Client(Protocol):
     def generate_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1: ...
 
     def get_candidate(self, candidate_id: str) -> GeneratedStatblockCandidateV1: ...
+
+    def validate_definition(
+        self, body: dict[str, Any] | ValidateDefinitionRequestV1
+    ) -> ValidationResponseV1: ...
 
 
 class DungeonMindStatblockV1Client:
@@ -193,6 +201,28 @@ class DungeonMindStatblockV1Client:
                 "candidate response identity does not match request"
             )
         return candidate
+
+    def validate_definition(
+        self, body: dict[str, Any] | ValidateDefinitionRequestV1
+    ) -> ValidationResponseV1:
+        """SBW05a: POST definition validation; bind receipt to returned digest."""
+        json_body: dict[str, Any]
+        if isinstance(body, ValidateDefinitionRequestV1):
+            json_body = body.model_dump(mode="json", by_alias=True, exclude_none=True)
+        else:
+            json_body = body
+        payload = self._request_json(
+            "POST",
+            f"{API_PREFIX}/statblock-definitions:validate",
+            json_body=json_body,
+        )
+        response = self._parse_model(ValidationResponseV1, payload)
+        receipt_digest = response.validation_receipt.definition_digest
+        if response.definition_digest != receipt_digest:
+            raise downstream_unexpected(
+                "validation response digest does not match validation_receipt.definition_digest"
+            )
+        return response
 
     def _ensure_ready(self) -> None:
         if not self._config.enabled:
