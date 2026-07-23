@@ -37,7 +37,34 @@ def _copy_inputs(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def _candidate_ready_run(tmp_path: Path) -> Path:
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from src.graph_memory.source_span import source_span_index_to_dict
+
     source, candidate = _copy_inputs(tmp_path)
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        recap_path=source,
+    )
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    # Stamp fixture candidate with the digest-qualified artifact identity.
+    from evals.graph_memory_layer.graph_preview_runner import (
+        _with_candidate_graph_identity,
+    )
+
+    graph = _with_candidate_graph_identity(
+        json.loads(candidate.read_text(encoding="utf-8")),
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        source_artifact_id=artifact.source_artifact_id,
+    )
+    candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id="longmont-c2",
@@ -45,6 +72,8 @@ def _candidate_ready_run(tmp_path: Path) -> Path:
             normalized_recap_path=source,
             output_dir=Path("runs/candidate_ready"),
             candidate_graph_path=candidate,
+            source_span_index=span_payload,
+            source_artifact_id=artifact.source_artifact_id,
         )
     )
     assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
@@ -138,9 +167,32 @@ def test_materializer_rejects_source_span_only_manifest(
 def test_materializer_rejects_failed_candidate_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from evals.graph_memory_layer.graph_preview_runner import (
+        _with_candidate_graph_identity,
+    )
+    from src.graph_memory.source_span import source_span_index_to_dict
+
     monkeypatch.chdir(tmp_path)
     source, candidate = _copy_inputs(tmp_path)
-    payload = _load_json(candidate)
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        recap_path=source,
+    )
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    payload = _with_candidate_graph_identity(
+        _load_json(candidate),
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        source_artifact_id=artifact.source_artifact_id,
+    )
     payload["diagnostics"]["canon_promotion"] = True
     candidate.write_text(json.dumps(payload))
     runner_result = run_graph_preview_extraction(
@@ -150,6 +202,8 @@ def test_materializer_rejects_failed_candidate_manifest(
             normalized_recap_path=source,
             output_dir=Path("runs/failed_candidate"),
             candidate_graph_path=candidate,
+            source_span_index=span_payload,
+            source_artifact_id=artifact.source_artifact_id,
         )
     )
 
@@ -166,6 +220,8 @@ def test_materializer_rejects_failed_candidate_manifest(
 def test_materializer_rejects_forbidden_candidate_diagnostics(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import hashlib
+
     monkeypatch.chdir(tmp_path)
     manifest_path = _candidate_ready_run(tmp_path)
     manifest = _load_json(manifest_path)
@@ -173,10 +229,43 @@ def test_materializer_rejects_forbidden_candidate_diagnostics(
     candidate = _load_json(candidate_path)
     candidate["diagnostics"]["production_retrieval"] = True
     candidate_path.write_text(json.dumps(candidate))
+    candidate_digest = f"sha256:{hashlib.sha256(candidate_path.read_bytes()).hexdigest()}"
+    manifest["artifacts"]["candidate_graph"]["sha256"] = candidate_digest
+    report_uri = manifest["artifacts"]["candidate_validation_report"]["uri"]
+    report_path = tmp_path / report_uri
+    report = _load_json(report_path)
+    report["candidate_graph_sha256"] = candidate_digest
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    manifest["artifacts"]["candidate_validation_report"]["sha256"] = (
+        f"sha256:{hashlib.sha256(report_path.read_bytes()).hexdigest()}"
+    )
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
 
-    with pytest.raises(ValueError, match="candidate graph diagnostics"):
+    with pytest.raises(ValueError, match="candidate graph diagnostics|forbidden lifecycle|production_retrieval"):
         materialize_preview_union_store_from_graph_ingest_run(
             PreviewUnionMaterializeOptions(manifest_path=manifest_path)
+        )
+    assert not (manifest_path.parent / "preview_union_supergraph.json").exists()
+
+
+def test_materializer_rejects_mutated_packaged_recap_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Evidence gate must bind SourceSpanIndex to packaged recap bytes, not claims alone."""
+    monkeypatch.chdir(tmp_path)
+    manifest_path = _candidate_ready_run(tmp_path)
+    manifest = _load_json(manifest_path)
+    packaged_recap = tmp_path / manifest["source"]["normalized_recap_path"]
+    assert packaged_recap.is_file()
+    original = packaged_recap.read_text(encoding="utf-8")
+    packaged_recap.write_text(original + "\nMutated after packaging.\n", encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match="packaged recap bytes|candidate-ready GraphIngest evidence|normalized recap sha256",
+    ):
+        materialize_preview_union_store_from_graph_ingest_run(
+            PreviewUnionMaterializeOptions(manifest_path=manifest_path, repo_root=tmp_path)
         )
     assert not (manifest_path.parent / "preview_union_supergraph.json").exists()
 
@@ -217,3 +306,40 @@ def test_materializer_store_source_artifacts_do_not_reference_temp_paths(
             continue
         assert (tmp_path / uri).exists()
     assert (manifest_path.parent / "candidate_graph_import_input.json").exists()
+
+
+def test_recap_mutated_after_snapshot_verify_uses_verified_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Union evidence must come from verified snapshot recap text, not a later disk read."""
+    monkeypatch.chdir(tmp_path)
+    manifest_path = _candidate_ready_run(tmp_path)
+    manifest = _load_json(manifest_path)
+    packaged_recap = tmp_path / manifest["source"]["normalized_recap_path"]
+    assert packaged_recap.is_file()
+
+    original_read_bytes = Path.read_bytes
+    recap_reads = {"n": 0}
+
+    def guarded_read_bytes(self: Path, *args: object, **kwargs: object) -> bytes:
+        try:
+            resolved = self.resolve()
+        except OSError:
+            resolved = self
+        if resolved == packaged_recap.resolve():
+            recap_reads["n"] += 1
+            content = original_read_bytes(self, *args, **kwargs)
+            if recap_reads["n"] > 1:
+                return content + b"\n\nMUTATED_RECAP_MARKER_B\n"
+            return content
+        return original_read_bytes(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+
+    result = materialize_preview_union_store_from_graph_ingest_run(
+        PreviewUnionMaterializeOptions(manifest_path=manifest_path, repo_root=tmp_path)
+    )
+    store = _load_json(result.preview_union_store_path)
+    evidence_blob = json.dumps(store.get("evidence", {}))
+    assert "MUTATED_RECAP_MARKER_B" not in evidence_blob
+    assert recap_reads["n"] == 1

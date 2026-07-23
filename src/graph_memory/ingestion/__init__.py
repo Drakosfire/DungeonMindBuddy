@@ -31,7 +31,11 @@ from graph_memory.ingestion.graph_ingest_run import (
     adapt_recap_manifest_to_extraction_run,
 )
 from graph_memory.ingestion.graph_ingest_validate import (
+    assert_candidate_ready_evidence,
+    known_entity_mentions_digest,
     validate_graph_ingest_run_manifest,
+    validate_manifest_known_entity_mentions,
+    validate_manifest_source_span_index_linkage,
 )
 
 __all__ = [
@@ -63,5 +67,9 @@ __all__ = [
     "GraphIngestStepState",
     "GraphIngestStepStatus",
     "adapt_recap_manifest_to_extraction_run",
+    "assert_candidate_ready_evidence",
+    "known_entity_mentions_digest",
     "validate_graph_ingest_run_manifest",
+    "validate_manifest_known_entity_mentions",
+    "validate_manifest_source_span_index_linkage",
 ]

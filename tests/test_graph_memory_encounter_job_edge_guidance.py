@@ -12,6 +12,8 @@ from src.graph_memory.session_graph_context import PARTY_COLLECTIVE_NODE_ID
 
 def _span_index() -> dict[str, Any]:
     return {
+        "source_artifact_id": "artifact:recap:longmont-c2:session-22:test",
+        "source_ref_id": "artifact:recap:longmont-c2:session-22:test:text",
         "spans": [
             {
                 "kind": "paragraph",
@@ -146,7 +148,7 @@ class RecordingFixtureClient(FixtureCategoryGraphPassClient):
         super().__init__(pass_outputs)
         self.user_content: dict[str, str] = {}
 
-    def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str) -> dict[str, Any]:
+    def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str, pass_spec=None) -> dict[str, Any]:
         self.user_content[pass_name] = user_content
         return super().run_pass(pass_name, model_id=model_id, instructions=instructions, user_content=user_content)
 

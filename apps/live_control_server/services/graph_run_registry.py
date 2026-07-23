@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, ValidationError
@@ -24,6 +25,7 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
     ExtractionRunComponentKind,
     ExtractionRunComponentRef,
+    ExtractionRunDiagnostics,
     ExtractionRunStatus,
     assert_allowed_extraction_run_transition,
     normalize_content_digest,
@@ -407,6 +409,107 @@ def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
     raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
 
 
+def _connected_lineage_records(
+    records: list[ExtractionRun], run: ExtractionRun
+) -> list[ExtractionRun]:
+    """Collect the selected run plus its connected supersession component.
+
+    Walks both outgoing pointers on connected records and incoming pointers from
+    siblings that name a connected run, so non-reciprocal inbound links are still
+    included for ``validate_extraction_run_lineage``.
+    """
+    by_id = {record.run_id: record for record in records}
+    connected_ids: set[str] = {run.run_id}
+    changed = True
+    while changed:
+        changed = False
+        for current_id in list(connected_ids):
+            current = by_id.get(current_id)
+            if current is None:
+                continue
+            for linked_id in (current.supersedes_run_id, current.superseded_by_run_id):
+                if linked_id and linked_id in by_id and linked_id not in connected_ids:
+                    connected_ids.add(linked_id)
+                    changed = True
+        for record in records:
+            if record.run_id in connected_ids:
+                continue
+            if (
+                record.supersedes_run_id in connected_ids
+                or record.superseded_by_run_id in connected_ids
+            ):
+                connected_ids.add(record.run_id)
+                changed = True
+    return [by_id[run_id] for run_id in connected_ids if run_id in by_id]
+
+
+def get_reviewable_extraction_run(root: Path, run_id: str) -> ExtractionRun:
+    """Load one REVIEWABLE ExtractionRun and assert its current evidence integrity.
+
+    Unlike ``get_extraction_run()``, this does not re-validate every sibling
+    record's evidence bundle — only the selected run — so a damaged sibling
+    cannot poison lineage checks for an otherwise healthy REVIEWABLE run.
+    SourceArtifact existence, scope, immutable source bytes, SourceSpanIndex
+    binding, and candidate digests are still enforced via
+    ``assert_run_reviewable_evidence``.
+
+    Registry-document invariants that still apply:
+    - every ``run_id`` must be unique
+    - the selected run's connected supersession lineage must be valid
+    """
+    path = extraction_runs_path(root)
+    if not path.is_file():
+        raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
+    try:
+        document = ExtractionRunRegistryDocument.model_validate(load_json(path))
+    except (ValidationError, TypeError, ValueError) as exc:
+        raise GraphRunRegistryError(
+            f"malformed extraction run registry: {exc}",
+            status_code=500,
+        ) from exc
+
+    seen: set[str] = set()
+    matches: list[ExtractionRun] = []
+    for record in document.records:
+        if record.run_id in seen:
+            raise GraphRunRegistryError(
+                f"duplicate extraction run id: {record.run_id}",
+                status_code=500,
+            )
+        seen.add(record.run_id)
+        if record.run_id == run_id:
+            matches.append(record)
+    if not matches:
+        raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
+    if len(matches) != 1:
+        raise GraphRunRegistryError(
+            f"duplicate extraction run id: {run_id}",
+            status_code=500,
+        )
+    run = matches[0]
+    try:
+        validate_extraction_run_record(run)
+    except ValueError as exc:
+        raise GraphRunRegistryError(
+            f"malformed extraction run registry record: {exc}",
+            status_code=500,
+        ) from exc
+    try:
+        validate_extraction_run_lineage(_connected_lineage_records(document.records, run))
+    except ValueError as exc:
+        raise GraphRunRegistryError(
+            f"malformed extraction run lineage: {exc}",
+            status_code=500,
+        ) from exc
+    if run.status != ExtractionRunStatus.REVIEWABLE:
+        raise GraphRunRegistryError(
+            f"extraction run is not reviewable: {run.status.value}",
+            status_code=422,
+        )
+    assert_run_reviewable_evidence(root, run)
+    return run
+
+
 def create_extraction_run(
     root: Path,
     *,
@@ -417,6 +520,8 @@ def create_extraction_run(
     profile_id: str | None = None,
     components: dict[str, ExtractionRunComponentRef] | None = None,
     status: ExtractionRunStatus = ExtractionRunStatus.DRAFT,
+    diagnostics: ExtractionRunDiagnostics | None = None,
+    lineage: dict[str, Any] | None = None,
 ) -> ExtractionRun:
     artifact = _bind_run_to_artifact(
         root,
@@ -444,6 +549,8 @@ def create_extraction_run(
         created_at=now,
         updated_at=now,
         components=components or {},
+        diagnostics=diagnostics or ExtractionRunDiagnostics(),
+        lineage=dict(lineage or {}),
     )
     if status == ExtractionRunStatus.REVIEWABLE:
         assert_run_reviewable_evidence(root, run)
@@ -463,6 +570,8 @@ def update_extraction_run_status(
     status: ExtractionRunStatus,
     expected_revision: int,
     components: dict[str, ExtractionRunComponentRef] | None = None,
+    diagnostics: ExtractionRunDiagnostics | None = None,
+    lineage: dict[str, Any] | None = None,
 ) -> ExtractionRun:
     path = extraction_runs_path(root)
     with registry_mutation_lock(path):
@@ -492,16 +601,22 @@ def update_extraction_run_status(
             )
 
         next_components = existing.components if components is None else components
+        next_diagnostics = existing.diagnostics if diagnostics is None else diagnostics
+        next_lineage = existing.lineage if lineage is None else dict(lineage)
         updated = existing.model_copy(
             update={
                 "status": status,
                 "revision": existing.revision + 1,
                 "updated_at": _utc_now_iso(),
                 "components": next_components,
+                "diagnostics": next_diagnostics,
+                "lineage": next_lineage,
             }
         )
         if status in _REVIEW_BUNDLE_STATUSES:
             assert_run_reviewable_evidence(root, updated)
+        elif status in TERMINAL_EXTRACTION_RUN_STATUSES:
+            assert_immutable_component_refs(root, updated)
 
         document.records = [
             updated if row.run_id == run_id else row for row in document.records

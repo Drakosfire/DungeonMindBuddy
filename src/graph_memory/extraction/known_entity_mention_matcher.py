@@ -131,7 +131,11 @@ def match_known_entities_in_spans(
         text = str(span.get("text") or span.get("text_excerpt") or "")
         if not text.strip():
             continue
-        spref = span.get("source_span_ref_id") or span.get("span_id")
+        spref = (
+            span.get("source_span_ref_id")
+            or span.get("span_id")
+            or span.get("source_span_id")
+        )
         if not isinstance(spref, str) or not spref.strip():
             continue
         scanned += 1

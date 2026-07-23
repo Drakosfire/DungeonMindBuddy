@@ -24,6 +24,10 @@ from graph_memory.ingestion.graph_ingest_validate import (
 
 GRAPH_INGEST_RUNS_ENV = "DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT"
 GRAPH_INGEST_MANIFEST_NAME = "graph_ingest_run_manifest.json"
+# Sentinel digest for an existing source file that cannot produce a canonical digest
+# (empty, whitespace-only, unreadable, or invalid UTF-8). Discovery must fail closed
+# and never fall back to path-only matching for this value.
+UNUSABLE_SOURCE_RECAP_DIGEST = "sha256:unusable"
 DEFAULT_GRAPH_INGEST_RUN_ROOTS = [
     "out/graph_memory/runs",
 ]
@@ -193,12 +197,25 @@ def _manifest_matches_source_recap(
     source_recap_path: str | None,
     source_recap_sha256: str | None,
 ) -> bool:
+    """Match a GraphIngest run to the caller's current recap.
+
+    When a content digest is available, require an exact full-digest match against
+    the manifest or the SourceArtifact registry record's ``content_sha256``.
+    Path equality is a fallback only when no digest was supplied (source missing
+    or unresolved) — never when the caller marked the source unusable.
+    """
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
+    if source_recap_sha256 == UNUSABLE_SOURCE_RECAP_DIGEST:
+        return False
+
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
     source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-    if source_recap_sha256:
+    requested_digest = normalize_content_digest(source_recap_sha256)
+    if requested_digest:
         actual_hashes = [
             source.get("normalized_recap_sha256"),
             (payload.get("artifacts") or {}).get("normalized_recap", {}).get("sha256")
@@ -206,11 +223,27 @@ def _manifest_matches_source_recap(
             else None,
         ]
         if any(
-            value == source_recap_sha256
+            normalize_content_digest(value) == requested_digest
             for value in actual_hashes
             if isinstance(value, str)
         ):
             return True
+        # Older manifests may lack packaged digests — resolve the registered
+        # SourceArtifact and compare its full content_sha256.
+        artifact_id = str(source.get("source_artifact_id") or "").strip()
+        if artifact_id:
+            from apps.live_control_server.services.source_artifact_registry import (
+                SourceArtifactRegistryError,
+                get_source_artifact,
+            )
+
+            try:
+                artifact = get_source_artifact(repo, artifact_id)
+            except SourceArtifactRegistryError:
+                return False
+            if normalize_content_digest(artifact.content_sha256) == requested_digest:
+                return True
+        return False
     if not source_recap_path:
         return False
     raw_values = [

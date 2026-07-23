@@ -37,6 +37,13 @@ from src.graph_memory.extraction.known_entity_registry import (
     build_known_entity_registry,
     normalize_match_surface,
 )
+from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec, ExtractionProfile
+from src.graph_memory.extraction.recap_extraction_profile import (
+    DEFAULT_SEMANTIC_STATE as RECAP_DEFAULT_SEMANTIC_STATE,
+    EVIDENCE_RULE as RECAP_EVIDENCE_RULE,
+    RECAP_EXTRACTION_PROFILE,
+)
+from src.graph_memory.source_span import document_source_ref_id
 from src.graph_memory.vocabulary.dynamic_selection import build_dynamic_context_vocabulary_packet
 from src.graph_memory.vocabulary.edge_context import render_edge_vocabulary_context
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
@@ -61,35 +68,10 @@ BEAT_PASS_NAME = "beat_pass"
 ENCOUNTER_JOB_PASS_NAME = "encounter_job_pass"
 EDGE_PASS_NAME = "edge_pass"
 
-NODE_EXTRACTION_PASSES: tuple[tuple[str, str, str], ...] = (
-    (
-        "actor_pass",
-        "character",
-        "Extract named NON-PARTY NPCs, characters, and creatures only. "
-        "Do NOT extract player characters or traveling companion NPCs — those are supplied as party anchors.",
-    ),
-    (
-        "location_pass",
-        "location",
-        "Extract regions, towns, cities, roads, routes, sublocations, and named travel zones only.",
-    ),
-    (
-        "collective_pass",
-        "faction",
-        "Extract factions, councils, guards, mercenary groups, organizations, and parties (as collectives) only. "
-        "Use node_type faction, organization, or group as appropriate.",
-    ),
-    (
-        "object_pass",
-        "item",
-        "Extract notable items, devices, artifacts, and objects only — not table-mechanics noise.",
-    ),
-    (
-        "thread_pass",
-        "mystery",
-        "Extract mysteries, clues, warnings, events, unresolved phenomena, and threads. "
-        "Also emit ignored_items and deferred_items when appropriate.",
-    ),
+# Back-compat constants derived from the explicit recap profile.
+NODE_EXTRACTION_PASSES: tuple[tuple[str, str, str], ...] = tuple(
+    (spec.pass_id, spec.default_node_type or "", spec.instruction)
+    for spec in RECAP_EXTRACTION_PROFILE.node_passes
 )
 
 ALL_PASS_NAMES: tuple[str, ...] = tuple(p[0] for p in NODE_EXTRACTION_PASSES) + (
@@ -109,22 +91,9 @@ PASS_PROGRESS_LABELS: dict[str, str] = {
     "edge_pass": "Extracting relationship edges",
 }
 
-EVIDENCE_RULE = (
-    "Every positive object MUST include evidence_refs as an array of objects with: "
-    '{"source_span_ref_id": "<span id from source packet>", '
-    '"anchor_quotes": ["<verbatim phrase copied from that paragraph>"]}. '
-    "anchor_quotes must be literal substrings from the cited paragraph text block — "
-    "not summaries, not your own node labels, not regex, not invented snippets. "
-    "Copy exact words from the source packet."
-)
+EVIDENCE_RULE = RECAP_EVIDENCE_RULE
 
-DEFAULT_SEMANTIC_STATE = {
-    "canon_state": "played_canon",
-    "lifecycle_state": "candidate",
-    "evidence_role": "source_evidence",
-    "authority_state": "system_derived",
-    "visibility_state": "gm_private",
-}
+DEFAULT_SEMANTIC_STATE = dict(RECAP_DEFAULT_SEMANTIC_STATE)
 
 ENVELOPE_SCHEMA = "dmb_live_extractor_candidate_envelope_v0"
 ENVELOPE_VERSION = "0.1"
@@ -271,16 +240,20 @@ class CategoryGraphPassClient(Protocol):
         model_id: str,
         instructions: str,
         user_content: str,
+        pass_spec: ExtractionPassSpec | None = None,
     ) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
 class CategoryGraphExtractionOptions:
     campaign_id: str
-    session_id: str
-    session_number: int
+    session_id: str | None
+    session_number: int | None
     source_span_index: Mapping[str, Any]
     model_id: str | None = None
+    source_text: str | None = None
+    source_artifact_id: str | None = None
+    source_ref_id: str | None = None
     enable_edge_vocabulary_packet: bool = False
     edge_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
@@ -290,6 +263,80 @@ class CategoryGraphExtractionOptions:
     enable_encounter_job_pass: bool = False
     enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
+    profile: ExtractionProfile | None = None
+
+
+def resolve_source_identity(
+    options: CategoryGraphExtractionOptions,
+) -> tuple[str, str]:
+    """Resolve registered source_artifact_id and canonical document source_ref_id.
+
+    Never reconstructs identity from campaign/session — both must come from the
+    normalized source / SourceSpanIndex (or explicit options fields).
+    """
+    index = options.source_span_index
+    artifact = str(
+        options.source_artifact_id
+        or index.get("source_artifact_id")
+        or ""
+    ).strip()
+    if not artifact:
+        for span in index.get("spans") or []:
+            if not isinstance(span, Mapping):
+                continue
+            candidate = str(span.get("source_artifact_id") or "").strip()
+            if candidate:
+                artifact = candidate
+                break
+    if not artifact:
+        raise ValueError(
+            "source_artifact_id is required on CategoryGraphExtractionOptions "
+            "or source_span_index; do not reconstruct from campaign/session"
+        )
+    source_ref = str(
+        options.source_ref_id
+        or index.get("source_ref_id")
+        or ""
+    ).strip()
+    if not source_ref:
+        for span in index.get("spans") or []:
+            if not isinstance(span, Mapping):
+                continue
+            candidate = str(span.get("source_ref_id") or "").strip()
+            if candidate:
+                source_ref = candidate
+                break
+    if not source_ref:
+        source_ref = document_source_ref_id(artifact)
+    return artifact, source_ref
+
+
+def resolve_extraction_profile(options: CategoryGraphExtractionOptions) -> ExtractionProfile:
+    if options.profile is not None:
+        return options.profile
+    return RECAP_EXTRACTION_PROFILE
+
+
+def _empty_party_context(campaign_id: str | None) -> PartyContext:
+    return PartyContext(
+        campaign_id=campaign_id,
+        session="",
+        party_names=(),
+        members=(),
+        warnings=("party context omitted: null session",),
+    )
+
+
+def _empty_known_entity_registry(campaign_id: str | None) -> KnownEntityRegistry:
+    return KnownEntityRegistry(
+        campaign_id=campaign_id or "",
+        session_key="",
+        roster_session_key=None,
+        roster_carry_forward=False,
+        registry_relpath=None,
+        entities=(),
+        warnings=("known entity registry omitted: null session",),
+    )
 
 
 @dataclass(frozen=True)
@@ -329,28 +376,41 @@ def resolve_category_graph_model(model_id: str | None) -> str:
     return "gpt-5.4-mini"
 
 
-def source_packet_rows_from_span_index(span_index: Mapping[str, Any]) -> list[dict[str, Any]]:
+def source_packet_rows_from_span_index(
+    span_index: Mapping[str, Any],
+    *,
+    source_text: str | None = None,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    lines = source_text.splitlines() if source_text is not None else None
     for span in span_index.get("spans") or []:
         if not isinstance(span, Mapping):
             continue
-        if span.get("kind") not in {"paragraph", None}:
-            if span.get("kind") == "full_text":
-                continue
-        spref = span.get("source_span_ref_id") or span.get("span_id")
+        kind = span.get("kind")
+        if kind == "full_text":
+            continue
+        spref = (
+            span.get("source_span_ref_id")
+            or span.get("span_id")
+            or span.get("source_span_id")
+        )
         if not isinstance(spref, str) or not spref.strip():
             continue
+        start_line = int(span.get("line_start") or span.get("start_line") or 1)
+        end_line = int(span.get("line_end") or span.get("end_line") or start_line)
         text = str(span.get("text") or span.get("text_excerpt") or "").strip()
-        if not text and span.get("kind") == "full_text":
-            continue
-        if span.get("kind") == "full_text":
+        if not text and lines is not None and start_line >= 1:
+            text = "\n".join(lines[start_line - 1 : end_line]).strip()
+        if not text:
             continue
         rows.append(
             {
                 "source_span_ref_id": spref,
-                "source_unit_id": str(span.get("span_id") or spref),
-                "line_start": int(span.get("line_start") or 1),
-                "line_end": int(span.get("line_end") or 1),
+                "source_unit_id": str(
+                    span.get("span_id") or span.get("source_span_id") or spref
+                ),
+                "line_start": start_line,
+                "line_end": end_line,
                 "text": text,
             }
         )
@@ -382,7 +442,10 @@ def render_category_pass_prompts(
     party_ctx: PartyContext,
     known_entity_sidecar: KnownEntityMentionSidecar | None = None,
     known_entity_registry: KnownEntityRegistry | None = None,
+    profile: ExtractionProfile | None = None,
 ) -> dict[str, str]:
+    active_profile = profile or RECAP_EXTRACTION_PROFILE
+    evidence_rule = active_profile.evidence_rule
     src = _source_packet_md(source_rows)
     anchors = _party_anchors_block(party_ctx)
     ledger = ""
@@ -399,9 +462,12 @@ def render_category_pass_prompts(
         "Forbidden: approve memory, commit graph records, promote canon, execute writes."
     )
     prompts: dict[str, str] = {}
-    for pass_name, default_type, instruction in NODE_EXTRACTION_PASSES:
+    for pass_spec in active_profile.node_passes:
+        pass_name = pass_spec.pass_id
+        default_type = pass_spec.default_node_type or ""
+        instruction = pass_spec.instruction
         extra = ""
-        if pass_name == "thread_pass":
+        if pass_spec.include_dispositions:
             extra = (
                 "\n\nAlso include JSON keys `ignored_items` and `deferred_items` (arrays, may be empty). "
                 "Each item: `item_id`, `label`, `reason`, `evidence_refs`; deferred may include `suggested_next_step`."
@@ -412,19 +478,23 @@ def render_category_pass_prompts(
             f"Default node_type for this pass: `{default_type}`.\n\n"
             f"Return JSON with key `observation_nodes` (array). Each node: "
             f"`node_id`, `label`, `node_type`, `description`, `importance` (high|medium|low), `evidence_refs`.\n"
-            f"{EVIDENCE_RULE}{extra}\n\n## Source Packet\n\n{src}\n"
+            f"{evidence_rule}{extra}\n\n## Source Packet\n\n{src}\n"
         )
-    prompts[_prompt_key(BEAT_PASS_NAME)] = (
-        f"# Category Graph Extraction — {BEAT_PASS_NAME}\n\n{safety}\n\n{ledger}"
-        "## Task\n\nExtract source-local beats (scenes, topic shifts, durable claims). "
-        "Return JSON with key `observation_beats` (array). Each beat: "
-        "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
-        f"{EVIDENCE_RULE}\n\n## Source Packet\n\n{src}\n"
-    )
+    if active_profile.beat_pass is not None:
+        beat = active_profile.beat_pass
+        prompts[_prompt_key(beat.pass_id)] = (
+            f"# Category Graph Extraction — {beat.pass_id}\n\n{safety}\n\n{ledger}"
+            f"## Task\n\n{beat.instruction}\n"
+            "Return JSON with key `observation_beats` (array). Each beat: "
+            "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
+            f"{evidence_rule}\n\n## Source Packet\n\n{src}\n"
+        )
     predicate_catalog = predicate_catalog_prompt_markdown()
-    prompts[_prompt_key(EDGE_PASS_NAME)] = (
-        f"# Category Graph Extraction — {EDGE_PASS_NAME}\n\n{safety}\n\n{ledger}"
-        "## Task\n\nUsing ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
+    edge = active_profile.edge_pass
+    prompts[_prompt_key(edge.pass_id)] = (
+        f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n{ledger}"
+        f"## Task\n\n{edge.instruction}\n"
+        "Using ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
         "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes. "
         "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
         "do not stop after the first few obvious edges.\n\n"
@@ -441,7 +511,7 @@ def render_category_pass_prompts(
         "Each edge: `edge_id`, `from_node_id`, `to_node_id`, `label`, `relationship_type`, "
         "`predicate_family`, `evidence_refs`.\n"
         f"{predicate_catalog}\n\n"
-        f"{EVIDENCE_RULE}\n\n## Source Packet\n\n{src}\n\n## Consolidated nodes\n\n"
+        f"{evidence_rule}\n\n## Source Packet\n\n{src}\n\n## Consolidated nodes\n\n"
         "(injected at runtime)\n"
     )
     return prompts
@@ -531,6 +601,7 @@ def materialize_promote_evidence_ref(
     ref: Mapping[str, Any],
     *,
     source_artifact_id: str,
+    source_ref_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Expand an extractor span stub into promote-eligible EvidenceRef IR.
 
@@ -540,6 +611,7 @@ def materialize_promote_evidence_ref(
     artifact = str(source_artifact_id or "").strip()
     if not artifact:
         raise ValueError("source_artifact_id is required to materialize evidence refs")
+    document_ref = str(source_ref_id or "").strip() or document_source_ref_id(artifact)
 
     existing_ref = str(ref.get("source_ref_id") or "").strip()
     existing_artifact = str(ref.get("source_artifact_id") or "").strip()
@@ -551,7 +623,7 @@ def materialize_promote_evidence_ref(
         return None
 
     out: dict[str, Any] = {
-        "source_ref_id": f"source-ref:{artifact}",
+        "source_ref_id": document_ref,
         "source_artifact_id": artifact,
         "source_anchor_id": f"anchor:{spref}",
         "label": spref,
@@ -583,8 +655,10 @@ def stamp_graph_evidence_refs(
     graph: dict[str, Any],
     *,
     source_artifact_id: str,
+    source_ref_id: str | None = None,
 ) -> dict[str, Any]:
     """Stamp promote-eligible EvidenceRef fields on every collection in-place."""
+    document_ref = str(source_ref_id or "").strip() or document_source_ref_id(source_artifact_id)
     for key in _EVIDENCE_COLLECTIONS:
         items = graph.get(key)
         if not isinstance(items, list):
@@ -600,7 +674,9 @@ def stamp_graph_evidence_refs(
                 if not isinstance(ref, Mapping):
                     continue
                 materialised = materialize_promote_evidence_ref(
-                    ref, source_artifact_id=source_artifact_id
+                    ref,
+                    source_artifact_id=source_artifact_id,
+                    source_ref_id=document_ref,
                 )
                 if materialised is not None:
                     stamped.append(materialised)
@@ -608,7 +684,12 @@ def stamp_graph_evidence_refs(
     return graph
 
 
-def _normalize_node(raw: Mapping[str, Any], default_type: str) -> dict[str, Any]:
+def _normalize_node(
+    raw: Mapping[str, Any],
+    default_type: str,
+    *,
+    semantic_state: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     node_id = str(raw.get("node_id") or "").strip() or f"node:{ir.normalize_label(str(raw.get('label', 'unknown')))}"
     return {
         "node_id": node_id,
@@ -616,7 +697,7 @@ def _normalize_node(raw: Mapping[str, Any], default_type: str) -> dict[str, Any]
         "node_type": str(raw.get("node_type") or default_type),
         "description": str(raw.get("description") or "").strip() or None,
         "importance": str(raw.get("importance") or "medium"),
-        "semantic_state": dict(DEFAULT_SEMANTIC_STATE),
+        "semantic_state": dict(semantic_state or DEFAULT_SEMANTIC_STATE),
         "evidence_refs": _normalize_evidence_refs(raw.get("evidence_refs")),
         "proposed_action": "create",
         "confidence": str(raw.get("confidence") or "medium"),
@@ -628,7 +709,11 @@ def _normalize_node(raw: Mapping[str, Any], default_type: str) -> dict[str, Any]
 ENCOUNTER_JOB_ALLOWED_NODE_TYPES = frozenset({"combat_encounter", "quest"})
 
 
-def _normalize_encounter_job_node(raw: Mapping[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+def _normalize_encounter_job_node(
+    raw: Mapping[str, Any],
+    *,
+    semantic_state: Mapping[str, str] | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
     explicit_type = raw.get("node_type")
     node_type = str(explicit_type or "").strip()
     if not node_type:
@@ -639,7 +724,7 @@ def _normalize_encounter_job_node(raw: Mapping[str, Any]) -> tuple[dict[str, Any
         if not node_id:
             node_id = f"node:{ir.normalize_label(str(raw.get('label', 'unknown')))}"
         return None, node_id
-    return _normalize_node(raw, "quest"), None
+    return _normalize_node(raw, "quest", semantic_state=semantic_state), None
 
 
 def _normalize_beat(raw: Mapping[str, Any]) -> dict[str, Any]:
@@ -655,7 +740,11 @@ def _normalize_beat(raw: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _normalize_edge(raw: Mapping[str, Any]) -> dict[str, Any]:
+def _normalize_edge(
+    raw: Mapping[str, Any],
+    *,
+    semantic_state: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     relationship_type = str(raw.get("relationship_type") or "").strip().lower()
     predicate_family = str(raw.get("predicate_family") or "").strip()
     if relationship_type and not predicate_family:
@@ -674,7 +763,7 @@ def _normalize_edge(raw: Mapping[str, Any]) -> dict[str, Any]:
         "label": str(raw.get("label") or ""),
         "relationship_type": relationship_type,
         "predicate_family": predicate_family,
-        "semantic_state": dict(DEFAULT_SEMANTIC_STATE),
+        "semantic_state": dict(semantic_state or DEFAULT_SEMANTIC_STATE),
         "evidence_refs": _normalize_evidence_refs(raw.get("evidence_refs")),
         "proposed_action": "create",
         "confidence": str(raw.get("confidence") or "medium"),
@@ -700,12 +789,18 @@ def consolidate_category_outputs(
     pass_outputs: Mapping[str, Mapping[str, Any]],
     *,
     campaign_id: str,
-    session: int,
+    session: int | None,
     enable_party_participation_attachment: bool = False,
     known_entity_sidecar: KnownEntityMentionSidecar | None = None,
     known_entity_registry: KnownEntityRegistry | None = None,
+    profile: ExtractionProfile | None = None,
 ) -> dict[str, Any]:
-    party_ctx = build_party_context_for_campaign(campaign_id, session)
+    active_profile = profile or RECAP_EXTRACTION_PROFILE
+    semantic_state = dict(active_profile.default_semantic_state)
+    if session is None:
+        party_ctx = _empty_party_context(campaign_id)
+    else:
+        party_ctx = build_party_context_for_campaign(campaign_id, session)
     per_pass_counts: dict[str, int] = {}
     nodes: list[dict[str, Any]] = []
     beats: list[dict[str, Any]] = []
@@ -713,14 +808,16 @@ def consolidate_category_outputs(
     deferred: list[dict[str, Any]] = []
     encounter_job_diag: dict[str, Any] = {"enabled": False}
 
-    for pass_name, default_type, _ in NODE_EXTRACTION_PASSES:
+    for pass_spec in active_profile.node_passes:
+        pass_name = pass_spec.pass_id
+        default_type = pass_spec.default_node_type or "entity"
         payload = pass_outputs.get(pass_name, {})
         raw_nodes = payload.get("observation_nodes") or []
         per_pass_counts[pass_name] = len(raw_nodes)
         for raw in raw_nodes:
             if isinstance(raw, Mapping):
-                nodes.append(_normalize_node(raw, default_type))
-        if pass_name == "thread_pass":
+                nodes.append(_normalize_node(raw, default_type, semantic_state=semantic_state))
+        if pass_spec.include_dispositions:
             for raw in payload.get("ignored_items") or []:
                 if isinstance(raw, Mapping):
                     ignored.append(_normalize_disposition(raw, "ignored"))
@@ -728,16 +825,23 @@ def consolidate_category_outputs(
                 if isinstance(raw, Mapping):
                     deferred.append(_normalize_disposition(raw, "deferred"))
 
-    encounter_payload = pass_outputs.get(ENCOUNTER_JOB_PASS_NAME)
+    encounter_pass_id = (
+        active_profile.encounter_job_pass.pass_id
+        if active_profile.encounter_job_pass is not None
+        else ENCOUNTER_JOB_PASS_NAME
+    )
+    encounter_payload = pass_outputs.get(encounter_pass_id)
     if encounter_payload is not None:
         raw_encounter_nodes = encounter_payload.get("observation_nodes") or []
-        per_pass_counts[ENCOUNTER_JOB_PASS_NAME] = len(raw_encounter_nodes)
+        per_pass_counts[encounter_pass_id] = len(raw_encounter_nodes)
         dropped_invalid_node_type_ids: list[str] = []
         kept_count = 0
         for raw in raw_encounter_nodes:
             if not isinstance(raw, Mapping):
                 continue
-            normalized, dropped_id = _normalize_encounter_job_node(raw)
+            normalized, dropped_id = _normalize_encounter_job_node(
+                raw, semantic_state=semantic_state
+            )
             if dropped_id:
                 dropped_invalid_node_type_ids.append(dropped_id)
                 continue
@@ -751,9 +855,12 @@ def consolidate_category_outputs(
             "dropped_invalid_node_type_ids": dropped_invalid_node_type_ids,
         }
 
-    beat_payload = pass_outputs.get(BEAT_PASS_NAME, {})
+    beat_pass_id = (
+        active_profile.beat_pass.pass_id if active_profile.beat_pass is not None else BEAT_PASS_NAME
+    )
+    beat_payload = pass_outputs.get(beat_pass_id, {})
     raw_beats = beat_payload.get("observation_beats") or []
-    per_pass_counts[BEAT_PASS_NAME] = len(raw_beats)
+    per_pass_counts[beat_pass_id] = len(raw_beats)
     for raw in raw_beats:
         if isinstance(raw, Mapping):
             beats.append(_normalize_beat(raw))
@@ -764,7 +871,7 @@ def consolidate_category_outputs(
     deduped_nodes, anchor_merge_diag = merge_party_anchor_nodes(
         deduped_nodes,
         party_ctx,
-        default_semantic_state=DEFAULT_SEMANTIC_STATE,
+        default_semantic_state=semantic_state,
     )
 
     known_entity_diag: dict[str, Any] = {"enabled": False}
@@ -815,16 +922,17 @@ def consolidate_category_outputs(
     deduped_nodes = list(cross_class["kept"])
     cross_class_remap: dict[str, str] = cross_class["remap"]
 
-    edge_payload = pass_outputs.get(EDGE_PASS_NAME, {})
+    edge_pass_id = active_profile.edge_pass.pass_id
+    edge_payload = pass_outputs.get(edge_pass_id, {})
     raw_edges = edge_payload.get("observation_edges") or []
-    per_pass_counts[EDGE_PASS_NAME] = len(raw_edges)
+    per_pass_counts[edge_pass_id] = len(raw_edges)
     node_ids = {n["node_id"] for n in deduped_nodes}
     edges: list[dict[str, Any]] = []
     dropped_edges: list[dict[str, str]] = []
     for raw in raw_edges:
         if not isinstance(raw, Mapping):
             continue
-        edge = _normalize_edge(raw)
+        edge = _normalize_edge(raw, semantic_state=semantic_state)
         edge["from_node_id"] = cross_class_remap.get(edge["from_node_id"], edge["from_node_id"])
         edge["to_node_id"] = cross_class_remap.get(edge["to_node_id"], edge["to_node_id"])
         if edge["from_node_id"] in node_ids and edge["to_node_id"] in node_ids:
@@ -841,14 +949,14 @@ def consolidate_category_outputs(
         deduped_nodes,
         edges,
         party_ctx,
-        default_semantic_state=DEFAULT_SEMANTIC_STATE,
+        default_semantic_state=semantic_state,
     )
     if enable_party_participation_attachment:
         edges, party_participation_diag = attach_party_participation_edges(
             deduped_nodes,
             edges,
             party_ctx,
-            default_semantic_state=DEFAULT_SEMANTIC_STATE,
+            default_semantic_state=semantic_state,
         )
     else:
         party_participation_diag = {"enabled": False}
@@ -905,7 +1013,13 @@ def consolidate_category_outputs(
             }
             known_entity_diag["removed_missing_evidence_edge_ids"] = sorted(rejected_edge_ids)
 
-    session_ctx = build_session_graph_context(campaign_id, session)
+    if session is None:
+        session_ctx_warnings: list[str] = ["session graph context omitted: null session"]
+        registry_relpath = None
+    else:
+        session_ctx = build_session_graph_context(campaign_id, session)
+        session_ctx_warnings = list(session_ctx.warnings)
+        registry_relpath = session_ctx.registry_relpath
     diagnostics = {
         "per_pass_counts": per_pass_counts,
         "nodes_before_dedup": nodes_before_dedup,
@@ -921,8 +1035,8 @@ def consolidate_category_outputs(
         "party_collective_inserted": party_collective_diag.get("party_collective_inserted", False),
         "party_membership_edge_slugs": party_collective_diag.get("party_membership_edge_slugs", []),
         "party_participation_attachment": party_participation_diag,
-        "registry_relpath": session_ctx.registry_relpath,
-        "session_graph_context_warnings": list(session_ctx.warnings),
+        "registry_relpath": registry_relpath,
+        "session_graph_context_warnings": session_ctx_warnings,
         ENCOUNTER_JOB_PASS_NAME: encounter_job_diag,
         "known_entity_mentions": known_entity_diag,
     }
@@ -1016,6 +1130,7 @@ def assemble_envelope(
     source_artifact_id: str,
     model_id: str,
     preview_suffix: str = "category",
+    source_ref_id: str | None = None,
 ) -> dict[str, Any]:
     warning_count = len(
         consolidated.get("consolidation_diagnostics", {}).get("merged_nodes", [])
@@ -1036,7 +1151,11 @@ def assemble_envelope(
         "deferred_items": list(consolidated.get("deferred_items") or []),
         "diagnostics": dict(PROMOTE_SAFE_PREVIEW_DIAGNOSTICS),
     }
-    stamp_graph_evidence_refs(graph, source_artifact_id=source_artifact_id)
+    stamp_graph_evidence_refs(
+        graph,
+        source_artifact_id=source_artifact_id,
+        source_ref_id=source_ref_id,
+    )
     project_candidate_graph_for_promote(graph, warning_count=warning_count)
     return {
         "schema": ENVELOPE_SCHEMA,
@@ -1098,7 +1217,8 @@ def build_node_pass_prompt(
     options: CategoryGraphExtractionOptions,
     node_vocabulary_packet_override: ContextVocabularyPacket | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    allowed_passes = {name for name, _default_type, _instruction in NODE_EXTRACTION_PASSES}
+    active_profile = resolve_extraction_profile(options)
+    allowed_passes = {spec.pass_id for spec in active_profile.node_passes}
     if pass_name not in allowed_passes:
         raise ValueError(f"pass_name must be one of {sorted(allowed_passes)}")
 
@@ -1245,6 +1365,7 @@ def render_encounter_job_pass_prompt(
     nodes: Sequence[Mapping[str, Any]],
     beats: Sequence[Mapping[str, Any]],
     vocabulary_context: str | None = None,
+    instruction: str | None = None,
 ) -> str:
     src = _source_packet_md(source_rows)
     anchors = _party_anchors_block(party_ctx)
@@ -1259,16 +1380,18 @@ def render_encounter_job_pass_prompt(
         "warning, event, job, task, mission, bounty, errand, adversary, monster, pc, party"
     )
     vocabulary_block = f"{vocabulary_context}\n\n" if vocabulary_context else ""
-    return (
-        f"# Category Graph Extraction — {ENCOUNTER_JOB_PASS_NAME}\n\n{safety}\n\n"
-        f"{anchors}\n\n"
-        f"{vocabulary_block}"
-        "## Task\n\n"
+    task = instruction or (
         "Extract only durable job/quest/objective nodes and discrete combat encounter nodes.\n\n"
         "Create `quest` nodes for accepted, offered, assigned, discovered, or pursued objectives. "
         "Use `quest` for jobs, tasks, missions, bounties, errands, and requests. "
         "Do not use `job`, `task`, `mission`, `bounty`, or `errand` as node_type.\n\n"
         "Create `combat_encounter` nodes for discrete conflict scenes or tactical confrontations. "
+    )
+    return (
+        f"# Category Graph Extraction — {ENCOUNTER_JOB_PASS_NAME}\n\n{safety}\n\n"
+        f"{anchors}\n\n"
+        f"{vocabulary_block}"
+        f"## Task\n\n{task}"
         "A combat encounter is not the monster, not the location, not the quest, and not the recap beat.\n\n"
         "Separate a quest from the encounter that occurs while pursuing it.\n\n"
         "Do not recreate actors, PCs, party members, employers, locations, objects, rewards, mysteries, warnings, or threats. "
@@ -1339,9 +1462,11 @@ class OpenAICategoryGraphPassClient:
         model_id: str,
         instructions: str,
         user_content: str,
+        pass_spec: ExtractionPassSpec | None = None,
     ) -> dict[str, Any]:
         from src.graph_memory.extraction.category_candidate_graph_schema import (
             category_pass_text_format,
+            category_pass_text_format_for_spec,
         )
 
         load_dungeonmindbuddy_dotenv()
@@ -1357,11 +1482,16 @@ class OpenAICategoryGraphPassClient:
         if self._max_retries is not None:
             openai_kwargs["max_retries"] = self._max_retries
         client = OpenAI(**openai_kwargs)
+        text_format = (
+            category_pass_text_format_for_spec(pass_spec)
+            if pass_spec is not None
+            else category_pass_text_format(pass_name)
+        )
         create_kwargs: dict[str, Any] = {
             "model": model_id.strip(),
             "instructions": instructions,
             "input": [{"type": "message", "role": "user", "content": user_content}],
-            "text": category_pass_text_format(pass_name),
+            "text": text_format,
         }
         if self._reasoning_effort is not None:
             create_kwargs["reasoning"] = {"effort": self._reasoning_effort}
@@ -1424,6 +1554,7 @@ class FixtureCategoryGraphPassClient:
         model_id: str,
         instructions: str,
         user_content: str,
+        pass_spec: ExtractionPassSpec | None = None,
     ) -> dict[str, Any]:
         return {
             "parsed": dict(self._pass_outputs.get(pass_name, {})),
@@ -1442,26 +1573,34 @@ def run_category_pipeline(
     *,
     progress_callback: Any | None = None,
 ) -> CategoryGraphExtractionResult:
+    active_profile = resolve_extraction_profile(options)
     model_id = resolve_category_graph_model(options.model_id)
-    source_rows = source_packet_rows_from_span_index(options.source_span_index)
+    source_rows = source_packet_rows_from_span_index(
+        options.source_span_index,
+        source_text=options.source_text,
+    )
     allowed_span_refs = {r["source_span_ref_id"] for r in source_rows}
     for span in options.source_span_index.get("spans") or []:
         if isinstance(span, Mapping):
-            for key in ("source_span_ref_id", "span_id"):
+            for key in ("source_span_ref_id", "span_id", "source_span_id"):
                 val = span.get(key)
                 if isinstance(val, str):
                     allowed_span_refs.add(val)
 
-    party_ctx = build_party_context_for_campaign(
-        options.campaign_id, options.session_number
-    )
-    known_entity_registry = build_known_entity_registry(
-        options.campaign_id,
-        options.session_number,
-        party_ctx=party_ctx,
-    )
+    if options.session_number is None:
+        party_ctx = _empty_party_context(options.campaign_id)
+        known_entity_registry = _empty_known_entity_registry(options.campaign_id)
+    else:
+        party_ctx = build_party_context_for_campaign(
+            options.campaign_id, options.session_number
+        )
+        known_entity_registry = build_known_entity_registry(
+            options.campaign_id,
+            options.session_number,
+            party_ctx=party_ctx,
+        )
     known_entity_sidecar = match_known_entities_in_spans(
-        list(options.source_span_index.get("spans") or source_rows),
+        source_rows,
         known_entity_registry,
         session_id=options.session_id,
     )
@@ -1470,6 +1609,7 @@ def run_category_pipeline(
         party_ctx=party_ctx,
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
+        profile=active_profile,
     )
     pass_outputs: dict[str, dict[str, Any]] = {}
     pass_telemetry: dict[str, Any] = {}
@@ -1482,7 +1622,8 @@ def run_category_pipeline(
         if progress_callback is not None:
             progress_callback(pass_name, state)
 
-    for pass_name, _default_type, _instruction in NODE_EXTRACTION_PASSES:
+    for pass_spec in active_profile.node_passes:
+        pass_name = pass_spec.pass_id
         _notify(pass_name, "running")
         node_prompt, node_vocabulary_diag = build_node_pass_prompt(
             pass_name,
@@ -1496,6 +1637,7 @@ def run_category_pipeline(
             model_id=model_id,
             instructions=system,
             user_content=node_prompt,
+            pass_spec=pass_spec,
         )
         pass_outputs[pass_name] = result["parsed"]
         pass_telemetry[pass_name] = {
@@ -1503,28 +1645,31 @@ def run_category_pipeline(
             "usage": result["usage"],
             "elapsed_ms": result["elapsed_ms"],
             "response_id": result["response_id"],
-            "progress_label": PASS_PROGRESS_LABELS.get(pass_name, pass_name),
+            "progress_label": pass_spec.progress_label,
         }
         total_cost += result["cost_usd"]
         _notify(pass_name, "complete")
 
-    _notify(BEAT_PASS_NAME, "running")
-    beat_result = client.run_pass(
-        BEAT_PASS_NAME,
-        model_id=model_id,
-        instructions=system,
-        user_content=prompts[_prompt_key(BEAT_PASS_NAME)],
-    )
-    pass_outputs[BEAT_PASS_NAME] = beat_result["parsed"]
-    pass_telemetry[BEAT_PASS_NAME] = {
-        "cost_usd": beat_result["cost_usd"],
-        "usage": beat_result["usage"],
-        "elapsed_ms": beat_result["elapsed_ms"],
-        "response_id": beat_result["response_id"],
-        "progress_label": PASS_PROGRESS_LABELS[BEAT_PASS_NAME],
-    }
-    total_cost += beat_result["cost_usd"]
-    _notify(BEAT_PASS_NAME, "complete")
+    if active_profile.beat_pass is not None:
+        beat = active_profile.beat_pass
+        _notify(beat.pass_id, "running")
+        beat_result = client.run_pass(
+            beat.pass_id,
+            model_id=model_id,
+            instructions=system,
+            user_content=prompts[_prompt_key(beat.pass_id)],
+            pass_spec=beat,
+        )
+        pass_outputs[beat.pass_id] = beat_result["parsed"]
+        pass_telemetry[beat.pass_id] = {
+            "cost_usd": beat_result["cost_usd"],
+            "usage": beat_result["usage"],
+            "elapsed_ms": beat_result["elapsed_ms"],
+            "response_id": beat_result["response_id"],
+            "progress_label": beat.progress_label,
+        }
+        total_cost += beat_result["cost_usd"]
+        _notify(beat.pass_id, "complete")
 
     consolidated = consolidate_category_outputs(
         pass_outputs,
@@ -1533,39 +1678,64 @@ def run_category_pipeline(
         enable_party_participation_attachment=options.enable_party_participation_attachment,
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
+        profile=active_profile,
     )
+    encounter_pass = active_profile.encounter_job_pass
     if options.enable_encounter_job_pass:
+        encounter_pass_id = (
+            encounter_pass.pass_id if encounter_pass is not None else ENCOUNTER_JOB_PASS_NAME
+        )
+        encounter_progress = (
+            encounter_pass.progress_label
+            if encounter_pass is not None
+            else PASS_PROGRESS_LABELS[ENCOUNTER_JOB_PASS_NAME]
+        )
+        encounter_instruction = (
+            encounter_pass.instruction if encounter_pass is not None else None
+        )
         encounter_vocabulary_context = ""
         if effective_node_vocabulary_packet is not None:
             encounter_vocabulary = render_node_vocabulary_context(
-                effective_node_vocabulary_packet, pass_name=ENCOUNTER_JOB_PASS_NAME
+                effective_node_vocabulary_packet, pass_name=encounter_pass_id
             )
             encounter_vocabulary_context = encounter_vocabulary.context_text
-            node_vocabulary_pass_diagnostics[ENCOUNTER_JOB_PASS_NAME] = encounter_vocabulary.diagnostics
+            node_vocabulary_pass_diagnostics[encounter_pass_id] = (
+                encounter_vocabulary.diagnostics
+            )
         encounter_prompt = render_encounter_job_pass_prompt(
             source_rows,
             party_ctx=party_ctx,
             nodes=consolidated["nodes"],
             beats=consolidated["beats"],
             vocabulary_context=encounter_vocabulary_context,
+            instruction=encounter_instruction,
         )
-        _notify(ENCOUNTER_JOB_PASS_NAME, "running")
+        _notify(encounter_pass_id, "running")
+        encounter_spec = encounter_pass or ExtractionPassSpec(
+            pass_id=encounter_pass_id,
+            default_node_type=None,
+            instruction=encounter_instruction or "",
+            progress_label=encounter_progress,
+            kind="encounter_job",
+            allowed_node_types=("combat_encounter", "quest"),
+        )
         encounter_result = client.run_pass(
-            ENCOUNTER_JOB_PASS_NAME,
+            encounter_pass_id,
             model_id=model_id,
             instructions=system,
             user_content=encounter_prompt,
+            pass_spec=encounter_spec,
         )
-        pass_outputs[ENCOUNTER_JOB_PASS_NAME] = encounter_result["parsed"]
-        pass_telemetry[ENCOUNTER_JOB_PASS_NAME] = {
+        pass_outputs[encounter_pass_id] = encounter_result["parsed"]
+        pass_telemetry[encounter_pass_id] = {
             "cost_usd": encounter_result["cost_usd"],
             "usage": encounter_result["usage"],
             "elapsed_ms": encounter_result["elapsed_ms"],
             "response_id": encounter_result["response_id"],
-            "progress_label": PASS_PROGRESS_LABELS[ENCOUNTER_JOB_PASS_NAME],
+            "progress_label": encounter_progress,
         }
         total_cost += encounter_result["cost_usd"]
-        _notify(ENCOUNTER_JOB_PASS_NAME, "complete")
+        _notify(encounter_pass_id, "complete")
         consolidated = consolidate_category_outputs(
             pass_outputs,
             campaign_id=options.campaign_id,
@@ -1573,29 +1743,32 @@ def run_category_pipeline(
             enable_party_participation_attachment=options.enable_party_participation_attachment,
             known_entity_sidecar=known_entity_sidecar,
             known_entity_registry=known_entity_registry,
+            profile=active_profile,
         )
+    edge = active_profile.edge_pass
     edge_prompt, edge_vocabulary_diag, encounter_job_edge_diag = build_edge_pass_prompt(
-        prompts[_prompt_key(EDGE_PASS_NAME)],
+        prompts[_prompt_key(edge.pass_id)],
         consolidated["nodes"],
         options=options,
     )
-    _notify(EDGE_PASS_NAME, "running")
+    _notify(edge.pass_id, "running")
     edge_result = client.run_pass(
-        EDGE_PASS_NAME,
+        edge.pass_id,
         model_id=model_id,
         instructions=system,
         user_content=edge_prompt,
+        pass_spec=edge,
     )
-    pass_outputs[EDGE_PASS_NAME] = edge_result["parsed"]
-    pass_telemetry[EDGE_PASS_NAME] = {
+    pass_outputs[edge.pass_id] = edge_result["parsed"]
+    pass_telemetry[edge.pass_id] = {
         "cost_usd": edge_result["cost_usd"],
         "usage": edge_result["usage"],
         "elapsed_ms": edge_result["elapsed_ms"],
         "response_id": edge_result["response_id"],
-        "progress_label": PASS_PROGRESS_LABELS[EDGE_PASS_NAME],
+        "progress_label": edge.progress_label,
     }
     total_cost += edge_result["cost_usd"]
-    _notify(EDGE_PASS_NAME, "complete")
+    _notify(edge.pass_id, "complete")
 
     consolidated = consolidate_category_outputs(
         pass_outputs,
@@ -1604,6 +1777,7 @@ def run_category_pipeline(
         enable_party_participation_attachment=options.enable_party_participation_attachment,
         known_entity_sidecar=known_entity_sidecar,
         known_entity_registry=known_entity_registry,
+        profile=active_profile,
     )
     repair_diag = repair_edge_evidence_refs(consolidated, allowed_span_refs)
     sanitized, sanitize_diag = sanitize_parts(consolidated, allowed_span_refs)
@@ -1615,14 +1789,17 @@ def run_category_pipeline(
         **repair_diag,
         **sanitize_diag,
         "standing_context_partition": partition_diag,
+        "profile_id": active_profile.profile_id,
+        "profile_version": active_profile.profile_version,
     }
-    source_artifact_id = f"artifact:recap:{options.campaign_id}:{options.session_id}"
+    source_artifact_id, source_ref_id = resolve_source_identity(options)
     registry_artifact_id = party_registry_artifact_id(options.campaign_id)
     envelope = assemble_envelope(
         recap_parts,
         campaign_id=options.campaign_id,
         session_id=options.session_id,
         source_artifact_id=source_artifact_id,
+        source_ref_id=source_ref_id,
         model_id=model_id,
     )
     candidate_graph = canonical_graph_for_runner(envelope)
@@ -1634,6 +1811,7 @@ def run_category_pipeline(
             campaign_id=options.campaign_id,
             session_id=options.session_id,
             source_artifact_id=registry_artifact_id,
+            source_ref_id=document_source_ref_id(registry_artifact_id),
             model_id=model_id,
             preview_suffix="standing",
         )

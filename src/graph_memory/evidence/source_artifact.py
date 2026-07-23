@@ -58,6 +58,17 @@ def build_worldbuilding_source_artifact_id(
     )
 
 
+def build_recap_source_artifact_id(
+    *,
+    campaign_id: str,
+    session_id: str,
+    content_sha256: str,
+) -> str:
+    """Stable recap artifact ID bound to campaign, session, and content digest."""
+    digest_prefix = content_sha256.removeprefix("sha256:")[:12]
+    return f"artifact:recap:{campaign_id}:{session_id}:{digest_prefix}"
+
+
 def validate_source_artifact_scope(artifact: GraphMemorySourceArtifact) -> None:
     """Fail closed on invalid domain/scope combinations."""
     domain = str(artifact.source_domain)

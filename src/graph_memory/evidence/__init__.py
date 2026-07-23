@@ -6,6 +6,7 @@ from graph_memory.evidence.assertion_support import (
 from graph_memory.evidence.evidence_ref import GraphMemoryEvidenceRef
 from graph_memory.evidence.source_artifact import (
     GraphMemorySourceArtifact,
+    build_recap_source_artifact_id,
     build_worldbuilding_source_artifact_id,
     validate_source_artifact_scope,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "DurableAssertionSupport",
     "GraphMemoryEvidenceRef",
     "GraphMemorySourceArtifact",
+    "build_recap_source_artifact_id",
     "build_worldbuilding_source_artifact_id",
     "validate_source_artifact_scope",
     "KNOWN_SOURCE_DOMAINS",

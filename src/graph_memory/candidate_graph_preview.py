@@ -7,7 +7,14 @@ from typing import Any, Mapping
 CANDIDATE_GRAPH_PREVIEW_SCHEMA = "dmb_candidate_graph_preview_v0"
 CANDIDATE_GRAPH_PREVIEW_VERSION = "0.1"
 
-CANON_STATES = {"played_canon", "planning_scaffold", "candidate_extraction", "diagnostic_only", "unknown"}
+CANON_STATES = {
+    "played_canon",
+    "planning_scaffold",
+    "worldbuilding_draft",
+    "candidate_extraction",
+    "diagnostic_only",
+    "unknown",
+}
 LIFECYCLE_STATES = {"candidate", "validated", "promoted", "rejected", "stale", "diagnostic", "deferred", "ignored"}
 EVIDENCE_ROLES = {"source_evidence", "navigation_hint", "diagnostic_only", "not_evidence"}
 AUTHORITY_STATES = {"played_truth", "gm_prep", "system_derived", "llm_generated", "diagnostic", "unknown"}

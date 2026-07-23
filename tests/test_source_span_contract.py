@@ -85,3 +85,30 @@ def test_span_ref_rejects_digest_namespace_mismatch() -> None:
             source_artifact_id=artifact_id,
             content_sha256="0" * 64,
         )
+
+
+def test_source_span_index_from_dict_requires_exact_schema_and_version() -> None:
+    text = "Body\n"
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    artifact_id = "artifact:worldbuilding:doc:r1:" + digest[:12]
+    index = build_source_span_index_for_text(
+        source_artifact_id=artifact_id,
+        content_sha256=digest,
+        text=text,
+    )
+    payload = source_span_index_to_dict(index)
+
+    missing_schema = dict(payload)
+    missing_schema.pop("schema")
+    with pytest.raises(ValueError, match="schema is required"):
+        source_span_index_from_dict(missing_schema)
+
+    foreign = dict(payload)
+    foreign["schema"] = "unrelated_contract"
+    with pytest.raises(ValueError, match="dmb_source_span_index_v1"):
+        source_span_index_from_dict(foreign)
+
+    bad_version = dict(payload)
+    bad_version["version"] = "9.9"
+    with pytest.raises(ValueError, match="version must be"):
+        source_span_index_from_dict(bad_version)

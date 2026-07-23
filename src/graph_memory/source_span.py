@@ -394,6 +394,16 @@ def validate_source_span_index(
     content_sha256: str,
 ) -> None:
     """Fail closed when an index is not bound to the exact artifact revision."""
+    if index.schema != SOURCE_SPAN_INDEX_SCHEMA:
+        raise ValueError(
+            f"source_span_index schema must be {SOURCE_SPAN_INDEX_SCHEMA}, "
+            f"got {index.schema!r}"
+        )
+    if index.version != SOURCE_SPAN_INDEX_VERSION:
+        raise ValueError(
+            f"source_span_index version must be {SOURCE_SPAN_INDEX_VERSION}, "
+            f"got {index.version!r}"
+        )
     if index.source_artifact_id != source_artifact_id:
         raise ValueError("source_span_index source_artifact_id mismatch")
     if index.content_sha256 != content_sha256:
@@ -432,6 +442,22 @@ def source_span_index_to_dict(index: SourceSpanIndex) -> dict[str, Any]:
 
 
 def source_span_index_from_dict(data: Mapping[str, Any]) -> SourceSpanIndex:
+    if "schema" not in data:
+        raise ValueError("source_span_index schema is required")
+    if "version" not in data:
+        raise ValueError("source_span_index version is required")
+    raw_schema = data.get("schema")
+    raw_version = data.get("version")
+    if raw_schema != SOURCE_SPAN_INDEX_SCHEMA:
+        raise ValueError(
+            f"source_span_index schema must be {SOURCE_SPAN_INDEX_SCHEMA}, "
+            f"got {raw_schema!r}"
+        )
+    if raw_version != SOURCE_SPAN_INDEX_VERSION:
+        raise ValueError(
+            f"source_span_index version must be {SOURCE_SPAN_INDEX_VERSION}, "
+            f"got {raw_version!r}"
+        )
     spans_raw = data.get("spans") or []
     spans = tuple(
         SourceSpanIndexEntry(
@@ -445,8 +471,8 @@ def source_span_index_from_dict(data: Mapping[str, Any]) -> SourceSpanIndex:
         for row in spans_raw
     )
     index = SourceSpanIndex(
-        schema=str(data.get("schema") or SOURCE_SPAN_INDEX_SCHEMA),
-        version=str(data.get("version") or SOURCE_SPAN_INDEX_VERSION),
+        schema=SOURCE_SPAN_INDEX_SCHEMA,
+        version=SOURCE_SPAN_INDEX_VERSION,
         source_artifact_id=str(data["source_artifact_id"]),
         content_sha256=str(data["content_sha256"]),
         source_ref_id=str(data["source_ref_id"]),
