@@ -68,11 +68,9 @@ def build_plan_union_supergraph_projection(
     elif graph_run_manifest_path is not None:
         known_entity_mentions = _load_manifest_known_entity_mentions(graph_run_manifest_path)
         persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
-        # Never return a pre-repair chipless projection when the sidecar contract exists.
-        if persisted is not None and (
-            known_entity_mentions is None
-            or persisted.get("known_entity_mentions_contract") is True
-        ):
+        # Digest/contract gating lives in _load_projection_payload_from_manifest so a
+        # stale cached projection cannot become the "rebuild" input.
+        if persisted is not None:
             return RecapGraphProjection.model_validate(persisted)
         store = load_preview_union_store_from_graph_run_manifest(graph_run_manifest_path)
     elif store_path is not None:
@@ -108,6 +106,9 @@ def build_plan_union_supergraph_projection(
 
 
 def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dict[str, Any] | None:
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+    from graph_memory.ingestion.graph_ingest_validate import known_entity_mentions_digest
+
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -124,6 +125,22 @@ def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dic
     projection_payload = json.loads(projection_path.read_text(encoding="utf-8"))
     if not isinstance(projection_payload, dict):
         return None
+
+    known_ref = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    known_uri = known_ref.get("uri") if isinstance(known_ref, dict) else None
+    sidecar_declared = isinstance(known_uri, str) and bool(known_uri.strip())
+    if sidecar_declared:
+        # Sidecar present: reject chipless or digest-mismatched caches before rebuild.
+        if projection_payload.get("known_entity_mentions_contract") is not True:
+            return None
+        sidecar_digest = known_entity_mentions_digest(root, payload)
+        if sidecar_digest is None:
+            return None
+        if (
+            normalize_content_digest(projection_payload.get("known_entity_mentions_sha256"))
+            != sidecar_digest
+        ):
+            return None
     return projection_payload
 
 

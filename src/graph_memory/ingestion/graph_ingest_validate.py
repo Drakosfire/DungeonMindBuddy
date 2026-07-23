@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from graph_memory.extraction.known_entity_mention_schema import (
     KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA,
+    KNOWN_ENTITY_MENTION_SIDECAR_VERSION,
     KnownEntityMentionSidecar,
 )
 from graph_memory.ingestion.extraction_run import normalize_content_digest
@@ -256,17 +257,44 @@ def validate_manifest_source_span_index_linkage(
 
     Requires projection and artifact URIs to resolve to the same file, then parses
     with ``source_span_index_from_dict`` and re-validates against the manifest's
-    ``source_artifact_id`` and packaged source digest.
+    ``source_artifact_id`` and the packaged recap file's actual bytes.
     """
     errors: list[str] = []
     source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
     artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
     expected_artifact_id = str(source.get("source_artifact_id") or "").strip()
-    expected_digest = normalize_content_digest(source.get("normalized_recap_sha256"))
+    claimed_source_digest = normalize_content_digest(source.get("normalized_recap_sha256"))
     if not expected_artifact_id:
         errors.append("source.source_artifact_id is required for SourceSpanIndex linkage")
-    if not expected_digest:
+    if not claimed_source_digest:
         errors.append("source.normalized_recap_sha256 is required for SourceSpanIndex linkage")
+
+    normalized_recap_path = source.get("normalized_recap_path")
+    if not isinstance(normalized_recap_path, str) or not normalized_recap_path.strip():
+        errors.append("source.normalized_recap_path is required for SourceSpanIndex linkage")
+        return errors
+    try:
+        recap_path = _resolve_manifest_uri(repo_root, normalized_recap_path)
+    except ValueError as exc:
+        errors.append(f"source.normalized_recap_path escapes repo root: {exc}")
+        return errors
+    if not recap_path.is_file():
+        errors.append("source.normalized_recap_path file is missing")
+        return errors
+    actual_recap_digest = hashlib.sha256(recap_path.read_bytes()).hexdigest().lower()
+    if claimed_source_digest and actual_recap_digest != claimed_source_digest:
+        errors.append(
+            "packaged recap bytes do not match source.normalized_recap_sha256"
+        )
+        return errors
+    artifact_recap = artifacts.get("normalized_recap")
+    if isinstance(artifact_recap, dict):
+        artifact_digest = normalize_content_digest(artifact_recap.get("sha256"))
+        if artifact_digest and artifact_digest != actual_recap_digest:
+            errors.append(
+                "packaged recap bytes do not match artifacts.normalized_recap.sha256"
+            )
+            return errors
 
     span_ref = artifacts.get(GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value)
     if not isinstance(span_ref, dict):
@@ -318,11 +346,16 @@ def validate_manifest_source_span_index_linkage(
 
     try:
         index = source_span_index_from_dict(index_payload)
-        if expected_artifact_id and expected_digest:
+        if normalize_content_digest(index.content_sha256) != actual_recap_digest:
+            errors.append(
+                "SourceSpanIndex.content_sha256 does not match packaged recap bytes"
+            )
+            return errors
+        if expected_artifact_id:
             validate_source_span_index(
                 index,
                 source_artifact_id=expected_artifact_id,
-                content_sha256=expected_digest,
+                content_sha256=actual_recap_digest,
             )
     except (TypeError, ValueError, KeyError) as exc:
         errors.append(f"SourceSpanIndex failed canonical validation: {exc}")
@@ -373,22 +406,46 @@ def validate_manifest_known_entity_mentions(
         errors.append("known_entity_mentions payload must be an object")
         return errors
 
-    try:
-        sidecar = KnownEntityMentionSidecar.from_mapping(sidecar_payload)
-    except (TypeError, ValueError, KeyError) as exc:
-        errors.append(f"known_entity_mentions failed schema parse: {exc}")
+    # Validate the raw payload before coercion so defaults cannot invent a contract.
+    for key in ("schema", "version", "campaign_id", "session_id"):
+        value = sidecar_payload.get(key)
+        if key not in sidecar_payload or not isinstance(value, str) or not value.strip():
+            errors.append(f"known_entity_mentions.{key} is required")
+    if "mentions" not in sidecar_payload or not isinstance(
+        sidecar_payload.get("mentions"), list
+    ):
+        errors.append("known_entity_mentions.mentions must be a list")
+    if "ambiguous_surfaces" not in sidecar_payload or not isinstance(
+        sidecar_payload.get("ambiguous_surfaces"), list
+    ):
+        errors.append("known_entity_mentions.ambiguous_surfaces must be a list")
+    if errors:
         return errors
 
-    if sidecar.schema != KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA:
+    if sidecar_payload["schema"] != KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA:
         errors.append(
             f"known_entity_mentions schema must be {KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA}"
         )
+    if sidecar_payload["version"] != KNOWN_ENTITY_MENTION_SIDECAR_VERSION:
+        errors.append(
+            f"known_entity_mentions version must be {KNOWN_ENTITY_MENTION_SIDECAR_VERSION}"
+        )
+
     campaign_id = str(payload.get("campaign_id") or "").strip()
     session_id = str(payload.get("session_id") or "").strip()
-    if campaign_id and sidecar.campaign_id and sidecar.campaign_id != campaign_id:
+    sidecar_campaign = str(sidecar_payload["campaign_id"]).strip()
+    sidecar_session = str(sidecar_payload["session_id"]).strip()
+    if sidecar_campaign != campaign_id:
         errors.append("known_entity_mentions.campaign_id does not match manifest")
-    if session_id and sidecar.session_id and sidecar.session_id != session_id:
+    if sidecar_session != session_id:
         errors.append("known_entity_mentions.session_id does not match manifest")
+    if errors:
+        return errors
+
+    try:
+        KnownEntityMentionSidecar.from_mapping(sidecar_payload)
+    except (TypeError, ValueError, KeyError) as exc:
+        errors.append(f"known_entity_mentions failed schema parse: {exc}")
     return errors
 
 

@@ -202,6 +202,25 @@ def test_materializer_rejects_forbidden_candidate_diagnostics(
     assert not (manifest_path.parent / "preview_union_supergraph.json").exists()
 
 
+def test_materializer_rejects_mutated_packaged_recap_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Evidence gate must bind SourceSpanIndex to packaged recap bytes, not claims alone."""
+    monkeypatch.chdir(tmp_path)
+    manifest_path = _candidate_ready_run(tmp_path)
+    manifest = _load_json(manifest_path)
+    packaged_recap = tmp_path / manifest["source"]["normalized_recap_path"]
+    assert packaged_recap.is_file()
+    original = packaged_recap.read_text(encoding="utf-8")
+    packaged_recap.write_text(original + "\nMutated after packaging.\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="packaged recap bytes|candidate-ready GraphIngest evidence"):
+        materialize_preview_union_store_from_graph_ingest_run(
+            PreviewUnionMaterializeOptions(manifest_path=manifest_path, repo_root=tmp_path)
+        )
+    assert not (manifest_path.parent / "preview_union_supergraph.json").exists()
+
+
 def test_materializer_does_not_set_ready_for_projection_or_projection_locator(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

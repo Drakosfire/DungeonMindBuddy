@@ -429,6 +429,8 @@ def _service_fake_runner_with_candidate(
             known_entity_mentions={
                 "schema": "dmb_known_entity_mention_sidecar_v0",
                 "version": "0.1",
+                "campaign_id": campaign_id,
+                "session_id": session_id,
                 "mentions": [],
                 "ambiguous_surfaces": [],
                 "diagnostics": {"mention_count": 0, "empty_contract": True},
@@ -1304,13 +1306,120 @@ def test_usable_source_span_linkage_rejects_empty_or_foreign_index(
 def test_known_entity_sidecar_digest_invalidates_cached_projection(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Projection reuse must rebuild when the known-entity sidecar digest changes."""
+    """Projection rebuild must reject digest-mismatched caches before restamping.
+
+    Uses the real projection builder (no monkeypatch of the payload builder) and
+    asserts chips/content reflect the new sidecar, not merely dependency metadata.
+    """
     import hashlib
 
-    old_result, source = _profiled_candidate_ready_run(
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+
+    old_result, _source = _profiled_candidate_ready_run(
         tmp_path,
         monkeypatch,
         "out/graph_memory/runs/known_entity_digest_projection",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.union_supergraph_projection_adapter.repo_root",
+        lambda: tmp_path,
+    )
+    materialize_preview_union_store_from_graph_ingest_run(
+        PreviewUnionMaterializeOptions(
+            manifest_path=old_result.manifest_path,
+            repo_root=tmp_path,
+        )
+    )
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    known_uri = manifest["artifacts"]["known_entity_mentions"]["uri"]
+    known_path = tmp_path / known_uri
+    span_uri = manifest["artifacts"]["source_span_index"]["uri"]
+    span_index = json.loads((tmp_path / span_uri).read_text(encoding="utf-8"))
+    body_span = next(
+        span
+        for span in span_index["spans"]
+        if int(span["start_line"]) <= 3 and int(span["end_line"]) >= 4
+    )
+    span_ref = body_span["source_span_id"]
+
+    def _write_sidecar(*, surface: str, digest_into_manifest: bool = True) -> str:
+        sidecar = {
+            "schema": "dmb_known_entity_mention_sidecar_v0",
+            "version": "0.1",
+            "campaign_id": "longmont-c2",
+            "session_id": "session-24",
+            "mentions": [
+                {
+                    "source_span_ref_id": span_ref,
+                    "start_offset": 0,
+                    "end_offset": len(surface),
+                    "surface_text": surface,
+                    "canonical_entity_id": "character_mira",
+                    "entity_slug": "mira",
+                    "entity_kind": "pc",
+                    "match_method": "canonical",
+                    "display_name": surface,
+                }
+            ],
+            "ambiguous_surfaces": [],
+            "diagnostics": {"surface": surface},
+        }
+        known_path.write_text(
+            json.dumps(sidecar, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        digest = hashlib.sha256(known_path.read_bytes()).hexdigest()
+        if digest_into_manifest:
+            payload = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+            payload["artifacts"]["known_entity_mentions"]["sha256"] = f"sha256:{digest}"
+            old_result.manifest_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+        return digest
+
+    digest_s1 = _write_sidecar(surface="Mira")
+    projection_s1 = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert projection_s1 is not None
+    payload_s1 = json.loads(projection_s1.read_text(encoding="utf-8"))
+    assert payload_s1.get("known_entity_mentions_sha256") == f"sha256:{digest_s1}"
+    labels_s1 = {row.get("label") for row in payload_s1.get("mentions") or []}
+    assert "Mira" in labels_s1
+    assert "Longmont" not in labels_s1
+
+    digest_s2 = _write_sidecar(surface="Longmont")
+    assert digest_s2 != digest_s1
+    projection_s2 = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert projection_s2 is not None
+    payload_s2 = json.loads(projection_s2.read_text(encoding="utf-8"))
+    assert payload_s2.get("known_entity_mentions_sha256") == f"sha256:{digest_s2}"
+    labels_s2 = {row.get("label") for row in payload_s2.get("mentions") or []}
+    assert "Longmont" in labels_s2
+    assert "Mira" not in labels_s2
+
+
+def test_empty_object_known_entity_sidecar_fails_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Raw ``{}`` must not coerce into a valid empty known-entity contract."""
+    import hashlib
+
+    from graph_memory.ingestion.graph_ingest_validate import (
+        validate_manifest_known_entity_mentions,
+    )
+
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/empty_known_entity_object",
         graph_extraction_profile="category_encounter_job_preview",
     )
     ingest_service, _calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
@@ -1318,76 +1427,17 @@ def test_known_entity_sidecar_digest_invalidates_cached_projection(
     manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
     known_uri = manifest["artifacts"]["known_entity_mentions"]["uri"]
     known_path = tmp_path / known_uri
-    original_digest = hashlib.sha256(known_path.read_bytes()).hexdigest()
-    assert ingest_service._manifest_has_known_entity_mentions(tmp_path, manifest_rel)
-
-    projection_path = old_result.manifest_path.parent / "projection_payload.json"
-    projection_path.write_text(
-        json.dumps(
-            {
-                "schema": "dmb_recap_graph_projection_v0",
-                "known_entity_mentions_contract": True,
-                "known_entity_mentions_sha256": f"sha256:{original_digest}",
-                "nodes": [],
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    artifacts = dict(manifest.get("artifacts") or {})
-    artifacts["projection_payload"] = {
-        "kind": "projection_payload",
-        "uri": projection_path.relative_to(tmp_path).as_posix(),
-        "schema": "dmb_recap_graph_projection_v0",
-        "exists": True,
-        "preview_only": True,
-    }
-    manifest["artifacts"] = artifacts
+    known_path.write_text("{}\n", encoding="utf-8")
+    digest = hashlib.sha256(known_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["known_entity_mentions"]["sha256"] = f"sha256:{digest}"
     old_result.manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 
-    # Cached projection matches current digest — reuse.
-    reused = ingest_service.ensure_graph_ingest_projection_payload(
-        repo_root=tmp_path,
-        manifest_path=manifest_rel,
-        session_id="session-24",
-    )
-    assert reused == projection_path.resolve() or reused == projection_path
-
-    sidecar = json.loads(known_path.read_text(encoding="utf-8"))
-    sidecar["diagnostics"] = {**(sidecar.get("diagnostics") or {}), "mutated": True}
-    known_path.write_text(
-        json.dumps(sidecar, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    new_digest = hashlib.sha256(known_path.read_bytes()).hexdigest()
-    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
-    manifest["artifacts"]["known_entity_mentions"]["sha256"] = f"sha256:{new_digest}"
-    old_result.manifest_path.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-
-    def _fake_build_projection(**kwargs):  # noqa: ANN003
-        return {"schema": "dmb_recap_graph_projection_v0", "nodes": [{"id": "rebuilt"}]}
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.union_supergraph_projection_adapter."
-        "build_plan_union_supergraph_projection_payload",
-        _fake_build_projection,
-    )
-
-    rebuilt = ingest_service.ensure_graph_ingest_projection_payload(
-        repo_root=tmp_path,
-        manifest_path=manifest_rel,
-        session_id="session-24",
-    )
-    assert rebuilt is not None
-    projection_after = json.loads(rebuilt.read_text(encoding="utf-8"))
-    assert projection_after.get("known_entity_mentions_sha256") == f"sha256:{new_digest}"
-    assert projection_after.get("known_entity_mentions_sha256") != f"sha256:{original_digest}"
-    assert projection_after.get("nodes") == [{"id": "rebuilt"}]
+    errors = validate_manifest_known_entity_mentions(tmp_path, manifest)
+    assert errors
+    assert any("schema" in error for error in errors)
+    assert not ingest_service._manifest_has_known_entity_mentions(tmp_path, manifest_rel)
 
 
 def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
