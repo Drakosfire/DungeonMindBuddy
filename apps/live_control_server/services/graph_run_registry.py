@@ -409,6 +409,45 @@ def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
     raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
 
 
+def get_reviewable_extraction_run(root: Path, run_id: str) -> ExtractionRun:
+    """Load one REVIEWABLE ExtractionRun and assert its current evidence integrity.
+
+    Unlike ``get_extraction_run()``, this does not re-validate every sibling
+    record's evidence bundle — only the selected run — so a damaged sibling
+    cannot poison lineage checks for an otherwise healthy REVIEWABLE run.
+    SourceArtifact existence, scope, immutable source bytes, SourceSpanIndex
+    binding, and candidate digests are still enforced via
+    ``assert_run_reviewable_evidence``.
+    """
+    path = extraction_runs_path(root)
+    if not path.is_file():
+        raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
+    try:
+        document = ExtractionRunRegistryDocument.model_validate(load_json(path))
+    except (ValidationError, TypeError, ValueError) as exc:
+        raise GraphRunRegistryError(
+            f"malformed extraction run registry: {exc}",
+            status_code=500,
+        ) from exc
+    run = next((record for record in document.records if record.run_id == run_id), None)
+    if run is None:
+        raise GraphRunRegistryError(f"extraction run not found: {run_id}", status_code=404)
+    try:
+        validate_extraction_run_record(run)
+    except ValueError as exc:
+        raise GraphRunRegistryError(
+            f"malformed extraction run registry record: {exc}",
+            status_code=500,
+        ) from exc
+    if run.status != ExtractionRunStatus.REVIEWABLE:
+        raise GraphRunRegistryError(
+            f"extraction run is not reviewable: {run.status.value}",
+            status_code=422,
+        )
+    assert_run_reviewable_evidence(root, run)
+    return run
+
+
 def create_extraction_run(
     root: Path,
     *,

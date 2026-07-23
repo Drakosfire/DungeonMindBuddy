@@ -276,11 +276,16 @@ def _service_fake_runner_with_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+    import hashlib
     from datetime import UTC, datetime
 
     from apps.live_control_server.services.graph_run_registry import (
         ExtractionRunRegistryDocument,
         extraction_runs_path,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
     )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRun,
@@ -289,14 +294,10 @@ def _service_fake_runner_with_candidate(
         ExtractionRunStatus,
     )
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionResult
-    from src.graph_memory.source_span import (
-        source_span_index_from_dict,
-        source_span_index_to_dict,
-    )
+    from src.graph_memory.source_span import source_span_index_to_dict
 
     actual_runner = ingest_service.run_graph_preview_extraction
     calls: list[GraphPreviewRunnerOptions] = []
-    artifact_id = "artifact:test:service-fake:recap"
     run_counter = {"n": 0}
 
     def _write_json(path: Path, payload: dict) -> None:
@@ -306,8 +307,6 @@ def _service_fake_runner_with_candidate(
         )
 
     def _file_sha256(path: Path) -> str:
-        import hashlib
-
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
     def _append_extraction_run(run: ExtractionRun) -> None:
@@ -325,56 +324,47 @@ def _service_fake_runner_with_candidate(
             encoding="utf-8",
         )
 
-    def fake_production(**_kwargs):  # noqa: ANN003
+    def fake_production(**kwargs):  # noqa: ANN003
         run_counter["n"] += 1
         run_id = f"er_service_fake_{run_counter['n']}"
         out = tmp_path / "out" / "graph_memory" / "runs" / "extraction" / run_id
         out.mkdir(parents=True, exist_ok=True)
 
+        campaign_id = str(kwargs.get("campaign_id") or "longmont-c2")
+        session_id = str(kwargs.get("session_id") or "session-24")
+        recap_path = Path(kwargs["recap_path"])
+        artifact = create_recap_source_artifact(
+            tmp_path,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            recap_path=recap_path,
+        )
         span_payload = source_span_index_to_dict(
-            source_span_index_from_dict(
-                {
-                    "schema": "dmb_source_span_index_v1",
-                    "version": "1.0",
-                    "source_artifact_id": artifact_id,
-                    "content_sha256": "abc123deadbeef",
-                    "source_ref_id": f"{artifact_id}:text",
-                    "spans": [
-                        {
-                            "source_span_id": f"{artifact_id}:span:abc123deadbe:1-3",
-                            "source_ref_id": f"{artifact_id}:text",
-                            "source_artifact_id": artifact_id,
-                            "content_sha256": "abc123deadbeef",
-                            "start_line": 1,
-                            "end_line": 3,
-                        }
-                    ],
-                }
-            )
+            load_source_span_index(tmp_path, artifact.source_artifact_id)
         )
         span_path = out / "source_span_index.json"
         _write_json(span_path, span_payload)
 
         candidate = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
-        candidate["source_artifact_ids"] = [artifact_id]
+        candidate["source_artifact_ids"] = [artifact.source_artifact_id]
         candidate_path = out / "candidate_graph.json"
         _write_json(candidate_path, candidate)
 
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         run = ExtractionRun(
             run_id=run_id,
-            source_artifact_id=artifact_id,
+            source_artifact_id=artifact.source_artifact_id,
             source_domain="recap",
             status=ExtractionRunStatus.REVIEWABLE,
-            campaign_id="longmont-c2",
-            session_id="session-24",
+            campaign_id=campaign_id,
+            session_id=session_id,
             created_at=now,
             updated_at=now,
             components={
                 ExtractionRunComponentKind.SOURCE_ARTIFACT.value: ExtractionRunComponentRef(
                     kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
-                    uri=f"repo://normalized.md",
-                    sha256="abc123deadbeef",
+                    uri=artifact.uri,
+                    sha256=artifact.content_sha256 or "",
                     exists=True,
                 ),
                 ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value: ExtractionRunComponentRef(
@@ -432,41 +422,76 @@ def _bind_production_lineage(
         ExtractionRunRegistryDocument,
         extraction_runs_path,
     )
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRun,
         ExtractionRunComponentKind,
         ExtractionRunComponentRef,
         ExtractionRunStatus,
     )
+    from src.graph_memory.source_span import source_span_index_to_dict
 
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     artifacts = dict(manifest.get("artifacts") or {})
     source = dict(manifest.get("source") or {})
-    resolved_artifact_id = (
-        source_artifact_id
-        or str(source.get("source_artifact_id") or "").strip()
-        or "artifact:test:stamped-lineage:recap"
-    )
-    source["source_artifact_id"] = resolved_artifact_id
-    manifest["source"] = source
+    campaign_id = str(manifest.get("campaign_id") or "longmont-c2")
+    session_id = str(manifest.get("session_id") or "session-24")
 
     def _digest(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
-    def _ensure_artifact_sha(kind: str) -> tuple[str, Path]:
-        ref = dict(artifacts.get(kind) or {})
-        uri = ref.get("uri")
-        assert isinstance(uri, str)
-        path = tmp_path / uri
-        assert path.is_file()
-        digest = _digest(path)
-        ref["sha256"] = f"sha256:{digest}"
-        artifacts[kind] = ref
-        return digest, path
+    packaged_recap_uri = source.get("normalized_recap_path") or (
+        (artifacts.get("normalized_recap") or {}).get("uri")
+    )
+    assert isinstance(packaged_recap_uri, str) and packaged_recap_uri.strip()
+    packaged_recap_path = tmp_path / packaged_recap_uri
+    assert packaged_recap_path.is_file()
 
-    candidate_digest, candidate_path = _ensure_artifact_sha("candidate_graph")
-    span_digest, span_path = _ensure_artifact_sha("source_span_index")
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id=campaign_id,
+        session_id=session_id,
+        recap_path=packaged_recap_path,
+    )
+    if source_artifact_id is not None:
+        assert artifact.source_artifact_id == source_artifact_id
+    resolved_artifact_id = artifact.source_artifact_id
+    immutable_path = tmp_path / artifact.uri.removeprefix("repo://")
+    packaged_recap_path.write_text(immutable_path.read_text(encoding="utf-8"), encoding="utf-8")
+    packaged_source_digest = _digest(packaged_recap_path)
+    source["source_artifact_id"] = resolved_artifact_id
+    source["normalized_recap_sha256"] = f"sha256:{packaged_source_digest}"
+    manifest["source"] = source
+    if "normalized_recap" in artifacts:
+        artifacts["normalized_recap"] = {
+            **artifacts["normalized_recap"],
+            "sha256": f"sha256:{packaged_source_digest}",
+        }
 
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, resolved_artifact_id)
+    )
+    span_ref = dict(artifacts.get("source_span_index") or {})
+    span_uri = span_ref.get("uri")
+    assert isinstance(span_uri, str)
+    span_path = tmp_path / span_uri
+    span_path.write_text(
+        json.dumps(span_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    span_digest = _digest(span_path)
+    artifacts["source_span_index"] = {
+        **span_ref,
+        "schema": "dmb_source_span_index_v1",
+        "sha256": f"sha256:{span_digest}",
+    }
+
+    candidate_ref = dict(artifacts.get("candidate_graph") or {})
+    candidate_uri = candidate_ref.get("uri")
+    assert isinstance(candidate_uri, str)
+    candidate_path = tmp_path / candidate_uri
     graph = json.loads(candidate_path.read_text(encoding="utf-8"))
     graph["source_artifact_ids"] = [resolved_artifact_id]
     candidate_path.write_text(
@@ -474,9 +499,30 @@ def _bind_production_lineage(
     )
     candidate_digest = _digest(candidate_path)
     artifacts["candidate_graph"] = {
-        **artifacts["candidate_graph"],
+        **candidate_ref,
         "sha256": f"sha256:{candidate_digest}",
     }
+
+    provenance_uri = source.get("provenance_index_uri")
+    if isinstance(provenance_uri, str) and provenance_uri.strip():
+        provenance_path = tmp_path / provenance_uri
+        provenance = {
+            "schema": "dmb_source_provenance_index_v0",
+            "version": "0.1",
+            "campaign_id": campaign_id,
+            "session_id": session_id,
+            "source_artifacts": [
+                {
+                    "artifact_id": resolved_artifact_id,
+                    "uri": packaged_recap_uri,
+                    "sha256": f"sha256:{packaged_source_digest}",
+                    "preview_only": True,
+                }
+            ],
+        }
+        provenance_path.write_text(
+            json.dumps(provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
 
     run_id = f"er_bound_{candidate_digest[:12]}"
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -485,15 +531,15 @@ def _bind_production_lineage(
         source_artifact_id=resolved_artifact_id,
         source_domain="recap",
         status=ExtractionRunStatus.REVIEWABLE,
-        campaign_id=str(manifest.get("campaign_id") or "longmont-c2"),
-        session_id=str(manifest.get("session_id") or "session-24"),
+        campaign_id=campaign_id,
+        session_id=session_id,
         created_at=now,
         updated_at=now,
         components={
             ExtractionRunComponentKind.SOURCE_ARTIFACT.value: ExtractionRunComponentRef(
                 kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
-                uri=str(source.get("normalized_recap_path") or "normalized.md"),
-                sha256=str(source.get("normalized_recap_sha256") or "deadbeef"),
+                uri=artifact.uri,
+                sha256=artifact.content_sha256 or "",
                 exists=True,
             ),
             ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value: ExtractionRunComponentRef(
@@ -719,6 +765,158 @@ def test_build_recap_graph_preview_bundle_skips_fabricated_production_lineage(
     )
 
 
+def test_manifest_production_lineage_refuses_deleted_source_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reuse must fail when the immutable SourceArtifact snapshot is deleted."""
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/deleted_source_snapshot",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    _bind_production_lineage(tmp_path, old_result)
+    ingest_service, _calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert ingest_service._manifest_has_production_lineage(tmp_path, manifest_rel)
+
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+    )
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    artifact_id = manifest["diagnostics"]["source_artifact_id"]
+    artifact = get_source_artifact(tmp_path, artifact_id)
+    snapshot = tmp_path / artifact.uri.removeprefix("repo://")
+    assert snapshot.is_file()
+    snapshot.unlink()
+
+    assert not ingest_service._manifest_has_production_lineage(tmp_path, manifest_rel)
+
+
+def test_manifest_production_lineage_refuses_mutated_source_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reuse must fail when the immutable SourceArtifact snapshot bytes change."""
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/mutated_source_snapshot",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    _bind_production_lineage(tmp_path, old_result)
+    ingest_service, _calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert ingest_service._manifest_has_production_lineage(tmp_path, manifest_rel)
+
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+    )
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    artifact_id = manifest["diagnostics"]["source_artifact_id"]
+    artifact = get_source_artifact(tmp_path, artifact_id)
+    snapshot = tmp_path / artifact.uri.removeprefix("repo://")
+    snapshot.write_text(snapshot.read_text(encoding="utf-8") + "MUTATED\n", encoding="utf-8")
+
+    assert not ingest_service._manifest_has_production_lineage(tmp_path, manifest_rel)
+
+
+def test_manifest_production_lineage_refuses_missing_span_artifact_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing GraphIngest SourceSpanIndex artifact must fail closed, not skip digest checks."""
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/missing_span_artifact",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    _bind_production_lineage(tmp_path, old_result)
+    ingest_service, _calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert ingest_service._manifest_has_production_lineage(tmp_path, manifest_rel)
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    artifacts = dict(manifest.get("artifacts") or {})
+    artifacts.pop("source_span_index", None)
+    manifest["artifacts"] = artifacts
+    # Corrupt the projection URI target after removing the artifact entry.
+    span_uri = (manifest.get("source") or {}).get("source_span_index_uri")
+    if isinstance(span_uri, str) and span_uri.strip():
+        span_path = tmp_path / span_uri
+        if span_path.is_file():
+            span_path.write_text('{"schema":"tampered"}\n', encoding="utf-8")
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    assert not ingest_service._manifest_has_production_lineage(tmp_path, manifest_rel)
+
+
+def test_build_recap_graph_preview_bundle_packages_immutable_source_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Packaging must copy registered SourceArtifact bytes, not the mutable caller path."""
+    import hashlib
+
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "mutable_normalized.md"
+    # Multiple trailing newlines: admission normalizes; packaging must still use registry bytes.
+    source.write_text(
+        RECAP_PATH.read_text(encoding="utf-8").rstrip("\n") + "\n\n\n",
+        encoding="utf-8",
+    )
+    ingest_service, calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+
+    status = ingest_service.build_recap_graph_preview_bundle(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        extract_graph=True,
+        force_graph_run=True,
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+
+    assert calls
+    packaging_path = calls[0].normalized_recap_path
+    assert packaging_path != source.resolve()
+    artifact = get_source_artifact(tmp_path, status["source_artifact_id"])
+    immutable = tmp_path / artifact.uri.removeprefix("repo://")
+    assert packaging_path.resolve() == immutable.resolve()
+
+    # Mutate the original caller path after production — packaged bytes must stay A.
+    source.write_text(source.read_text(encoding="utf-8") + "POST_EXTRACT_MUTATION\n", encoding="utf-8")
+
+    run_dir = tmp_path / status["run_dir"]
+    packaged = run_dir / "normalized_recap_source.md"
+    span_index = json.loads((run_dir / "source_span_index.json").read_text(encoding="utf-8"))
+    provenance = json.loads((run_dir / "provenance_index.json").read_text(encoding="utf-8"))
+    manifest = json.loads((tmp_path / status["manifest_path"]).read_text(encoding="utf-8"))
+
+    registered_bytes = immutable.read_bytes()
+    packaged_bytes = packaged.read_bytes()
+    assert packaged_bytes == registered_bytes
+    assert b"POST_EXTRACT_MUTATION" not in packaged_bytes
+    digest = hashlib.sha256(packaged_bytes).hexdigest()
+    assert digest == artifact.content_sha256
+    assert digest == span_index["content_sha256"]
+    assert digest == hashlib.sha256(
+        packaging_path.read_bytes()
+    ).hexdigest()
+    assert manifest["source"]["normalized_recap_sha256"].removeprefix("sha256:") == digest
+    assert all(
+        str(row.get("sha256") or "").removeprefix("sha256:") == digest
+        for row in provenance.get("source_artifacts") or []
+        if isinstance(row, dict)
+    )
+
+
 def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -791,7 +989,8 @@ def test_build_recap_graph_preview_bundle_candidate_path_does_not_reuse_existing
     assert calls
     # Reviewable production candidate is authoritative over a manual fixture path.
     assert calls[0].candidate_graph_path != explicit_candidate.resolve()
-    assert calls[0].source_artifact_id == "artifact:test:service-fake:recap"
+    assert calls[0].source_artifact_id
+    assert str(calls[0].source_artifact_id).startswith("artifact:recap:")
     assert (
         status["manifest_path"]
         != old_result.manifest_path.relative_to(tmp_path).as_posix()

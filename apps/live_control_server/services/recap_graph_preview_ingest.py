@@ -43,6 +43,41 @@ _RUNS_ROOT = Path("out/graph_memory/runs")
 logger = logging.getLogger(__name__)
 
 
+def _resolve_repo_uri_path(repo: Path, uri: str) -> Path:
+    raw = uri.removeprefix("repo://") if uri.startswith("repo://") else uri
+    path = (repo / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
+    path.relative_to(repo.resolve())
+    return path
+
+
+def _production_immutable_source_path(repo: Path, production: Any) -> Path | None:
+    """Resolve the ExtractionRun's immutable SourceArtifact bytes for packaging."""
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        get_source_artifact,
+    )
+
+    component = getattr(production.run, "components", {}).get("source_artifact")
+    if component is not None and str(getattr(component, "uri", "") or "").strip():
+        try:
+            path = _resolve_repo_uri_path(repo, str(component.uri))
+        except ValueError:
+            return None
+        return path if path.is_file() else None
+    source_artifact_id = str(getattr(production.run, "source_artifact_id", "") or "").strip()
+    if not source_artifact_id:
+        return None
+    try:
+        artifact = get_source_artifact(repo, source_artifact_id)
+    except SourceArtifactRegistryError:
+        return None
+    try:
+        path = _resolve_repo_uri_path(repo, artifact.uri)
+    except ValueError:
+        return None
+    return path if path.is_file() else None
+
+
 def _production_candidate_is_packageable(production: Any) -> bool:
     """Package a production candidate only when the ExtractionRun is reviewable."""
     run = getattr(production, "run", None)
@@ -229,11 +264,19 @@ def build_recap_graph_preview_bundle(
     # When the production ExtractionRun is reviewable, its candidate is authoritative
     # over any manually supplied candidate_graph_path.
     legacy_candidate = production_candidate or candidate
+    packaging_source = normalized
+    if extract_graph and _production_candidate_is_packageable(production):
+        immutable_source = _production_immutable_source_path(repo, production)
+        if immutable_source is None:
+            raise ValueError(
+                "reviewable ExtractionRun is missing immutable SourceArtifact bytes for packaging"
+            )
+        packaging_source = immutable_source
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id=campaign_id,
             session_id=f"session-{session}",
-            normalized_recap_path=normalized,
+            normalized_recap_path=packaging_source,
             output_dir=run_dir,
             source_label=f"{campaign_id} session {session} normalized recap",
             allow_llm=False,
@@ -740,46 +783,30 @@ def _latest_matching_run(
 
 
 def _load_extraction_run_record(repo: Path, run_id: str) -> Any | None:
-    """Load one ExtractionRun registry record by id without re-validating all runs.
+    """Deprecated alias — reuse gates must call get_reviewable_extraction_run."""
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_reviewable_extraction_run,
+    )
 
-    The reuse gate needs the persisted claim (status, source artifact, component
-    digests). Full SourceArtifact/evidence integrity was enforced when the run
-    became REVIEWABLE; reloading every sibling record's evidence here would make
-    lineage checks depend on unrelated registry state.
-    """
-    from apps.live_control_server.services.graph_run_registry import extraction_runs_path
-    from graph_memory.ingestion.extraction_run import ExtractionRun
-
-    path = extraction_runs_path(repo)
-    if not path.is_file():
-        return None
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        return get_reviewable_extraction_run(repo, run_id)
+    except GraphRunRegistryError:
         return None
-    records = payload.get("records") if isinstance(payload, dict) else None
-    if not isinstance(records, list):
-        return None
-    for row in records:
-        if not isinstance(row, dict):
-            continue
-        if str(row.get("run_id") or "").strip() != run_id.strip():
-            continue
-        try:
-            return ExtractionRun.model_validate(row)
-        except Exception:  # noqa: BLE001 - malformed record is not reusable lineage
-            return None
-    return None
 
 
 def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> bool:
     """True when the run's ExtractionRun registry record proves reviewable lineage.
 
     Manifest diagnostics alone are insufficient: the referenced ExtractionRun must
-    exist, be REVIEWABLE, match the packaged source artifact, and the packaged
-    candidate (and preferably SourceSpanIndex) digests must equal the immutable
-    ExtractionRun component digests.
+    exist, be REVIEWABLE under current SourceArtifact/component integrity, match the
+    packaged source artifact, and the packaged candidate + SourceSpanIndex digests
+    must equal the immutable ExtractionRun component digests.
     """
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_reviewable_extraction_run,
+    )
     from graph_memory.ingestion.extraction_run import (
         ExtractionRunComponentKind,
         normalize_content_digest,
@@ -807,18 +834,25 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     if not manifest_source_id or manifest_source_id != source_artifact_id.strip():
         return False
 
-    run = _load_extraction_run_record(repo, run_id.strip())
-    if run is None:
-        return False
-    if run.status != ExtractionRunStatus.REVIEWABLE:
+    try:
+        run = get_reviewable_extraction_run(repo, run_id.strip())
+    except GraphRunRegistryError:
         return False
     if run.source_artifact_id != source_artifact_id.strip():
         return False
     if run.source_artifact_id != manifest_source_id:
         return False
 
+    source_component = run.components.get(ExtractionRunComponentKind.SOURCE_ARTIFACT.value)
+    if source_component is None or not (source_component.sha256 or "").strip():
+        return False
+
     candidate_component = run.components.get(ExtractionRunComponentKind.CANDIDATE_GRAPH.value)
     if candidate_component is None or not (candidate_component.sha256 or "").strip():
+        return False
+
+    span_component = run.components.get(ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value)
+    if span_component is None or not (span_component.sha256 or "").strip():
         return False
 
     artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
@@ -856,28 +890,66 @@ def _manifest_has_production_lineage(repo: Path, manifest_path: str | None) -> b
     if not isinstance(bound_ids, list) or source_artifact_id not in bound_ids:
         return False
 
-    span_component = run.components.get(ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value)
+    # Fail closed: a REVIEWABLE ExtractionRun always has a SourceSpanIndex component,
+    # so GraphIngest must declare a matching artifact with URI + digest.
     span_ref = artifacts.get(GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value)
-    if span_component is not None and (span_component.sha256 or "").strip() and isinstance(span_ref, dict):
-        span_uri = span_ref.get("uri")
-        if isinstance(span_uri, str) and span_uri.strip():
-            span_path = (
-                (repo / span_uri).resolve() if not Path(span_uri).is_absolute() else Path(span_uri)
-            )
-            try:
-                span_path.relative_to(repo.resolve())
-            except ValueError:
-                return False
-            if not span_path.is_file():
-                return False
-            span_bytes = span_path.read_bytes()
-            packaged_span_digest = normalize_content_digest(
-                span_ref.get("sha256") or f"sha256:{hashlib.sha256(span_bytes).hexdigest()}"
-            )
-            if packaged_span_digest != normalize_content_digest(span_component.sha256):
-                return False
-            if packaged_span_digest != hashlib.sha256(span_bytes).hexdigest().lower():
-                return False
+    if not isinstance(span_ref, dict):
+        return False
+    span_uri = span_ref.get("uri")
+    if not isinstance(span_uri, str) or not span_uri.strip():
+        return False
+    claimed_span_digest = span_ref.get("sha256")
+    if not isinstance(claimed_span_digest, str) or not claimed_span_digest.strip():
+        return False
+    span_path = (repo / span_uri).resolve() if not Path(span_uri).is_absolute() else Path(span_uri)
+    try:
+        span_path.relative_to(repo.resolve())
+    except ValueError:
+        return False
+    if not span_path.is_file():
+        return False
+    span_bytes = span_path.read_bytes()
+    packaged_span_digest = normalize_content_digest(claimed_span_digest)
+    if packaged_span_digest != normalize_content_digest(span_component.sha256):
+        return False
+    if packaged_span_digest != hashlib.sha256(span_bytes).hexdigest().lower():
+        return False
+
+    source_span_uri = source.get("source_span_index_uri")
+    if isinstance(source_span_uri, str) and source_span_uri.strip():
+        try:
+            source_span_path = _resolve_repo_uri_path(repo, source_span_uri)
+        except ValueError:
+            return False
+        if not source_span_path.is_file():
+            return False
+        if (
+            hashlib.sha256(source_span_path.read_bytes()).hexdigest().lower()
+            != packaged_span_digest
+        ):
+            return False
+
+    # Packaged review source must still match the immutable SourceArtifact digest.
+    packaged_source_digest = normalize_content_digest(
+        source.get("normalized_recap_sha256")
+    )
+    if not packaged_source_digest:
+        return False
+    if packaged_source_digest != normalize_content_digest(source_component.sha256):
+        return False
+    normalized_uri = source.get("normalized_recap_path")
+    if isinstance(normalized_uri, str) and normalized_uri.strip():
+        try:
+            packaged_source_path = _resolve_repo_uri_path(repo, normalized_uri)
+        except ValueError:
+            return False
+        if not packaged_source_path.is_file():
+            return False
+        if (
+            hashlib.sha256(packaged_source_path.read_bytes()).hexdigest().lower()
+            != packaged_source_digest
+        ):
+            return False
 
     return True
 
@@ -889,6 +961,11 @@ def _assert_packaged_identity_matches_extraction_run(
     production_run: Any,
 ) -> None:
     """Assert GraphIngest packaging and ExtractionRun share one SourceArtifact ID."""
+    from graph_memory.ingestion.extraction_run import (
+        ExtractionRunComponentKind,
+        normalize_content_digest,
+    )
+
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     expected = str(getattr(production_run, "source_artifact_id", "") or "").strip()
     if not expected:
@@ -906,6 +983,9 @@ def _assert_packaged_identity_matches_extraction_run(
         span_index = json.loads(span_path.read_text(encoding="utf-8"))
         if str(span_index.get("source_artifact_id") or "").strip() != expected:
             raise ValueError("packaged SourceSpanIndex source_artifact_id does not match ExtractionRun")
+        span_content_digest = normalize_content_digest(str(span_index.get("content_sha256") or ""))
+    else:
+        span_content_digest = ""
 
     provenance_uri = source.get("provenance_index_uri")
     if isinstance(provenance_uri, str) and provenance_uri.strip():
@@ -923,6 +1003,36 @@ def _assert_packaged_identity_matches_extraction_run(
             bound = graph.get("source_artifact_ids") or []
             if expected not in bound:
                 raise ValueError("candidate_graph is not bound to ExtractionRun source_artifact_id")
+
+    source_component = getattr(production_run, "components", {}).get(
+        ExtractionRunComponentKind.SOURCE_ARTIFACT.value
+    )
+    packaged_source_digest = normalize_content_digest(source.get("normalized_recap_sha256"))
+    if source_component is not None and (source_component.sha256 or "").strip():
+        component_digest = normalize_content_digest(source_component.sha256)
+        if not packaged_source_digest or packaged_source_digest != component_digest:
+            raise ValueError(
+                "packaged source digest does not match ExtractionRun source_artifact component"
+            )
+        if span_content_digest and packaged_source_digest != span_content_digest:
+            raise ValueError(
+                "packaged source digest does not match SourceSpanIndex.content_sha256"
+            )
+        normalized_uri = source.get("normalized_recap_path")
+        if isinstance(normalized_uri, str) and normalized_uri.strip():
+            packaged_path = _resolve_repo_uri_path(repo, normalized_uri)
+            actual = hashlib.sha256(packaged_path.read_bytes()).hexdigest().lower()
+            if actual != packaged_source_digest:
+                raise ValueError("packaged review source bytes do not match claimed digest")
+        provenance_uri = source.get("provenance_index_uri")
+        if isinstance(provenance_uri, str) and provenance_uri.strip():
+            provenance = json.loads((repo / provenance_uri).resolve().read_text(encoding="utf-8"))
+            for row in provenance.get("source_artifacts") or []:
+                if not isinstance(row, dict):
+                    continue
+                if normalize_content_digest(str(row.get("sha256") or "")) != packaged_source_digest:
+                    raise ValueError("provenance digest does not match packaged source digest")
+
 
 def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -> bool:
     """True when the run declares a readable known_entity_mentions artifact."""

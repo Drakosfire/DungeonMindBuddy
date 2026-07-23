@@ -297,6 +297,9 @@ def _write_canonical_source_span_bundle(
     plus optional paragraph excerpts). The index document itself must remain a
     valid ``dmb_source_span_index_v1`` payload loadable by
     ``source_span_index_from_dict``.
+
+    ``recap_text`` must be the exact immutable SourceArtifact bytes: its digest
+    must equal ``SourceSpanIndex.content_sha256``.
     """
     from src.graph_memory.source_span import (
         SOURCE_SPAN_INDEX_SCHEMA,
@@ -318,6 +321,18 @@ def _write_canonical_source_span_bundle(
     ):
         raise ValueError(
             "canonical SourceSpanIndex source_artifact_id does not match options.source_artifact_id"
+        )
+    recap_digest = hashlib.sha256(recap_text.encode("utf-8")).hexdigest()
+    if recap_digest != validated.content_sha256:
+        raise ValueError(
+            "packaged recap bytes do not match SourceSpanIndex.content_sha256: "
+            f"{recap_digest} != {validated.content_sha256}"
+        )
+    source_digest = source_sha256.removeprefix("sha256:").strip().lower()
+    if source_digest and source_digest != validated.content_sha256:
+        raise ValueError(
+            "packaged source_sha256 does not match SourceSpanIndex.content_sha256: "
+            f"{source_digest} != {validated.content_sha256}"
         )
     source_span_index = source_span_index_to_dict(validated)
     artifact_id = validated.source_artifact_id
@@ -351,7 +366,7 @@ def _write_canonical_source_span_bundle(
             {
                 "artifact_id": artifact_id,
                 "uri": source_uri,
-                "sha256": source_sha256,
+                "sha256": f"sha256:{validated.content_sha256}",
                 "preview_only": True,
             }
         ],
