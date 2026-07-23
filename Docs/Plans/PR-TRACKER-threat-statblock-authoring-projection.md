@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE SLICE / REVIEW AUTHORITY  
 **Date:** 2026-07-23  
-**Integration tip:** `b8dbe68c` on `main` — SBW01–03 landed via `#381`; next dispatch `SBW04`  
+**Integration tip:** `549ba802` on `main` — SBW01–03 landed; next dispatch `SBW04`; Milestone B uses bite schedule in roadmap §5.1  
 
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
@@ -39,9 +39,9 @@ Required deletion owner:
 | `SBW02` | MERGED `#387` | `SBW01` | Versioned non-canonical `ThreatDraftV1` CRUD/reload | [`HANDOFF-sbw02-threat-draft-store.md`](HANDOFF-sbw02-threat-draft-store.md) |
 | `SBW03` | MERGED `#388` | `SBW01–02` | Generate one candidate from one exact draft version | [`HANDOFF-sbw03-generate-candidate-from-draft.md`](HANDOFF-sbw03-generate-candidate-from-draft.md) |
 | `SBW04` | NEXT — PRE-DESIGNED; re-anchor before dispatch | `SBW03` | Shared semantic renderer + real read-only candidate workbench | [`HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`](HANDOFF-sbw04-semantic-renderer-candidate-workbench.md) |
-| `SBW05` | PRE-DESIGNED | `SBW04` | Complete-definition editing + authoritative preview validation | [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](HANDOFF-sbw05-typed-candidate-edit-validation.md) |
-| `SBW06` | PRE-DESIGNED | `SBW05` | Revise/regenerate candidate lineage | [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md) |
-| `SBW07` | PRE-DESIGNED | `SBW05` | Persist accepted mechanics as exact immutable first revision | [`HANDOFF-sbw07-persist-accepted-mechanics.md`](HANDOFF-sbw07-persist-accepted-mechanics.md) |
+| `SBW05` | PRE-DESIGNED — bites `05a–c` | `SBW04` | Complete-definition editing + authoritative preview validation | [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](HANDOFF-sbw05-typed-candidate-edit-validation.md) |
+| `SBW07` | PRE-DESIGNED — bites `07-contract` + `07a–c`; **before SBW06** | `SBW05` | Persist accepted mechanics as exact immutable first revision | [`HANDOFF-sbw07-persist-accepted-mechanics.md`](HANDOFF-sbw07-persist-accepted-mechanics.md) |
+| `SBW06` | PRE-DESIGNED — bites `06-contract` + `06a–d`; **after SBW07** | `SBW05` + `SBW07` | Revise/regenerate candidate lineage | [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md) |
 | `SBW08` | PRE-DESIGNED / PARALLEL | Stable current graph contracts | External statblock resource + typed Threat binding graph contract | [`HANDOFF-sbw08-world-graph-statblock-binding-contract.md`](HANDOFF-sbw08-world-graph-statblock-binding-contract.md) |
 | `SBW09` | PRE-DESIGNED | `SBW07–08` + governed graph review | Publish planned Threat + exact binding through preview/confirm | [`HANDOFF-sbw09-governed-threat-binding-publication.md`](HANDOFF-sbw09-governed-threat-binding-publication.md) |
 | `SBW10` | PRE-DESIGNED | `SBW09` | Exact-revision Threat Sheet/full view | [`HANDOFF-sbw10-exact-revision-threat-sheet.md`](HANDOFF-sbw10-exact-revision-threat-sheet.md) |
@@ -74,9 +74,17 @@ Parallel lanes:
 ```text
 SBW08 graph binding contract → SBW09
 SBW11 Plan hydration → SBW12
-SBW06 candidate lineage → SBW13 append/compare → SBW14 one-binding adoption
+SBW06 candidate lineage (after SBW07 first save) → SBW13 append/compare → SBW14 one-binding adoption
 SBW16 image generation → SBW17 durable selection
 SBW18 deferred 3D reconnaissance
+```
+
+Milestone B bite order (normative; see roadmap §5.1):
+
+```text
+SBW04 → SBW05a → SBW05b → SBW05c
+  → SBW07-contract → SBW07a → SBW07b → SBW07c
+  → SBW06-contract → SBW06a → SBW06b → SBW06c → SBW06d
 ```
 
 Deferred, deliberately unnumbered capabilities:
@@ -140,15 +148,13 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 
 **Demolition:** remove any UI claiming Markdown-only edits changed mechanics.
 
-### SBW06 — Candidate revise/regenerate lineage
+**Bites (ship separately):**
 
-**Mission:** Create a new candidate from one exact edited definition or accepted revision plus explicit instructions.
-
-**Invariant:** Revision creates a new proposal and never overwrites draft/candidate/revision lineage.
-
-**Key exclusions:** mechanics persistence, graph, compare, media.
-
-**Demolition:** remove any regenerate action that silently replaces current state.
+| Bite | Mission | Exclusions |
+|---|---|---|
+| `SBW05a` | Validate client + Buddy route + digest association | Editor UI, workbench, save |
+| `SBW05b` | Editor library + state machine + preservation | Workbench accept/save, durable working-copy schema |
+| `SBW05c` | Workbench edit/validate host + live proof | Revise, accept/save, graph |
 
 ### SBW07 — Persist accepted mechanics
 
@@ -159,6 +165,37 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 **Key exclusions:** Threat node/binding publication, Markdown, combat, media choice.
 
 **Demolition:** corpus promotion is no longer acceptance.
+
+**Bites (ship separately; contract PR before code):**
+
+| Bite | Mission | Exclusions |
+|---|---|---|
+| `SBW07-contract` | Doc-only acceptance authority + partial-state transition table | Implementation code |
+| `SBW07a` | Create/read Server client + fixtures | Draft mutation, UI, demolition |
+| `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | UI, corpus demolition, graph |
+| `SBW07c` | Accept UI + corpus-promotion demolition | Graph, append revision |
+
+### SBW06 — Candidate revise/regenerate lineage
+
+**Mission:** Create a new candidate from one exact edited definition or accepted revision plus explicit instructions.
+
+**Invariant:** Revision creates a new proposal and never overwrites draft/candidate/revision lineage.
+
+**Key exclusions:** mechanics persistence, graph, compare, media.
+
+**Demolition:** remove any regenerate action that silently replaces current state.
+
+**Dispatch order:** after `SBW07` merges (accepted-revision source requires locators; durability surface deferred until first save is proven).
+
+**Bites (ship separately; contract PR before code):**
+
+| Bite | Mission | Exclusions |
+|---|---|---|
+| `SBW06-contract` | Doc-only revise journal + lineage/status transition table | Implementation code |
+| `SBW06a` | Revise from edited `source_definition` | Status UI, accepted-revision source |
+| `SBW06b` | Candidate-ref status + lineage persistence | UI, accepted-revision revise |
+| `SBW06c` | Revise UI | Accepted-revision source |
+| `SBW06d` | Revise from accepted `source_locator` | Graph, compare, media |
 
 ### SBW08 — World Graph external resource/binding contract
 

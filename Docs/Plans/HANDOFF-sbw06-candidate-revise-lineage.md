@@ -1,12 +1,33 @@
 # HANDOFF — SBW06 Candidate revise/regenerate and lineage
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after `SBW05` merges; re-anchor base, routes, and generated types.  
+**Status:** PRE-DESIGNED — dispatch **after `SBW07` merges** as bites `SBW06-contract` → `SBW06a–d` (roadmap §5.1). Re-anchor base, routes, and generated types.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`  
 **Workstream:** `SBW06`  
 **Repository:** `Drakosfire/DungeonMindBuddy`
 
-> Dispatch one capability: create a new candidate proposal from an exact source and preserve lineage. Do not persist mechanics, compare accepted revisions, update graph bindings, or generate media.
+> Dispatch one capability across a contract PR plus four code PRs: create a new candidate proposal from an exact source and preserve lineage. Do not persist mechanics, compare accepted revisions, update graph bindings, or generate media.
+
+## Bite schedule
+
+| Bite | PR mission | Allowlist focus | Still false |
+|---|---|---|---|
+| `SBW06-contract` | Doc-only: revise journal choice + lineage/status transition table | Docs only; no implementation | All code |
+| `SBW06a` | Revise from edited `source_definition` | Client + revision service + tests | Status UI, accepted-revision source |
+| `SBW06b` | Candidate-ref status + lineage persistence | Draft store/ref transitions + tests | UI, accepted-revision revise |
+| `SBW06c` | Revise UI | Workbench + liveApi | Accepted-revision source |
+| `SBW06d` | Revise from accepted `source_locator` | Service/route/tests using SBW07 locators | Graph, compare, media |
+
+**Why after SBW07:** accepted-revision source needs exact locators; revise durability is deferred until first mechanics save is proven (SBW03 lesson).
+
+## §12 Revise contract freeze (fill in `SBW06-contract` PR)
+
+Before any `SBW06a+` code PR, the contract PR must publish:
+
+1. Whether revise reuses the SBW03 generate journal or a **separate** revise operation journal (recommendation: separate journal keyed by revise `request_id`, reusing Server durable-code terminality patterns without reopening generate semantics).
+2. Closed status transition table for `ThreatDraftCandidateRefV1.status`.
+3. Partial-completion rule: Server revise success + local ref-write failure → truthful recoverable state.
+4. Source mutual exclusion: `source_definition` XOR `source_locator`; no latest/display-name fallback.
 
 ## §0 Capability decomposition decision
 

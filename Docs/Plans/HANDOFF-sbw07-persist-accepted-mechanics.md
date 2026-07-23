@@ -1,12 +1,21 @@
 # HANDOFF — SBW07 Persist accepted mechanics as an immutable revision
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after `SBW05`; `SBW06` is optional for first-save UX. Re-anchor base and Server persistence contract.  
+**Status:** PRE-DESIGNED — dispatch after `SBW05` as bites `SBW07-contract` → `SBW07a–c` (roadmap §5.1); **before SBW06**. Re-anchor base and Server persistence contract.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw07-persist-accepted-mechanics.md`  
 **Workstream:** `SBW07`  
 **Repository:** `Drakosfire/DungeonMindBuddy`
 
-> Dispatch one capability: persist validated mechanics as one logical statblock with one exact immutable first revision and record that locator on the ThreatDraft. Do not publish a Threat, update a graph binding, append a later revision, embed Markdown, or add combat/media behavior.
+> Dispatch one capability across a contract PR plus three code PRs: persist validated mechanics as one logical statblock with one exact immutable first revision and record that locator on the ThreatDraft. Do not publish a Threat, update a graph binding, append a later revision, embed Markdown, or add combat/media behavior.
+
+## Bite schedule
+
+| Bite | PR mission | Allowlist focus | Still false |
+|---|---|---|---|
+| `SBW07-contract` | Doc-only acceptance authority + partial-state transition table + ThreatDraft schema delta | Docs only; no implementation | All code |
+| `SBW07a` | Create/read Server client + fixtures | Integration client + tests | Draft mutation, UI, demolition |
+| `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Service/store/routes/tests | UI, corpus demolition, graph |
+| `SBW07c` | Accept UI + corpus-promotion demolition | Workbench + demolition ledger | Graph, append revision |
 
 ## §0 Capability decomposition decision
 
@@ -286,3 +295,68 @@ Stop if:
 - [ ] Capture real create/read/idempotency fixtures.
 - [ ] Name demolition consumers/deletion owner.
 - [ ] Confirm all graph/projection/runtime successors remain false.
+- [ ] `SBW07-contract` transition table approved before `SBW07a+` code.
+
+## §12 Acceptance operation-authority model (normative — `SBW07-contract`)
+
+**Success claim:** For every acceptance that may have reached DungeonMindServer create, Buddy either retains a recovery path (persisted idempotency key and/or exact locator), has an atomic `AcceptedMechanicsRefV1` on the ThreatDraft, or reports a non-success without claiming mechanics saved. Retry never deletes a valid Server revision. Graph publication remains false.
+
+### Commit point
+
+```text
+Commit point: Server successfully persists logical statblock + immutable first revision
+  and returns exact (statblock_id, revision_id, definition_digest).
+Before commit: no durable mechanics claim.
+After commit: Server mechanics exist even if Buddy draft-ref write fails.
+```
+
+### Authority vs materialization
+
+| Concern | Owner | May fail independently? |
+|---|---|---|
+| Mechanics identity | DungeonMindServer create/read | No — Server is authority |
+| Draft accepted-ref | Buddy ThreatDraft store | Yes — pending + reconcile |
+| Graph Threat/binding | Later `SBW09` | N/A in this slice |
+
+### Closed local acceptance states
+
+| State | Meaning |
+|---|---|
+| `acceptance_blocked` | Missing/stale validation receipt, validation errors, or digest mismatch |
+| `submitting` | Idempotency key persisted; Server create in flight or unknown |
+| `mechanics_saved` | Exact `AcceptedMechanicsRefV1` atomically on draft; workflow_state `mechanics_saved` |
+| `mechanics_saved_reference_pending` | Server create succeeded (locator known); draft-ref write failed or unverified |
+| `acceptance_transport_failed` | Auth/timeout/unavailable before proven create; no success claim |
+
+### Authoritative transition table
+
+| Current | Event | Next | Required evidence | Server call? | Response truth | Compact/delete Server? |
+|---|---|---|---|---|---|---|
+| any editable | validate errors / stale receipt | `acceptance_blocked` | receipt digest ≠ current OR errors present | no | blocked | no |
+| eligible | begin accept | `submitting` | validation receipt bound to digest + persisted idempotency key | pending | submitting | no |
+| `submitting` | create success + draft-ref write success | `mechanics_saved` | exact IDs/digest + atomic draft write | done | saved; not published | no |
+| `submitting` | create success + draft-ref write failure | `mechanics_saved_reference_pending` | idempotency key + create locator retained | done | pending ref; mechanics exist | **never** |
+| `submitting` | transport failure without create proof | `acceptance_transport_failed` | no success claim | maybe unknown | typed failure | no |
+| `submitting` | idempotency conflict / changed body | conflict | Server envelope | yes | conflict; no alternate create | no |
+| `mechanics_saved_reference_pending` | reconcile exact read + draft write | `mechanics_saved` | exact read matches locator/digest | read only | saved | no |
+| `mechanics_saved` | reload | `mechanics_saved` | exact revision read digest equality | read | same IDs/digest | no |
+
+### ThreatDraft schema delta (declared here; implemented in `SBW07b`)
+
+```text
+accepted_mechanics_ref: AcceptedMechanicsRefV1 | null
+workflow_state: drafting | candidate_ready | mechanics_saved
+  (+ optional pending flag or sibling field for mechanics_saved_reference_pending)
+```
+
+### Idempotency
+
+- Persist idempotency key before or atomically with the create attempt.
+- Same key + same definition digest/metadata → same logical resource/revision.
+- Same key + changed definition/metadata → conflict.
+- UI double-submit → one operation.
+- Never invent local `statblock_id` / `revision_id`.
+
+### Explicitly still false after SBW07
+
+Graph Threat/binding, append child revision, preferred/latest, Markdown embed, combat, media, corpus promotion as acceptance.
