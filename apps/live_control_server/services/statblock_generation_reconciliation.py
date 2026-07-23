@@ -56,6 +56,8 @@ class GenerationReconciliationRecordV1(BaseModel):
     draft_version: int = Field(ge=1)
     request_id: str
     request_digest: str
+    # Exact Server generate body for uncertain-timeout recovery after draft advance.
+    request_body: dict[str, Any] | None = None
     status: ClaimStatus
     candidate_id: str | None = None
     candidate_payload: dict[str, Any] | None = None
@@ -185,6 +187,23 @@ def _validate_record(
             "generation reconciliation identity mismatch",
             status_code=500,
         )
+    if record.request_body is not None:
+        try:
+            # Ensure the stored body is JSON-serializable for digest computation.
+            json.dumps(
+                record.request_body,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+        except (TypeError, ValueError):
+            raise GenerationReconciliationError(
+                "corrupt generation reconciliation record",
+                status_code=500,
+            ) from None
+        # Digest/body equality is enforced at claim and recovery time as a 409
+        # conflict, not as a silent corrupt-record 500 on every read.
+
     if record.status in {"received", "completed"}:
         if not record.candidate_id:
             raise GenerationReconciliationError(
@@ -200,6 +219,11 @@ def _validate_record(
                 "corrupt generation reconciliation record",
                 status_code=500,
             )
+        if record.request_body is None:
+            raise GenerationReconciliationError(
+                "corrupt generation reconciliation record",
+                status_code=500,
+            )
     elif record.status == "pending":
         if record.candidate_id is not None or record.candidate_payload is not None:
             raise GenerationReconciliationError(
@@ -207,6 +231,11 @@ def _validate_record(
                 status_code=500,
             )
         if not record.claim_expires_at:
+            raise GenerationReconciliationError(
+                "corrupt generation reconciliation record",
+                status_code=500,
+            )
+        if record.request_body is None:
             raise GenerationReconciliationError(
                 "corrupt generation reconciliation record",
                 status_code=500,
@@ -221,6 +250,8 @@ def _validate_record(
                 "corrupt generation reconciliation record",
                 status_code=500,
             )
+        # request_body may be retained so the same request_id can recover via
+        # Server replay after draft advance; records without a body are pruned.
     return record
 
 
@@ -309,11 +340,6 @@ def _list_draft_records_unlocked(
         paths = sorted(directory.glob("v*__*.json"))
     except OSError:
         raise _storage_unavailable() from None
-    if len(paths) > MAX_RECORDS_PER_DRAFT:
-        raise GenerationReconciliationError(
-            "generation reconciliation storage bound exceeded",
-            status_code=500,
-        )
     safe_draft = require_draft_id(draft_id)
     for path in paths:
         draft_version, request_id = _parse_record_filename(path)
@@ -335,6 +361,14 @@ def _list_draft_records_unlocked(
                 request_id=request_id,
             )
         )
+    # Abandoned files may temporarily exceed the physical bound; claim prunes them
+    # before writing a new active record. Fail closed only when active records alone
+    # exceed the bound (corruption / runaway pending).
+    if _active_record_count(records) > MAX_RECORDS_PER_DRAFT:
+        raise GenerationReconciliationError(
+            "generation reconciliation storage bound exceeded",
+            status_code=500,
+        )
     return records
 
 
@@ -344,9 +378,35 @@ def _is_pending_expired(record: GenerationReconciliationRecordV1, *, now: dateti
     return _parse_iso(record.claim_expires_at) <= now
 
 
+def _delete_record_unlocked(
+    root: Path,
+    *,
+    draft_id: str,
+    draft_version: int,
+    request_id: str,
+) -> None:
+    path = _record_path(
+        root,
+        draft_id=draft_id,
+        draft_version=draft_version,
+        request_id=request_id,
+    )
+    try:
+        if path.is_file():
+            path.unlink()
+    except OSError:
+        raise _storage_unavailable() from None
+
+
 def _abandon_record_unlocked(
     root: Path, record: GenerationReconciliationRecordV1
 ) -> GenerationReconciliationRecordV1:
+    """Expire a pending claim while retaining the exact request body for replay.
+
+    Abandoned files do not reserve candidate capacity. They are pruned when a
+    *new* request_id needs physical storage so they cannot permanently brick a
+    draft.
+    """
     abandoned = record.model_copy(
         update={
             "status": "abandoned",
@@ -354,9 +414,50 @@ def _abandon_record_unlocked(
             "candidate_payload": None,
             "claim_expires_at": None,
             "updated_at": _utc_now_iso(),
+            # request_body + request_digest retained for Server replay recovery
         }
     )
     return _write_record_unlocked(root, abandoned)
+
+
+def _active_record_count(records: list[GenerationReconciliationRecordV1]) -> int:
+    return sum(1 for record in records if record.status != "abandoned")
+
+
+def _prune_abandoned_unlocked(
+    root: Path,
+    records: list[GenerationReconciliationRecordV1],
+    *,
+    keep_request_id: str | None = None,
+    need_slots: int = 1,
+) -> list[GenerationReconciliationRecordV1]:
+    """Delete abandoned files until total file count leaves room for new writes."""
+    abandoned = [
+        record
+        for record in records
+        if record.status == "abandoned"
+        and (keep_request_id is None or record.request_id != keep_request_id)
+    ]
+    # Oldest first.
+    abandoned.sort(key=lambda item: (item.updated_at, item.request_id))
+    remaining = list(records)
+    while len(remaining) + need_slots > MAX_RECORDS_PER_DRAFT and abandoned:
+        victim = abandoned.pop(0)
+        _delete_record_unlocked(
+            root,
+            draft_id=victim.draft_id,
+            draft_version=victim.draft_version,
+            request_id=victim.request_id,
+        )
+        remaining = [
+            item
+            for item in remaining
+            if not (
+                item.draft_version == victim.draft_version
+                and item.request_id == victim.request_id
+            )
+        ]
+    return remaining
 
 
 def _capacity_usage(
@@ -369,7 +470,7 @@ def _capacity_usage(
     Pending claims always reserve one slot (no locator yet). Received and
     completed claims reserve a slot only when their candidate_id is not already
     present in draft refs — otherwise a finalize failure would inflate 63 real
-    refs to 64 and block the final slot.
+    refs to 64 and block the final slot. Abandoned records never reserve capacity.
     """
     used = len(ref_candidate_ids)
     for record in records:
@@ -407,6 +508,7 @@ def claim_generation_request(
     draft_version: int,
     request_id: str,
     request_digest: str,
+    request_body: dict[str, Any],
     ref_candidate_ids: set[str],
 ) -> tuple[ClaimOutcome, GenerationReconciliationRecordV1]:
     """Atomically claim capacity and observe prior durable outcomes.
@@ -416,10 +518,17 @@ def claim_generation_request(
 
     DungeonMindServer now provides durable generate idempotency (PR23): the
     same request_id may safely re-call generate after an uncertain timeout and
-    recover the original candidate. Expired/abandoned local claims are
-    therefore reclaimable; live pending claims return pending_retry so the
-    caller can probe Server without allocating a second local slot.
+    recover the original candidate. Expired/abandoned local claims retain the
+    exact request body so recovery works even after the draft advances; they
+    are pruned when a *new* request_id needs physical storage.
     """
+    body_digest = request_digest_for_body(request_body)
+    if body_digest != request_digest:
+        raise GenerationReconciliationError(
+            "generation request body digest mismatch",
+            status_code=500,
+        )
+
     with _reconciliation_lock(root):
         now = _utc_now()
         records = _list_draft_records_unlocked(root, draft_id=draft_id)
@@ -436,6 +545,11 @@ def claim_generation_request(
         )
         if existing is not None:
             if existing.request_digest != request_digest:
+                raise GenerationReconciliationError(
+                    "generation reconciliation conflict",
+                    status_code=409,
+                )
+            if existing.request_body != request_body:
                 raise GenerationReconciliationError(
                     "generation reconciliation conflict",
                     status_code=409,
@@ -458,13 +572,20 @@ def claim_generation_request(
                 status_code=422,
             )
 
-        # Physical path count includes abandoned files; never write a *new*
-        # path past the bound. Reclaiming an existing abandoned path is fine.
-        if existing is None and len(records) >= MAX_RECORDS_PER_DRAFT:
-            raise GenerationReconciliationError(
-                "generation reconciliation storage bound exceeded",
-                status_code=500,
+        # Physical bound counts total files. Prune abandoned files so they cannot
+        # permanently brick generation for new request IDs.
+        if existing is None:
+            records = _prune_abandoned_unlocked(
+                root,
+                records,
+                keep_request_id=None,
+                need_slots=1,
             )
+            if len(records) >= MAX_RECORDS_PER_DRAFT:
+                raise GenerationReconciliationError(
+                    "generation reconciliation storage bound exceeded",
+                    status_code=500,
+                )
 
         now_iso = _utc_now_iso()
         expires_at = (now + PENDING_TTL).isoformat().replace("+00:00", "Z")
@@ -474,6 +595,7 @@ def claim_generation_request(
                 draft_version=draft_version,
                 request_id=validate_request_id(request_id),
                 request_digest=request_digest,
+                request_body=request_body,
                 status="pending",
                 candidate_id=None,
                 candidate_payload=None,
@@ -620,6 +742,17 @@ def load_received_candidate(
     if candidate.candidate_id != record.candidate_id:
         raise GenerationReconciliationError(
             "generation reconciliation identity mismatch",
+            status_code=500,
+        )
+    receipt = candidate.generation_receipt
+    if receipt is None or not receipt.request_id:
+        raise GenerationReconciliationError(
+            "candidate generation_receipt.request_id missing",
+            status_code=500,
+        )
+    if receipt.request_id != record.request_id:
+        raise GenerationReconciliationError(
+            "candidate generation_receipt.request_id mismatch",
             status_code=500,
         )
     return candidate

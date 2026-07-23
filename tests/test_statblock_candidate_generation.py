@@ -760,6 +760,197 @@ def test_received_locator_recovers_without_regenerate(tmp_path: Path, monkeypatc
     assert len(reloaded.candidate_refs) == 1
 
 
+def test_timeout_pending_recovers_after_draft_advance(tmp_path: Path) -> None:
+    """Pending v1 timeout remains recoverable after the draft advances to v2."""
+    draft = _create_draft(tmp_path)
+    client = FakeClient(error=downstream_timeout())
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-advance",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "failure"
+    assert first.failure_category == "downstream_timeout"
+
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-advance",
+    )
+    pending = json.loads(path.read_text(encoding="utf-8"))
+    assert pending["status"] == "pending"
+    assert pending["request_body"] is not None
+    assert pending["request_digest"].startswith("sha256:")
+
+    _advance_draft(tmp_path, draft)
+    advanced = get_threat_draft(tmp_path, draft.draft_id)
+    assert advanced.version == 2
+
+    client.error = None
+    client.payload = _candidate_payload(
+        request_id="req-advance", candidate_id="cand_afteradvance"
+    )
+    second = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-advance",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert second.outcome == "success"
+    assert second.candidate_ref is not None
+    assert second.candidate_ref.candidate_id == "cand_afteradvance"
+    assert second.candidate_ref.generated_from_draft_version == 1
+    assert second.candidate_ref.request_id == "req-advance"
+    assert len(client.calls) == 2
+    assert client.calls[1]["request_id"] == "req-advance"
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert reloaded.version == 2
+    assert len(reloaded.candidate_refs) == 1
+
+
+def test_recovered_candidate_without_receipt_request_id_fails_closed(
+    tmp_path: Path,
+) -> None:
+    draft = _create_draft(tmp_path)
+    client = FakeClient(error=downstream_timeout())
+    generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-noreceipt",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+
+    payload = _candidate_payload(request_id="req-noreceipt", candidate_id="cand_noreceipt")
+    dumped = payload.model_dump(mode="json")
+    dumped["generation_receipt"] = None
+    client.error = None
+    client.payload = GeneratedStatblockCandidateV1.model_validate(dumped)
+
+    second = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-noreceipt",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert second.outcome == "failure"
+    assert second.failure_category == "integrity_failure"
+    assert "generation_receipt" in (second.failure_message or "")
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert reloaded.candidate_refs == []
+
+
+def test_recovered_candidate_mismatched_receipt_request_id_fails_closed(
+    tmp_path: Path,
+) -> None:
+    draft = _create_draft(tmp_path)
+    client = FakeClient(error=downstream_timeout())
+    generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-mismatch",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+
+    client.error = None
+    client.payload = _candidate_payload(
+        request_id="req-other", candidate_id="cand_mismatch"
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        generate_candidate_from_draft(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request=GenerateThreatDraftCandidateRequestV1(
+                expected_draft_version=1,
+                client_request_id="req-mismatch",
+            ),
+            client=client,  # type: ignore[arg-type]
+        )
+    assert exc_info.value.status_code == 409
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert reloaded.candidate_refs == []
+
+
+def test_abandoned_records_are_pruned_and_do_not_brick_generation(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    for index in range(rec.MAX_RECORDS_PER_DRAFT):
+        request_id = f"req-abandoned-{index}"
+        path = rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=request_id,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        body = {"request_id": request_id, "marker": index}
+        record = rec.GenerationReconciliationRecordV1(
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=request_id,
+            request_digest=rec.request_digest_for_body(body),
+            request_body=body,
+            status="abandoned",
+            candidate_id=None,
+            candidate_payload=None,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at=f"2026-01-01T00:00:{index:02d}Z",
+            claim_expires_at=None,
+        )
+        path.write_text(
+            json.dumps(record.model_dump(mode="json", by_alias=True)),
+            encoding="utf-8",
+        )
+
+    client = FakeClient(payload=_candidate_payload(request_id="req-overflow"))
+    result = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-overflow",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.outcome == "success"
+    assert result.candidate_ref is not None
+    assert len(client.calls) == 1
+
+    directory = rec._draft_directory(tmp_path, draft.draft_id)
+    remaining = list(directory.glob("v*__*.json"))
+    assert len(remaining) <= rec.MAX_RECORDS_PER_DRAFT
+    listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
+    assert any(item.request_id == "req-overflow" for item in listed)
+    assert all(
+        item.status != "abandoned" or item.request_id != "req-overflow"
+        for item in listed
+    )
+    # At least one abandoned file was pruned to make room.
+    assert len(listed) < rec.MAX_RECORDS_PER_DRAFT + 1
+    assert sum(1 for item in listed if item.status == "abandoned") < rec.MAX_RECORDS_PER_DRAFT
+
+
 def test_expired_pending_claim_recovers_via_server_replay(tmp_path: Path) -> None:
     """After pending TTL, same request_id reclaims and recovers via Server replay."""
     draft = _create_draft(tmp_path)
@@ -802,62 +993,13 @@ def test_expired_pending_claim_recovers_via_server_replay(tmp_path: Path) -> Non
     assert second.outcome == "success"
     assert second.candidate_ref is not None
     assert second.candidate_ref.candidate_id == "cand_retry1"
+    assert second.candidate_ref.request_id == "req-expire"
     assert len(client.calls) == 2
     reloaded = get_threat_draft(tmp_path, draft.draft_id)
     assert len(reloaded.candidate_refs) == 1
     final = json.loads(path.read_text(encoding="utf-8"))
     assert final["status"] == "completed"
-
-
-def test_abandoned_records_count_toward_physical_storage_bound(tmp_path: Path) -> None:
-    from apps.live_control_server.services import statblock_generation_reconciliation as rec
-
-    draft = _create_draft(tmp_path)
-    for index in range(rec.MAX_RECORDS_PER_DRAFT):
-        request_id = f"req-abandoned-{index}"
-        path = rec._record_path(
-            tmp_path,
-            draft_id=draft.draft_id,
-            draft_version=1,
-            request_id=request_id,
-        )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        record = rec.GenerationReconciliationRecordV1(
-            draft_id=draft.draft_id,
-            draft_version=1,
-            request_id=request_id,
-            request_digest=f"sha256:{'a' * 64}",
-            status="abandoned",
-            candidate_id=None,
-            candidate_payload=None,
-            created_at="2026-01-01T00:00:00Z",
-            updated_at="2026-01-01T00:00:00Z",
-            claim_expires_at=None,
-        )
-        path.write_text(
-            json.dumps(record.model_dump(mode="json", by_alias=True)),
-            encoding="utf-8",
-        )
-
-    client = FakeClient(payload=_candidate_payload(request_id="req-overflow"))
-    result = generate_candidate_from_draft(
-        tmp_path,
-        draft_id=draft.draft_id,
-        request=GenerateThreatDraftCandidateRequestV1(
-            expected_draft_version=1,
-            client_request_id="req-overflow",
-        ),
-        client=client,  # type: ignore[arg-type]
-    )
-    assert result.outcome == "failure"
-    assert result.failure_category == "integrity_failure"
-    assert "storage bound" in (result.failure_message or "")
-    assert len(client.calls) == 0
-
-    directory = rec._draft_directory(tmp_path, draft.draft_id)
-    assert len(list(directory.glob("v*__*.json"))) == rec.MAX_RECORDS_PER_DRAFT
-    listed = rec._list_draft_records_unlocked(tmp_path, draft_id=draft.draft_id)
-    assert len(listed) == rec.MAX_RECORDS_PER_DRAFT
+    assert final["request_body"] is not None
 
 
 def test_finalize_failure_reports_reconciliation_component(
