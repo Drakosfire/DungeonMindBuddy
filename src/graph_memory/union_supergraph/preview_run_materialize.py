@@ -88,9 +88,15 @@ def materialize_preview_union_store_from_graph_ingest_run(
         output_path = _default_or_safe_output_path(options.output_path, run_dir)
         report_path = output_path.with_name("preview_union_validation_report.json")
         import_input_path = run_dir / "candidate_graph_import_input.json"
-        normalized_recap_path = _resolve_required_source_path(manifest, repo_root)
+        verified_recap_import_path = run_dir / "normalized_recap_import_input.md"
+        # Touch packaged recap path only to prove it exists for the run; importer
+        # evidence uses snapshot.normalized_recap_text / verified import copy.
+        _resolve_required_source_path(manifest, repo_root)
 
         try:
+            verified_recap_import_path.write_text(
+                snapshot.normalized_recap_text, encoding="utf-8"
+            )
             _write_json(
                 import_input_path,
                 _normalize_candidate_graph_for_import(
@@ -102,7 +108,8 @@ def materialize_preview_union_store_from_graph_ingest_run(
                     CandidateGraphInput(
                         path=import_input_path,
                         session_id=manifest.session_id,
-                        recap_path=normalized_recap_path,
+                        recap_path=verified_recap_import_path,
+                        recap_text=snapshot.normalized_recap_text,
                     )
                 ],
                 focus_session_id=manifest.session_id,
@@ -135,6 +142,7 @@ def materialize_preview_union_store_from_graph_ingest_run(
             output_path.unlink(missing_ok=True)
             report_path.unlink(missing_ok=True)
             import_input_path.unlink(missing_ok=True)
+            verified_recap_import_path.unlink(missing_ok=True)
             raise
 
         updated_manifest = _updated_manifest(
@@ -156,6 +164,10 @@ def materialize_preview_union_store_from_graph_ingest_run(
 
         token_t1 = manifest_content_token(manifest_path)
         if options.update_manifest and token_t1 != token_t0:
+            output_path.unlink(missing_ok=True)
+            report_path.unlink(missing_ok=True)
+            import_input_path.unlink(missing_ok=True)
+            verified_recap_import_path.unlink(missing_ok=True)
             raise ValueError(
                 "graph-ingest manifest changed concurrently during materialization; "
                 "refusing to overwrite newer run state"
@@ -246,6 +258,7 @@ def _reject_forbidden_diagnostics(diagnostics: Mapping[str, Any], context: str) 
 def _normalize_candidate_graph_for_import(
     candidate_graph: Mapping[str, Any], manifest: GraphIngestRunManifest
 ) -> dict[str, Any]:
+    outer = dict(candidate_graph)
     if "nodes" in candidate_graph or "candidate_graph" in candidate_graph:
         graph = dict(candidate_graph.get("candidate_graph") or candidate_graph)
     else:
@@ -293,31 +306,37 @@ def _normalize_candidate_graph_for_import(
                 }
             )
         graph = {"nodes": nodes, "edges": edges}
+        for key in ("campaign_id", "session_id", "source_artifact_ids"):
+            if key in outer and key not in graph:
+                graph[key] = outer[key]
     # Require identity agreement with the verified snapshot/manifest — never invent
     # foreign campaign/session defaults over a mismatched candidate.
-    if graph.get("campaign_id") is not None and str(graph["campaign_id"]).strip() != manifest.campaign_id:
+    input_campaign = graph.get("campaign_id")
+    if not input_campaign or not str(input_campaign).strip():
+        raise ValueError("candidate_graph.campaign_id is required")
+    if str(input_campaign).strip() != manifest.campaign_id:
         raise ValueError("candidate_graph.campaign_id does not match manifest")
-    if graph.get("session_id") is not None and str(graph["session_id"]).strip() != manifest.session_id:
+    input_session = graph.get("session_id")
+    if not input_session or not str(input_session).strip():
+        raise ValueError("candidate_graph.session_id is required")
+    if str(input_session).strip() != manifest.session_id:
         raise ValueError("candidate_graph.session_id does not match manifest")
     expected_source = (
         manifest.source.source_artifact_id
         or f"artifact:recap:{manifest.campaign_id}:{manifest.session_id}"
     )
     bound_ids = graph.get("source_artifact_ids")
-    if bound_ids is not None:
-        if not isinstance(bound_ids, list):
-            raise ValueError("candidate_graph.source_artifact_ids must be a list")
-        normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
-        if expected_source not in normalized:
-            raise ValueError(
-                "candidate_graph.source_artifact_ids does not include packaged "
-                f"source_artifact_id {expected_source!r}"
-            )
+    if not isinstance(bound_ids, list) or not bound_ids:
+        raise ValueError("candidate_graph.source_artifact_ids is required")
+    normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
+    if expected_source not in normalized:
+        raise ValueError(
+            "candidate_graph.source_artifact_ids does not include packaged "
+            f"source_artifact_id {expected_source!r}"
+        )
     graph["campaign_id"] = manifest.campaign_id
     graph["session_id"] = manifest.session_id
-    graph["source_artifact_ids"] = (
-        list(bound_ids) if isinstance(bound_ids, list) and bound_ids else [expected_source]
-    )
+    graph["source_artifact_ids"] = list(bound_ids)
     return graph
 
 

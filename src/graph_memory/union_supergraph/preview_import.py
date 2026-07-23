@@ -21,6 +21,7 @@ class CandidateGraphInput:
     path: Path
     session_id: str | None = None
     recap_path: Path | None = None
+    recap_text: str | None = None
 
 
 def build_preview_union_supergraph(
@@ -51,7 +52,11 @@ def build_preview_union_supergraph(
         }
         if graph_input.recap_path is not None:
             source_artifacts[source_artifact_id]["recap_path"] = graph_input.recap_path.as_posix()
-        paragraph_lookup = _paragraph_lookup(graph_input.recap_path, session_id=session_id)
+        paragraph_lookup = _paragraph_lookup(
+            graph_input.recap_path,
+            session_id=session_id,
+            recap_text=graph_input.recap_text,
+        )
         node_id_map = {
             str(node["node_id"]): _global_node_id(node)
             for node in graph.get("nodes", [])
@@ -384,10 +389,18 @@ def _tokens_with_positions(text: str) -> list[tuple[str, int, int]]:
     return tokens
 
 
-def _paragraph_lookup(recap_path: Path | None, *, session_id: str) -> dict[str, str]:
-    if recap_path is None or not recap_path.exists():
+def _paragraph_lookup(
+    recap_path: Path | None,
+    *,
+    session_id: str,
+    recap_text: str | None = None,
+) -> dict[str, str]:
+    if recap_text is not None:
+        text = _strip_yaml_frontmatter(recap_text)
+    elif recap_path is not None and recap_path.exists():
+        text = _strip_yaml_frontmatter(recap_path.read_text(encoding="utf-8"))
+    else:
         return {}
-    text = _strip_yaml_frontmatter(recap_path.read_text(encoding="utf-8"))
     paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
     lookup: dict[str, str] = {}
     for index, paragraph in enumerate(paragraphs, start=1):

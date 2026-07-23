@@ -117,6 +117,11 @@ def _load_manifest_backed_projection_snapshot(
     campaign_rel: str | None = None,
     corpus_root: Path | None = None,
 ):
+    from dataclasses import replace
+
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        load_authored_overlay_bundle,
+    )
     from graph_memory.ingestion.graph_ingest_verified_snapshot import (
         load_reusable_projection_from_snapshot,
         load_verified_projection_ready_snapshot,
@@ -124,26 +129,33 @@ def _load_manifest_backed_projection_snapshot(
 
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
-    # Peek campaign for overlay digest before full snapshot load.
     peek = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(peek, dict):
         raise ValueError("graph-ingest manifest payload must be an object")
     campaign_id = str(peek.get("campaign_id") or "").strip()
-    overlay_digest = (
-        current_authored_overlay_sha256(
+    overlay = None
+    overlay_summary = None
+    overlay_digest = None
+    if campaign_id:
+        overlay, overlay_summary, overlay_digest = load_authored_overlay_bundle(
             campaign_id=campaign_id,
             campaign_rel=campaign_rel,
             corpus_root=corpus_root,
         )
-        if campaign_id
-        else None
-    )
     snapshot = load_verified_projection_ready_snapshot(
         root,
         manifest_path,
         session_id=session_id,
         authored_overlay_sha256=overlay_digest,
     )
+    # Always attach the bundle result (including missing-overlay summary) so
+    # enrichment never re-reads disk on the manifest-backed path.
+    if campaign_id:
+        snapshot = replace(
+            snapshot,
+            authored_overlay=overlay,
+            authored_overlay_summary=overlay_summary,
+        )
     reusable = load_reusable_projection_from_snapshot(snapshot, root)
     return snapshot, reusable
 
@@ -226,22 +238,17 @@ def current_authored_overlay_sha256(
     corpus_root: Path | None = None,
 ) -> str | None:
     from apps.live_control_server.services.graph_authoring_overlay_projection import (
-        load_authored_overlay_for_review,
+        load_authored_overlay_bundle,
     )
 
-    _overlay, summary = load_authored_overlay_for_review(
+    _overlay, summary, digest = load_authored_overlay_bundle(
         campaign_id=campaign_id,
         campaign_rel=campaign_rel,
         corpus_root=corpus_root,
     )
     if not summary.loaded or not summary.overlay_path:
         return None
-    overlay_path = Path(summary.overlay_path)
-    if not overlay_path.is_file():
-        return None
-    import hashlib
-
-    return hashlib.sha256(overlay_path.read_bytes()).hexdigest()
+    return digest
 
 
 def _load_projection_payload_from_manifest(
@@ -655,6 +662,8 @@ def build_projection_payload_from_verified_snapshot(
         campaign_id=projection.campaign_id,
         campaign_rel=campaign_rel,
         corpus_root=corpus_root,
+        overlay=snapshot.authored_overlay,
+        summary=snapshot.authored_overlay_summary,
     )
 
 

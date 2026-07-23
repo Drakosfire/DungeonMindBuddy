@@ -195,6 +195,8 @@ def _candidate_ready_run(
         load_source_span_index(tmp_path, artifact.source_artifact_id)
     )
     graph = json.loads(candidate.read_text(encoding="utf-8"))
+    graph["campaign_id"] = campaign_id
+    graph["session_id"] = session_id
     graph["source_artifact_ids"] = [artifact.source_artifact_id]
     candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
@@ -370,7 +372,16 @@ def _service_fake_runner_with_candidate(
         _write_json(span_path, span_payload)
 
         candidate = json.loads(CANDIDATE_PATH.read_text(encoding="utf-8"))
-        candidate["source_artifact_ids"] = [artifact.source_artifact_id]
+        from evals.graph_memory_layer.graph_preview_runner import (
+            _stamp_candidate_graph_identity,
+        )
+
+        candidate = _stamp_candidate_graph_identity(
+            candidate,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            source_artifact_id=artifact.source_artifact_id,
+        )
         candidate_path = out / "candidate_graph.json"
         _write_json(candidate_path, candidate)
 
@@ -538,6 +549,8 @@ def _bind_production_lineage(
     assert isinstance(candidate_uri, str)
     candidate_path = tmp_path / candidate_uri
     graph = json.loads(candidate_path.read_text(encoding="utf-8"))
+    graph["campaign_id"] = campaign_id
+    graph["session_id"] = session_id
     graph["source_artifact_ids"] = [resolved_artifact_id]
     candidate_path.write_text(
         json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -659,6 +672,8 @@ def _stamp_production_lineage(
     assert isinstance(uri, str)
     candidate_path = tmp_path / uri
     graph = json.loads(candidate_path.read_text(encoding="utf-8"))
+    graph["campaign_id"] = str(manifest.get("campaign_id") or "longmont-c2")
+    graph["session_id"] = str(manifest.get("session_id") or "session-24")
     graph["source_artifact_ids"] = [source_artifact_id]
     candidate_path.write_text(
         json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -696,6 +711,8 @@ def _profiled_candidate_ready_run(
         load_source_span_index(tmp_path, artifact.source_artifact_id)
     )
     graph = json.loads(candidate.read_text(encoding="utf-8"))
+    graph["campaign_id"] = "longmont-c2"
+    graph["session_id"] = "session-24"
     graph["source_artifact_ids"] = [artifact.source_artifact_id]
     candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
@@ -2752,3 +2769,291 @@ def test_old_projection_contract_version_forces_cache_miss_rebuild(
         )
         == PROJECTION_CONTRACT_VERSION
     )
+
+
+def test_identityless_candidate_rejected_at_materialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stripped candidate identity must not reach preview_union_store_ready."""
+    import hashlib
+
+    monkeypatch.chdir(tmp_path)
+    runner_result = _candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/identityless"
+    )
+    manifest_path = runner_result.manifest_path
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["status"] == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY.value
+
+    candidate_path = tmp_path / manifest["artifacts"]["candidate_graph"]["uri"]
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate.pop("campaign_id", None)
+    candidate.pop("session_id", None)
+    candidate.pop("source_artifact_ids", None)
+    candidate_path.write_text(
+        json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    candidate_digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["candidate_graph"]["sha256"] = f"sha256:{candidate_digest}"
+
+    report_path = tmp_path / manifest["artifacts"]["candidate_validation_report"]["uri"]
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["candidate_graph_sha256"] = f"sha256:{candidate_digest}"
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_digest = hashlib.sha256(report_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["candidate_validation_report"]["sha256"] = (
+        f"sha256:{report_digest}"
+    )
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="campaign_id is required|session_id is required|source_artifact_ids"):
+        materialize_preview_union_store_from_graph_ingest_run(
+            PreviewUnionMaterializeOptions(manifest_path=manifest_path, repo_root=tmp_path)
+        )
+
+    after = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert after["status"] != GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
+    assert not (manifest_path.parent / "preview_union_supergraph.json").exists()
+
+
+def test_foreign_candidate_identity_rejected_at_materialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Foreign campaign/session on candidate bytes must fail closed even with matching digests."""
+    import hashlib
+
+    monkeypatch.chdir(tmp_path)
+    runner_result = _candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/foreign_identity"
+    )
+    manifest_path = runner_result.manifest_path
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    candidate_path = tmp_path / manifest["artifacts"]["candidate_graph"]["uri"]
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["campaign_id"] = "foreign-campaign"
+    candidate["session_id"] = "session-99"
+    candidate_path.write_text(
+        json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    candidate_digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["candidate_graph"]["sha256"] = f"sha256:{candidate_digest}"
+
+    report_path = tmp_path / manifest["artifacts"]["candidate_validation_report"]["uri"]
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["candidate_graph_sha256"] = f"sha256:{candidate_digest}"
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_digest = hashlib.sha256(report_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["candidate_validation_report"]["sha256"] = (
+        f"sha256:{report_digest}"
+    )
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="does not match manifest"):
+        materialize_preview_union_store_from_graph_ingest_run(
+            PreviewUnionMaterializeOptions(manifest_path=manifest_path, repo_root=tmp_path)
+        )
+
+    after = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert after["status"] != GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
+
+
+def test_overlay_changed_after_digest_capture_uses_verified_overlay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Projection enrichment must consume overlay A from snapshot, never re-read overlay B."""
+    import hashlib
+
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+    import apps.live_control_server.services.graph_authoring_overlay_projection as overlay_mod
+    from apps.live_control_server.models.graph_authoring_overlay import (
+        create_empty_authored_graph_overlay,
+    )
+    from apps.live_control_server.services.graph_authoring_overlay_store import (
+        GraphAuthoringOverlayStore,
+    )
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+    from tests.test_graph_authoring_overlay_models import object_assertion
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/overlay_toctou"
+    )
+    corpus_root = tmp_path / "corpus"
+    monkeypatch.setattr(
+        "src.live_play.recap_stage_paths.corpus_root",
+        lambda: corpus_root,
+    )
+    store = GraphAuthoringOverlayStore(corpus_root)
+    overlay_a = create_empty_authored_graph_overlay("longmont-c2").model_copy(
+        update={
+            "assertions": [
+                object_assertion(
+                    assertion_id="overlay-toctou-a",
+                    campaign_id="longmont-c2",
+                    object_ref={
+                        "ref_kind": "local_proposal",
+                        "local_proposal_id": "local-a",
+                        "label": "TOCTOU_OVERLAY_A",
+                        "kind": "entity",
+                    },
+                )
+            ]
+        }
+    )
+    store.save_overlay(overlay_a)
+    overlay_path = store.overlay_path("longmont-c2")
+    digest_a = hashlib.sha256(overlay_path.read_bytes()).hexdigest().lower()
+
+    overlay_b = overlay_a.model_copy(
+        update={
+            "assertions": [
+                object_assertion(
+                    assertion_id="overlay-toctou-b",
+                    campaign_id="longmont-c2",
+                    object_ref={
+                        "ref_kind": "local_proposal",
+                        "local_proposal_id": "local-b",
+                        "label": "TOCTOU_OVERLAY_B",
+                        "kind": "entity",
+                    },
+                )
+            ]
+        }
+    )
+
+    real_bundle = overlay_mod.load_authored_overlay_bundle
+
+    def bundle_then_mutate_file(**kwargs):
+        overlay, summary, digest = real_bundle(**kwargs)
+        store.save_overlay(overlay_b)
+        mutated_digest = hashlib.sha256(overlay_path.read_bytes()).hexdigest().lower()
+        assert mutated_digest != digest_a
+        return overlay, summary, digest
+
+    monkeypatch.setattr(overlay_mod, "load_authored_overlay_bundle", bundle_then_mutate_file)
+
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    projection_path = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert projection_path is not None
+    payload = json.loads(projection_path.read_text(encoding="utf-8"))
+    deps = payload.get("projection_depends_on") or {}
+    assert normalize_content_digest(deps.get("authored_overlay_sha256")) == digest_a
+    node_labels = [
+        view.get("label")
+        for view in (payload.get("node_views") or {}).values()
+        if isinstance(view, dict)
+    ]
+    assert "TOCTOU_OVERLAY_A" in node_labels
+    assert "TOCTOU_OVERLAY_B" not in node_labels
+
+
+def test_overlay_appearing_after_missing_capture_does_not_enrich(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If no overlay existed at digest capture, a later file must not enter the projection."""
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+    import apps.live_control_server.services.graph_authoring_overlay_projection as overlay_mod
+    from apps.live_control_server.models.graph_authoring_overlay import (
+        create_empty_authored_graph_overlay,
+    )
+    from apps.live_control_server.services.graph_authoring_overlay_store import (
+        GraphAuthoringOverlayStore,
+    )
+    from tests.test_graph_authoring_overlay_models import object_assertion
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/overlay_appears_later"
+    )
+    corpus_root = tmp_path / "corpus"
+    monkeypatch.setattr(
+        "src.live_play.recap_stage_paths.corpus_root",
+        lambda: corpus_root,
+    )
+    store = GraphAuthoringOverlayStore(corpus_root)
+    # No overlay file at capture time.
+    assert not store.overlay_path("longmont-c2").is_file()
+
+    late_overlay = create_empty_authored_graph_overlay("longmont-c2").model_copy(
+        update={
+            "assertions": [
+                object_assertion(
+                    assertion_id="overlay-late-b",
+                    campaign_id="longmont-c2",
+                    object_ref={
+                        "ref_kind": "local_proposal",
+                        "local_proposal_id": "local-late",
+                        "label": "TOCTOU_OVERLAY_LATE_B",
+                        "kind": "entity",
+                    },
+                )
+            ]
+        }
+    )
+    real_bundle = overlay_mod.load_authored_overlay_bundle
+
+    def bundle_then_create_file(**kwargs):
+        overlay, summary, digest = real_bundle(**kwargs)
+        assert digest is None
+        assert summary.loaded is False
+        store.save_overlay(late_overlay)
+        assert store.overlay_path("longmont-c2").is_file()
+        return overlay, summary, digest
+
+    monkeypatch.setattr(overlay_mod, "load_authored_overlay_bundle", bundle_then_create_file)
+
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    projection_path = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert projection_path is not None
+    payload = json.loads(projection_path.read_text(encoding="utf-8"))
+    deps = payload.get("projection_depends_on") or {}
+    assert deps.get("authored_overlay_sha256") in (None, "", "sha256:")
+    node_labels = [
+        view.get("label")
+        for view in (payload.get("node_views") or {}).values()
+        if isinstance(view, dict)
+    ]
+    assert "TOCTOU_OVERLAY_LATE_B" not in node_labels
+    authored = payload.get("authored_overlay") or {}
+    assert authored.get("loaded") is False
+
+
+def test_materializer_cas_aborts_on_concurrent_manifest_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Concurrent manifest mutation during union materialization must abort."""
+    import graph_memory.union_supergraph.preview_run_materialize as materialize_mod
+
+    runner_result = _candidate_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/materialize_cas_abort"
+    )
+    manifest_path = runner_result.manifest_path
+    marker = "2099-01-01T00:00:00Z"
+    real_build = materialize_mod.build_preview_union_supergraph
+
+    def mutating_build(*args, **kwargs):
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        payload["updated_at"] = marker
+        manifest_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(materialize_mod, "build_preview_union_supergraph", mutating_build)
+
+    with pytest.raises(ValueError, match="changed concurrently|refusing to overwrite"):
+        materialize_preview_union_store_from_graph_ingest_run(
+            PreviewUnionMaterializeOptions(manifest_path=manifest_path, repo_root=tmp_path)
+        )
+
+    after = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert after.get("updated_at") == marker
+    assert after["status"] != GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
+    assert not (manifest_path.parent / "preview_union_supergraph.json").exists()

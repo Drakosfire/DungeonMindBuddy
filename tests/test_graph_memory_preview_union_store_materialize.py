@@ -55,6 +55,8 @@ def _candidate_ready_run(tmp_path: Path) -> Path:
     )
     # Stamp fixture candidate with the digest-qualified artifact identity.
     graph = json.loads(candidate.read_text(encoding="utf-8"))
+    graph["campaign_id"] = "longmont-c2"
+    graph["session_id"] = "session-24"
     graph["source_artifact_ids"] = [artifact.source_artifact_id]
     candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
@@ -273,3 +275,40 @@ def test_materializer_store_source_artifacts_do_not_reference_temp_paths(
             continue
         assert (tmp_path / uri).exists()
     assert (manifest_path.parent / "candidate_graph_import_input.json").exists()
+
+
+def test_recap_mutated_after_snapshot_verify_uses_verified_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Union evidence must come from verified snapshot recap text, not a later disk read."""
+    monkeypatch.chdir(tmp_path)
+    manifest_path = _candidate_ready_run(tmp_path)
+    manifest = _load_json(manifest_path)
+    packaged_recap = tmp_path / manifest["source"]["normalized_recap_path"]
+    assert packaged_recap.is_file()
+
+    original_read_bytes = Path.read_bytes
+    recap_reads = {"n": 0}
+
+    def guarded_read_bytes(self: Path, *args: object, **kwargs: object) -> bytes:
+        try:
+            resolved = self.resolve()
+        except OSError:
+            resolved = self
+        if resolved == packaged_recap.resolve():
+            recap_reads["n"] += 1
+            content = original_read_bytes(self, *args, **kwargs)
+            if recap_reads["n"] > 1:
+                return content + b"\n\nMUTATED_RECAP_MARKER_B\n"
+            return content
+        return original_read_bytes(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+
+    result = materialize_preview_union_store_from_graph_ingest_run(
+        PreviewUnionMaterializeOptions(manifest_path=manifest_path, repo_root=tmp_path)
+    )
+    store = _load_json(result.preview_union_store_path)
+    evidence_blob = json.dumps(store.get("evidence", {}))
+    assert "MUTATED_RECAP_MARKER_B" not in evidence_blob
+    assert recap_reads["n"] == 1

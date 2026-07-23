@@ -207,6 +207,8 @@ class VerifiedManifestBackedGraphSnapshot:
     preview_union_store_sha256: str | None = None
     preview_union_validation_report: dict[str, Any] | None = None
     preview_union_validation_report_sha256: str | None = None
+    authored_overlay: Any | None = None
+    authored_overlay_summary: Any | None = None
 
     def span_rows(self) -> list[dict[str, Any]]:
         return [asdict(span) for span in self.source_span_index.spans]
@@ -596,24 +598,28 @@ def _validate_candidate_identity(
     expected_source_artifact_id = str(source.get("source_artifact_id") or "").strip()
 
     candidate_campaign = candidate_graph.get("campaign_id")
-    if candidate_campaign is not None:
-        if str(candidate_campaign).strip() != campaign_id:
-            raise ValueError("candidate_graph.campaign_id does not match manifest")
+    if not candidate_campaign or not str(candidate_campaign).strip():
+        raise ValueError("candidate_graph.campaign_id is required")
+    if str(candidate_campaign).strip() != campaign_id:
+        raise ValueError("candidate_graph.campaign_id does not match manifest")
+
     candidate_session = candidate_graph.get("session_id")
-    if candidate_session is not None:
-        if str(candidate_session).strip() != session_id:
-            raise ValueError("candidate_graph.session_id does not match manifest")
+    if not candidate_session or not str(candidate_session).strip():
+        raise ValueError("candidate_graph.session_id is required")
+    if str(candidate_session).strip() != session_id:
+        raise ValueError("candidate_graph.session_id does not match manifest")
 
     bound_ids = candidate_graph.get("source_artifact_ids")
-    if bound_ids is not None:
-        if not isinstance(bound_ids, list):
-            raise ValueError("candidate_graph.source_artifact_ids must be a list")
-        normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
-        if expected_source_artifact_id and expected_source_artifact_id not in normalized:
-            raise ValueError(
-                f"candidate_graph source_artifact_ids {sorted(normalized)!r} "
-                f"missing packaged {expected_source_artifact_id!r}"
-            )
+    if not isinstance(bound_ids, list) or not bound_ids:
+        raise ValueError("candidate_graph.source_artifact_ids is required")
+    normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
+    if not expected_source_artifact_id:
+        raise ValueError("source.source_artifact_id is required for candidate identity")
+    if expected_source_artifact_id not in normalized:
+        raise ValueError(
+            f"candidate_graph source_artifact_ids {sorted(normalized)!r} "
+            f"missing packaged {expected_source_artifact_id!r}"
+        )
 
     diagnostics = candidate_graph.get("diagnostics")
     if isinstance(diagnostics, dict):

@@ -726,6 +726,27 @@ def _resolve_packaged_source_artifact_id(
     return f"artifact:recap:{campaign_id}:{session_id}"
 
 
+def _stamp_candidate_graph_identity(
+    candidate_graph: Mapping[str, Any],
+    *,
+    campaign_id: str,
+    session_id: str,
+    source_artifact_id: str,
+) -> dict[str, Any]:
+    graph = dict(candidate_graph)
+    graph["campaign_id"] = campaign_id
+    graph["session_id"] = session_id
+    expected = source_artifact_id.strip()
+    bound_ids = graph.get("source_artifact_ids")
+    normalized: list[str] = []
+    if isinstance(bound_ids, list):
+        normalized = [str(item).strip() for item in bound_ids if str(item).strip()]
+    if expected and expected not in normalized:
+        normalized.insert(0, expected)
+    graph["source_artifact_ids"] = normalized or ([expected] if expected else [])
+    return graph
+
+
 def _assert_packaged_source_artifact_identity(
     *,
     source_artifact_id: str,
@@ -879,6 +900,13 @@ def run_graph_preview_extraction(
         if options.candidate_graph_path.resolve() != candidate_graph_path.resolve():
             shutil.copy2(options.candidate_graph_path, candidate_graph_path)
         candidate_graph = json.loads(candidate_graph_path.read_text())
+        candidate_graph = _stamp_candidate_graph_identity(
+            candidate_graph,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            source_artifact_id=packaged_source_artifact_id,
+        )
+        write_json(candidate_graph_path, candidate_graph)
         validation = _write_validation_report(
             output_dir=output_dir,
             campaign_id=campaign_id,
@@ -993,7 +1021,12 @@ def run_graph_preview_extraction(
                 client=category_client,
                 progress_callback=_progress,
             )
-            candidate_graph = extraction.candidate_graph
+            candidate_graph = _stamp_candidate_graph_identity(
+                extraction.candidate_graph,
+                campaign_id=campaign_id,
+                session_id=session_id,
+                source_artifact_id=packaged_source_artifact_id,
+            )
             candidate_graph_path = output_dir / "candidate_graph.json"
             write_json(candidate_graph_path, candidate_graph)
             if extraction.registry_context_graph:

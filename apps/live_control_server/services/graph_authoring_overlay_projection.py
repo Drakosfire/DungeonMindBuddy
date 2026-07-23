@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -13,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from apps.live_control_server.models.graph_authoring_overlay import (
+    AUTHORED_GRAPH_OVERLAY_SCHEMA,
     AuthoredGraphAssertion,
     AuthoredGraphLinkExistingAssertion,
     AuthoredGraphMergeObjectsAssertion,
@@ -145,6 +147,57 @@ def load_authored_overlay_for_review(
         overlay_path=str(overlay_path),
         assertion_count=len(active_assertions),
     )
+
+
+def load_authored_overlay_bundle(
+    *,
+    campaign_id: str,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+) -> tuple[AuthoredGraphOverlay | None, AuthoredOverlayProjectionSummary, str | None]:
+    """Load overlay, summary, and digest from a single overlay file read."""
+    store = _resolve_store(corpus_root)
+    overlay_path = store.overlay_path(campaign_id, campaign_rel=campaign_rel)
+    if not overlay_path.is_file():
+        return None, AuthoredOverlayProjectionSummary(
+            loaded=False,
+            overlay_path=str(overlay_path),
+            diagnostics=[
+                GraphAuthoringOverlayDiagnostic(
+                    code="authored_overlay_missing",
+                    message="No authored overlay file committed for this campaign yet.",
+                    severity="info",
+                )
+            ],
+        ), None
+    try:
+        overlay_bytes = overlay_path.read_bytes()
+        payload = json.loads(overlay_bytes.decode("utf-8"))
+        if payload.get("schema_version") != AUTHORED_GRAPH_OVERLAY_SCHEMA:
+            raise GraphAuthoringOverlayStoreError(
+                f"unsupported authored graph overlay schema in {overlay_path}"
+            )
+        overlay = AuthoredGraphOverlay.model_validate(payload)
+    except (GraphAuthoringOverlayStoreError, ValidationError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return None, AuthoredOverlayProjectionSummary(
+            loaded=False,
+            overlay_path=str(overlay_path),
+            diagnostics=[
+                GraphAuthoringOverlayDiagnostic(
+                    code="authored_overlay_schema_error",
+                    message=str(exc),
+                    severity="error",
+                )
+            ],
+        ), None
+    digest = hashlib.sha256(overlay_bytes).hexdigest().lower()
+    active_assertions = [item for item in overlay.assertions if item.status == "authored"]
+    summary = AuthoredOverlayProjectionSummary(
+        loaded=True,
+        overlay_path=str(overlay_path),
+        assertion_count=len(active_assertions),
+    )
+    return overlay, summary, digest
 
 
 def _existing_graph_node_refs_from_assertion(
@@ -1977,13 +2030,22 @@ def enrich_projection_payload_with_authored_overlay(
     campaign_id: str,
     campaign_rel: str | None = None,
     corpus_root: Path | None = None,
+    overlay: AuthoredGraphOverlay | None = None,
+    summary: AuthoredOverlayProjectionSummary | None = None,
 ) -> dict[str, Any]:
     projection = RecapGraphProjection.model_validate(payload)
-    overlay, summary = load_authored_overlay_for_review(
-        campaign_id=campaign_id,
-        campaign_rel=campaign_rel,
-        corpus_root=corpus_root,
-    )
+    if summary is None:
+        if overlay is not None:
+            raise ValueError(
+                "summary must be provided when overlay is preloaded for enrichment"
+            )
+        overlay, summary = load_authored_overlay_for_review(
+            campaign_id=campaign_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+    # When summary is provided, this is the verified/preloaded path: overlay may be
+    # None (missing or schema-invalid at capture time) and must not be re-read.
     enriched, overlay_summary = apply_authored_overlay_to_graph_review_projection(
         projection,
         overlay,

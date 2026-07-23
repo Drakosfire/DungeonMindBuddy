@@ -692,10 +692,14 @@ def ensure_graph_ingest_projection_payload(
 
     if not manifest_path:
         return None
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        load_authored_overlay_bundle,
+    )
     from apps.live_control_server.services.union_supergraph_projection_adapter import (
         build_projection_payload_from_verified_snapshot,
-        current_authored_overlay_sha256,
     )
+    from dataclasses import replace
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
     from graph_memory.ingestion.graph_ingest_run_lock import (
         graph_ingest_manifest_mutation_lock,
         manifest_content_token,
@@ -715,18 +719,38 @@ def ensure_graph_ingest_projection_payload(
         if not isinstance(peek, dict):
             raise ValueError("graph-ingest manifest payload must be an object")
         campaign_id = str(peek.get("campaign_id") or "").strip()
-        overlay_digest = (
-            current_authored_overlay_sha256(campaign_id=campaign_id) if campaign_id else None
-        )
+        overlay = None
+        overlay_summary = None
+        overlay_digest = None
+        if campaign_id:
+            overlay, overlay_summary, overlay_digest = load_authored_overlay_bundle(
+                campaign_id=campaign_id,
+            )
         snapshot = load_verified_projection_ready_snapshot(
             repo,
             manifest_full,
             session_id=session_id,
             authored_overlay_sha256=overlay_digest,
         )
+        # Always attach the bundle result (including missing-overlay summary) so
+        # enrichment never re-reads disk on the manifest-backed path.
+        if campaign_id:
+            snapshot = replace(
+                snapshot,
+                authored_overlay=overlay,
+                authored_overlay_summary=overlay_summary,
+            )
         if snapshot.manifest_sha256 != token_t0:
             raise ValueError(
                 "graph-ingest manifest changed during verified snapshot load"
+            )
+
+        contract_overlay_digest = normalize_content_digest(
+            snapshot.dependency_contract.authored_overlay_sha256
+        )
+        if contract_overlay_digest and overlay_digest != contract_overlay_digest:
+            raise ValueError(
+                "authored overlay bytes changed after dependency contract capture"
             )
 
         reusable = load_reusable_projection_from_snapshot(snapshot, repo)
