@@ -1,0 +1,26 @@
+{
+  "error": {
+    "code": "validation_failed",
+    "details": {
+      "is_persistence_ready": false,
+      "validation_receipt": {
+        "canonicalizer_version": "statblock-canonicalizer-v1",
+        "definition_digest": "sha256:ffa75f84c36431706a8e3dc3409c0b8371ed1ef403b6dd52704181aa6a88aac1",
+        "issues": [
+          {
+            "code": "UNKNOWN_RESOURCE_REFERENCE",
+            "field_path": "rule_elements[0].costs[0].resource_key",
+            "message": "Unknown local reference 'missing_pool'.",
+            "severity": "error",
+            "suggested_resolution": null
+          }
+        ],
+        "mode": "persistence",
+        "status": "invalid",
+        "validated_at": "2026-01-01T00:00:00Z",
+        "validator_version": "statblock-validator-v1.1"
+      }
+    },
+    "message": "Definition is not persistence-ready"
+  }
+}
