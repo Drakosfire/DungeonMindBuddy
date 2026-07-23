@@ -16,6 +16,8 @@ from graph_memory.ingestion.graph_ingest_run import (
 )
 from graph_memory.ingestion.graph_ingest_validate import (
     FORBIDDEN_DIAGNOSTIC_FLAGS,
+    PREVIEW_UNION_VALIDATION_REPORT_SCHEMA,
+    PREVIEW_UNION_VALIDATION_REPORT_VERSION,
     validate_graph_ingest_run_manifest,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphStore
@@ -25,10 +27,6 @@ from graph_memory.union_supergraph.preview_import import (
     build_preview_union_supergraph,
 )
 
-PREVIEW_UNION_VALIDATION_REPORT_SCHEMA = (
-    "dmb_preview_union_supergraph_validation_report_v0"
-)
-PREVIEW_UNION_VALIDATION_REPORT_VERSION = "0.1"
 _ALLOWED_SOURCE_STATUSES = {GraphIngestRunStatus.CANDIDATE_VALIDATION_READY}
 
 

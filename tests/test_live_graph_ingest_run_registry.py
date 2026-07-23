@@ -1343,8 +1343,15 @@ def test_known_entity_sidecar_digest_invalidates_cached_projection(
         if int(span["start_line"]) <= 3 and int(span["end_line"]) >= 4
     )
     span_ref = body_span["source_span_id"]
+    recap_path = tmp_path / manifest["source"]["normalized_recap_path"]
+    recap_lines = recap_path.read_text(encoding="utf-8").splitlines()
+    paragraph = "\n".join(
+        recap_lines[int(body_span["start_line"]) - 1 : int(body_span["end_line"])]
+    )
 
     def _write_sidecar(*, surface: str, digest_into_manifest: bool = True) -> str:
+        start = paragraph.index(surface)
+        end = start + len(surface)
         sidecar = {
             "schema": "dmb_known_entity_mention_sidecar_v0",
             "version": "0.1",
@@ -1353,8 +1360,8 @@ def test_known_entity_sidecar_digest_invalidates_cached_projection(
             "mentions": [
                 {
                     "source_span_ref_id": span_ref,
-                    "start_offset": 0,
-                    "end_offset": len(surface),
+                    "start_offset": start,
+                    "end_offset": end,
                     "surface_text": surface,
                     "canonical_entity_id": "character_mira",
                     "entity_slug": "mira",
@@ -1826,6 +1833,238 @@ def test_mutated_preview_union_store_with_stale_sha_rejects_projection(
             session_id="session-24",
             graph_run_manifest_path=old_result.manifest_path,
         )
+
+
+def test_restamped_union_store_invalidates_projection_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Changing the union store with fully restamped digests must not reuse P1."""
+    import hashlib
+
+    import apps.live_control_server.services.recap_graph_preview_ingest as ingest_service
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/restamped_union_cache"
+    )
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    first = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert first is not None
+    first_payload = json.loads(first.read_text(encoding="utf-8"))
+    first_sha = hashlib.sha256(first.read_bytes()).hexdigest()
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    store_path = tmp_path / manifest["artifacts"]["preview_union_store"]["uri"]
+    store = json.loads(store_path.read_text(encoding="utf-8"))
+    # Mutate an existing projectable node so the store remains schema-valid.
+    mira = store["nodes"]["character_mira"]
+    mira["label"] = "RESTAMPED_MIRA"
+    store_path.write_text(json.dumps(store, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    store_digest = hashlib.sha256(store_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["preview_union_store"]["sha256"] = f"sha256:{store_digest}"
+
+    report_uri = manifest["artifacts"]["preview_union_validation_report"]["uri"]
+    report_path = tmp_path / report_uri
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["preview_union_store_sha256"] = f"sha256:{store_digest}"
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_digest = hashlib.sha256(report_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["preview_union_validation_report"]["sha256"] = (
+        f"sha256:{report_digest}"
+    )
+    # Leave projection P1 and its SHA unchanged; sidecar unchanged.
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    rebuilt = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert rebuilt is not None
+    rebuilt_sha = hashlib.sha256(rebuilt.read_bytes()).hexdigest()
+    assert rebuilt_sha != first_sha
+    rebuilt_payload = json.loads(rebuilt.read_text(encoding="utf-8"))
+    assert rebuilt_payload.get("projection_depends_on", {}).get(
+        "preview_union_store_sha256"
+    ) == f"sha256:{store_digest}"
+    assert first_payload.get("projection_depends_on", {}).get(
+        "preview_union_store_sha256"
+    ) != f"sha256:{store_digest}"
+    mira_view = rebuilt_payload.get("node_views", {}).get("character_mira") or {}
+    assert mira_view.get("label") == "RESTAMPED_MIRA"
+
+def test_requested_session_mismatch_rejects_manifest_projection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services.union_supergraph_projection_adapter import (
+        build_plan_union_supergraph_projection,
+    )
+
+    old_result = _materialized_projection_ready_run(
+        tmp_path, monkeypatch, "out/graph_memory/runs/session_mismatch"
+    )
+    with pytest.raises(ValueError, match="session_id|does not match"):
+        build_plan_union_supergraph_projection(
+            session_id="session-99",
+            graph_run_manifest_path=old_result.manifest_path,
+        )
+
+
+def test_candidate_validation_report_requires_valid_true(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hashlib
+
+    from graph_memory.ingestion.graph_ingest_validate import validate_manifest_candidate_graph
+
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/invalid_candidate_report",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    candidate_path = tmp_path / manifest["artifacts"]["candidate_graph"]["uri"]
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["candidate_nodes"] = list(candidate.get("candidate_nodes") or []) + [
+        {"id": "node:c2", "kind": "character", "label": "C2", "evidence_refs": []}
+    ]
+    candidate_path.write_text(
+        json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    candidate_digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["candidate_graph"]["sha256"] = f"sha256:{candidate_digest}"
+
+    report_path = tmp_path / manifest["artifacts"]["candidate_validation_report"]["uri"]
+    report_path.write_text(
+        json.dumps(
+            {
+                "candidate_graph_sha256": f"sha256:{candidate_digest}",
+                "valid": False,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report_digest = hashlib.sha256(report_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["candidate_validation_report"]["sha256"] = (
+        f"sha256:{report_digest}"
+    )
+
+    errors = validate_manifest_candidate_graph(tmp_path, manifest)
+    assert any("valid must be true" in error for error in errors)
+    assert any("schema" in error for error in errors)
+
+
+def test_known_entity_mention_foreign_span_and_surface_mismatch_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hashlib
+
+    from graph_memory.ingestion.graph_ingest_validate import (
+        validate_manifest_known_entity_mentions,
+    )
+
+    old_result, _source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/mention_span_semantics",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    known_path = tmp_path / manifest["artifacts"]["known_entity_mentions"]["uri"]
+    span_index = json.loads(
+        (tmp_path / manifest["artifacts"]["source_span_index"]["uri"]).read_text(
+            encoding="utf-8"
+        )
+    )
+    body_span = next(
+        span
+        for span in span_index["spans"]
+        if int(span["start_line"]) <= 3 and int(span["end_line"]) >= 4
+    )
+    recap_lines = (
+        tmp_path / manifest["source"]["normalized_recap_path"]
+    ).read_text(encoding="utf-8").splitlines()
+    paragraph = "\n".join(
+        recap_lines[int(body_span["start_line"]) - 1 : int(body_span["end_line"])]
+    )
+    surface = "Longmont"
+    start = paragraph.index(surface)
+    end = start + len(surface)
+
+    foreign = {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "session_id": "session-24",
+        "mentions": [
+            {
+                "source_span_ref_id": "span:foreign:not-real",
+                "start_offset": start,
+                "end_offset": end,
+                "surface_text": surface,
+                "canonical_entity_id": "character_mira",
+                "entity_slug": "mira",
+                "entity_kind": "pc",
+                "match_method": "canonical",
+                "display_name": surface,
+            }
+        ],
+        "ambiguous_surfaces": [],
+    }
+    known_path.write_text(json.dumps(foreign, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest["artifacts"]["known_entity_mentions"]["sha256"] = (
+        f"sha256:{hashlib.sha256(known_path.read_bytes()).hexdigest()}"
+    )
+    errors = validate_manifest_known_entity_mentions(tmp_path, manifest)
+    assert any("not in SourceSpanIndex" in error for error in errors)
+
+    mismatch = {
+        **foreign,
+        "mentions": [
+            {
+                **foreign["mentions"][0],
+                "source_span_ref_id": body_span["source_span_id"],
+                "surface_text": "NOT_IN_PARAGRAPH",
+                "end_offset": start + len("NOT_IN_PARAGRAPH"),
+            }
+        ],
+    }
+    known_path.write_text(
+        json.dumps(mismatch, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    manifest["artifacts"]["known_entity_mentions"]["sha256"] = (
+        f"sha256:{hashlib.sha256(known_path.read_bytes()).hexdigest()}"
+    )
+    errors = validate_manifest_known_entity_mentions(tmp_path, manifest)
+    assert any("surface_text does not match" in error for error in errors)
+
+    oob = {
+        **foreign,
+        "mentions": [
+            {
+                **foreign["mentions"][0],
+                "source_span_ref_id": body_span["source_span_id"],
+                "start_offset": 0,
+                "end_offset": len(paragraph) + 5,
+                "surface_text": paragraph + "XXXXX",
+            }
+        ],
+    }
+    known_path.write_text(json.dumps(oob, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest["artifacts"]["known_entity_mentions"]["sha256"] = (
+        f"sha256:{hashlib.sha256(known_path.read_bytes()).hexdigest()}"
+    )
+    errors = validate_manifest_known_entity_mentions(tmp_path, manifest)
+    assert any("exceed paragraph length" in error for error in errors)
 
 
 def test_manifest_source_match_requires_full_digest_not_artifact_id_prefix(

@@ -694,12 +694,15 @@ def ensure_graph_ingest_projection_payload(
         return None
     from apps.live_control_server.services.union_supergraph_projection_adapter import (
         build_plan_union_supergraph_projection_payload,
+        current_authored_overlay_sha256,
     )
     from graph_memory.ingestion.graph_ingest_validate import (
         assert_manifest_backed_projection_evidence,
+        assert_requested_session_matches_manifest,
         known_entity_mentions_digest,
         load_reusable_projection_payload,
         load_verified_known_entity_mentions,
+        projection_build_dependencies,
     )
 
     repo = repo_root.resolve()
@@ -708,6 +711,7 @@ def ensure_graph_ingest_projection_payload(
     artifacts = payload_data.get("artifacts") if isinstance(payload_data.get("artifacts"), dict) else {}
 
     assert_manifest_backed_projection_evidence(repo, payload_data)
+    assert_requested_session_matches_manifest(payload_data, session_id=session_id)
 
     # Declared-but-invalid sidecars must fail closed — never rebuild as "no sidecar".
     verified_sidecar = load_verified_known_entity_mentions(repo, payload_data)
@@ -717,8 +721,17 @@ def ensure_graph_ingest_projection_payload(
         else None
     )
     has_known_entity = sidecar_digest is not None
+    campaign_id = str(payload_data.get("campaign_id") or "").strip()
+    overlay_digest = (
+        current_authored_overlay_sha256(campaign_id=campaign_id) if campaign_id else None
+    )
 
-    reusable = load_reusable_projection_payload(repo, payload_data)
+    reusable = load_reusable_projection_payload(
+        repo,
+        payload_data,
+        authored_overlay_sha256=overlay_digest,
+        requested_session_id=session_id,
+    )
     if reusable is not None:
         existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
         if isinstance(existing, dict):
@@ -732,11 +745,22 @@ def ensure_graph_ingest_projection_payload(
         session_id=session_id,
         graph_run_manifest_path=manifest_full,
     )
+    depends_on = projection_build_dependencies(
+        repo,
+        payload_data,
+        authored_overlay_sha256=overlay_digest,
+    )
     if has_known_entity and isinstance(projection_payload, dict):
         projection_payload = {
             **projection_payload,
             "known_entity_mentions_contract": True,
             "known_entity_mentions_sha256": f"sha256:{sidecar_digest}",
+            "projection_depends_on": depends_on,
+        }
+    elif isinstance(projection_payload, dict):
+        projection_payload = {
+            **projection_payload,
+            "projection_depends_on": depends_on,
         }
     projection_path = manifest_full.parent / "projection_payload.json"
     projection_path.write_text(
@@ -751,11 +775,7 @@ def ensure_graph_ingest_projection_payload(
         "exists": True,
         "preview_only": True,
         "sha256": f"sha256:{hashlib.sha256(projection_path.read_bytes()).hexdigest()}",
-        "depends_on": (
-            {"known_entity_mentions_sha256": f"sha256:{sidecar_digest}"}
-            if sidecar_digest
-            else {}
-        ),
+        "depends_on": depends_on,
     }
     payload_data["artifacts"] = artifacts
     manifest_full.write_text(json.dumps(payload_data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -1159,7 +1179,9 @@ def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -
         return False
     if not isinstance(payload, dict):
         return False
-    return not validate_manifest_known_entity_mentions(repo, payload)
+    return not validate_manifest_known_entity_mentions(
+        repo, payload, require_source_linkage=False
+    )
 
 
 def _manifest_has_usable_source_span_linkage(repo: Path, manifest_path: str | None) -> bool:

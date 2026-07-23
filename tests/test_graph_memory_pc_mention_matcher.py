@@ -606,6 +606,7 @@ def test_projection_unique_in_paragraph_surface_still_chips() -> None:
 
 def test_pipeline_artifact_roundtrip_feeds_live_projection() -> None:
     """Registry match → sidecar artifact → projection adapter path."""
+    import hashlib
     import json
     import shutil
     from pathlib import Path
@@ -614,14 +615,19 @@ def test_pipeline_artifact_roundtrip_feeds_live_projection() -> None:
     from apps.live_control_server.services.union_supergraph_projection_adapter import (
         _load_manifest_known_entity_mentions,
     )
+    from graph_memory.source_span import (
+        build_source_span_index_for_text,
+        source_span_index_to_dict,
+    )
 
     registry = build_known_entity_registry("longmont-c2", 22)
+    recap_text = "Caelynn opened the door."
     spans = [
         {
             "kind": "paragraph",
             "span_id": "span:p1",
             "source_span_ref_id": "span:p1",
-            "text": "Caelynn opened the door.",
+            "text": recap_text,
         }
     ]
     sidecar = match_known_entities_in_spans(spans, registry, session_id="session-22")
@@ -631,20 +637,60 @@ def test_pipeline_artifact_roundtrip_feeds_live_projection() -> None:
     out = root / "evals" / "graph_memory_layer" / "artifacts" / "_tmp_known_entity_repair_test"
     out.mkdir(parents=True, exist_ok=True)
     try:
+        recap_path = out / "normalized_recap.md"
+        recap_path.write_text(recap_text + "\n", encoding="utf-8")
+        recap_digest = hashlib.sha256(recap_path.read_bytes()).hexdigest()
+        source_artifact_id = f"artifact:recap:longmont-c2:session-22:{recap_digest[:16]}"
+        index = build_source_span_index_for_text(
+            source_artifact_id=source_artifact_id,
+            content_sha256=recap_digest,
+            text=recap_text + "\n",
+        )
+        index_payload = source_span_index_to_dict(index)
+        # Remap matcher span ids onto the canonical SourceSpanIndex ids.
+        canonical_span_id = index.spans[0].source_span_id
+        remapped_mentions = []
+        for mention in sidecar.mentions:
+            row = mention.to_dict()
+            row["source_span_ref_id"] = canonical_span_id
+            remapped_mentions.append(row)
+        sidecar_payload = sidecar.to_dict()
+        sidecar_payload["campaign_id"] = "longmont-c2"
+        sidecar_payload["session_id"] = "session-22"
+        sidecar_payload["mentions"] = remapped_mentions
+
+        span_path = out / "source_span_index.json"
+        span_path.write_text(json.dumps(index_payload), encoding="utf-8")
         sidecar_path = out / "known_entity_mentions.json"
-        sidecar_path.write_text(json.dumps(sidecar.to_dict()), encoding="utf-8")
+        sidecar_path.write_text(json.dumps(sidecar_payload), encoding="utf-8")
+        sidecar_digest = hashlib.sha256(sidecar_path.read_bytes()).hexdigest()
+        span_digest = hashlib.sha256(span_path.read_bytes()).hexdigest()
         manifest_path = out / "graph_ingest_run_manifest.json"
-        rel_uri = sidecar_path.relative_to(root).as_posix()
         manifest_path.write_text(
             json.dumps(
                 {
                     "schema": "dmb_graph_ingest_run_manifest_v0",
+                    "campaign_id": "longmont-c2",
+                    "session_id": "session-22",
+                    "source": {
+                        "source_artifact_id": source_artifact_id,
+                        "normalized_recap_path": recap_path.relative_to(root).as_posix(),
+                        "normalized_recap_sha256": f"sha256:{recap_digest}",
+                        "source_span_index_uri": span_path.relative_to(root).as_posix(),
+                    },
                     "artifacts": {
+                        "source_span_index": {
+                            "kind": "source_span_index",
+                            "uri": span_path.relative_to(root).as_posix(),
+                            "sha256": f"sha256:{span_digest}",
+                            "exists": True,
+                        },
                         "known_entity_mentions": {
                             "kind": "known_entity_mentions",
-                            "uri": rel_uri,
+                            "uri": sidecar_path.relative_to(root).as_posix(),
+                            "sha256": f"sha256:{sidecar_digest}",
                             "exists": True,
-                        }
+                        },
                     },
                 }
             ),
@@ -657,8 +703,8 @@ def test_pipeline_artifact_roundtrip_feeds_live_projection() -> None:
         projection = build_recap_graph_projection(
             _store_with_pc(),
             session_id="session-22",
-            markdown="Caelynn opened the door.",
-            paragraph_text_by_span_id={"span:p1": "Caelynn opened the door."},
+            markdown=recap_text,
+            paragraph_text_by_span_id={canonical_span_id: recap_text},
             known_entity_mentions=loaded,
         )
         assert "[Caelynn](dmb-node:node:caelynn)" in (projection.markdown or "")

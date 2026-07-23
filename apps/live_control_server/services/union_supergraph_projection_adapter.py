@@ -67,8 +67,13 @@ def build_plan_union_supergraph_projection(
         store = load_preview_union_store(preview_union_store_path)
     elif graph_run_manifest_path is not None:
         _assert_manifest_backed_projection_evidence(graph_run_manifest_path)
+        _assert_requested_session_matches_manifest(
+            graph_run_manifest_path, session_id=session_id
+        )
         known_entity_mentions = _load_manifest_known_entity_mentions(graph_run_manifest_path)
-        persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
+        persisted = _load_projection_payload_from_manifest(
+            graph_run_manifest_path, session_id=session_id
+        )
         # Digest/contract gating lives in _load_projection_payload_from_manifest so a
         # stale cached projection cannot become the "rebuild" input.
         if persisted is not None:
@@ -119,6 +124,21 @@ def _assert_manifest_backed_projection_evidence(graph_run_manifest_path: Path) -
     assert_manifest_backed_projection_evidence(root, payload)
 
 
+def _assert_requested_session_matches_manifest(
+    graph_run_manifest_path: Path, *, session_id: str
+) -> None:
+    from graph_memory.ingestion.graph_ingest_validate import (
+        assert_requested_session_matches_manifest,
+    )
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("graph-ingest manifest payload must be an object")
+    assert_requested_session_matches_manifest(payload, session_id=session_id)
+
+
 def _load_verified_source_span_rows(
     graph_run_manifest_path: Path,
 ) -> list[dict[str, Any]]:
@@ -136,7 +156,38 @@ def _load_verified_source_span_rows(
     return [asdict(span) for span in index.spans]
 
 
-def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dict[str, Any] | None:
+def current_authored_overlay_sha256(
+    *,
+    campaign_id: str,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+) -> str | None:
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        load_authored_overlay_for_review,
+    )
+
+    _overlay, summary = load_authored_overlay_for_review(
+        campaign_id=campaign_id,
+        campaign_rel=campaign_rel,
+        corpus_root=corpus_root,
+    )
+    if not summary.loaded or not summary.overlay_path:
+        return None
+    overlay_path = Path(summary.overlay_path)
+    if not overlay_path.is_file():
+        return None
+    import hashlib
+
+    return hashlib.sha256(overlay_path.read_bytes()).hexdigest()
+
+
+def _load_projection_payload_from_manifest(
+    graph_run_manifest_path: Path,
+    *,
+    session_id: str | None = None,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+) -> dict[str, Any] | None:
     from graph_memory.ingestion.graph_ingest_validate import load_reusable_projection_payload
 
     root = repo_root().resolve()
@@ -144,7 +195,20 @@ def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dic
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         return None
-    return load_reusable_projection_payload(root, payload)
+    campaign_id = str(payload.get("campaign_id") or "").strip()
+    overlay_digest = None
+    if campaign_id:
+        overlay_digest = current_authored_overlay_sha256(
+            campaign_id=campaign_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+    return load_reusable_projection_payload(
+        root,
+        payload,
+        authored_overlay_sha256=overlay_digest,
+        requested_session_id=session_id,
+    )
 
 
 def _load_verified_manifest_recap_text(graph_run_manifest_path: Path) -> str:

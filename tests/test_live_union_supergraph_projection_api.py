@@ -209,6 +209,23 @@ def test_api_returns_projection_from_graph_run_manifest_path(
     assert "character_mira" in payload["node_views"]
 
 
+def test_api_rejects_session_mismatch_for_graph_run_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _preview_union_ready_run(tmp_path, monkeypatch)
+
+    response = _client().get(
+        "/api/live/graph-preview/union-supergraph/projection",
+        params={
+            "session_id": "session-99",
+            "graph_run_manifest_path": str(result.manifest_path),
+        },
+    )
+
+    assert response.status_code == 400
+    assert "session_id" in response.json()["detail"]
+
+
 def test_api_preserves_preview_source_fallback() -> None:
     response = _client().get(
         "/api/live/graph-preview/union-supergraph/projection",

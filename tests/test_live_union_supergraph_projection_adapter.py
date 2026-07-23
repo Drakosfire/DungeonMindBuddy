@@ -401,12 +401,18 @@ def _stamp_reusable_projection_payload(
 ) -> None:
     import hashlib
 
+    from graph_memory.ingestion.graph_ingest_validate import projection_build_dependencies
+
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     known = manifest["artifacts"]["known_entity_mentions"]
+    depends_on = projection_build_dependencies(tmp_path, manifest)
     projection_payload = {
         **projection_payload,
         "known_entity_mentions_contract": True,
         "known_entity_mentions_sha256": known["sha256"],
+        "projection_depends_on": depends_on,
+        "session_id": projection_payload.get("session_id") or manifest["session_id"],
+        "campaign_id": projection_payload.get("campaign_id") or manifest["campaign_id"],
     }
     projection_path = result.manifest_path.parent / "projection_payload.json"
     projection_path.write_text(
@@ -421,6 +427,7 @@ def _stamp_reusable_projection_payload(
         "exists": True,
         "preview_only": True,
         "sha256": digest,
+        "depends_on": depends_on,
     }
     result.manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
