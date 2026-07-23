@@ -452,35 +452,30 @@ def generate_candidate_from_draft(
             client=client,
         )
 
-    if claim_status == "pending":
-        return _failure(
-            draft_id=draft.draft_id,
-            draft_version=source_version,
-            request_id=request_id,
-            category="generation_incomplete",
-            message="generation request is already claimed without a durable candidate",
-        )
-
-    if claim_status == "abandoned":
-        # Expired pending is terminal: the provider is non-idempotent and may
-        # already have succeeded without a durable locator binding.
-        return _failure(
-            draft_id=draft.draft_id,
-            draft_version=source_version,
-            request_id=request_id,
-            category="generation_incomplete",
-            message=(
-                "generation request expired without a durable candidate; "
-                "request_id is not retryable"
-            ),
-        )
-
+    # claimed / pending_retry / abandoned_retry: call Server. PR23 makes
+    # generate idempotent, so uncertain timeouts may safely re-POST the same
+    # request_id and recover the original candidate without a second persist.
     active_client = client or DungeonMindStatblockV1Client()
     owns_client = client is None
     try:
         candidate = active_client.generate_candidate(body)
     except StatblockIntegrationError as exc:
-        # Pending claim stays until TTL; expiry abandons without provider retry.
+        if exc.error_code == "generation_in_progress":
+            return _failure(
+                draft_id=draft.draft_id,
+                draft_version=source_version,
+                request_id=request_id,
+                category="generation_incomplete",
+                message=exc.message
+                or "generation request is already in progress downstream",
+            )
+        if exc.error_code == "idempotency_conflict":
+            raise ThreatDraftStoreError(
+                exc.message or "generation idempotency conflict",
+                status_code=409,
+            ) from None
+        # Pending claim remains; retry the same request_id after timeout to
+        # recover via Server completed-replay.
         return _failure(
             draft_id=draft.draft_id,
             draft_version=source_version,

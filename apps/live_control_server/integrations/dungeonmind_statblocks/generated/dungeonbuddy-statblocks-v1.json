@@ -2244,6 +2244,18 @@
             ],
             "title": "Provider Response Id"
           },
+          "request_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Digest"
+          },
           "request_id": {
             "minLength": 1,
             "title": "Request Id",
@@ -5649,6 +5661,26 @@
             },
             "description": "Invalid internal API key"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Idempotency conflict or generation already in progress"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Completed generation points to an expired or TTL-deleted candidate"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5677,7 +5709,7 @@
                 }
               }
             },
-            "description": "Unexpected generation failure (fail-closed unknown outcome)"
+            "description": "Unexpected generation failure, generate-operation integrity failure, or completed generate points to a candidate missing before its declared expiry"
           },
           "503": {
             "content": {
@@ -5806,7 +5838,7 @@
                 }
               }
             },
-            "description": "Unexpected generation failure (fail-closed unknown outcome)"
+            "description": "Unexpected generation failure"
           },
           "503": {
             "content": {

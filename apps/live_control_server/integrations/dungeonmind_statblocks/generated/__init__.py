@@ -11,7 +11,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.generated.mode
 )
 
 OPENAPI_FINGERPRINT = (
-    "sha256:fbe8bd42144e742e6b6274dd5d111ac009c43fc67c1a8a6c76ccac78498378b3"
+    "sha256:75bef3f4d3cffa30532e557fb822fe1d0cb3877a9a46d5b83ff637f3078cd748"
 )
 
 __all__ = [

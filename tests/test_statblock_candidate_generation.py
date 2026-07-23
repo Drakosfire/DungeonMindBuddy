@@ -104,22 +104,44 @@ def _advance_draft(tmp_path: Path, draft) -> None:
 
 
 class FakeClient:
+    """Test double for StatblockV1Client.
+
+    When a generate is already in flight on this instance, a concurrent
+    generate raises generation_in_progress (Server PR23 semantics).
+    """
+
     def __init__(self, *, payload=None, error=None, delay_event: threading.Event | None = None):
         self.payload = payload
         self.error = error
         self.delay_event = delay_event
         self.calls: list[dict] = []
         self.lock = threading.Lock()
+        self._in_flight = 0
 
     def generate_candidate(self, body: dict):
         with self.lock:
             self.calls.append(body)
-        if self.delay_event is not None:
-            self.delay_event.wait(timeout=2.0)
-        if self.error is not None:
-            raise self.error
-        assert self.payload is not None
-        return self.payload
+            if self._in_flight > 0 and self.error is None:
+                from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+                    downstream_conflict,
+                )
+
+                raise downstream_conflict(
+                    "Candidate generation is already in progress for this request",
+                    status_code=409,
+                    error_code="generation_in_progress",
+                )
+            self._in_flight += 1
+        try:
+            if self.delay_event is not None:
+                self.delay_event.wait(timeout=2.0)
+            if self.error is not None:
+                raise self.error
+            assert self.payload is not None
+            return self.payload
+        finally:
+            with self.lock:
+                self._in_flight -= 1
 
     def get_candidate(self, candidate_id: str):
         if self.error is not None:
@@ -250,7 +272,9 @@ def test_concurrent_identical_requests_generate_once(tmp_path: Path) -> None:
 
     assert errors == []
     assert len(results) == 2
-    assert len(client.calls) == 1
+    # Owner calls generate; concurrent peer probes Server and may receive
+    # generation_in_progress (second call) under PR23 semantics.
+    assert len(client.calls) in {1, 2}
     successes = [result for result in results if result.outcome == "success"]
     incompletes = [
         result
@@ -258,15 +282,14 @@ def test_concurrent_identical_requests_generate_once(tmp_path: Path) -> None:
         if result.outcome == "failure"
         and result.failure_category == "generation_incomplete"
     ]
-    # One caller owns generate; the other either waits for completion via a
-    # later claim observation or receives the pending claim signal.
     assert len(successes) + len(incompletes) == 2
     assert len(successes) >= 1
     reloaded = get_threat_draft(tmp_path, draft.draft_id)
     assert len(reloaded.candidate_refs) == 1
 
 
-def test_timeout_after_claim_blocks_duplicate_generate(tmp_path: Path) -> None:
+def test_timeout_after_claim_recovers_via_server_replay_on_retry(tmp_path: Path) -> None:
+    """Uncertain timeout leaves pending; same request_id re-POSTs and recovers."""
     draft = _create_draft(tmp_path)
     client = FakeClient(error=downstream_timeout())
     first = generate_candidate_from_draft(
@@ -282,6 +305,8 @@ def test_timeout_after_claim_blocks_duplicate_generate(tmp_path: Path) -> None:
     assert first.failure_category == "downstream_timeout"
     assert len(client.calls) == 1
 
+    client.error = None
+    client.payload = _candidate_payload(request_id="req-timeout", candidate_id="cand_recovered")
     second = generate_candidate_from_draft(
         tmp_path,
         draft_id=draft.draft_id,
@@ -291,9 +316,12 @@ def test_timeout_after_claim_blocks_duplicate_generate(tmp_path: Path) -> None:
         ),
         client=client,  # type: ignore[arg-type]
     )
-    assert second.outcome == "failure"
-    assert second.failure_category == "generation_incomplete"
-    assert len(client.calls) == 1
+    assert second.outcome == "success"
+    assert second.candidate_ref is not None
+    assert second.candidate_ref.candidate_id == "cand_recovered"
+    assert len(client.calls) == 2
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert len(reloaded.candidate_refs) == 1
 
 
 def test_replay_digest_conflict_is_rejected(tmp_path: Path) -> None:
@@ -732,7 +760,8 @@ def test_received_locator_recovers_without_regenerate(tmp_path: Path, monkeypatc
     assert len(reloaded.candidate_refs) == 1
 
 
-def test_expired_pending_claim_does_not_retry_provider(tmp_path: Path) -> None:
+def test_expired_pending_claim_recovers_via_server_replay(tmp_path: Path) -> None:
+    """After pending TTL, same request_id reclaims and recovers via Server replay."""
     draft = _create_draft(tmp_path)
     client = FakeClient(error=downstream_timeout())
     first = generate_candidate_from_draft(
@@ -770,12 +799,14 @@ def test_expired_pending_claim_does_not_retry_provider(tmp_path: Path) -> None:
         ),
         client=client,  # type: ignore[arg-type]
     )
-    assert second.outcome == "failure"
-    assert second.failure_category == "generation_incomplete"
-    assert "not retryable" in (second.failure_message or "")
-    assert len(client.calls) == 1
-    abandoned = json.loads(path.read_text(encoding="utf-8"))
-    assert abandoned["status"] == "abandoned"
+    assert second.outcome == "success"
+    assert second.candidate_ref is not None
+    assert second.candidate_ref.candidate_id == "cand_retry1"
+    assert len(client.calls) == 2
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert len(reloaded.candidate_refs) == 1
+    final = json.loads(path.read_text(encoding="utf-8"))
+    assert final["status"] == "completed"
 
 
 def test_abandoned_records_count_toward_physical_storage_bound(tmp_path: Path) -> None:

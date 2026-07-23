@@ -31,7 +31,13 @@ LOCK_NAME = ".reconciliation.lock"
 PENDING_TTL = timedelta(minutes=15)
 MAX_RECORDS_PER_DRAFT = 128
 ClaimStatus = Literal["pending", "received", "completed", "abandoned"]
-ClaimOutcome = Literal["claimed", "received", "completed", "pending", "abandoned"]
+ClaimOutcome = Literal[
+    "claimed",
+    "received",
+    "completed",
+    "pending_retry",
+    "abandoned_retry",
+]
 
 
 class GenerationReconciliationError(ValueError):
@@ -408,11 +414,11 @@ def claim_generation_request(
     Reservations are pending/received claims plus completed claims whose
     candidate is not yet present in draft refs — preventing the 63+2 race.
 
-    Expired pending claims are abandoned as a terminal outcome: the same
-    request_id must never call the non-idempotent provider again, because a
-    timeout may already have produced an unobserved successful generation.
-    Abandoned records free active capacity but still consume the physical
-    per-draft storage bound.
+    DungeonMindServer now provides durable generate idempotency (PR23): the
+    same request_id may safely re-call generate after an uncertain timeout and
+    recover the original candidate. Expired/abandoned local claims are
+    therefore reclaimable; live pending claims return pending_retry so the
+    caller can probe Server without allocating a second local slot.
     """
     with _reconciliation_lock(root):
         now = _utc_now()
@@ -439,20 +445,22 @@ def claim_generation_request(
             if existing.status == "received":
                 return "received", existing
             if existing.status == "pending":
-                return "pending", existing
-            # Terminal: expired/abandoned claims are never reclaimed.
-            return "abandoned", existing
+                # Live local claim: allow Server idempotent probe / recovery.
+                return "pending_retry", existing
+            # abandoned: fall through and reclaim after capacity check
 
         usage = _capacity_usage(records, ref_candidate_ids=ref_candidate_ids)
+        # Reclaiming an abandoned record for this request_id replaces that slot;
+        # abandoned records do not count toward candidate-ref capacity.
         if usage >= MAX_CANDIDATE_REFS:
             raise GenerationReconciliationError(
                 "candidate_refs limit exceeded",
                 status_code=422,
             )
 
-        # Physical path count includes abandoned files; never write past the
-        # bound or subsequent listing fails closed and bricks the draft.
-        if len(records) >= MAX_RECORDS_PER_DRAFT:
+        # Physical path count includes abandoned files; never write a *new*
+        # path past the bound. Reclaiming an existing abandoned path is fine.
+        if existing is None and len(records) >= MAX_RECORDS_PER_DRAFT:
             raise GenerationReconciliationError(
                 "generation reconciliation storage bound exceeded",
                 status_code=500,
@@ -469,7 +477,7 @@ def claim_generation_request(
                 status="pending",
                 candidate_id=None,
                 candidate_payload=None,
-                created_at=now_iso,
+                created_at=existing.created_at if existing is not None else now_iso,
                 updated_at=now_iso,
                 claim_expires_at=expires_at,
             )
@@ -478,7 +486,10 @@ def claim_generation_request(
         except ValueError as exc:
             raise GenerationReconciliationError(str(exc), status_code=422) from None
         _write_record_unlocked(root, record)
-        return "claimed", record
+        outcome: ClaimOutcome = (
+            "abandoned_retry" if existing is not None else "claimed"
+        )
+        return outcome, record
 
 
 def record_generation_received(
