@@ -40,8 +40,7 @@ from apps.live_control_server.services.statblock_generation_reconciliation impor
     load_received_candidate,
     read_reconciliation,
     record_generation_received,
-    record_terminal_expired,
-    record_terminal_failure,
+    record_terminal,
     request_digest_for_body,
     update_materialization,
     validate_request_id,
@@ -147,7 +146,19 @@ def _failure(
     request_id: str,
     category: str,
     message: str,
+    persistence_failures: list[PersistenceFailureV1] | None = None,
+    cache_status: Literal[
+        "stored",
+        "missing",
+        "partial_cache",
+        "partial_ref",
+        "partial_reconciliation",
+        "partial_both",
+        "reconciled",
+    ]
+    | None = "missing",
 ) -> GenerateThreatDraftCandidateResponseV1:
+    failures = list(persistence_failures or [])
     return GenerateThreatDraftCandidateResponseV1(
         draft_id=draft_id,
         generated_from_draft_version=draft_version,
@@ -155,8 +166,71 @@ def _failure(
         outcome="failure",
         failure_category=category,
         failure_message=message,
-        cache_status="missing",
+        cache_status=cache_status,
+        persistence_failures=failures,
     )
+
+
+_TERMINAL_FAILURE_CATEGORIES = frozenset(
+    {
+        "downstream_validation_failed",
+        "downstream_authentication_failed",
+        "downstream_invalid_request",
+    }
+)
+_TERMINAL_EXPIRED_CATEGORIES = frozenset({"downstream_expired"})
+
+
+def _http_status_for_integration_error(exc: StatblockIntegrationError) -> int:
+    if exc.status_code is not None:
+        return exc.status_code
+    if exc.category == "downstream_authentication_failed":
+        return 401
+    if exc.category == "downstream_validation_failed":
+        return 422
+    if exc.category == "downstream_expired":
+        return 410
+    if exc.category == "downstream_invalid_request":
+        return 400
+    if exc.error_code == "idempotency_conflict":
+        return 409
+    return 500
+
+
+def _record_terminal_from_server(
+    root: Path,
+    *,
+    draft_id: str,
+    draft_version: int,
+    request_id: str,
+    request_digest: str,
+    outcome: Literal["terminal_failure", "terminal_expired"],
+    terminal_code: str,
+    terminal_message: str,
+    failure_category: str,
+    http_status: int,
+) -> PersistenceFailureV1 | None:
+    """Persist terminal authority. Never swallow journal write failures."""
+    try:
+        record_terminal(
+            root,
+            draft_id=draft_id,
+            draft_version=draft_version,
+            request_id=request_id,
+            request_digest=request_digest,
+            outcome=outcome,
+            terminal_code=terminal_code,
+            terminal_message=terminal_message,
+            failure_category=failure_category,
+            http_status=http_status,
+        )
+    except GenerationReconciliationError as exc:
+        return PersistenceFailureV1(
+            component="reconciliation",
+            category="integrity_failure",
+            message=str(exc),
+        )
+    return None
 
 
 def _map_reconciliation_error(exc: GenerationReconciliationError) -> ThreatDraftStoreError | None:
@@ -426,65 +500,73 @@ def _call_server_generate(
                 or "generation request is already in progress downstream",
             )
         if exc.error_code == "idempotency_conflict":
+            journal_failure: PersistenceFailureV1 | None = None
             if root is not None and request_digest is not None:
-                try:
-                    record_terminal_failure(
-                        root,
-                        draft_id=draft_id,
-                        draft_version=draft_version,
-                        request_id=request_id,
-                        request_digest=request_digest,
-                        terminal_code="idempotency_conflict",
-                        terminal_message=exc.message or "generation idempotency conflict",
-                    )
-                except GenerationReconciliationError:
-                    pass
-            raise ThreatDraftStoreError(
-                exc.message or "generation idempotency conflict",
-                status_code=409,
-            ) from None
-        # Definitive downstream validation / auth refusals become terminal.
-        if exc.category in {
-            "downstream_validation_failed",
-            "downstream_unauthorized",
-            "downstream_forbidden",
-        }:
-            if root is not None and request_digest is not None:
-                try:
-                    record_terminal_failure(
-                        root,
-                        draft_id=draft_id,
-                        draft_version=draft_version,
-                        request_id=request_id,
-                        request_digest=request_digest,
-                        terminal_code=exc.error_code or exc.category,
-                        terminal_message=exc.message or exc.category,
-                    )
-                except GenerationReconciliationError:
-                    pass
-        if exc.category == "downstream_gone" or exc.error_code in {
-            "candidate_expired",
-            "generation_expired",
-        }:
-            if root is not None and request_digest is not None:
-                try:
-                    record_terminal_expired(
-                        root,
-                        draft_id=draft_id,
-                        draft_version=draft_version,
-                        request_id=request_id,
-                        request_digest=request_digest,
-                        terminal_code=exc.error_code or "candidate_expired",
-                        terminal_message=exc.message or "candidate expired",
-                    )
-                except GenerationReconciliationError:
-                    pass
+                journal_failure = _record_terminal_from_server(
+                    root,
+                    draft_id=draft_id,
+                    draft_version=draft_version,
+                    request_id=request_id,
+                    request_digest=request_digest,
+                    outcome="terminal_failure",
+                    terminal_code="idempotency_conflict",
+                    terminal_message=exc.message or "generation idempotency conflict",
+                    failure_category="idempotency_conflict",
+                    http_status=409,
+                )
+            message = exc.message or "generation idempotency conflict"
+            if journal_failure is not None:
+                message = f"{message}; terminal journal write failed: {journal_failure.message}"
+            raise ThreatDraftStoreError(message, status_code=409) from None
+
+        http_status = _http_status_for_integration_error(exc)
+        journal_failure = None
+        if (
+            root is not None
+            and request_digest is not None
+            and exc.category in _TERMINAL_FAILURE_CATEGORIES
+        ):
+            journal_failure = _record_terminal_from_server(
+                root,
+                draft_id=draft_id,
+                draft_version=draft_version,
+                request_id=request_id,
+                request_digest=request_digest,
+                outcome="terminal_failure",
+                terminal_code=exc.error_code or exc.category,
+                terminal_message=exc.message or exc.category,
+                failure_category=exc.category,
+                http_status=http_status,
+            )
+        elif (
+            root is not None
+            and request_digest is not None
+            and (
+                exc.category in _TERMINAL_EXPIRED_CATEGORIES
+                or exc.error_code in {"candidate_expired", "generation_expired"}
+            )
+        ):
+            journal_failure = _record_terminal_from_server(
+                root,
+                draft_id=draft_id,
+                draft_version=draft_version,
+                request_id=request_id,
+                request_digest=request_digest,
+                outcome="terminal_expired",
+                terminal_code=exc.error_code or "candidate_expired",
+                terminal_message=exc.message or "candidate expired",
+                failure_category="downstream_expired",
+                http_status=http_status if http_status == 410 else 410,
+            )
+
+        failures = [journal_failure] if journal_failure is not None else None
         return _failure(
             draft_id=draft_id,
             draft_version=draft_version,
             request_id=request_id,
             category=exc.category,
             message=exc.message,
+            persistence_failures=failures,
         )
     finally:
         if owns_client and isinstance(active_client, DungeonMindStatblockV1Client):
@@ -601,25 +683,31 @@ def _terminal_response(
     if isinstance(entry, GenerationTombstoneV1):
         code = entry.terminal_code or entry.outcome
         message = entry.terminal_message or entry.outcome
-        category = (
-            "downstream_gone"
+        category = entry.failure_category or (
+            "downstream_expired"
             if entry.outcome == "terminal_expired"
             else "downstream_validation_failed"
         )
+        http_status = entry.http_status
     else:
         code = entry.terminal_code or entry.status
         message = entry.terminal_message or entry.status
-        category = (
-            "downstream_gone"
+        category = entry.failure_category or (
+            "downstream_expired"
             if entry.status == "terminal_expired"
             else "downstream_validation_failed"
         )
+        http_status = entry.http_status
+
+    detail = f"{code}: {message}"
+    if http_status == 409:
+        raise ThreatDraftStoreError(detail, status_code=409)
     return _failure(
         draft_id=entry.draft_id,
         draft_version=entry.draft_version,
         request_id=entry.request_id,
         category=category,
-        message=f"{code}: {message}",
+        message=detail,
     )
 
 
@@ -628,64 +716,101 @@ def _candidate_from_tombstone(
     *,
     tombstone: GenerationTombstoneV1,
     client: StatblockV1Client | None,
-) -> GeneratedStatblockCandidateV1 | GenerateThreatDraftCandidateResponseV1:
+) -> tuple[
+    GeneratedStatblockCandidateV1 | GenerateThreatDraftCandidateResponseV1,
+    Literal["stored", "missing"],
+    list[PersistenceFailureV1],
+]:
     if not tombstone.candidate_id:
-        return _failure(
-            draft_id=tombstone.draft_id,
-            draft_version=tombstone.draft_version,
-            request_id=tombstone.request_id,
-            category="integrity_failure",
-            message="tombstone missing candidate_id",
+        return (
+            _failure(
+                draft_id=tombstone.draft_id,
+                draft_version=tombstone.draft_version,
+                request_id=tombstone.request_id,
+                category="integrity_failure",
+                message="tombstone missing candidate_id",
+            ),
+            "missing",
+            [],
         )
     try:
         cached = read_candidate_payload_or_none(root, tombstone.candidate_id)
     except CandidateCacheError as exc:
-        return _failure(
-            draft_id=tombstone.draft_id,
-            draft_version=tombstone.draft_version,
-            request_id=tombstone.request_id,
-            category="integrity_failure",
-            message=str(exc),
-        )
-    if cached is not None:
-        try:
-            _bound_request_id_from_candidate(cached, request_id=tombstone.request_id)
-        except GenerationReconciliationError as exc:
-            return _failure(
+        return (
+            _failure(
                 draft_id=tombstone.draft_id,
                 draft_version=tombstone.draft_version,
                 request_id=tombstone.request_id,
                 category="integrity_failure",
                 message=str(exc),
+            ),
+            "missing",
+            [],
+        )
+    if cached is not None:
+        try:
+            _bound_request_id_from_candidate(cached, request_id=tombstone.request_id)
+        except GenerationReconciliationError as exc:
+            return (
+                _failure(
+                    draft_id=tombstone.draft_id,
+                    draft_version=tombstone.draft_version,
+                    request_id=tombstone.request_id,
+                    category="integrity_failure",
+                    message=str(exc),
+                ),
+                "missing",
+                [],
             )
-        return cached
+        return cached, "stored", []
 
     active_client = client or DungeonMindStatblockV1Client()
     owns_client = client is None
     try:
-        payload = active_client.get_candidate(tombstone.candidate_id)
-        _bound_request_id_from_candidate(payload, request_id=tombstone.request_id)
-        return payload
-    except GenerationReconciliationError as exc:
-        return _failure(
-            draft_id=tombstone.draft_id,
-            draft_version=tombstone.draft_version,
-            request_id=tombstone.request_id,
-            category="integrity_failure",
-            message=str(exc),
-        )
-    except StatblockIntegrationError as exc:
-        return _failure(
-            draft_id=tombstone.draft_id,
-            draft_version=tombstone.draft_version,
-            request_id=tombstone.request_id,
-            category=exc.category,
-            message=exc.message,
-        )
+        try:
+            payload = active_client.get_candidate(tombstone.candidate_id)
+            _bound_request_id_from_candidate(payload, request_id=tombstone.request_id)
+        except GenerationReconciliationError as exc:
+            return (
+                _failure(
+                    draft_id=tombstone.draft_id,
+                    draft_version=tombstone.draft_version,
+                    request_id=tombstone.request_id,
+                    category="integrity_failure",
+                    message=str(exc),
+                ),
+                "missing",
+                [],
+            )
+        except StatblockIntegrationError as exc:
+            return (
+                _failure(
+                    draft_id=tombstone.draft_id,
+                    draft_version=tombstone.draft_version,
+                    request_id=tombstone.request_id,
+                    category=exc.category,
+                    message=exc.message,
+                ),
+                "missing",
+                [],
+            )
     finally:
         if owns_client and isinstance(active_client, DungeonMindStatblockV1Client):
             active_client.close()
 
+    failures: list[PersistenceFailureV1] = []
+    try:
+        store_candidate_payload(root, payload)
+        return payload, "stored", failures
+    except CandidateCacheError as exc:
+        failures.append(
+            PersistenceFailureV1(
+                component="cache",
+                category="cache_failure",
+                message=str(exc),
+            )
+        )
+        return payload, "missing", failures
 
 def _replay_from_authority(
     root: Path,
@@ -703,12 +828,11 @@ def _replay_from_authority(
     if isinstance(entry, GenerationTombstoneV1):
         if entry.outcome in {"terminal_failure", "terminal_expired"}:
             return _terminal_response(entry=entry, request_digest=request_digest)
-        candidate_or_failure = _candidate_from_tombstone(
+        candidate_or_failure, cache_status, failures = _candidate_from_tombstone(
             root, tombstone=entry, client=client
         )
         if isinstance(candidate_or_failure, GenerateThreatDraftCandidateResponseV1):
             return candidate_or_failure
-        # Tombstone already reconciled — return success without regenerating.
         candidate_ref = _candidate_ref_from_payload(
             candidate_or_failure,
             draft_version=entry.draft_version,
@@ -721,7 +845,14 @@ def _replay_from_authority(
             outcome="success",
             candidate_ref=candidate_ref,
             candidate=candidate_or_failure,
-            cache_status="stored",
+            cache_status=cache_status,
+            persistence_failures=failures,
+            failure_category=failures[0].category if failures else None,
+            failure_message=(
+                "; ".join(f"{item.component}:{item.message}" for item in failures)
+                if failures
+                else None
+            ),
         )
 
     if entry.status in {"terminal_failure", "terminal_expired"}:

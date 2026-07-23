@@ -280,6 +280,13 @@ For every candidate-generation request that may have reached DungeonMindServer,
 Buddy retains a valid recovery path, an independently durable candidate locator,
 or authoritative proof the operation is terminal. Storage pressure never destroys
 unresolved evidence.
+
+A request may be replayed after timeout, restart, draft advancement, cache loss,
+ref failure, and compaction. It either resolves to the same candidate, the same
+terminal outcome (same category + HTTP semantics), or an explicit body conflict.
+Every compaction is supported by independent durable evidence; every transition
+preserves storage invariants; capacity exhaustion produces backpressure rather
+than evidence loss.
 ```
 
 ### Authority states
@@ -294,14 +301,50 @@ unresolved evidence.
 
 Materialization (`cache` / `draft_ref`: `missing` \| `stored`/`attached` \| `failed`) is tracked separately and must not demote authority.
 
-### Compaction
+### Authoritative transition table
 
-Full records may be replaced by `dmb_statblock_generation_tombstone_v1` only when:
+| Current | Event | Next | Required evidence | Server call | Response | Compactable |
+|---|---|---|---|---|---|---|
+| (none) | first claim | `dispatched_unknown` | capacity available | no | claim accepted | no |
+| `dispatched_unknown` | timeout / restart | `dispatched_unknown` | stored `request_body` | recovery generate allowed | retryable uncertainty | no |
+| `dispatched_unknown` | generation in progress | `dispatched_unknown` | — | no further generate | `generation_incomplete` | no |
+| `dispatched_unknown` | candidate success | `candidate_received` | Server `candidate_id` + receipt lineage | — | success / partial_* | no |
+| `candidate_received` | cache failure | `candidate_received` | — | no regenerate | `partial_cache` | no |
+| `candidate_received` | ref failure / full refs | `candidate_received` | — | no regenerate | `partial_ref` | no |
+| `candidate_received` | ref attached | `reconciled` | draft ref `(candidate_id, request_id)` | no | success | if lineage proof |
+| `dispatched_unknown` | auth failure | `terminal_failure` | `downstream_authentication_failed` + http_status | no | failure (same category) | if terminal fields complete |
+| `dispatched_unknown` | validation failure | `terminal_failure` | `downstream_validation_failed` + http_status | no | failure (same category) | if terminal fields complete |
+| `dispatched_unknown` | idempotency conflict | `terminal_failure` | `idempotency_conflict` + http 409 | no | HTTP 409 | if terminal fields complete |
+| `dispatched_unknown` | candidate expiry | `terminal_expired` | `downstream_expired` + http 410 | no | failure `downstream_expired` | if terminal fields complete |
+| any durable | same-key same-body replay | unchanged | digest match | no (unless unknown) | identical external result | — |
+| any durable | changed-body reuse | conflict | digest mismatch | **never** | HTTP 409 | — |
+| `reconciled` / terminal | draft advancement | tombstone or full | journal key by source version | no | historical replay | — |
+| op / tombstone bound full | new unique claim | refused | — | no | backpressure | never by deleting unresolved |
 
-1. `reconciled` with draft-ref lineage proof, or
-2. `terminal_failure` / `terminal_expired` with stored terminal proof.
+**Actual integration categories (DungeonMind client):**
+`downstream_authentication_failed`, `downstream_validation_failed`, `downstream_invalid_request`, `downstream_expired`, `downstream_timeout`, `downstream_unavailable`, `downstream_rate_limited`, `downstream_conflict` (`idempotency_conflict` / `generation_in_progress`), `downstream_not_found`.
 
-Tombstones retain `request_digest` for same-key body-conflict (409). Replay never falls through to the current draft-version gate merely because a full record was compacted.
+Retryable uncertainty stays `dispatched_unknown`: timeout, unavailable, rate limited, generation in progress.
+
+Terminal journal-write failure is never swallowed: response carries Server category **and** `persistence_failures` with `component=reconciliation` (or 409 detail notes journal failure for idempotency conflicts).
+
+### Compaction predicate
+
+```text
+compactable(operation, durable_evidence) -> true | false
+
+reconciled:
+  materialization.draft_ref == attached
+  AND candidate_id present
+  AND durable_evidence.ref_entries contains exact (candidate_id, request_id)
+  # ref_entries is None => NOT compactable (fail closed)
+
+terminal_failure | terminal_expired:
+  terminal_code + terminal_message + failure_category + http_status all present
+  # compaction_proof on tombstone = server_terminal
+```
+
+Tombstones retain `request_digest`, `failure_category`, and `http_status` so replay preserves external semantics (including HTTP 409 for idempotency conflicts). Compaction loop maintains a running tombstone count and never writes beyond `MAX_TOMBSTONES_PER_DRAFT`.
 
 ### Capacity
 
@@ -309,20 +352,22 @@ Tombstones retain `request_digest` for same-key body-conflict (409). Replay neve
 - Tombstones: `MAX_TOMBSTONES_PER_DRAFT = 512`
 - Draft refs: 64 (unchanged)
 
-New unique request IDs may be refused under honest backpressure. Unresolved `dispatched_unknown` / unattached `candidate_received` are never deleted to admit new work.
+New unique request IDs may be refused under honest backpressure. Unresolved `dispatched_unknown` / unattached `candidate_received` are never deleted to admit new work. After every allowed transition the journal remains readable and within bounds.
 
 ### Schemas
 
-- Full: `dmb_statblock_generation_operation_v2`
-- Tombstone: `dmb_statblock_generation_tombstone_v1`
+- Full: `dmb_statblock_generation_operation_v2` (includes `failure_category`, `http_status` for terminal)
+- Tombstone: `dmb_statblock_generation_tombstone_v1` (includes `failure_category`, `http_status`, `compaction_proof`)
 - Legacy `dmb_statblock_generation_request_v1` upgrades on read (`pending`/`abandoned` → `dispatched_unknown`, etc.)
+
+Journal API surface: `claim`, `record_candidate`, `record_terminal`, `update_materialization`, `compact`/`_try_compact`, `read`/`replay_lookup`.
 
 Implementation: `apps/live_control_server/services/statblock_generation_reconciliation.py` + orchestrator in `statblock_candidate_generation.py`.
 
 ## Final dispatch check
 
-- [ ] Re-anchor after `SBW01–02` merge.
-- [ ] Capture real Server success and error vocabulary.
-- [ ] Confirm candidate cache is disposable/non-authoritative.
-- [ ] Confirm `SBW04+` remain unimplemented.
-- [ ] Operation-authority durability model (§12) implemented and proven under adversarial transitions.
+- [x] Re-anchor after `SBW01–02` merge.
+- [x] Capture real Server success and error vocabulary.
+- [x] Confirm candidate cache is disposable/non-authoritative.
+- [x] Confirm `SBW04+` remain unimplemented.
+- [x] Operation-authority durability model (§12) implemented and proven under adversarial transitions.

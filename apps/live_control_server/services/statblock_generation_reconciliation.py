@@ -52,6 +52,7 @@ OperationStatus = Literal[
     "terminal_expired",
 ]
 TombstoneOutcome = Literal["reconciled", "terminal_failure", "terminal_expired"]
+CompactionProof = Literal["draft_ref_lineage", "server_terminal"]
 MaterializationState = Literal["missing", "stored", "attached", "failed"]
 ClaimOutcome = Literal[
     "claimed",
@@ -95,6 +96,8 @@ class GenerationOperationV2(BaseModel):
     candidate_payload: dict[str, Any] | None = None
     terminal_code: str | None = None
     terminal_message: str | None = None
+    failure_category: str | None = None
+    http_status: int | None = None
     materialization: MaterializationV2 = Field(default_factory=MaterializationV2)
     created_at: str
     updated_at: str
@@ -115,6 +118,9 @@ class GenerationTombstoneV1(BaseModel):
     candidate_id: str | None = None
     terminal_code: str | None = None
     terminal_message: str | None = None
+    failure_category: str | None = None
+    http_status: int | None = None
+    compaction_proof: CompactionProof
     compacted_at: str
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -288,6 +294,8 @@ def _upgrade_legacy_payload(
         "candidate_payload": payload.get("candidate_payload"),
         "terminal_code": None,
         "terminal_message": None,
+        "failure_category": None,
+        "http_status": None,
         "materialization": materialization.model_dump(mode="json"),
         "created_at": payload.get("created_at"),
         "updated_at": payload.get("updated_at"),
@@ -352,7 +360,12 @@ def _validate_operation(
                 "corrupt generation reconciliation record",
                 status_code=500,
             )
-        if record.terminal_code is not None or record.terminal_message is not None:
+        if (
+            record.terminal_code is not None
+            or record.terminal_message is not None
+            or record.failure_category is not None
+            or record.http_status is not None
+        ):
             raise GenerationReconciliationError(
                 "corrupt generation reconciliation record",
                 status_code=500,
@@ -377,7 +390,12 @@ def _validate_operation(
                 "corrupt generation reconciliation record",
                 status_code=500,
             )
-        if record.terminal_code is not None or record.terminal_message is not None:
+        if (
+            record.terminal_code is not None
+            or record.terminal_message is not None
+            or record.failure_category is not None
+            or record.http_status is not None
+        ):
             raise GenerationReconciliationError(
                 "corrupt generation reconciliation record",
                 status_code=500,
@@ -393,7 +411,12 @@ def _validate_operation(
                 "corrupt generation reconciliation record",
                 status_code=500,
             )
-        if not record.terminal_code or not record.terminal_message:
+        if (
+            not record.terminal_code
+            or not record.terminal_message
+            or not record.failure_category
+            or record.http_status is None
+        ):
             raise GenerationReconciliationError(
                 "corrupt generation reconciliation record",
                 status_code=500,
@@ -432,8 +455,23 @@ def _validate_tombstone(
             validate_candidate_id(tombstone.candidate_id)
         except ValueError as exc:
             raise GenerationReconciliationError(str(exc), status_code=500) from None
+        if tombstone.compaction_proof != "draft_ref_lineage":
+            raise GenerationReconciliationError(
+                "corrupt generation reconciliation tombstone",
+                status_code=500,
+            )
     elif tombstone.outcome in {"terminal_failure", "terminal_expired"}:
-        if not tombstone.terminal_code or not tombstone.terminal_message:
+        if (
+            not tombstone.terminal_code
+            or not tombstone.terminal_message
+            or not tombstone.failure_category
+            or tombstone.http_status is None
+        ):
+            raise GenerationReconciliationError(
+                "corrupt generation reconciliation tombstone",
+                status_code=500,
+            )
+        if tombstone.compaction_proof != "server_terminal":
             raise GenerationReconciliationError(
                 "corrupt generation reconciliation tombstone",
                 status_code=500,
@@ -620,16 +658,12 @@ def _draft_has_ref_lineage(
     candidate_id: str,
     request_id: str,
 ) -> bool:
-    """True when draft refs contain candidate_id (preferably bound to request_id)."""
+    """True only when draft refs contain exact (candidate_id, request_id) lineage."""
     if not ref_entries:
         return False
-    exact = any(
+    return any(
         cid == candidate_id and rid == request_id for cid, rid in ref_entries
     )
-    if exact:
-        return True
-    # Callers that only know candidate ids pass rid="" — treat as presence proof.
-    return any(cid == candidate_id and rid == "" for cid, rid in ref_entries)
 
 
 def _is_compactable(
@@ -637,32 +671,53 @@ def _is_compactable(
     *,
     ref_entries: list[tuple[str, str]] | None,
 ) -> bool:
+    """compactable(op, durable_evidence) — omitted evidence never means trusted."""
     if record.status == "reconciled":
         if record.materialization.draft_ref != "attached" or not record.candidate_id:
             return False
-        # Prefer lineage-matched ref; fall back to candidate presence when
-        # caller only supplied candidate id set via capacity checks.
         if ref_entries is None:
-            return True
+            return False
         return _draft_has_ref_lineage(
             ref_entries=ref_entries,
             candidate_id=record.candidate_id,
             request_id=record.request_id,
         )
     if record.status in {"terminal_failure", "terminal_expired"}:
-        return bool(record.terminal_code and record.terminal_message)
+        return bool(
+            record.terminal_code
+            and record.terminal_message
+            and record.failure_category
+            and record.http_status is not None
+        )
     return False
 
 
 def _compact_operation_unlocked(
-    root: Path, record: GenerationOperationV2
+    root: Path,
+    record: GenerationOperationV2,
+    *,
+    ref_entries: list[tuple[str, str]] | None,
 ) -> GenerationTombstoneV1:
+    if not _is_compactable(record, ref_entries=ref_entries):
+        raise GenerationReconciliationError(
+            "generation operation not compactable",
+            status_code=500,
+        )
+    entries = _list_draft_entries_unlocked(root, draft_id=record.draft_id)
+    if _tombstone_count(entries) >= MAX_TOMBSTONES_PER_DRAFT:
+        raise GenerationReconciliationError(
+            "generation reconciliation tombstone bound exceeded",
+            status_code=500,
+        )
     if record.status == "reconciled":
         outcome: TombstoneOutcome = "reconciled"
+        proof: CompactionProof = "draft_ref_lineage"
     elif record.status == "terminal_failure":
         outcome = "terminal_failure"
+        proof = "server_terminal"
     elif record.status == "terminal_expired":
         outcome = "terminal_expired"
+        proof = "server_terminal"
     else:
         raise GenerationReconciliationError(
             "generation operation not compactable",
@@ -677,14 +732,35 @@ def _compact_operation_unlocked(
         candidate_id=record.candidate_id if outcome == "reconciled" else None,
         terminal_code=record.terminal_code,
         terminal_message=record.terminal_message,
+        failure_category=record.failure_category,
+        http_status=record.http_status,
+        compaction_proof=proof,
         compacted_at=_utc_now_iso(),
     )
-    return _write_tombstone_unlocked(root, _validate_tombstone(
-        tombstone,
-        draft_id=record.draft_id,
-        draft_version=record.draft_version,
-        request_id=record.request_id,
-    ))
+    return _write_tombstone_unlocked(
+        root,
+        _validate_tombstone(
+            tombstone,
+            draft_id=record.draft_id,
+            draft_version=record.draft_version,
+            request_id=record.request_id,
+        ),
+    )
+
+
+def _try_compact_unlocked(
+    root: Path,
+    record: GenerationOperationV2,
+    *,
+    ref_entries: list[tuple[str, str]] | None,
+) -> GenerationOperationV2 | GenerationTombstoneV1:
+    """Compact when eligible and within tombstone capacity; otherwise keep full record."""
+    if not _is_compactable(record, ref_entries=ref_entries):
+        return record
+    entries = _list_draft_entries_unlocked(root, draft_id=record.draft_id)
+    if _tombstone_count(entries) >= MAX_TOMBSTONES_PER_DRAFT:
+        return record
+    return _compact_operation_unlocked(root, record, ref_entries=ref_entries)
 
 
 def _compact_eligible_for_draft_unlocked(
@@ -697,14 +773,16 @@ def _compact_eligible_for_draft_unlocked(
     entries = _list_draft_entries_unlocked(
         root, draft_id=draft_id, ref_candidate_ids=ref_candidate_ids
     )
+    tombstone_n = _tombstone_count(entries)
     for entry in list(entries):
         if not isinstance(entry, GenerationOperationV2):
             continue
         if not _is_compactable(entry, ref_entries=ref_entries):
             continue
-        if _tombstone_count(entries) >= MAX_TOMBSTONES_PER_DRAFT:
+        if tombstone_n >= MAX_TOMBSTONES_PER_DRAFT:
             break
-        _compact_operation_unlocked(root, entry)
+        _compact_operation_unlocked(root, entry, ref_entries=ref_entries)
+        tombstone_n += 1
     return _list_draft_entries_unlocked(
         root, draft_id=draft_id, ref_candidate_ids=ref_candidate_ids
     )
@@ -758,17 +836,15 @@ def claim_generation_request(
             status_code=500,
         )
 
-    lineage_refs = ref_entries
-    if lineage_refs is None:
-        lineage_refs = [(cid, "") for cid in ref_candidate_ids]
-
     with _reconciliation_lock(root):
         now = _utc_now()
+        # Opportunistic compaction requires independent lineage proof when provided.
+        # Never invent empty request_ids — that would fake lineage evidence.
         entries = _compact_eligible_for_draft_unlocked(
             root,
             draft_id=draft_id,
             ref_candidate_ids=ref_candidate_ids,
-            ref_entries=lineage_refs,
+            ref_entries=ref_entries,
         )
 
         existing = _read_entry_unlocked(
@@ -992,11 +1068,8 @@ def update_materialization(
             }
         )
         written = _write_operation_unlocked(root, record)
-        if (
-            compact_if_eligible
-            and _is_compactable(written, ref_entries=ref_entries)
-        ):
-            return _compact_operation_unlocked(root, written)
+        if compact_if_eligible:
+            return _try_compact_unlocked(root, written, ref_entries=ref_entries)
         return written
 
 
@@ -1010,7 +1083,11 @@ def finalize_generation_request(
     candidate_id: str,
     ref_entries: list[tuple[str, str]] | None = None,
 ) -> GenerationOperationV2 | GenerationTombstoneV1:
-    """Mark draft_ref attached (reconciled) after successful ref append."""
+    """Mark draft_ref attached (reconciled) after successful ref append.
+
+    Compaction requires explicit ref_entries lineage proof — omitted evidence
+    never means trusted.
+    """
     safe_candidate_id = validate_candidate_id(candidate_id)
     with _reconciliation_lock(root):
         existing = _read_entry_unlocked(
@@ -1056,8 +1133,92 @@ def finalize_generation_request(
             }
         )
         written = _write_operation_unlocked(root, record)
-        if _is_compactable(written, ref_entries=ref_entries):
-            return _compact_operation_unlocked(root, written)
+        return _try_compact_unlocked(root, written, ref_entries=ref_entries)
+
+
+def record_terminal(
+    root: Path,
+    *,
+    draft_id: str,
+    draft_version: int,
+    request_id: str,
+    request_digest: str,
+    outcome: Literal["terminal_failure", "terminal_expired"],
+    terminal_code: str,
+    terminal_message: str,
+    failure_category: str,
+    http_status: int,
+    candidate_id: str | None = None,
+    compact: bool = True,
+) -> GenerationOperationV2 | GenerationTombstoneV1:
+    """Record an authoritative terminal Server outcome with replay semantics."""
+    if not failure_category or http_status < 100:
+        raise GenerationReconciliationError(
+            "terminal outcome requires failure_category and http_status",
+            status_code=500,
+        )
+    with _reconciliation_lock(root):
+        existing = _read_entry_unlocked(
+            root,
+            draft_id=draft_id,
+            draft_version=draft_version,
+            request_id=request_id,
+            persist_upgrade=True,
+        )
+        if existing is None or isinstance(existing, GenerationTombstoneV1):
+            raise GenerationReconciliationError(
+                "missing generation reconciliation claim",
+                status_code=500,
+            )
+        if existing.request_digest != request_digest:
+            raise GenerationReconciliationError(
+                "generation reconciliation conflict",
+                status_code=409,
+            )
+        if existing.status in {"candidate_received", "reconciled"} and outcome == "terminal_failure":
+            raise GenerationReconciliationError(
+                "generation reconciliation conflict",
+                status_code=409,
+            )
+        if existing.status == "reconciled" and outcome == "terminal_expired":
+            raise GenerationReconciliationError(
+                "generation reconciliation conflict",
+                status_code=409,
+            )
+        if existing.status == outcome:
+            if (
+                existing.terminal_code != terminal_code
+                or existing.terminal_message != terminal_message
+                or existing.failure_category != failure_category
+                or existing.http_status != http_status
+            ):
+                raise GenerationReconciliationError(
+                    "generation reconciliation conflict",
+                    status_code=409,
+                )
+            return existing
+        safe_candidate = (
+            validate_candidate_id(candidate_id)
+            if candidate_id
+            else (existing.candidate_id if outcome == "terminal_expired" else None)
+        )
+        record = existing.model_copy(
+            update={
+                "status": outcome,
+                "candidate_id": safe_candidate if outcome == "terminal_expired" else None,
+                "candidate_payload": None,
+                "claim_expires_at": None,
+                "terminal_code": terminal_code,
+                "terminal_message": terminal_message,
+                "failure_category": failure_category,
+                "http_status": http_status,
+                "updated_at": _utc_now_iso(),
+            }
+        )
+        written = _write_operation_unlocked(root, record)
+        if compact:
+            # Terminal compaction uses server_terminal proof fields on the record.
+            return _try_compact_unlocked(root, written, ref_entries=None)
         return written
 
 
@@ -1070,56 +1231,23 @@ def record_terminal_failure(
     request_digest: str,
     terminal_code: str,
     terminal_message: str,
+    failure_category: str,
+    http_status: int,
     compact: bool = True,
 ) -> GenerationOperationV2 | GenerationTombstoneV1:
-    with _reconciliation_lock(root):
-        existing = _read_entry_unlocked(
-            root,
-            draft_id=draft_id,
-            draft_version=draft_version,
-            request_id=request_id,
-            persist_upgrade=True,
-        )
-        if existing is None or isinstance(existing, GenerationTombstoneV1):
-            raise GenerationReconciliationError(
-                "missing generation reconciliation claim",
-                status_code=500,
-            )
-        if existing.request_digest != request_digest:
-            raise GenerationReconciliationError(
-                "generation reconciliation conflict",
-                status_code=409,
-            )
-        if existing.status in {"candidate_received", "reconciled"}:
-            raise GenerationReconciliationError(
-                "generation reconciliation conflict",
-                status_code=409,
-            )
-        if existing.status == "terminal_failure":
-            if (
-                existing.terminal_code != terminal_code
-                or existing.terminal_message != terminal_message
-            ):
-                raise GenerationReconciliationError(
-                    "generation reconciliation conflict",
-                    status_code=409,
-                )
-            return existing
-        record = existing.model_copy(
-            update={
-                "status": "terminal_failure",
-                "candidate_id": None,
-                "candidate_payload": None,
-                "claim_expires_at": None,
-                "terminal_code": terminal_code,
-                "terminal_message": terminal_message,
-                "updated_at": _utc_now_iso(),
-            }
-        )
-        written = _write_operation_unlocked(root, record)
-        if compact and _is_compactable(written, ref_entries=None):
-            return _compact_operation_unlocked(root, written)
-        return written
+    return record_terminal(
+        root,
+        draft_id=draft_id,
+        draft_version=draft_version,
+        request_id=request_id,
+        request_digest=request_digest,
+        outcome="terminal_failure",
+        terminal_code=terminal_code,
+        terminal_message=terminal_message,
+        failure_category=failure_category,
+        http_status=http_status,
+        compact=compact,
+    )
 
 
 def record_terminal_expired(
@@ -1131,52 +1259,25 @@ def record_terminal_expired(
     request_digest: str,
     terminal_code: str = "candidate_expired",
     terminal_message: str = "candidate expired",
+    failure_category: str = "downstream_expired",
+    http_status: int = 410,
     candidate_id: str | None = None,
     compact: bool = True,
 ) -> GenerationOperationV2 | GenerationTombstoneV1:
-    with _reconciliation_lock(root):
-        existing = _read_entry_unlocked(
-            root,
-            draft_id=draft_id,
-            draft_version=draft_version,
-            request_id=request_id,
-            persist_upgrade=True,
-        )
-        if existing is None or isinstance(existing, GenerationTombstoneV1):
-            raise GenerationReconciliationError(
-                "missing generation reconciliation claim",
-                status_code=500,
-            )
-        if existing.request_digest != request_digest:
-            raise GenerationReconciliationError(
-                "generation reconciliation conflict",
-                status_code=409,
-            )
-        if existing.status == "terminal_expired":
-            return existing
-        if existing.status == "reconciled":
-            raise GenerationReconciliationError(
-                "generation reconciliation conflict",
-                status_code=409,
-            )
-        safe_candidate = (
-            validate_candidate_id(candidate_id) if candidate_id else existing.candidate_id
-        )
-        record = existing.model_copy(
-            update={
-                "status": "terminal_expired",
-                "candidate_id": safe_candidate,
-                "candidate_payload": None,
-                "claim_expires_at": None,
-                "terminal_code": terminal_code,
-                "terminal_message": terminal_message,
-                "updated_at": _utc_now_iso(),
-            }
-        )
-        written = _write_operation_unlocked(root, record)
-        if compact and _is_compactable(written, ref_entries=None):
-            return _compact_operation_unlocked(root, written)
-        return written
+    return record_terminal(
+        root,
+        draft_id=draft_id,
+        draft_version=draft_version,
+        request_id=request_id,
+        request_digest=request_digest,
+        outcome="terminal_expired",
+        terminal_code=terminal_code,
+        terminal_message=terminal_message,
+        failure_category=failure_category,
+        http_status=http_status,
+        candidate_id=candidate_id,
+        compact=compact,
+    )
 
 
 def load_received_candidate(

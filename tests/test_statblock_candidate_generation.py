@@ -115,6 +115,7 @@ class FakeClient:
         self.error = error
         self.delay_event = delay_event
         self.calls: list[dict] = []
+        self.get_calls: list[str] = []
         self.lock = threading.Lock()
         self._in_flight = 0
 
@@ -144,6 +145,7 @@ class FakeClient:
                 self._in_flight -= 1
 
     def get_candidate(self, candidate_id: str):
+        self.get_calls.append(candidate_id)
         if self.error is not None:
             raise self.error
         assert self.payload is not None
@@ -1628,3 +1630,364 @@ def test_capacity_reservation_blocks_second_request_before_provider(
     assert getattr(winner, "outcome", None) == "success"
     assert isinstance(loser, ThreatDraftStoreError)
     assert loser.status_code == 422
+
+
+def test_tombstone_compaction_never_exceeds_bound(tmp_path: Path) -> None:
+    """Compaction updates running tombstone count; never writes an unscannable 513th."""
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    body = map_draft_to_generate_request(draft, request_id="req-seed")
+    digest = rec.request_digest_for_body(body)
+
+    # Seed MAX_TOMBSTONES - 1 terminal tombstones.
+    for index in range(rec.MAX_TOMBSTONES_PER_DRAFT - 1):
+        path = rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=f"req-tomb-{index}",
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                rec.GenerationTombstoneV1(
+                    draft_id=draft.draft_id,
+                    draft_version=1,
+                    request_id=f"req-tomb-{index}",
+                    request_digest=digest,
+                    outcome="terminal_failure",
+                    terminal_code="downstream_validation_failed",
+                    terminal_message="seed",
+                    failure_category="downstream_validation_failed",
+                    http_status=422,
+                    compaction_proof="server_terminal",
+                    compacted_at="2026-01-01T00:00:00Z",
+                ).model_dump(mode="json", by_alias=True)
+            ),
+            encoding="utf-8",
+        )
+
+    # Two eligible terminal full operations that would exceed the bound if counted stale.
+    for index in range(2):
+        req_id = f"req-eligible-{index}"
+        op_body = map_draft_to_generate_request(draft, request_id=req_id)
+        path = rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id=req_id,
+        )
+        path.write_text(
+            json.dumps(
+                rec.GenerationOperationV2(
+                    draft_id=draft.draft_id,
+                    draft_version=1,
+                    request_id=req_id,
+                    request_digest=rec.request_digest_for_body(op_body),
+                    request_body=op_body,
+                    status="terminal_failure",
+                    terminal_code="downstream_validation_failed",
+                    terminal_message="eligible",
+                    failure_category="downstream_validation_failed",
+                    http_status=422,
+                    created_at="2026-01-01T00:00:00Z",
+                    updated_at="2026-01-01T00:00:00Z",
+                ).model_dump(mode="json", by_alias=True)
+            ),
+            encoding="utf-8",
+        )
+
+    entries = rec._compact_eligible_for_draft_unlocked(
+        tmp_path,
+        draft_id=draft.draft_id,
+        ref_candidate_ids=set(),
+        ref_entries=None,
+    )
+    tombstones = [e for e in entries if isinstance(e, rec.GenerationTombstoneV1)]
+    operations = [e for e in entries if isinstance(e, rec.GenerationOperationV2)]
+    assert len(tombstones) <= rec.MAX_TOMBSTONES_PER_DRAFT
+    assert len(tombstones) == rec.MAX_TOMBSTONES_PER_DRAFT
+    assert len(operations) == 1  # one eligible left uncompacted
+    # Store remains scannable (list does not raise).
+    listed = rec._list_draft_entries_unlocked(tmp_path, draft_id=draft.draft_id)
+    assert len(listed) == rec.MAX_TOMBSTONES_PER_DRAFT + 1
+
+
+def test_finalize_without_ref_entries_does_not_compact(tmp_path: Path) -> None:
+    """Omitted lineage evidence must not authorize reconciled compaction."""
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    payload = _candidate_payload(request_id="req-noproof", candidate_id="cand_noproof")
+    body = map_draft_to_generate_request(draft, request_id="req-noproof")
+    digest = rec.request_digest_for_body(body)
+    rec.claim_generation_request(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-noproof",
+        request_digest=digest,
+        request_body=body,
+        ref_candidate_ids=set(),
+    )
+    rec.record_candidate_received(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-noproof",
+        request_digest=digest,
+        candidate=payload,
+    )
+    # Attach draft ref externally so materialization can become reconciled.
+    append_candidate_ref(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_version=1,
+        candidate_ref=ThreatDraftCandidateRefV1(
+            candidate_id="cand_noproof",
+            generated_from_draft_version=1,
+            request_id="req-noproof",
+            created_at="2026-01-01T00:00:00Z",
+        ),
+    )
+    result = rec.finalize_generation_request(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-noproof",
+        request_digest=digest,
+        candidate_id="cand_noproof",
+        # intentionally omit ref_entries
+    )
+    assert isinstance(result, rec.GenerationOperationV2)
+    assert result.status == "reconciled"
+    stored = json.loads(
+        rec._record_path(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=1,
+            request_id="req-noproof",
+        ).read_text(encoding="utf-8")
+    )
+    assert stored["schema"] == rec.OPERATION_SCHEMA
+
+
+def test_terminal_auth_and_expiry_use_real_categories_and_replay(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_authentication_failed,
+        downstream_validation_failed,
+    )
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+
+    auth_client = FakeClient(
+        error=downstream_authentication_failed(status_code=401)
+    )
+    auth = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-auth",
+        ),
+        client=auth_client,  # type: ignore[arg-type]
+    )
+    assert auth.outcome == "failure"
+    assert auth.failure_category == "downstream_authentication_failed"
+    auth_path = rec._record_path(
+        tmp_path, draft_id=draft.draft_id, draft_version=1, request_id="req-auth"
+    )
+    auth_stored = json.loads(auth_path.read_text(encoding="utf-8"))
+    assert auth_stored["schema"] == rec.TOMBSTONE_SCHEMA
+    assert auth_stored["failure_category"] == "downstream_authentication_failed"
+    assert auth_stored["http_status"] == 401
+    assert auth_stored["compaction_proof"] == "server_terminal"
+
+    auth_replay_client = FakeClient(
+        payload=_candidate_payload(request_id="req-auth")
+    )
+    auth_replay = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-auth",
+        ),
+        client=auth_replay_client,  # type: ignore[arg-type]
+    )
+    assert auth_replay.outcome == "failure"
+    assert auth_replay.failure_category == "downstream_authentication_failed"
+    assert len(auth_replay_client.calls) == 0
+    assert auth_replay_client.get_calls == []
+
+    expired_client = FakeClient(error=downstream_expired(status_code=410))
+    expired = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-exp",
+        ),
+        client=expired_client,  # type: ignore[arg-type]
+    )
+    assert expired.outcome == "failure"
+    assert expired.failure_category == "downstream_expired"
+    exp_stored = json.loads(
+        rec._record_path(
+            tmp_path, draft_id=draft.draft_id, draft_version=1, request_id="req-exp"
+        ).read_text(encoding="utf-8")
+    )
+    assert exp_stored["outcome"] == "terminal_expired"
+    assert exp_stored["failure_category"] == "downstream_expired"
+    assert exp_stored["http_status"] == 410
+
+    expired_replay = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-exp",
+        ),
+        client=FakeClient(error=downstream_validation_failed("should not call")),  # type: ignore[arg-type]
+    )
+    assert expired_replay.outcome == "failure"
+    assert expired_replay.failure_category == "downstream_expired"
+
+
+def test_idempotency_conflict_tombstone_replays_as_http_409(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_conflict,
+    )
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    client = FakeClient(
+        error=downstream_conflict(
+            "idempotency conflict",
+            status_code=409,
+            error_code="idempotency_conflict",
+        )
+    )
+    with pytest.raises(ThreatDraftStoreError) as first:
+        generate_candidate_from_draft(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request=GenerateThreatDraftCandidateRequestV1(
+                expected_draft_version=1,
+                client_request_id="req-idem",
+            ),
+            client=client,  # type: ignore[arg-type]
+        )
+    assert first.value.status_code == 409
+    stored = json.loads(
+        rec._record_path(
+            tmp_path, draft_id=draft.draft_id, draft_version=1, request_id="req-idem"
+        ).read_text(encoding="utf-8")
+    )
+    assert stored["schema"] == rec.TOMBSTONE_SCHEMA
+    assert stored["failure_category"] == "idempotency_conflict"
+    assert stored["http_status"] == 409
+
+    with pytest.raises(ThreatDraftStoreError) as replay:
+        generate_candidate_from_draft(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request=GenerateThreatDraftCandidateRequestV1(
+                expected_draft_version=1,
+                client_request_id="req-idem",
+            ),
+            client=FakeClient(payload=_candidate_payload(request_id="req-idem")),  # type: ignore[arg-type]
+        )
+    assert replay.value.status_code == 409
+
+
+def test_cold_tombstone_replay_reports_cache_truthfully(tmp_path: Path) -> None:
+    """Cache miss + Server GET must not claim cache_status=stored unless written."""
+    from apps.live_control_server.services import statblock_candidate_cache as cache
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    client = FakeClient(
+        payload=_candidate_payload(request_id="req-cold", candidate_id="cand_cold1")
+    )
+    first = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-cold",
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.outcome == "success"
+    assert first.cache_status == "stored"
+    stored = json.loads(
+        rec._record_path(
+            tmp_path, draft_id=draft.draft_id, draft_version=1, request_id="req-cold"
+        ).read_text(encoding="utf-8")
+    )
+    assert stored["schema"] == rec.TOMBSTONE_SCHEMA
+
+    # Evict local cache to force cold tombstone replay.
+    cache_path = cache._candidate_path(tmp_path, "cand_cold1")
+    assert cache_path.is_file()
+    cache_path.unlink()
+
+    cold_client = FakeClient(
+        payload=_candidate_payload(request_id="req-cold", candidate_id="cand_cold1")
+    )
+    replay = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1,
+            client_request_id="req-cold",
+        ),
+        client=cold_client,  # type: ignore[arg-type]
+    )
+    assert replay.outcome == "success"
+    assert len(cold_client.calls) == 0
+    assert cold_client.get_calls == ["cand_cold1"]
+    # Write-through succeeded → stored is truthful; never claim stored without write.
+    assert replay.cache_status == "stored"
+    assert cache_path.is_file()
+
+
+def test_terminal_journal_write_failure_is_not_swallowed(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_validation_failed,
+    )
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    client = FakeClient(
+        error=downstream_validation_failed("refused", status_code=422)
+    )
+
+    def boom(*_args, **_kwargs):
+        raise rec.GenerationReconciliationError("journal unavailable", status_code=500)
+
+    import apps.live_control_server.services.statblock_candidate_generation as gen
+
+    original = gen.record_terminal
+    gen.record_terminal = boom  # type: ignore[assignment]
+    try:
+        result = generate_candidate_from_draft(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request=GenerateThreatDraftCandidateRequestV1(
+                expected_draft_version=1,
+                client_request_id="req-jfail",
+            ),
+            client=client,  # type: ignore[arg-type]
+        )
+    finally:
+        gen.record_terminal = original  # type: ignore[assignment]
+
+    assert result.outcome == "failure"
+    assert result.failure_category == "downstream_validation_failed"
+    assert any(f.component == "reconciliation" for f in result.persistence_failures)
