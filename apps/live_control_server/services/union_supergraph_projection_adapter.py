@@ -445,11 +445,22 @@ def build_plan_union_supergraph_projection_payload(
         preview_union_store_path=preview_union_store_path,
     )
     payload = projection.model_dump(mode="json")
-    if (
-        graph_run_manifest_path is not None
-        and _load_manifest_known_entity_mentions(graph_run_manifest_path) is not None
-    ):
-        payload["known_entity_mentions_contract"] = True
+    if graph_run_manifest_path is not None:
+        from graph_memory.ingestion.graph_ingest_validate import (
+            known_entity_mentions_digest,
+        )
+
+        root = repo_root().resolve()
+        try:
+            manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+            manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, ValueError, FileNotFoundError):
+            manifest_payload = None
+        if isinstance(manifest_payload, dict):
+            digest = known_entity_mentions_digest(root, manifest_payload)
+            if digest:
+                payload["known_entity_mentions_contract"] = True
+                payload["known_entity_mentions_sha256"] = f"sha256:{digest}"
     return enrich_projection_payload_with_authored_overlay(
         payload,
         campaign_id=projection.campaign_id,

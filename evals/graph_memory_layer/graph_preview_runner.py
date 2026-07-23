@@ -927,6 +927,7 @@ def run_graph_preview_extraction(
             GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
             known_entity_path,
             "dmb_known_entity_mention_sidecar_v0",
+            compute_sha256(known_entity_path),
         )
         if validation.valid:
             status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
@@ -1019,6 +1020,7 @@ def run_graph_preview_extraction(
                 known_entity_path,
                 known_entity_payload.get("schema")
                 or "dmb_known_entity_mention_sidecar_v0",
+                compute_sha256(known_entity_path),
             )
             pass_outputs_path = output_dir / "pass_outputs.json"
             write_json(pass_outputs_path, extraction.pass_outputs)

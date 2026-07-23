@@ -71,6 +71,9 @@ def materialize_preview_union_store_from_graph_ingest_run(
     candidate_artifact = manifest.artifacts.get("candidate_graph")
     if candidate_artifact is None:
         raise ValueError("graph-ingest manifest is missing artifacts.candidate_graph")
+    from graph_memory.ingestion.graph_ingest_validate import assert_candidate_ready_evidence
+
+    assert_candidate_ready_evidence(repo_root, manifest_payload)
     candidate_graph_path = _resolve_repo_relative_uri(candidate_artifact.uri, repo_root)
     normalized_recap_path = _resolve_required_source_path(manifest, repo_root)
     candidate_graph = _load_json(candidate_graph_path)

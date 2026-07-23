@@ -1,16 +1,26 @@
 from __future__ import annotations
 
+import hashlib
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 
 from pydantic import ValidationError
 
+from graph_memory.extraction.known_entity_mention_schema import (
+    KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA,
+    KnownEntityMentionSidecar,
+)
+from graph_memory.ingestion.extraction_run import normalize_content_digest
 from graph_memory.ingestion.graph_ingest_run import (
     GRAPH_INGEST_RUN_MANIFEST_SCHEMA,
     GraphIngestArtifactKind,
     GraphIngestRunManifest,
     GraphIngestRunStatus,
+)
+from graph_memory.source_span import (
+    source_span_index_from_dict,
+    validate_source_span_index,
 )
 
 FORBIDDEN_DIAGNOSTIC_FLAGS = (
@@ -31,6 +41,11 @@ SOURCE_READY_ORDER = {
     GraphIngestRunStatus.FAILED: 99,
 }
 URI_FIELD_SUFFIXES = ("_uri", "_path")
+CANDIDATE_READY_STATUSES = {
+    GraphIngestRunStatus.CANDIDATE_VALIDATION_READY,
+    GraphIngestRunStatus.PREVIEW_UNION_STORE_READY,
+    GraphIngestRunStatus.READY_FOR_PROJECTION,
+}
 
 
 def _error(errors: list[str], message: str) -> None:
@@ -224,3 +239,176 @@ def validate_graph_ingest_run_manifest(payload: Mapping[str, Any]) -> dict[str, 
         if manifest is None or manifest.projection is None
         else manifest.projection.projection_ready,
     }
+
+
+def _resolve_manifest_uri(repo_root: Path, uri: str) -> Path:
+    raw = uri.removeprefix("repo://") if uri.startswith("repo://") else uri
+    path = (repo_root / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
+    path.relative_to(repo_root.resolve())
+    return path
+
+
+def validate_manifest_source_span_index_linkage(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+) -> list[str]:
+    """Fail closed when SourceSpanIndex is missing, malformed, or unbound to source.
+
+    Requires projection and artifact URIs to resolve to the same file, then parses
+    with ``source_span_index_from_dict`` and re-validates against the manifest's
+    ``source_artifact_id`` and packaged source digest.
+    """
+    errors: list[str] = []
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    expected_artifact_id = str(source.get("source_artifact_id") or "").strip()
+    expected_digest = normalize_content_digest(source.get("normalized_recap_sha256"))
+    if not expected_artifact_id:
+        errors.append("source.source_artifact_id is required for SourceSpanIndex linkage")
+    if not expected_digest:
+        errors.append("source.normalized_recap_sha256 is required for SourceSpanIndex linkage")
+
+    span_ref = artifacts.get(GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value)
+    if not isinstance(span_ref, dict):
+        errors.append("artifacts.source_span_index is required")
+        return errors
+    span_uri = span_ref.get("uri")
+    if not isinstance(span_uri, str) or not span_uri.strip():
+        errors.append("artifacts.source_span_index.uri is required")
+        return errors
+    claimed_digest = span_ref.get("sha256")
+    if not isinstance(claimed_digest, str) or not claimed_digest.strip():
+        errors.append("artifacts.source_span_index.sha256 is required")
+        return errors
+    source_span_uri = source.get("source_span_index_uri")
+    if not isinstance(source_span_uri, str) or not source_span_uri.strip():
+        errors.append("source.source_span_index_uri is required")
+        return errors
+
+    try:
+        artifact_path = _resolve_manifest_uri(repo_root, span_uri)
+        projection_path = _resolve_manifest_uri(repo_root, source_span_uri)
+    except ValueError as exc:
+        errors.append(f"SourceSpanIndex URI escapes repo root: {exc}")
+        return errors
+    if not artifact_path.is_file() or not projection_path.is_file():
+        errors.append("SourceSpanIndex file is missing")
+        return errors
+    if artifact_path.resolve() != projection_path.resolve():
+        errors.append(
+            "source.source_span_index_uri must resolve to the same file as "
+            "artifacts.source_span_index"
+        )
+        return errors
+
+    span_bytes = artifact_path.read_bytes()
+    actual_digest = hashlib.sha256(span_bytes).hexdigest().lower()
+    if normalize_content_digest(claimed_digest) != actual_digest:
+        errors.append("artifacts.source_span_index.sha256 does not match file bytes")
+        return errors
+
+    try:
+        index_payload = json.loads(span_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        errors.append(f"SourceSpanIndex is not valid JSON: {exc}")
+        return errors
+    if not isinstance(index_payload, dict):
+        errors.append("SourceSpanIndex payload must be an object")
+        return errors
+
+    try:
+        index = source_span_index_from_dict(index_payload)
+        if expected_artifact_id and expected_digest:
+            validate_source_span_index(
+                index,
+                source_artifact_id=expected_artifact_id,
+                content_sha256=expected_digest,
+            )
+    except (TypeError, ValueError, KeyError) as exc:
+        errors.append(f"SourceSpanIndex failed canonical validation: {exc}")
+    return errors
+
+
+def validate_manifest_known_entity_mentions(
+    repo_root: Path,
+    payload: Mapping[str, Any],
+) -> list[str]:
+    """Fail closed when known-entity sidecar is missing, undigested, or malformed."""
+    errors: list[str] = []
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if not isinstance(artifact, dict):
+        errors.append("artifacts.known_entity_mentions is required")
+        return errors
+    uri = artifact.get("uri")
+    if not isinstance(uri, str) or not uri.strip():
+        errors.append("artifacts.known_entity_mentions.uri is required")
+        return errors
+    claimed_digest = artifact.get("sha256")
+    if not isinstance(claimed_digest, str) or not claimed_digest.strip():
+        errors.append("artifacts.known_entity_mentions.sha256 is required")
+        return errors
+
+    try:
+        sidecar_path = _resolve_manifest_uri(repo_root, uri)
+    except ValueError as exc:
+        errors.append(f"known_entity_mentions URI escapes repo root: {exc}")
+        return errors
+    if not sidecar_path.is_file():
+        errors.append("known_entity_mentions file is missing")
+        return errors
+
+    sidecar_bytes = sidecar_path.read_bytes()
+    actual_digest = hashlib.sha256(sidecar_bytes).hexdigest().lower()
+    if normalize_content_digest(claimed_digest) != actual_digest:
+        errors.append("artifacts.known_entity_mentions.sha256 does not match file bytes")
+        return errors
+
+    try:
+        sidecar_payload = json.loads(sidecar_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        errors.append(f"known_entity_mentions is not valid JSON: {exc}")
+        return errors
+    if not isinstance(sidecar_payload, dict):
+        errors.append("known_entity_mentions payload must be an object")
+        return errors
+
+    try:
+        sidecar = KnownEntityMentionSidecar.from_mapping(sidecar_payload)
+    except (TypeError, ValueError, KeyError) as exc:
+        errors.append(f"known_entity_mentions failed schema parse: {exc}")
+        return errors
+
+    if sidecar.schema != KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA:
+        errors.append(
+            f"known_entity_mentions schema must be {KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA}"
+        )
+    campaign_id = str(payload.get("campaign_id") or "").strip()
+    session_id = str(payload.get("session_id") or "").strip()
+    if campaign_id and sidecar.campaign_id and sidecar.campaign_id != campaign_id:
+        errors.append("known_entity_mentions.campaign_id does not match manifest")
+    if session_id and sidecar.session_id and sidecar.session_id != session_id:
+        errors.append("known_entity_mentions.session_id does not match manifest")
+    return errors
+
+
+def assert_candidate_ready_evidence(repo_root: Path, payload: Mapping[str, Any]) -> None:
+    """Raise when a candidate-ready GraphIngest run lacks usable evidence linkage."""
+    errors = validate_manifest_source_span_index_linkage(repo_root, payload)
+    errors.extend(validate_manifest_known_entity_mentions(repo_root, payload))
+    if errors:
+        raise ValueError(
+            "candidate-ready GraphIngest evidence is unusable: " + "; ".join(errors)
+        )
+
+
+def known_entity_mentions_digest(repo_root: Path, payload: Mapping[str, Any]) -> str | None:
+    """Return the verified known-entity sidecar digest, or None when unusable."""
+    errors = validate_manifest_known_entity_mentions(repo_root, payload)
+    if errors:
+        return None
+    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
+    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
+    if not isinstance(artifact, dict):
+        return None
+    return normalize_content_digest(artifact.get("sha256")) or None

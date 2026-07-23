@@ -174,11 +174,29 @@ def _candidate_ready_run(
     campaign_id: str = "longmont-c2",
     session_id: str = "session-24",
 ):
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from src.graph_memory.source_span import source_span_index_to_dict
+
     monkeypatch.chdir(tmp_path)
     source = tmp_path / f"{output_dir.replace('/', '_')}_recap.md"
     candidate = tmp_path / f"{output_dir.replace('/', '_')}_candidate.json"
     source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
     candidate.write_text(CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id=campaign_id,
+        session_id=session_id,
+        recap_path=source,
+    )
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    graph = json.loads(candidate.read_text(encoding="utf-8"))
+    graph["source_artifact_ids"] = [artifact.source_artifact_id]
+    candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id=campaign_id,
@@ -186,6 +204,8 @@ def _candidate_ready_run(
             normalized_recap_path=source,
             output_dir=Path(output_dir),
             candidate_graph_path=candidate,
+            source_span_index=span_payload,
+            source_artifact_id=artifact.source_artifact_id,
         )
     )
     assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
@@ -526,6 +546,19 @@ def _bind_production_lineage(
         "sha256": f"sha256:{candidate_digest}",
     }
 
+    known_ref = dict(artifacts.get("known_entity_mentions") or {})
+    known_uri = known_ref.get("uri")
+    if isinstance(known_uri, str) and known_uri.strip():
+        known_path = tmp_path / known_uri
+        if known_path.is_file():
+            artifacts["known_entity_mentions"] = {
+                **known_ref,
+                "schema": known_ref.get("schema") or "dmb_known_entity_mention_sidecar_v0",
+                "sha256": f"sha256:{_digest(known_path)}",
+                "exists": True,
+                "preview_only": True,
+            }
+
     provenance_uri = source.get("provenance_index_uri")
     if isinstance(provenance_uri, str) and provenance_uri.strip():
         provenance_path = tmp_path / provenance_uri
@@ -640,11 +673,29 @@ def _profiled_candidate_ready_run(
     *,
     graph_extraction_profile: str | None = None,
 ):
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from src.graph_memory.source_span import source_span_index_to_dict
+
     monkeypatch.chdir(tmp_path)
     source = tmp_path / f"{output_dir.replace('/', '_')}_recap.md"
     candidate = tmp_path / f"{output_dir.replace('/', '_')}_candidate.json"
     source.write_text(RECAP_PATH.read_text(encoding="utf-8"), encoding="utf-8")
     candidate.write_text(CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        recap_path=source,
+    )
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    graph = json.loads(candidate.read_text(encoding="utf-8"))
+    graph["source_artifact_ids"] = [artifact.source_artifact_id]
+    candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id="longmont-c2",
@@ -654,6 +705,8 @@ def _profiled_candidate_ready_run(
             candidate_graph_path=candidate,
             graph_extraction_profile=graph_extraction_profile,
             input_path_record=source.relative_to(tmp_path).as_posix(),
+            source_span_index=span_payload,
+            source_artifact_id=artifact.source_artifact_id,
         )
     )
     assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
@@ -1203,7 +1256,141 @@ def test_manual_candidate_materialization_requires_projection_span_uri(
     assert status.get("preview_union_store_path") is None
 
 
-def test_manifest_source_match_requires_full_digest_not_artifact_id_prefix(
+def test_usable_source_span_linkage_rejects_empty_or_foreign_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Malformed or foreign SourceSpanIndex files must not pass the shared gate."""
+    import hashlib
+
+    from graph_memory.ingestion.graph_ingest_validate import (
+        validate_manifest_source_span_index_linkage,
+    )
+
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/malformed_span_index",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    ingest_service, _calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    assert ingest_service._manifest_has_usable_source_span_linkage(tmp_path, manifest_rel)
+
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    span_uri = manifest["artifacts"]["source_span_index"]["uri"]
+    span_path = tmp_path / span_uri
+    span_path.write_text("{}\n", encoding="utf-8")
+    digest = hashlib.sha256(span_path.read_bytes()).hexdigest()
+    manifest["artifacts"]["source_span_index"]["sha256"] = f"sha256:{digest}"
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    assert validate_manifest_source_span_index_linkage(tmp_path, manifest)
+    assert not ingest_service._manifest_has_usable_source_span_linkage(tmp_path, manifest_rel)
+
+    status = ingest_service.materialize_recap_preview_supergraph(
+        repo_root=tmp_path,
+        campaign_id="longmont-c2",
+        session=24,
+        normalized_recap_path=str(source),
+        manifest_path=manifest_rel,
+        extract_graph=False,
+        force_graph_run=False,
+    )
+    assert status.get("preview_union_store_path") is None
+    assert "SourceSpanIndex" in (status.get("blocked_reason") or "")
+
+
+def test_known_entity_sidecar_digest_invalidates_cached_projection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Projection reuse must rebuild when the known-entity sidecar digest changes."""
+    import hashlib
+
+    old_result, source = _profiled_candidate_ready_run(
+        tmp_path,
+        monkeypatch,
+        "out/graph_memory/runs/known_entity_digest_projection",
+        graph_extraction_profile="category_encounter_job_preview",
+    )
+    ingest_service, _calls = _service_fake_runner_with_candidate(tmp_path, monkeypatch)
+    manifest_rel = old_result.manifest_path.relative_to(tmp_path).as_posix()
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    known_uri = manifest["artifacts"]["known_entity_mentions"]["uri"]
+    known_path = tmp_path / known_uri
+    original_digest = hashlib.sha256(known_path.read_bytes()).hexdigest()
+    assert ingest_service._manifest_has_known_entity_mentions(tmp_path, manifest_rel)
+
+    projection_path = old_result.manifest_path.parent / "projection_payload.json"
+    projection_path.write_text(
+        json.dumps(
+            {
+                "schema": "dmb_recap_graph_projection_v0",
+                "known_entity_mentions_contract": True,
+                "known_entity_mentions_sha256": f"sha256:{original_digest}",
+                "nodes": [],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    artifacts = dict(manifest.get("artifacts") or {})
+    artifacts["projection_payload"] = {
+        "kind": "projection_payload",
+        "uri": projection_path.relative_to(tmp_path).as_posix(),
+        "schema": "dmb_recap_graph_projection_v0",
+        "exists": True,
+        "preview_only": True,
+    }
+    manifest["artifacts"] = artifacts
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    # Cached projection matches current digest — reuse.
+    reused = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert reused == projection_path.resolve() or reused == projection_path
+
+    sidecar = json.loads(known_path.read_text(encoding="utf-8"))
+    sidecar["diagnostics"] = {**(sidecar.get("diagnostics") or {}), "mutated": True}
+    known_path.write_text(
+        json.dumps(sidecar, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    new_digest = hashlib.sha256(known_path.read_bytes()).hexdigest()
+    manifest = json.loads(old_result.manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"]["known_entity_mentions"]["sha256"] = f"sha256:{new_digest}"
+    old_result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    def _fake_build_projection(**kwargs):  # noqa: ANN003
+        return {"schema": "dmb_recap_graph_projection_v0", "nodes": [{"id": "rebuilt"}]}
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.union_supergraph_projection_adapter."
+        "build_plan_union_supergraph_projection_payload",
+        _fake_build_projection,
+    )
+
+    rebuilt = ingest_service.ensure_graph_ingest_projection_payload(
+        repo_root=tmp_path,
+        manifest_path=manifest_rel,
+        session_id="session-24",
+    )
+    assert rebuilt is not None
+    projection_after = json.loads(rebuilt.read_text(encoding="utf-8"))
+    assert projection_after.get("known_entity_mentions_sha256") == f"sha256:{new_digest}"
+    assert projection_after.get("known_entity_mentions_sha256") != f"sha256:{original_digest}"
+    assert projection_after.get("nodes") == [{"id": "rebuilt"}]
+
+
+def test_build_recap_graph_preview_bundle_legacy_manifest_matches_only_current_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Same-prefix SourceArtifact IDs must not count as content equality."""

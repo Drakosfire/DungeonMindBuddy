@@ -37,7 +37,26 @@ def _copy_inputs(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def _candidate_ready_run(tmp_path: Path) -> Path:
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from src.graph_memory.source_span import source_span_index_to_dict
+
     source, candidate = _copy_inputs(tmp_path)
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        recap_path=source,
+    )
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    # Stamp fixture candidate with the digest-qualified artifact identity.
+    graph = json.loads(candidate.read_text(encoding="utf-8"))
+    graph["source_artifact_ids"] = [artifact.source_artifact_id]
+    candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id="longmont-c2",
@@ -45,6 +64,8 @@ def _candidate_ready_run(tmp_path: Path) -> Path:
             normalized_recap_path=source,
             output_dir=Path("runs/candidate_ready"),
             candidate_graph_path=candidate,
+            source_span_index=span_payload,
+            source_artifact_id=artifact.source_artifact_id,
         )
     )
     assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY

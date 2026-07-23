@@ -337,6 +337,7 @@ def build_recap_graph_preview_bundle(
             json.dumps(production.known_entity_mentions, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        _stamp_known_entity_artifact_digest(repo, result.manifest_path, known_out)
 
     summary = _summary_for_manifest(repo, result.manifest_path)
     logger.info(
@@ -694,19 +695,22 @@ def ensure_graph_ingest_projection_payload(
     from apps.live_control_server.services.union_supergraph_projection_adapter import (
         build_plan_union_supergraph_projection_payload,
     )
+    from graph_memory.ingestion.graph_ingest_validate import known_entity_mentions_digest
 
     repo = repo_root.resolve()
     manifest_full = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
     payload_data = json.loads(manifest_full.read_text(encoding="utf-8"))
     artifacts = payload_data.get("artifacts") if isinstance(payload_data.get("artifacts"), dict) else {}
     existing = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
-    has_known_entity = _manifest_has_known_entity_mentions(repo, manifest_path)
+    sidecar_digest = known_entity_mentions_digest(repo, payload_data)
+    has_known_entity = sidecar_digest is not None
     if isinstance(existing, dict) and existing.get("exists") is True:
         uri = existing.get("uri")
         if isinstance(uri, str):
             projection_path = _resolve_existing_repo_path(repo, uri, field_name="projection_payload")
-            # Invalidate chipless pre-repair projections when the sidecar contract exists.
-            if not has_known_entity or _projection_payload_is_known_entity_aware(projection_path):
+            if _projection_payload_matches_known_entity_digest(
+                projection_path, sidecar_digest=sidecar_digest
+            ):
                 return projection_path
 
     projection_payload = build_plan_union_supergraph_projection_payload(
@@ -717,6 +721,7 @@ def ensure_graph_ingest_projection_payload(
         projection_payload = {
             **projection_payload,
             "known_entity_mentions_contract": True,
+            "known_entity_mentions_sha256": f"sha256:{sidecar_digest}",
         }
     projection_path = manifest_full.parent / "projection_payload.json"
     projection_path.write_text(
@@ -730,18 +735,62 @@ def ensure_graph_ingest_projection_payload(
         "schema": "dmb_recap_graph_projection_v0",
         "exists": True,
         "preview_only": True,
+        "sha256": f"sha256:{hashlib.sha256(projection_path.read_bytes()).hexdigest()}",
+        "depends_on": (
+            {"known_entity_mentions_sha256": f"sha256:{sidecar_digest}"}
+            if sidecar_digest
+            else {}
+        ),
     }
     payload_data["artifacts"] = artifacts
     manifest_full.write_text(json.dumps(payload_data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return projection_path
 
 
-def _projection_payload_is_known_entity_aware(projection_path: Path) -> bool:
+def _projection_payload_matches_known_entity_digest(
+    projection_path: Path, *, sidecar_digest: str | None
+) -> bool:
+    """Reuse a cached projection only when it was built from the current sidecar digest."""
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
     try:
         payload = json.loads(projection_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
-    return isinstance(payload, dict) and payload.get("known_entity_mentions_contract") is True
+    if not isinstance(payload, dict):
+        return False
+    if sidecar_digest is None:
+        # No usable sidecar — keep only projections that also lack the contract.
+        return payload.get("known_entity_mentions_contract") is not True
+    if payload.get("known_entity_mentions_contract") is not True:
+        return False
+    return (
+        normalize_content_digest(payload.get("known_entity_mentions_sha256"))
+        == sidecar_digest
+    )
+
+
+def _stamp_known_entity_artifact_digest(
+    repo: Path, manifest_path: Path, known_entity_path: Path
+) -> None:
+    """Keep artifacts.known_entity_mentions.sha256 aligned after overwriting sidecar bytes."""
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts = dict(payload.get("artifacts") or {})
+    existing = dict(artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value) or {})
+    digest = hashlib.sha256(known_entity_path.read_bytes()).hexdigest()
+    artifacts[GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value] = {
+        **existing,
+        "kind": GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value,
+        "uri": existing.get("uri") or _repo_relative(known_entity_path, repo),
+        "schema": existing.get("schema") or "dmb_known_entity_mention_sidecar_v0",
+        "sha256": f"sha256:{digest}",
+        "exists": True,
+        "preview_only": True,
+    }
+    payload["artifacts"] = artifacts
+    manifest_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def _lineage_for_normalized_recap(
@@ -1104,39 +1153,10 @@ def _assert_packaged_identity_matches_extraction_run(
 
 
 def _manifest_has_known_entity_mentions(repo: Path, manifest_path: str | None) -> bool:
-    """True when the run declares a readable known_entity_mentions artifact."""
-    if not manifest_path:
-        return False
-    try:
-        manifest_full = (repo / manifest_path).resolve()
-        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    artifacts = payload.get("artifacts") if isinstance(payload, dict) else None
-    if not isinstance(artifacts, dict):
-        return False
-    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
-    if not isinstance(artifact, dict):
-        return False
-    uri = artifact.get("uri")
-    if not isinstance(uri, str) or not uri.strip():
-        return False
-    sidecar_path = (repo / uri).resolve() if not Path(uri).is_absolute() else Path(uri)
-    try:
-        sidecar_path.relative_to(repo.resolve())
-    except ValueError:
-        return False
-    return sidecar_path.is_file()
-
-
-def _manifest_has_usable_source_span_linkage(repo: Path, manifest_path: str | None) -> bool:
-    """True when projection and artifact SourceSpanIndex URIs resolve to one verified file.
-
-    Projection reads only ``source.source_span_index_uri``. Candidate-ready runs —
-    production or fixture — must keep that URI aligned with
-    ``artifacts.source_span_index`` and the claimed digest.
-    """
-    from graph_memory.ingestion.extraction_run import normalize_content_digest
+    """True when the run declares a digest-verified known_entity_mentions artifact."""
+    from graph_memory.ingestion.graph_ingest_validate import (
+        validate_manifest_known_entity_mentions,
+    )
 
     if not manifest_path:
         return False
@@ -1147,32 +1167,25 @@ def _manifest_has_usable_source_span_linkage(repo: Path, manifest_path: str | No
         return False
     if not isinstance(payload, dict):
         return False
-    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
-    artifacts = payload.get("artifacts") if isinstance(payload.get("artifacts"), dict) else {}
-    span_ref = artifacts.get(GraphIngestArtifactKind.SOURCE_SPAN_INDEX.value)
-    if not isinstance(span_ref, dict):
-        return False
-    span_uri = span_ref.get("uri")
-    if not isinstance(span_uri, str) or not span_uri.strip():
-        return False
-    claimed_digest = span_ref.get("sha256")
-    if not isinstance(claimed_digest, str) or not claimed_digest.strip():
-        return False
-    source_span_uri = source.get("source_span_index_uri")
-    if not isinstance(source_span_uri, str) or not source_span_uri.strip():
+    return not validate_manifest_known_entity_mentions(repo, payload)
+
+
+def _manifest_has_usable_source_span_linkage(repo: Path, manifest_path: str | None) -> bool:
+    """True when SourceSpanIndex is canonically valid and bound to the packaged source."""
+    from graph_memory.ingestion.graph_ingest_validate import (
+        validate_manifest_source_span_index_linkage,
+    )
+
+    if not manifest_path:
         return False
     try:
-        artifact_path = _resolve_repo_uri_path(repo, span_uri)
-        projection_path = _resolve_repo_uri_path(repo, source_span_uri)
-    except ValueError:
+        manifest_full = (repo / manifest_path).resolve()
+        payload = json.loads(manifest_full.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
         return False
-    if not artifact_path.is_file() or not projection_path.is_file():
+    if not isinstance(payload, dict):
         return False
-    if artifact_path.resolve() != projection_path.resolve():
-        return False
-    packaged_digest = normalize_content_digest(claimed_digest)
-    actual_digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest().lower()
-    return bool(packaged_digest) and packaged_digest == actual_digest
+    return not validate_manifest_source_span_index_linkage(repo, payload)
 
 
 def _summary_matches_graph_extraction_profile(
