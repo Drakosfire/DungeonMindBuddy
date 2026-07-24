@@ -501,13 +501,19 @@
   flex: 1 1 auto;
   gap: 0.75rem;
   min-height: 0;
-  overflow-y: auto;
+  /* Transcript owns scrolling; keep composer and header fixed. */
+  overflow: hidden;
   padding-bottom: 0.15rem;
 }
 
 .plan-agent-shell.open .plan-agent-transcript {
   min-height: 0;
   flex: 1 1 auto;
+}
+
+.plan-agent-shell.open .plan-agent-content {
+  /* Give the conversation nearly the full drawer height. */
+  min-height: min(72dvh, calc(100dvh - 11rem));
 }
 
 .plan-agent-thread-suggestion {
@@ -550,6 +556,7 @@
 }
 
 .plan-agent-diagnostics-drawer {
+  flex: 0 0 auto;
   margin-top: 0.5rem;
 }
 
@@ -1042,38 +1049,42 @@
   gap: 0.35rem;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 .plan-agent-transcript-scroll {
-  display: grid;
-  gap: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   flex: 1 1 auto;
   min-height: 0;
   max-height: none;
   overflow-y: auto;
-  padding-right: 0.15rem;
+  padding: 0.35rem 0.35rem 0.75rem;
 }
 
 .plan-agent-shell:not(.open) .plan-agent-transcript-scroll {
   max-height: min(52vh, 28rem);
 }
 
+.plan-agent-shell.open .plan-agent-transcript-scroll {
+  /* Prefer a large conversation canvas once the drawer is open. */
+  min-height: min(58dvh, calc(100dvh - 14rem));
+}
+
 .plan-agent-transcript-turn {
   display: grid;
-  gap: 0.35rem;
-  padding-bottom: 0.55rem;
-  border-bottom: 1px solid rgba(42, 49, 66, 0.45);
+  gap: 0.45rem;
+  padding-bottom: 0.15rem;
+  border-bottom: none;
 }
 
 .plan-agent-transcript-turn:last-child {
   padding-bottom: 0;
-  border-bottom: none;
 }
 
-.plan-agent-transcript-turn[data-active="true"] {
-  border-left: 2px solid var(--accent, #7aa2f7);
-  padding-left: 0.45rem;
-  margin-left: -0.45rem;
+.plan-agent-transcript-turn[data-active="true"] .plan-agent-chat-bubble-assistant {
+  box-shadow: 0 0 0 1px rgba(122, 162, 247, 0.45);
 }
 
 .plan-agent-turn-inspection {
@@ -1081,6 +1092,7 @@
   border-radius: 8px;
   padding: 0.35rem 0.55rem;
   background: rgba(10, 12, 18, 0.45);
+  max-width: min(42rem, 100%);
 }
 
 .plan-agent-turn-inspection > summary {
@@ -1094,40 +1106,71 @@
   margin-top: 0.35rem;
 }
 
+.plan-agent-chat-row {
+  display: flex;
+  width: 100%;
+}
+
+.plan-agent-chat-row-user {
+  justify-content: flex-end;
+}
+
+.plan-agent-chat-row-assistant {
+  justify-content: flex-start;
+}
+
 .plan-agent-chat-bubble {
-  border: none;
-  border-left: 2px solid transparent;
-  border-radius: 0;
-  padding: 0.15rem 0 0.15rem 0.55rem;
-  background: transparent;
+  display: inline-block;
+  width: fit-content;
+  max-width: min(34rem, 82%);
+  border: 1px solid transparent;
+  padding: 0.55rem 0.8rem 0.6rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
 .plan-agent-chat-bubble-user {
-  border-left-color: rgba(148, 163, 184, 0.55);
+  border-color: rgba(45, 212, 191, 0.4);
+  border-radius: 16px 16px 4px 16px;
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.55), rgba(19, 78, 74, 0.72));
+  color: #ecfdf8;
 }
 
 .plan-agent-chat-bubble-assistant {
-  border-left-color: rgba(96, 165, 250, 0.65);
+  border-color: rgba(96, 165, 250, 0.38);
+  border-radius: 16px 16px 16px 4px;
+  background: linear-gradient(180deg, rgba(36, 58, 94, 0.92), rgba(24, 40, 68, 0.88));
+  color: #e8eefc;
 }
 
 .plan-agent-chat-bubble .plan-surface-kicker {
   display: block;
-  margin: 0 0 0.1rem;
-  font-size: 0.68rem;
-  letter-spacing: 0.04em;
+  margin: 0 0 0.2rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--fg-mute, #9aa3b5);
+  opacity: 0.78;
+}
+
+.plan-agent-chat-bubble-user .plan-surface-kicker {
+  color: #99f6e4;
+  text-align: right;
+}
+
+.plan-agent-chat-bubble-assistant .plan-surface-kicker {
+  color: #bfdbfe;
 }
 
 .plan-agent-chat-bubble p {
   margin: 0;
   white-space: pre-wrap;
-  line-height: 1.4;
-  font-size: 0.92rem;
+  line-height: 1.45;
+  font-size: 0.94rem;
 }
 
 .plan-agent-chat-answer {
-  color: var(--fg, #e8eaef);
+  color: inherit;
 }
 
 .plan-agent-s1-support {

@@ -116,6 +116,16 @@ describe("PlanAgentInteractionBar graph lens", () => {
       campaign_id: "longmont-c1",
       scope_mode: "campaign",
     });
+
+    await waitFor(() => {
+      expect(screen.getByText("C1 only answer")).toBeInTheDocument();
+    });
+    expect(document.querySelector(".plan-agent-chat-row-user")).toBeTruthy();
+    expect(document.querySelector(".plan-agent-chat-row-assistant")).toBeTruthy();
+    expect(document.querySelector(".plan-agent-chat-bubble-user")).toBeTruthy();
+    expect(document.querySelector(".plan-agent-chat-bubble-assistant")).toBeTruthy();
+    expect(screen.getByLabelText("DungeonBuddy drawer").className).toContain("plan-agent-pane");
+    expect(screen.getByLabelText("Ask DungeonBuddy").className).toContain("open");
   });
 
   it("disables Ask and shows warning when no campaigns are selected", async () => {
