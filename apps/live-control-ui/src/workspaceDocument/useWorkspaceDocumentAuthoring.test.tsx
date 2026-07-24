@@ -922,4 +922,370 @@ describe("useWorkspaceDocumentAuthoring", () => {
     expect(result.current.record?.title).not.toBe("Stale Doc A");
     expect(result.current.snapshot?.loaded_revision).toBe(5);
   });
+
+  it("preserves an edit made while prepare is pending through successful verification as ready_dirty", async () => {
+    let releasePrepare: ((value: Awaited<ReturnType<typeof prepareTiptapMarkdownWrite>>) => void) | undefined;
+    vi.mocked(prepareTiptapMarkdownWrite).mockImplementationOnce(() => new Promise((resolve) => {
+      releasePrepare = resolve;
+    }));
+    vi.mocked(getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(buildSnapshot())
+      .mockResolvedValueOnce(verificationSnapshotForRevision(2, "sha-committed", "fp-committed"));
+
+    const editor = createEditor("Build Source");
+    const documentKeyAtReady = { current: "" };
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+      result.current.markDirty();
+    });
+    documentKeyAtReady.current = result.current.documentKey;
+
+    let savePromise: Promise<void> | undefined;
+    act(() => {
+      savePromise = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("preparing");
+    });
+
+    act(() => {
+      editor.editTo("Build Source plus late prepare edit");
+      result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+    });
+    await waitFor(() => {
+      expect(result.current.dirty).toBe(true);
+    });
+
+    await act(async () => {
+      releasePrepare?.({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: BUILD_DOC_ID,
+        title: "Build Source",
+        target_relpath: "out/workspace/worldbuilding/build.md",
+        target_display_path: "out/workspace/worldbuilding/build.md",
+        registry_revision: 1,
+        file_exists: false,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "+# Build Source\n",
+        warnings: [],
+        diagnostics: [],
+      });
+      await savePromise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_dirty");
+    });
+    expect(result.current.dirty).toBe(true);
+    expect(result.current.documentKey).toBe(documentKeyAtReady.current);
+    const stored = JSON.parse(window.localStorage.getItem(workspaceDocumentStorageKey(BUILD_DOC_ID))!);
+    expect(stored.base_revision).toBe(2);
+    expect(stored.dirty).toBe(true);
+    expect(stored.exported_markdown).toContain("late prepare edit");
+    expect(result.current.editorContent).toEqual(editor.getJSON());
+  });
+
+  it("preserves an edit made while commit is pending through successful verification as ready_dirty", async () => {
+    let releaseCommit: ((value: ReturnType<typeof commitReceiptForRevision>) => void) | undefined;
+    vi.mocked(commitTiptapMarkdownWrite).mockImplementationOnce(() => new Promise((resolve) => {
+      releaseCommit = resolve;
+    }));
+    vi.mocked(getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(buildSnapshot())
+      .mockResolvedValueOnce(verificationSnapshotForRevision(2, "sha-committed", "fp-committed"));
+
+    const editor = createEditor("Build Source");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+      result.current.markDirty();
+    });
+    const documentKeyBefore = result.current.documentKey;
+
+    let savePromise: Promise<void> | undefined;
+    act(() => {
+      savePromise = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("committing");
+    });
+
+    act(() => {
+      editor.editTo("Build Source plus late commit edit");
+      result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+    });
+
+    await act(async () => {
+      releaseCommit?.(commitReceiptForRevision(2, "sha-committed", "fp-committed"));
+      await savePromise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_dirty");
+    });
+    expect(result.current.dirty).toBe(true);
+    expect(result.current.documentKey).toBe(documentKeyBefore);
+    const stored = JSON.parse(window.localStorage.getItem(workspaceDocumentStorageKey(BUILD_DOC_ID))!);
+    expect(stored.base_revision).toBe(2);
+    expect(stored.exported_markdown).toContain("late commit edit");
+    expect(stored.dirty).toBe(true);
+  });
+
+  it("keeps a late commit-pending edit dirty when the commit fails", async () => {
+    let releaseCommit: ((error: Error) => void) | undefined;
+    vi.mocked(commitTiptapMarkdownWrite).mockImplementationOnce(() => new Promise((_resolve, reject) => {
+      releaseCommit = reject;
+    }));
+
+    const editor = createEditor("Build Source");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+      result.current.markDirty();
+    });
+
+    let savePromise: Promise<void> | undefined;
+    act(() => {
+      savePromise = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("committing");
+    });
+
+    act(() => {
+      editor.editTo("Survives commit failure");
+      result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+    });
+
+    await act(async () => {
+      releaseCommit?.(new Error("commit failed after late edit"));
+      await savePromise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("save_error");
+    });
+    expect(result.current.dirty).toBe(true);
+    expect(result.current.error).toMatch(/commit failed after late edit/);
+    const stored = window.localStorage.getItem(workspaceDocumentStorageKey(BUILD_DOC_ID));
+    expect(stored).toContain("Survives commit failure");
+  });
+
+  it("ignores document A commit after switching to document B", async () => {
+    const DOC_B = "22222222-2222-4222-8222-222222222222";
+    let releaseCommitA: ((value: ReturnType<typeof commitReceiptForRevision>) => void) | undefined;
+
+    vi.mocked(getWorkspaceDocumentSnapshot).mockImplementation(async (documentId: string) => {
+      if (documentId === BUILD_DOC_ID) {
+        return buildSnapshot();
+      }
+      return buildSnapshot({
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: DOC_B,
+          kind: "worldbuilding_source",
+          campaign_id: "eldyrwild",
+          target_session: null,
+          revision: 5,
+          content_status: "draft",
+          title: "Doc B",
+        }),
+        markdown: "# Doc B body\n",
+        content_sha256: "sha-b",
+        loaded_revision: 5,
+      });
+    });
+    vi.mocked(commitTiptapMarkdownWrite).mockImplementationOnce(() => new Promise((resolve) => {
+      releaseCommitA = resolve;
+    }));
+
+    const editor = createEditor("Build Source");
+    const { result, rerender } = renderHook(
+      ({ documentId }: { documentId: string }) => useWorkspaceDocumentAuthoring({
+        documentId,
+        surface: "build",
+        kind: "worldbuilding_source",
+      }),
+      { initialProps: { documentId: BUILD_DOC_ID } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+      result.current.markDirty();
+    });
+
+    let saveA: Promise<void> | undefined;
+    act(() => {
+      saveA = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("committing");
+    });
+
+    rerender({ documentId: DOC_B });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+      expect(result.current.record?.document_id).toBe(DOC_B);
+    });
+    const bStoredBefore = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_B));
+
+    await act(async () => {
+      releaseCommitA?.(commitReceiptForRevision(2, "sha-a", "fp-a"));
+      await saveA;
+    });
+
+    expect(result.current.record?.document_id).toBe(DOC_B);
+    expect(result.current.snapshot?.loaded_revision).toBe(5);
+    expect(result.current.lastCommitReceipt).toBeNull();
+    expect(window.localStorage.getItem(workspaceDocumentStorageKey(DOC_B))).toBe(bStoredBefore);
+
+    const editorB = createEditor("Doc B body");
+    act(() => {
+      result.current.setEditor(editorB);
+      result.current.markDirty();
+    });
+    vi.mocked(prepareTiptapMarkdownWrite).mockClear();
+    vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: "Doc B",
+      target_relpath: "out/workspace/worldbuilding/b.md",
+      target_display_path: "out/workspace/worldbuilding/b.md",
+      registry_revision: 6,
+      committed_revision: 6,
+      committed_record: fixtureWorkspaceDocumentRecord({
+        document_id: DOC_B,
+        kind: "worldbuilding_source",
+        revision: 6,
+        content_status: "committed",
+        title: "Doc B",
+      }),
+      normalized_content_sha256: "sha-b-6",
+      writer_ok: true,
+      bytes_written: 10,
+      file_fingerprint: "fp-b-6",
+      diagnostics: [],
+    });
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ document_id: DOC_B, expected_revision: 5 }),
+    );
+  });
+
+  it("does not start document A commit after switching to B while A's prepare is pending", async () => {
+    const DOC_B = "33333333-3333-4333-8333-333333333333";
+    let releasePrepareA: ((value: Awaited<ReturnType<typeof prepareTiptapMarkdownWrite>>) => void) | undefined;
+
+    vi.mocked(getWorkspaceDocumentSnapshot).mockImplementation(async (documentId: string) => {
+      if (documentId === BUILD_DOC_ID) {
+        return buildSnapshot();
+      }
+      return buildSnapshot({
+        record: fixtureWorkspaceDocumentRecord({
+          document_id: DOC_B,
+          kind: "worldbuilding_source",
+          campaign_id: "eldyrwild",
+          target_session: null,
+          revision: 7,
+          content_status: "draft",
+          title: "Doc B prepare",
+        }),
+        markdown: "# Doc B prepare\n",
+        content_sha256: "sha-b-prep",
+        loaded_revision: 7,
+      });
+    });
+    vi.mocked(prepareTiptapMarkdownWrite).mockImplementationOnce(() => new Promise((resolve) => {
+      releasePrepareA = resolve;
+    }));
+    vi.mocked(commitTiptapMarkdownWrite).mockClear();
+
+    const editor = createEditor("Build Source");
+    const { result, rerender } = renderHook(
+      ({ documentId }: { documentId: string }) => useWorkspaceDocumentAuthoring({
+        documentId,
+        surface: "build",
+        kind: "worldbuilding_source",
+      }),
+      { initialProps: { documentId: BUILD_DOC_ID } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+      result.current.markDirty();
+    });
+
+    let saveA: Promise<void> | undefined;
+    act(() => {
+      saveA = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("preparing");
+    });
+
+    rerender({ documentId: DOC_B });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+      expect(result.current.record?.document_id).toBe(DOC_B);
+    });
+
+    await act(async () => {
+      releasePrepareA?.({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: BUILD_DOC_ID,
+        title: "Build Source",
+        target_relpath: "out/workspace/worldbuilding/build.md",
+        target_display_path: "out/workspace/worldbuilding/build.md",
+        registry_revision: 1,
+        file_exists: false,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "stale-a-token",
+        writer_diff: "+stale\n",
+        warnings: [],
+        diagnostics: [],
+      });
+      await saveA;
+    });
+
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(result.current.record?.document_id).toBe(DOC_B);
+    expect(result.current.snapshot?.loaded_revision).toBe(7);
+    expect(result.current.lastCommitReceipt).toBeNull();
+    expect(result.current.phase).toBe("ready_clean");
+  });
 });

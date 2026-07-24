@@ -573,6 +573,106 @@ describe("BuildSurfaceShell", () => {
     expect(stored).toContain("Build proof insert");
   });
 
+  it("keeps a real TipTap insertion made while commit is pending", async () => {
+    const snapshot = buildWorldbuildingSnapshot(DOC_ID);
+    let releaseCommit: ((value: Awaited<ReturnType<typeof liveApi.commitTiptapMarkdownWrite>>) => void) | undefined;
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(snapshot)
+      .mockResolvedValueOnce({
+        ...snapshot,
+        record: { ...snapshot.record, revision: 2, content_status: "committed" },
+        markdown: "# Build Source\n",
+        content_sha256: "sha-committed",
+        file_fingerprint: "fp-committed",
+        file_exists: true,
+        loaded_revision: 2,
+      });
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_ID,
+      title: "Build Source",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token",
+      writer_diff: "+edited\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockImplementationOnce(() => new Promise((resolve) => {
+      releaseCommit = resolve;
+    }));
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
+        "data-markdown-editor-status",
+        "ready",
+      );
+    });
+    await waitFor(() => expect(buildShellTestEditor).not.toBeNull());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      buildShellTestEditor?.commands.insertContent(" Before save");
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("build-save-button")).not.toBeDisabled();
+    });
+
+    await act(async () => {
+      screen.getByTestId("build-save-button").click();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent(/Saving|Preparing/);
+    });
+
+    act(() => {
+      buildShellTestEditor?.commands.insertContent(" late TipTap sentence");
+    });
+    await waitFor(() => {
+      const storedMid = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
+      expect(storedMid).toContain("late TipTap sentence");
+    });
+
+    await act(async () => {
+      releaseCommit?.({
+        schema_version: "dmb_tiptap_markdown_write_commit_v1",
+        document_id: DOC_ID,
+        title: "Build Source",
+        target_relpath: snapshot.record.target_relpath,
+        target_display_path: snapshot.record.target_relpath,
+        registry_revision: 2,
+        committed_revision: 2,
+        committed_record: {
+          ...snapshot.record,
+          revision: 2,
+          content_status: "committed",
+        },
+        normalized_content_sha256: "sha-committed",
+        writer_ok: true,
+        bytes_written: 42,
+        file_fingerprint: "fp-committed",
+        diagnostics: [],
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+    const stored = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
+    expect(stored).toContain("late TipTap sentence");
+    expect(JSON.parse(stored!).dirty).toBe(true);
+    expect(JSON.parse(stored!).base_revision).toBe(2);
+    expect(screen.getByTestId("build-markdown-editor").textContent).toContain("late TipTap sentence");
+  });
+
   it("publishes neutral Agent Interaction when a successful receipt lacks file_fingerprint", async () => {
     const snapshot = buildWorldbuildingSnapshot(DOC_ID);
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);

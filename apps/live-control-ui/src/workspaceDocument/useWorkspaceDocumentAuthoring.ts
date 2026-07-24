@@ -116,6 +116,22 @@ function applyCommitReceiptToLocalState(args: {
   };
 }
 
+/** Advance the CAS base from a receipt while retaining editor content that landed during save. */
+function applyCommitReceiptBaseRetainingEditorContent(args: {
+  receipt: TiptapMarkdownWriteCommitResponse;
+  current: WorkspaceDocumentLocalState;
+}): WorkspaceDocumentLocalState {
+  const now = new Date().toISOString();
+  return {
+    ...args.current,
+    base_revision: args.receipt.committed_revision,
+    base_content_sha256: args.receipt.normalized_content_sha256,
+    dirty: true,
+    updated_at: now,
+    last_local_save_at: now,
+  };
+}
+
 export function useWorkspaceDocumentAuthoring(
   args: UseWorkspaceDocumentAuthoringArgs,
 ): WorkspaceDocumentAuthoringValue {
@@ -136,6 +152,8 @@ export function useWorkspaceDocumentAuthoring(
   const saveGenerationRef = useRef(0);
   /** Monotonic generation so superseded open/reload completions cannot clobber a newer document. */
   const openGenerationRef = useRef(0);
+  /** Monotonic generation of non-programmatic editor mutations (detects edits during prepare/commit). */
+  const editorMutationGenerationRef = useRef(0);
   const localDirtyRef = useRef(false);
   const requireDirtyToSave = args.requireDirtyToSave !== false;
   const emptyMarkdownFallback = args.emptyMarkdownFallback;
@@ -151,7 +169,8 @@ export function useWorkspaceDocumentAuthoring(
 
   const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
     dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
-    // Invalidate in-flight verification and prior receipt handback for this open.
+    // Invalidate in-flight prepare/commit/verification belonging to a prior document or selection.
+    saveGenerationRef.current += 1;
     verificationGenerationRef.current += 1;
     const openGeneration = ++openGenerationRef.current;
     setLastCommitReceipt(null);
@@ -268,6 +287,7 @@ export function useWorkspaceDocumentAuthoring(
     meta: { programmatic: boolean },
   ) => {
     if (meta.programmatic) return;
+    editorMutationGenerationRef.current += 1;
     persistEditorState(nextEditor);
   }, [persistEditorState]);
 
@@ -282,6 +302,7 @@ export function useWorkspaceDocumentAuthoring(
     const expectedRevision = expectedRevisionRef.current ?? snapshot.loaded_revision;
     const tiptapJson = editor.getJSON();
     const saveGeneration = ++saveGenerationRef.current;
+    const mutationGenerationAtSaveStart = editorMutationGenerationRef.current;
     // A newer save immediately invalidates verification belonging to an older save,
     // including while this save is still preparing/committing.
     verificationGenerationRef.current += 1;
@@ -314,26 +335,58 @@ export function useWorkspaceDocumentAuthoring(
       setLastCommitReceipt(committed);
       const receiptForThisSave = committed;
       const verificationGeneration = ++verificationGenerationRef.current;
+      const editedDuringSave =
+        editorMutationGenerationRef.current !== mutationGenerationAtSaveStart;
 
       // Commit receipt is authoritative — advance local base before any verification GET.
+      // If the user typed during prepare/commit, keep that content and remain dirty.
       dispatch({ type: "COMMIT_SUCCEEDED" });
       expectedRevisionRef.current = committed.committed_revision;
-      const receiptLocal = applyCommitReceiptToLocalState({
-        receipt: committed,
-        surface: args.surface,
-        kind: args.kind,
-        tiptapJson,
-        markdown,
-      });
-      writeWorkspaceDocumentLocalState(storage, receiptLocal);
-      setLocalState(receiptLocal);
-      localDirtyRef.current = false;
+      if (editedDuringSave) {
+        setLocalState((current) => {
+          if (!current) {
+            const fallback = applyCommitReceiptToLocalState({
+              receipt: committed,
+              surface: args.surface,
+              kind: args.kind,
+              tiptapJson,
+              markdown,
+            });
+            const next = { ...fallback, dirty: true };
+            writeWorkspaceDocumentLocalState(storage, next);
+            localDirtyRef.current = true;
+            return next;
+          }
+          const next = applyCommitReceiptBaseRetainingEditorContent({
+            receipt: committed,
+            current,
+          });
+          writeWorkspaceDocumentLocalState(storage, next);
+          localDirtyRef.current = true;
+          return next;
+        });
+        // Do not remount: documentKey stays so the live editor is not reconstructed
+        // from the pre-save capture.
+      } else {
+        const receiptLocal = applyCommitReceiptToLocalState({
+          receipt: committed,
+          surface: args.surface,
+          kind: args.kind,
+          tiptapJson,
+          markdown,
+        });
+        writeWorkspaceDocumentLocalState(storage, receiptLocal);
+        setLocalState(receiptLocal);
+        localDirtyRef.current = false;
+      }
 
       if (committed.writer_ok && (committed.file_fingerprint == null || committed.file_fingerprint === "")) {
         // Durable write happened, but identity is incomplete: keep receipt-backed local base
         // and quarantine the prior snapshot so N−1 cannot remain the accepted record.
         setSnapshot(null);
-        setDocumentKey(`${args.documentId}:${committed.committed_revision}:receipt-unverified`);
+        if (!editedDuringSave) {
+          setDocumentKey(`${args.documentId}:${committed.committed_revision}:receipt-unverified`);
+        }
         dispatch({
           type: "VERIFICATION_MISMATCH",
           reason: "Commit receipt is missing file_fingerprint after successful write.",
@@ -346,6 +399,7 @@ export function useWorkspaceDocumentAuthoring(
         return {
           ...current,
           record: committed.committed_record,
+          // Snapshot reflects durable committed bytes, not post-save local edits.
           markdown,
           content_sha256: committed.normalized_content_sha256,
           file_fingerprint: committed.file_fingerprint as string,
@@ -353,7 +407,9 @@ export function useWorkspaceDocumentAuthoring(
           loaded_revision: committed.committed_revision,
         };
       });
-      setDocumentKey(`${args.documentId}:${committed.committed_revision}:committed`);
+      if (!editedDuringSave) {
+        setDocumentKey(`${args.documentId}:${committed.committed_revision}:committed`);
+      }
 
       dispatch({ type: "VERIFICATION_STARTED" });
       try {
