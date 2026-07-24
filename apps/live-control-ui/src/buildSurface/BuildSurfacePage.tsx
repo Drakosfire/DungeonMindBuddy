@@ -140,7 +140,7 @@ export function BuildSurfacePage() {
 
   return (
     <AppChrome activeRoute="build">
-      <BuildIngestToolbar />
+      <BuildIngestToolbar key={documentId} documentId={documentId} />
       <BuildSurfaceShell key={documentId} documentId={documentId} />
     </AppChrome>
   );

@@ -1,6 +1,10 @@
 import { useBuildExtraction } from "./useBuildExtraction";
 
-export function BuildIngestToolbar() {
+interface BuildIngestToolbarProps {
+  documentId: string;
+}
+
+export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
   const {
     statusLabel,
     error,
@@ -11,7 +15,7 @@ export function BuildIngestToolbar() {
     run,
     launch,
     refresh,
-  } = useBuildExtraction();
+  } = useBuildExtraction({ documentId });
 
   return (
     <section className="build-ingest-toolbar" data-testid="build-ingest-toolbar" aria-label="Build extraction">

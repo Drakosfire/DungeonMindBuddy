@@ -56,6 +56,7 @@ import type {
   ExtractionRunLaunchRequest,
   ExtractionRunLaunchResponse,
   ExtractionRunRecord,
+  ExtractionRunStatusResponse,
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
@@ -978,10 +979,16 @@ export async function launchExtractionRun(
   );
 }
 
-export async function getExtractionRun(runId: string): Promise<ExtractionRunRecord> {
-  return apiFetch<ExtractionRunRecord>(
+export async function getExtractionRunStatus(runId: string): Promise<ExtractionRunStatusResponse> {
+  return apiFetch<ExtractionRunStatusResponse>(
     `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}`,
   );
+}
+
+/** @deprecated Prefer getExtractionRunStatus for server-resolved lineage. */
+export async function getExtractionRun(runId: string): Promise<ExtractionRunRecord> {
+  const status = await getExtractionRunStatus(runId);
+  return status.run;
 }
 
 export async function activateStatblockRetrieval(

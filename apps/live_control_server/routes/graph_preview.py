@@ -171,17 +171,61 @@ def get_graph_ingest_runs(
 
 @router.get("/extraction-runs/{run_id}")
 def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
-    """Exact ExtractionRun reload. Never substitutes latest."""
+    """Exact ExtractionRun reload with server-resolved SourceArtifact lineage.
+
+    Never substitutes latest. The browser must not invent document/revision linkage.
+    """
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_extraction_run,
     )
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        get_source_artifact,
+    )
 
+    root = repo_root()
     try:
-        run = get_extraction_run(repo_root(), run_id)
+        run = get_extraction_run(root, run_id)
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-    return run.model_dump(mode="json")
+
+    try:
+        artifact = get_source_artifact(root, run.source_artifact_id)
+    except SourceArtifactRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    document_id = artifact.workspace_document_id
+    document_revision = artifact.workspace_document_revision
+    content_sha256 = artifact.content_sha256
+    if not document_id or document_revision is None or not content_sha256:
+        raise HTTPException(
+            status_code=422,
+            detail="source artifact is missing workspace document lineage required for exact-run status",
+        )
+
+    handoff = {
+        "href": (
+            "/ingest"
+            f"?extractionRunId={run.run_id}"
+            f"&sourceArtifactId={artifact.source_artifact_id}"
+            f"&documentId={document_id}"
+            f"&revision={document_revision}"
+        ),
+        "extraction_run_id": run.run_id,
+        "source_artifact_id": artifact.source_artifact_id,
+        "document_id": document_id,
+        "document_revision": document_revision,
+    }
+    return {
+        "schema_version": "dmb_extraction_run_status_v1",
+        "run": run.model_dump(mode="json"),
+        "source_artifact_id": artifact.source_artifact_id,
+        "document_id": document_id,
+        "document_revision": document_revision,
+        "source_content_sha256": content_sha256,
+        "graph_review_handoff": handoff,
+    }
 
 
 @router.post("/extraction-runs")
@@ -212,12 +256,13 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
 
     if not isinstance(document_id, str) or not document_id.strip():
         raise HTTPException(status_code=422, detail="document_id is required")
-    if expected_revision is not None and not isinstance(expected_revision, int):
+    if not isinstance(expected_revision, int):
         raise HTTPException(status_code=422, detail="expected_revision must be an int")
-    if expected_content_sha256 is not None and (
-        not isinstance(expected_content_sha256, str) or not expected_content_sha256.strip()
-    ):
-        raise HTTPException(status_code=422, detail="expected_content_sha256 must be a non-empty string when provided")
+    if not isinstance(expected_content_sha256, str) or not expected_content_sha256.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="expected_content_sha256 is required for Build extraction launch",
+        )
     if (
         profile_id != WORLDBUILDING_PLUMBING_PROFILE_ID
         or profile_version != WORLDBUILDING_PLUMBING_PROFILE_VERSION
@@ -238,7 +283,7 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
 
     if record.content_status != "committed":
         raise HTTPException(status_code=422, detail="source must be committed before extraction")
-    if expected_revision is not None and record.revision != expected_revision:
+    if record.revision != expected_revision:
         raise HTTPException(
             status_code=409,
             detail=f"revision mismatch: expected {expected_revision}, current {record.revision}",
@@ -250,7 +295,7 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         artifact = create_source_artifact_from_workspace_document(
             root,
             document_id=document_id,
-            expected_revision=record.revision,
+            expected_revision=expected_revision,
             expected_content_sha256=expected_content_sha256,
         )
     except SourceArtifactRegistryError as exc:
@@ -268,12 +313,14 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         / artifact.source_artifact_id.replace(":", "_"),
     )
 
+    content_sha256 = artifact.content_sha256 or expected_content_sha256.removeprefix("sha256:").strip().lower()
     return {
         "schema_version": "dmb_extraction_run_launch_v1",
         "run": result.run.model_dump(mode="json"),
         "source_artifact_id": artifact.source_artifact_id,
         "document_id": record.document_id,
         "document_revision": record.revision,
+        "source_content_sha256": content_sha256,
         "failure_kind": result.failure_kind,
         "diagnostics": result.diagnostics,
         "graph_review_handoff": {

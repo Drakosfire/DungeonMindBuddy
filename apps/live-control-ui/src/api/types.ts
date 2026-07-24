@@ -1501,8 +1501,8 @@ export interface GraphReviewHandoffPayload {
 
 export interface ExtractionRunLaunchRequest {
   document_id: string;
-  expected_revision?: number | null;
-  expected_content_sha256?: string | null;
+  expected_revision: number;
+  expected_content_sha256: string;
   profile_id?: string;
   profile_version?: string;
   allow_llm?: boolean;
@@ -1514,8 +1514,19 @@ export interface ExtractionRunLaunchResponse {
   source_artifact_id: string;
   document_id: string;
   document_revision: number;
+  source_content_sha256: string;
   failure_kind?: string | null;
   diagnostics: string[];
+  graph_review_handoff: GraphReviewHandoffPayload;
+}
+
+export interface ExtractionRunStatusResponse {
+  schema_version: "dmb_extraction_run_status_v1";
+  run: ExtractionRunRecord;
+  source_artifact_id: string;
+  document_id: string;
+  document_revision: number;
+  source_content_sha256: string;
   graph_review_handoff: GraphReviewHandoffPayload;
 }
 
