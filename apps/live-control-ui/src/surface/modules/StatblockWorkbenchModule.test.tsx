@@ -53,8 +53,6 @@ function successValidate(
 
 afterEach(() => {
   vi.restoreAllMocks();
-  window.localStorage.clear();
-  window.history.pushState({}, "", "/plan");
 });
 
 async function loadId(id: string) {
@@ -94,36 +92,6 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.queryByText("Preview corpus promotion")).toBeNull();
     expect(screen.queryByRole("button", { name: /accept/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
-  });
-
-  it("syncs candidateId into the URL and restores browser-local edits after remount", async () => {
-    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
-    const user = userEvent.setup();
-    const first = render(<StatblockWorkbenchModule />);
-    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
-    await user.click(screen.getByRole("button", { name: "Load candidate" }));
-    await waitFor(() => {
-      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
-    });
-    await waitFor(() => {
-      expect(window.location.search).toContain("candidateId=cand_fixture1");
-    });
-
-    const nameInput = screen.getByLabelText("Creature name");
-    await user.clear(nameInput);
-    await user.type(nameInput, "Persisted Brute");
-    await waitFor(() => {
-      const raw = window.localStorage.getItem("dmb.statblock.editorDraft.v1:cand_fixture1");
-      expect(raw).toContain("Persisted Brute");
-    });
-
-    first.unmount();
-    window.history.pushState({}, "", "/plan?candidateId=cand_fixture1");
-    render(<StatblockWorkbenchModule />);
-    await waitFor(() => {
-      expect(screen.getByDisplayValue("Persisted Brute")).toBeTruthy();
-    });
-    expect(screen.getByTestId("editor-ui-status").textContent).toContain("dirty_unvalidated");
   });
 
   it("can switch to review source renderer", async () => {
@@ -245,53 +213,6 @@ describe("StatblockWorkbenchModule", () => {
     expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
   });
 
-  it("creates a ThreatDraft then generates and loads the candidate", async () => {
-    const user = userEvent.setup();
-    const draftId = "22222222-2222-2222-2222-222222222222";
-    vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue({
-      schema: "dmb_threat_draft_v1",
-      draft_id: draftId,
-      version: 1,
-      world_id: "world_eldyrwild",
-      campaign_id: "campaign_longmont_c2",
-      name: "Gate Warden",
-      description: "Guards a narrow gate.",
-      threat_kind: "creature",
-      workflow_state: "drafting",
-      created_by: "gm-workbench",
-      created_at: "2026-01-01T00:00:00Z",
-      updated_at: "2026-01-01T00:00:00Z",
-    });
-    vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
-      schema: "dmb_generate_threat_draft_candidate_response_v1",
-      draft_id: draftId,
-      generated_from_draft_version: 1,
-      request_id: "req_create",
-      outcome: "success",
-      candidate,
-      cache_status: "stored",
-      persistence_failures: [],
-    });
-    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
-
-    render(<StatblockWorkbenchModule />);
-    await user.type(screen.getByPlaceholderText("Gate Warden"), "Gate Warden");
-    await user.type(
-      screen.getByPlaceholderText(/Stocky ironhide enforcer/i),
-      "Guards a narrow gate.",
-    );
-    await user.click(screen.getByRole("button", { name: "Create & generate" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
-    });
-    expect(liveApi.createThreatDraft).toHaveBeenCalled();
-    expect(liveApi.generateThreatDraftCandidate).toHaveBeenCalledWith(draftId, {
-      expected_draft_version: 1,
-    });
-    expect(screen.getByPlaceholderText("td_…")).toHaveValue(draftId);
-  });
-
   it("ignores late generation success after a newer manual load", async () => {
     const candidateB: GeneratedStatblockCandidateV1 = {
       ...candidate,
@@ -311,11 +232,11 @@ describe("StatblockWorkbenchModule", () => {
       candidate: candidateB,
     };
 
-    let resolveGenerate: (value: liveApi.GenerateThreatDraftCandidateResponseV1) => void = () => {};
+    let resolveGenerate: (value: GenerateThreatDraftCandidateResponseV1) => void = () => {};
     vi.spyOn(liveApi, "generateThreatDraftCandidate").mockImplementation(
       () =>
         new Promise((resolve) => {
-          resolveGenerate = resolve as typeof resolveGenerate;
+          resolveGenerate = resolve;
         }),
     );
     vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeB);

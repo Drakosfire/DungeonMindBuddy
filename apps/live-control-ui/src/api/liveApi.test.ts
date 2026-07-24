@@ -25,7 +25,6 @@ import {
   getStatblockWorkbenchDraft,
   getStatblockWorkbenchSample,
   getStatblockCandidate,
-  createThreatDraft,
   generateThreatDraftCandidate,
   validateStatblockDefinition,
   listGeneratedStatblocks,
@@ -297,45 +296,6 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/threat-drafts/draft-1/candidates:generate");
-    expect(init?.method).toBe("POST");
-  });
-
-  it("createThreatDraft posts to threat-drafts collection", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({
-        schema: "dmb_threat_draft_v1",
-        draft_id: "11111111-1111-1111-1111-111111111111",
-        version: 1,
-        world_id: "world_eldyrwild",
-        campaign_id: "campaign_longmont_c2",
-        name: "Gate Warden",
-        description: "Guards the gate.",
-        threat_kind: "creature",
-        workflow_state: "drafting",
-        created_by: "gm-workbench",
-        created_at: "2026-01-01T00:00:00Z",
-        updated_at: "2026-01-01T00:00:00Z",
-      }),
-    );
-
-    await createThreatDraft({
-      world_id: "world_eldyrwild",
-      campaign_id: "campaign_longmont_c2",
-      name: "Gate Warden",
-      description: "Guards the gate.",
-      threat_kind: "creature",
-      generation_intent: { ruleset: { system: "dnd5e", edition: "2024" } },
-      graph_context_snapshot: {
-        graph_revision_id: "rev_workbench_quick_create",
-        selected_node_ids: ["node_workbench_placeholder"],
-        admitted_source_anchor_ids: ["anchor_workbench_placeholder"],
-      },
-      created_by: "gm-workbench",
-    });
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/threat-drafts");
     expect(init?.method).toBe("POST");
   });
 

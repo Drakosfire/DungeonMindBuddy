@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import {
-  createThreatDraft,
   generateThreatDraftCandidate,
   getStatblockCandidate,
   validateStatblockDefinition,
@@ -27,19 +26,11 @@ import {
   type StatblockEditorState,
 } from "../../statblocks/editor/statblockEditorState";
 import {
-  buildEditorDraft,
-  readEditorDraft,
-  restoreEditorStateFromDraft,
-  writeCandidateIdToLocation,
-  writeEditorDraft,
-} from "../../statblocks/editor/statblockEditorDraftStore";
-import {
   mapServerValidationStatus,
   partitionValidationIssuesByPath,
   splitIssuesBySeverity,
 } from "../../statblocks/editor/statblockValidationIssues";
 import { StatblockRenderer } from "../../statblocks/render/StatblockRenderer";
-import { buildQuickThreatDraftCreateRequest } from "./buildQuickThreatDraftCreateRequest";
 
 type LoadState =
   | { kind: "idle" }
@@ -81,13 +72,6 @@ function readCandidateIdFromLocation(): string {
   return params.get("candidateId")?.trim() ?? "";
 }
 
-function activeCandidateIdFromLoadState(loadState: LoadState): string | null {
-  if (loadState.kind === "success") {
-    return loadState.response.candidate?.candidate_id ?? loadState.response.candidate_id ?? null;
-  }
-  return null;
-}
-
 function isIntegrityFailureCategory(category: string | null | undefined): boolean {
   if (!category) return false;
   return (
@@ -123,7 +107,7 @@ function GlobalIssueLine({
       ) : null}
       {" · "}
       <span data-issue-message={issue.message}>{issue.message}</span>
-      {issue.suggested_resolution != null && issue.suggested_resolution !== "" ? (
+      {issue.suggested_resolution != null ? (
         <>
           {" · "}
           <span data-issue-suggested-resolution={issue.suggested_resolution}>
@@ -363,9 +347,6 @@ export function StatblockWorkbenchModule() {
   const [candidateIdInput, setCandidateIdInput] = useState(readCandidateIdFromLocation);
   const [draftIdInput, setDraftIdInput] = useState("");
   const [draftVersionInput, setDraftVersionInput] = useState("1");
-  const [creatureNameInput, setCreatureNameInput] = useState("");
-  const [creatureDescriptionInput, setCreatureDescriptionInput] = useState("");
-  const [targetCrInput, setTargetCrInput] = useState("3");
   const [loadState, setLoadState] = useState<LoadState>({ kind: "idle" });
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -463,24 +444,11 @@ export function StatblockWorkbenchModule() {
         if (!isCurrentCandidateOp(opId)) return;
 
         if (response.status === "active" && response.candidate) {
-          const candidateId = response.candidate.candidate_id;
-          const fresh = createEditorStateFromOutput(response.candidate.definition);
-          const restored = restoreEditorStateFromDraft(fresh, readEditorDraft(candidateId));
-          const nextEditor = restored?.editor ?? fresh;
+          const nextEditor = createEditorStateFromOutput(response.candidate.definition);
           editorStateRef.current = nextEditor;
-          setCandidateIdInput(candidateId);
-          writeCandidateIdToLocation(candidateId);
           setLoadState({ kind: "success", response });
           setEditorState(nextEditor);
-          setViewMode(restored?.viewMode ?? "edit");
-          if (restored?.previewValidation) {
-            setPreviewValidation({
-              associatedRevision: restored.previewValidation.associatedRevision,
-              editorEpoch: editorEpochRef.current,
-              receipt: restored.previewValidation.receipt,
-              definitionDigest: restored.previewValidation.definitionDigest,
-            });
-          }
+          setViewMode("edit");
           return;
         }
         setLoadState({
@@ -509,39 +477,19 @@ export function StatblockWorkbenchModule() {
     }
   }, [loadCandidate]);
 
-  // Persist browser-local draft (edits + associated receipt) for tab reopen.
-  useEffect(() => {
-    const candidateId = activeCandidateIdFromLoadState(loadState);
-    if (!candidateId || !editorState) return;
-    const previewForDraft =
-      previewValidation != null &&
-      previewValidation.associatedRevision === editorState.stateRevision &&
-      editorState.validatedRevision === editorState.stateRevision
-        ? {
-            associatedRevision: previewValidation.associatedRevision,
-            receipt: previewValidation.receipt,
-            definitionDigest: previewValidation.definitionDigest,
-          }
-        : null;
-    const handle = window.setTimeout(() => {
-      writeEditorDraft(
-        buildEditorDraft({
-          candidateId,
-          editor: editorState,
-          viewMode,
-          previewValidation: previewForDraft,
-        }),
-      );
-    }, 200);
-    return () => window.clearTimeout(handle);
-  }, [editorState, viewMode, previewValidation, loadState]);
-
   const onSubmitCandidate = (event: FormEvent) => {
     event.preventDefault();
     void loadCandidate(candidateIdInput);
   };
 
-  const runGenerateFromDraft = async (draftId: string, expectedVersion: number) => {
+  const onGenerateFromDraft = async (event: FormEvent) => {
+    event.preventDefault();
+    const draftId = draftIdInput.trim();
+    const expectedVersion = Number(draftVersionInput);
+    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
+      return;
+    }
     const opId = beginCandidateOp();
     // Newer generation orphans prior load outcomes and prior generate UI.
     setPendingGenerate(true);
@@ -578,46 +526,6 @@ export function StatblockWorkbenchModule() {
       if (isCurrentCandidateOp(opId)) {
         setPendingGenerate(false);
       }
-    }
-  };
-
-  const onGenerateFromDraft = async (event: FormEvent) => {
-    event.preventDefault();
-    const draftId = draftIdInput.trim();
-    const expectedVersion = Number(draftVersionInput);
-    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
-      setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
-      return;
-    }
-    await runGenerateFromDraft(draftId, expectedVersion);
-  };
-
-  const onCreateAndGenerate = async (event: FormEvent) => {
-    event.preventDefault();
-    const name = creatureNameInput.trim();
-    const description = creatureDescriptionInput.trim();
-    if (!name || !description) {
-      setGenerateError("Provide a creature name and description.");
-      return;
-    }
-    setPendingGenerate(true);
-    setGenerateError(null);
-    setGenerateMessage(null);
-    try {
-      const draft = await createThreatDraft(
-        buildQuickThreatDraftCreateRequest({
-          name,
-          description,
-          targetCr: targetCrInput,
-        }),
-      );
-      setDraftIdInput(draft.draft_id);
-      setDraftVersionInput(String(draft.version));
-      setGenerateMessage(`Created ThreatDraft ${draft.draft_id} v${draft.version}. Generating…`);
-      await runGenerateFromDraft(draft.draft_id, draft.version);
-    } catch (error) {
-      setPendingGenerate(false);
-      setGenerateError(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -725,52 +633,12 @@ export function StatblockWorkbenchModule() {
           <p className="eyebrow">Typed candidate review and preview validation</p>
           <h2 className="module-title">Statblock Workbench</h2>
           <p className="module-muted">
-            Displays mechanics from a structured DungeonMind candidate. Edit mode keeps a
-            browser-local working copy for this candidate (survives tab close; not a Server
-            save). Preview validation does not accept or save mechanics.
+            Displays mechanics from a structured DungeonMind candidate. Edit mode holds a session-only
+            working copy; preview validation does not accept or save mechanics.
           </p>
         </div>
         <span className="badge">sbw05c-preview</span>
       </header>
-
-      <section className="statblock-section">
-        <h3>New creature</h3>
-        <p className="module-muted">
-          Create a ThreatDraft and generate a typed candidate in one step (dogfood shortcut).
-        </p>
-        <form className="statblock-command-column" onSubmit={onCreateAndGenerate}>
-          <label>
-            Name
-            <input
-              value={creatureNameInput}
-              onChange={(event) => setCreatureNameInput(event.target.value)}
-              placeholder="Gate Warden"
-              autoComplete="off"
-            />
-          </label>
-          <label>
-            Description
-            <textarea
-              value={creatureDescriptionInput}
-              onChange={(event) => setCreatureDescriptionInput(event.target.value)}
-              placeholder="Stocky ironhide enforcer with a crushing greatclub…"
-              rows={4}
-            />
-          </label>
-          <label>
-            Target CR
-            <input
-              value={targetCrInput}
-              onChange={(event) => setTargetCrInput(event.target.value)}
-              placeholder="3"
-              autoComplete="off"
-            />
-          </label>
-          <button type="submit" disabled={pendingGenerate}>
-            {pendingGenerate ? "Creating…" : "Create & generate"}
-          </button>
-        </form>
-      </section>
 
       <section className="statblock-section">
         <h3>Load exact candidate</h3>
@@ -788,8 +656,7 @@ export function StatblockWorkbenchModule() {
           <button type="submit">Load candidate</button>
         </form>
         <p className="module-muted">
-          Deep link updates on load: <code>?candidateId=cand_…</code> (reopens restore the
-          candidate and local edits).
+          Optional deep link: <code>?candidateId=cand_…</code>
         </p>
       </section>
 

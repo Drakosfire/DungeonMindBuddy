@@ -80,7 +80,7 @@ describe("definitionOutputToInput", () => {
     ).toEqual(["Fear", "Fireball"]);
 
     expect(input.lair?.name).toBe("Ironhold");
-    expect(input.phases?.default_phase?.key).toBe("enraged");
+    expect(input.phases?.[0]?.key).toBe("enraged");
 
     const human = input.rule_elements.find((element) => element.key === "lair_pressure");
     expect(human?.mechanic).toMatchObject({

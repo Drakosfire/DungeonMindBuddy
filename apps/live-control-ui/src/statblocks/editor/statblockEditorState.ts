@@ -227,90 +227,66 @@ export function setAbility(state: StatblockEditorState, ability: AbilityName, va
   }));
 }
 
-export function primaryArmorClassKeyForDisplay(defenses: StatblockDefinitionV1_Input["defenses"]): string {
-  return defenses.default_armor_class.key;
+export function primaryArmorClassIndexForDisplay(defenses: StatblockDefinitionV1_Input["defenses"]): number {
+  const defaultIndex = defenses.armor_classes.findIndex((entry) => entry.default);
+  return defaultIndex >= 0 ? defaultIndex : 0;
 }
 
-/** Mutates `defenses.default_armor_class.value` only. */
+function primaryArmorClassIndex(defenses: StatblockDefinitionV1_Input["defenses"]): number {
+  return primaryArmorClassIndexForDisplay(defenses);
+}
+
+/** Mutates `defenses.armor_classes[primaryArmorClassIndex(defenses)].value` only. */
 export function setPrimaryArmorClassValue(state: StatblockEditorState, value: number): StatblockEditorState {
-  return updateWorkingCopy(state, (current) => ({
-    ...current,
-    defenses: {
-      ...current.defenses,
-      default_armor_class: {
-        ...current.defenses.default_armor_class,
-        value,
+  return updateWorkingCopy(state, (current) => {
+    const index = primaryArmorClassIndex(current.defenses);
+    if (current.defenses.armor_classes.length === 0) {
+      return current;
+    }
+    const armorClasses = current.defenses.armor_classes.map((entry, entryIndex) =>
+      entryIndex === index ? { ...entry, value } : entry,
+    );
+    return {
+      ...current,
+      defenses: {
+        ...current.defenses,
+        armor_classes: armorClasses,
       },
-    },
-  }));
+    };
+  });
 }
 
-/**
- * Editable HP scalar for the workbench control.
- * - formula_average: desired displayed average; keeps formula.modifier + displayed_average coherent
- * - fixed_value: mutates fixed HP
- */
-export type HitPointsEditTarget = "formula_average" | "fixed_value";
+export type HitPointsEditTarget = "displayed_average" | "fixed_value" | "formula_modifier";
 
-/** Server rule: (count * (die + 1)) // 2 + modifier (D&D book average). */
-export function formulaDisplayedAverage(formula: {
-  count: number;
-  die: number;
-  modifier?: number | null;
-}): number {
-  const modifier = formula.modifier ?? 0;
-  return Math.floor((formula.count * (formula.die + 1)) / 2) + modifier;
-}
-
-export function resolveHitPointsEditTarget(
-  hitPoints: StatblockDefinitionV1_Input["vitality"]["hit_points"],
-): HitPointsEditTarget {
+export function resolveHitPointsEditTarget(hitPoints: StatblockDefinitionV1_Input["vitality"]["hit_points"]): HitPointsEditTarget {
+  if (hitPoints.displayed_average !== null && hitPoints.displayed_average !== undefined) {
+    return "displayed_average";
+  }
   if (hitPoints.method === "fixed") {
     return "fixed_value";
   }
-  return "formula_average";
-}
-
-function clampHitPointsScalar(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 1;
-  }
-  return Math.max(1, Math.trunc(value));
+  return "formula_modifier";
 }
 
 export function setHitPointsMax(state: StatblockEditorState, value: number): StatblockEditorState {
   return updateWorkingCopy(state, (current) => {
-    const hitPoints = current.vitality.hit_points;
-    const desired = clampHitPointsScalar(value);
-    if (hitPoints.method === "fixed") {
-      return {
-        ...current,
-        vitality: {
-          hit_points: {
-            method: "fixed",
-            fixed_value: desired,
-            displayed_average:
-              hitPoints.displayed_average === null || hitPoints.displayed_average === undefined
-                ? (hitPoints.displayed_average ?? null)
-                : desired,
-          },
-        },
+    const hitPoints = { ...current.vitality.hit_points };
+    const target = resolveHitPointsEditTarget(hitPoints);
+    if (target === "displayed_average") {
+      hitPoints.displayed_average = value;
+    } else if (target === "fixed_value") {
+      hitPoints.fixed_value = value;
+    } else {
+      const formula = hitPoints.formula ?? { count: 1, die: 6, modifier: 0 };
+      hitPoints.formula = {
+        ...formula,
+        modifier: value,
       };
     }
-    const formula = hitPoints.formula ?? { count: 1, die: 6, modifier: 0 };
-    const baseWithoutModifier = Math.floor((formula.count * (formula.die + 1)) / 2);
-    const nextFormula = {
-      ...formula,
-      modifier: desired - baseWithoutModifier,
-    };
     return {
       ...current,
       vitality: {
-        hit_points: {
-          method: "formula",
-          formula: nextFormula,
-          displayed_average: formulaDisplayedAverage(nextFormula),
-        },
+        hit_points: hitPoints,
       },
     };
   });

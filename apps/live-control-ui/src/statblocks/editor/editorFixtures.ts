@@ -163,16 +163,16 @@ export function complexCandidateDefinition(): StatblockDefinitionV1_Output {
       initiative_tiebreak: 0,
       regional_rules_text: "Ash clouds impose disadvantage on Perception.",
     },
-    phases: {
-      default_phase: {
+    phases: [
+      {
         key: "enraged",
         name: "Enraged",
+        default: false,
         enabled_element_keys: ["frenzy"],
         disabled_element_keys: ["greatclub"],
         entry_rules_text: "Enter when reduced below half HP.",
       },
-      additional_phases: [],
-    },
+    ],
     resources: [
       {
         key: "legendary",

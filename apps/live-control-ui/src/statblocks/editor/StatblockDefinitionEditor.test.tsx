@@ -50,7 +50,8 @@ describe("StatblockDefinitionEditor", () => {
     expect(protectedRegions.length).toBeGreaterThan(0);
     expect(document.querySelector('[data-protected-path="lair"]')).toBeTruthy();
     expect(document.querySelector('[data-protected-path="phases"]')).toBeTruthy();
-    expect(screen.getByText(/browser-local working copy/i)).toBeTruthy();
+    expect(screen.getByText(/Session-only working copy/)).toBeTruthy();
+    expect(screen.getByText(/unsaved/i)).toBeTruthy();
   });
 
   it("shows complete complex mechanic JSON including spell names and nested effects", () => {

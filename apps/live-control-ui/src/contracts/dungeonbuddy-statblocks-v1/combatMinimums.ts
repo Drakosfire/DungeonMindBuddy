@@ -13,18 +13,15 @@ export type CombatMinimums = {
 
 /** DungeonBuddy-owned combat summary projection from an exact revision definition. */
 export function combatMinimums(definition: StatblockDefinitionV1_Output): CombatMinimums {
-  const armor = definition.defenses.default_armor_class;
+  const armor =
+    definition.defenses.armor_classes.find((profile) => profile.default) ??
+    definition.defenses.armor_classes[0];
   const hp = definition.vitality.hit_points;
-  const hitPoints =
-    hp.displayed_average ??
-    (hp.method === "fixed" ? hp.fixed_value : null) ??
-    null;
-  const hitPointFormula = hp.method === "formula" ? hp.formula : null;
   return {
     name: definition.identity.name,
     armor_class: armor.value,
-    hit_points: hitPoints,
-    hit_point_formula: hitPointFormula,
+    hit_points: hp.displayed_average ?? hp.fixed_value ?? null,
+    hit_point_formula: hp.formula ?? null,
     challenge_rating: definition.challenge.rating,
     proficiency_bonus: definition.challenge.proficiency_bonus,
     speed: definition.movement.modes.map((mode) => ({

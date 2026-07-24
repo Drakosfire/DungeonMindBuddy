@@ -4,14 +4,11 @@ import { baseCandidateDefinition } from "./editorFixtures";
 import {
   beginValidationAttempt,
   createEditorStateFromOutput,
-  formulaDisplayedAverage,
   getLocalFingerprint,
   getUiStatus,
   markValidationAssociated,
   markValidationUnavailable,
   redo,
-  resolveHitPointsEditTarget,
-  setHitPointsMax,
   setIdentityName,
   setRuleElementRulesText,
   undo,
@@ -191,54 +188,5 @@ describe("statblockEditorState", () => {
     const state = createEditorStateFromOutput(output);
     setIdentityName(state, "Changed");
     expect(output.identity.name).toBe("Ironhide Brute");
-  });
-
-  it("resolves formula HP edits to formula_average, not a free displayed_average field", () => {
-    const state = createEditorStateFromOutput(baseCandidateDefinition());
-    expect(state.workingCopy.vitality.hit_points.method).toBe("formula");
-    expect(resolveHitPointsEditTarget(state.workingCopy.vitality.hit_points)).toBe("formula_average");
-  });
-
-  it("keeps formula displayed_average coherent when bumping HP by 1", () => {
-    const state = createEditorStateFromOutput(baseCandidateDefinition());
-    const before = state.workingCopy.vitality.hit_points;
-    expect(before.method).toBe("formula");
-    if (before.method !== "formula") {
-      throw new Error("expected formula HP fixture");
-    }
-    const shown =
-      before.displayed_average !== null && before.displayed_average !== undefined
-        ? before.displayed_average
-        : formulaDisplayedAverage(before.formula);
-    const edited = setHitPointsMax(state, shown + 1);
-    const after = edited.workingCopy.vitality.hit_points;
-    expect(after.method).toBe("formula");
-    if (after.method !== "formula") {
-      throw new Error("expected formula HP after edit");
-    }
-    expect(after.displayed_average).toBe(shown + 1);
-    expect(after.formula.count).toBe(before.formula.count);
-    expect(after.formula.die).toBe(before.formula.die);
-    expect(after.displayed_average).toBe(formulaDisplayedAverage(after.formula));
-    expect(after.formula.modifier).toBe(
-      shown + 1 - Math.floor((before.formula.count * (before.formula.die + 1)) / 2),
-    );
-  });
-
-  it("clamps formula HP edits to at least 1 and keeps dice average matched", () => {
-    const state = createEditorStateFromOutput(baseCandidateDefinition());
-    const edited = setHitPointsMax(state, 0);
-    const after = edited.workingCopy.vitality.hit_points;
-    expect(after.method).toBe("formula");
-    if (after.method !== "formula") {
-      throw new Error("expected formula HP after edit");
-    }
-    expect(after.displayed_average).toBe(1);
-    expect(after.displayed_average).toBe(formulaDisplayedAverage(after.formula));
-  });
-
-  it("matches Server/D&D book averages for even dice", () => {
-    expect(formulaDisplayedAverage({ count: 8, die: 10, modifier: 24 })).toBe(68);
-    expect(formulaDisplayedAverage({ count: 10, die: 8, modifier: 30 })).toBe(75);
   });
 });

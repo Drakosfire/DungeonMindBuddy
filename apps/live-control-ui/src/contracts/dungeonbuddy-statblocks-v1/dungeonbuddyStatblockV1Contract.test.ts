@@ -67,12 +67,8 @@ function assertDefinition(value: unknown, label: string): StatblockDefinitionV1_
   const identity = requireRecord(definition.identity, `${label}.identity`);
   requireString(identity.name, `${label}.identity.name`);
   const defenses = requireRecord(definition.defenses, `${label}.defenses`);
-  requireRecord(defenses.default_armor_class, `${label}.defenses.default_armor_class`);
-  if (
-    defenses.alternate_armor_classes !== undefined &&
-    !Array.isArray(defenses.alternate_armor_classes)
-  ) {
-    throw new Error(`${label}.defenses.alternate_armor_classes must be an array when present`);
+  if (!Array.isArray(defenses.armor_classes) || defenses.armor_classes.length === 0) {
+    throw new Error(`${label}.defenses.armor_classes must be a non-empty array`);
   }
   const vitality = requireRecord(definition.vitality, `${label}.vitality`);
   requireRecord(vitality.hit_points, `${label}.vitality.hit_points`);

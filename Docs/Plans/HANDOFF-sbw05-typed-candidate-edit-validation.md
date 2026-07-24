@@ -181,7 +181,7 @@ Trust boundary:
 - Any change, normalization, undo, or redo clears validation eligibility unless exact association with the current working copy has been proven (same local fingerprint/state revision that was validated).
 - The UI distinguishes: `clean_unvalidated`, `dirty_unvalidated`, `validating`, `validated` (Server `valid`), `validated_with_warnings` (Server `warnings`), `validated_with_errors` (Server `invalid`), `validation_unavailable`. Receipt-bearing states are only `validated` | `validated_with_warnings` | `validated_with_errors`; pending `validating` and `validation_unavailable` never associate a revision.
 - No save/accept eligibility claim exists beyond a derived `validation_has_no_errors` state for the exact currently associated receipt.
-- The working copy is **browser-local for the loaded candidate** (`localStorage` draft keyed by `candidateId` + source fingerprint; URL `?candidateId=` synced on load). It survives tab close/reopen. It is **not** a Server save, ThreatDraft field, or SBW07 accept path.
+- The working copy is **session-only and unsaved**. No `localStorage`, IndexedDB, or durable editor schema in SBW05b/c.
 ### §6A State and fallback matrix
 
 | Path | Loading | Exact success | Ordinary miss | Dependency unavailable | Integrity failure | Stale | Retry |
@@ -208,7 +208,7 @@ No fallback to local validation, previous candidate receipt, Markdown parsing, o
 By default:
 
 ```text
-Browser-local editor draft (`localStorage`) is allowed for tab reopen of the loaded candidate + in-progress edits. It must stay bound to `candidateId` + source fingerprint, must not be marketed as Server save/accept, and must not invent a new durable ThreatDraft schema (SBW07 owns mechanics persistence).
+Not applicable to new durable editor state — the working copy is session-local and the UI must say unsaved.
 ```
 
 If the merged predecessor already provides a versioned draft subrecord expressly intended for complete working definitions, the dispatching agent must amend this handoff before implementation with exact save/reload/version semantics. Do not invent that persistence during the PR.
@@ -302,8 +302,7 @@ apps/live-control-ui/src/statblocks/editor/**
 - any backend / `apps/live_control_server/**`
 - `apps/live-control-ui/src/api/liveApi.ts` and related API tests
 - `StatblockWorkbenchModule.tsx` / workbench host wiring
-- save, accept, revise, graph, ThreatDraft durable editor schema, IndexedDB
-- claiming browser-local draft equals Server mechanics persistence
+- save, accept, revise, graph, localStorage, IndexedDB, durable editor schema
 - recreating or claiming equality with Server canonical `definition_digest`
 
 ### Required initializer
@@ -338,7 +337,7 @@ It is **not**:
 
 ### Session-only disclosure
 
-The working copy is a **browser-local draft** for the loaded candidate (survives tab close via `localStorage` + `?candidateId=`). UI copy and tests must state it is not a Server save. No ThreatDraft / immutable-revision persistence path in SBW05b/c.
+The working copy is **session-only and unsaved**. UI copy and tests must state this. No durable persistence path.
 
 ### Merge proof (required tests)
 
@@ -351,7 +350,7 @@ Complex round-trips covering at least:
 - nested effects
 - **untouched-field equality** after edits elsewhere
 
-Also prove: initializer completeness; source candidate immutability; edit/normalization/undo/redo clears eligibility; browser-local draft rehydrates edits for the same candidate/source fingerprint (and does not claim Server save).
+Also prove: initializer completeness; source candidate immutability; edit/normalization/undo/redo clears eligibility; session-only (no storage writes).
 
 For at least one complex fixture region that lacks a dedicated control: the structure remains in the working copy **and** a queryable protected/read-only block is present in the rendered editor UI (visible disclosure, not data-only preservation).
 
@@ -461,7 +460,7 @@ Stop if:
 - [x] Distinguish repository tip from last SBW integration.
 - [x] Record SBW04 real-candidate live-proof verification debt as open.
 - [x] Capture current generated validation fixtures (SBW05a).
-- [x] State browser-local editor draft honestly (tab reopen; not Server save) (§12).
+- [x] State session-only editor persistence honestly (§12).
 - [x] Dispatch `SBW05b` against §12 only (`#402`); backend/`liveApi`/workbench/save remained false in that bite.
 - [x] After `SBW05b`, dispatch `SBW05c` against §13 (#404).
 - [ ] After `SBW05c`, open `SBW07-contract` over frozen HANDOFF-sbw07 §12 without rewrite unless rejected.

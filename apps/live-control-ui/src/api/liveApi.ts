@@ -101,8 +101,6 @@ import type {
   PartyRegistrySessionRosterWritePrepareResponse,
   GenerateThreatDraftCandidateRequestV1,
   GenerateThreatDraftCandidateResponseV1,
-  CreateThreatDraftRequestV1,
-  ThreatDraftV1,
   ReadStatblockCandidateResponseV1,
   ValidateDefinitionBuddyRequestV1,
   ValidateDefinitionBuddyResponseV1,
@@ -748,16 +746,6 @@ export async function getStatblockWorkbenchSample(): Promise<StatblockWorkbenchS
 
 export async function getStatblockIntegrationReadiness(): Promise<StatblockIntegrationReadinessV1> {
   return apiFetch<StatblockIntegrationReadinessV1>("/api/live/statblocks/v1/readiness");
-}
-
-export async function createThreatDraft(
-  request: CreateThreatDraftRequestV1,
-): Promise<ThreatDraftV1> {
-  return apiFetch<ThreatDraftV1>("/api/live/threat-drafts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  });
 }
 
 export async function generateThreatDraftCandidate(
