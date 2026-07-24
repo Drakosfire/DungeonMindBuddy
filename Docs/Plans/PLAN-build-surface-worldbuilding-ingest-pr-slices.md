@@ -50,8 +50,8 @@ external_pull_requests:
       - "Plan, Build, and runbook invoke the same lifecycle transitions; surfaces adapt presentation only."
       - "Browser back/forward changes loaded UUID and agent context together."
       - "Clean server drafts labeled Draft, not Committed; agent context distinguishes local dirty vs durable committed."
-  - id: github-pr-bld05a-hardening
-    url: pending
+  - id: github-pr-401
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/401
     plan_phase_primary: "BLD-05a-harden"
     plan_phase_label: >-
       Post-merge BLD-05a authoring hardening: receipt verification agreement,
