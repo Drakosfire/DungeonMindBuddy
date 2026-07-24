@@ -1073,17 +1073,21 @@ export function PlanAgentInteractionBar({
                         data-turn-id={turn.turnId}
                         data-active={isInspectedTurn}
                       >
-                        <div className="plan-agent-chat-bubble plan-agent-chat-bubble-user">
-                          <p className="plan-surface-kicker">You</p>
-                          <p>{turn.question}</p>
+                        <div className="plan-agent-chat-row plan-agent-chat-row-user">
+                          <div className="plan-agent-chat-bubble plan-agent-chat-bubble-user">
+                            <p className="plan-surface-kicker">You</p>
+                            <p>{turn.question}</p>
+                          </div>
                         </div>
-                        <div
-                          className="plan-agent-chat-bubble plan-agent-chat-bubble-assistant"
-                          role="region"
-                          aria-label="Hermes reply"
-                        >
-                          <p className="plan-surface-kicker">Hermes</p>
-                          <p className="plan-agent-chat-answer">{turn.answer}</p>
+                        <div className="plan-agent-chat-row plan-agent-chat-row-assistant">
+                          <div
+                            className="plan-agent-chat-bubble plan-agent-chat-bubble-assistant"
+                            role="region"
+                            aria-label="Hermes reply"
+                          >
+                            <p className="plan-surface-kicker">Hermes</p>
+                            <p className="plan-agent-chat-answer">{turn.answer}</p>
+                          </div>
                         </div>
                         {turnS1Support ? (
                           <details className="plan-agent-s1-support">
