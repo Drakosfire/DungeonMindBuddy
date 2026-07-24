@@ -1,7 +1,7 @@
 # HANDOFF — SBW07 Persist accepted mechanics as an immutable revision
 
 **Created:** 2026-07-22  
-**Updated:** 2026-07-24 — re-anchored after `SBW05c`; review fixes for reconcile crash protocol, history bound, and commit-point wording  
+**Updated:** 2026-07-24 — re-anchored after `SBW05c`; review fixes for reconcile crash protocol, history bound, commit-point wording, `same_mechanics_locator`, draft_ref enum hygiene  
 **Status:** IN REVIEW — `SBW07-contract` (docs-only approve/reject of §12). After approval: `SBW07a` → `SBW07b` → `SBW07c`. **Before SBW06**.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw07-persist-accepted-mechanics.md`  
 **Workstream:** `SBW07`  
@@ -474,22 +474,57 @@ Not chosen: requiring a real multi-document / multi-file ACID transaction for re
 Chosen: Phase 1 then Phase 2 with explicit crash recovery and product-trust rules.
 ```
 
+### Locator equality predicate (closed)
+
+```text
+same_mechanics_locator(ref, locator) iff ALL of these fields match:
+  provider
+  statblock_id
+  revision_id
+  contract
+  contract_version
+  definition_digest
+
+Provenance and timestamp fields do NOT participate:
+  accepted_from_candidate_id
+  accepted_from_draft_version
+  accepted_at
+
+Consequences:
+  - "equals this operation's locator" / "attached this locator" in this section
+    means same_mechanics_locator(ref, locator).
+  - conflicted means draft.accepted_mechanics_ref is non-null AND
+    NOT same_mechanics_locator(ref, this operation.locator).
+  - Idempotent Phase 1 retry when same_mechanics_locator already holds MUST
+    preserve the existing AcceptedMechanicsRefV1, including accepted_at;
+    never regenerate provenance or timestamps to force full-object equality.
+  - Full-object equality between AcceptedMechanicsRefV1 and the six-field
+    locator is undefined and must not be required.
+```
+
 **Phase 1 — ThreatDraft attach (single draft-document replace / version CAS):**
 
 ```text
 Allowed only when:
   - authority is server_committed with a durable locator, AND
-  - draft.accepted_mechanics_ref is null, OR equals this operation's locator.
-On success, one draft write sets:
-  - accepted_mechanics_ref = exact locator fields
+  - draft.accepted_mechanics_ref is null, OR
+    same_mechanics_locator(draft.accepted_mechanics_ref, this operation.locator).
+On first attach success (ref was null), one draft write sets:
+  - accepted_mechanics_ref = locator six-field identity + provenance/timestamp fields
   - workflow_state = mechanics_saved
+On idempotent retry when same_mechanics_locator already holds:
+  - preserve the existing AcceptedMechanicsRefV1 byte-for-byte, including accepted_at
+    and provenance fields; do not regenerate timestamps or provenance
+  - ensure workflow_state = mechanics_saved if somehow unset
 Do not advance journal authority in this phase.
 ```
 
 **Phase 2 — Journal reconcile (single journal-record replace):**
 
 ```text
-Allowed only after Phase 1 durable success is observed for this locator.
+Allowed only after Phase 1 durable success is observed for this locator
+  (draft.accepted_mechanics_ref is non-null AND
+   same_mechanics_locator(draft.accepted_mechanics_ref, this operation.locator)).
 On success, one journal write sets:
   - authority_state = reconciled
   - materialization.draft_ref = attached
@@ -499,25 +534,27 @@ On success, one journal write sets:
 
 ```text
 Observed combined state:
-  - draft.accepted_mechanics_ref equals this operation.locator
+  - same_mechanics_locator(draft.accepted_mechanics_ref, this operation.locator)
   - draft.workflow_state = mechanics_saved
   - journal still server_committed
-  - materialization.draft_ref ≠ attached (missing/failed/stale)
+  - materialization.draft_ref ∈ {missing, failed, conflicted}
+    (i.e. draft_ref ≠ attached; closed enum only — no stale value)
 
 Product trust (closed):
   Trust the ThreatDraft. The product MAY claim mechanics_saved from
-  draft.workflow_state + matching accepted_mechanics_ref even though the
+  draft.workflow_state + same_mechanics_locator match even though the
   journal has not yet reached reconciled.
 
 Recovery obligation (idempotent; no Server create; no locator overwrite):
   Perform Phase 2 journal repair to reconciled + draft_ref=attached.
+  Do not rewrite draft.accepted_mechanics_ref (preserve accepted_at / provenance).
 ```
 
 **Crash before Phase 1:**
 
 ```text
-Observed: journal server_committed (locator known); draft ref still null /
-  not this locator; workflow_state ≠ mechanics_saved.
+Observed: journal server_committed (locator known); draft.accepted_mechanics_ref
+  is null OR NOT same_mechanics_locator(...); workflow_state ≠ mechanics_saved.
 Product trust: must NOT claim mechanics_saved.
 Recovery: retry Phase 1 under CAS rules, then Phase 2.
 ```
@@ -539,12 +576,12 @@ Recovery: retry Phase 1 under CAS rules, then Phase 2.
 | `dispatched_unknown` (original) | attempt presents **same key + changed** Buddy-local digest / body (local detect before call) | **`dispatched_unknown` unchanged** | original `request_body` / Buddy-local digest retained | **never** with changed body | attempt response: input conflict; recover via original body replay | no |
 | `dispatched_unknown` (original) | Server idempotency **409** on a **changed-body** attempt | **`dispatched_unknown` unchanged** | treat as attempt conflict; original may have externally committed — **must** next replay original stored body (do not interpret 409 as original failure) | **never** alternate create | attempt response: input conflict; original still unknown pending original-body recovery | no |
 | `dispatched_unknown` | Server error on **original** same-body path that `SBW07a` fixtures capture as proving persistence did **not** begin | `terminal_failure` | fixture-captured terminal evidence + category + HTTP | no further create for this op | typed failure | no |
-| `server_committed` | Phase 1 draft attach success (version CAS; ref was null or equals this locator) | `server_committed` (draft now `mechanics_saved`; journal not yet reconciled) | durable draft write of `AcceptedMechanicsRefV1` + `workflow_state=mechanics_saved`; journal unchanged | no | product may claim **mechanics_saved**; journal repair still required | no |
-| `server_committed` ∧ draft already attached this locator | Phase 2 journal repair | `reconciled` | journal write: `authority_state=reconciled`, `draft_ref=attached` | no | **mechanics_saved**; not published | no |
+| `server_committed` | Phase 1 draft attach success (version CAS; ref was null or `same_mechanics_locator`) | `server_committed` (draft now `mechanics_saved`; journal not yet reconciled) | first attach: write `AcceptedMechanicsRefV1` + `workflow_state=mechanics_saved`; idempotent retry: preserve existing ref including `accepted_at`; journal unchanged | no | product may claim **mechanics_saved**; journal repair still required | no |
+| `server_committed` ∧ `same_mechanics_locator` already on draft | Phase 2 journal repair | `reconciled` | journal write: `authority_state=reconciled`, `draft_ref=attached`; do not rewrite draft ref | no | **mechanics_saved**; not published | no |
 | `server_committed` | Phase 1 draft-ref write failure (I/O) while ref still null | `server_committed` (`draft_ref=failed`) | locator retained | no | `server_committed_reference_pending`; product must **not** claim `mechanics_saved` | **never** |
-| `server_committed` | draft version CAS miss while ref still null | `server_committed` | reload draft; retry Phase 1 **only if** ref still null or equals this locator | no | pending ref; no second create | no |
-| `server_committed` | draft already has `accepted_mechanics_ref` with a **different** locator | `server_committed` (`draft_ref=conflicted`) | both locators retained (draft ref + operation locator); never overwrite | no | explicit `accepted_ref_conflict`; no silent attach; no delete of either Server revision | **never** |
-| `server_committed` | restart observes draft already attached this locator (`mechanics_saved`) while journal not reconciled | `server_committed` → then Phase 2 → `reconciled` | draft locator equality proof; then journal repair | no | product already **mechanics_saved**; repair journal | no |
+| `server_committed` | draft version CAS miss while ref still null | `server_committed` | reload draft; retry Phase 1 **only if** ref still null or `same_mechanics_locator` | no | pending ref; no second create | no |
+| `server_committed` | draft has `accepted_mechanics_ref` with `NOT same_mechanics_locator` | `server_committed` (`draft_ref=conflicted`) | both locators retained (draft ref + operation locator); never overwrite | no | explicit `accepted_ref_conflict`; no silent attach; no delete of either Server revision | **never** |
+| `server_committed` | restart observes `same_mechanics_locator` + draft `mechanics_saved` while journal not reconciled | `server_committed` → then Phase 2 → `reconciled` | `same_mechanics_locator` proof; then journal repair; preserve existing `accepted_at` | no | product already **mechanics_saved**; repair journal | no |
 | `server_committed` | draft missing / deleted | `server_committed` | locator retained; expose recovery/error | no | Server mechanics exist; draft ref impossible until draft restored | **never** |
 | `server_committed` | exact-read confirms locator/digest | `server_committed` (then Phase 1/2 if attach still needed) | read equality | read only | verification ok | no |
 | `reconciled` | reload | `reconciled` | draft ref + journal reconciled + exact revision read digest equality | read | same IDs/digest; workflow `mechanics_saved` | no |
@@ -556,17 +593,21 @@ Recovery: retry Phase 1 under CAS rules, then Phase 2.
 1. Claim records source_draft_id + source_draft_version (audit / lineage).
 2. Phase 1 ThreatDraft attach is allowed only when:
      - draft.accepted_mechanics_ref is null, OR
-     - draft.accepted_mechanics_ref equals this operation's locator.
-   On durable Phase 1 success (single draft-document write / version CAS):
-     - accepted_mechanics_ref = exact locator fields
+     - same_mechanics_locator(draft.accepted_mechanics_ref, this operation.locator).
+   On durable Phase 1 first-attach success (single draft-document write / version CAS):
+     - accepted_mechanics_ref = six-field locator identity + provenance/timestamp fields
      - workflow_state = mechanics_saved
+   On durable Phase 1 idempotent retry when same_mechanics_locator already holds:
+     - preserve existing AcceptedMechanicsRefV1 including accepted_at / provenance;
+       do not regenerate those fields
+     - ensure workflow_state = mechanics_saved
    Journal authority remains server_committed until Phase 2.
 3. Phase 2 journal reconcile is allowed only after Phase 1 success (or restart
-   observation of the same draft attach). On durable Phase 2 success:
+   observation of same_mechanics_locator + mechanics_saved). On durable Phase 2 success:
      - operation.authority_state = reconciled
      - materialization.draft_ref = attached
 4. CAS miss with ref still null/same: do not change authority; reload + retry Phase 1.
-5. If reload shows a different accepted_mechanics_ref: do NOT retry overwrite.
+5. If reload shows accepted_mechanics_ref with NOT same_mechanics_locator: do NOT retry overwrite.
    Stay server_committed; surface accepted_ref_conflict; retain both locators;
    never delete either Server revision. Selection/replacement is out of SBW07.
 6. workflow_state becomes mechanics_saved ONLY in Phase 1 (ThreatDraft write).
@@ -589,19 +630,33 @@ AcceptanceOperationV1 records under draft state root
   active unresolved/committed count ≤ 1
 ```
 
+`AcceptanceOperationV1.locator` fields (exact six-field identity):
+
+```text
+provider
+statblock_id
+revision_id
+contract
+contract_version
+definition_digest
+```
+
 `AcceptedMechanicsRefV1` fields (exact):
 
 ```text
+# Identity — participate in same_mechanics_locator:
 provider = dungeonmind
 statblock_id
 revision_id
 contract / contract_version
 definition_digest
+# Provenance / timestamp — do NOT participate in same_mechanics_locator:
 accepted_from_candidate_id?   # nullable provenance
 accepted_from_draft_version
 accepted_at
 ```
 
+Equality across the two shapes is defined only by `same_mechanics_locator` above.
 ### Idempotency (Buddy-local binding; Server adapter in `SBW07a`)
 
 - Persist `AcceptanceOperationV1` (including `idempotency_key`, Buddy-local `create_request_digest`, `request_body`) **before** outbound create.
