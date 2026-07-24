@@ -68,7 +68,8 @@ external_pull_requests:
       evaluator: null
       base_sha: ea7ad826a2ca4f9d275ce245a3884d4af72278a8
       notes: >-
-        REQUEST_CHANGES follow-up head_sha 5d324d669c152d64698fcb86864049ec466cd605
+        REQUEST_CHANGES follow-up head_sha 7970f583667a81d27ae9f21b8f697b300129c667
+        (functional fix 5d324d669c152d64698fcb86864049ec466cd605)
         on agent/bld05a-post-merge-authoring-hardening. Operator-granted waiver:
         npm run build / tsc -b fails identically on base ea7ad826 and head with
         pre-existing planSurface/graphReviewWorkbench/IngestionModule errors
