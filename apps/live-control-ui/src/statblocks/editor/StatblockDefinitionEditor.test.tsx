@@ -56,6 +56,9 @@ describe("StatblockDefinitionEditor", () => {
 
   it("shows complete complex mechanic JSON including spell names and nested effects", () => {
     render(<ControlledEditor output={complexCandidateDefinition()} />);
+    expect(document.querySelector('[data-protected-path="rule_elements[1].summary"] pre')?.textContent).toContain(
+      "Innate casting",
+    );
     const spellBlock = document.querySelector('[data-protected-path="rule_elements[1].mechanic"]');
     expect(spellBlock).toBeTruthy();
     const pre = spellBlock!.querySelector("pre");
