@@ -3,8 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
-import type { ReadStatblockCandidateResponseV1 } from "../../api/types";
-import type { GeneratedStatblockCandidateV1 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import type {
+  ReadStatblockCandidateResponseV1,
+  ValidateDefinitionBuddyResponseV1,
+} from "../../api/types";
+import type {
+  GeneratedStatblockCandidateV1,
+  ValidationReceiptV1,
+} from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import fixture from "../../../../../tests/fixtures/statblocks/v1/candidate-response.json";
 import { presentCandidateStatus, StatblockWorkbenchModule } from "./StatblockWorkbenchModule";
 
@@ -16,6 +22,33 @@ const activeResponse: ReadStatblockCandidateResponseV1 = {
   status: "active",
   candidate,
 };
+
+function receipt(
+  status: ValidationReceiptV1["status"],
+  issues: ValidationReceiptV1["issues"] = [],
+): ValidationReceiptV1 {
+  return {
+    status,
+    mode: "editor_preview",
+    validator_version: "1",
+    canonicalizer_version: "1",
+    definition_digest: "sha256:preview-digest",
+    issues,
+  };
+}
+
+function successValidate(
+  status: ValidationReceiptV1["status"],
+  issues: ValidationReceiptV1["issues"] = [],
+): ValidateDefinitionBuddyResponseV1 {
+  const validation_receipt = receipt(status, issues);
+  return {
+    schema: "dmb_statblock_definition_validation_v1",
+    outcome: "success",
+    definition_digest: validation_receipt.definition_digest,
+    validation_receipt,
+  };
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -43,18 +76,36 @@ describe("presentCandidateStatus", () => {
 });
 
 describe("StatblockWorkbenchModule", () => {
-  it("loads an exact candidate and renders structured mechanics", async () => {
+  it("loads an exact candidate and hosts the editor in edit mode by default", async () => {
     vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
 
     await loadId("cand_fixture1");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Ironhide Brute" })).toBeTruthy();
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
     });
     expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
-    expect(screen.getByText("Greatclub")).toBeTruthy();
+    expect(screen.getByTestId("editor-ui-status").textContent).toContain("clean_unvalidated");
+    expect(screen.getByDisplayValue("Ironhide Brute")).toBeTruthy();
     expect(screen.queryByText("Generate mock draft")).toBeNull();
     expect(screen.queryByText("Preview corpus promotion")).toBeNull();
+    expect(screen.queryByRole("button", { name: /accept/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
+  });
+
+  it("can switch to review source renderer", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+
+    await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+    await user.click(screen.getByRole("button", { name: "Review source" }));
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Ironhide Brute" })).toBeTruthy();
+    });
+    expect(screen.getByText("Greatclub")).toBeTruthy();
   });
 
   it("shows expired state without mock fallback", async () => {
@@ -153,11 +204,180 @@ describe("StatblockWorkbenchModule", () => {
     await user.click(screen.getByRole("button", { name: "Generate candidate" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Ironhide Brute" })).toBeTruthy();
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
     });
     expect(liveApi.generateThreatDraftCandidate).toHaveBeenCalledWith("td_test", {
       expected_draft_version: 1,
     });
     expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
+  });
+
+  it("maps clean valid receipt to validated UI status", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText("Creature name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Validated Name");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("validated");
+    });
+    expect(screen.getByTestId("editor-ui-status").textContent).not.toContain(
+      "validated_with_warnings",
+    );
+    expect(document.querySelector('[data-preview-state="current"]')).toBeTruthy();
+    expect(document.querySelector('[data-preview-receipt-status="valid"]')).toBeTruthy();
+    expect(liveApi.validateStatblockDefinition).toHaveBeenCalled();
+    const call = vi.mocked(liveApi.validateStatblockDefinition).mock.calls[0][0];
+    expect(call.definition.identity.name).toBe("Validated Name");
+  });
+
+  it("demonstrates edit → validate → edit → stale", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(
+      successValidate("warnings", [
+        {
+          code: "BALANCE_WARNING",
+          severity: "warning",
+          field_path: "identity.name",
+          message: "name looks odd",
+        },
+      ]),
+    );
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText("Creature name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Once");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain(
+        "validated_with_warnings",
+      );
+    });
+    expect(document.querySelector('[data-preview-state="current"]')).toBeTruthy();
+
+    await user.clear(nameInput);
+    await user.type(nameInput, "Twice");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("dirty_unvalidated");
+    });
+    expect(document.querySelector('[data-preview-state="stale"]')).toBeTruthy();
+    expect(screen.getByText(/stale \/ not current/i)).toBeTruthy();
+  });
+
+  it("discards stale validate responses after an intervening edit", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    let resolveValidate: (value: ValidateDefinitionBuddyResponseV1) => void = () => undefined;
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveValidate = resolve;
+        }),
+    );
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText("Creature name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Before Validate");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("validating");
+    });
+
+    await user.clear(nameInput);
+    await user.type(nameInput, "Edited During Flight");
+
+    resolveValidate(successValidate("valid"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("dirty_unvalidated");
+    });
+    expect(screen.getByTestId("editor-ui-status").textContent).not.toContain("Status: validated");
+    expect(document.querySelector('[data-preview-state="current"]')).toBeNull();
+    expect(screen.getByDisplayValue("Edited During Flight")).toBeTruthy();
+  });
+
+  it("preserves edits when validation dependency fails", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue({
+      schema: "dmb_statblock_definition_validation_v1",
+      outcome: "failure",
+      failure_category: "downstream_timeout",
+      failure_message: "upstream timed out",
+    });
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText("Creature name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Kept On Timeout");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("validation_unavailable");
+    });
+    expect(screen.getByDisplayValue("Kept On Timeout")).toBeTruthy();
+    expect(document.querySelector('[data-preview-state="unavailable"]')).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /accept/i })).toBeNull();
+  });
+
+  it("shows field and global issues distinctly for invalid receipts", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(
+      successValidate("invalid", [
+        {
+          code: "MISSING_ATTACK_BONUS",
+          severity: "error",
+          field_path: "rule_elements[0].mechanic",
+          message: "missing attack bonus",
+        },
+        {
+          code: "MALFORMED",
+          severity: "warning",
+          field_path: "",
+          message: "malformed path issue",
+        },
+      ]),
+    );
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("validated_with_errors");
+    });
+
+    const fieldPanel = screen.getByTestId("preview-field-issues");
+    const globalPanel = screen.getByTestId("preview-global-issues");
+    expect(fieldPanel.textContent).toMatch(/missing attack bonus/);
+    expect(fieldPanel.querySelector('[data-issue-severity="error"]')).toBeTruthy();
+    expect(globalPanel.textContent).toMatch(/malformed path issue/);
+    expect(globalPanel.querySelector('[data-issue-severity="warning"]')).toBeTruthy();
   });
 });

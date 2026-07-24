@@ -102,6 +102,8 @@ import type {
   GenerateThreatDraftCandidateRequestV1,
   GenerateThreatDraftCandidateResponseV1,
   ReadStatblockCandidateResponseV1,
+  ValidateDefinitionBuddyRequestV1,
+  ValidateDefinitionBuddyResponseV1,
   StatblockIntegrationReadinessV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
@@ -765,6 +767,19 @@ export async function getStatblockCandidate(
 ): Promise<ReadStatblockCandidateResponseV1> {
   return apiFetch<ReadStatblockCandidateResponseV1>(
     `/api/live/statblock-candidates/${encodeURIComponent(candidateId)}`,
+  );
+}
+
+export async function validateStatblockDefinition(
+  request: ValidateDefinitionBuddyRequestV1,
+): Promise<ValidateDefinitionBuddyResponseV1> {
+  return apiFetch<ValidateDefinitionBuddyResponseV1>(
+    "/api/live/statblock-definitions:validate",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
   );
 }
 

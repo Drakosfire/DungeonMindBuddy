@@ -2,9 +2,10 @@
 
 **Status:** ACTIVE SLICE / REVIEW AUTHORITY  
 **Date:** 2026-07-23  
-**Repository tip:** `ea7ad826` on `main` (includes unrelated BLD work; not an SBW claim)  
-**Last SBW integration:** `#398` / `58db1fc5` — SBW05a validate transport merged  
-**Next dispatch:** `SBW05b` (editor library only; see SBW05 handoff §12)  
+**Repository tip:** see `main` at PR open (includes unrelated work; not an SBW claim)  
+**Last SBW integration on `main` before this PR:** `#402` / `d4587f1f` — SBW05b editor library  
+**This PR:** `SBW05c` workbench host + preview validate + doc-sync  
+**Next dispatch after this PR merges:** `SBW07-contract` (doc-only approve/reject of frozen HANDOFF-sbw07 §12)  
 **Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).  
 
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
@@ -42,7 +43,7 @@ Required deletion owner:
 | `SBW02` | MERGED `#387` | `SBW01` | Versioned non-canonical `ThreatDraftV1` CRUD/reload | [`HANDOFF-sbw02-threat-draft-store.md`](HANDOFF-sbw02-threat-draft-store.md) |
 | `SBW03` | MERGED `#388` | `SBW01–02` | Generate one candidate from one exact draft version | [`HANDOFF-sbw03-generate-candidate-from-draft.md`](HANDOFF-sbw03-generate-candidate-from-draft.md) |
 | `SBW04` | MERGED `#397` (`40ea5234`); **live-proof debt open** | `SBW03` | Shared semantic renderer + real read-only candidate workbench | [`HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`](HANDOFF-sbw04-semantic-renderer-candidate-workbench.md) |
-| `SBW05` | IN PROGRESS — `05a` MERGED `#398`; next `05b` → `05c` | `SBW04` | Complete-definition editing + authoritative preview validation | [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](HANDOFF-sbw05-typed-candidate-edit-validation.md) |
+| `SBW05` | IN PROGRESS — `05a` MERGED `#398`; `05b` MERGED `#402`; `05c` THIS PR → then `SBW07-contract` | `SBW04` | Complete-definition editing + authoritative preview validation | [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](HANDOFF-sbw05-typed-candidate-edit-validation.md) |
 | `SBW07` | PRE-DESIGNED — bites `07-contract` + `07a–c`; **before SBW06** | `SBW05` | Persist accepted mechanics as exact immutable first revision | [`HANDOFF-sbw07-persist-accepted-mechanics.md`](HANDOFF-sbw07-persist-accepted-mechanics.md) |
 | `SBW06` | PRE-DESIGNED — bites `06-contract` + `06a–d`; **after SBW07** | `SBW05` + `SBW07` | Revise/regenerate candidate lineage | [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md) |
 | `SBW08` | PRE-DESIGNED / PARALLEL | Stable current graph contracts | External statblock resource + typed Threat binding graph contract | [`HANDOFF-sbw08-world-graph-statblock-binding-contract.md`](HANDOFF-sbw08-world-graph-statblock-binding-contract.md) |
@@ -156,8 +157,8 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 | Bite | Status | Mission | Exclusions |
 |---|---|---|---|
 | `SBW05a` | MERGED `#398` | Validate client + Buddy route + digest association | Editor UI, workbench, save |
-| `SBW05b` | **NEXT** — dispatch from handoff §12 | Pure editor library + Output→Input initializer + local fingerprint + visible protected preservation fallback + unit tests | Backend, `liveApi`, workbench host, save, acceptance, Server `definition_digest` recreation, durable editor schema, unchecked Output→Input cast |
-| `SBW05c` | After `SBW05b` | Host proven editor; call SBW05a route; reject stale; preserve edits on dependency failure; edit→validate→edit→stale | Accept/save path, revise, graph |
+| `SBW05b` | MERGED `#402` | Pure editor library + Output→Input initializer + local fingerprint + visible protected preservation fallback + unit tests | Backend, `liveApi`, workbench host, save, acceptance, Server `definition_digest` recreation, durable editor schema, unchecked Output→Input cast |
+| `SBW05c` | **THIS PR** — handoff §13 | Host proven editor; call SBW05a route; reject stale; preserve edits on dependency failure; edit→validate→edit→stale | Accept/save path, revise, graph |
 
 ### SBW07 — Persist accepted mechanics
 

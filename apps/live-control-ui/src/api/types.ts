@@ -1,4 +1,8 @@
-import type { GeneratedStatblockCandidateV1 } from "../contracts/dungeonbuddy-statblocks-v1/client";
+import type {
+  GeneratedStatblockCandidateV1,
+  StatblockDefinitionV1_Input,
+  ValidationReceiptV1,
+} from "../contracts/dungeonbuddy-statblocks-v1/client";
 
 export type SurfaceSlot = "main" | "sidebar" | "bottom" | "overlay";
 
@@ -3084,6 +3088,20 @@ export interface ReadStatblockCandidateResponseV1 {
   candidate_id: string;
   status: "active" | "expired" | "unavailable" | "missing";
   candidate?: GeneratedStatblockCandidateV1 | null;
+  failure_category?: string | null;
+  failure_message?: string | null;
+}
+
+/** Buddy envelope for SBW05a `/statblock-definitions:validate` (browser → Buddy). */
+export interface ValidateDefinitionBuddyRequestV1 {
+  definition: StatblockDefinitionV1_Input;
+}
+
+export interface ValidateDefinitionBuddyResponseV1 {
+  schema: "dmb_statblock_definition_validation_v1";
+  outcome: "success" | "failure";
+  definition_digest?: string | null;
+  validation_receipt?: ValidationReceiptV1 | null;
   failure_category?: string | null;
   failure_message?: string | null;
 }

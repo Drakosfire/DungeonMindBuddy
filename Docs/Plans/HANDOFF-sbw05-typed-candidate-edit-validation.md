@@ -1,14 +1,15 @@
 # HANDOFF — SBW05 Complete-definition candidate editing and preview validation
 
 **Created:** 2026-07-22  
-**Updated:** 2026-07-23 — re-anchored after SBW04/`#397` and SBW05a/`#398`  
-**Status:** IN PROGRESS — `SBW05a` MERGED `#398` (`58db1fc5`); **next dispatch `SBW05b`** per §12; then `SBW05c`; then SBW07-contract.  
+**Updated:** 2026-07-23 — SBW05b `#402` merged; SBW05c host+validate + doc-sync in this PR  
+**Status:** IN PROGRESS — `SBW05a` MERGED `#398`; `SBW05b` MERGED `#402` (`79e22f68`); **`SBW05c` THIS PR** per §13; next `SBW07-contract`.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw05-typed-candidate-edit-validation.md`  
 **Workstream:** `SBW05`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Repository tip (not an SBW claim):** `ea7ad826` on `main` (includes unrelated BLD work)  
-**Last SBW integration:** `#398` / `58db1fc5`  
-**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream.
+**Repository tip (not an SBW claim):** see `main` at PR open (includes unrelated work)  
+**Last SBW integration on `main` before this PR:** `#402` / `d4587f1f` — SBW05b editor library  
+**This PR:** SBW05c workbench host + preview validate + doc-sync  
+**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream. SBW05c live workbench proof is automated in unit tests; manual §7 live proof may remain verification debt if env unavailable.
 
 > Dispatch one capability across three PRs: edit a complete typed candidate working copy and obtain authoritative preview validation. Do not save mechanics, revise with a model, publish graph truth, or add media/combat behavior.
 
@@ -17,8 +18,8 @@
 | Bite | Status | PR mission | Allowlist focus | Still false |
 |---|---|---|---|---|
 | `SBW05a` | MERGED `#398` | Validate transport: client method + Buddy route + digest association tests | Backend client/service/route/tests only | Editor UI, workbench, save, revise |
-| `SBW05b` | **NEXT** — see §12 | Pure editor library + Output→Input initializer + local fingerprint/state machine + field/control matrix + visible protected preservation fallback + unit tests | `apps/live-control-ui/src/statblocks/editor/**` + unit tests **only** | Backend, `liveApi`, workbench host, save, acceptance, durable editor schema, Server `definition_digest` recreation |
-| `SBW05c` | After `SBW05b` — see §13 | Host proven editor; call merged SBW05a validate route; reject stale responses; preserve edits on dependency failure; demonstrate edit→validate→edit→stale | Workbench module + `liveApi` wiring | Accept/save path, revise, graph |
+| `SBW05b` | MERGED `#402` | Pure editor library + Output→Input initializer + local fingerprint/state machine + field/control matrix + visible protected preservation fallback + unit tests | `apps/live-control-ui/src/statblocks/editor/**` + unit tests **only** | Backend, `liveApi`, workbench host, save, acceptance, durable editor schema, Server `definition_digest` recreation |
+| `SBW05c` | **THIS PR** — see §13 | Host proven editor; call merged SBW05a validate route; reject stale responses; preserve edits on dependency failure; demonstrate edit→validate→edit→stale | Workbench module + `liveApi` wiring + preview issue partition | Accept/save path, revise, graph |
 
 Each bite uses this handoff’s §6 contract as amended by §12/§13; do not expand that bite’s allowlist mid-review.
 
@@ -363,17 +364,65 @@ git diff --name-only <base>...HEAD
 
 Report `git diff --stat` filtered to the editor allowlist only.
 
-## §13 SBW05c host contract (after SBW05b)
+## §13 SBW05c host contract (normative — this PR)
 
-`SBW05c` may:
+### Mission
 
-- host the proven SBW05b editor in the workbench;
-- call the already-merged SBW05a `/statblock-definitions:validate` route;
-- reject stale responses (response association must match the current working-copy fingerprint/state revision);
-- preserve edits on dependency failure;
-- demonstrate **edit → validate → edit → stale**.
+Host the proven SBW05b `StatblockDefinitionEditor` in the Plan workbench; submit the **exact current** `workingCopy` (`StatblockDefinitionV1_Input`) to the merged SBW05a Buddy validate route; associate a receipt only when the response matches the in-flight local `stateRevision`; preserve the working copy on transport/dependency failure; prove **edit → validate → edit → stale**. No accept/save.
 
-`SBW05c` must **still contain no accept/save path**.
+### Allowlist
+
+- `apps/live-control-ui/src/api/types.ts`
+- `apps/live-control-ui/src/api/liveApi.ts`
+- `apps/live-control-ui/src/api/liveApi.test.ts`
+- `apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.tsx`
+- `apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.test.tsx`
+- `apps/live-control-ui/src/statblocks/editor/statblockValidationIssues.ts` (+ test)
+- Docs: this handoff, PR-TRACKER, ROADMAP (status + this §13)
+
+### UI composition
+
+- Modes: `review` | `edit` (default **`edit`** on successful candidate load).
+- Review = immutable `StatblockRenderer` (generation receipt).
+- Edit = controlled `StatblockDefinitionEditor` + workbench **Validate working copy** control + preview validation panel.
+- Editor state owned by the workbench; recreated via `createEditorStateFromOutput` on each successful load/reload.
+- Copy must say preview validation / unsaved — no Accept, Save, or `mechanics_saved`.
+
+### Validate orchestration
+
+```text
+onValidate:
+  1. beginValidationAttempt(editorState)
+  2. capture requestedRevision = editorState.stateRevision
+  3. POST validateStatblockDefinition({ definition: editorState.workingCopy })
+  4. if current stateRevision !== requestedRevision → discard (no mark*)
+  5. if outcome === failure or throw → markValidationUnavailable; keep workingCopy
+  6. if outcome === success:
+       require validation_receipt and matching top-level definition_digest
+       map receipt.status:
+         valid → validated
+         warnings → validated_with_warnings
+         invalid → validated_with_errors
+       markValidationAssociated(state, mapped)
+       store preview receipt + digest for display
+```
+
+- Monotonic validate request id so overlapping validates never apply an older response after a newer one started.
+- Never compare local fingerprint to Server `definition_digest` for equality/eligibility.
+- Server `invalid` is a success outcome with receipt association — not transport failure.
+- Pending `validating` and `validation_unavailable` never associate a revision.
+
+### Issue mapping
+
+`statblockValidationIssues.ts` partitions issues into field vs global: non-empty `field_path` → field; empty/whitespace → global (never dropped, never nearest-field guess). Errors and warnings remain distinct by severity.
+
+### Still false
+
+Accept/save path, revise (`SBW06`), graph, durable editor storage, backend route changes.
+
+### Merge proof
+
+Workbench tests must prove: host editor; clean `valid` → `validated`; edit→validate→edit→stale; stale race discard; dependency failure retains edits; field+global issue display; no Accept/Save controls.
 
 ## §14 After SBW05c — SBW07-contract
 
@@ -396,11 +445,11 @@ Stop if:
 ## Final dispatch check
 
 - [x] Re-anchor after `SBW04` / `#397` and `SBW05a` / `#398`.
-- [x] Distinguish repository tip (`ea7ad826`) from last SBW integration (`58db1fc5`).
+- [x] Distinguish repository tip from last SBW integration.
 - [x] Record SBW04 real-candidate live-proof verification debt as open.
 - [x] Capture current generated validation fixtures (SBW05a).
 - [x] State session-only editor persistence honestly (§12).
-- [ ] Dispatch `SBW05b` against §12 only; confirm backend/`liveApi`/workbench/save remain false.
-- [ ] After `SBW05b`, dispatch `SBW05c` against §13 only.
+- [x] Dispatch `SBW05b` against §12 only (`#402`); backend/`liveApi`/workbench/save remained false in that bite.
+- [x] After `SBW05b`, dispatch `SBW05c` against §13 (this PR).
 - [ ] After `SBW05c`, open `SBW07-contract` over frozen HANDOFF-sbw07 §12 without rewrite unless rejected.
 - [ ] Confirm `SBW06` and all graph/projection/runtime successors remain false until their ordered bites.

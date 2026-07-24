@@ -26,6 +26,7 @@ import {
   getStatblockWorkbenchSample,
   getStatblockCandidate,
   generateThreatDraftCandidate,
+  validateStatblockDefinition,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
   patchCombatEntity,
@@ -313,6 +314,33 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblock-candidates/cand-1");
+  });
+
+  it("validateStatblockDefinition posts exact working-copy definition", async () => {
+    const definition = { identity: { name: "Test" } };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_statblock_definition_validation_v1",
+        outcome: "success",
+        definition_digest: "sha256:abc",
+        validation_receipt: {
+          status: "valid",
+          mode: "editor_preview",
+          validator_version: "1",
+          canonicalizer_version: "1",
+          definition_digest: "sha256:abc",
+          issues: [],
+        },
+      }),
+    );
+
+    await validateStatblockDefinition({ definition: definition as never });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblock-definitions:validate");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ definition });
   });
 
   it("postStatblockWorkbenchCommand posts command body to Workbench command endpoint", async () => {
@@ -971,6 +999,7 @@ describe("liveApi workspace worldbuilding contracts", () => {
   });
 
   it("surfaces prepare diagnostics when writer_ok is false", async () => {
+    const prepare = {
       schema_version: "dmb_tiptap_markdown_write_prepare_v1",
       document_id: "11111111-1111-4111-8111-111111111111",
       title: "World Lore",
