@@ -1505,7 +1505,6 @@ export interface ExtractionRunLaunchRequest {
   expected_content_sha256: string;
   profile_id?: string;
   profile_version?: string;
-  allow_llm?: boolean;
 }
 
 export interface ExtractionRunLaunchResponse {

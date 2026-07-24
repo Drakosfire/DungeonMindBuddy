@@ -91,7 +91,49 @@ describe("BuildIngestToolbar", () => {
     expect(screen.getByTestId("build-open-graph-review-disabled")).toBeInTheDocument();
   });
 
-  it("launches extraction and shows the exact run id", async () => {
+  it("launches extraction and enables Graph Review for a reviewable exact run", async () => {
+    const user = userEvent.setup();
+    const href =
+      `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`;
+    vi.mocked(liveApi.launchExtractionRun).mockResolvedValue({
+      schema_version: "dmb_extraction_run_launch_v1",
+      run: {
+        schema_version: "dmb_extraction_run_v1",
+        version: "1.0",
+        run_id: RUN_ID,
+        source_artifact_id: ARTIFACT,
+        source_domain: "worldbuilding",
+        status: "reviewable",
+      },
+      source_artifact_id: ARTIFACT,
+      document_id: DOC_ID,
+      document_revision: 2,
+      source_content_sha256: "sha-2",
+      diagnostics: [],
+      graph_review_handoff: {
+        href,
+        extraction_run_id: RUN_ID,
+        source_artifact_id: ARTIFACT,
+        document_id: DOC_ID,
+        document_revision: 2,
+      },
+    });
+
+    render(<BuildIngestToolbar documentId={DOC_ID} />);
+    await waitFor(() => expect(screen.getByTestId("build-extract-button")).not.toBeDisabled());
+    await user.click(screen.getByTestId("build-extract-button"));
+    expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_ID);
+    expect(liveApi.launchExtractionRun).toHaveBeenCalledTimes(1);
+    expect(liveApi.launchExtractionRun).toHaveBeenCalledWith({
+      document_id: DOC_ID,
+      expected_revision: 2,
+      expected_content_sha256: "sha-2",
+    });
+    const link = await screen.findByTestId("build-open-graph-review");
+    expect(link).toHaveAttribute("href", href);
+  });
+
+  it("keeps Graph Review disabled and shows diagnostics when launch fails model execution", async () => {
     const user = userEvent.setup();
     vi.mocked(liveApi.launchExtractionRun).mockResolvedValue({
       schema_version: "dmb_extraction_run_launch_v1",
@@ -101,13 +143,14 @@ describe("BuildIngestToolbar", () => {
         run_id: RUN_ID,
         source_artifact_id: ARTIFACT,
         source_domain: "worldbuilding",
-        status: "prepared",
+        status: "failed",
       },
       source_artifact_id: ARTIFACT,
       document_id: DOC_ID,
       document_revision: 2,
       source_content_sha256: "sha-2",
-      diagnostics: [],
+      failure_kind: "model",
+      diagnostics: ["OPENAI_API_KEY missing after loading server env"],
       graph_review_handoff: {
         href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
         extraction_run_id: RUN_ID,
@@ -121,11 +164,9 @@ describe("BuildIngestToolbar", () => {
     await waitFor(() => expect(screen.getByTestId("build-extract-button")).not.toBeDisabled());
     await user.click(screen.getByTestId("build-extract-button"));
     expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_ID);
-    expect(liveApi.launchExtractionRun).toHaveBeenCalledWith({
-      document_id: DOC_ID,
-      expected_revision: 2,
-      expected_content_sha256: "sha-2",
-    });
+    expect(await screen.findByTestId("build-extraction-error")).toHaveTextContent(
+      "OPENAI_API_KEY missing after loading server env",
+    );
     expect(screen.getByTestId("build-open-graph-review-disabled")).toBeInTheDocument();
   });
 

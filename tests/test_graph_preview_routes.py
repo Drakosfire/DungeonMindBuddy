@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from apps.live_control_server.main import create_app
+from apps.live_control_server.services.source_artifact_registry import load_source_span_index
 from apps.live_control_server.services.workspace_document_registry import (
     create_workspace_document,
     mark_workspace_document_committed,
+)
+from graph_memory.source_span import source_span_index_to_dict
+from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    CategoryGraphExtractionError,
 )
 
 
@@ -22,6 +28,111 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         raising=False,
     )
     return TestClient(create_app())
+
+
+class _FixtureCategoryClient:
+    """Deterministic category-pass client for Build launch route proofs."""
+
+    def __init__(self, *, mode: str = "ok", span_ref: str | None = None) -> None:
+        self.mode = mode
+        self.span_ref = span_ref
+
+    def run_pass(
+        self,
+        pass_name: str,
+        *,
+        model_id: str,
+        instructions: str,
+        user_content: str,
+        pass_spec: Any = None,
+    ) -> dict[str, Any]:
+        if self.mode == "refusal":
+            raise CategoryGraphExtractionError(f"model refused {pass_name}: policy")
+        if self.mode == "incomplete":
+            raise CategoryGraphExtractionError(f"model response incomplete for {pass_name}")
+        if self.mode == "provider_missing":
+            raise RuntimeError("OPENAI_API_KEY missing after loading server env")
+        if pass_name == "edge_pass":
+            return {
+                "parsed": {"observation_edges": []},
+                "cost_usd": 0.0,
+                "usage": {},
+                "elapsed_ms": 1,
+                "response_id": "edge",
+            }
+        if pass_name == "beat_pass":
+            return {
+                "parsed": {"observation_beats": []},
+                "cost_usd": 0.0,
+                "usage": {},
+                "elapsed_ms": 1,
+                "response_id": "beat",
+            }
+        evidence_ref = self.span_ref or "span-1"
+        return {
+            "parsed": {
+                "observation_nodes": [
+                    {
+                        "node_id": f"{pass_name}-1",
+                        "label": "Mirathorn",
+                        "node_type": "location",
+                        "description": "fixture",
+                        "importance": "medium",
+                        "evidence_refs": [
+                            {
+                                "source_span_ref_id": evidence_ref,
+                                "anchor_quotes": ["Mirathorn"],
+                            }
+                        ],
+                    }
+                ]
+            },
+            "cost_usd": 0.0,
+            "usage": {},
+            "elapsed_ms": 1,
+            "response_id": pass_name,
+        }
+
+
+def _first_span_ref(root: Path, source_artifact_id: str) -> str:
+    index = load_source_span_index(root, source_artifact_id)
+    payload = source_span_index_to_dict(index)
+    for span in payload.get("spans") or []:
+        ref = str(span.get("source_span_id") or span.get("source_span_ref_id") or "").strip()
+        if ref:
+            return ref
+    raise AssertionError("expected at least one source span")
+
+
+def _patch_build_extraction(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    mode: str = "ok",
+    capture: list[dict[str, Any]] | None = None,
+) -> None:
+    """Force deterministic category clients and prove server sets allow_llm=True."""
+    from apps.live_control_server.services import graph_preview_runner as gpr
+
+    real = gpr.run_worldbuilding_production_extraction
+
+    def _wrapped(**kwargs: Any):
+        if capture is not None:
+            capture.append(dict(kwargs))
+        root = kwargs["repo_root"]
+        artifact_id = kwargs["source_artifact_id"]
+        span_ref = _first_span_ref(root, artifact_id)
+        return real(
+            **{
+                **kwargs,
+                "allow_llm": True,
+                "category_client": _FixtureCategoryClient(mode=mode, span_ref=span_ref),
+            }
+        )
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_preview_runner.run_worldbuilding_production_extraction",
+        _wrapped,
+    )
 
 
 def _commit_source(tmp_path: Path, *, body: str = "Mirathorn is a river city.\n"):
@@ -111,7 +222,12 @@ def test_launch_rejects_digest_mismatch_without_creating_run(
     assert "expected_content_sha256" in response.json()["detail"]
 
 
-def test_launch_returns_exact_run_and_status_reload(client: TestClient, tmp_path: Path) -> None:
+def test_launch_returns_exact_run_and_status_reload(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_build_extraction(monkeypatch)
     committed, digest = _commit_source(tmp_path)
 
     launch = client.post(
@@ -150,6 +266,108 @@ def test_launch_returns_exact_run_and_status_reload(client: TestClient, tmp_path
     assert body["graph_review_handoff"]["document_id"] == committed.document_id
     assert body["graph_review_handoff"]["document_revision"] == committed.revision
     assert "latest" not in body["graph_review_handoff"]["href"]
+
+
+def test_launch_ignores_client_allow_llm_false_and_executes(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[dict[str, Any]] = []
+    _patch_build_extraction(monkeypatch, capture=captured)
+    committed, digest = _commit_source(tmp_path)
+
+    launch = client.post(
+        "/api/live/graph-preview/extraction-runs",
+        json={
+            "document_id": committed.document_id,
+            "expected_revision": committed.revision,
+            "expected_content_sha256": digest,
+            "allow_llm": False,
+        },
+    )
+    assert launch.status_code == 200, launch.text
+    assert captured, "expected production extraction to be invoked"
+    assert captured[0]["allow_llm"] is True
+    payload = launch.json()
+    assert payload["run"]["status"] == "reviewable"
+    assert payload.get("failure_kind") in (None, "")
+    href = payload["graph_review_handoff"]["href"]
+    assert f"extractionRunId={payload['run']['run_id']}" in href
+    assert f"sourceArtifactId={payload['source_artifact_id']}" in href
+    assert f"documentId={committed.document_id}" in href
+    assert f"revision={committed.revision}" in href
+    assert "latest" not in href
+
+
+def test_launch_reaches_reviewable_with_exact_handoff(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_build_extraction(monkeypatch)
+    committed, digest = _commit_source(tmp_path)
+
+    launch = client.post(
+        "/api/live/graph-preview/extraction-runs",
+        json={
+            "document_id": committed.document_id,
+            "expected_revision": committed.revision,
+            "expected_content_sha256": digest,
+        },
+    )
+    assert launch.status_code == 200, launch.text
+    payload = launch.json()
+    run_id = payload["run"]["run_id"]
+    assert payload["run"]["status"] == "reviewable"
+    assert not payload.get("failure_kind")
+    handoff = payload["graph_review_handoff"]
+    assert handoff["extraction_run_id"] == run_id
+    assert handoff["source_artifact_id"] == payload["source_artifact_id"]
+    assert handoff["document_id"] == committed.document_id
+    assert handoff["document_revision"] == committed.revision
+    assert (
+        handoff["href"]
+        == (
+            "/ingest"
+            f"?extractionRunId={run_id}"
+            f"&sourceArtifactId={payload['source_artifact_id']}"
+            f"&documentId={committed.document_id}"
+            f"&revision={committed.revision}"
+        )
+    )
+
+    status = client.get(f"/api/live/graph-preview/extraction-runs/{run_id}/build-context")
+    assert status.status_code == 200
+    assert status.json()["run"]["status"] == "reviewable"
+    assert status.json()["run"]["run_id"] == run_id
+
+
+def test_launch_model_failure_returns_explicit_non_reviewable(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_build_extraction(monkeypatch, mode="provider_missing")
+    committed, digest = _commit_source(tmp_path)
+
+    launch = client.post(
+        "/api/live/graph-preview/extraction-runs",
+        json={
+            "document_id": committed.document_id,
+            "expected_revision": committed.revision,
+            "expected_content_sha256": digest,
+        },
+    )
+    assert launch.status_code == 200, launch.text
+    payload = launch.json()
+    assert payload["run"]["status"] != "reviewable"
+    # Prepared is not acceptable for unavailable execution — must be an explicit failure.
+    assert payload["run"]["status"] != "prepared"
+    assert payload["failure_kind"] == "model"
+    assert payload["diagnostics"]
+    assert any("OPENAI_API_KEY" in item for item in payload["diagnostics"])
+    assert payload["graph_review_handoff"]["extraction_run_id"] == payload["run"]["run_id"]
 
 
 def test_generic_exact_get_returns_recap_run(client: TestClient, tmp_path: Path) -> None:
@@ -193,7 +411,12 @@ def test_generic_exact_get_returns_recap_run(client: TestClient, tmp_path: Path)
     assert generic_again.json()["run_id"] == run.run_id
 
 
-def test_neither_endpoint_substitutes_latest(client: TestClient, tmp_path: Path) -> None:
+def test_neither_endpoint_substitutes_latest(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_build_extraction(monkeypatch)
     committed, digest = _commit_source(tmp_path)
     launch = client.post(
         "/api/live/graph-preview/extraction-runs",

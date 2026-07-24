@@ -277,8 +277,8 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
     expected_content_sha256 = body.get("expected_content_sha256")
     profile_id = body.get("profile_id") or WORLDBUILDING_PLUMBING_PROFILE_ID
     profile_version = body.get("profile_version") or WORLDBUILDING_PLUMBING_PROFILE_VERSION
-    allow_llm = bool(body.get("allow_llm", False))
-
+    # Build launches always execute production extraction under server-owned
+    # model policy. Any client-supplied allow_llm is ignored.
     if not isinstance(document_id, str) or not document_id.strip():
         raise HTTPException(status_code=422, detail="document_id is required")
     if not isinstance(expected_revision, int):
@@ -329,7 +329,7 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
     result = run_worldbuilding_production_extraction(
         repo_root=root,
         source_artifact_id=artifact.source_artifact_id,
-        allow_llm=allow_llm,
+        allow_llm=True,
         output_dir=root
         / "out"
         / "graph_memory"
