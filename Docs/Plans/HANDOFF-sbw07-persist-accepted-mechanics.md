@@ -1,21 +1,28 @@
 # HANDOFF — SBW07 Persist accepted mechanics as an immutable revision
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after `SBW05` as bites `SBW07-contract` → `SBW07a–c` (roadmap §5.1); **before SBW06**. Re-anchor base and Server persistence contract.  
+**Updated:** 2026-07-24 — re-anchored after `SBW05c` MERGED `#404` / `427a357b`; this PR is `SBW07-contract`  
+**Status:** IN REVIEW — `SBW07-contract` (docs-only approve/reject of §12). After approval: `SBW07a` → `SBW07b` → `SBW07c`. **Before SBW06**.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw07-persist-accepted-mechanics.md`  
 **Workstream:** `SBW07`  
-**Repository:** `Drakosfire/DungeonMindBuddy`
+**Repository:** `Drakosfire/DungeonMindBuddy`  
+**Repository tip (not an SBW claim):** see `main` at PR open (includes unrelated work)  
+**Last SBW integration on `main` / predecessor:** `#404` / `427a357b` — SBW05c workbench host + preview validate (no accept/save)  
+**This PR:** `SBW07-contract` — docs-only; normative surface is §12  
+**Next code bite after this PR merges:** `SBW07a` (create/read Server client + fixtures)
 
 > Dispatch one capability across a contract PR plus three code PRs: persist validated mechanics as one logical statblock with one exact immutable first revision and record that locator on the ThreatDraft. Do not publish a Threat, update a graph binding, append a later revision, embed Markdown, or add combat/media behavior.
 
 ## Bite schedule
 
-| Bite | PR mission | Allowlist focus | Still false |
-|---|---|---|---|
-| `SBW07-contract` | Doc-only acceptance authority + partial-state transition table + ThreatDraft schema delta | Docs only; no implementation | All code |
-| `SBW07a` | Create/read Server client + fixtures | Integration client + tests | Draft mutation, UI, demolition |
-| `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Service/store/routes/tests | UI, corpus demolition, graph |
-| `SBW07c` | Accept UI + corpus-promotion demolition | Workbench + demolition ledger | Graph, append revision |
+| Bite | Status | PR mission | Allowlist focus | Still false |
+|---|---|---|---|---|
+| `SBW07-contract` | **this PR** | Doc-only acceptance authority + partial-state transition table + ThreatDraft schema delta (§12 approve/reject) | Docs only; no implementation | All code |
+| `SBW07a` | next after contract | Create/read Server client + fixtures | Integration client + tests | Draft mutation, UI, demolition |
+| `SBW07b` | after `SBW07a` | Acceptance orchestration + atomic ref / pending reconcile | Service/store/routes/tests | UI, corpus demolition, graph |
+| `SBW07c` | after `SBW07b` | Accept UI + corpus-promotion demolition | Workbench + demolition ledger | Graph, append revision |
+
+**Deferred outside this workstream (`Backlog.md`):** Server HP/AC/Phases consumer sync into Buddy; context-aware workbench ThreatDraft create-and-generate; browser-local editor draft persistence (restore as unvalidated). These may run before `SBW07a` if needed for dogfood, but they are not part of `SBW07-contract`.
 
 ## §0 Capability decomposition decision
 
@@ -52,8 +59,8 @@ This is not one slice if implementation must also create/update a Threat node, c
 |---|---|
 | Parent authority | Integration design §7.1–7.3; tracker `SBW07`; DungeonMindServer create-statblock persistence/idempotency contract |
 | Repository rules | `AGENTS.md`; external-agent PR loop rules/template |
-| Base revision | Merged SHA containing `SBW01–05` only; **must not** require or include `SBW06` |
-| Predecessor contract | Complete typed working definition + validation receipt bound to exact digest |
+| Base revision | Merged `#404` / `427a357b` (`SBW05c` complete); **must not** require or include `SBW06` |
+| Predecessor contract | Complete typed working definition + preview validation receipt bound to exact digest (SBW05a–c); no accept/save path yet |
 | Exact input consumed | Draft/candidate locator, complete definition, current validation receipt/digest, stable idempotency key, acceptance metadata |
 | Named successor | `SBW09` governed Threat publication; `SBW13` append child revision. **`SBW06` is a later Milestone B sibling (after this slice), not a base.** |
 | What remains false | No World Graph object or binding exists; no “published/canonical threat” claim |
@@ -300,11 +307,11 @@ Stop if:
 
 ## Final dispatch check
 
-- [ ] Re-anchor after predecessor merge.
-- [ ] Capture real create/read/idempotency fixtures.
-- [ ] Name demolition consumers/deletion owner.
-- [ ] Confirm all graph/projection/runtime successors remain false.
-- [ ] `SBW07-contract` transition table approved before `SBW07a+` code.
+- [x] Re-anchor after predecessor merge (`SBW05c` `#404` / `427a357b`).
+- [ ] Capture real create/read/idempotency fixtures (`SBW07a`).
+- [ ] Name demolition consumers/deletion owner (`SBW07c`).
+- [x] Confirm all graph/projection/runtime successors remain false for this contract PR.
+- [ ] `SBW07-contract` transition table approved (this PR) before `SBW07a+` code.
 
 ## §12 Acceptance operation-authority model (normative — `SBW07-contract`)
 
@@ -317,7 +324,7 @@ This section is the **approve-or-reject contract** for `SBW07-contract`. Impleme
 | Concern | Where it lives | Closed values | May fail independently? |
 |---|---|---|---|
 | **Operation authority** | Acceptance operation journal (sibling durable store; not ThreatDraft fields) | `dispatched_unknown` \| `server_committed` \| `reconciled` \| `terminal_failure` | No — this is the recovery spine |
-| **ThreatDraft materialization** | `accepted_mechanics_ref` + materialization flags on the operation | `draft_ref`: `missing` \| `attached` \| `failed` | Yes — after Server commit |
+| **ThreatDraft materialization** | `accepted_mechanics_ref` + materialization flags on the operation | `draft_ref`: `missing` \| `attached` \| `failed` \| `conflicted` | Yes — after Server commit |
 | **Product workflow state** | `ThreatDraftV1.workflow_state` | `drafting` \| `candidate_ready` \| `mechanics_saved` | Yes — only advances to `mechanics_saved` on `reconciled` |
 
 `mechanics_saved` is reserved exclusively for fully reconciled draft state. Partial Server-commit outcomes must never use that name.

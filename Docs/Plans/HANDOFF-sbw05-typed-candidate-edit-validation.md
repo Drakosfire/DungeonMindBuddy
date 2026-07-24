@@ -1,16 +1,15 @@
 # HANDOFF — SBW05 Complete-definition candidate editing and preview validation
 
 **Created:** 2026-07-22  
-**Updated:** 2026-07-23 — SBW05b `#402` merged; SBW05c host+validate + doc-sync in #404  
-**Status:** IN PROGRESS — `SBW05a` MERGED `#398`; `SBW05b` MERGED `#402` (`79e22f68`); **`SBW05c` `#404`** per §13; next `SBW07-contract`.  
+**Updated:** 2026-07-24 — SBW05c `#404` / `427a357b` merged; `SBW07-contract` is the next docs-only gate  
+**Status:** MERGED — `SBW05a` `#398`; `SBW05b` `#402` (`79e22f68`); `SBW05c` `#404` / `427a357b`. Next: `SBW07-contract`.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw05-typed-candidate-edit-validation.md`  
 **Workstream:** `SBW05`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Repository tip (not an SBW claim):** see `main` at PR open (includes unrelated work)  
-**Last SBW integration on `main` before #404:** `#402` / `d4587f1f` — SBW05b editor library  
-**This PR (`#404`):** SBW05c workbench host + preview validate + doc-sync  
+**Last SBW integration on `main`:** `#404` / `427a357b` — SBW05c workbench host + preview validate  
 **Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream.  
-**Verification debt (SBW05c §7 live walkthrough):** required merge gate. Automated tests are necessary but **not equivalent**. Merge without the walkthrough requires an **explicit operator waiver** naming residual risk and follow-up owner/artifact.
+**Verification debt (SBW05c §7 live walkthrough):** satisfied for `#404` merge (operator live walkthrough + explicit rule-element edit waiver recorded on the PR).
 
 > Dispatch one capability across three PRs: edit a complete typed candidate working copy and obtain authoritative preview validation. Do not save mechanics, revise with a model, publish graph truth, or add media/combat behavior.
 
@@ -20,7 +19,7 @@
 |---|---|---|---|---|
 | `SBW05a` | MERGED `#398` | Validate transport: client method + Buddy route + digest association tests | Backend client/service/route/tests only | Editor UI, workbench, save, revise |
 | `SBW05b` | MERGED `#402` | Pure editor library + Output→Input initializer + local fingerprint/state machine + field/control matrix + visible protected preservation fallback + unit tests | `apps/live-control-ui/src/statblocks/editor/**` + unit tests **only** | Backend, `liveApi`, workbench host, save, acceptance, durable editor schema, Server `definition_digest` recreation |
-| `SBW05c` | **#404** — see §13 | Host proven editor; call merged SBW05a validate route; reject stale responses; preserve edits on dependency failure; demonstrate edit→validate→edit→stale | Workbench module + `liveApi` wiring + preview issue partition | Accept/save path, revise, graph |
+| `SBW05c` | MERGED `#404` / `427a357b` — see §13 | Host proven editor; call merged SBW05a validate route; reject stale responses; preserve edits on dependency failure; demonstrate edit→validate→edit→stale | Workbench module + `liveApi` wiring + preview issue partition | Accept/save path, revise, graph |
 
 Each bite uses this handoff’s §6 contract as amended by §12/§13; do not expand that bite’s allowlist mid-review.
 
@@ -438,9 +437,9 @@ Workbench tests must prove: host editor; clean `valid` → `validated`; edit→v
 
 ## §14 After SBW05c — SBW07-contract
 
-After `SBW05c` merges, open `SBW07-contract` as an **approve-or-reject doc-only PR** over the existing frozen table in `HANDOFF-sbw07-persist-accepted-mechanics.md` §12.
+`SBW05c` is merged (`#404` / `427a357b`). Open `SBW07-contract` as an **approve-or-reject doc-only PR** over the existing frozen table in `HANDOFF-sbw07-persist-accepted-mechanics.md` §12.
 
-Do **not** rewrite that contract unless review rejects a specific closed decision.
+Do **not** rewrite that contract unless review rejects a specific closed decision. Deferred dogfood UX (Server contract consumer sync, create-and-generate, browser-local draft persistence) stays in `Backlog.md` and is outside both this handoff and `SBW07-contract`.
 
 ## Stop conditions
 
@@ -463,5 +462,5 @@ Stop if:
 - [x] State session-only editor persistence honestly (§12).
 - [x] Dispatch `SBW05b` against §12 only (`#402`); backend/`liveApi`/workbench/save remained false in that bite.
 - [x] After `SBW05b`, dispatch `SBW05c` against §13 (#404).
-- [ ] After `SBW05c`, open `SBW07-contract` over frozen HANDOFF-sbw07 §12 without rewrite unless rejected.
+- [x] After `SBW05c`, open `SBW07-contract` over frozen HANDOFF-sbw07 §12 without rewrite unless rejected.
 - [ ] Confirm `SBW06` and all graph/projection/runtime successors remain false until their ordered bites.
