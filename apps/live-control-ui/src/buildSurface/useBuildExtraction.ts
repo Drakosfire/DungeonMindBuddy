@@ -66,6 +66,46 @@ export type ExactRunIdentityValidation =
   | { ok: true; handoff: GraphReviewHandoffPayload }
   | { ok: false; reason: string };
 
+function singleQueryValue(params: URLSearchParams, key: string): string | null {
+  const values = params.getAll(key);
+  if (values.length !== 1) return null;
+  const value = values[0]?.trim() ?? "";
+  return value || null;
+}
+
+/** Require handoff.href query identities to equal the handoff payload fields. */
+export function validateHandoffHref(handoff: GraphReviewHandoffPayload): ExactRunIdentityValidation {
+  if (!handoff.href?.trim()) {
+    return { ok: false, reason: "Handoff href is missing." };
+  }
+  if (/\blatest\b/i.test(handoff.href)) {
+    return { ok: false, reason: "Handoff href substitutes latest." };
+  }
+  let url: URL;
+  try {
+    url = new URL(handoff.href, "https://dmb.invalid");
+  } catch {
+    return { ok: false, reason: "Handoff href is malformed." };
+  }
+  const params = url.searchParams;
+  const extractionRunId = singleQueryValue(params, "extractionRunId");
+  const sourceArtifactId = singleQueryValue(params, "sourceArtifactId");
+  const documentId = singleQueryValue(params, "documentId");
+  const revision = singleQueryValue(params, "revision");
+  if (
+    extractionRunId !== handoff.extraction_run_id
+    || sourceArtifactId !== handoff.source_artifact_id
+    || documentId !== handoff.document_id
+    || revision !== String(handoff.document_revision)
+  ) {
+    return {
+      ok: false,
+      reason: "Handoff href query identities do not match the handoff payload fields.",
+    };
+  }
+  return { ok: true, handoff };
+}
+
 /** Shared identity matrix for launch and status envelopes. */
 export function validateExactRunIdentity(args: {
   selectedDocumentId: string;
@@ -79,8 +119,17 @@ export function validateExactRunIdentity(args: {
     | "source_content_sha256"
     | "graph_review_handoff"
   >;
+  /** When set (launch path), response must equal the snapshot submitted with the request. */
+  expectedDocumentRevision?: number;
+  expectedContentSha256?: string;
 }): ExactRunIdentityValidation {
-  const { selectedDocumentId, requestedRunId, response } = args;
+  const {
+    selectedDocumentId,
+    requestedRunId,
+    response,
+    expectedDocumentRevision,
+    expectedContentSha256,
+  } = args;
   const handoff = response.graph_review_handoff;
   if (!handoff) {
     return { ok: false, reason: "Exact-run response is missing graph_review_handoff." };
@@ -109,10 +158,25 @@ export function validateExactRunIdentity(args: {
   if (!response.source_content_sha256?.trim()) {
     return { ok: false, reason: "Exact-run response is missing source_content_sha256." };
   }
-  if (!handoff.href || handoff.href.includes("latest")) {
-    return { ok: false, reason: "Handoff href is missing or substitutes latest." };
+  if (
+    expectedDocumentRevision !== undefined
+    && response.document_revision !== expectedDocumentRevision
+  ) {
+    return {
+      ok: false,
+      reason: "Launch response revision does not match the requested snapshot revision.",
+    };
   }
-  return { ok: true, handoff };
+  if (
+    expectedContentSha256 !== undefined
+    && response.source_content_sha256 !== expectedContentSha256
+  ) {
+    return {
+      ok: false,
+      reason: "Launch response digest does not match the requested snapshot digest.",
+    };
+  }
+  return validateHandoffHref(handoff);
 }
 
 export interface UseBuildExtractionArgs {
@@ -296,6 +360,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         selectedDocumentId,
         requestedRunId: response.run.run_id,
         response,
+        expectedDocumentRevision: nextSnapshot.loaded_revision,
+        expectedContentSha256: nextSnapshot.content_sha256,
       });
       if (!validation.ok) {
         setRun(response.run);

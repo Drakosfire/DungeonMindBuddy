@@ -171,9 +171,30 @@ def get_graph_ingest_runs(
 
 @router.get("/extraction-runs/{run_id}")
 def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
-    """Exact ExtractionRun reload with server-resolved SourceArtifact lineage.
+    """Exact ExtractionRun reload. Source-domain neutral; never substitutes latest.
 
-    Never substitutes latest. The browser must not invent document/revision linkage.
+    Works for recap and worldbuilding runs. Build-specific workspace lineage lives
+    on ``GET /extraction-runs/{run_id}/build-context``.
+    """
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+    )
+
+    try:
+        run = get_extraction_run(repo_root(), run_id)
+    except GraphRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return run.model_dump(mode="json")
+
+
+@router.get("/extraction-runs/{run_id}/build-context")
+def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
+    """Build-only exact-run envelope with server-resolved workspace lineage.
+
+    Requires SourceArtifact workspace_document_id/revision/content_sha256.
+    Recap runs without that lineage fail explicitly; generic exact GET remains usable.
+    Never substitutes latest.
     """
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
@@ -201,7 +222,11 @@ def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
     if not document_id or document_revision is None or not content_sha256:
         raise HTTPException(
             status_code=422,
-            detail="source artifact is missing workspace document lineage required for exact-run status",
+            detail=(
+                "Build context requires workspace document lineage; "
+                "this exact run is not applicable to Build "
+                f"(source_domain={run.source_domain})"
+            ),
         )
 
     handoff = {

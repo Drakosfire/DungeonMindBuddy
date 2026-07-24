@@ -979,16 +979,18 @@ export async function launchExtractionRun(
   );
 }
 
-export async function getExtractionRunStatus(runId: string): Promise<ExtractionRunStatusResponse> {
-  return apiFetch<ExtractionRunStatusResponse>(
+/** Generic exact ExtractionRun reload (recap + worldbuilding). Never substitutes latest. */
+export async function getExtractionRun(runId: string): Promise<ExtractionRunRecord> {
+  return apiFetch<ExtractionRunRecord>(
     `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}`,
   );
 }
 
-/** @deprecated Prefer getExtractionRunStatus for server-resolved lineage. */
-export async function getExtractionRun(runId: string): Promise<ExtractionRunRecord> {
-  const status = await getExtractionRunStatus(runId);
-  return status.run;
+/** Build-only workspace lineage envelope for an exact extraction run. */
+export async function getExtractionRunStatus(runId: string): Promise<ExtractionRunStatusResponse> {
+  return apiFetch<ExtractionRunStatusResponse>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}/build-context`,
+  );
 }
 
 export async function activateStatblockRetrieval(

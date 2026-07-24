@@ -7,7 +7,7 @@ import {
   writeWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
 } from "../tiptap/state/tiptapLocalState";
-import { useBuildExtraction, validateExactRunIdentity } from "./useBuildExtraction";
+import { useBuildExtraction, validateExactRunIdentity, validateHandoffHref } from "./useBuildExtraction";
 
 vi.mock("../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/liveApi")>();
@@ -139,6 +139,123 @@ describe("validateExactRunIdentity", () => {
       requestedRunId: RUN_A,
       response,
     });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects a launch response with the wrong revision", () => {
+    const response = statusEnvelope({
+      runId: RUN_A,
+      artifactId: ARTIFACT_A,
+      documentId: DOC_A,
+      revision: 3,
+      sha: "sha-a",
+    });
+    const result = validateExactRunIdentity({
+      selectedDocumentId: DOC_A,
+      requestedRunId: RUN_A,
+      response,
+      expectedDocumentRevision: 2,
+      expectedContentSha256: "sha-a",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/revision/i);
+  });
+
+  it("rejects a launch response with the wrong source digest", () => {
+    const response = statusEnvelope({
+      runId: RUN_A,
+      artifactId: ARTIFACT_A,
+      documentId: DOC_A,
+      revision: 2,
+      sha: "sha-bbb",
+    });
+    const result = validateExactRunIdentity({
+      selectedDocumentId: DOC_A,
+      requestedRunId: RUN_A,
+      response,
+      expectedDocumentRevision: 2,
+      expectedContentSha256: "sha-a",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/digest/i);
+  });
+
+  it("rejects when handoff href contains the wrong run ID", () => {
+    const response = statusEnvelope({
+      runId: RUN_A,
+      artifactId: ARTIFACT_A,
+      documentId: DOC_A,
+      revision: 2,
+      sha: "sha-a",
+    });
+    response.graph_review_handoff.href =
+      `/ingest?extractionRunId=${RUN_B}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=2`;
+    const result = validateExactRunIdentity({
+      selectedDocumentId: DOC_A,
+      requestedRunId: RUN_A,
+      response,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/href query identities/i);
+  });
+
+  it("rejects when handoff href contains the wrong artifact, document, or revision", () => {
+    const base = statusEnvelope({
+      runId: RUN_A,
+      artifactId: ARTIFACT_A,
+      documentId: DOC_A,
+      revision: 2,
+      sha: "sha-a",
+    });
+    for (const href of [
+      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_B}&documentId=${DOC_A}&revision=2`,
+      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_B}&revision=2`,
+      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=9`,
+    ]) {
+      const response = {
+        ...base,
+        graph_review_handoff: { ...base.graph_review_handoff, href },
+      };
+      const result = validateExactRunIdentity({
+        selectedDocumentId: DOC_A,
+        requestedRunId: RUN_A,
+        response,
+      });
+      expect(result.ok).toBe(false);
+    }
+  });
+
+  it("accepts a fully matching launch response bound to the requested snapshot", () => {
+    const response = statusEnvelope({
+      runId: RUN_A,
+      artifactId: ARTIFACT_A,
+      documentId: DOC_A,
+      revision: 2,
+      sha: "sha-a",
+    });
+    const result = validateExactRunIdentity({
+      selectedDocumentId: DOC_A,
+      requestedRunId: RUN_A,
+      response,
+      expectedDocumentRevision: 2,
+      expectedContentSha256: "sha-a",
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("validateHandoffHref", () => {
+  it("rejects mismatched href while leaving payload fields alone", () => {
+    const handoff = statusEnvelope({
+      runId: RUN_A,
+      artifactId: ARTIFACT_A,
+      documentId: DOC_A,
+      revision: 2,
+      sha: "sha-a",
+    }).graph_review_handoff;
+    handoff.href =
+      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=99`;
+    const result = validateHandoffHref(handoff);
     expect(result.ok).toBe(false);
   });
 });
@@ -317,6 +434,70 @@ describe("useBuildExtraction", () => {
     expect(window.location.search).not.toContain(`extractionRunId=${RUN_A}`);
     expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBeNull();
     expect(result.current.error).toMatch(/different workspace document/i);
+  });
+
+  it("does not adopt a launch response with the wrong revision", async () => {
+    vi.mocked(liveApi.launchExtractionRun).mockResolvedValue(
+      launchEnvelope({
+        runId: RUN_A,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 3,
+        sha: "sha-a",
+      }),
+    );
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    await waitFor(() => expect(result.current.canLaunch).toBe(true));
+    await act(async () => {
+      await result.current.launch();
+    });
+    expect(result.current.handoff).toBeNull();
+    expect(window.location.search).not.toContain(`extractionRunId=${RUN_A}`);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBeNull();
+    expect(result.current.error).toMatch(/revision/i);
+  });
+
+  it("does not adopt a launch response with the wrong source digest", async () => {
+    vi.mocked(liveApi.launchExtractionRun).mockResolvedValue(
+      launchEnvelope({
+        runId: RUN_A,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-wrong",
+      }),
+    );
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    await waitFor(() => expect(result.current.canLaunch).toBe(true));
+    await act(async () => {
+      await result.current.launch();
+    });
+    expect(result.current.handoff).toBeNull();
+    expect(window.location.search).not.toContain(`extractionRunId=${RUN_A}`);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBeNull();
+    expect(result.current.error).toMatch(/digest/i);
+  });
+
+  it("keeps exact run visible but disables Graph Review when status href mismatches", async () => {
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}&extractionRunId=${RUN_A}`);
+    const envelope = statusEnvelope({
+      runId: RUN_A,
+      artifactId: ARTIFACT_A,
+      documentId: DOC_A,
+      revision: 2,
+      sha: "sha-a",
+    });
+    envelope.graph_review_handoff.href =
+      `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=99`;
+    vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValue(envelope);
+
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    await waitFor(() => {
+      expect(result.current.run?.run_id).toBe(RUN_A);
+    });
+    expect(result.current.handoff).toBeNull();
+    expect(result.current.canOpenGraphReview).toBe(false);
+    expect(result.current.error).toMatch(/href query identities/i);
   });
 
   it("keeps exact run id but disables Graph Review when status recovery fails", async () => {

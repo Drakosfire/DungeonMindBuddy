@@ -132,7 +132,14 @@ def test_launch_returns_exact_run_and_status_reload(client: TestClient, tmp_path
     assert payload["graph_review_handoff"]["document_revision"] == committed.revision
     assert "latest" not in payload["graph_review_handoff"]["href"]
 
-    status = client.get(f"/api/live/graph-preview/extraction-runs/{run_id}")
+    generic = client.get(f"/api/live/graph-preview/extraction-runs/{run_id}")
+    assert generic.status_code == 200
+    generic_body = generic.json()
+    assert generic_body["run_id"] == run_id
+    assert "schema_version" not in generic_body or generic_body.get("schema_version") == "dmb_extraction_run_v1"
+    assert "graph_review_handoff" not in generic_body
+
+    status = client.get(f"/api/live/graph-preview/extraction-runs/{run_id}/build-context")
     assert status.status_code == 200
     body = status.json()
     assert body["schema_version"] == "dmb_extraction_run_status_v1"
@@ -142,3 +149,77 @@ def test_launch_returns_exact_run_and_status_reload(client: TestClient, tmp_path
     assert body["source_content_sha256"] == digest
     assert body["graph_review_handoff"]["document_id"] == committed.document_id
     assert body["graph_review_handoff"]["document_revision"] == committed.revision
+    assert "latest" not in body["graph_review_handoff"]["href"]
+
+
+def test_generic_exact_get_returns_recap_run(client: TestClient, tmp_path: Path) -> None:
+    from apps.live_control_server.services.graph_run_registry import create_extraction_run
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+    )
+
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="eldyrwild",
+        session_id="session-1",
+        recap_text="The party reached Mirathorn.\n",
+    )
+    run = create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="recap",
+        campaign_id="eldyrwild",
+        session_id="session-1",
+    )
+
+    generic = client.get(f"/api/live/graph-preview/extraction-runs/{run.run_id}")
+    assert generic.status_code == 200
+    body = generic.json()
+    assert body["run_id"] == run.run_id
+    assert body["source_domain"] == "recap"
+    assert body["source_artifact_id"] == artifact.source_artifact_id
+    assert "latest" not in body.get("run_id", "")
+
+    build_context = client.get(
+        f"/api/live/graph-preview/extraction-runs/{run.run_id}/build-context"
+    )
+    assert build_context.status_code == 422
+    detail = build_context.json()["detail"]
+    assert "Build context" in detail or "not applicable" in detail
+
+    # Generic reload remains intact after Build-context rejection.
+    generic_again = client.get(f"/api/live/graph-preview/extraction-runs/{run.run_id}")
+    assert generic_again.status_code == 200
+    assert generic_again.json()["run_id"] == run.run_id
+
+
+def test_neither_endpoint_substitutes_latest(client: TestClient, tmp_path: Path) -> None:
+    committed, digest = _commit_source(tmp_path)
+    launch = client.post(
+        "/api/live/graph-preview/extraction-runs",
+        json={
+            "document_id": committed.document_id,
+            "expected_revision": committed.revision,
+            "expected_content_sha256": digest,
+        },
+    )
+    assert launch.status_code == 200
+    run_id = launch.json()["run"]["run_id"]
+
+    generic = client.get(f"/api/live/graph-preview/extraction-runs/{run_id}")
+    assert generic.status_code == 200
+    assert generic.json()["run_id"] == run_id
+
+    build_context = client.get(
+        f"/api/live/graph-preview/extraction-runs/{run_id}/build-context"
+    )
+    assert build_context.status_code == 200
+    assert build_context.json()["run"]["run_id"] == run_id
+    assert "latest" not in build_context.json()["graph_review_handoff"]["href"]
+
+    missing = client.get("/api/live/graph-preview/extraction-runs/not-a-real-run-id")
+    assert missing.status_code == 404
+    missing_ctx = client.get(
+        "/api/live/graph-preview/extraction-runs/not-a-real-run-id/build-context"
+    )
+    assert missing_ctx.status_code == 404
