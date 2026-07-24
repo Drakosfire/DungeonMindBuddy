@@ -366,87 +366,141 @@ def test_resolve_rejects_blank_campaign_declared_registry(
 def _write_reviewable_extraction_run(
     repo: Path,
     *,
-    run_id: str = "extraction-run-wb-1",
     status: str = "reviewable",
-    campaign_id: str | None = "longmont-c2",
-    session_id: str | None = None,
     invent_session_in_candidate: bool = False,
+    candidate_campaign_id: str | None = CAMPAIGN_ID,
 ) -> tuple[str, Path]:
+    """Build a canonical worldbuilding ExtractionRun through its owning services.
+
+    Nothing is hand-written into a registry file: the workspace document, its
+    committed bytes, the SourceArtifact, the span index, and every run status
+    transition go through the same code paths production uses, so the fixture
+    cannot drift away from the registry's own validators.
+    """
+    from apps.live_control_server.services.graph_run_registry import (
+        create_extraction_run,
+        supersede_extraction_run,
+        update_extraction_run_status,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_source_artifact_from_workspace_document,
+        source_span_index_relpath,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        create_workspace_document,
+        mark_workspace_document_committed,
+    )
     from graph_memory.ingestion.extraction_run import (
-        ExtractionRun,
         ExtractionRunComponentKind,
         ExtractionRunComponentRef,
         ExtractionRunStatus,
     )
 
+    document = create_workspace_document(
+        repo,
+        title="Worldbuilding lore",
+        campaign_id=CAMPAIGN_ID,
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    committed = mark_workspace_document_committed(
+        repo, document.document_id, expected_revision=document.revision
+    )
+    source = repo / committed.target_relpath
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text(
+        "# Lore\n\nWorldbuilding source for promote.\n\nA second paragraph.\n",
+        encoding="utf-8",
+    )
+    artifact = create_source_artifact_from_workspace_document(
+        repo, document_id=committed.document_id, expected_revision=committed.revision
+    )
+
+    span_rel = source_span_index_relpath(artifact.source_artifact_id)
+    span_path = repo / span_rel
+    span_index = json.loads(span_path.read_text(encoding="utf-8"))
+    span_ref_id = str(span_index["spans"][0]["source_span_id"])
+
+    candidate_payload = _candidate_graph_payload(
+        campaign_id=candidate_campaign_id or "",
+        session_id="session-99" if invent_session_in_candidate else "",
+    )
+    if not invent_session_in_candidate:
+        candidate_payload["session_id"] = None
+    if candidate_campaign_id is None:
+        candidate_payload["campaign_id"] = None
+    candidate_payload["source_artifact_ids"] = [artifact.source_artifact_id]
+    for holder in (
+        *(candidate_payload.get("nodes") or []),
+        *(candidate_payload.get("edges") or []),
+    ):
+        for ref in holder.get("evidence_refs") or []:
+            ref["source_artifact_id"] = artifact.source_artifact_id
+            ref["source_span_ref_id"] = span_ref_id
+
     run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1"
     run_dir.mkdir(parents=True, exist_ok=True)
-    source = repo / "out" / "workspace" / "worldbuilding" / "doc.md"
-    source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text("worldbuilding source for promote\n", encoding="utf-8")
-    digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    source_artifact_id = "artifact:worldbuilding:doc:r1:abcdef123456"
-    candidate_payload = _candidate_graph_payload(
-        campaign_id=campaign_id or "",
-        session_id="session-99" if invent_session_in_candidate else (session_id or ""),
+    candidate_path = run_dir / "candidate_graph.json"
+    candidate_path.write_text(
+        json.dumps(candidate_payload, indent=2) + "\n", encoding="utf-8"
     )
-    if not invent_session_in_candidate and session_id is None:
-        candidate_payload["session_id"] = None
-    candidate_payload["source_artifact_ids"] = [source_artifact_id]
-    for node in candidate_payload.get("nodes") or []:
-        for ref in node.get("evidence_refs") or []:
-            suffix = str(ref.get("source_ref_id") or "span").rsplit(":", 1)[-1]
-            ref["source_artifact_id"] = source_artifact_id
-            ref["source_span_ref_id"] = f"span:worldbuilding:{digest[:12]}:p{suffix}"
-            ref.pop("session_id", None)
-    for edge in candidate_payload.get("edges") or []:
-        for ref in edge.get("evidence_refs") or []:
-            suffix = str(ref.get("source_ref_id") or "span").rsplit(":", 1)[-1]
-            ref["source_artifact_id"] = source_artifact_id
-            ref["source_span_ref_id"] = f"span:worldbuilding:{digest[:12]}:p{suffix}"
-            ref.pop("session_id", None)
-    candidate = run_dir / "candidate_graph.json"
-    candidate.write_text(json.dumps(candidate_payload, indent=2) + "\n", encoding="utf-8")
-    span = run_dir / "source_span_index.json"
-    span.write_text("{}\n", encoding="utf-8")
+
+    def _digest(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
 
     components = {
         "source_artifact": ExtractionRunComponentRef(
             kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
-            uri=f"repo://{source.relative_to(repo).as_posix()}",
-            exists=True,
-            sha256=f"sha256:{digest}",
+            uri=artifact.uri,
+            sha256=artifact.content_sha256,
         ),
         "source_span_index": ExtractionRunComponentRef(
             kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
-            uri=span.as_posix(),
-            exists=True,
+            uri=f"repo://{span_rel}",
+            sha256=_digest(span_path),
         ),
         "candidate_graph": ExtractionRunComponentRef(
             kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
-            uri=candidate.as_posix(),
-            exists=True,
+            uri=f"repo://{candidate_path.relative_to(repo).as_posix()}",
+            sha256=_digest(candidate_path),
         ),
     }
-    run = ExtractionRun(
-        run_id=run_id,
-        source_artifact_id=source_artifact_id,
+
+    run = create_extraction_run(
+        repo,
+        source_artifact_id=artifact.source_artifact_id,
         source_domain="worldbuilding",
-        status=ExtractionRunStatus(status),
-        campaign_id=campaign_id,
-        session_id=session_id,
+        campaign_id=CAMPAIGN_ID,
+        session_id=None,
         profile_id="worldbuilding_plumbing_v0@0.1",
-        components=components,
-        lineage={"source_sha256": f"sha256:{digest}"},
     )
-    registry = {
-        "schema_version": "dmb_extraction_run_registry_v1",
-        "records": [run.model_dump(mode="json")],
-    }
-    registry_path = repo / "out" / "registries" / "extraction_runs.json"
-    registry_path.parent.mkdir(parents=True, exist_ok=True)
-    registry_path.write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
-    return run_id, source
+    reachable = [
+        ExtractionRunStatus.PREPARED,
+        ExtractionRunStatus.EXTRACTED,
+        ExtractionRunStatus.VALIDATED,
+        ExtractionRunStatus.REVIEWABLE,
+    ]
+    stop_at = (
+        ExtractionRunStatus.REVIEWABLE
+        if status == "superseded"
+        else ExtractionRunStatus(status)
+    )
+    for step in reachable:
+        run = update_extraction_run_status(
+            repo,
+            run.run_id,
+            status=step,
+            expected_revision=run.revision,
+            components=components if step == ExtractionRunStatus.PREPARED else None,
+        )
+        if step == stop_at:
+            break
+    if status == "superseded":
+        supersede_extraction_run(repo, run.run_id, expected_revision=run.revision)
+    return run.run_id, source
 
 
 def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None:
@@ -458,14 +512,58 @@ def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None
     assert resolved.run_id == run_id
     assert resolved.campaign_id == CAMPAIGN_ID
     assert resolved.session_id == ""
+    assert resolved.source_domain == "worldbuilding"
     assert resolved.source_artifact_id.startswith("artifact:worldbuilding:")
-    assert resolved.source_revision_id.startswith("sha256:")
+    assert resolved.source_revision_id == f"sha256:{hashlib.sha256(source.read_bytes()).hexdigest()}"
     assert resolved.candidate_graph_path.is_file()
-    assert resolved.sealed_source_uri.startswith("repo://out/graph_memory/runs/")
+    assert resolved.sealed_source_uri.startswith("repo://out/graph_memory/runs/promote_seals/")
     assert resolved.normalized_recap_path.is_file()
     assert "session_scope=null" in resolved.diagnostics
-    # Source was copied under the run tree for seal policy.
+    # Registry-owned source bytes are sealed by digest, not read in place, and the
+    # run's own artifact directory is never mutated to make that possible.
     assert resolved.normalized_recap_path != source.resolve()
+    assert resolved.normalized_recap_path.read_bytes() == source.read_bytes()
+    assert not (resolved.run_dir / "normalized_source.md").exists()
+
+
+def test_resolve_extraction_run_seal_is_idempotent(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id, _source = _write_reviewable_extraction_run(repo)
+
+    first = resolve_promotable_ingest_run(run_id, root=repo)
+    stat_before = first.normalized_recap_path.stat()
+    second = resolve_promotable_ingest_run(run_id, root=repo)
+    assert second.sealed_source_uri == first.sealed_source_uri
+    assert second.normalized_recap_path.stat().st_mtime_ns == stat_before.st_mtime_ns
+
+
+def test_resolve_rejects_extraction_run_after_source_bytes_change(tmp_path: Path) -> None:
+    """An out-of-band edit under the same revision must not become sealed evidence."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id, source = _write_reviewable_extraction_run(repo)
+    source.write_text("# Lore\n\nTampered after extraction.\n", encoding="utf-8")
+
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+
+
+def test_resolve_rejects_extraction_run_with_missing_candidate_bytes(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    candidate = (
+        repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1" / "candidate_graph.json"
+    )
+    candidate.unlink()
+
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
 
 
 def test_resolve_rejects_non_reviewable_extraction_run(tmp_path: Path) -> None:
@@ -491,7 +589,7 @@ def test_resolve_rejects_superseded_extraction_run(tmp_path: Path) -> None:
 def test_resolve_unknown_still_404_without_latest_fallback(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    _write_reviewable_extraction_run(repo, run_id="extraction-run-other")
+    _write_reviewable_extraction_run(repo)
     with pytest.raises(PromotableIngestRunError) as exc:
         resolve_promotable_ingest_run("extraction-run-missing", root=repo)
     assert exc.value.code == "run_not_found"

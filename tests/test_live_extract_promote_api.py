@@ -360,6 +360,23 @@ def _selectable_assertion_ids(prepared: dict) -> list[str]:
     ]
 
 
+def _sealed_source_domains(payload: object) -> set[str]:
+    """Every source_domain / source_domains value sealed anywhere in a response."""
+    found: set[str] = set()
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key == "source_domain" and isinstance(value, str) and value.strip():
+                found.add(value.strip())
+            elif key == "source_domains" and isinstance(value, list):
+                found.update(str(item).strip() for item in value if str(item).strip())
+            else:
+                found |= _sealed_source_domains(value)
+    elif isinstance(payload, list):
+        for item in payload:
+            found |= _sealed_source_domains(item)
+    return found
+
+
 def _confirm_body(package: dict, assertion_ids: list[str]) -> dict:
     return {
         "schema": "dmb_extract_promote_confirm_request_v2",
@@ -1135,6 +1152,8 @@ def test_prepare_confirm_exact_worldbuilding_extraction_run(world_client) -> Non
     package = prepared["reviewPackage"]
     sealed_uri = package["effect"]["verified_source_uri"]
     assert sealed_uri.startswith("repo://out/graph_memory/runs/")
+    # The run's own domain is sealed into the proposal; recap is never assumed.
+    assert _sealed_source_domains(package) == {"worldbuilding"}
     assertion_ids = _selectable_assertion_ids(prepared)
     assert assertion_ids
     head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
@@ -1144,6 +1163,75 @@ def test_prepare_confirm_exact_worldbuilding_extraction_run(world_client) -> Non
     assert confirmed["outcome"] == "committed"
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after != head_before
+
+
+def test_exact_worldbuilding_confirm_replay_is_a_truthful_no_op(world_client) -> None:
+    """Response-loss retry reuses the existing receipt; the head advances once."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    prepare = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert prepare.status_code == 200, prepare.text
+    prepared = prepare.json()
+    body = _confirm_body(prepared["reviewPackage"], _selectable_assertion_ids(prepared))
+
+    first = client.post(CONFIRM_URL, json=body)
+    assert first.status_code == 200, first.text
+    assert first.json()["outcome"] == "committed"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+
+    replay = client.post(CONFIRM_URL, json=body)
+    assert replay.status_code == 200, replay.text
+    replayed = replay.json()
+    assert replayed["outcome"] == "already_applied"
+    assert replayed["headAdvanced"] is False
+    assert replayed["committedRevisionId"] == head_after
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == head_after
+    )
+
+
+def test_exact_worldbuilding_confirm_rejects_tampered_package(world_client) -> None:
+    """A generic run gets the same sealed-proposal protection as a recap run."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    prepare = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert prepare.status_code == 200, prepare.text
+    prepared = prepare.json()
+    package = prepared["reviewPackage"]
+    package["effect"]["contribution_meta"]["authored_by"] = "attacker"
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+
+    confirm = client.post(
+        CONFIRM_URL, json=_confirm_body(package, _selectable_assertion_ids(prepared))
+    )
+    assert confirm.status_code == 409
+    assert confirm.json()["code"] == "proposal_verification_failed"
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == head_before
+    )
+
+
+def test_recap_prepare_still_seals_recap_source_domain(world_client) -> None:
+    """The generic source_domain seam must not relabel existing recap runs."""
+    client, _world, _repo, run_id, *_rest = world_client
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
+    )
+    assert prepare.status_code == 200, prepare.text
+    domains = _sealed_source_domains(prepare.json()["reviewPackage"])
+    assert "recap" in domains
+    assert "worldbuilding" not in domains
 
 
 def test_prepare_rejects_non_reviewable_extraction_run(world_client) -> None:
@@ -1167,6 +1255,21 @@ def test_prepare_rejects_session_invention_for_sessionless_extraction_run(
     client, _world, repo, *_rest = world_client
     run_id, _source = _write_reviewable_extraction_run(
         repo, invent_session_in_candidate=True
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_rejects_sessionless_candidate_missing_run_campaign(
+    world_client,
+) -> None:
+    """A sessionless run still requires the candidate to carry the run's campaign."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, candidate_campaign_id=None
     )
     response = client.post(PREPARE_URL, json=_prepare_body(run_id))
     assert response.status_code == 422

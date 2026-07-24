@@ -1,9 +1,43 @@
 # HANDOFF — BLD-07 generic Graph Review run binding
 
 - **Created:** 2026-07-22
-- **Status:** PREPARED / DRAFT — may be stacked against the BLD-06 head (and current extract-promote bridge); ACTIVE / MERGEABLE only after that predecessor merge, rebase, and immutable merge-SHA re-anchor.
+- **Status:** ACTIVE / MERGEABLE — BLD-06 merged as `bf28e46c` (PR #392); this slice is rebased onto that immutable merge SHA and re-anchored. Open PR: [#393](https://github.com/Drakosfire/DungeonMindBuddy/pull/393).
+- **Base revision (re-anchored):** `bf28e46c7e9eab8fc228df2b0c066238817e6442`
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld07-graph-review-generic-run-handoff.md`
 - **Suggested branch:** `agent/bld07-graph-review-generic-run-handoff`
+
+## Stop-condition disclosure (§5 boundary reached)
+
+`src/graph_memory/extract_promote_ops.py` is listed in §5 as out of scope, with
+the caveat that touching it is a **stop condition requiring architecture review,
+not silent scope expansion**. The implementation reached that boundary:
+
+- **Why the existing sealed inputs are insufficient:** `prepare_extract_promote`
+  is the only seam that stamps an evidence domain onto the sealed contribution,
+  and it hardcoded `source_domain="recap"`. Every worldbuilding assertion would
+  otherwise be sealed and merged into the World Supergraph labeled as recap
+  evidence. No caller-visible input could express the run's real domain.
+- **What changed:** one additive keyword-only parameter, `source_domain: str = "recap"`,
+  passed through to the existing identity gate. Contribution identity, candidate
+  mapping, identity resolution, merge/retraction rules, and graph-head commit
+  behavior are untouched, and the default preserves every existing caller.
+- **Proof:** `test_prepare_confirm_exact_worldbuilding_extraction_run` asserts the
+  sealed package carries exactly `{"worldbuilding"}`;
+  `test_recap_prepare_still_seals_recap_source_domain` asserts recap runs still
+  seal `recap` and never `worldbuilding`.
+- **Requires:** explicit operator/architecture sign-off on this one parameter
+  before merge. It is disclosed here and in the PR body rather than absorbed.
+
+## Bounded discovery report (§4)
+
+§4 named `GraphReviewWorkbenchHeaderWithActivity.tsx`. The actual header rendered
+by `GraphReviewWorkbenchModule` is **`GraphReviewWorkbenchHeader.tsx`**; the
+`WithActivity` variant is not on the exact-run path. The header is where source
+domain, authority, run, and optional scope must appear, so the discovery
+substitution proves the same invariant at the same boundary. One path used of
+the two allowed; `liveApi.ts` and `models/extract_promote.py` were allowlisted
+but needed no change (the generic and Build-context endpoints already exist from
+BLD-06, and no new public response field was required).
 
 ## §0 Capability decomposition decision
 

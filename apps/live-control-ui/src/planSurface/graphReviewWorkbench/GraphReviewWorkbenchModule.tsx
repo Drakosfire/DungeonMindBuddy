@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   getExtractionRun,
+  getExtractionRunStatus,
   getGoldReviewCompare,
   getGoldReviewSessions,
   getGraphIngestRuns,
@@ -11,6 +12,7 @@ import {
 } from "../../api/liveApi";
 import type {
   ExtractionRunRecord,
+  ExtractionRunStatusResponse,
   GoldReviewCompareResponse,
   ManualReviewBedDetail,
   ManualReviewBedSummary,
@@ -56,6 +58,7 @@ import {
   assertExactRunHandoff,
   parseGraphReviewRunHandoff,
 } from "./graphReviewRunSelection";
+import type { GraphReviewExactRunLineage } from "./graphReviewRunSelection";
 
 interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
@@ -165,6 +168,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [selectedManualBed, setSelectedManualBed] = useState<ManualReviewBedDetail | null>(null);
   const [selectedManualVariantName, setSelectedManualVariantName] = useState<string | null>(null);
   const [exactRun, setExactRun] = useState<ExtractionRunRecord | null>(null);
+  const [exactLineage, setExactLineage] = useState<GraphReviewExactRunLineage | null>(null);
   const [exactRunStatus, setExactRunStatus] = useState<"idle" | "loading" | "ready" | "error">(
     exactHandoff ? "loading" : "idle",
   );
@@ -340,33 +344,77 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     let cancelled = false;
     setExactRunStatus("loading");
     setExactRunError(null);
-    void getExtractionRun(exactHandoff.extractionRunId)
-      .then((run) => {
-        if (cancelled) return;
-        if (
-          exactHandoff.sourceArtifactId &&
-          run.source_artifact_id !== exactHandoff.sourceArtifactId
-        ) {
-          setExactRun(null);
-          setExactRunStatus("error");
-          setExactRunError("handoff sourceArtifactId does not match the exact run");
+    setExactLineage(null);
+    const fail = (message: string) => {
+      if (cancelled) return;
+      setExactRun(null);
+      setExactLineage(null);
+      setExactRunStatus("error");
+      setExactRunError(message);
+    };
+    void (async () => {
+      let run: ExtractionRunRecord;
+      try {
+        run = await getExtractionRun(exactHandoff.extractionRunId);
+      } catch (error) {
+        fail(
+          error instanceof LiveApiError || error instanceof Error
+            ? error.message
+            : "Failed to load exact extraction run.",
+        );
+        return;
+      }
+      if (cancelled) return;
+      if (run.run_id !== exactHandoff.extractionRunId) {
+        fail("handoff extractionRunId does not match the loaded run");
+        return;
+      }
+      if (
+        exactHandoff.sourceArtifactId &&
+        run.source_artifact_id !== exactHandoff.sourceArtifactId
+      ) {
+        fail("handoff sourceArtifactId does not match the exact run");
+        return;
+      }
+
+      // A handoff that claims workspace lineage must be confirmed by the
+      // server's own SourceArtifact resolution. URL-supplied document identity
+      // is never displayed or trusted on its own.
+      let lineage: GraphReviewExactRunLineage | null = null;
+      if (exactHandoff.documentId !== null && exactHandoff.revision !== null) {
+        let context: ExtractionRunStatusResponse;
+        try {
+          context = await getExtractionRunStatus(exactHandoff.extractionRunId);
+        } catch (error) {
+          fail(
+            `handoff document lineage could not be verified: ${
+              error instanceof LiveApiError || error instanceof Error
+                ? error.message
+                : "unknown error"
+            }`,
+          );
           return;
         }
-        setExactRun(run);
-        setExactRunStatus("ready");
-      })
-      .catch((error) => {
         if (cancelled) return;
-        setExactRun(null);
-        setExactRunStatus("error");
-        setExactRunError(
-          error instanceof LiveApiError
-            ? error.message
-            : error instanceof Error
-              ? error.message
-              : "Failed to load exact extraction run.",
-        );
-      });
+        if (
+          context.run.run_id !== exactHandoff.extractionRunId ||
+          context.source_artifact_id !== run.source_artifact_id ||
+          context.document_id !== exactHandoff.documentId ||
+          context.document_revision !== exactHandoff.revision
+        ) {
+          fail("handoff document lineage does not match the server-resolved run");
+          return;
+        }
+        lineage = {
+          documentId: context.document_id,
+          revision: context.document_revision,
+        };
+      }
+      if (cancelled) return;
+      setExactRun(run);
+      setExactLineage(lineage);
+      setExactRunStatus("ready");
+    })();
     return () => {
       cancelled = true;
     };
@@ -532,8 +580,8 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           profileId: exactRun.profile_id ?? null,
           campaignId: exactRun.campaign_id ?? null,
           sessionId: exactRun.session_id ?? null,
-          documentId: exactHandoff.documentId,
-          revision: exactHandoff.revision,
+          documentId: exactLineage?.documentId ?? null,
+          revision: exactLineage?.revision ?? null,
           reviewable: exactRunReviewable,
         }
       : null;
@@ -574,12 +622,13 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
   // Ingest Recap remains reachable from the empty /ingest landing state.
   const reviewCampaignId =
-    exactRun?.campaign_id ??
+    (hasExactRunLoad ? exactRun?.campaign_id : null) ??
     appliedSession?.campaignId ??
     draftCampaignId ??
     context.campaignId;
   // Exact worldbuilding runs keep session null — never invent a session lens.
-  const reviewSessionId = exactHandoff
+  // A rejected or unresolved handoff must not degrade the recap lens either.
+  const reviewSessionId = hasExactRunLoad
     ? exactRun?.session_id?.trim() || ""
     : appliedSession?.sessionId || draftSessionId || fallbackSessionId;
 

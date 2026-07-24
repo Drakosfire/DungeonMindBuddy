@@ -297,7 +297,7 @@ def _assert_candidate_scope_matches_run(
                     _diagnostic("manifest_session", "<null>"),
                 ],
             )
-        if run_campaign and cand_campaign and cand_campaign != run_campaign:
+        if run_campaign and cand_campaign != run_campaign:
             raise ExtractPromoteError(
                 "candidate graph campaign does not match the run",
                 code="run_scope_mismatch",
