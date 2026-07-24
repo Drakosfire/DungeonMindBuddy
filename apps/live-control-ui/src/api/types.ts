@@ -1463,6 +1463,76 @@ export interface TiptapMarkdownWriteCommitResponse {
   diagnostics: string[];
 }
 
+export type ExtractionRunLifecycleStatus =
+  | "draft"
+  | "prepared"
+  | "extracted"
+  | "validated"
+  | "reviewable"
+  | "promoted"
+  | "rejected"
+  | "incomplete"
+  | "failed"
+  | "superseded";
+
+export interface ExtractionRunRecord {
+  schema_version: "dmb_extraction_run_v1";
+  version: string;
+  run_id: string;
+  source_artifact_id: string;
+  source_domain: string;
+  status: ExtractionRunLifecycleStatus;
+  campaign_id?: string | null;
+  session_id?: string | null;
+  profile_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  diagnostics?: {
+    messages?: string[];
+    incomplete_components?: string[];
+    errors?: string[];
+  };
+  lineage?: Record<string, unknown>;
+}
+
+export interface GraphReviewHandoffPayload {
+  href: string;
+  extraction_run_id: string;
+  source_artifact_id: string;
+  document_id: string;
+  document_revision: number;
+}
+
+export interface ExtractionRunLaunchRequest {
+  document_id: string;
+  expected_revision: number;
+  expected_content_sha256: string;
+  profile_id?: string;
+  profile_version?: string;
+}
+
+export interface ExtractionRunLaunchResponse {
+  schema_version: "dmb_extraction_run_launch_v1";
+  run: ExtractionRunRecord;
+  source_artifact_id: string;
+  document_id: string;
+  document_revision: number;
+  source_content_sha256: string;
+  failure_kind?: string | null;
+  diagnostics: string[];
+  graph_review_handoff: GraphReviewHandoffPayload;
+}
+
+export interface ExtractionRunStatusResponse {
+  schema_version: "dmb_extraction_run_status_v1";
+  run: ExtractionRunRecord;
+  source_artifact_id: string;
+  document_id: string;
+  document_revision: number;
+  source_content_sha256: string;
+  graph_review_handoff: GraphReviewHandoffPayload;
+}
+
 export interface StatblockRetrievalActivationResponse {
   schema_version: "dmb_statblock_retrieval_activation_v1";
   artifact_id: string;

@@ -171,7 +171,11 @@ def get_graph_ingest_runs(
 
 @router.get("/extraction-runs/{run_id}")
 def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
-    """Exact ExtractionRun reload. Never substitutes latest."""
+    """Exact ExtractionRun reload. Source-domain neutral; never substitutes latest.
+
+    Works for recap and worldbuilding runs. Build-specific workspace lineage lives
+    on ``GET /extraction-runs/{run_id}/build-context``.
+    """
     from apps.live_control_server.services.graph_run_registry import (
         GraphRunRegistryError,
         get_extraction_run,
@@ -182,6 +186,182 @@ def get_extraction_run_by_id(run_id: str) -> dict[str, Any]:
     except GraphRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return run.model_dump(mode="json")
+
+
+@router.get("/extraction-runs/{run_id}/build-context")
+def get_extraction_run_build_context(run_id: str) -> dict[str, Any]:
+    """Build-only exact-run envelope with server-resolved workspace lineage.
+
+    Requires SourceArtifact workspace_document_id/revision/content_sha256.
+    Recap runs without that lineage fail explicitly; generic exact GET remains usable.
+    Never substitutes latest.
+    """
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        get_source_artifact,
+    )
+
+    root = repo_root()
+    try:
+        run = get_extraction_run(root, run_id)
+    except GraphRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    try:
+        artifact = get_source_artifact(root, run.source_artifact_id)
+    except SourceArtifactRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    document_id = artifact.workspace_document_id
+    document_revision = artifact.workspace_document_revision
+    content_sha256 = artifact.content_sha256
+    if not document_id or document_revision is None or not content_sha256:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Build context requires workspace document lineage; "
+                "this exact run is not applicable to Build "
+                f"(source_domain={run.source_domain})"
+            ),
+        )
+
+    handoff = {
+        "href": (
+            "/ingest"
+            f"?extractionRunId={run.run_id}"
+            f"&sourceArtifactId={artifact.source_artifact_id}"
+            f"&documentId={document_id}"
+            f"&revision={document_revision}"
+        ),
+        "extraction_run_id": run.run_id,
+        "source_artifact_id": artifact.source_artifact_id,
+        "document_id": document_id,
+        "document_revision": document_revision,
+    }
+    return {
+        "schema_version": "dmb_extraction_run_status_v1",
+        "run": run.model_dump(mode="json"),
+        "source_artifact_id": artifact.source_artifact_id,
+        "document_id": document_id,
+        "document_revision": document_revision,
+        "source_content_sha256": content_sha256,
+        "graph_review_handoff": handoff,
+    }
+
+
+@router.post("/extraction-runs")
+def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
+    """Launch an exact extraction run for a committed worldbuilding source revision."""
+    from apps.live_control_server.services.graph_preview_runner import (
+        run_worldbuilding_production_extraction,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        create_source_artifact_from_workspace_document,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        WorkspaceDocumentRegistryError,
+        get_workspace_document,
+    )
+    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+        WORLDBUILDING_PLUMBING_PROFILE_ID,
+        WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+    )
+
+    document_id = body.get("document_id")
+    expected_revision = body.get("expected_revision")
+    expected_content_sha256 = body.get("expected_content_sha256")
+    profile_id = body.get("profile_id") or WORLDBUILDING_PLUMBING_PROFILE_ID
+    profile_version = body.get("profile_version") or WORLDBUILDING_PLUMBING_PROFILE_VERSION
+    # Build launches always execute production extraction under server-owned
+    # model policy. Any client-supplied allow_llm is ignored.
+    if not isinstance(document_id, str) or not document_id.strip():
+        raise HTTPException(status_code=422, detail="document_id is required")
+    if not isinstance(expected_revision, int):
+        raise HTTPException(status_code=422, detail="expected_revision must be an int")
+    if not isinstance(expected_content_sha256, str) or not expected_content_sha256.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="expected_content_sha256 is required for Build extraction launch",
+        )
+    if (
+        profile_id != WORLDBUILDING_PLUMBING_PROFILE_ID
+        or profile_version != WORLDBUILDING_PLUMBING_PROFILE_VERSION
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"unsupported extraction profile {profile_id}@{profile_version}; "
+                f"use {WORLDBUILDING_PLUMBING_PROFILE_ID}@{WORLDBUILDING_PLUMBING_PROFILE_VERSION}"
+            ),
+        )
+
+    root = repo_root()
+    try:
+        record = get_workspace_document(root, document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    if record.content_status != "committed":
+        raise HTTPException(status_code=422, detail="source must be committed before extraction")
+    if record.revision != expected_revision:
+        raise HTTPException(
+            status_code=409,
+            detail=f"revision mismatch: expected {expected_revision}, current {record.revision}",
+        )
+    if not record.target_relpath:
+        raise HTTPException(status_code=422, detail="workspace document has no target_relpath")
+
+    try:
+        artifact = create_source_artifact_from_workspace_document(
+            root,
+            document_id=document_id,
+            expected_revision=expected_revision,
+            expected_content_sha256=expected_content_sha256,
+        )
+    except SourceArtifactRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    result = run_worldbuilding_production_extraction(
+        repo_root=root,
+        source_artifact_id=artifact.source_artifact_id,
+        allow_llm=True,
+        output_dir=root
+        / "out"
+        / "graph_memory"
+        / "runs"
+        / "extraction"
+        / artifact.source_artifact_id.replace(":", "_"),
+    )
+
+    content_sha256 = artifact.content_sha256 or expected_content_sha256.removeprefix("sha256:").strip().lower()
+    return {
+        "schema_version": "dmb_extraction_run_launch_v1",
+        "run": result.run.model_dump(mode="json"),
+        "source_artifact_id": artifact.source_artifact_id,
+        "document_id": record.document_id,
+        "document_revision": record.revision,
+        "source_content_sha256": content_sha256,
+        "failure_kind": result.failure_kind,
+        "diagnostics": result.diagnostics,
+        "graph_review_handoff": {
+            "href": (
+                "/ingest"
+                f"?extractionRunId={result.run.run_id}"
+                f"&sourceArtifactId={artifact.source_artifact_id}"
+                f"&documentId={record.document_id}"
+                f"&revision={record.revision}"
+            ),
+            "extraction_run_id": result.run.run_id,
+            "source_artifact_id": artifact.source_artifact_id,
+            "document_id": record.document_id,
+            "document_revision": record.revision,
+        },
+    }
 
 
 @router.get("/graph-ingest/latest", response_model=GraphIngestLatestRunResponse)

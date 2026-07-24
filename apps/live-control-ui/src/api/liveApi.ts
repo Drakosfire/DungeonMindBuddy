@@ -53,6 +53,10 @@ import type {
   TiptapMarkdownWriteCommitResponse,
   TiptapMarkdownWritePrepareRequest,
   TiptapMarkdownWritePrepareResponse,
+  ExtractionRunLaunchRequest,
+  ExtractionRunLaunchResponse,
+  ExtractionRunRecord,
+  ExtractionRunStatusResponse,
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
@@ -978,6 +982,29 @@ export async function commitTiptapMarkdownWrite(
   return apiFetch<TiptapMarkdownWriteCommitResponse>(
     "/api/live/tiptap/markdown-write/commit",
     { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function launchExtractionRun(
+  request: ExtractionRunLaunchRequest,
+): Promise<ExtractionRunLaunchResponse> {
+  return apiFetch<ExtractionRunLaunchResponse>(
+    "/api/live/graph-preview/extraction-runs",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+/** Generic exact ExtractionRun reload (recap + worldbuilding). Never substitutes latest. */
+export async function getExtractionRun(runId: string): Promise<ExtractionRunRecord> {
+  return apiFetch<ExtractionRunRecord>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}`,
+  );
+}
+
+/** Build-only workspace lineage envelope for an exact extraction run. */
+export async function getExtractionRunStatus(runId: string): Promise<ExtractionRunStatusResponse> {
+  return apiFetch<ExtractionRunStatusResponse>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}/build-context`,
   );
 }
 
