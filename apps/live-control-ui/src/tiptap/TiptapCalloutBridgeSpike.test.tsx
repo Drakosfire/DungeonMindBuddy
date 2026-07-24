@@ -11,7 +11,11 @@ import {
   listWorkspaceDocuments,
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
-import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
+import type {
+  TiptapMarkdownWriteCommitResponse,
+  WorkspaceDocumentRecord,
+  WorkspaceDocumentSnapshot,
+} from "../api/types";
 import { FIXTURE_DOC_ID, fixtureWorkspaceDocumentRecord } from "../planSurface/config/planSessionDescriptor";
 import { TiptapCalloutBridgeSpike } from "./TiptapCalloutBridgeSpike";
 import {
@@ -97,7 +101,28 @@ function snapshotFor(record: WorkspaceDocumentRecord): WorkspaceDocumentSnapshot
   };
 }
 
+const verificationSnapshotByDocument = new Map<string, WorkspaceDocumentSnapshot>();
+
+function verificationSnapshotForReceipt(
+  receipt: TiptapMarkdownWriteCommitResponse,
+): WorkspaceDocumentSnapshot {
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record: receipt.committed_record,
+    markdown: "",
+    content_sha256: receipt.normalized_content_sha256,
+    file_fingerprint: receipt.file_fingerprint ?? "absent",
+    file_exists: true,
+    loaded_revision: receipt.committed_revision,
+  };
+}
+
+function rememberVerificationSnapshot(receipt: TiptapMarkdownWriteCommitResponse) {
+  verificationSnapshotByDocument.set(receipt.document_id, verificationSnapshotForReceipt(receipt));
+}
+
 function setupRegistryMocks() {
+  verificationSnapshotByDocument.clear();
   listMock.mockResolvedValue({
     schema_version: "dmb_workspace_document_registry_v1",
     records: [northGateRecord()],
@@ -108,6 +133,8 @@ function setupRegistryMocks() {
     throw new Error(`Unknown document id "${documentId}"`);
   });
   snapshotMock.mockImplementation(async (documentId: string) => {
+    const verification = verificationSnapshotByDocument.get(documentId);
+    if (verification) return verification;
     if (documentId === FIXTURE_DOC_ID) return snapshotFor(northGateRecord());
     if (documentId === SPIKE_DOC_ID) return snapshotFor(spikeRecord());
     throw new Error(`Unknown document id "${documentId}"`);
@@ -160,24 +187,29 @@ describe("semantic callout Markdown bridge", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     setupRegistryMocks();
     prepareMock.mockResolvedValue(preparedResponse);
-    commitMock.mockResolvedValue({
-      schema_version: "dmb_tiptap_markdown_write_commit_v1",
-      document_id: preparedResponse.document_id,
-      title: preparedResponse.title,
-      target_relpath: preparedResponse.target_relpath,
-      target_display_path: preparedResponse.target_display_path,
-      registry_revision: 2,
-      committed_revision: 2,
-      committed_record: {
-        ...northGateRecord(),
-        revision: 2,
-        content_status: "committed",
-      },
-      normalized_content_sha256: "sha256-committed-runbook",
-      writer_ok: true,
-      bytes_written: 42,
-      file_fingerprint: "present:fingerprint",
-      diagnostics: [],
+    commitMock.mockImplementation(async (input) => {
+      const record = input.document_id === SPIKE_DOC_ID ? spikeRecord() : northGateRecord();
+      const response: TiptapMarkdownWriteCommitResponse = {
+        schema_version: "dmb_tiptap_markdown_write_commit_v1",
+        document_id: input.document_id,
+        title: input.document_id === SPIKE_DOC_ID ? "North Gate Callout Spike" : preparedResponse.title,
+        target_relpath: input.document_id === SPIKE_DOC_ID ? SPIKE_TARGET_RELPATH : preparedResponse.target_relpath,
+        target_display_path: input.document_id === SPIKE_DOC_ID ? SPIKE_TARGET_RELPATH : preparedResponse.target_display_path,
+        registry_revision: 2,
+        committed_revision: 2,
+        committed_record: {
+          ...record,
+          revision: 2,
+          content_status: "committed",
+        },
+        normalized_content_sha256: "sha256-committed-runbook",
+        writer_ok: true,
+        bytes_written: 42,
+        file_fingerprint: "present:fingerprint",
+        diagnostics: [],
+      };
+      rememberVerificationSnapshot(response);
+      return response;
     });
   });
 
@@ -342,6 +374,25 @@ describe("semantic callout Markdown bridge", () => {
       file_fingerprint: "present:fingerprint",
       diagnostics: [],
     });
+    rememberVerificationSnapshot({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: SPIKE_DOC_ID,
+      title: "North Gate Callout Spike",
+      target_relpath: SPIKE_TARGET_RELPATH,
+      target_display_path: SPIKE_TARGET_RELPATH,
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: {
+        ...spikeRecord(),
+        revision: 2,
+        content_status: "committed",
+      },
+      normalized_content_sha256: "sha256-committed-runbook",
+      writer_ok: true,
+      bytes_written: 42,
+      file_fingerprint: "present:fingerprint",
+      diagnostics: [],
+    });
 
     const insertWarning = await waitForEnabledToolAction(toolsHolder, "tiptap-insert-blocks", "Warning");
     act(() => insertWarning.onClick());
@@ -366,6 +417,31 @@ describe("semantic callout Markdown bridge", () => {
     expect(window.localStorage.getItem(tiptapRunbookStorageKey(spikeDescriptor))).toContain("# C2S23 North Gate Session Runbook");
     expect(window.localStorage.getItem(tiptapRunbookStorageKey(northGateDescriptor))).toBeNull();
     expect(screen.getByTestId("markdown-export")).toHaveTextContent("# C2S23 North Gate Session Runbook");
+  });
+
+  it("marks reset local draft dirty when server markdown differs from starter and refresh restores starter", async () => {
+    snapshotMock.mockImplementation(async (documentId: string) => {
+      const record = documentId === SPIKE_DOC_ID ? spikeRecord() : northGateRecord();
+      return {
+        ...snapshotFor(record),
+        markdown: "# Imported server copy\n\nServer-only body.\n",
+        content_sha256: "sha-server-copy",
+        file_fingerprint: "present:server",
+        file_exists: true,
+      };
+    });
+
+    await renderLoadedSpike(`/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
+    const exportedBefore = screen.getByTestId("markdown-export").textContent ?? "";
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset local draft" }));
+
+    expect(await screen.findByText("Reset to starter")).toBeInTheDocument();
+    const stored = window.localStorage.getItem(workspaceDocumentStorageKey(SPIKE_DOC_ID));
+    expect(stored).toBeTruthy();
+    expect(JSON.parse(stored!).dirty).toBe(true);
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# C2S23 North Gate Session Runbook");
+    expect(screen.getByTestId("markdown-export").textContent).not.toBe(exportedBefore);
   });
 
   it("renders an import committed Markdown action", async () => {

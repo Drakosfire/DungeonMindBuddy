@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
@@ -11,11 +11,38 @@ interface BuildSurfaceShellProps {
 
 export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
   const { rehydrateScope, publishSurfaceContext } = useAgentInteraction();
+  const lastAcceptedCampaignRef = useRef<string>("build");
   const authoring = useWorkspaceDocumentAuthoring({
     documentId,
     surface: "build",
     kind: "worldbuilding_source",
   });
+
+  useEffect(() => {
+    if (authoring.record?.campaign_id) {
+      lastAcceptedCampaignRef.current = authoring.record.campaign_id;
+    }
+  }, [authoring.record?.campaign_id]);
+
+  useEffect(() => {
+    if (authoring.phase !== "load_error") return;
+    rehydrateScope({
+      campaignId: lastAcceptedCampaignRef.current || "build",
+      sessionNumber: null,
+      surfaceId: "build",
+      documentId: null,
+    });
+    publishSurfaceContext({
+      surfaceId: "build",
+      label: BUILD_SURFACE_LABEL,
+      campaignId: null,
+      documentId: null,
+      sessionNumber: null,
+      ambientSummary: authoring.error ?? "Document rejected",
+      sourceEnvelope: null,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [authoring.error, authoring.phase, publishSurfaceContext, rehydrateScope]);
 
   useEffect(() => {
     if (!authoring.record) return;
@@ -92,7 +119,7 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     return (
       <main className="app-status app-error" data-testid="build-surface-conflict">
         <h1>{BUILD_SURFACE_LABEL}</h1>
-        <p>{authoring.reconciliation?.conflictReason ?? "Local draft conflicts with server content."}</p>
+        <p>{authoring.statusLabel}</p>
         <button type="button" onClick={() => void authoring.reloadFromSnapshot()}>
           Reload from server
         </button>
@@ -122,6 +149,7 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
           documentKey={authoring.documentKey}
           content={authoring.editorContent}
           onEditorChange={authoring.setEditor}
+          onUpdate={authoring.handleEditorUpdate}
           dataTestId="build-markdown-editor"
         />
       </section>

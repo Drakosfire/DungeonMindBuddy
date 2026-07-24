@@ -27,6 +27,7 @@ export type WorkspaceDocumentAuthoringEvent =
   | { type: "COMMIT_SUCCEEDED" }
   | { type: "VERIFICATION_STARTED" }
   | { type: "VERIFICATION_SUCCEEDED"; dirty: boolean }
+  | { type: "VERIFICATION_MISMATCH"; reason: string }
   | { type: "VERIFICATION_FAILED"; message: string }
   | { type: "SAVE_FAILED"; message: string }
   | { type: "DISCARD_STARTED" }
@@ -87,6 +88,8 @@ export function reduceAuthoringMachine(
         error: null,
         conflictReason: null,
       };
+    case "VERIFICATION_MISMATCH":
+      return { phase: "conflict", error: null, conflictReason: event.reason };
     case "VERIFICATION_FAILED":
       // Commit already succeeded; keep committed truth and surface verification issue.
       return {

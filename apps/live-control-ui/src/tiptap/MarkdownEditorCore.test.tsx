@@ -68,8 +68,71 @@ describe("MarkdownEditorCore", () => {
     await waitFor(() => {
       expect(handleUpdate).toHaveBeenCalled();
     });
-    const [json] = handleUpdate.mock.calls.at(-1) ?? [];
+    const [json, , meta] = handleUpdate.mock.calls.at(-1) ?? [];
     expect(JSON.stringify(json)).toContain("Updated text.");
+    expect(meta).toEqual({ programmatic: false });
+  });
+
+  it("tags the first mount update as programmatic and the first user edit as non-programmatic", async () => {
+    const handleUpdate = vi.fn();
+    let editor: Editor | null = null;
+
+    render(
+      <MarkdownEditorCore
+        content={starterContent}
+        onEditorChange={(nextEditor) => { editor = nextEditor; }}
+        onUpdate={handleUpdate}
+      />,
+    );
+
+    await waitFor(() => expect(editor).not.toBeNull());
+
+    await waitFor(() => {
+      expect(handleUpdate.mock.calls.some(([, , meta]) => meta?.programmatic === true)).toBe(true);
+    });
+
+    handleUpdate.mockClear();
+
+    act(() => {
+      editor?.commands.insertContent("User edit.");
+    });
+
+    await waitFor(() => {
+      expect(handleUpdate).toHaveBeenCalledTimes(1);
+    });
+    expect(handleUpdate.mock.calls[0]?.[2]).toEqual({ programmatic: false });
+  });
+
+  it("marks the first real user transaction as non-programmatic after idle mount", async () => {
+    const handleUpdate = vi.fn();
+    let editor: Editor | null = null;
+
+    render(
+      <MarkdownEditorCore
+        content={starterContent}
+        onEditorChange={(nextEditor) => { editor = nextEditor; }}
+        onUpdate={handleUpdate}
+      />,
+    );
+
+    await waitFor(() => expect(editor).not.toBeNull());
+    // Allow the hydration microtask to clear before the user edit.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const callsBeforeEdit = handleUpdate.mock.calls.length;
+
+    act(() => {
+      editor?.commands.insertContent(" pasted");
+    });
+
+    await waitFor(() => {
+      expect(handleUpdate.mock.calls.length).toBeGreaterThan(callsBeforeEdit);
+    });
+    const userCalls = handleUpdate.mock.calls.slice(callsBeforeEdit);
+    expect(userCalls).toHaveLength(1);
+    expect(userCalls[0]?.[2]).toEqual({ programmatic: false });
+    expect(JSON.stringify(userCalls[0]?.[0])).toContain("pasted");
   });
 
   it("toggles editor.isEditable when editable prop changes", async () => {

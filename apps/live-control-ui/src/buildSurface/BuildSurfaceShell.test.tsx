@@ -34,6 +34,8 @@ function ScopeProbe() {
           ? "null"
           : String(activeSurfaceContext?.sessionNumber ?? "missing")
       }
+      data-document-id={scope?.documentId ?? "null"}
+      data-context-document-id={activeSurfaceContext?.documentId ?? "null"}
     />
   );
 }
@@ -119,13 +121,109 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
+        <ScopeProbe />
         <BuildSurfaceShell documentId={DOC_ID} />
       </AgentInteractionProvider>,
     );
 
     expect(await screen.findByTestId("build-surface-error")).toBeInTheDocument();
     expect(screen.queryByTestId("build-save-button")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
     expect(window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID))).toBeNull();
+
+    await waitFor(() => {
+      const probe = screen.getByTestId("scope-probe");
+      expect(probe).toHaveAttribute("data-document-id", "null");
+      expect(probe).toHaveAttribute("data-context-document-id", "null");
+    });
+  });
+
+  it("clears accepted Agent Interaction context when navigating from valid build to rejected plan UUID", async () => {
+    const PLAN_DOC_ID = "22222222-2222-4222-8222-222222222222";
+    const validSnapshot = {
+      schema_version: "dmb_workspace_document_snapshot_v1" as const,
+      record: {
+        schema_version: "dmb_workspace_document_record_v1" as const,
+        document_id: DOC_ID,
+        title: "Build Source",
+        campaign_id: "eldyrwild",
+        target_session: null,
+        kind: "worldbuilding_source" as const,
+        target_relpath: `out/workspace/worldbuilding/${DOC_ID}.md`,
+        status: "active" as const,
+        content_status: "draft" as const,
+        revision: 1,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: "worldbuilding",
+        document_class: "lore",
+        authority_state: "draft",
+        visibility_state: "internal",
+      },
+      markdown: "# Build Source\n",
+      content_sha256: "sha-build",
+      file_fingerprint: "absent",
+      file_exists: false,
+      loaded_revision: 1,
+    };
+    const rejectedSnapshot = {
+      schema_version: "dmb_workspace_document_snapshot_v1" as const,
+      record: {
+        schema_version: "dmb_workspace_document_record_v1" as const,
+        document_id: PLAN_DOC_ID,
+        title: "Session Prep",
+        campaign_id: "eldyrwild",
+        target_session: 4,
+        kind: "plan" as const,
+        target_relpath: "corpus/prep.md",
+        status: "active" as const,
+        content_status: "committed" as const,
+        revision: 2,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: null,
+        document_class: null,
+        authority_state: null,
+        visibility_state: null,
+      },
+      markdown: "# Prep\n",
+      content_sha256: "sha-plan",
+      file_fingerprint: "present",
+      file_exists: true,
+      loaded_revision: 2,
+    };
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(validSnapshot);
+
+    const { rerender } = render(
+      <AgentInteractionProvider>
+        <ScopeProbe />
+        <BuildSurfaceShell documentId={DOC_ID} />
+      </AgentInteractionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-document-id", DOC_ID);
+    });
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(rejectedSnapshot);
+    rerender(
+      <AgentInteractionProvider>
+        <ScopeProbe />
+        <BuildSurfaceShell documentId={PLAN_DOC_ID} />
+      </AgentInteractionProvider>,
+    );
+
+    expect(await screen.findByTestId("build-surface-error")).toBeInTheDocument();
+    await waitFor(() => {
+      const probe = screen.getByTestId("scope-probe");
+      expect(probe).toHaveAttribute("data-document-id", "null");
+      expect(probe).toHaveAttribute("data-context-document-id", "null");
+    });
+    expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
   });
 
   it("discards conflicting local draft and opens server content", async () => {

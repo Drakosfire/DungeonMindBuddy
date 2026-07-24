@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Editor } from "@tiptap/react";
+import type { Editor, JSONContent } from "@tiptap/react";
 
 import {
   commitTiptapMarkdownWrite,
@@ -24,6 +24,7 @@ import {
 } from "../tiptap/state/tiptapLocalState";
 import { openWorkspaceDocumentAuthoringState } from "./openWorkspaceDocumentAuthoringState";
 import type { ReconcileLocalDraftResult } from "./reconcileLocalDraft";
+import { verifyCommitReceiptAgainstSnapshot } from "./verifyCommitReceiptAgainstSnapshot";
 import {
   initialAuthoringMachineState,
   isEditorInteractive,
@@ -63,11 +64,27 @@ export interface WorkspaceDocumentAuthoringValue {
   saveDisabled: boolean;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
   setEditor: (editor: Editor | null) => void;
+  handleEditorUpdate: (
+    json: JSONContent,
+    editor: Editor,
+    meta: { programmatic: boolean },
+  ) => void;
   markDirty: () => void;
   saveMarkdown: () => Promise<void>;
   reloadFromSnapshot: () => Promise<void>;
   discardLocalDraft: () => Promise<void>;
 }
+
+const ACCEPTED_RECORD_PHASES = new Set<WorkspaceDocumentAuthoringPhase>([
+  "ready_clean",
+  "ready_dirty",
+  "preparing",
+  "committing",
+  "committed",
+  "committed_verification_pending",
+  "conflict",
+  "save_error",
+]);
 
 function applyCommitReceiptToLocalState(args: {
   receipt: TiptapMarkdownWriteCommitResponse;
@@ -113,7 +130,8 @@ export function useWorkspaceDocumentAuthoring(
   const [documentKey, setDocumentKey] = useState(args.documentId);
   const [lastCommitReceipt, setLastCommitReceipt] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
   const expectedRevisionRef = useRef<number | null>(null);
-  const skipNextEditorUpdateRef = useRef(false);
+  const verificationReceiptRef = useRef<TiptapMarkdownWriteCommitResponse | null>(null);
+  const localDirtyRef = useRef(false);
   const requireDirtyToSave = args.requireDirtyToSave !== false;
   const emptyMarkdownFallback = args.emptyMarkdownFallback;
   const canSave = args.canSave;
@@ -121,6 +139,10 @@ export function useWorkspaceDocumentAuthoring(
   const dispatch = useCallback((event: Parameters<typeof reduceAuthoringMachine>[1]) => {
     setMachine((current) => reduceAuthoringMachine(current, event));
   }, []);
+
+  useEffect(() => {
+    localDirtyRef.current = localState?.dirty ?? false;
+  }, [localState?.dirty]);
 
   const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
     dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
@@ -140,11 +162,11 @@ export function useWorkspaceDocumentAuthoring(
         kind: args.kind,
         emptyMarkdownFallback,
       });
-      expectedRevisionRef.current = nextSnapshot.loaded_revision;
-      setSnapshot(nextSnapshot);
       setReconciliation(opened.reconciliation);
 
       if (opened.status === "conflict") {
+        expectedRevisionRef.current = nextSnapshot.loaded_revision;
+        setSnapshot(nextSnapshot);
         setLocalState(stored);
         setDocumentKey(`${args.documentId}:conflict:${nextSnapshot.loaded_revision}`);
         dispatch({
@@ -153,7 +175,10 @@ export function useWorkspaceDocumentAuthoring(
         });
         return;
       }
+
       if (opened.status === "reject" || !opened.localState) {
+        expectedRevisionRef.current = null;
+        setSnapshot(null);
         setLocalState(null);
         dispatch({
           type: "OPEN_FAILED",
@@ -162,14 +187,16 @@ export function useWorkspaceDocumentAuthoring(
         return;
       }
 
+      expectedRevisionRef.current = nextSnapshot.loaded_revision;
+      setSnapshot(nextSnapshot);
       writeWorkspaceDocumentLocalState(storage, opened.localState);
       setLocalState(opened.localState);
-      skipNextEditorUpdateRef.current = true;
       setDocumentKey(
         `${args.documentId}:${nextSnapshot.loaded_revision}:${opened.localState.dirty ? "dirty" : "clean"}`,
       );
       dispatch({ type: "OPEN_READY", dirty: opened.localState.dirty });
     } catch (loadError) {
+      expectedRevisionRef.current = null;
       setSnapshot(null);
       setReconciliation(null);
       setLocalState(null);
@@ -190,16 +217,13 @@ export function useWorkspaceDocumentAuthoring(
       const now = new Date().toISOString();
       const next = { ...current, dirty: true, updated_at: now, last_local_save_at: now };
       writeWorkspaceDocumentLocalState(storage, next);
+      localDirtyRef.current = true;
       return next;
     });
     dispatch({ type: "EDIT" });
   }, [dispatch, storage]);
 
   const persistEditorState = useCallback((nextEditor: Editor) => {
-    if (skipNextEditorUpdateRef.current) {
-      skipNextEditorUpdateRef.current = false;
-      return;
-    }
     setLocalState((current) => {
       if (!current) return current;
       const now = new Date().toISOString();
@@ -213,26 +237,24 @@ export function useWorkspaceDocumentAuthoring(
         last_local_save_at: now,
       };
       writeWorkspaceDocumentLocalState(storage, next);
+      localDirtyRef.current = true;
       return next;
     });
     dispatch({ type: "EDIT" });
   }, [dispatch, storage]);
 
   const handleSetEditor = useCallback((nextEditor: Editor | null) => {
-    skipNextEditorUpdateRef.current = true;
     setEditor(nextEditor);
   }, []);
 
-  useEffect(() => {
-    if (!editor) return;
-    const onUpdate = () => {
-      persistEditorState(editor);
-    };
-    editor.on("update", onUpdate);
-    return () => {
-      editor.off("update", onUpdate);
-    };
-  }, [editor, persistEditorState]);
+  const handleEditorUpdate = useCallback((
+    _json: JSONContent,
+    nextEditor: Editor,
+    meta: { programmatic: boolean },
+  ) => {
+    if (meta.programmatic) return;
+    persistEditorState(nextEditor);
+  }, [persistEditorState]);
 
   const saveMarkdown = useCallback(async () => {
     if (!editor || !snapshot || !localState) return;
@@ -264,6 +286,7 @@ export function useWorkspaceDocumentAuthoring(
         expected_revision: expectedRevision,
       });
       setLastCommitReceipt(committed);
+      verificationReceiptRef.current = committed;
 
       // Commit receipt is authoritative — advance local base before any verification GET.
       dispatch({ type: "COMMIT_SUCCEEDED" });
@@ -277,6 +300,7 @@ export function useWorkspaceDocumentAuthoring(
       });
       writeWorkspaceDocumentLocalState(storage, receiptLocal);
       setLocalState(receiptLocal);
+      localDirtyRef.current = false;
       setSnapshot((current) => {
         if (!current) return current;
         return {
@@ -294,9 +318,14 @@ export function useWorkspaceDocumentAuthoring(
       dispatch({ type: "VERIFICATION_STARTED" });
       try {
         const refreshed = await getWorkspaceDocumentSnapshot(args.documentId);
-        expectedRevisionRef.current = refreshed.loaded_revision;
-        setSnapshot(refreshed);
-        dispatch({ type: "VERIFICATION_SUCCEEDED", dirty: false });
+        const receiptForVerification = verificationReceiptRef.current ?? committed;
+        const verification = verifyCommitReceiptAgainstSnapshot(receiptForVerification, refreshed);
+        if (!verification.ok) {
+          dispatch({ type: "VERIFICATION_MISMATCH", reason: verification.reason });
+          return;
+        }
+        dispatch({ type: "VERIFICATION_SUCCEEDED", dirty: localDirtyRef.current });
+        expectedRevisionRef.current = receiptForVerification.committed_revision;
       } catch (verifyError) {
         dispatch({
           type: "VERIFICATION_FAILED",
@@ -335,6 +364,12 @@ export function useWorkspaceDocumentAuthoring(
     [machine.conflictReason, machine.error, phase, reconciliation?.conflictReason, snapshot?.record.content_status],
   );
 
+  const record = useMemo(() => {
+    if (!ACCEPTED_RECORD_PHASES.has(phase)) return null;
+    if (!snapshot || !localState) return null;
+    return snapshot.record;
+  }, [localState, phase, snapshot]);
+
   const legacyStatus: WorkspaceDocumentAuthoringStatus = phase;
 
   return {
@@ -342,7 +377,7 @@ export function useWorkspaceDocumentAuthoring(
     phase,
     error: machine.error,
     snapshot,
-    record: snapshot?.record ?? null,
+    record,
     reconciliation,
     editorContent: localState?.tiptap_json ?? markdownToTiptapDoc(snapshot?.markdown ?? "").doc,
     documentKey,
@@ -355,6 +390,7 @@ export function useWorkspaceDocumentAuthoring(
       || (canSave ? !canSave() : false),
     lastCommitReceipt,
     setEditor: handleSetEditor,
+    handleEditorUpdate,
     markDirty,
     saveMarkdown,
     reloadFromSnapshot,

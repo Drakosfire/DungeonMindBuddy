@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,6 +29,12 @@ import {
 } from "./components/agentInteractionHistory";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
+import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
+import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
+import { EditCapabilityProvider } from "./edit/editCapability";
+import { PlanGraphLensProvider } from "./PlanGraphLensContext";
+import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
+import { ProjectionProvider } from "./projection/projectionContext";
 import * as liveApi from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 
@@ -1609,6 +1615,8 @@ describe("PlanSurfaceShell", () => {
       .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
       .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot({
         loaded_revision: 2,
+        content_sha256: "abc123sha256",
+        file_fingerprint: "abc123",
         record: fixtureWorkspaceDocumentRecord({ content_status: "committed", revision: 2 }),
       }));
     const fetchSpy = vi.spyOn(globalThis, "fetch")
@@ -1670,6 +1678,114 @@ describe("PlanSurfaceShell", () => {
     expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
     expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
+    expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Committed/i);
+  });
+
+  it("invokes planning document handback exactly once per commit", async () => {
+    const handback = vi.fn();
+    const sessionDescriptor = fixturePlanSessionDescriptor();
+    const config = createPlanSurfaceConfig(
+      mockPlanView,
+      sessionDescriptor.planningDocument,
+      "?campaigns=longmont-c1,longmont-c2",
+    );
+    const planTarget =
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
+    let editorTools: AppChromeTools | null = null;
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
+      .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot({
+        loaded_revision: 2,
+        content_sha256: "abc123sha256",
+        file_fingerprint: "abc123",
+        record: fixtureWorkspaceDocumentRecord({ content_status: "committed", revision: 2 }),
+      }));
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+            document_id: FIXTURE_DOC_ID,
+            title: "C2 Session 23 Prep",
+            target_relpath: planTarget,
+            target_display_path: planTarget,
+            file_exists: false,
+            writer_ok: true,
+            writer_phase: "prepare",
+            writer_confirm_token: "confirm-token",
+            writer_diff: "+# C2 Session 23 Prep\n",
+            warnings: [],
+            diagnostics: [],
+          }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "dmb_tiptap_markdown_write_commit_v1",
+            document_id: FIXTURE_DOC_ID,
+            title: "C2 Session 23 Prep",
+            target_relpath: planTarget,
+            target_display_path: planTarget,
+            registry_revision: 2,
+            committed_revision: 2,
+            committed_record: fixtureWorkspaceDocumentRecord({
+              content_status: "committed",
+              revision: 2,
+            }),
+            normalized_content_sha256: "abc123sha256",
+            writer_ok: true,
+            writer_phase: "commit",
+            bytes_written: 42,
+            file_fingerprint: "abc123",
+            diagnostics: [],
+          }),
+      } as Response);
+
+    render(
+      <EditCapabilityProvider>
+        <ProjectionProvider config={config}>
+          <PlanGraphLensProvider planCampaignId={sessionDescriptor.campaignId}>
+            <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+              <PlanSurfaceCanvas
+                sessionDescriptor={sessionDescriptor}
+                theme={config.theme}
+                onEditorToolsChange={(tools) => { editorTools = tools; }}
+                onPlanningDocumentCommitted={handback}
+              />
+            </PlanGraphReferenceResolverProvider>
+          </PlanGraphLensProvider>
+        </ProjectionProvider>
+      </EditCapabilityProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const saveAction = editorTools?.sections
+        ?.find((section) => section.id === "plan-markdown-save")
+        ?.actions.find((action) => action.label === "Save to Markdown");
+      expect(saveAction?.disabled).toBeFalsy();
+    });
+
+    const saveAction = editorTools!.sections!
+      .find((section) => section.id === "plan-markdown-save")!
+      .actions.find((action) => action.label === "Save to Markdown")!;
+    await act(async () => {
+      saveAction.onClick();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
+    });
+    expect(handback).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(handback).toHaveBeenCalledTimes(1);
+    });
     expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Committed/i);
   });
 
