@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -26,6 +26,7 @@ import {
 import { useEditCapability } from "../edit/editCapability";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
+import { usePlanGraphLens } from "../PlanGraphLensContext";
 import { useProjection } from "../projection/projectionContext";
 import { openGraphNodeFromChip } from "../reference/openGraphNodeFromChip";
 import { readReferenceFromElement } from "../reference/referenceResolver";
@@ -42,6 +43,7 @@ interface PlanSurfaceCanvasProps {
   sessionDescriptor: PlanSessionDescriptor;
   theme: SurfaceThemeConfig;
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  onSurfaceChromeChange?: (chrome: ReactNode) => void;
   onSaveStatusChange?: (statusLabel: string) => void;
   onPlanningDocumentCommitted?: (document: PlanDocumentDescriptor) => void;
 }
@@ -50,12 +52,14 @@ export function PlanSurfaceCanvas({
   sessionDescriptor,
   theme,
   onEditorToolsChange,
+  onSurfaceChromeChange,
   onSaveStatusChange,
   onPlanningDocumentCommitted,
 }: PlanSurfaceCanvasProps) {
   const planningDocument = sessionDescriptor.planningDocument;
   const { isLocked, canEdit, toggleLock } = useEditCapability();
   const { openContentFromChip, openPlanReferenceResolution } = useProjection();
+  const graphLens = usePlanGraphLens();
   const {
     resolvePlanReference,
     projection,
@@ -142,6 +146,25 @@ export function PlanSurfaceCanvas({
     () => projection?.nodes.map((node) => adaptWorldGraphNodeForPlanCard(node)) ?? [],
     [projection],
   );
+
+  const onSurfaceChromeChangeRef = useRef(onSurfaceChromeChange);
+  onSurfaceChromeChangeRef.current = onSurfaceChromeChange;
+
+  useEffect(() => {
+    const publish = onSurfaceChromeChangeRef.current;
+    if (!publish) return;
+    publish(
+      <PlanGraphLoadPanel
+        projectionState={projectionState}
+        projectionError={projectionError}
+        nodeCount={projectionNodes.length}
+        lensControls={graphLens}
+      />,
+    );
+    return () => {
+      onSurfaceChromeChangeRef.current?.(null);
+    };
+  }, [graphLens, projectionError, projectionNodes.length, projectionState]);
 
   const handleViewGraphNode = useCallback(
     (node: GraphProjectionNodeView) => {
@@ -343,13 +366,6 @@ export function PlanSurfaceCanvas({
           <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
             {statusLabel}
           </p>
-        </div>
-        <div className="plan-canvas-heading__graph">
-          <PlanGraphLoadPanel
-            projectionState={projectionState}
-            projectionError={projectionError}
-            nodeCount={projectionNodes.length}
-          />
         </div>
       </header>
 

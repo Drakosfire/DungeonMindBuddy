@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   getGoldReviewCompare,
@@ -45,6 +45,7 @@ import { manualVariantToLaneView } from "./graphReviewVariantReferenceUtils";
 
 interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
+  onSurfaceChromeChange?: (chrome: ReactNode) => void;
 }
 
 interface AppliedSelection {
@@ -102,7 +103,57 @@ function sessionNumberFromId(sessionId: string | null | undefined): number | nul
   return Number.isFinite(session) && session > 0 ? session : null;
 }
 
-export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModuleProps) {
+function GraphReviewWorkbenchLoadingChrome({
+  onSurfaceChromeChange,
+}: {
+  onSurfaceChromeChange?: (chrome: ReactNode) => void;
+}) {
+  const onSurfaceChromeChangeRef = useRef(onSurfaceChromeChange);
+  onSurfaceChromeChangeRef.current = onSurfaceChromeChange;
+
+  useEffect(() => {
+    const publish = onSurfaceChromeChangeRef.current;
+    if (!publish) return;
+    publish(
+      <GraphReviewWorkbenchHeader
+        loaded={false}
+        sessionLabel={null}
+        onOpenLoad={() => undefined}
+        activity={{
+          phase: "catalog",
+          message: "Loading sessions…",
+          busy: true,
+        }}
+      />,
+    );
+    return () => {
+      onSurfaceChromeChangeRef.current?.(null);
+    };
+  }, []);
+
+  return (
+    <div className="graph-review-workbench-root">
+      {!onSurfaceChromeChange ? (
+        <GraphReviewWorkbenchHeader
+          loaded={false}
+          sessionLabel={null}
+          onOpenLoad={() => undefined}
+          activity={{
+            phase: "catalog",
+            message: "Loading sessions…",
+            busy: true,
+          }}
+        />
+      ) : null}
+      <p className="plan-projection-empty">Loading graph review sessions…</p>
+    </div>
+  );
+}
+
+export function GraphReviewWorkbenchModule({
+  context,
+  onSurfaceChromeChange,
+}: GraphReviewWorkbenchModuleProps) {
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
 
@@ -356,7 +407,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     void loadCompare();
   }, [loadCompare, sessionsLoaded]);
 
-  const openLoadDialog = () => {
+  const openLoadDialog = useCallback(() => {
     if (appliedSelection) {
       setDraftCampaignId(appliedSelection.campaignId);
       setDraftSessionId(appliedSelection.sessionId);
@@ -375,7 +426,13 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       }
     }
     setLoadDialogOpen(true);
-  };
+  }, [
+    appliedSelection,
+    catalogSessions,
+    context.campaignId,
+    fallbackSessionId,
+    requestedSessionId,
+  ]);
 
   const handleDraftCampaignSelect = (campaignId: string) => {
     const visibleSessions = catalogSessionsForReviewCampaign(catalogSessions, campaignId);
@@ -431,19 +488,9 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
 
   if (!sessionsLoaded) {
     return (
-      <div className="graph-review-workbench-root">
-        <GraphReviewWorkbenchHeader
-          loaded={false}
-          sessionLabel={null}
-          onOpenLoad={() => undefined}
-          activity={{
-            phase: "catalog",
-            message: "Loading sessions…",
-            busy: true,
-          }}
-        />
-        <p className="plan-projection-empty">Loading graph review sessions…</p>
-      </div>
+      <GraphReviewWorkbenchLoadingChrome
+        onSurfaceChromeChange={onSurfaceChromeChange}
+      />
     );
   }
 
@@ -493,6 +540,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
             warmupStatus={warmupStatus}
             draftCampaignId={draftCampaignId}
             draftSessionId={draftSessionId}
+            onSurfaceChromeChange={onSurfaceChromeChange}
           />
 
           {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
