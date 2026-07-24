@@ -154,8 +154,9 @@ Output:
     accepted_from_candidate_id?
     accepted_from_draft_version
     accepted_at
-  plus workflow state mechanics_saved only when acceptance authority is reconciled
-    (server_committed + draft_ref pending is never product mechanics_saved)
+  plus workflow state mechanics_saved only after Phase 1 ThreatDraft attach of this
+    operation's locator (journal may still be server_committed pending Phase 2 repair;
+    server_committed + draft_ref pending / unattached is never product mechanics_saved)
 
 Invariant:
   exact persisted locator/digest is the only success truth; graph publication remains separate
@@ -190,12 +191,20 @@ Trust boundary:
 ### Commit model
 
 ```text
-Commit point: DungeonMindServer successfully persists logical statblock and first immutable revision.
-Before commit: candidate/working definition may be edited or discarded; no durable mechanics claim.
-After commit: valid immutable mechanics exist even if DungeonBuddy cannot update the draft or publish graph truth.
-Truthful result after post-commit failure: Server mechanics exist (authority server_committed);
-DungeonBuddy draft-ref pending — product must not claim mechanics_saved until reconciled.
-Recovery: same-key replay / exact read, then atomic AcceptedMechanicsRef write (version CAS).
+External commit: DungeonMindServer successfully persists logical statblock and first
+  immutable revision (may be invisible to Buddy if the response is lost).
+Buddy observation: create/replay/exact-read supplies the exact locator → authority
+  may become server_committed.
+Before Buddy observation: no durable Buddy mechanics claim; authority stays
+  dispatched_unknown (response loss is the defining case).
+After Buddy observation: valid immutable Server mechanics exist even if DungeonBuddy
+  cannot attach the draft ref or publish graph truth.
+Truthful result after post-observation draft-attach failure: Server mechanics exist
+  (authority server_committed); product must not claim mechanics_saved until Phase 1
+  ThreatDraft attach succeeds. Journal reaches reconciled only via Phase 2 repair.
+Recovery: same-key same-body replay / exact read → durable locator → Phase 1 draft
+  attach (version CAS) → Phase 2 journal reconcile. Two store writes are ordered and
+  restart-recoverable; they are not crash-atomic together.
 ```
 
 ### §6A State and fallback matrix
@@ -203,8 +212,9 @@ Recovery: same-key replay / exact read, then atomic AcceptedMechanicsRef write (
 | Path | Loading | Success | Miss | Downstream unavailable | Integrity failure | Stale | Retry |
 |---|---|---|---|---|---|---|---|
 | Acceptance gate | compute current digest/receipt | eligible confirmation | no receipt = blocked | N/A | digest mismatch blocked | stale receipt blocked | revalidate |
-| Create | dispatched_unknown | server_committed (locator) | N/A | stay dispatched_unknown + replay | fail closed | draft/version for attach only | same-key reconcile |
-| Draft ref write | current draft load | reconciled / mechanics_saved | draft missing = server_committed retained | N/A | fail closed | stale draft CAS = retry attach | exact ref retry |
+| Create | dispatched_unknown | server_committed (Buddy-observed locator) | N/A | stay dispatched_unknown + replay | fail closed | draft/version for attach only | same-key reconcile |
+| Draft ref write (Phase 1) | current draft load | draft `mechanics_saved` + matching ref; journal still `server_committed` until Phase 2 | draft missing = server_committed retained | N/A | fail closed | stale draft CAS = retry Phase 1 | exact ref retry |
+| Journal reconcile (Phase 2) | draft attach observed | `reconciled` + `draft_ref=attached` | draft attach missing = stay server_committed | N/A | fail closed | N/A | restart repair |
 | Reload exact revision | read locator | exact digest match | 404 integrity issue | unavailable but locator retained | mismatch fail closed | N/A | retry read |
 
 No fallback to corpus file, display name, latest revision, or a second create.
