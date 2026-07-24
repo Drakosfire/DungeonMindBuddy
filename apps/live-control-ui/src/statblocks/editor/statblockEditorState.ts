@@ -106,9 +106,10 @@ function pushUndo(state: StatblockEditorState, snapshot: StatblockDefinitionV1_I
   };
 }
 
-function clearAttemptAndAssociation(
-  state: StatblockEditorState,
-): Pick<StatblockEditorState, "validatedRevision" | "validationAttempt" | "validationUiStatus"> {
+function clearAttemptAndAssociation(): Pick<
+  StatblockEditorState,
+  "validatedRevision" | "validationAttempt" | "validationUiStatus"
+> {
   return {
     validatedRevision: null,
     validationAttempt: "none",
@@ -126,7 +127,7 @@ function applyWorkingCopy(
     ...withUndo,
     workingCopy: cloneWorkingCopy(nextWorkingCopy),
     stateRevision: state.stateRevision + 1,
-    ...clearAttemptAndAssociation(state),
+    ...clearAttemptAndAssociation(),
   };
   next.validationUiStatus = deriveUiStatus(next);
   return next;
@@ -325,7 +326,7 @@ export function undo(state: StatblockEditorState): StatblockEditorState {
     undoStack,
     redoStack: [...state.redoStack, cloneWorkingCopy(state.workingCopy)],
     stateRevision: state.stateRevision + 1,
-    ...clearAttemptAndAssociation(state),
+    ...clearAttemptAndAssociation(),
   };
   next.validationUiStatus = deriveUiStatus(next);
   return next;
@@ -343,7 +344,7 @@ export function redo(state: StatblockEditorState): StatblockEditorState {
     redoStack,
     undoStack: [...state.undoStack, cloneWorkingCopy(state.workingCopy)],
     stateRevision: state.stateRevision + 1,
-    ...clearAttemptAndAssociation(state),
+    ...clearAttemptAndAssociation(),
   };
   next.validationUiStatus = deriveUiStatus(next);
   return next;
