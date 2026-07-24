@@ -2,8 +2,8 @@
 
 **Status:** ACTIVE SLICE / REVIEW AUTHORITY  
 **Date:** 2026-07-24  
-**Repository tip:** see `main` at PR open (includes unrelated work; not an SBW claim)  
-**Last SBW integration on `main`:** `#404` / `427a357b` — SBW05c workbench host + preview validate  
+**PR base / repository tip:** `bf28e46c` on `main` at PR open (includes unrelated work; not an SBW claim)  
+**Logical SBW predecessor:** `#404` / `427a357b` — SBW05c workbench host + preview validate  
 **This PR:** `SBW07-contract` — docs-only approve/reject of frozen HANDOFF-sbw07 §12  
 **Next dispatch after this PR merges:** `SBW07a` (create/read Server client + fixtures)  
 **Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).  
