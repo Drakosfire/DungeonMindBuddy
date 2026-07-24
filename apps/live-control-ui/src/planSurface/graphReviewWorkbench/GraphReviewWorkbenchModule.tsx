@@ -23,6 +23,12 @@ import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import {
+  type GraphReviewAppliedSelection,
+  resolvePersistedAppliedSelection,
+  writeAppliedSelectionToStorage,
+  writeAppliedSelectionToUrl,
+} from "./graphReviewAppliedSelection";
+import {
   buildGraphReviewCatalog,
   catalogSessionToGoldLane,
   catalogSessionsForReviewCampaign,
@@ -39,28 +45,12 @@ interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
 }
 
-interface AppliedSelection {
-  campaignId: string;
-  sessionId: string;
-  manifestPath: string | null;
-}
-
-function syncGraphReviewUrl(sessionId: string, campaignId: string): void {
-  if (typeof window === "undefined") return;
-  const params = new URLSearchParams(window.location.search);
-  params.set("session", sessionId);
-  params.set("campaign", campaignId);
-  const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
-  const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
-  window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
-}
-
 function buildDefaultDraft(
   sessions: GraphReviewCatalogSession[],
   campaignId: string,
   requestedSessionId: string | null,
   fallbackSessionId: string,
-): AppliedSelection | null {
+): GraphReviewAppliedSelection | null {
   const visibleSessions = catalogSessionsForReviewCampaign(sessions, campaignId);
   const session = pickDefaultCatalogSession(
     visibleSessions,
@@ -76,6 +66,42 @@ function buildDefaultDraft(
     sessionId: session.sessionId,
     manifestPath: run?.manifest_path ?? null,
   };
+}
+
+function resolveSelectionAgainstCatalog(
+  selection: GraphReviewAppliedSelection | null,
+  sessions: GraphReviewCatalogSession[],
+): GraphReviewAppliedSelection | null {
+  if (!selection) return null;
+  const campaignSessions = catalogSessionsForReviewCampaign(sessions, selection.campaignId);
+  const session =
+    campaignSessions.find((entry) => entry.sessionId === selection.sessionId) ?? null;
+  if (!session) return null;
+  const previewRuns = session.availableRuns.filter((run) => run.preview_union_available);
+  if (selection.manifestPath) {
+    const exact =
+      previewRuns.find((run) => run.manifest_path === selection.manifestPath) ??
+      session.availableRuns.find((run) => run.manifest_path === selection.manifestPath);
+    if (exact) {
+      return {
+        campaignId: selection.campaignId,
+        sessionId: selection.sessionId,
+        manifestPath: exact.manifest_path,
+      };
+    }
+  }
+  const fallbackRun = pickDefaultWorkbenchRun(previewRuns);
+  if (!fallbackRun) return null;
+  return {
+    campaignId: selection.campaignId,
+    sessionId: selection.sessionId,
+    manifestPath: fallbackRun.manifest_path,
+  };
+}
+
+function persistAppliedSelection(selection: GraphReviewAppliedSelection): void {
+  writeAppliedSelectionToUrl(selection);
+  writeAppliedSelectionToStorage(selection);
 }
 
 async function loadGraphReviewCatalog(): Promise<GraphReviewCatalogSession[]> {
@@ -95,7 +121,9 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [catalogRefreshToken, setCatalogRefreshToken] = useState(0);
-  const [appliedSelection, setAppliedSelection] = useState<AppliedSelection | null>(null);
+  const [appliedSelection, setAppliedSelection] = useState<GraphReviewAppliedSelection | null>(
+    null,
+  );
   const [draftCampaignId, setDraftCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(context.campaignId),
   );
@@ -185,26 +213,64 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   );
 
   const refreshCatalog = useCallback(async () => {
-    setSessionsLoaded(false);
+    // Keep the current projection mounted while refreshing the catalog so a
+    // Load → URL update → dep change cycle cannot flash the empty state.
     setSessionsError(null);
     try {
       const catalog = await loadGraphReviewCatalog();
       const initialCampaignId = resolveInitialReviewCampaignId(context.campaignId);
       setCatalogSessions(catalog);
-      const defaultDraft = buildDefaultDraft(
-        catalog,
-        initialCampaignId,
-        requestedSessionId,
-        fallbackSessionId,
-      );
-      if (defaultDraft) {
-        setDraftCampaignId(defaultDraft.campaignId);
-        setDraftSessionId(defaultDraft.sessionId);
-        setDraftManifestPath(defaultDraft.manifestPath);
+
+      const persistedHint = resolvePersistedAppliedSelection();
+      setAppliedSelection((current) => {
+        const restored = resolveSelectionAgainstCatalog(
+          persistedHint ?? current,
+          catalog,
+        );
+        if (restored) {
+          return restored;
+        }
+        if (!requestedSessionId) {
+          return current;
+        }
+        return (
+          buildDefaultDraft(
+            catalog,
+            initialCampaignId,
+            requestedSessionId,
+            fallbackSessionId,
+          ) ?? current
+        );
+      });
+
+      const draftSource =
+        resolveSelectionAgainstCatalog(persistedHint, catalog) ??
+        buildDefaultDraft(
+          catalog,
+          initialCampaignId,
+          requestedSessionId,
+          fallbackSessionId,
+        );
+      if (draftSource) {
+        setDraftCampaignId(draftSource.campaignId);
+        setDraftSessionId(draftSource.sessionId);
+        setDraftManifestPath(draftSource.manifestPath);
       }
-      if (requestedSessionId && defaultDraft) {
-        setAppliedSelection(defaultDraft);
+
+      const toPersist =
+        resolveSelectionAgainstCatalog(persistedHint, catalog) ??
+        (requestedSessionId
+          ? buildDefaultDraft(
+              catalog,
+              initialCampaignId,
+              requestedSessionId,
+              fallbackSessionId,
+            )
+          : null);
+      if (toPersist) {
+        persistAppliedSelection(toPersist);
       }
+
       setSessionsLoaded(true);
     } catch (error) {
       setCatalogSessions([]);
@@ -223,7 +289,11 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     return () => {
       cancelled = true;
     };
-  }, [refreshCatalog, catalogRefreshToken]);
+    // Re-fetch only on mount and when ingest emits a runs-changed signal.
+    // Do not depend on refreshCatalog identity — that used to remount the
+    // projection whenever Load updated the session query param.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [catalogRefreshToken]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -364,13 +434,13 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
 
   const handleApplyLoad = () => {
     if (!draftSession || !draftLiveRun) return;
-    const nextApplied: AppliedSelection = {
+    const nextApplied: GraphReviewAppliedSelection = {
       campaignId: draftCampaignId,
       sessionId: draftSession.sessionId,
       manifestPath: draftLiveRun.manifest_path,
     };
     setAppliedSelection(nextApplied);
-    syncGraphReviewUrl(nextApplied.sessionId, nextApplied.campaignId);
+    persistAppliedSelection(nextApplied);
     setLoadDialogOpen(false);
   };
 
