@@ -13,6 +13,7 @@ import type {
 } from "../../api/types";
 import type {
   GeneratedStatblockCandidateV1,
+  StatblockDefinitionV1_Input,
   ValidationReceiptV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { StatblockDefinitionEditor } from "../../statblocks/editor/StatblockDefinitionEditor";
@@ -48,8 +49,21 @@ type ViewMode = "review" | "edit";
 
 type PreviewValidation = {
   associatedRevision: number;
+  editorEpoch: number;
   receipt: ValidationReceiptV1;
   definitionDigest: string;
+};
+
+type PendingValidation = {
+  requestId: number;
+  editorEpoch: number;
+  stateRevision: number;
+};
+
+type ValidationFailure = {
+  editorEpoch: number;
+  stateRevision: number;
+  message: string;
 };
 
 function readCandidateIdFromLocation(): string {
@@ -65,6 +79,19 @@ function isIntegrityFailureCategory(category: string | null | undefined): boolea
     category === "contract_failure" ||
     category.endsWith("_integrity_failure")
   );
+}
+
+function renderGlobalIssueLine(issue: {
+  code: string;
+  severity: string;
+  field_path: string;
+  message: string;
+}): string {
+  const path = typeof issue.field_path === "string" ? issue.field_path.trim() : "";
+  if (path) {
+    return `[${issue.severity}] path=${path}: ${issue.message}`;
+  }
+  return `[${issue.severity}] ${issue.message}`;
 }
 
 export type CandidateStatusPresentation = {
@@ -142,23 +169,34 @@ function CandidateStatusPanel({
 function PreviewValidationPanel({
   preview,
   editorState,
-  validateFailureMessage,
+  editorEpoch,
+  validationFailure,
+  workingCopy,
 }: {
   preview: PreviewValidation | null;
   editorState: StatblockEditorState | null;
-  validateFailureMessage: string | null;
+  editorEpoch: number;
+  validationFailure: ValidationFailure | null;
+  workingCopy: StatblockDefinitionV1_Input | null;
 }) {
   const uiStatus = editorState ? getUiStatus(editorState) : null;
+  const failureCurrent =
+    validationFailure != null &&
+    editorState != null &&
+    validationFailure.editorEpoch === editorEpoch &&
+    validationFailure.stateRevision === editorState.stateRevision;
+
   const previewCurrent =
     preview != null &&
     editorState != null &&
+    preview.editorEpoch === editorEpoch &&
     editorState.validatedRevision === preview.associatedRevision &&
     editorState.stateRevision === preview.associatedRevision &&
     (uiStatus === "validated" ||
       uiStatus === "validated_with_warnings" ||
       uiStatus === "validated_with_errors");
 
-  if (validateFailureMessage) {
+  if (failureCurrent) {
     return (
       <section
         className="statblock-section"
@@ -168,7 +206,7 @@ function PreviewValidationPanel({
       >
         <h3>Preview validation</h3>
         <p className="module-muted">
-          Validation unavailable. Working copy retained (unsaved). {validateFailureMessage}
+          Validation unavailable. Working copy retained (unsaved). {validationFailure.message}
         </p>
       </section>
     );
@@ -210,7 +248,10 @@ function PreviewValidationPanel({
     );
   }
 
-  const { fieldIssues, globalIssues } = partitionValidationIssuesByPath(preview.receipt.issues);
+  const { fieldIssues, globalIssues } = partitionValidationIssuesByPath(
+    preview.receipt.issues,
+    workingCopy,
+  );
   const fieldSplit = splitIssuesBySeverity(fieldIssues);
   const globalSplit = splitIssuesBySeverity(globalIssues);
 
@@ -255,18 +296,21 @@ function PreviewValidationPanel({
         <h4>Global issues</h4>
         {globalIssues.length === 0 ? <p className="module-muted">None</p> : null}
         {globalSplit.errors.map((issue) => (
-          <p key={`ge-${issue.code}-${issue.message}`} data-issue-severity="error">
-            [error] {issue.message}
+          <p key={`ge-${issue.code}-${issue.field_path}-${issue.message}`} data-issue-severity="error">
+            {renderGlobalIssueLine(issue)}
           </p>
         ))}
         {globalSplit.warnings.map((issue) => (
-          <p key={`gw-${issue.code}-${issue.message}`} data-issue-severity="warning">
-            [warning] {issue.message}
+          <p
+            key={`gw-${issue.code}-${issue.field_path}-${issue.message}`}
+            data-issue-severity="warning"
+          >
+            {renderGlobalIssueLine(issue)}
           </p>
         ))}
         {globalSplit.infos.map((issue) => (
-          <p key={`gi-${issue.code}-${issue.message}`} data-issue-severity="info">
-            [info] {issue.message}
+          <p key={`gi-${issue.code}-${issue.field_path}-${issue.message}`} data-issue-severity="info">
+            {renderGlobalIssueLine(issue)}
           </p>
         ))}
       </div>
@@ -285,19 +329,29 @@ export function StatblockWorkbenchModule() {
   const [viewMode, setViewMode] = useState<ViewMode>("edit");
   const [editorState, setEditorState] = useState<StatblockEditorState | null>(null);
   const [previewValidation, setPreviewValidation] = useState<PreviewValidation | null>(null);
-  const [validateFailureMessage, setValidateFailureMessage] = useState<string | null>(null);
-  const [pendingValidate, setPendingValidate] = useState(false);
+  const [pendingValidation, setPendingValidation] = useState<PendingValidation | null>(null);
+  const [validationFailure, setValidationFailure] = useState<ValidationFailure | null>(null);
+  const [editorEpoch, setEditorEpoch] = useState(0);
+
   const validateRequestIdRef = useRef(0);
   const editorEpochRef = useRef(0);
+  const loadRequestIdRef = useRef(0);
   const editorStateRef = useRef<StatblockEditorState | null>(null);
   editorStateRef.current = editorState;
+  editorEpochRef.current = editorEpoch;
 
-  /** Invalidate in-flight validate ownership (candidate/editor epoch + request id). */
+  const bumpEditorEpoch = useCallback(() => {
+    const next = editorEpochRef.current + 1;
+    editorEpochRef.current = next;
+    setEditorEpoch(next);
+    return next;
+  }, []);
+
+  /** Orphan in-flight validate and clear revision-owned pending/failure records. */
   const invalidateValidationOwnership = useCallback(() => {
-    editorEpochRef.current += 1;
     validateRequestIdRef.current += 1;
-    setPendingValidate(false);
-    setValidateFailureMessage(null);
+    setPendingValidation(null);
+    setValidationFailure(null);
     setPreviewValidation(null);
   }, []);
 
@@ -311,26 +365,49 @@ export function StatblockWorkbenchModule() {
     [],
   );
 
+  const onEditorStateChange = useCallback(
+    (next: StatblockEditorState) => {
+      const prev = editorStateRef.current;
+      editorStateRef.current = next;
+      setEditorState(next);
+      if (prev && next.stateRevision !== prev.stateRevision) {
+        // Immediate stale-request invalidation for the prior revision.
+        validateRequestIdRef.current += 1;
+        setPendingValidation(null);
+        setValidationFailure(null);
+      }
+    },
+    [],
+  );
+
   const loadCandidate = useCallback(
     async (candidateId: string) => {
       const trimmed = candidateId.trim();
+      const loadRequestId = ++loadRequestIdRef.current;
+      bumpEditorEpoch();
+      invalidateValidationOwnership();
+      setEditorState(null);
+      editorStateRef.current = null;
+
       if (!trimmed) {
-        invalidateValidationOwnership();
-        setEditorState(null);
+        if (loadRequestId !== loadRequestIdRef.current) return;
         setLoadState({ kind: "error", candidateId: "", message: "Enter an exact candidate ID." });
         return;
       }
-      // Immediately orphan any in-flight validate for the previous editor/candidate.
-      invalidateValidationOwnership();
+
       setLoadState({ kind: "loading", candidateId: trimmed });
       setGenerateMessage(null);
       setGenerateError(null);
-      setEditorState(null);
+
       try {
         const response = await getStatblockCandidate(trimmed);
+        if (loadRequestId !== loadRequestIdRef.current) return;
+
         if (response.status === "active" && response.candidate) {
+          const nextEditor = createEditorStateFromOutput(response.candidate.definition);
+          editorStateRef.current = nextEditor;
           setLoadState({ kind: "success", response });
-          setEditorState(createEditorStateFromOutput(response.candidate.definition));
+          setEditorState(nextEditor);
           setViewMode("edit");
           return;
         }
@@ -342,6 +419,7 @@ export function StatblockWorkbenchModule() {
           failureMessage: response.failure_message ?? null,
         });
       } catch (error) {
+        if (loadRequestId !== loadRequestIdRef.current) return;
         setLoadState({
           kind: "error",
           candidateId: trimmed,
@@ -349,7 +427,7 @@ export function StatblockWorkbenchModule() {
         });
       }
     },
-    [invalidateValidationOwnership],
+    [bumpEditorEpoch, invalidateValidationOwnership],
   );
 
   useEffect(() => {
@@ -411,37 +489,35 @@ export function StatblockWorkbenchModule() {
     const requestId = ++validateRequestIdRef.current;
     const requestedRevision = current.stateRevision;
     const workingCopy = current.workingCopy;
-    setPendingValidate(true);
-    setValidateFailureMessage(null);
-    setEditorState(beginValidationAttempt(current));
+    setValidationFailure(null);
+    setPendingValidation({ requestId, editorEpoch: epoch, stateRevision: requestedRevision });
+    const validating = beginValidationAttempt(current);
+    editorStateRef.current = validating;
+    setEditorState(validating);
 
     let response: ValidateDefinitionBuddyResponseV1;
     try {
       response = await validateStatblockDefinition({ definition: workingCopy });
     } catch (error) {
-      // Superseded by a newer validate or candidate/editor epoch — no UI effects.
-      if (requestId !== validateRequestIdRef.current || epoch !== editorEpochRef.current) {
-        return;
-      }
-      // Same ownership, but working copy moved — drop pending only; no unavailable UI.
       if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
-        setPendingValidate(false);
         return;
       }
+      setPendingValidation(null);
+      setValidationFailure({
+        editorEpoch: epoch,
+        stateRevision: requestedRevision,
+        message: error instanceof Error ? error.message : String(error),
+      });
       setEditorState((prev) => {
         if (!prev || prev.stateRevision !== requestedRevision) return prev;
-        return markValidationUnavailable(prev);
+        const next = markValidationUnavailable(prev);
+        editorStateRef.current = next;
+        return next;
       });
-      setValidateFailureMessage(error instanceof Error ? error.message : String(error));
-      setPendingValidate(false);
       return;
     }
 
-    if (requestId !== validateRequestIdRef.current || epoch !== editorEpochRef.current) {
-      return;
-    }
     if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
-      setPendingValidate(false);
       return;
     }
 
@@ -452,43 +528,55 @@ export function StatblockWorkbenchModule() {
       response.definition_digest !== response.validation_receipt.definition_digest
     ) {
       if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
-        setPendingValidate(false);
         return;
       }
-      setEditorState((prev) => {
-        if (!prev || prev.stateRevision !== requestedRevision) return prev;
-        return markValidationUnavailable(prev);
-      });
-      setValidateFailureMessage(
-        response.failure_message ??
+      setPendingValidation(null);
+      setValidationFailure({
+        editorEpoch: epoch,
+        stateRevision: requestedRevision,
+        message:
+          response.failure_message ??
           response.failure_category ??
           "Validation dependency unavailable",
-      );
-      setPendingValidate(false);
+      });
+      setEditorState((prev) => {
+        if (!prev || prev.stateRevision !== requestedRevision) return prev;
+        const next = markValidationUnavailable(prev);
+        editorStateRef.current = next;
+        return next;
+      });
       return;
     }
 
     if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
-      setPendingValidate(false);
       return;
     }
 
     const uiStatus = mapServerValidationStatus(response.validation_receipt.status);
+    setPendingValidation(null);
+    setValidationFailure(null);
     setPreviewValidation({
       associatedRevision: requestedRevision,
+      editorEpoch: epoch,
       receipt: response.validation_receipt,
       definitionDigest: response.definition_digest,
     });
-    setValidateFailureMessage(null);
     setEditorState((prev) => {
       if (!prev || prev.stateRevision !== requestedRevision) return prev;
-      return markValidationAssociated(prev, uiStatus);
+      const next = markValidationAssociated(prev, uiStatus);
+      editorStateRef.current = next;
+      return next;
     });
-    setPendingValidate(false);
   };
 
   const activeCandidate: GeneratedStatblockCandidateV1 | null =
     loadState.kind === "success" ? loadState.response.candidate ?? null : null;
+
+  const validatePendingForCurrent =
+    pendingValidation != null &&
+    editorState != null &&
+    pendingValidation.editorEpoch === editorEpoch &&
+    pendingValidation.stateRevision === editorState.stateRevision;
 
   return (
     <div className="module-panel statblock-workbench" data-module-id="statblock_workbench">
@@ -517,9 +605,7 @@ export function StatblockWorkbenchModule() {
               spellCheck={false}
             />
           </label>
-          <button type="submit" disabled={loadState.kind === "loading"}>
-            {loadState.kind === "loading" ? "Loading…" : "Load candidate"}
-          </button>
+          <button type="submit">Load candidate</button>
         </form>
         <p className="module-muted">
           Optional deep link: <code>?candidateId=cand_…</code>
@@ -620,9 +706,9 @@ export function StatblockWorkbenchModule() {
                 <button
                   type="button"
                   onClick={() => void onValidateWorkingCopy()}
-                  disabled={pendingValidate || getUiStatus(editorState) === "validating"}
+                  disabled={validatePendingForCurrent || getUiStatus(editorState) === "validating"}
                 >
-                  {pendingValidate || getUiStatus(editorState) === "validating"
+                  {validatePendingForCurrent || getUiStatus(editorState) === "validating"
                     ? "Validating…"
                     : "Validate working copy"}
                 </button>
@@ -633,12 +719,14 @@ export function StatblockWorkbenchModule() {
               <PreviewValidationPanel
                 preview={previewValidation}
                 editorState={editorState}
-                validateFailureMessage={validateFailureMessage}
+                editorEpoch={editorEpoch}
+                validationFailure={validationFailure}
+                workingCopy={editorState.workingCopy}
               />
               <StatblockDefinitionEditor
                 output={activeCandidate.definition}
                 editorState={editorState}
-                onEditorStateChange={setEditorState}
+                onEditorStateChange={onEditorStateChange}
               />
             </>
           ) : null}

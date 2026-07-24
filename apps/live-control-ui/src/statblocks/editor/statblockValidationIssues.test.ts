@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { ValidationIssueV1 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import { baseCandidateDefinition } from "./editorFixtures";
+import { definitionOutputToInput } from "./definitionOutputToInput";
 import {
   mapServerValidationStatus,
+  parseFieldPath,
   partitionValidationIssuesByPath,
+  resolveFieldPathAgainstWorkingCopy,
   splitIssuesBySeverity,
 } from "./statblockValidationIssues";
 
@@ -14,8 +18,42 @@ function issue(
   return overrides;
 }
 
+const workingCopy = definitionOutputToInput(baseCandidateDefinition());
+
 describe("statblockValidationIssues", () => {
-  it("maps pathable issues to field and empty/malformed paths to global", () => {
+  it("parses exact path syntax and rejects malformed forms", () => {
+    expect(parseFieldPath("identity.name")).toEqual([
+      { kind: "prop", name: "identity" },
+      { kind: "prop", name: "name" },
+    ]);
+    expect(parseFieldPath("rule_elements[0].mechanic")).toEqual([
+      { kind: "prop", name: "rule_elements" },
+      { kind: "index", index: 0 },
+      { kind: "prop", name: "mechanic" },
+    ]);
+    expect(parseFieldPath("identity..name")).toBeNull();
+    expect(parseFieldPath(".identity.name")).toBeNull();
+    expect(parseFieldPath("identity.name.")).toBeNull();
+    expect(parseFieldPath("rule_elements[abc].mechanic")).toBeNull();
+    expect(parseFieldPath("")).toBeNull();
+    expect(parseFieldPath("   ")).toBeNull();
+  });
+
+  it("resolves only paths that exist on the current working copy", () => {
+    const identityName = parseFieldPath("identity.name");
+    expect(identityName).not.toBeNull();
+    expect(resolveFieldPathAgainstWorkingCopy(workingCopy, identityName!)).toBe(true);
+
+    const outOfRange = parseFieldPath("rule_elements[999].mechanic");
+    expect(outOfRange).not.toBeNull();
+    expect(resolveFieldPathAgainstWorkingCopy(workingCopy, outOfRange!)).toBe(false);
+
+    const future = parseFieldPath("future_contract.new_region");
+    expect(future).not.toBeNull();
+    expect(resolveFieldPathAgainstWorkingCopy(workingCopy, future!)).toBe(false);
+  });
+
+  it("maps resolvable paths to field and malformed/unmappable paths to global", () => {
     const issues = [
       issue({
         code: "MISSING_ATTACK_BONUS",
@@ -24,27 +62,57 @@ describe("statblockValidationIssues", () => {
         message: "missing bonus",
       }),
       issue({
-        code: "BALANCE_WARNING",
+        code: "MALFORMED_DOTS",
         severity: "warning",
-        field_path: "   ",
-        message: "whitespace path",
+        field_path: "identity..name",
+        message: "malformed dots",
       }),
       issue({
-        code: "UNKNOWN",
+        code: "LEADING_DOT",
         severity: "error",
+        field_path: ".identity.name",
+        message: "leading dot",
+      }),
+      issue({
+        code: "BAD_INDEX",
+        severity: "warning",
+        field_path: "rule_elements[abc].mechanic",
+        message: "bad index",
+      }),
+      issue({
+        code: "OOR",
+        severity: "error",
+        field_path: "rule_elements[999].mechanic",
+        message: "out of range",
+      }),
+      issue({
+        code: "FUTURE",
+        severity: "info",
+        field_path: "future_contract.new_region",
+        message: "future path",
+      }),
+      issue({
+        code: "EMPTY",
+        severity: "warning",
         field_path: "",
         message: "empty path",
       }),
     ];
 
-    const partitioned = partitionValidationIssuesByPath(issues);
-    expect(partitioned.fieldIssues).toHaveLength(1);
-    expect(partitioned.fieldIssues[0].code).toBe("MISSING_ATTACK_BONUS");
-    expect(partitioned.globalIssues).toHaveLength(2);
+    const partitioned = partitionValidationIssuesByPath(issues, workingCopy);
+    expect(partitioned.fieldIssues.map((entry) => entry.code)).toEqual(["MISSING_ATTACK_BONUS"]);
     expect(partitioned.globalIssues.map((entry) => entry.code)).toEqual([
-      "BALANCE_WARNING",
-      "UNKNOWN",
+      "MALFORMED_DOTS",
+      "LEADING_DOT",
+      "BAD_INDEX",
+      "OOR",
+      "FUTURE",
+      "EMPTY",
     ]);
+    // Original non-empty paths remain on global issues for visible disclosure.
+    expect(partitioned.globalIssues.find((entry) => entry.code === "FUTURE")?.field_path).toBe(
+      "future_contract.new_region",
+    );
   });
 
   it("preserves info, warning, and error severities exactly", () => {
@@ -89,7 +157,7 @@ describe("statblockValidationIssues", () => {
         message: "global info",
       }),
     ];
-    const { fieldIssues, globalIssues } = partitionValidationIssuesByPath(issues);
+    const { fieldIssues, globalIssues } = partitionValidationIssuesByPath(issues, workingCopy);
     expect(splitIssuesBySeverity(fieldIssues).infos.map((entry) => entry.code)).toEqual([
       "INFO_FIELD",
     ]);

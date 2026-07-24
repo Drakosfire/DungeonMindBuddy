@@ -9,7 +9,8 @@
 **Repository tip (not an SBW claim):** see `main` at PR open (includes unrelated work)  
 **Last SBW integration on `main` before #404:** `#402` / `d4587f1f` — SBW05b editor library  
 **This PR (`#404`):** SBW05c workbench host + preview validate + doc-sync  
-**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream. **SBW05c §7 manual live workbench walkthrough is verification debt** (not waived by automated tests; automated coverage is necessary but not equivalent evidence).
+**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream.  
+**Verification debt (SBW05c §7 live walkthrough):** required merge gate. Automated tests are necessary but **not equivalent**. Merge without the walkthrough requires an **explicit operator waiver** naming residual risk and follow-up owner/artifact.
 
 > Dispatch one capability across three PRs: edit a complete typed candidate working copy and obtain authoritative preview validation. Do not save mechanics, revise with a model, publish graph truth, or add media/combat behavior.
 
@@ -394,11 +395,11 @@ Host the proven SBW05b `StatblockDefinitionEditor` in the Plan workbench; submit
 onValidate:
   1. capture editorEpoch + beginValidationAttempt(editorState)
   2. capture requestedRevision = editorState.stateRevision
-  3. POST validateStatblockDefinition({ definition: editorState.workingCopy })
-  4. if requestId/epoch ownership is stale → discard all effects (no receipt, preview, failure, unavailable, or pending mutation owned by the old request)
-  5. if ownership holds but stateRevision !== requestedRevision → discard effects; clear pending only
-  6. if outcome === failure or throw (and ownership+revision current) → markValidationUnavailable; keep workingCopy
-  7. if outcome === success (and ownership+revision current):
+  3. record pendingValidation { requestId, editorEpoch, stateRevision }
+  4. POST validateStatblockDefinition({ definition: editorState.workingCopy })
+  5. if requestId/epoch/revision ownership is stale → discard all effects
+  6. if outcome === failure or throw (ownership current) → revision-owned validationFailure + markValidationUnavailable
+  7. if outcome === success (ownership current):
        require validation_receipt and matching top-level definition_digest
        map receipt.status:
          valid → validated
@@ -408,8 +409,9 @@ onValidate:
        store preview receipt + digest for display
 ```
 
-- Validation ownership is `(requestId, editorEpoch, stateRevision)`. Loading/reloading a candidate immediately bumps `editorEpoch`, orphans the prior request id, and clears pending validation.
-- Monotonic validate request id so overlapping validates never apply an older response after a newer one started.
+- Validation ownership is `(requestId, editorEpoch, stateRevision)` with revision-owned `pendingValidation` / `validationFailure` records (not free-floating booleans/strings).
+- Any working-copy revision change (edit/undo/redo) immediately orphans the prior request id, clears pending + failure for the prior revision, and leaves older successful receipts only as visibly stale.
+- Loading/reloading uses a monotonic **candidate-load request id**; every success/miss/error verifies it is still the latest load before mutating candidate/editor state (manual load and generation-triggered load share latest-wins).
 - Never compare local fingerprint to Server `definition_digest` for equality/eligibility.
 - Server `invalid` is a success outcome with receipt association — not transport failure.
 - Pending `validating` and `validation_unavailable` never associate a revision.
@@ -417,7 +419,13 @@ onValidate:
 
 ### Issue mapping
 
-`statblockValidationIssues.ts` partitions issues into field vs global: non-empty `field_path` → field; empty/whitespace → global (never dropped, never nearest-field guess). Errors and warnings remain distinct by severity.
+`statblockValidationIssues.ts` partitions issues into field vs global against the **current working copy**:
+
+- Parse `field_path` with exact dot/bracket syntax (no normalization or nearest-field guessing).
+- Only paths that fully resolve on the current working copy are field issues.
+- Empty, malformed (`identity..name`, `.identity.name`, `rule_elements[abc]`), unknown/future, and out-of-range paths are **global**.
+- Global issues preserve and visibly disclose the original non-empty path, plus code/severity/message/suggested_resolution.
+- Severities `info` | `warning` | `error` remain distinct.
 
 ### Still false
 

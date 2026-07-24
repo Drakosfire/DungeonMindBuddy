@@ -306,6 +306,10 @@ describe("StatblockWorkbenchModule", () => {
     await user.clear(nameInput);
     await user.type(nameInput, "Edited During Flight");
 
+    // Immediate invalidation — do not wait for the old promise.
+    expect(screen.getByTestId("editor-ui-status").textContent).toContain("dirty_unvalidated");
+    expect(screen.getByRole("button", { name: "Validate working copy" })).not.toBeDisabled();
+
     resolveValidate(successValidate("valid"));
 
     await waitFor(() => {
@@ -314,6 +318,105 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.getByTestId("editor-ui-status").textContent).not.toContain("Status: validated");
     expect(document.querySelector('[data-preview-state="current"]')).toBeNull();
     expect(screen.getByDisplayValue("Edited During Flight")).toBeTruthy();
+  });
+
+  it("allows a newer validate to win when an older request resolves later", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    const resolvers: Array<(value: ValidateDefinitionBuddyResponseV1) => void> = [];
+    const rejectors: Array<(reason?: unknown) => void> = [];
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          resolvers.push(resolve);
+          rejectors.push(reject);
+        }),
+    );
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText("Creature name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "First");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("validating");
+    });
+    expect(resolvers).toHaveLength(1);
+
+    await user.clear(nameInput);
+    await user.type(nameInput, "Second");
+    expect(screen.getByRole("button", { name: "Validate working copy" })).not.toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("validating");
+    });
+    expect(resolvers).toHaveLength(2);
+
+    resolvers[1](successValidate("valid"));
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toMatch(/Status: validated$/);
+    });
+
+    // Old request settles later — must not disturb the newer association.
+    resolvers[0](successValidate("invalid"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toMatch(/Status: validated$/);
+    });
+    expect(document.querySelector('[data-preview-receipt-status="valid"]')).toBeTruthy();
+    expect(document.querySelector('[data-preview-state="unavailable"]')).toBeNull();
+  });
+
+  it("ignores a late reject from an older validate after a newer validate succeeds", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    const resolvers: Array<(value: ValidateDefinitionBuddyResponseV1) => void> = [];
+    const rejectors: Array<(reason?: unknown) => void> = [];
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          resolvers.push(resolve);
+          rejectors.push(reject);
+        }),
+    );
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText("Creature name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "First");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+    await waitFor(() => {
+      expect(resolvers).toHaveLength(1);
+    });
+
+    await user.clear(nameInput);
+    await user.type(nameInput, "Second");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+    await waitFor(() => {
+      expect(resolvers).toHaveLength(2);
+    });
+
+    resolvers[1](successValidate("warnings"));
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain(
+        "validated_with_warnings",
+      );
+    });
+
+    rejectors[0](new Error("late reject should be ignored"));
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain(
+        "validated_with_warnings",
+      );
+    });
+    expect(document.querySelector('[data-preview-state="unavailable"]')).toBeNull();
   });
 
   it("does not apply unavailable UI from a stale rejected validate after edit", async () => {
@@ -342,6 +445,7 @@ describe("StatblockWorkbenchModule", () => {
 
     await user.clear(nameInput);
     await user.type(nameInput, "Edited Before Reject");
+    expect(screen.getByRole("button", { name: "Validate working copy" })).not.toBeDisabled();
     rejectValidate(new Error("upstream timed out"));
 
     await waitFor(() => {
@@ -353,7 +457,36 @@ describe("StatblockWorkbenchModule", () => {
     expect(document.querySelector('[data-preview-state="unavailable"]')).toBeNull();
     expect(screen.queryByText(/Validation unavailable/i)).toBeNull();
     expect(screen.getByDisplayValue("Edited Before Reject")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Validate working copy" })).not.toBeDisabled();
+  });
+
+  it("clears revision-owned failure UI immediately on later edit", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue({
+      schema: "dmb_statblock_definition_validation_v1",
+      outcome: "failure",
+      failure_category: "downstream_timeout",
+      failure_message: "upstream timed out",
+    });
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText("Creature name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Will Fail");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-preview-state="unavailable"]')).toBeTruthy();
+    });
+
+    await user.clear(nameInput);
+    await user.type(nameInput, "After Failure");
+    expect(screen.getByTestId("editor-ui-status").textContent).toContain("dirty_unvalidated");
+    expect(document.querySelector('[data-preview-state="unavailable"]')).toBeNull();
+    expect(screen.queryByText(/Validation unavailable/i)).toBeNull();
   });
 
   it("invalidates in-flight validation when loading another candidate", async () => {
@@ -417,7 +550,184 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.getByTestId("editor-ui-status").textContent).toContain("clean_unvalidated");
     expect(screen.getByTestId("editor-ui-status").textContent).not.toContain("Status: validated");
     expect(document.querySelector('[data-preview-state="current"]')).toBeNull();
-    expect(screen.getByRole("button", { name: "Validate working copy" })).not.toBeDisabled();
+  });
+
+  it("keeps newer candidate when an older load resolves later", async () => {
+    const candidateB: GeneratedStatblockCandidateV1 = {
+      ...candidate,
+      candidate_id: "cand_fixture2",
+      definition: {
+        ...candidate.definition,
+        identity: {
+          ...candidate.definition.identity,
+          name: "Second Candidate",
+        },
+      },
+    };
+    const activeB: ReadStatblockCandidateResponseV1 = {
+      schema: "dmb_statblock_candidate_read_v1",
+      candidate_id: candidateB.candidate_id,
+      status: "active",
+      candidate: candidateB,
+    };
+
+    const loadResolvers = new Map<string, (value: ReadStatblockCandidateResponseV1) => void>();
+    vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(
+      (id: string) =>
+        new Promise((resolve) => {
+          loadResolvers.set(id, resolve);
+        }),
+    );
+
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(loadResolvers.has("cand_fixture1")).toBe(true);
+    });
+
+    const candidateInput = screen.getByPlaceholderText("cand_…");
+    await user.clear(candidateInput);
+    await user.type(candidateInput, "cand_fixture2");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(loadResolvers.has("cand_fixture2")).toBe(true);
+    });
+
+    loadResolvers.get("cand_fixture2")!(activeB);
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Second Candidate")).toBeTruthy();
+    });
+
+    loadResolvers.get("cand_fixture1")!(activeResponse);
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Second Candidate")).toBeTruthy();
+    });
+    expect(screen.queryByDisplayValue("Ironhide Brute")).toBeNull();
+  });
+
+  it("ignores stale load errors after a newer candidate is active", async () => {
+    const candidateB: GeneratedStatblockCandidateV1 = {
+      ...candidate,
+      candidate_id: "cand_fixture2",
+      definition: {
+        ...candidate.definition,
+        identity: {
+          ...candidate.definition.identity,
+          name: "Second Candidate",
+        },
+      },
+    };
+    const activeB: ReadStatblockCandidateResponseV1 = {
+      schema: "dmb_statblock_candidate_read_v1",
+      candidate_id: candidateB.candidate_id,
+      status: "active",
+      candidate: candidateB,
+    };
+
+    const loadResolvers = new Map<
+      string,
+      {
+        resolve: (value: ReadStatblockCandidateResponseV1) => void;
+        reject: (reason?: unknown) => void;
+      }
+    >();
+    vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(
+      (id: string) =>
+        new Promise((resolve, reject) => {
+          loadResolvers.set(id, { resolve, reject });
+        }),
+    );
+
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(loadResolvers.has("cand_fixture1")).toBe(true);
+    });
+
+    const candidateInput = screen.getByPlaceholderText("cand_…");
+    await user.clear(candidateInput);
+    await user.type(candidateInput, "cand_fixture2");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(loadResolvers.has("cand_fixture2")).toBe(true);
+    });
+
+    loadResolvers.get("cand_fixture2")!.resolve(activeB);
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Second Candidate")).toBeTruthy();
+    });
+
+    loadResolvers.get("cand_fixture1")!.reject(new Error("stale A failed"));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Second Candidate")).toBeTruthy();
+    });
+    expect(screen.queryByText(/stale A failed/i)).toBeNull();
+  });
+
+  it("does not let a stale load steal a newer candidate validate receipt", async () => {
+    const candidateB: GeneratedStatblockCandidateV1 = {
+      ...candidate,
+      candidate_id: "cand_fixture2",
+      definition: {
+        ...candidate.definition,
+        identity: {
+          ...candidate.definition.identity,
+          name: "Second Candidate",
+        },
+      },
+    };
+    const activeB: ReadStatblockCandidateResponseV1 = {
+      schema: "dmb_statblock_candidate_read_v1",
+      candidate_id: candidateB.candidate_id,
+      status: "active",
+      candidate: candidateB,
+    };
+
+    const loadResolvers = new Map<string, (value: ReadStatblockCandidateResponseV1) => void>();
+    vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(
+      (id: string) =>
+        new Promise((resolve) => {
+          loadResolvers.set(id, resolve);
+        }),
+    );
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(loadResolvers.has("cand_fixture1")).toBe(true);
+    });
+
+    const candidateInput = screen.getByPlaceholderText("cand_…");
+    await user.clear(candidateInput);
+    await user.type(candidateInput, "cand_fixture2");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(loadResolvers.has("cand_fixture2")).toBe(true);
+    });
+
+    loadResolvers.get("cand_fixture2")!(activeB);
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Second Candidate")).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toMatch(/Status: validated$/);
+    });
+
+    loadResolvers.get("cand_fixture1")!(activeResponse);
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Second Candidate")).toBeTruthy();
+    });
+    expect(screen.queryByDisplayValue("Ironhide Brute")).toBeNull();
+    expect(screen.getByTestId("editor-ui-status").textContent).toMatch(/Status: validated$/);
   });
 
   it("preserves edits when validation dependency fails", async () => {
@@ -447,7 +757,7 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.queryByRole("button", { name: /accept/i })).toBeNull();
   });
 
-  it("shows field and global issues for error, warning, and info severities", async () => {
+  it("shows resolvable field issues and sends malformed/unmappable paths to global", async () => {
     vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
     vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(
       successValidate("invalid", [
@@ -468,6 +778,18 @@ describe("StatblockWorkbenchModule", () => {
           severity: "info",
           field_path: "abilities.strength",
           message: "field informational note",
+        },
+        {
+          code: "MALFORMED",
+          severity: "warning",
+          field_path: "identity..name",
+          message: "malformed path issue",
+        },
+        {
+          code: "FUTURE",
+          severity: "info",
+          field_path: "future_contract.new_region",
+          message: "future path note",
         },
         {
           code: "GLOBAL_INFO",
@@ -499,15 +821,14 @@ describe("StatblockWorkbenchModule", () => {
     expect(fieldPanel.querySelector('[data-issue-severity="info"]')?.textContent).toMatch(
       /\[info\].*field informational note/,
     );
-    expect(fieldPanel.querySelector('[data-issue-severity="info"]')?.textContent).not.toMatch(
-      /\[warning\]/,
-    );
+    expect(fieldPanel.textContent).not.toMatch(/malformed path issue/);
+    expect(fieldPanel.textContent).not.toMatch(/future path note/);
+
+    expect(globalPanel.textContent).toMatch(/path=identity\.\.name/);
+    expect(globalPanel.textContent).toMatch(/malformed path issue/);
+    expect(globalPanel.textContent).toMatch(/path=future_contract\.new_region/);
+    expect(globalPanel.textContent).toMatch(/future path note/);
     expect(globalPanel.textContent).toMatch(/global informational note/);
-    expect(globalPanel.querySelector('[data-issue-severity="info"]')?.textContent).toMatch(
-      /\[info\].*global informational note/,
-    );
-    expect(globalPanel.querySelector('[data-issue-severity="info"]')?.textContent).not.toMatch(
-      /\[warning\]/,
-    );
+    expect(globalPanel.querySelector('[data-issue-severity="info"]')).toBeTruthy();
   });
 });

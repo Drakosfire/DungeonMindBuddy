@@ -15,14 +15,94 @@ export type SeverityBuckets = {
   infos: ValidationIssueV1[];
 };
 
-/** Non-empty field_path maps to field; empty/whitespace → global (never dropped). */
+export type FieldPathToken =
+  | { kind: "prop"; name: string }
+  | { kind: "index"; index: number };
+
+/**
+ * Parse a Server field_path into exact tokens.
+ * Returns null when the syntax is malformed (no normalization/guessing).
+ *
+ * Accepted forms: `a.b`, `rule_elements[0].mechanic`, `abilities.strength`
+ */
+export function parseFieldPath(path: string): FieldPathToken[] | null {
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith(".") || trimmed.endsWith(".") || trimmed.includes("..")) return null;
+
+  const tokens: FieldPathToken[] = [];
+  let i = 0;
+  while (i < trimmed.length) {
+    if (trimmed[i] === ".") {
+      i += 1;
+      if (i >= trimmed.length || trimmed[i] === "." || trimmed[i] === "[") return null;
+      continue;
+    }
+
+    if (trimmed[i] === "[") {
+      if (tokens.length === 0) return null;
+      const close = trimmed.indexOf("]", i);
+      if (close < 0) return null;
+      const raw = trimmed.slice(i + 1, close);
+      if (!/^\d+$/.test(raw)) return null;
+      tokens.push({ kind: "index", index: Number(raw) });
+      i = close + 1;
+      continue;
+    }
+
+    // property name
+    let j = i;
+    while (j < trimmed.length && trimmed[j] !== "." && trimmed[j] !== "[") {
+      j += 1;
+    }
+    const name = trimmed.slice(i, j);
+    if (!name || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return null;
+    tokens.push({ kind: "prop", name });
+    i = j;
+  }
+
+  return tokens.length > 0 ? tokens : null;
+}
+
+/** True when every token resolves against the current working-copy value. */
+export function resolveFieldPathAgainstWorkingCopy(
+  workingCopy: unknown,
+  tokens: FieldPathToken[],
+): boolean {
+  let current: unknown = workingCopy;
+  for (const token of tokens) {
+    if (token.kind === "prop") {
+      if (current === null || typeof current !== "object" || Array.isArray(current)) {
+        return false;
+      }
+      if (!Object.prototype.hasOwnProperty.call(current, token.name)) {
+        return false;
+      }
+      current = (current as Record<string, unknown>)[token.name];
+      continue;
+    }
+    if (!Array.isArray(current)) return false;
+    if (token.index < 0 || token.index >= current.length) return false;
+    current = current[token.index];
+  }
+  return true;
+}
+
+/**
+ * Partition issues into field vs global.
+ * Only honestly resolvable paths against the current working copy are field issues.
+ * Empty, malformed, unknown, future, and out-of-range paths are global (never dropped).
+ */
 export function partitionValidationIssuesByPath(
   issues: ValidationIssueV1[] | null | undefined,
+  workingCopy: unknown,
 ): PartitionedValidationIssues {
   const fieldIssues: ValidationIssueV1[] = [];
   const globalIssues: ValidationIssueV1[] = [];
   for (const issue of issues ?? []) {
-    if (typeof issue.field_path === "string" && issue.field_path.trim().length > 0) {
+    const rawPath = typeof issue.field_path === "string" ? issue.field_path : "";
+    const tokens = parseFieldPath(rawPath);
+    if (tokens && resolveFieldPathAgainstWorkingCopy(workingCopy, tokens)) {
       fieldIssues.push(issue);
     } else {
       globalIssues.push(issue);
