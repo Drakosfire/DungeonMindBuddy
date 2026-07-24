@@ -411,7 +411,8 @@ onValidate:
 
 - Validation ownership is `(requestId, editorEpoch, stateRevision)` with revision-owned `pendingValidation` / `validationFailure` records (not free-floating booleans/strings).
 - Any working-copy revision change (edit/undo/redo) immediately orphans the prior request id, clears pending + failure for the prior revision, and leaves older successful receipts only as visibly stale.
-- Loading/reloading uses a monotonic **candidate-load request id**; every success/miss/error verifies it is still the latest load before mutating candidate/editor state (manual load and generation-triggered load share latest-wins).
+- Loading/reloading/retry and draft-generation share one monotonic **candidate-operation id**; every success/miss/error/generate outcome verifies it is still the latest user operation before mutating candidate input, generate status, or editor state (latest-user-operation-wins across manual load, retry, and generation).
+- A stale generation success or failure must not replace the editor, alter the candidate input, or present itself as the current candidate operation.
 - Never compare local fingerprint to Server `definition_digest` for equality/eligibility.
 - Server `invalid` is a success outcome with receipt association — not transport failure.
 - Pending `validating` and `validation_unavailable` never associate a revision.
@@ -421,10 +422,10 @@ onValidate:
 
 `statblockValidationIssues.ts` partitions issues into field vs global against the **current working copy**:
 
-- Parse `field_path` with exact dot/bracket syntax (no normalization or nearest-field guessing).
+- Parse `field_path` with exact state-machine grammar (no whitespace normalization; no property immediately after `]` without a `.`).
 - Only paths that fully resolve on the current working copy are field issues.
-- Empty, malformed (`identity..name`, `.identity.name`, `rule_elements[abc]`), unknown/future, and out-of-range paths are **global**.
-- Global issues preserve and visibly disclose the original non-empty path, plus code/severity/message/suggested_resolution.
+- Empty, malformed (`identity..name`, `.identity.name`, `rule_elements[0]mechanic`, leading/trailing spaces), unknown/future, and out-of-range paths are **global**.
+- Global issues preserve and visibly disclose the original non-empty path, plus exact code, severity, message, and non-null suggested_resolution.
 - Severities `info` | `warning` | `error` remain distinct.
 
 ### Still false

@@ -31,12 +31,51 @@ describe("statblockValidationIssues", () => {
       { kind: "index", index: 0 },
       { kind: "prop", name: "mechanic" },
     ]);
+    expect(parseFieldPath("foo[0][1]")).toEqual([
+      { kind: "prop", name: "foo" },
+      { kind: "index", index: 0 },
+      { kind: "index", index: 1 },
+    ]);
     expect(parseFieldPath("identity..name")).toBeNull();
     expect(parseFieldPath(".identity.name")).toBeNull();
     expect(parseFieldPath("identity.name.")).toBeNull();
     expect(parseFieldPath("rule_elements[abc].mechanic")).toBeNull();
+    expect(parseFieldPath("rule_elements[0]mechanic")).toBeNull();
+    expect(parseFieldPath(" identity.name")).toBeNull();
+    expect(parseFieldPath("identity.name ")).toBeNull();
+    expect(parseFieldPath("identity. name")).toBeNull();
     expect(parseFieldPath("")).toBeNull();
     expect(parseFieldPath("   ")).toBeNull();
+  });
+
+  it("classifies ]prop-without-dot and whitespace paths as global with original text", () => {
+    const issues = [
+      issue({
+        code: "MISSING_DOT",
+        severity: "error",
+        field_path: "rule_elements[0]mechanic",
+        message: "missing dot after index",
+      }),
+      issue({
+        code: "LEADING_SPACE",
+        severity: "warning",
+        field_path: " identity.name",
+        message: "leading space",
+      }),
+      issue({
+        code: "TRAILING_SPACE",
+        severity: "info",
+        field_path: "identity.name ",
+        message: "trailing space",
+      }),
+    ];
+    const partitioned = partitionValidationIssuesByPath(issues, workingCopy);
+    expect(partitioned.fieldIssues).toHaveLength(0);
+    expect(partitioned.globalIssues.map((entry) => entry.field_path)).toEqual([
+      "rule_elements[0]mechanic",
+      " identity.name",
+      "identity.name ",
+    ]);
   });
 
   it("resolves only paths that exist on the current working copy", () => {

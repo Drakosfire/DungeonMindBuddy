@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as liveApi from "../../api/liveApi";
 import type {
   ReadStatblockCandidateResponseV1,
+  GenerateThreatDraftCandidateResponseV1,
   ValidateDefinitionBuddyResponseV1,
 } from "../../api/types";
 import type {
@@ -210,6 +211,182 @@ describe("StatblockWorkbenchModule", () => {
       expected_draft_version: 1,
     });
     expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
+  });
+
+  it("ignores late generation success after a newer manual load", async () => {
+    const candidateB: GeneratedStatblockCandidateV1 = {
+      ...candidate,
+      candidate_id: "cand_fixture2",
+      definition: {
+        ...candidate.definition,
+        identity: {
+          ...candidate.definition.identity,
+          name: "Manual Selection",
+        },
+      },
+    };
+    const activeB: ReadStatblockCandidateResponseV1 = {
+      schema: "dmb_statblock_candidate_read_v1",
+      candidate_id: candidateB.candidate_id,
+      status: "active",
+      candidate: candidateB,
+    };
+
+    let resolveGenerate: (value: GenerateThreatDraftCandidateResponseV1) => void = () => {};
+    vi.spyOn(liveApi, "generateThreatDraftCandidate").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveGenerate = resolve;
+        }),
+    );
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeB);
+
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("td_…"), "td_stale");
+    await user.click(screen.getByRole("button", { name: "Generate candidate" }));
+    await waitFor(() => {
+      expect(liveApi.generateThreatDraftCandidate).toHaveBeenCalled();
+    });
+
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture2");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Manual Selection")).toBeTruthy();
+    });
+    expect(screen.getByPlaceholderText("cand_…")).toHaveProperty("value", "cand_fixture2");
+
+    resolveGenerate({
+      schema: "dmb_generate_threat_draft_candidate_response_v1",
+      draft_id: "td_stale",
+      generated_from_draft_version: 1,
+      request_id: "req_stale",
+      outcome: "success",
+      candidate,
+      cache_status: "stored",
+      persistence_failures: [],
+    });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Manual Selection")).toBeTruthy();
+    });
+    expect(screen.queryByDisplayValue("Ironhide Brute")).toBeNull();
+    expect(screen.getByPlaceholderText("cand_…")).toHaveProperty("value", "cand_fixture2");
+    expect(screen.queryByText(/Generated cand_fixture1/i)).toBeNull();
+    expect(liveApi.getStatblockCandidate).toHaveBeenCalledTimes(1);
+    expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture2");
+  });
+
+  it("ignores late generation failure after a newer manual load", async () => {
+    const candidateB: GeneratedStatblockCandidateV1 = {
+      ...candidate,
+      candidate_id: "cand_fixture2",
+      definition: {
+        ...candidate.definition,
+        identity: {
+          ...candidate.definition.identity,
+          name: "Manual Selection",
+        },
+      },
+    };
+    const activeB: ReadStatblockCandidateResponseV1 = {
+      schema: "dmb_statblock_candidate_read_v1",
+      candidate_id: candidateB.candidate_id,
+      status: "active",
+      candidate: candidateB,
+    };
+
+    let rejectGenerate: (reason?: unknown) => void = () => {};
+    vi.spyOn(liveApi, "generateThreatDraftCandidate").mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectGenerate = reject;
+        }),
+    );
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeB);
+
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("td_…"), "td_fail");
+    await user.click(screen.getByRole("button", { name: "Generate candidate" }));
+    await waitFor(() => {
+      expect(liveApi.generateThreatDraftCandidate).toHaveBeenCalled();
+    });
+
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture2");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Manual Selection")).toBeTruthy();
+    });
+
+    rejectGenerate(new Error("stale generation boom"));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Manual Selection")).toBeTruthy();
+    });
+    expect(screen.queryByText(/stale generation boom/i)).toBeNull();
+    expect(screen.queryByText(/Unable to generate candidate/i)).toBeNull();
+  });
+
+  it("lets a newer generation win over a late prior manual load", async () => {
+    const candidateB: GeneratedStatblockCandidateV1 = {
+      ...candidate,
+      candidate_id: "cand_fixture2",
+      definition: {
+        ...candidate.definition,
+        identity: {
+          ...candidate.definition.identity,
+          name: "Generated Winner",
+        },
+      },
+    };
+    const activeB: ReadStatblockCandidateResponseV1 = {
+      schema: "dmb_statblock_candidate_read_v1",
+      candidate_id: candidateB.candidate_id,
+      status: "active",
+      candidate: candidateB,
+    };
+
+    let resolveLoadA: (value: ReadStatblockCandidateResponseV1) => void = () => {};
+    vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation((id: string) => {
+      if (id === "cand_fixture1") {
+        return new Promise((resolve) => {
+          resolveLoadA = resolve;
+        });
+      }
+      return Promise.resolve(activeB);
+    });
+    vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
+      schema: "dmb_generate_threat_draft_candidate_response_v1",
+      draft_id: "td_win",
+      generated_from_draft_version: 1,
+      request_id: "req_win",
+      outcome: "success",
+      candidate: candidateB,
+      cache_status: "stored",
+      persistence_failures: [],
+    });
+
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => {
+      expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
+    });
+
+    await user.type(screen.getByPlaceholderText("td_…"), "td_win");
+    await user.click(screen.getByRole("button", { name: "Generate candidate" }));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Generated Winner")).toBeTruthy();
+    });
+
+    resolveLoadA(activeResponse);
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Generated Winner")).toBeTruthy();
+    });
+    expect(screen.queryByDisplayValue("Ironhide Brute")).toBeNull();
+    expect(screen.getByPlaceholderText("cand_…")).toHaveProperty("value", "cand_fixture2");
   });
 
   it("maps clean valid receipt to validated UI status", async () => {
@@ -784,12 +961,21 @@ describe("StatblockWorkbenchModule", () => {
           severity: "warning",
           field_path: "identity..name",
           message: "malformed path issue",
+          suggested_resolution: "Fix the path separators",
+        },
+        {
+          code: "MISSING_DOT",
+          severity: "error",
+          field_path: "rule_elements[0]mechanic",
+          message: "missing dot after index",
+          suggested_resolution: "Insert a dot after the closing bracket",
         },
         {
           code: "FUTURE",
           severity: "info",
           field_path: "future_contract.new_region",
           message: "future path note",
+          suggested_resolution: null,
         },
         {
           code: "GLOBAL_INFO",
@@ -823,11 +1009,30 @@ describe("StatblockWorkbenchModule", () => {
     );
     expect(fieldPanel.textContent).not.toMatch(/malformed path issue/);
     expect(fieldPanel.textContent).not.toMatch(/future path note/);
+    expect(fieldPanel.textContent).not.toMatch(/missing dot after index/);
 
-    expect(globalPanel.textContent).toMatch(/path=identity\.\.name/);
-    expect(globalPanel.textContent).toMatch(/malformed path issue/);
-    expect(globalPanel.textContent).toMatch(/path=future_contract\.new_region/);
-    expect(globalPanel.textContent).toMatch(/future path note/);
+    expect(globalPanel.querySelector('[data-issue-code="MALFORMED"]')).toBeTruthy();
+    expect(globalPanel.querySelector('[data-issue-severity-label="warning"]')).toBeTruthy();
+    expect(globalPanel.querySelector('[data-issue-path="identity..name"]')).toBeTruthy();
+    expect(globalPanel.querySelector('[data-issue-message="malformed path issue"]')).toBeTruthy();
+    expect(
+      globalPanel.querySelector('[data-issue-suggested-resolution="Fix the path separators"]'),
+    ).toBeTruthy();
+
+    expect(globalPanel.querySelector('[data-issue-code="MISSING_DOT"]')).toBeTruthy();
+    expect(globalPanel.querySelector('[data-issue-path="rule_elements[0]mechanic"]')).toBeTruthy();
+    expect(
+      globalPanel.querySelector(
+        '[data-issue-suggested-resolution="Insert a dot after the closing bracket"]',
+      ),
+    ).toBeTruthy();
+
+    expect(globalPanel.querySelector('[data-issue-code="FUTURE"]')).toBeTruthy();
+    expect(
+      globalPanel.querySelector('[data-issue-path="future_contract.new_region"]'),
+    ).toBeTruthy();
+    expect(globalPanel.querySelector('[data-issue-message="future path note"]')).toBeTruthy();
+
     expect(globalPanel.textContent).toMatch(/global informational note/);
     expect(globalPanel.querySelector('[data-issue-severity="info"]')).toBeTruthy();
   });

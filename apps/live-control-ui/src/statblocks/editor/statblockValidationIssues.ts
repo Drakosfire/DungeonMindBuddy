@@ -19,49 +19,88 @@ export type FieldPathToken =
   | { kind: "prop"; name: string }
   | { kind: "index"; index: number };
 
+type ParserState = "expect_prop" | "after_prop" | "after_index";
+
 /**
  * Parse a Server field_path into exact tokens.
  * Returns null when the syntax is malformed (no normalization/guessing).
  *
- * Accepted forms: `a.b`, `rule_elements[0].mechanic`, `abilities.strength`
+ * Accepted forms: `a.b`, `rule_elements[0].mechanic`, `foo[0][1]`, `abilities.strength`
+ *
+ * Rejects: leading/trailing/internal whitespace, `]prop` without a dot,
+ * empty segments, non-decimal indices, trailing dots.
  */
 export function parseFieldPath(path: string): FieldPathToken[] | null {
-  const trimmed = path.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith(".") || trimmed.endsWith(".") || trimmed.includes("..")) return null;
+  if (path.length === 0) return null;
 
   const tokens: FieldPathToken[] = [];
   let i = 0;
-  while (i < trimmed.length) {
-    if (trimmed[i] === ".") {
+  let state: ParserState = "expect_prop";
+
+  while (i < path.length) {
+    const ch = path[i];
+
+    if (state === "expect_prop") {
+      if (!/[A-Za-z_]/.test(ch)) return null;
+      let j = i + 1;
+      while (j < path.length && /[A-Za-z0-9_]/.test(path[j]!)) {
+        j += 1;
+      }
+      tokens.push({ kind: "prop", name: path.slice(i, j) });
+      i = j;
+      state = "after_prop";
+      continue;
+    }
+
+    if (state === "after_prop") {
+      if (ch === ".") {
+        i += 1;
+        state = "expect_prop";
+        continue;
+      }
+      if (ch === "[") {
+        const parsed = parseIndexAt(path, i);
+        if (parsed == null) return null;
+        tokens.push({ kind: "index", index: parsed.index });
+        i = parsed.next;
+        state = "after_index";
+        continue;
+      }
+      return null;
+    }
+
+    // state === "after_index"
+    if (ch === ".") {
       i += 1;
-      if (i >= trimmed.length || trimmed[i] === "." || trimmed[i] === "[") return null;
+      state = "expect_prop";
       continue;
     }
-
-    if (trimmed[i] === "[") {
-      if (tokens.length === 0) return null;
-      const close = trimmed.indexOf("]", i);
-      if (close < 0) return null;
-      const raw = trimmed.slice(i + 1, close);
-      if (!/^\d+$/.test(raw)) return null;
-      tokens.push({ kind: "index", index: Number(raw) });
-      i = close + 1;
+    if (ch === "[") {
+      const parsed = parseIndexAt(path, i);
+      if (parsed == null) return null;
+      tokens.push({ kind: "index", index: parsed.index });
+      i = parsed.next;
+      state = "after_index";
       continue;
     }
-
-    // property name
-    let j = i;
-    while (j < trimmed.length && trimmed[j] !== "." && trimmed[j] !== "[") {
-      j += 1;
-    }
-    const name = trimmed.slice(i, j);
-    if (!name || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return null;
-    tokens.push({ kind: "prop", name });
-    i = j;
+    // Property immediately after ] without a dot is malformed.
+    return null;
   }
 
+  if (state === "expect_prop") return null;
   return tokens.length > 0 ? tokens : null;
+}
+
+function parseIndexAt(
+  path: string,
+  openBracketIndex: number,
+): { index: number; next: number } | null {
+  if (path[openBracketIndex] !== "[") return null;
+  const close = path.indexOf("]", openBracketIndex + 1);
+  if (close < 0) return null;
+  const raw = path.slice(openBracketIndex + 1, close);
+  if (!/^\d+$/.test(raw)) return null;
+  return { index: Number(raw), next: close + 1 };
 }
 
 /** True when every token resolves against the current working-copy value. */

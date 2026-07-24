@@ -81,17 +81,42 @@ function isIntegrityFailureCategory(category: string | null | undefined): boolea
   );
 }
 
-function renderGlobalIssueLine(issue: {
-  code: string;
-  severity: string;
-  field_path: string;
-  message: string;
-}): string {
-  const path = typeof issue.field_path === "string" ? issue.field_path.trim() : "";
-  if (path) {
-    return `[${issue.severity}] path=${path}: ${issue.message}`;
-  }
-  return `[${issue.severity}] ${issue.message}`;
+/** GM-visible global issue line: code, severity, original path, message, suggested_resolution. */
+function GlobalIssueLine({
+  issue,
+}: {
+  issue: {
+    code: string;
+    severity: string;
+    field_path: string;
+    message: string;
+    suggested_resolution?: string | null;
+  };
+}) {
+  const path = typeof issue.field_path === "string" ? issue.field_path : "";
+  return (
+    <>
+      <span data-issue-code={issue.code}>code={issue.code}</span>
+      {" · "}
+      <span data-issue-severity-label={issue.severity}>severity={issue.severity}</span>
+      {path ? (
+        <>
+          {" · "}
+          <span data-issue-path={path}>path={path}</span>
+        </>
+      ) : null}
+      {" · "}
+      <span data-issue-message={issue.message}>{issue.message}</span>
+      {issue.suggested_resolution != null ? (
+        <>
+          {" · "}
+          <span data-issue-suggested-resolution={issue.suggested_resolution}>
+            suggested={issue.suggested_resolution}
+          </span>
+        </>
+      ) : null}
+    </>
+  );
 }
 
 export type CandidateStatusPresentation = {
@@ -297,7 +322,7 @@ function PreviewValidationPanel({
         {globalIssues.length === 0 ? <p className="module-muted">None</p> : null}
         {globalSplit.errors.map((issue) => (
           <p key={`ge-${issue.code}-${issue.field_path}-${issue.message}`} data-issue-severity="error">
-            {renderGlobalIssueLine(issue)}
+            <GlobalIssueLine issue={issue} />
           </p>
         ))}
         {globalSplit.warnings.map((issue) => (
@@ -305,12 +330,12 @@ function PreviewValidationPanel({
             key={`gw-${issue.code}-${issue.field_path}-${issue.message}`}
             data-issue-severity="warning"
           >
-            {renderGlobalIssueLine(issue)}
+            <GlobalIssueLine issue={issue} />
           </p>
         ))}
         {globalSplit.infos.map((issue) => (
           <p key={`gi-${issue.code}-${issue.field_path}-${issue.message}`} data-issue-severity="info">
-            {renderGlobalIssueLine(issue)}
+            <GlobalIssueLine issue={issue} />
           </p>
         ))}
       </div>
@@ -335,7 +360,8 @@ export function StatblockWorkbenchModule() {
 
   const validateRequestIdRef = useRef(0);
   const editorEpochRef = useRef(0);
-  const loadRequestIdRef = useRef(0);
+  /** Shared monotonic identity for manual load, retry, and draft generation. */
+  const candidateOpIdRef = useRef(0);
   const editorStateRef = useRef<StatblockEditorState | null>(null);
   editorStateRef.current = editorState;
   editorEpochRef.current = editorEpoch;
@@ -345,6 +371,15 @@ export function StatblockWorkbenchModule() {
     editorEpochRef.current = next;
     setEditorEpoch(next);
     return next;
+  }, []);
+
+  const isCurrentCandidateOp = useCallback((opId: number): boolean => {
+    return opId === candidateOpIdRef.current;
+  }, []);
+
+  /** Claim the next candidate operation; orphans every prior load/generate outcome. */
+  const beginCandidateOp = useCallback(() => {
+    return ++candidateOpIdRef.current;
   }, []);
 
   /** Orphan in-flight validate and clear revision-owned pending/failure records. */
@@ -381,27 +416,32 @@ export function StatblockWorkbenchModule() {
   );
 
   const loadCandidate = useCallback(
-    async (candidateId: string) => {
+    async (candidateId: string, options?: { opId?: number }) => {
       const trimmed = candidateId.trim();
-      const loadRequestId = ++loadRequestIdRef.current;
+      const opId = options?.opId ?? beginCandidateOp();
+      // A fresh manual/retry load orphans in-flight generation UI.
+      if (options?.opId == null) {
+        setPendingGenerate(false);
+        setGenerateMessage(null);
+        setGenerateError(null);
+      }
       bumpEditorEpoch();
       invalidateValidationOwnership();
       setEditorState(null);
       editorStateRef.current = null;
 
       if (!trimmed) {
-        if (loadRequestId !== loadRequestIdRef.current) return;
+        if (!isCurrentCandidateOp(opId)) return;
         setLoadState({ kind: "error", candidateId: "", message: "Enter an exact candidate ID." });
         return;
       }
 
+      if (!isCurrentCandidateOp(opId)) return;
       setLoadState({ kind: "loading", candidateId: trimmed });
-      setGenerateMessage(null);
-      setGenerateError(null);
 
       try {
         const response = await getStatblockCandidate(trimmed);
-        if (loadRequestId !== loadRequestIdRef.current) return;
+        if (!isCurrentCandidateOp(opId)) return;
 
         if (response.status === "active" && response.candidate) {
           const nextEditor = createEditorStateFromOutput(response.candidate.definition);
@@ -419,7 +459,7 @@ export function StatblockWorkbenchModule() {
           failureMessage: response.failure_message ?? null,
         });
       } catch (error) {
-        if (loadRequestId !== loadRequestIdRef.current) return;
+        if (!isCurrentCandidateOp(opId)) return;
         setLoadState({
           kind: "error",
           candidateId: trimmed,
@@ -427,7 +467,7 @@ export function StatblockWorkbenchModule() {
         });
       }
     },
-    [bumpEditorEpoch, invalidateValidationOwnership],
+    [beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp],
   );
 
   useEffect(() => {
@@ -450,14 +490,19 @@ export function StatblockWorkbenchModule() {
       setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
       return;
     }
+    const opId = beginCandidateOp();
+    // Newer generation orphans prior load outcomes and prior generate UI.
     setPendingGenerate(true);
     setGenerateError(null);
     setGenerateMessage(null);
+    setLoadState((prev) => (prev.kind === "loading" ? { kind: "idle" } : prev));
     try {
       const response: GenerateThreatDraftCandidateResponseV1 = await generateThreatDraftCandidate(
         draftId,
         { expected_draft_version: expectedVersion },
       );
+      if (!isCurrentCandidateOp(opId)) return;
+
       if (response.outcome === "success" && response.candidate?.candidate_id) {
         const candidateId = response.candidate.candidate_id;
         setCandidateIdInput(candidateId);
@@ -466,7 +511,7 @@ export function StatblockWorkbenchModule() {
             response.cache_status ? ` (${response.cache_status})` : ""
           }. Loading structured review…`,
         );
-        await loadCandidate(candidateId);
+        await loadCandidate(candidateId, { opId });
         return;
       }
       setGenerateError(
@@ -475,9 +520,12 @@ export function StatblockWorkbenchModule() {
           "Generation failed without a typed candidate.",
       );
     } catch (error) {
+      if (!isCurrentCandidateOp(opId)) return;
       setGenerateError(error instanceof Error ? error.message : String(error));
     } finally {
-      setPendingGenerate(false);
+      if (isCurrentCandidateOp(opId)) {
+        setPendingGenerate(false);
+      }
     }
   };
 
