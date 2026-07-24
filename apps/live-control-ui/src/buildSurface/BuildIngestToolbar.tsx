@@ -9,6 +9,7 @@ export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
     statusLabel,
     error,
     canLaunch,
+    canRefresh,
     canOpenGraphReview,
     launching,
     handoff,
@@ -38,6 +39,7 @@ export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
             onClick={() => {
               void refresh();
             }}
+            disabled={!canRefresh}
           >
             Refresh run
           </button>

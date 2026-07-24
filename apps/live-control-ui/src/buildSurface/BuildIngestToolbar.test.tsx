@@ -270,4 +270,84 @@ describe("BuildIngestToolbar", () => {
     expect(screen.getByTestId("build-open-graph-review-disabled")).toBeInTheDocument();
     expect(screen.queryByText(RUN_ID)).not.toBeInTheDocument();
   });
+
+  it("disables Refresh and Graph Review while Extract is in flight", async () => {
+    const user = userEvent.setup();
+    let releaseLaunch: ((value: unknown) => void) | undefined;
+    window.history.pushState({}, "", `/build?documentId=${DOC_ID}&extractionRunId=${RUN_ID}`);
+    vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValue({
+      schema_version: "dmb_extraction_run_status_v1",
+      run: {
+        schema_version: "dmb_extraction_run_v1",
+        version: "1.0",
+        run_id: RUN_ID,
+        source_artifact_id: ARTIFACT,
+        source_domain: "worldbuilding",
+        status: "reviewable",
+      },
+      source_artifact_id: ARTIFACT,
+      document_id: DOC_ID,
+      document_revision: 2,
+      source_content_sha256: "sha-2",
+      graph_review_handoff: {
+        href: `/ingest?extractionRunId=${RUN_ID}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        extraction_run_id: RUN_ID,
+        source_artifact_id: ARTIFACT,
+        document_id: DOC_ID,
+        document_revision: 2,
+      },
+    });
+    vi.mocked(liveApi.launchExtractionRun).mockImplementation(
+      () => new Promise((resolve) => {
+        releaseLaunch = resolve;
+      }),
+    );
+
+    render(<BuildIngestToolbar documentId={DOC_ID} />);
+    expect(await screen.findByTestId("build-open-graph-review")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("build-extract-button")).not.toBeDisabled());
+
+    await user.click(screen.getByTestId("build-extract-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-extract-button")).toHaveTextContent("Extracting…");
+    });
+    expect(screen.getByTestId("build-extraction-refresh")).toBeDisabled();
+    expect(screen.getByTestId("build-open-graph-review-disabled")).toBeInTheDocument();
+    expect(screen.queryByTestId("build-open-graph-review")).not.toBeInTheDocument();
+
+    const statusCalls = vi.mocked(liveApi.getExtractionRunStatus).mock.calls.length;
+    await user.click(screen.getByTestId("build-extraction-refresh"));
+    expect(vi.mocked(liveApi.getExtractionRunStatus).mock.calls.length).toBe(statusCalls);
+
+    releaseLaunch?.({
+      schema_version: "dmb_extraction_run_launch_v1",
+      run: {
+        schema_version: "dmb_extraction_run_v1",
+        version: "1.0",
+        run_id: RUN_B,
+        source_artifact_id: ARTIFACT,
+        source_domain: "worldbuilding",
+        status: "reviewable",
+      },
+      source_artifact_id: ARTIFACT,
+      document_id: DOC_ID,
+      document_revision: 2,
+      source_content_sha256: "sha-2",
+      diagnostics: [],
+      graph_review_handoff: {
+        href: `/ingest?extractionRunId=${RUN_B}&sourceArtifactId=${ARTIFACT}&documentId=${DOC_ID}&revision=2`,
+        extraction_run_id: RUN_B,
+        source_artifact_id: ARTIFACT,
+        document_id: DOC_ID,
+        document_revision: 2,
+      },
+    });
+
+    expect(await screen.findByTestId("build-open-graph-review")).toHaveAttribute(
+      "href",
+      expect.stringContaining(`extractionRunId=${RUN_B}`),
+    );
+    expect(screen.getByTestId("build-extraction-refresh")).not.toBeDisabled();
+    expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_B);
+  });
 });

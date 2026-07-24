@@ -192,6 +192,7 @@ export interface BuildExtractionState {
   error: string | null;
   launching: boolean;
   canLaunch: boolean;
+  canRefresh: boolean;
   canOpenGraphReview: boolean;
   refresh: () => Promise<void>;
   launch: () => Promise<void>;
@@ -239,7 +240,11 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
   const [launching, setLaunching] = useState(false);
   const [localCleanMatch, setLocalCleanMatch] = useState(false);
 
-  const operationGenerationRef = useRef(0);
+  // Separate generations so Refresh cannot cancel an in-flight Extract adoption.
+  const launchGenerationRef = useRef(0);
+  const refreshGenerationRef = useRef(0);
+  // Synchronous mirror of launching so refresh can no-op before any await.
+  const launchingRef = useRef(false);
 
   const clearAdoptedState = useCallback(() => {
     setDocument(null);
@@ -247,12 +252,17 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     setRun(null);
     setHandoff(null);
     setError(null);
+    launchingRef.current = false;
     setLaunching(false);
     setLocalCleanMatch(false);
   }, []);
 
   const refresh = useCallback(async () => {
-    const generation = ++operationGenerationRef.current;
+    // Refresh must not supersede an active launch generation or clear a pending
+    // Extract before its exact run ID is known.
+    if (launchingRef.current) return;
+
+    const generation = ++refreshGenerationRef.current;
     const selectedDocumentId = documentId;
     setError(null);
     setHandoff(null);
@@ -266,7 +276,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
 
     try {
       const nextSnapshot = await getWorkspaceDocumentSnapshot(selectedDocumentId);
-      if (generation !== operationGenerationRef.current) return;
+      if (generation !== refreshGenerationRef.current) return;
+      if (launchingRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;
 
       setSnapshot(nextSnapshot);
@@ -284,7 +295,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       }
 
       const status: ExtractionRunStatusResponse = await getExtractionRunStatus(exactRunId);
-      if (generation !== operationGenerationRef.current) return;
+      if (generation !== refreshGenerationRef.current) return;
+      if (launchingRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;
 
       const validation = validateExactRunIdentity({
@@ -302,7 +314,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       setHandoff(validation.handoff);
       setError(null);
     } catch (loadError) {
-      if (generation !== operationGenerationRef.current) return;
+      if (generation !== refreshGenerationRef.current) return;
+      if (launchingRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;
       setHandoff(null);
       setError(loadError instanceof Error ? loadError.message : "Failed to load extraction state");
@@ -315,11 +328,14 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
 
   useEffect(() => {
     // Invalidate any in-flight refresh/launch belonging to a prior selection.
-    operationGenerationRef.current += 1;
+    launchGenerationRef.current += 1;
+    refreshGenerationRef.current += 1;
     clearAdoptedState();
     void refresh();
     return () => {
-      operationGenerationRef.current += 1;
+      launchGenerationRef.current += 1;
+      refreshGenerationRef.current += 1;
+      launchingRef.current = false;
     };
     // refresh is recreated when documentId changes; keying the effect on documentId is enough.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -327,12 +343,17 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
 
   const launch = useCallback(async () => {
     const selectedDocumentId = documentId;
-    const generation = ++operationGenerationRef.current;
+    // Establish the in-flight guard before the first await so a concurrent
+    // Refresh click cannot bump a shared generation and orphan the new run ID.
+    const generation = ++launchGenerationRef.current;
+    launchingRef.current = true;
+    setLaunching(true);
     setError(null);
+    setHandoff(null);
 
     try {
       const nextSnapshot = await getWorkspaceDocumentSnapshot(selectedDocumentId);
-      if (generation !== operationGenerationRef.current) return;
+      if (generation !== launchGenerationRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;
 
       setSnapshot(nextSnapshot);
@@ -347,13 +368,12 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         return;
       }
 
-      setLaunching(true);
       const response: ExtractionRunLaunchResponse = await launchExtractionRun({
         document_id: selectedDocumentId,
         expected_revision: nextSnapshot.loaded_revision,
         expected_content_sha256: nextSnapshot.content_sha256,
       });
-      if (generation !== operationGenerationRef.current) return;
+      if (generation !== launchGenerationRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;
 
       const validation = validateExactRunIdentity({
@@ -378,12 +398,13 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         setError(response.diagnostics.join("; ") || `Extraction ${response.failure_kind}`);
       }
     } catch (launchError) {
-      if (generation !== operationGenerationRef.current) return;
+      if (generation !== launchGenerationRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;
       setHandoff(null);
       setError(launchError instanceof Error ? launchError.message : "Extraction launch failed");
     } finally {
-      if (generation === operationGenerationRef.current) {
+      if (generation === launchGenerationRef.current) {
+        launchingRef.current = false;
         setLaunching(false);
       }
     }
@@ -395,7 +416,13 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     && localCleanMatch
     && !launching,
   );
-  const canOpenGraphReview = Boolean(run && handoff && run.status === "reviewable");
+  const canRefresh = !launching;
+  const canOpenGraphReview = Boolean(
+    !launching
+    && run
+    && handoff
+    && run.status === "reviewable",
+  );
 
   let statusLabel = "No extraction run";
   if (launching) statusLabel = "Launching extraction…";
@@ -413,6 +440,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     error,
     launching,
     canLaunch,
+    canRefresh,
     canOpenGraphReview,
     refresh,
     launch,
