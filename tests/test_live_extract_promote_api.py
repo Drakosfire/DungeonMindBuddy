@@ -1134,6 +1134,49 @@ def test_path_contract_still_rejects_world_store_sources(world_client) -> None:
     assert "world graph store" in str(exc.value) or "ingest-run" in str(exc.value)
 
 
+def test_prepare_confirm_exact_campaignless_worldbuilding_run(world_client) -> None:
+    """Campaignless exact runs prepare/confirm without inventing campaign scope."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, campaign_id=None, candidate_campaign_id=None
+    )
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial", "mystery_puddles"]),
+    )
+    assert prepare.status_code == 200, prepare.text
+    prepared = prepare.json()
+    assert prepared.get("campaignId") in (None, "")
+    assert prepared.get("sessionId") in (None, "")
+    package = prepared["reviewPackage"]
+    assertion_ids = _selectable_assertion_ids(prepared)
+    assert assertion_ids
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    confirm = client.post(CONFIRM_URL, json=_confirm_body(package, assertion_ids))
+    assert confirm.status_code == 200, confirm.text
+    confirmed = confirm.json()
+    # Campaignless publishes may degrade audit while still advancing head —
+    # that is the degraded-read contract for sessionless/campaignless runs.
+    assert confirmed["outcome"] in {"committed", "published_audit_degraded"}
+    assert confirmed["committedRevisionId"]
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after != head_before
+    assert confirmed["committedRevisionId"] == head_after
+    if confirmed["outcome"] == "published_audit_degraded":
+        assert confirmed["auditStatus"] == "degraded"
+
+    replay = client.post(CONFIRM_URL, json=_confirm_body(package, assertion_ids))
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["outcome"] == "already_applied"
+    assert replay.json()["headAdvanced"] is False
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == head_after
+    )
+
+
 def test_prepare_confirm_exact_worldbuilding_extraction_run(world_client) -> None:
     """Product prepare remains runId-only for canonical ExtractionRun IDs."""
     from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
@@ -1247,6 +1290,33 @@ def test_prepare_rejects_non_reviewable_extraction_run(world_client) -> None:
     assert head_after == head_before
 
 
+def test_exact_run_review_package_includes_source_prose_and_evidence(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, source = _write_reviewable_extraction_run(repo, campaign_id=None)
+    response = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema"] == "dmb_extract_promote_exact_run_review_v1"
+    assert body["runId"] == run_id
+    assert body["sourceDomain"] == "worldbuilding"
+    assert body.get("campaignId") in (None, "")
+    assert body.get("sessionId") in (None, "")
+    assert "Worldbuilding source for promote." in body["sourceProse"]
+    assert body["sourceProse"] == source.read_text(encoding="utf-8")
+    assert body["assertions"]
+    vial = next(item for item in body["assertions"] if item["assertionId"] == "obj_session22_vial")
+    assert vial["evidence"]
+    evidence = vial["evidence"][0]
+    assert evidence["paragraphText"] == "Worldbuilding source for promote."
+    assert "Worldbuilding source for promote." in evidence["anchorQuotes"]
+    assert evidence["sourceSpanRefId"]
+    assert evidence["startLine"] is not None
+
+
 def test_prepare_rejects_session_invention_for_sessionless_extraction_run(
     world_client,
 ) -> None:
@@ -1261,15 +1331,79 @@ def test_prepare_rejects_session_invention_for_sessionless_extraction_run(
     assert response.json()["code"] == "run_scope_mismatch"
 
 
-def test_prepare_rejects_sessionless_candidate_missing_run_campaign(
+def test_prepare_rejects_campaign_invention_for_campaignless_extraction_run(
     world_client,
 ) -> None:
-    """A sessionless run still requires the candidate to carry the run's campaign."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo,
+        campaign_id=None,
+        candidate_campaign_id=CAMPAIGN_ID,
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "run_scope_mismatch"
+    assert "invents a campaign" in body["message"]
+
+
+def test_prepare_permits_both_campaignless_extraction_run(world_client) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo,
+        campaign_id=None,
+        candidate_campaign_id=None,
+    )
+    response = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert response.status_code == 200, response.text
+    prepared = response.json()
+    assert prepared.get("campaignId") in (None, "")
+    assert prepared.get("sessionId") in (None, "")
+
+
+def test_prepare_permits_campaign_bound_extraction_run_with_matching_candidate(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    response = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["campaignId"] == CAMPAIGN_ID
+
+
+def test_prepare_rejects_campaign_bound_run_with_missing_candidate_campaign(
+    world_client,
+) -> None:
+    """A campaign-bound run still requires the candidate to carry the run's campaign."""
     from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
 
     client, _world, repo, *_rest = world_client
     run_id, _source = _write_reviewable_extraction_run(
         repo, candidate_campaign_id=None
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_rejects_campaign_bound_run_with_different_candidate_campaign(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, candidate_campaign_id="other-campaign"
     )
     response = client.post(PREPARE_URL, json=_prepare_body(run_id))
     assert response.status_code == 422

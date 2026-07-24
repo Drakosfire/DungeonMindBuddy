@@ -85,3 +85,19 @@ export function assertExactRunHandoff(handoff: GraphReviewExactRunHandoff): stri
   }
   return errors;
 }
+
+/** Remove exact-run identity params from the URL when leaving exact-run mode. */
+export function clearExactRunHandoffFromLocation(
+  search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
+): string {
+  const params = new URLSearchParams(search ?? "");
+  for (const name of IDENTITY_PARAMS) {
+    params.delete(name);
+  }
+  const next = params.toString();
+  if (typeof window !== "undefined") {
+    const path = `${window.location.pathname}${next ? `?${next}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", path);
+  }
+  return next ? `?${next}` : "";
+}

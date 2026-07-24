@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertExactRunHandoff,
+  clearExactRunHandoffFromLocation,
   parseGraphReviewRunHandoff,
 } from "./graphReviewRunSelection";
 
@@ -39,6 +40,17 @@ describe("graphReviewRunSelection", () => {
       "extractionRunId must appear at most once",
     );
     expect(handoff!.extractionRunId).toBe("");
+  });
+
+  it("clears exact-run identity params from the location", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?extractionRunId=run-1&sourceArtifactId=a1&documentId=d1&revision=2&tool=diagnostics",
+    );
+    const next = clearExactRunHandoffFromLocation();
+    expect(next).toBe("?tool=diagnostics");
+    expect(window.location.search).toBe("?tool=diagnostics");
   });
 
   it("rejects an empty identity parameter rather than treating it as absent", () => {

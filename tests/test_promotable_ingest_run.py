@@ -367,8 +367,9 @@ def _write_reviewable_extraction_run(
     repo: Path,
     *,
     status: str = "reviewable",
+    campaign_id: str | None = CAMPAIGN_ID,
     invent_session_in_candidate: bool = False,
-    candidate_campaign_id: str | None = CAMPAIGN_ID,
+    candidate_campaign_id: str | None = ...,  # type: ignore[assignment]
 ) -> tuple[str, Path]:
     """Build a canonical worldbuilding ExtractionRun through its owning services.
 
@@ -376,6 +377,11 @@ def _write_reviewable_extraction_run(
     committed bytes, the SourceArtifact, the span index, and every run status
     transition go through the same code paths production uses, so the fixture
     cannot drift away from the registry's own validators.
+
+    ``campaign_id=None`` produces a campaignless worldbuilding run/artifact
+    (worldbuilding SourceArtifacts may omit campaign). The workspace document
+    still needs a storage campaign for the file write; the artifact/run are
+    then rewritten to drop that campaign before promotion.
     """
     from apps.live_control_server.services.graph_run_registry import (
         create_extraction_run,
@@ -383,7 +389,10 @@ def _write_reviewable_extraction_run(
         update_extraction_run_status,
     )
     from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryDocument,
         create_source_artifact_from_workspace_document,
+        get_source_artifact,
+        source_artifacts_path,
         source_span_index_relpath,
     )
     from apps.live_control_server.services.workspace_document_registry import (
@@ -395,11 +404,16 @@ def _write_reviewable_extraction_run(
         ExtractionRunComponentRef,
         ExtractionRunStatus,
     )
+    from src.live_play.live_store import load_json, write_json
 
+    if candidate_campaign_id is ...:
+        candidate_campaign_id = campaign_id
+
+    storage_campaign = campaign_id or CAMPAIGN_ID
     document = create_workspace_document(
         repo,
         title="Worldbuilding lore",
-        campaign_id=CAMPAIGN_ID,
+        campaign_id=storage_campaign,
         kind="worldbuilding_source",
         source_domain="worldbuilding",
         document_class="lore",
@@ -419,10 +433,41 @@ def _write_reviewable_extraction_run(
         repo, document_id=committed.document_id, expected_revision=committed.revision
     )
 
+    if campaign_id is None:
+        # Worldbuilding SourceArtifacts may omit campaign; rewrite the registry
+        # record so the ExtractionRun binds to a truly campaignless artifact.
+        path = source_artifacts_path(repo)
+        document_payload = SourceArtifactRegistryDocument.model_validate(load_json(path))
+        rewritten = []
+        for row in document_payload.records:
+            if row.source_artifact_id == artifact.source_artifact_id:
+                rewritten.append(
+                    row.model_copy(update={"campaign_id": None, "world_id": None})
+                )
+            else:
+                rewritten.append(row)
+        write_json(
+            path,
+            SourceArtifactRegistryDocument(
+                schema_version=document_payload.schema_version,
+                records=rewritten,
+            ).model_dump(mode="json"),
+        )
+        artifact = get_source_artifact(repo, artifact.source_artifact_id)
+        assert artifact.campaign_id is None
+
     span_rel = source_span_index_relpath(artifact.source_artifact_id)
     span_path = repo / span_rel
     span_index = json.loads(span_path.read_text(encoding="utf-8"))
+    source_lines = source.read_text(encoding="utf-8").splitlines()
     span_ref_id = str(span_index["spans"][0]["source_span_id"])
+    for span in span_index["spans"]:
+        start = int(span["start_line"])
+        end = int(span["end_line"])
+        paragraph = "\n".join(source_lines[start - 1 : end])
+        if "Worldbuilding source for promote." in paragraph:
+            span_ref_id = str(span["source_span_id"])
+            break
 
     candidate_payload = _candidate_graph_payload(
         campaign_id=candidate_campaign_id or "",
@@ -440,6 +485,7 @@ def _write_reviewable_extraction_run(
         for ref in holder.get("evidence_refs") or []:
             ref["source_artifact_id"] = artifact.source_artifact_id
             ref["source_span_ref_id"] = span_ref_id
+            ref["anchor_quotes"] = ["Worldbuilding source for promote."]
 
     run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -473,7 +519,7 @@ def _write_reviewable_extraction_run(
         repo,
         source_artifact_id=artifact.source_artifact_id,
         source_domain="worldbuilding",
-        campaign_id=CAMPAIGN_ID,
+        campaign_id=campaign_id,
         session_id=None,
         profile_id="worldbuilding_plumbing_v0@0.1",
     )

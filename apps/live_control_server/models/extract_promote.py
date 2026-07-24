@@ -13,6 +13,7 @@ PREPARE_RESPONSE_SCHEMA = "dmb_extract_promote_prepare_v1"
 CONFIRM_REQUEST_SCHEMA = "dmb_extract_promote_confirm_request_v2"
 CONFIRM_RESPONSE_SCHEMA = "dmb_extract_promote_confirm_v2"
 ERROR_SCHEMA = "dmb_extract_promote_error_v1"
+EXACT_RUN_REVIEW_SCHEMA = "dmb_extract_promote_exact_run_review_v1"
 
 DiagnosticSeverity = Literal["error", "warning", "info"]
 WorldState = Literal["initialized", "uninitialized", "unreadable"]
@@ -181,3 +182,42 @@ class ExtractPromoteErrorResponse(_ExtractPromoteModel):
     status_code: int
     diagnostics: list[ExtractPromoteDiagnostic] = Field(default_factory=list)
     failure_result: dict[str, Any] | None = None
+
+
+class ExactRunReviewEvidence(_ExtractPromoteModel):
+    """One inspectable SourceArtifact/span evidence binding for an assertion."""
+
+    source_artifact_id: str
+    source_span_ref_id: str
+    paragraph_text: str
+    anchor_quotes: list[str] = Field(default_factory=list)
+    start_line: int | None = None
+    end_line: int | None = None
+
+
+class ExactRunReviewAssertion(_ExtractPromoteModel):
+    assertion_id: str
+    kind: Literal["object", "relationship"]
+    label: str
+    summary: str
+    evidence: list[ExactRunReviewEvidence] = Field(default_factory=list)
+
+
+class ExactRunReviewPackage(_ExtractPromoteModel):
+    """Server-owned exact-run review projection — source prose + assertion evidence.
+
+    Not a sealed prepare proposal. Operators inspect this before preparing.
+    """
+
+    schema_: Literal["dmb_extract_promote_exact_run_review_v1"] = Field(
+        default=EXACT_RUN_REVIEW_SCHEMA, alias="schema"
+    )
+    run_id: str
+    source_domain: str
+    source_artifact_id: str
+    source_revision_id: str
+    campaign_id: str | None = None
+    session_id: str | None = None
+    source_prose: str
+    assertions: list[ExactRunReviewAssertion] = Field(default_factory=list)
+    diagnostics: list[str] = Field(default_factory=list)

@@ -19,9 +19,10 @@ import type {
 } from "../../api/types";
 import {
   ExtractPromoteApiError,
+  getExactRunReviewPackage,
   prepareExtractPromote,
 } from "../../api/extractPromoteApi";
-import type { ExtractPromotePrepareResponse } from "../../api/types";
+import type { ExactRunReviewPackage, ExtractPromotePrepareResponse } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
@@ -35,6 +36,7 @@ import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
+import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import {
   type GraphReviewAppliedSelection,
@@ -56,9 +58,13 @@ import {
 import { manualVariantToLaneView } from "./graphReviewVariantReferenceUtils";
 import {
   assertExactRunHandoff,
+  clearExactRunHandoffFromLocation,
   parseGraphReviewRunHandoff,
 } from "./graphReviewRunSelection";
-import type { GraphReviewExactRunLineage } from "./graphReviewRunSelection";
+import type {
+  GraphReviewExactRunHandoff,
+  GraphReviewExactRunLineage,
+} from "./graphReviewRunSelection";
 
 interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
@@ -135,9 +141,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
   const toolboxConfig = useMemo(() => createIngestSurfaceConfig(context), [context]);
-  const exactHandoff = useMemo(
-    () => parseGraphReviewRunHandoff(typeof window !== "undefined" ? window.location.search : ""),
-    [],
+  const [exactHandoff, setExactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
+    parseGraphReviewRunHandoff(
+      typeof window !== "undefined" ? window.location.search : "",
+    ),
   );
   const exactHandoffErrors = useMemo(
     () => (exactHandoff ? assertExactRunHandoff(exactHandoff) : []),
@@ -177,6 +184,11 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [exactPreparing, setExactPreparing] = useState(false);
   const [exactPrepareError, setExactPrepareError] = useState<string | null>(null);
   const [exactConfirmInFlight, setExactConfirmInFlight] = useState(false);
+  const [exactReview, setExactReview] = useState<ExactRunReviewPackage | null>(null);
+  const [exactReviewStatus, setExactReviewStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
+  const [exactReviewError, setExactReviewError] = useState<string | null>(null);
   const appliedCampaignSessions = useMemo(
     () =>
       appliedSelection
@@ -351,6 +363,9 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       setExactLineage(null);
       setExactRunStatus("error");
       setExactRunError(message);
+      setExactReview(null);
+      setExactReviewStatus("idle");
+      setExactReviewError(null);
     };
     void (async () => {
       let run: ExtractionRunRecord;
@@ -414,6 +429,24 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       setExactRun(run);
       setExactLineage(lineage);
       setExactRunStatus("ready");
+      setExactReviewStatus("loading");
+      setExactReviewError(null);
+      setExactReview(null);
+      try {
+        const packageResponse = await getExactRunReviewPackage(run.run_id);
+        if (cancelled) return;
+        setExactReview(packageResponse);
+        setExactReviewStatus("ready");
+      } catch (error) {
+        if (cancelled) return;
+        setExactReview(null);
+        setExactReviewStatus("error");
+        setExactReviewError(
+          error instanceof ExtractPromoteApiError || error instanceof Error
+            ? error.message
+            : "Failed to load exact-run source evidence.",
+        );
+      }
     })();
     return () => {
       cancelled = true;
@@ -564,6 +597,19 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       sessionId: draftSession.sessionId,
       manifestPath: draftLiveRun.manifest_path,
     };
+    // Loading a recap supersedes exact-run mode: clear handoff identity from
+    // state and the URL so the module renders the selected recap immediately.
+    clearExactRunHandoffFromLocation();
+    setExactHandoff(null);
+    setExactRun(null);
+    setExactLineage(null);
+    setExactRunStatus("idle");
+    setExactRunError(null);
+    setExactReview(null);
+    setExactReviewStatus("idle");
+    setExactReviewError(null);
+    setExactPrepared(null);
+    setExactPrepareError(null);
     setAppliedSelection(nextApplied);
     persistAppliedSelection(nextApplied);
     setLoadDialogOpen(false);
@@ -686,6 +732,15 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
                 Bound to exact ExtractionRun <code>{exactRun!.run_id}</code>. Prepare uses
                 runId-only server resolution; no latest-run fallback.
               </p>
+              {exactReviewStatus === "loading" ? (
+                <p className="plan-projection-empty">Loading source evidence…</p>
+              ) : null}
+              {exactReviewError ? (
+                <p className="graph-review-error" data-testid="graph-review-exact-run-review-error">
+                  {exactReviewError}
+                </p>
+              ) : null}
+              {exactReview ? <GraphReviewExactRunProjection review={exactReview} /> : null}
               {!exactRunReviewable ? (
                 <p data-testid="graph-review-exact-run-unreviewable">
                   Run status is <code>{exactRun!.status}</code> and is not reviewable for
@@ -697,7 +752,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
                     type="button"
                     className="primary"
                     data-testid="graph-review-exact-run-prepare"
-                    disabled={exactPreparing || exactConfirmInFlight}
+                    disabled={exactPreparing || exactConfirmInFlight || exactReviewStatus !== "ready"}
                     onClick={() => {
                       void onPrepareExactRun();
                     }}

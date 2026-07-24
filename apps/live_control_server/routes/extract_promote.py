@@ -15,11 +15,13 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromoteDiagnostic,
     ExtractPromotePrepareRequest,
     ExtractPromotePrepareResponse,
+    ExactRunReviewPackage,
     ExtractPromoteStatusResponse,
 )
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     confirm,
+    get_exact_run_review_package,
     get_status,
     prepare,
 )
@@ -101,6 +103,28 @@ def get_extract_promote_status(request: Request) -> dict[str, Any] | JSONRespons
         return _error_response(
             ExtractPromoteError(
                 "The extract-promote status operation failed unexpectedly.",
+                code="extract_promote_internal_error",
+                status_code=500,
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.get("/runs/{run_id}/review-package", response_model=ExactRunReviewPackage)
+def get_extract_promote_exact_run_review(
+    request: Request,
+    run_id: str,
+) -> dict[str, Any] | JSONResponse:
+    """Server-owned exact-run source/evidence projection (no sealed proposal)."""
+    try:
+        _reject_selector_query(request)
+        response = get_exact_run_review_package(run_id)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(
+            ExtractPromoteError(
+                "The exact-run review package operation failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
             )

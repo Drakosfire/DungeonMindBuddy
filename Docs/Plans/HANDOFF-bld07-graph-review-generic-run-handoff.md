@@ -163,6 +163,18 @@ Decision rule: only when the current Graph Review owning component differs from 
 Required report: actual owner and why the additional path proves the same invariant
 ```
 
+Discovery used on this branch:
+
+1. `GraphReviewExactRunProjection.tsx` — exact-run source/evidence projection
+   (canonical prose + assertion↔span navigation). Named allowlist only had the
+   module shell; this is the owning projection surface for the evidence invariant.
+2. `GraphReviewWorkbenchHeader.tsx` — actual header owner (allowlist named
+   `GraphReviewWorkbenchHeaderWithActivity.tsx`, which does not exist).
+
+Also: prepare/confirm/review-package client lives in
+`apps/live-control-ui/src/api/extractPromoteApi.ts` (existing extract-promote
+product client), not `liveApi.ts`.
+
 ## §5 Explicitly out of scope
 
 | Path/capability | Why |

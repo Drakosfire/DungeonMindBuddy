@@ -3068,6 +3068,36 @@ export interface ExtractPromoteStatusResponse {
   diagnostics: string[];
 }
 
+export interface ExactRunReviewEvidence {
+  sourceArtifactId: string;
+  sourceSpanRefId: string;
+  paragraphText: string;
+  anchorQuotes: string[];
+  startLine?: number | null;
+  endLine?: number | null;
+}
+
+export interface ExactRunReviewAssertion {
+  assertionId: string;
+  kind: "object" | "relationship";
+  label: string;
+  summary: string;
+  evidence: ExactRunReviewEvidence[];
+}
+
+export interface ExactRunReviewPackage {
+  schema: "dmb_extract_promote_exact_run_review_v1";
+  runId: string;
+  sourceDomain: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  campaignId?: string | null;
+  sessionId?: string | null;
+  sourceProse: string;
+  assertions: ExactRunReviewAssertion[];
+  diagnostics: string[];
+}
+
 export interface ExtractPromotePrepareRequest {
   schema: "dmb_extract_promote_prepare_request_v2";
   runId: string;

@@ -3,6 +3,7 @@
  */
 
 import type {
+  ExactRunReviewPackage,
   ExtractPromoteConfirmReceipt,
   ExtractPromoteConfirmRequest,
   ExtractPromoteErrorBody,
@@ -74,6 +75,12 @@ async function extractPromoteFetch<T>(path: string, init?: RequestInit): Promise
 
 export async function getExtractPromoteStatus(): Promise<ExtractPromoteStatusResponse> {
   return extractPromoteFetch<ExtractPromoteStatusResponse>("/api/live/extract-promote/status");
+}
+
+export async function getExactRunReviewPackage(runId: string): Promise<ExactRunReviewPackage> {
+  return extractPromoteFetch<ExactRunReviewPackage>(
+    `/api/live/extract-promote/runs/${encodeURIComponent(runId)}/review-package`,
+  );
 }
 
 export async function prepareExtractPromote(
