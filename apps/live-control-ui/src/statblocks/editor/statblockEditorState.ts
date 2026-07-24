@@ -13,6 +13,11 @@ export type ValidationUiStatus =
   | "validated_with_errors"
   | "validation_unavailable";
 
+/** Receipt-bearing outcomes only — pending/unavailable never get an associated revision. */
+export type ValidationReceiptStatus = "validated_with_warnings" | "validated_with_errors";
+
+export type ValidationAttempt = "none" | "validating" | "unavailable";
+
 export type StatblockEditorState = {
   sourceOutput: StatblockDefinitionV1_Output;
   baselineFingerprint: string;
@@ -20,8 +25,14 @@ export type StatblockEditorState = {
   stateRevision: number;
   undoStack: StatblockDefinitionV1_Input[];
   redoStack: StatblockDefinitionV1_Input[];
-  /** Revision at which validation was last associated; session-only receipt. */
+  /**
+   * Revision bound to an authoritative validation receipt.
+   * Set only for validated_with_warnings | validated_with_errors.
+   * Never set for validating or validation_unavailable.
+   */
   validatedRevision: number | null;
+  /** In-flight or failed-transport attempt without a receipt association. */
+  validationAttempt: ValidationAttempt;
   validationUiStatus: ValidationUiStatus;
 };
 
@@ -50,20 +61,20 @@ function isDirty(state: StatblockEditorState): boolean {
   return getLocalFingerprint(state) !== state.baselineFingerprint;
 }
 
-const PRESERVED_VALIDATION_UI: ValidationUiStatus[] = [
-  "validating",
-  "validated_with_warnings",
-  "validated_with_errors",
-  "validation_unavailable",
-];
-
 function deriveUiStatus(state: StatblockEditorState): ValidationUiStatus {
   if (
     state.validatedRevision !== null &&
     state.stateRevision === state.validatedRevision &&
-    PRESERVED_VALIDATION_UI.includes(state.validationUiStatus)
+    (state.validationUiStatus === "validated_with_warnings" ||
+      state.validationUiStatus === "validated_with_errors")
   ) {
     return state.validationUiStatus;
+  }
+  if (state.validationAttempt === "validating") {
+    return "validating";
+  }
+  if (state.validationAttempt === "unavailable") {
+    return "validation_unavailable";
   }
   return isDirty(state) ? "dirty_unvalidated" : "clean_unvalidated";
 }
@@ -80,6 +91,16 @@ function pushUndo(state: StatblockEditorState, snapshot: StatblockDefinitionV1_I
   };
 }
 
+function clearAttemptAndAssociation(
+  state: StatblockEditorState,
+): Pick<StatblockEditorState, "validatedRevision" | "validationAttempt" | "validationUiStatus"> {
+  return {
+    validatedRevision: null,
+    validationAttempt: "none",
+    validationUiStatus: "dirty_unvalidated",
+  };
+}
+
 function applyWorkingCopy(
   state: StatblockEditorState,
   nextWorkingCopy: StatblockDefinitionV1_Input,
@@ -90,8 +111,7 @@ function applyWorkingCopy(
     ...withUndo,
     workingCopy: cloneWorkingCopy(nextWorkingCopy),
     stateRevision: state.stateRevision + 1,
-    validatedRevision: null,
-    validationUiStatus: "dirty_unvalidated",
+    ...clearAttemptAndAssociation(state),
   };
   next.validationUiStatus = deriveUiStatus(next);
   return next;
@@ -101,21 +121,47 @@ export function clearValidationAssociation(state: StatblockEditorState): Statblo
   const next: StatblockEditorState = {
     ...state,
     validatedRevision: null,
-    validationUiStatus: deriveUiStatus({ ...state, validatedRevision: null }),
+    validationAttempt: "none",
   };
+  next.validationUiStatus = deriveUiStatus(next);
   return next;
 }
 
 /** @deprecated Use clearValidationAssociation */
 export const clearValidationEligibility = clearValidationAssociation;
 
+/** Pending validate call — no receipt, no associated revision. */
+export function beginValidationAttempt(state: StatblockEditorState): StatblockEditorState {
+  return {
+    ...state,
+    validatedRevision: null,
+    validationAttempt: "validating",
+    validationUiStatus: "validating",
+  };
+}
+
+/** Transport/dependency failure — retain working copy, no receipt association. */
+export function markValidationUnavailable(state: StatblockEditorState): StatblockEditorState {
+  return {
+    ...state,
+    validatedRevision: null,
+    validationAttempt: "unavailable",
+    validationUiStatus: "validation_unavailable",
+  };
+}
+
+/**
+ * Associate an authoritative Server receipt with the current working-copy revision.
+ * Only warning/error receipt outcomes are accepted — never validating or unavailable.
+ */
 export function markValidationAssociated(
   state: StatblockEditorState,
-  uiStatus: Exclude<ValidationUiStatus, "clean_unvalidated" | "dirty_unvalidated">,
+  uiStatus: ValidationReceiptStatus,
 ): StatblockEditorState {
   return {
     ...state,
     validatedRevision: state.stateRevision,
+    validationAttempt: "none",
     validationUiStatus: uiStatus,
   };
 }
@@ -131,6 +177,7 @@ export function createEditorStateFromOutput(output: StatblockDefinitionV1_Output
     undoStack: [],
     redoStack: [],
     validatedRevision: null,
+    validationAttempt: "none",
     validationUiStatus: "clean_unvalidated",
   };
 }
@@ -173,7 +220,7 @@ function primaryArmorClassIndex(defenses: StatblockDefinitionV1_Input["defenses"
   return primaryArmorClassIndexForDisplay(defenses);
 }
 
-/** Mutates `defenses.armor_classes[primaryArmorClassIndex(defenses)]` (default entry, else index 0). */
+/** Mutates `defenses.armor_classes[primaryArmorClassIndex(defenses)].value` only. */
 export function setPrimaryArmorClassValue(state: StatblockEditorState, value: number): StatblockEditorState {
   return updateWorkingCopy(state, (current) => {
     const index = primaryArmorClassIndex(current.defenses);
@@ -263,8 +310,7 @@ export function undo(state: StatblockEditorState): StatblockEditorState {
     undoStack,
     redoStack: [...state.redoStack, cloneWorkingCopy(state.workingCopy)],
     stateRevision: state.stateRevision + 1,
-    validatedRevision: null,
-    validationUiStatus: "dirty_unvalidated",
+    ...clearAttemptAndAssociation(state),
   };
   next.validationUiStatus = deriveUiStatus(next);
   return next;
@@ -282,8 +328,7 @@ export function redo(state: StatblockEditorState): StatblockEditorState {
     redoStack,
     undoStack: [...state.undoStack, cloneWorkingCopy(state.workingCopy)],
     stateRevision: state.stateRevision + 1,
-    validatedRevision: null,
-    validationUiStatus: "dirty_unvalidated",
+    ...clearAttemptAndAssociation(state),
   };
   next.validationUiStatus = deriveUiStatus(next);
   return next;
@@ -291,4 +336,12 @@ export function redo(state: StatblockEditorState): StatblockEditorState {
 
 export function getUiStatus(state: StatblockEditorState): ValidationUiStatus {
   return deriveUiStatus(state);
+}
+
+/** Protected identity fields excluding the dedicated `name` control. */
+export function identityProtectedRemainder(
+  identity: StatblockDefinitionV1_Input["identity"],
+): Omit<StatblockDefinitionV1_Input["identity"], "name"> {
+  const { name: _name, ...remainder } = identity;
+  return remainder;
 }

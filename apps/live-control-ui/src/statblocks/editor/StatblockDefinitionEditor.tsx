@@ -4,6 +4,7 @@ import { ProtectedStructureBlock } from "./ProtectedStructureBlock";
 import {
   createEditorStateFromOutput,
   getUiStatus,
+  identityProtectedRemainder,
   primaryArmorClassIndexForDisplay,
   resolveHitPointsEditTarget,
   setAbility,
@@ -48,6 +49,35 @@ function readHitPointsEditorValue(vitality: StatblockEditorState["workingCopy"][
   return hitPoints.formula?.modifier ?? 0;
 }
 
+/** Full defenses JSON for disclosure; primary AC value is also editable above. */
+function defensesDisclosureValue(defenses: StatblockEditorState["workingCopy"]["defenses"]) {
+  return defenses;
+}
+
+/** Full vitality JSON for disclosure; one HP scalar is also editable above. */
+function vitalityDisclosureValue(vitality: StatblockEditorState["workingCopy"]["vitality"]) {
+  return vitality;
+}
+
+function ruleElementProtectedStructure(
+  element: StatblockEditorState["workingCopy"]["rule_elements"][number],
+  order: number,
+): Record<string, unknown> {
+  const structure: Record<string, unknown> = {
+    key: element.key,
+    section: element.section,
+    order,
+    automation_support: element.automation_support,
+  };
+  if (element.summary !== undefined) {
+    structure.summary = element.summary;
+  }
+  if (element.tags !== undefined) {
+    structure.tags = element.tags;
+  }
+  return structure;
+}
+
 export function StatblockDefinitionEditor({
   output,
   editorState: controlledState,
@@ -70,8 +100,9 @@ export function StatblockDefinitionEditor({
   const acIndex = primaryArmorClassIndexForDisplay(workingCopy.defenses);
   const primaryAcEntry = workingCopy.defenses.armor_classes[acIndex];
   const primaryAcLabel = primaryAcEntry?.default
-    ? "Primary AC (default armor_classes entry)"
-    : "Primary AC (armor_classes[0]; no default flagged)";
+    ? "Primary AC value (default armor_classes entry)"
+    : "Primary AC value (armor_classes[0]; no default flagged)";
+  const hpTarget = resolveHitPointsEditTarget(workingCopy.vitality.hit_points);
 
   return (
     <div className="statblock-definition-editor" data-testid="statblock-definition-editor">
@@ -92,7 +123,12 @@ export function StatblockDefinitionEditor({
             onChange={(event) => commit(setIdentityName(state, event.target.value))}
           />
         </label>
-        <ProtectedStructureBlock path="identity" title="Identity structure" value={workingCopy.identity} />
+        <ProtectedStructureBlock
+          path="identity.protected"
+          title="Identity (protected fields)"
+          value={identityProtectedRemainder(workingCopy.identity)}
+          editableFieldsAbove="name"
+        />
       </section>
 
       <section className="statblock-definition-editor__section" aria-label="Abilities">
@@ -123,13 +159,18 @@ export function StatblockDefinitionEditor({
             onChange={(event) => commit(setPrimaryArmorClassValue(state, Number(event.target.value)))}
           />
         </label>
-        <ProtectedStructureBlock path="defenses" title="Defenses" value={workingCopy.defenses} />
+        <ProtectedStructureBlock
+          path="defenses"
+          title="Defenses (full structure)"
+          value={defensesDisclosureValue(workingCopy.defenses)}
+          editableFieldsAbove="primary AC value"
+        />
       </section>
 
       <section className="statblock-definition-editor__section" aria-label="Vitality">
         <h3>Hit points</h3>
         <label>
-          Hit points (mutates vitality.hit_points.{resolveHitPointsEditTarget(workingCopy.vitality.hit_points)})
+          Hit points (mutates vitality.hit_points.{hpTarget})
           <input
             type="number"
             aria-label="Hit points"
@@ -137,7 +178,12 @@ export function StatblockDefinitionEditor({
             onChange={(event) => commit(setHitPointsMax(state, Number(event.target.value)))}
           />
         </label>
-        <ProtectedStructureBlock path="vitality" title="Vitality" value={workingCopy.vitality} />
+        <ProtectedStructureBlock
+          path="vitality"
+          title="Vitality (full structure)"
+          value={vitalityDisclosureValue(workingCopy.vitality)}
+          editableFieldsAbove={`hit_points.${hpTarget}`}
+        />
       </section>
 
       <ProtectedStructureBlock path="ruleset" title="Ruleset" value={workingCopy.ruleset} />
@@ -147,19 +193,19 @@ export function StatblockDefinitionEditor({
       <ProtectedStructureBlock path="communication" title="Communication" value={workingCopy.communication} />
       <ProtectedStructureBlock path="challenge" title="Challenge" value={workingCopy.challenge} />
 
-      {workingCopy.resources && workingCopy.resources.length > 0 ? (
+      {workingCopy.resources !== undefined ? (
         <ProtectedStructureBlock path="resources" title="Resources" value={workingCopy.resources} />
       ) : null}
 
-      {workingCopy.phases && workingCopy.phases.length > 0 ? (
+      {workingCopy.phases !== undefined ? (
         <ProtectedStructureBlock path="phases" title="Phases" value={workingCopy.phases} />
       ) : null}
 
-      {workingCopy.lair !== undefined && workingCopy.lair !== null ? (
+      {workingCopy.lair !== undefined ? (
         <ProtectedStructureBlock path="lair" title="Lair profile" value={workingCopy.lair} />
       ) : null}
 
-      {workingCopy.flavor_text ? (
+      {workingCopy.flavor_text !== undefined ? (
         <ProtectedStructureBlock path="flavor_text" title="Flavor text" value={workingCopy.flavor_text} />
       ) : null}
 
@@ -185,14 +231,15 @@ export function StatblockDefinitionEditor({
             </label>
             <ProtectedStructureBlock
               path={`rule_elements[${index}].structure`}
-              title="Element structure (key, section, order, tags, automation_support)"
-              value={{
-                key: element.key,
-                section: element.section,
-                order: index,
-                automation_support: element.automation_support,
-                tags: element.tags ?? [],
-              }}
+              title="Element structure (key, section, order, summary, tags, automation_support)"
+              value={ruleElementProtectedStructure(element, index)}
+              editableFieldsAbove="name and rules_text"
+            />
+            <ProtectedStructureBlock
+              path={`rule_elements[${index}].summary`}
+              title="Element summary"
+              value={"summary" in element ? element.summary : "(property omitted)"}
+              editableFieldsAbove="name and rules_text"
             />
             <ProtectedStructureBlock
               path={`rule_elements[${index}].activation`}
@@ -207,11 +254,11 @@ export function StatblockDefinitionEditor({
             <ProtectedStructureBlock
               path={`rule_elements[${index}].costs`}
               title="Costs"
-              value={element.costs ?? []}
+              value={"costs" in element ? element.costs : "(property omitted)"}
             />
             <ProtectedStructureBlock
               path={`rule_elements[${index}].mechanic`}
-              title="Mechanic (protected)"
+              title="Mechanic"
               value={element.mechanic}
             />
           </article>

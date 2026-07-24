@@ -18,6 +18,32 @@ function ControlledEditor({ output }: { output: ReturnType<typeof baseCandidateD
 }
 
 describe("StatblockDefinitionEditor", () => {
+  it("discloses rule element summary and uses honest remainder badges", () => {
+    render(<ControlledEditor output={baseCandidateDefinition()} />);
+
+    const summaryBlock = document.querySelector('[data-protected-path="rule_elements[0].summary"]');
+    expect(summaryBlock).toBeTruthy();
+    expect(summaryBlock!.querySelector("pre")?.textContent).toContain("null");
+
+    const structureBlock = document.querySelector('[data-protected-path="rule_elements[0].structure"]');
+    expect(structureBlock!.querySelector("pre")?.textContent).toContain('"summary"');
+    expect(structureBlock!.getAttribute("data-protected-mode")).toBe("remainder");
+    expect(structureBlock!.textContent).toMatch(/name and rules_text editable above/i);
+
+    const identityProtected = document.querySelector('[data-protected-path="identity.protected"]');
+    expect(identityProtected!.getAttribute("data-protected-mode")).toBe("remainder");
+    expect(identityProtected!.textContent).toMatch(/name editable above/i);
+    expect(identityProtected!.textContent).not.toMatch(/not editable via dedicated controls/i);
+
+    const defenses = document.querySelector('[data-protected-path="defenses"]');
+    expect(defenses!.getAttribute("data-protected-mode")).toBe("remainder");
+    expect(defenses!.textContent).toMatch(/primary AC value editable above/i);
+
+    const fullyProtected = document.querySelector('[data-protected-path="movement"]');
+    expect(fullyProtected!.getAttribute("data-protected-mode")).toBe("fully_protected");
+    expect(fullyProtected!.textContent).toMatch(/not editable via dedicated controls/i);
+  });
+
   it("renders protected regions queryable in the DOM with session disclosure", () => {
     render(<ControlledEditor output={complexCandidateDefinition()} />);
     const protectedRegions = document.querySelectorAll('[data-editor-region="protected"]');

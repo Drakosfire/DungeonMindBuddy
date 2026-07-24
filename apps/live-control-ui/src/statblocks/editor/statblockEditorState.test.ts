@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { baseCandidateDefinition } from "./editorFixtures";
 import {
+  beginValidationAttempt,
   createEditorStateFromOutput,
   getLocalFingerprint,
   getUiStatus,
   markValidationAssociated,
+  markValidationUnavailable,
   redo,
   setIdentityName,
   setRuleElementRulesText,
@@ -17,6 +19,7 @@ describe("statblockEditorState", () => {
     const state = createEditorStateFromOutput(baseCandidateDefinition());
     expect(getUiStatus(state)).toBe("clean_unvalidated");
     expect(state.validatedRevision).toBeNull();
+    expect(state.validationAttempt).toBe("none");
     expect(getLocalFingerprint(state)).toBe(state.baselineFingerprint);
     expect(state.stateRevision).toBe(0);
   });
@@ -28,6 +31,7 @@ describe("statblockEditorState", () => {
 
     const edited = setIdentityName(associated, "Edited Name");
     expect(edited.validatedRevision).toBeNull();
+    expect(edited.validationAttempt).toBe("none");
     expect(getUiStatus(edited)).toBe("dirty_unvalidated");
     expect(edited.stateRevision).toBeGreaterThan(initial.stateRevision);
   });
@@ -50,6 +54,56 @@ describe("statblockEditorState", () => {
     const editedAgain = setIdentityName(associated, "Twice");
     expect(editedAgain.validatedRevision).toBeNull();
     expect(getUiStatus(editedAgain)).toBe("dirty_unvalidated");
+  });
+
+  it("treats validating as a pending attempt with no receipt association", () => {
+    const initial = createEditorStateFromOutput(baseCandidateDefinition());
+    const edited = setIdentityName(initial, "Pending");
+    const pending = beginValidationAttempt(edited);
+    expect(pending.validatedRevision).toBeNull();
+    expect(pending.validationAttempt).toBe("validating");
+    expect(getUiStatus(pending)).toBe("validating");
+    expect(pending.workingCopy.identity.name).toBe("Pending");
+  });
+
+  it("treats validation_unavailable as no receipt association while retaining working copy", () => {
+    const initial = createEditorStateFromOutput(baseCandidateDefinition());
+    const edited = setIdentityName(initial, "Kept");
+    const unavailable = markValidationUnavailable(edited);
+    expect(unavailable.validatedRevision).toBeNull();
+    expect(unavailable.validationAttempt).toBe("unavailable");
+    expect(getUiStatus(unavailable)).toBe("validation_unavailable");
+    expect(unavailable.workingCopy.identity.name).toBe("Kept");
+  });
+
+  it("clears pending validating attempt on edit, undo, and redo", () => {
+    const initial = createEditorStateFromOutput(baseCandidateDefinition());
+    const edited = setIdentityName(initial, "A");
+    const pending = beginValidationAttempt(edited);
+    expect(getUiStatus(pending)).toBe("validating");
+
+    const editedAgain = setIdentityName(pending, "B");
+    expect(editedAgain.validationAttempt).toBe("none");
+    expect(editedAgain.validatedRevision).toBeNull();
+    expect(getUiStatus(editedAgain)).toBe("dirty_unvalidated");
+
+    const pending2 = beginValidationAttempt(editedAgain);
+    const undone = undo(pending2);
+    expect(undone.validationAttempt).toBe("none");
+    expect(undone.validatedRevision).toBeNull();
+
+    const pending3 = beginValidationAttempt(undone);
+    const redone = redo(pending3);
+    expect(redone.validationAttempt).toBe("none");
+    expect(redone.validatedRevision).toBeNull();
+  });
+
+  it("clears unavailable attempt on edit", () => {
+    const initial = createEditorStateFromOutput(baseCandidateDefinition());
+    const unavailable = markValidationUnavailable(setIdentityName(initial, "X"));
+    const edited = setIdentityName(unavailable, "Y");
+    expect(edited.validationAttempt).toBe("none");
+    expect(getUiStatus(edited)).toBe("dirty_unvalidated");
   });
 
   it("supports undo and redo while clearing association", () => {

@@ -26,6 +26,7 @@ export function complexCandidateDefinition(): StatblockDefinitionV1_Output {
     ...baseElement,
     key: "innate_spellcasting",
     name: "Innate Spellcasting",
+    summary: "Innate casting",
     section: "trait",
     rules_text: "The brute's innate spellcasting ability is Charisma.",
     activation: { kind: "special", timing_text: null, trigger: null },
