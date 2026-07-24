@@ -15,29 +15,32 @@ external_pull_requests:
     plan_phase_also_touches: "BLD-05"
     plan_phase_label: >-
       BLD-05a workspace-document authoring seam plus thin Build consumer.
-      Round-1 review requested changes: complete shared lifecycle (atomic
-      snapshot lock, commit receipt, surface authority, one reducer) rather
-      than surface-specific patches.
-    review_status: open_under_review
+    review_status: merged
     review_status_meaning: >-
-      Open under review. Round 1 disposition was REQUEST_CHANGES (posted as
-      COMMENT banner due to GitHub self-review 422) on 2026-07-23T22:11:07Z
-      (review_id 4768588721). Round 2 work continues on the same branch to
-      close the three owning contracts before merge.
+      Merged at ea7ad826 with incomplete evidence. Five adversarial sequences
+      remained open; post-merge hardening became the active gate. No waiver
+      was recorded at merge.
     judgment_record:
+      verdict: merged_with_incomplete_evidence
+      evaluated_at: "2026-07-23"
+      evaluator: cursor-agent
+      merge_sha: ea7ad826a2ca4f9d275ce245a3884d4af72278a8
+      waiver: none
+      notes: >-
+        Historical merge preserved useful foundations (atomic snapshot lock,
+        authoritative commit receipt, discard clears storage, shared hook
+        consumers, URL popstate, Draft labeling, nullable worldbuilding
+        session). Incomplete at merge: verification N+1 adoption, first-edit
+        persistence, rejected Build agent-context isolation, Plan one-shot
+        handback, runbook reset durability. Active gate moved to
+        HANDOFF-bld05a-post-merge-authoring-hardening.md.
+    prior_round1_judgment:
       verdict: request_changes
       evaluated_at: "2026-07-23T22:11:07Z"
-      evaluator: cursor-agent
+      review_id: 4768588721
       notes: >-
-        PR #399 correctly introduced WorkspaceDocumentSnapshot shape, local-state
-        v3, nullable session scope, explicit Build creation form, and thin Build
-        composition. Round 1 rejected merge because snapshot reads lacked the
-        document mutation lock, discardLocalDraft did not clear storage, post-commit
-        dirty clear depended on a second snapshot GET, Build could open Plan/runbook
-        UUIDs, URL selection ignored popstate, and Plan/runbook still owned separate
-        save lifecycles. Rubric for round 2: one coherent revision across snapshot,
-        commit receipt, local base, editor, URL, surface authority, CAS, labels,
-        and agent context — from one shared authoring lifecycle.
+        Round 1 REQUEST_CHANGES before the eventual merge: complete shared
+        lifecycle rather than surface-specific patches.
     rubric_when_we_judge:
       - "Snapshot under workspace_document_mutation_lock returns entirely old or entirely new revision — never mixed."
       - "Commit response is an authoritative receipt (committed_record, normalized_content_sha256, file_fingerprint, committed_revision); local base advances from receipt."
@@ -47,6 +50,46 @@ external_pull_requests:
       - "Plan, Build, and runbook invoke the same lifecycle transitions; surfaces adapt presentation only."
       - "Browser back/forward changes loaded UUID and agent context together."
       - "Clean server drafts labeled Draft, not Committed; agent context distinguishes local dirty vs durable committed."
+  - id: github-pr-401
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/401
+    plan_phase_primary: "BLD-05a-harden"
+    plan_phase_label: >-
+      Post-merge BLD-05a authoring hardening: receipt verification agreement,
+      first-transaction persistence, rejected Build context isolation, Plan
+      one-shot handback, runbook reset durability.
+    review_status: ready_for_final_review
+    review_status_meaning: >-
+      Active gate after PR #399 merged_with_incomplete_evidence. Final review
+      candidate after save/verification ordered-race and malformed-receipt
+      quarantine fixes; accept only when HANDOFF evidence ledger is green on
+      the PR-described head.
+    functional_evidence_sha: fc9f47890dbdacfe604deaee7ce500e2e2e79cfb
+    judgment_record:
+      verdict: pending
+      evaluated_at: null
+      evaluator: null
+      base_sha: ea7ad826a2ca4f9d275ce245a3884d4af72278a8
+      notes: >-
+        Final functional fix closes (1) older verification dispatch after a
+        newer save begins, (2) missing-fingerprint receipts exposing an
+        N−1 accepted record beside an N local base, (3) edits during
+        prepare/commit discarded by captured receipt content, and (4)
+        in-flight prepare/commit applying after document open/switch. Operator-granted waiver:
+        npm run build / tsc -b fails identically on base ea7ad826 and final
+        head with pre-existing planSurface/graphReviewWorkbench/IngestionModule
+        errors outside §4; npx tsc --noEmit is green. App.test.tsx spike
+        fixture repaired and passing. Manual §7 dogfood scenarios 1–4:
+        operator-granted waiver (headless); owning-boundary automated proofs
+        cover the same adversarial sequences. Final reviewed head SHA lives
+        only in the PR description / reviewer judgment (not in this file).
+    rubric_when_we_judge:
+      - "Verification exact-match compares document ID, committed revision, content hash, and fingerprint against the receipt."
+      - "Verification at N+1 cannot advance expected revision while editor retains N content."
+      - "A real edit during verification remains persisted and dirty after verification resolves."
+      - "First real editor transaction persists on Plan, Build, and runbook."
+      - "Build rejects Plan/runbook UUIDs before accepted local state, editor, save, scope, or context; valid→rejected clears stale context."
+      - "Plan invokes parent commit callback exactly once per unique receipt."
+      - "Runbook reset replaces editor with starter, dirty iff different, and survives refresh."
 ---
 
 # Build Surface and Worldbuilding Ingest PR Slices
@@ -120,7 +163,8 @@ BLD-06 waits for BLD-04 and BLD-05. PR #390 (parallel Build shell) is superseded
 | BLD-02 | [`HANDOFF-bld02-source-document-persistence.md`](HANDOFF-bld02-source-document-persistence.md) | BLD-01 |
 | BLD-03 | [`HANDOFF-bld03-source-artifact-run-contracts.md`](HANDOFF-bld03-source-artifact-run-contracts.md) | BLD-02 |
 | BLD-04 | [`HANDOFF-bld04-generic-extraction-runtime.md`](HANDOFF-bld04-generic-extraction-runtime.md) | BLD-03 |
-| BLD-05a | [`HANDOFF-bld05a-workspace-document-authoring-seam.md`](HANDOFF-bld05a-workspace-document-authoring-seam.md) | BLD-01 + BLD-02 + BLD-03 |
+| BLD-05a | [`HANDOFF-bld05a-workspace-document-authoring-seam.md`](HANDOFF-bld05a-workspace-document-authoring-seam.md) (historical merge) | BLD-01 + BLD-02 + BLD-03 |
+| BLD-05a-harden | [`HANDOFF-bld05a-post-merge-authoring-hardening.md`](HANDOFF-bld05a-post-merge-authoring-hardening.md) (**active gate**) | PR #399 merge `ea7ad826` |
 | BLD-05 | [`HANDOFF-bld05-build-surface-shell.md`](HANDOFF-bld05-build-surface-shell.md) | BLD-05a (rebuild; PR #390 superseded) |
 | BLD-06 | [`HANDOFF-bld06-build-extraction-toolbar.md`](HANDOFF-bld06-build-extraction-toolbar.md) | BLD-04 + BLD-05 |
 | BLD-07 | [`HANDOFF-bld07-graph-review-generic-run-handoff.md`](HANDOFF-bld07-graph-review-generic-run-handoff.md) | BLD-06 + current extract-promote bridge |
@@ -392,9 +436,24 @@ Plan/runbook/Build share one coherent revision contract.
 
 **Depends on:** BLD-01 + BLD-02 + BLD-03.
 
-**Handoff:** [`HANDOFF-bld05a-workspace-document-authoring-seam.md`](HANDOFF-bld05a-workspace-document-authoring-seam.md)
+**Handoff (historical):** [`HANDOFF-bld05a-workspace-document-authoring-seam.md`](HANDOFF-bld05a-workspace-document-authoring-seam.md)
 
-**Note:** PR #390 is draft/superseded; do not merge the parallel Build shell.
+**Status:** PR #399 merged at `ea7ad826` with incomplete evidence. Active gate
+is BLD-05a-harden below. PR #390 remains draft/superseded.
+
+## BLD-05a-harden — Post-merge authoring lifecycle hardening
+
+**Capability:** close the five unresolved adversarial sequences on the merged
+seam (verification agreement, first-transaction persistence, rejected Build
+context isolation, Plan one-shot handback, runbook reset durability) without
+adding extraction or polish.
+
+**Depends on:** PR #399 merge `ea7ad826a2ca4f9d275ce245a3884d4af72278a8`.
+
+**Handoff (active):** [`HANDOFF-bld05a-post-merge-authoring-hardening.md`](HANDOFF-bld05a-post-merge-authoring-hardening.md)
+
+**Next gate after merge:** Phase 4B bounded authoring polish and dogfood, from
+this hardening merge SHA — not from PR #399 alone.
 
 ## BLD-05 — Add Build as a thin configured Surface consumer
 

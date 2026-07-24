@@ -91,10 +91,22 @@ export function PlanSurfaceCanvas({
     && authoring.phase !== "conflict"
     && authoring.phase !== "load_error";
 
+  const deliveredHandbackKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    deliveredHandbackKeysRef.current.clear();
+  }, [planningDocument.documentId]);
+
   useEffect(() => {
     const receipt = authoring.lastCommitReceipt;
     const record = authoring.record;
     if (!receipt || !record) return;
+    const loadedRevision = authoring.snapshot?.loaded_revision ?? record.revision;
+    if (receipt.document_id !== record.document_id) return;
+    if (receipt.committed_revision !== loadedRevision) return;
+    const key = `${receipt.document_id}:${receipt.committed_revision}:${receipt.normalized_content_sha256}`;
+    if (deliveredHandbackKeysRef.current.has(key)) return;
+    deliveredHandbackKeysRef.current.add(key);
     onPlanningDocumentCommitted?.({
       ...planningDocument,
       title: record.title,
@@ -102,7 +114,13 @@ export function PlanSurfaceCanvas({
       revision: record.revision,
       contentStatus: record.content_status,
     });
-  }, [authoring.lastCommitReceipt, authoring.record, onPlanningDocumentCommitted, planningDocument]);
+  }, [
+    authoring.lastCommitReceipt,
+    authoring.record,
+    authoring.snapshot?.loaded_revision,
+    onPlanningDocumentCommitted,
+    planningDocument,
+  ]);
 
   useEffect(() => {
     onSaveStatusChange?.(authoring.statusLabel);
@@ -371,6 +389,7 @@ export function PlanSurfaceCanvas({
         documentKey={authoring.documentKey}
         editable={canEdit}
         onEditorChange={handleEditorChange}
+        onUpdate={authoring.handleEditorUpdate}
         dataTestId="plan-surface-canvas-editor"
       >
         {(ed) => (

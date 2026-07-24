@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { AnyExtension, Content, Editor, JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -21,6 +21,10 @@ export function useMarkdownEditorExtensions(extra: AnyExtension[] = NO_EXTRA_EXT
   );
 }
 
+export type MarkdownEditorUpdateMeta = {
+  programmatic: boolean;
+};
+
 export type MarkdownEditorCoreProps = {
   content: Content;
   editable?: boolean;
@@ -34,7 +38,7 @@ export type MarkdownEditorCoreProps = {
    * the caller intentionally replaces the whole document (import/reset/load).
    */
   documentKey?: string | number;
-  onUpdate?: (json: JSONContent, editor: Editor) => void;
+  onUpdate?: (json: JSONContent, editor: Editor, meta: MarkdownEditorUpdateMeta) => void;
   onEditorChange?: (editor: Editor | null) => void;
   className?: string;
   dataTestId?: string;
@@ -57,6 +61,15 @@ export function MarkdownEditorCore({
     () => (extensions.length === 0 ? baseExtensions : [...baseExtensions, ...extensions]),
     [baseExtensions, extensions],
   );
+  // Only the synchronous create/hydration update (if TipTap emits one) is
+  // programmatic. Arm during render when documentKey changes (not in a later
+  // effect) so a post-paint re-arm cannot suppress the first real user edit.
+  const hydrationPendingRef = useRef(true);
+  const documentKeyRef = useRef(documentKey);
+  if (documentKeyRef.current !== documentKey) {
+    documentKeyRef.current = documentKey;
+    hydrationPendingRef.current = true;
+  }
 
   const editor = useEditor(
     {
@@ -64,11 +77,28 @@ export function MarkdownEditorCore({
       content,
       editable,
       onUpdate: ({ editor: nextEditor }) => {
-        onUpdate?.(nextEditor.getJSON(), nextEditor);
+        const programmatic = hydrationPendingRef.current;
+        if (hydrationPendingRef.current) {
+          hydrationPendingRef.current = false;
+        }
+        onUpdate?.(nextEditor.getJSON(), nextEditor, { programmatic });
       },
     },
     [documentKey],
   );
+
+  useEffect(() => {
+    if (!editor) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        hydrationPendingRef.current = false;
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editor]);
 
   useEffect(() => {
     onEditorChange?.(editor);

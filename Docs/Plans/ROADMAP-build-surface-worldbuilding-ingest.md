@@ -294,17 +294,24 @@ thin configured Surface with editor-first composition, metadata, save/reopen,
 and exact document identity. Primary navigation is added only when the
 source-authoring loop is functional.
 
+**Status:** PR #399 merged at `ea7ad826` as `merged_with_incomplete_evidence`.
+Phase 4A is **incomplete** until post-merge hardening
+([`HANDOFF-bld05a-post-merge-authoring-hardening.md`](HANDOFF-bld05a-post-merge-authoring-hardening.md))
+proves the remaining adversarial sequences.
+
 **Exit gate:** one merge-ready invariant holds across snapshot, commit receipt,
 local/editor base, URL selection, surface authority, lifecycle labels, and Agent
 Interaction context; the operator can author and reopen a worldbuilding source
-without direct filesystem access.
+without direct filesystem access. Hardening evidence must be green (or
+explicitly waived) before Phase 4B begins.
 
 ### Phase 4B — Bounded authoring polish and dogfood
 
-After Phase 4A merges, use the next PR only to polish and dogfood the shared
-authoring experience: state and conflict language, save/recovery affordances,
-document navigation, creation/classification usability, agent-context
-visibility, and visual consistency across Plan, Build, and runbook.
+After Phase 4A **hardening** merges, use the next PR only to polish and dogfood
+the shared authoring experience: state and conflict language, save/recovery
+affordances, document navigation, creation/classification usability,
+agent-context visibility, and visual consistency across Plan, Build, and
+runbook. Begin from the hardening merge SHA, not from PR #399 alone.
 
 This slice may expose architectural defects, but it does not add extraction or a
 new foundational contract by default.

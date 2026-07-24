@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
@@ -9,8 +9,12 @@ interface BuildSurfaceShellProps {
   documentId: string;
 }
 
+/** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
+export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
+
 export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
   const { rehydrateScope, publishSurfaceContext } = useAgentInteraction();
+  const lastAcceptedCampaignRef = useRef<string>("build");
   const authoring = useWorkspaceDocumentAuthoring({
     documentId,
     surface: "build",
@@ -18,7 +22,52 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
   });
 
   useEffect(() => {
-    if (!authoring.record) return;
+    if (authoring.record?.campaign_id) {
+      lastAcceptedCampaignRef.current = authoring.record.campaign_id;
+    }
+  }, [authoring.record?.campaign_id]);
+
+  useEffect(() => {
+    const publishNeutral = (ambientSummary: string) => {
+      rehydrateScope({
+        campaignId: lastAcceptedCampaignRef.current || "build",
+        sessionNumber: null,
+        surfaceId: "build",
+        documentId: null,
+      });
+      publishSurfaceContext({
+        surfaceId: "build",
+        label: BUILD_SURFACE_LABEL,
+        campaignId: null,
+        documentId: null,
+        sessionNumber: null,
+        ambientSummary,
+        sourceEnvelope: null,
+        updatedAt: new Date().toISOString(),
+      });
+    };
+
+    if (authoring.phase === "unloaded" || authoring.phase === "loading") {
+      publishNeutral("Loading worldbuilding source…");
+      return;
+    }
+
+    if (authoring.phase === "load_error") {
+      publishNeutral(BUILD_AUTHORITY_REJECTION_AMBIENT);
+      return;
+    }
+
+    // No accepted record (including conflict after quarantined snapshot) must not
+    // retain a prior UUID/path/hash in Agent Interaction.
+    if (!authoring.record) {
+      publishNeutral(
+        authoring.phase === "conflict"
+          ? "Document reconciliation required"
+          : "Build surface idle",
+      );
+      return;
+    }
+
     rehydrateScope({
       campaignId: authoring.record.campaign_id,
       sessionNumber: null,
@@ -71,6 +120,28 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     rehydrateScope,
   ]);
 
+  // Leaving Build (or remounting for a new documentId) must not leave prior accepted context.
+  useEffect(() => {
+    return () => {
+      rehydrateScope({
+        campaignId: lastAcceptedCampaignRef.current || "build",
+        sessionNumber: null,
+        surfaceId: "build",
+        documentId: null,
+      });
+      publishSurfaceContext({
+        surfaceId: "build",
+        label: BUILD_SURFACE_LABEL,
+        campaignId: null,
+        documentId: null,
+        sessionNumber: null,
+        ambientSummary: "Build surface idle",
+        sourceEnvelope: null,
+        updatedAt: new Date().toISOString(),
+      });
+    };
+  }, [publishSurfaceContext, rehydrateScope]);
+
   if (authoring.phase === "loading" || authoring.phase === "unloaded") {
     return (
       <main className="app-status" data-testid="build-surface-loading">
@@ -83,7 +154,7 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     return (
       <main className="app-status app-error" data-testid="build-surface-error">
         <h1>{BUILD_SURFACE_LABEL}</h1>
-        <p>{authoring.error ?? "Unable to load worldbuilding source."}</p>
+        <p data-testid="build-authority-error">{authoring.error ?? "Unable to load worldbuilding source."}</p>
       </main>
     );
   }
@@ -92,7 +163,7 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     return (
       <main className="app-status app-error" data-testid="build-surface-conflict">
         <h1>{BUILD_SURFACE_LABEL}</h1>
-        <p>{authoring.reconciliation?.conflictReason ?? "Local draft conflicts with server content."}</p>
+        <p>{authoring.statusLabel}</p>
         <button type="button" onClick={() => void authoring.reloadFromSnapshot()}>
           Reload from server
         </button>
@@ -122,6 +193,7 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
           documentKey={authoring.documentKey}
           content={authoring.editorContent}
           onEditorChange={authoring.setEditor}
+          onUpdate={authoring.handleEditorUpdate}
           dataTestId="build-markdown-editor"
         />
       </section>

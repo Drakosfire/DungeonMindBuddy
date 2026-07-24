@@ -157,9 +157,14 @@ function RunbookSpikeEditor({
     setEditorRevision((revision) => revision + 1);
   }, [authoring.setEditor]);
 
-  const handleEditorUpdate = useCallback(() => {
+  const handleEditorUpdate = useCallback((
+    json: Parameters<typeof authoring.handleEditorUpdate>[0],
+    editor: Parameters<typeof authoring.handleEditorUpdate>[1],
+    meta: Parameters<typeof authoring.handleEditorUpdate>[2],
+  ) => {
+    authoring.handleEditorUpdate(json, editor, meta);
     setEditorRevision((revision) => revision + 1);
-  }, []);
+  }, [authoring.handleEditorUpdate]);
 
   const insertCallout = useCallback((kind: CalloutKind) => {
     const ed = editorRef.current;
@@ -230,19 +235,29 @@ function RunbookSpikeEditor({
 
   const resetLocalDraft = useCallback(async () => {
     const snapshot = authoring.snapshot;
+    const starterMarkdown = defaultMarkdownDocumentAdapter.exportMarkdown(descriptor.starterContent);
+    const snapshotMarkdown = snapshot?.markdown ?? "";
+    const differsFromSnapshot = starterMarkdown !== snapshotMarkdown;
     const now = new Date().toISOString();
-    const resetState = buildInitialWorkspaceDocumentLocalState({
-      documentId: descriptor.documentId,
-      title: descriptor.title,
-      campaignId: descriptor.campaignId,
-      kind: "runbook",
-      targetSession: descriptor.session,
-      surface: "runbook",
-      baseRevision: snapshot?.loaded_revision ?? 1,
-      baseContentSha256: snapshot?.content_sha256 ?? "",
-      starterContent: descriptor.starterContent,
-      now,
-    });
+    const resetState = {
+      ...buildInitialWorkspaceDocumentLocalState({
+        documentId: descriptor.documentId,
+        title: descriptor.title,
+        campaignId: descriptor.campaignId,
+        kind: "runbook",
+        targetSession: descriptor.session,
+        surface: "runbook",
+        baseRevision: snapshot?.loaded_revision ?? 1,
+        baseContentSha256: snapshot?.content_sha256 ?? "",
+        starterContent: descriptor.starterContent,
+        now,
+      }),
+      tiptap_json: descriptor.starterContent,
+      exported_markdown: starterMarkdown,
+      dirty: differsFromSnapshot,
+      updated_at: now,
+      last_local_save_at: now,
+    };
     writeWorkspaceDocumentLocalState(window.localStorage, resetState);
     setStatusOverlay("reset_to_starter");
     setCopyMessage("");
