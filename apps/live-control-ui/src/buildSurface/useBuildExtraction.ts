@@ -343,8 +343,12 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
 
   const launch = useCallback(async () => {
     const selectedDocumentId = documentId;
-    // Establish the in-flight guard before the first await so a concurrent
-    // Refresh click cannot bump a shared generation and orphan the new run ID.
+    // Reject synchronous re-entry before React re-renders the disabled button.
+    if (launchingRef.current) return;
+
+    // Invalidate every pre-existing refresh before the first await so a stale
+    // refresh cannot adopt R1 after this launch adopts R2.
+    refreshGenerationRef.current += 1;
     const generation = ++launchGenerationRef.current;
     launchingRef.current = true;
     setLaunching(true);

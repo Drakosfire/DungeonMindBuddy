@@ -806,4 +806,226 @@ describe("useBuildExtraction", () => {
     expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
     expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_B);
   });
+
+  it("keeps adopted R2 when a pre-Extract refresh resumes after waiting on snapshot", async () => {
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}&extractionRunId=${RUN_A}`);
+    vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValue(
+      statusEnvelope({
+        runId: RUN_A,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+      }),
+    );
+
+    let gateSnapshots = false;
+    let releaseSnapshot: ((value: ReturnType<typeof snapshotFor>) => void) | undefined;
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(
+      () => {
+        if (!gateSnapshots) {
+          return Promise.resolve(snapshotFor(DOC_A, 2, "sha-a"));
+        }
+        return new Promise((resolve) => {
+          releaseSnapshot = resolve;
+        });
+      },
+    );
+
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    await waitFor(() => expect(result.current.canOpenGraphReview).toBe(true));
+
+    gateSnapshots = true;
+    let refreshPromise: Promise<void> | undefined;
+    act(() => {
+      refreshPromise = result.current.refresh();
+    });
+    await waitFor(() => expect(releaseSnapshot).toBeTypeOf("function"));
+
+    vi.mocked(liveApi.launchExtractionRun).mockResolvedValue(
+      launchEnvelope({
+        runId: RUN_B,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+        status: "reviewable",
+      }),
+    );
+    // Launch's own snapshot fetch must resolve immediately.
+    gateSnapshots = false;
+    await act(async () => {
+      await result.current.launch();
+    });
+
+    expect(result.current.run?.run_id).toBe(RUN_B);
+    expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_B);
+
+    await act(async () => {
+      releaseSnapshot?.(snapshotFor(DOC_A, 2, "sha-a"));
+      await refreshPromise;
+    });
+
+    expect(result.current.run?.run_id).toBe(RUN_B);
+    expect(result.current.handoff?.extraction_run_id).toBe(RUN_B);
+    expect(result.current.canOpenGraphReview).toBe(true);
+    expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_B);
+  });
+
+  it("keeps adopted R2 when a pre-Extract refresh resumes after waiting on status", async () => {
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}&extractionRunId=${RUN_A}`);
+    let gateStatus = false;
+    let releaseStatus: ((value: ReturnType<typeof statusEnvelope>) => void) | undefined;
+    vi.mocked(liveApi.getExtractionRunStatus).mockImplementation(
+      () => {
+        if (!gateStatus) {
+          return Promise.resolve(statusEnvelope({
+            runId: RUN_A,
+            artifactId: ARTIFACT_A,
+            documentId: DOC_A,
+            revision: 2,
+            sha: "sha-a",
+          }));
+        }
+        return new Promise((resolve) => {
+          releaseStatus = resolve;
+        });
+      },
+    );
+
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    await waitFor(() => expect(result.current.canOpenGraphReview).toBe(true));
+
+    gateStatus = true;
+    let refreshPromise: Promise<void> | undefined;
+    act(() => {
+      refreshPromise = result.current.refresh();
+    });
+    await waitFor(() => expect(releaseStatus).toBeTypeOf("function"));
+
+    vi.mocked(liveApi.launchExtractionRun).mockResolvedValue(
+      launchEnvelope({
+        runId: RUN_B,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+        status: "reviewable",
+      }),
+    );
+    await act(async () => {
+      await result.current.launch();
+    });
+
+    expect(result.current.run?.run_id).toBe(RUN_B);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_B);
+
+    await act(async () => {
+      releaseStatus?.(statusEnvelope({
+        runId: RUN_A,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+      }));
+      await refreshPromise;
+    });
+
+    expect(result.current.run?.run_id).toBe(RUN_B);
+    expect(result.current.handoff?.extraction_run_id).toBe(RUN_B);
+    expect(result.current.canOpenGraphReview).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_B);
+  });
+
+  it("ignores a stale refresh error after R2 is adopted", async () => {
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}&extractionRunId=${RUN_A}`);
+    let gateStatus = false;
+    let rejectStatus: ((reason?: unknown) => void) | undefined;
+    vi.mocked(liveApi.getExtractionRunStatus).mockImplementation(
+      () => {
+        if (!gateStatus) {
+          return Promise.resolve(statusEnvelope({
+            runId: RUN_A,
+            artifactId: ARTIFACT_A,
+            documentId: DOC_A,
+            revision: 2,
+            sha: "sha-a",
+          }));
+        }
+        return new Promise((_resolve, reject) => {
+          rejectStatus = reject;
+        });
+      },
+    );
+
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    await waitFor(() => expect(result.current.canOpenGraphReview).toBe(true));
+
+    gateStatus = true;
+    let refreshPromise: Promise<void> | undefined;
+    act(() => {
+      refreshPromise = result.current.refresh();
+    });
+    await waitFor(() => expect(rejectStatus).toBeTypeOf("function"));
+
+    vi.mocked(liveApi.launchExtractionRun).mockResolvedValue(
+      launchEnvelope({
+        runId: RUN_B,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+        status: "reviewable",
+      }),
+    );
+    await act(async () => {
+      await result.current.launch();
+    });
+    expect(result.current.run?.run_id).toBe(RUN_B);
+    expect(result.current.handoff?.extraction_run_id).toBe(RUN_B);
+
+    await act(async () => {
+      rejectStatus?.(new Error("stale R1 status unavailable"));
+      await refreshPromise;
+    });
+
+    expect(result.current.run?.run_id).toBe(RUN_B);
+    expect(result.current.handoff?.extraction_run_id).toBe(RUN_B);
+    expect(result.current.canOpenGraphReview).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_B);
+  });
+
+  it("rejects a second synchronous launch before the button disables", async () => {
+    let launchCalls = 0;
+    vi.mocked(liveApi.launchExtractionRun).mockImplementation(async () => {
+      launchCalls += 1;
+      return launchEnvelope({
+        runId: RUN_B,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+        status: "reviewable",
+      });
+    });
+
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    await waitFor(() => expect(result.current.canLaunch).toBe(true));
+
+    await act(async () => {
+      const first = result.current.launch();
+      const second = result.current.launch();
+      await Promise.all([first, second]);
+    });
+
+    expect(launchCalls).toBe(1);
+    expect(result.current.run?.run_id).toBe(RUN_B);
+    expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
+  });
 });
