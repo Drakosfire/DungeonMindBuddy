@@ -30,6 +30,7 @@ import {
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import * as liveApi from "../api/liveApi";
+import type { WorkspaceDocumentSnapshot } from "../api/types";
 
 const worldGraphProjection = {
   schema: "dmb_world_graph_projection_v1" as const,
@@ -143,6 +144,22 @@ function latestLiveQueryBody(): Record<string, unknown> {
   return JSON.parse(String(last[1]?.body ?? "{}")) as Record<string, unknown>;
 }
 
+function fixtureWorkspaceDocumentSnapshot(
+  overrides: Partial<WorkspaceDocumentSnapshot> = {},
+): WorkspaceDocumentSnapshot {
+  const record = fixtureWorkspaceDocumentRecord();
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record,
+    markdown: "",
+    content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    file_fingerprint: "absent",
+    file_exists: false,
+    loaded_revision: record.revision,
+    ...overrides,
+  };
+}
+
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -154,6 +171,7 @@ describe("PlanSurfaceShell", () => {
     });
     vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
+    vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue(fixtureWorkspaceDocumentSnapshot());
     localStorage.clear();
     // Default multi-campaign lens matches Ask drawer expectations (Union · C1+C2).
     window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
@@ -1587,6 +1605,12 @@ describe("PlanSurfaceShell", () => {
     const user = userEvent.setup();
     const planTarget =
       "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
+      .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot({
+        loaded_revision: 2,
+        record: fixtureWorkspaceDocumentRecord({ content_status: "committed", revision: 2 }),
+      }));
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce({
         ok: true,
@@ -1615,6 +1639,13 @@ describe("PlanSurfaceShell", () => {
             title: "C2 Session 23 Prep",
             target_relpath: planTarget,
             target_display_path: planTarget,
+            registry_revision: 2,
+            committed_revision: 2,
+            committed_record: fixtureWorkspaceDocumentRecord({
+              content_status: "committed",
+              revision: 2,
+            }),
+            normalized_content_sha256: "abc123sha256",
             writer_ok: true,
             writer_phase: "commit",
             bytes_written: 42,
@@ -1639,7 +1670,7 @@ describe("PlanSurfaceShell", () => {
     expect(fetchSpy.mock.calls[1][0]).toBe("/api/live/tiptap/markdown-write/commit");
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body)).writer_confirm_token).toBe("confirm-token");
     expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
-    expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Saved to Markdown/i);
+    expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Committed/i);
   });
 
   function buildHermesGraphGrounding(

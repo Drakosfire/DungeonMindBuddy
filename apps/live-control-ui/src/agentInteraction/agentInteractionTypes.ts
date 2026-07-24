@@ -82,7 +82,7 @@ export interface AgentInteractionProviderState {
 
 export interface AgentInteractionScope {
   campaignId: string;
-  sessionNumber: number;
+  sessionNumber: number | null;
   surfaceId?: AgentInteractionSurfaceId;
   documentId?: string | null;
 }

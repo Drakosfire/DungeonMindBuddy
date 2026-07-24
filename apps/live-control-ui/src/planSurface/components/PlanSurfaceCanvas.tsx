@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Content, Editor } from "@tiptap/core";
+import type { Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
 import type { AppChromeTools } from "../../chrome/AppChrome";
@@ -23,11 +23,9 @@ import {
   type RunbookReferenceAttrs,
 } from "../../tiptap/references/runbookReferences";
 import { createStarterContentForPlanDocument } from "../config/planSessionDescriptor";
-import {
-  buildInitialWorkspaceDocumentLocalState,
-  readWorkspaceDocumentLocalState,
-  writeWorkspaceDocumentLocalState,
-} from "../../tiptap/state/tiptapLocalState";
+import type { WorkspaceDocumentLocalKind } from "../../tiptap/state/tiptapLocalState";
+import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
+import { useWorkspaceDocumentAuthoring } from "../../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { useEditCapability } from "../edit/editCapability";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
@@ -35,7 +33,6 @@ import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
-import { usePlanMarkdownSave } from "../save/usePlanMarkdownSave";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
 import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
@@ -58,6 +55,7 @@ export function PlanSurfaceCanvas({
   onPlanningDocumentCommitted,
 }: PlanSurfaceCanvasProps) {
   const planningDocument = sessionDescriptor.planningDocument;
+  const documentKind = planningDocument.kind as WorkspaceDocumentLocalKind;
   const { isLocked, canEdit, toggleLock } = useEditCapability();
   const { openContentFromChip, openPlanReferenceResolution } = useProjection();
   const {
@@ -67,42 +65,55 @@ export function PlanSurfaceCanvas({
     projectionError,
   } = usePlanGraphReferenceResolver();
   const editorShellRef = useRef<HTMLDivElement | null>(null);
-  const markDirtyRef = useRef<() => void>(() => {});
-  const skipNextDirtyRef = useRef(true);
-  const [workingState] = useState(() =>
-    readWorkspaceDocumentLocalState(window.localStorage, planningDocument.documentId)
-      ?? buildInitialWorkspaceDocumentLocalState({
-        documentId: planningDocument.documentId,
-        title: planningDocument.title,
-        campaignId: planningDocument.campaignId,
-        kind: planningDocument.kind,
-        targetSession: planningDocument.targetSession,
-        surface: "plan",
-        starterContent: createStarterContentForPlanDocument(sessionDescriptor),
-      }),
+
+  const emptyMarkdownFallback = useMemo(
+    () => createStarterContentForPlanDocument(sessionDescriptor),
+    [
+      sessionDescriptor.campaignId,
+      sessionDescriptor.planningDocument.documentId,
+      sessionDescriptor.targetSession,
+    ],
   );
+
+  const authoring = useWorkspaceDocumentAuthoring({
+    documentId: planningDocument.documentId,
+    surface: "plan",
+    kind: documentKind,
+    emptyMarkdownFallback,
+    requireDirtyToSave: false,
+    canSave: () => planningDocument.targetRelpath != null
+      && planningDocument.targetRelpath !== "TBD durable planning path",
+  });
+
+  const editorInteractive = isEditorInteractive(authoring.phase);
+  const showEditor = authoring.phase !== "loading"
+    && authoring.phase !== "unloaded"
+    && authoring.phase !== "conflict"
+    && authoring.phase !== "load_error";
+
+  useEffect(() => {
+    const receipt = authoring.lastCommitReceipt;
+    const record = authoring.record;
+    if (!receipt || !record) return;
+    onPlanningDocumentCommitted?.({
+      ...planningDocument,
+      title: record.title,
+      targetRelpath: record.target_relpath,
+      revision: record.revision,
+      contentStatus: record.content_status,
+    });
+  }, [authoring.lastCommitReceipt, authoring.record, onPlanningDocumentCommitted, planningDocument]);
+
+  useEffect(() => {
+    onSaveStatusChange?.(authoring.statusLabel);
+  }, [onSaveStatusChange, authoring.statusLabel]);
 
   const [editor, setEditor] = useState<Editor | null>(null);
 
-  const {
-    state: saveState,
-    statusLabel,
-    saveDisabled,
-    markDirty,
-    saveMarkdown,
-  } = usePlanMarkdownSave({
-    editor,
-    planningDocument,
-    onPlanningDocumentCommitted,
-  });
-
-  useEffect(() => {
-    markDirtyRef.current = markDirty;
-  }, [markDirty]);
-
-  useEffect(() => {
-    onSaveStatusChange?.(statusLabel);
-  }, [onSaveStatusChange, statusLabel]);
+  const handleEditorChange = useCallback((nextEditor: Editor | null) => {
+    authoring.setEditor(nextEditor);
+    setEditor(nextEditor);
+  }, [authoring.setEditor]);
 
   const insertCallout = useCallback(
     (kind: CalloutKind) => {
@@ -150,13 +161,14 @@ export function PlanSurfaceCanvas({
         nodes={projectionNodes}
         projectionState={projectionState}
         projectionError={projectionError}
-        insertDisabled={!editor || isLocked}
+        insertDisabled={!editor || isLocked || !editorInteractive}
         onInsert={insertRunbookReference}
         onView={handleViewGraphNode}
       />
     ),
     [
       editor,
+      editorInteractive,
       handleViewGraphNode,
       insertRunbookReference,
       isLocked,
@@ -245,7 +257,7 @@ export function PlanSurfaceCanvas({
           eyebrow: "Insert",
           label: defaultCalloutLabel(kind),
           onClick: () => insertCallout(kind),
-          disabled: !editor || isLocked,
+          disabled: !editor || isLocked || !editorInteractive,
         })),
       },
       {
@@ -258,7 +270,7 @@ export function PlanSurfaceCanvas({
             eyebrow: "Remove",
             label: "Remove block",
             onClick: removeActiveBlock,
-            disabled: !editor || isLocked,
+            disabled: !editor || isLocked || !editorInteractive,
           },
         ],
       },
@@ -287,22 +299,23 @@ export function PlanSurfaceCanvas({
             id: "plan-save-markdown",
             label: "Save to Markdown",
             onClick: () => {
-              void saveMarkdown();
+              void authoring.saveMarkdown();
             },
-            disabled: saveDisabled,
+            disabled: authoring.saveDisabled,
           },
         ],
       },
     ],
   }), [
+    authoring.saveDisabled,
+    authoring.saveMarkdown,
     copyMarkdown,
     editor,
+    editorInteractive,
     graphRefSearchPanel,
     insertCallout,
     isLocked,
     removeActiveBlock,
-    saveDisabled,
-    saveMarkdown,
     toggleLock,
   ]);
 
@@ -313,6 +326,62 @@ export function PlanSurfaceCanvas({
 
   const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
 
+  const showSavePanel = Boolean(
+    authoring.lastCommitReceipt
+    || (authoring.phase === "save_error" && authoring.error)
+    || (authoring.phase === "committed_verification_pending" && authoring.error)
+    || authoring.lastCommitReceipt?.diagnostics?.length,
+  );
+
+  const editorBody = (() => {
+    if (authoring.phase === "loading" || authoring.phase === "unloaded") {
+      return (
+        <p data-testid="plan-canvas-authoring-loading">Loading plan document…</p>
+      );
+    }
+    if (authoring.phase === "conflict") {
+      return (
+        <div data-testid="plan-canvas-authoring-conflict">
+          <p>
+            {authoring.reconciliation?.conflictReason
+              ?? "Local draft conflicts with server content."}
+          </p>
+          <button type="button" onClick={() => void authoring.reloadFromSnapshot()}>
+            Reload from server
+          </button>
+          <button type="button" onClick={() => void authoring.discardLocalDraft()}>
+            Discard local draft
+          </button>
+        </div>
+      );
+    }
+    if (authoring.phase === "load_error") {
+      return (
+        <p role="alert" data-testid="plan-canvas-authoring-error">
+          {authoring.error ?? "Unable to load plan document."}
+        </p>
+      );
+    }
+    if (!showEditor) {
+      return null;
+    }
+    return (
+      <MarkdownEditorCore
+        content={authoring.editorContent}
+        documentKey={authoring.documentKey}
+        editable={canEdit}
+        onEditorChange={handleEditorChange}
+        dataTestId="plan-surface-canvas-editor"
+      >
+        {(ed) => (
+          <GraphNodeChipRuntimeProvider value={chipRuntime}>
+            <EditorContent editor={ed} />
+          </GraphNodeChipRuntimeProvider>
+        )}
+      </MarkdownEditorCore>
+    );
+  })();
+
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
       <header className="plan-canvas-heading" aria-label="Plan Board">
@@ -320,7 +389,7 @@ export function PlanSurfaceCanvas({
           <p className="plan-surface-kicker">Plan Board</p>
           <h2 data-testid="plan-canvas-title">{planningDocument.title}</h2>
           <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
-            {statusLabel}
+            {authoring.statusLabel}
           </p>
         </div>
         <div className="plan-canvas-heading__graph">
@@ -340,37 +409,10 @@ export function PlanSurfaceCanvas({
           void handleChipActivate(event.target);
         }}
       >
-        <MarkdownEditorCore
-          content={workingState.tiptap_json as Content}
-          documentKey={planningDocument.documentId}
-          editable={canEdit}
-          onEditorChange={setEditor}
-          onUpdate={(tiptapJson) => {
-            const now = new Date().toISOString();
-            writeWorkspaceDocumentLocalState(window.localStorage, {
-              ...workingState,
-              tiptap_json: tiptapJson,
-              updated_at: now,
-              last_local_save_at: now,
-              dirty: true,
-            });
-            if (skipNextDirtyRef.current) {
-              skipNextDirtyRef.current = false;
-              return;
-            }
-            markDirtyRef.current();
-          }}
-          dataTestId="plan-surface-canvas-editor"
-        >
-          {(ed) => (
-            <GraphNodeChipRuntimeProvider value={chipRuntime}>
-              <EditorContent editor={ed} />
-            </GraphNodeChipRuntimeProvider>
-          )}
-        </MarkdownEditorCore>
+        {editorBody}
       </div>
 
-      {(saveState.status === "committed" || saveState.error || saveState.warnings?.length || saveState.diagnostics?.length) && (
+      {showSavePanel && (
         <section
           className="plan-markdown-save-panel"
           aria-label="Markdown save status"
@@ -380,35 +422,30 @@ export function PlanSurfaceCanvas({
           <p className="plan-markdown-save-target" data-testid="plan-markdown-save-target">
             Target: {planningDocument.targetRelpath}
           </p>
-          {saveState.warnings?.map((warning) => (
-            <p className="plan-markdown-save-warning" key={warning}>
-              {warning}
-            </p>
-          ))}
-          {saveState.diagnostics?.map((diagnostic) => (
+          {authoring.lastCommitReceipt?.diagnostics?.map((diagnostic) => (
             <p className="plan-markdown-save-diagnostic" key={diagnostic}>
               {diagnostic}
             </p>
           ))}
-          {saveState.error && (
+          {authoring.error && (authoring.phase === "save_error" || authoring.phase === "committed_verification_pending") && (
             <p className="plan-markdown-save-error" role="alert" data-testid="plan-markdown-save-error">
-              {saveState.error}
+              {authoring.error}
             </p>
           )}
-          {saveState.committed && (
+          {authoring.lastCommitReceipt && (
             <dl className="plan-markdown-save-success" data-testid="plan-markdown-save-success">
               <div>
                 <dt>Path</dt>
-                <dd>{saveState.committed.target_display_path}</dd>
+                <dd>{authoring.lastCommitReceipt.target_display_path}</dd>
               </div>
               <div>
                 <dt>Bytes written</dt>
-                <dd>{saveState.committed.bytes_written}</dd>
+                <dd>{authoring.lastCommitReceipt.bytes_written}</dd>
               </div>
-              {saveState.committed.backup_relpath && (
+              {authoring.lastCommitReceipt.backup_relpath && (
                 <div>
                   <dt>Backup</dt>
-                  <dd>{saveState.committed.backup_relpath}</dd>
+                  <dd>{authoring.lastCommitReceipt.backup_relpath}</dd>
                 </div>
               )}
             </dl>

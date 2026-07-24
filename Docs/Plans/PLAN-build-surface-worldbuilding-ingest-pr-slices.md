@@ -3,11 +3,50 @@ document_id: dmb-plan-build-surface-worldbuilding-ingest-pr-slices
 title: Build Surface and Worldbuilding Ingest PR Slices
 document_class: implementation_plan
 status: proposed
-version: 0.2
+version: 0.3
 branch: docs/build-surface-worldbuilding-ingest
 roadmap: ROADMAP-build-surface-worldbuilding-ingest.md
 created_at: "2026-07-22"
-last_updated_at: "2026-07-22"
+last_updated_at: "2026-07-23"
+external_pull_requests:
+  - id: github-pr-399
+    url: https://github.com/Drakosfire/DungeonMindBuddy/pull/399
+    plan_phase_primary: "BLD-05a"
+    plan_phase_also_touches: "BLD-05"
+    plan_phase_label: >-
+      BLD-05a workspace-document authoring seam plus thin Build consumer.
+      Round-1 review requested changes: complete shared lifecycle (atomic
+      snapshot lock, commit receipt, surface authority, one reducer) rather
+      than surface-specific patches.
+    review_status: open_under_review
+    review_status_meaning: >-
+      Open under review. Round 1 disposition was REQUEST_CHANGES (posted as
+      COMMENT banner due to GitHub self-review 422) on 2026-07-23T22:11:07Z
+      (review_id 4768588721). Round 2 work continues on the same branch to
+      close the three owning contracts before merge.
+    judgment_record:
+      verdict: request_changes
+      evaluated_at: "2026-07-23T22:11:07Z"
+      evaluator: cursor-agent
+      notes: >-
+        PR #399 correctly introduced WorkspaceDocumentSnapshot shape, local-state
+        v3, nullable session scope, explicit Build creation form, and thin Build
+        composition. Round 1 rejected merge because snapshot reads lacked the
+        document mutation lock, discardLocalDraft did not clear storage, post-commit
+        dirty clear depended on a second snapshot GET, Build could open Plan/runbook
+        UUIDs, URL selection ignored popstate, and Plan/runbook still owned separate
+        save lifecycles. Rubric for round 2: one coherent revision across snapshot,
+        commit receipt, local base, editor, URL, surface authority, CAS, labels,
+        and agent context — from one shared authoring lifecycle.
+    rubric_when_we_judge:
+      - "Snapshot under workspace_document_mutation_lock returns entirely old or entirely new revision — never mixed."
+      - "Commit response is an authoritative receipt (committed_record, normalized_content_sha256, file_fingerprint, committed_revision); local base advances from receipt."
+      - "Shared open rejects unexpected kind, forbidden surface/kind, discarded (unless allowed), and UUID mismatch before local state or save."
+      - "discard_local_and_open_server clears UUID-bound localStorage then opens server content."
+      - "Commit success + verification failure remains committed_verification_pending, never reported as save failure."
+      - "Plan, Build, and runbook invoke the same lifecycle transitions; surfaces adapt presentation only."
+      - "Browser back/forward changes loaded UUID and agent context together."
+      - "Clean server drafts labeled Draft, not Committed; agent context distinguishes local dirty vs durable committed."
 ---
 
 # Build Surface and Worldbuilding Ingest PR Slices
@@ -34,13 +73,15 @@ BLD-00 docs adoption
       → BLD-02 worldbuilding workspace persistence
           → BLD-03 canonical source/run contract graduation
               ├→ BLD-04 generic extraction runtime + profile protocol ─┐
-              └→ BLD-05 configured Build surface ─────────────────────┴→ BLD-06 extraction controls
+              └→ BLD-05a workspace-document authoring seam
+                    → BLD-05 thin Build surface consumer ─────────────┴→ BLD-06 extraction controls
                                                                          → BLD-07 generic Graph Review binding
                                                                              → BLD-08 worldbuilding profile/pilot
                                                                                  → BLD-09 PDF/OCR lineage pilot
 ```
 
-BLD-04 and BLD-05 may proceed in parallel after BLD-03. BLD-06 waits for both.
+BLD-04 may proceed in parallel with BLD-05a after BLD-03. BLD-05 waits for BLD-05a.
+BLD-06 waits for BLD-04 and BLD-05. PR #390 (parallel Build shell) is superseded/draft.
 
 ---
 
@@ -79,7 +120,8 @@ BLD-04 and BLD-05 may proceed in parallel after BLD-03. BLD-06 waits for both.
 | BLD-02 | [`HANDOFF-bld02-source-document-persistence.md`](HANDOFF-bld02-source-document-persistence.md) | BLD-01 |
 | BLD-03 | [`HANDOFF-bld03-source-artifact-run-contracts.md`](HANDOFF-bld03-source-artifact-run-contracts.md) | BLD-02 |
 | BLD-04 | [`HANDOFF-bld04-generic-extraction-runtime.md`](HANDOFF-bld04-generic-extraction-runtime.md) | BLD-03 |
-| BLD-05 | [`HANDOFF-bld05-build-surface-shell.md`](HANDOFF-bld05-build-surface-shell.md) | BLD-01 + BLD-02 + BLD-03 |
+| BLD-05a | [`HANDOFF-bld05a-workspace-document-authoring-seam.md`](HANDOFF-bld05a-workspace-document-authoring-seam.md) | BLD-01 + BLD-02 + BLD-03 |
+| BLD-05 | [`HANDOFF-bld05-build-surface-shell.md`](HANDOFF-bld05-build-surface-shell.md) | BLD-05a (rebuild; PR #390 superseded) |
 | BLD-06 | [`HANDOFF-bld06-build-extraction-toolbar.md`](HANDOFF-bld06-build-extraction-toolbar.md) | BLD-04 + BLD-05 |
 | BLD-07 | [`HANDOFF-bld07-graph-review-generic-run-handoff.md`](HANDOFF-bld07-graph-review-generic-run-handoff.md) | BLD-06 + current extract-promote bridge |
 | BLD-08 | [`HANDOFF-bld08-worldbuilding-profile-pilot.md`](HANDOFF-bld08-worldbuilding-profile-pilot.md) | BLD-07 |
@@ -342,7 +384,19 @@ uv run pytest tests/test_source_adapters.py \
 
 ---
 
-## BLD-05 — Add Build as a configured shared Surface
+## BLD-05a — Workspace document authoring seam
+
+**Capability:** registry-authorized content snapshot, shared local-state with
+base fingerprint, shared authoring state machine, and nullable session scope so
+Plan/runbook/Build share one coherent revision contract.
+
+**Depends on:** BLD-01 + BLD-02 + BLD-03.
+
+**Handoff:** [`HANDOFF-bld05a-workspace-document-authoring-seam.md`](HANDOFF-bld05a-workspace-document-authoring-seam.md)
+
+**Note:** PR #390 is draft/superseded; do not merge the parallel Build shell.
+
+## BLD-05 — Add Build as a thin configured Surface consumer
 
 **Capability:** `/build` provides source authoring through the shared Surface,
 editor, AppChrome, theme, projection, and Agent Interaction architecture.

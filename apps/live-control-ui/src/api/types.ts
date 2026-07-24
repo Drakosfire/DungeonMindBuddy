@@ -1400,6 +1400,16 @@ export interface WorkspaceDocumentRevisionRequest {
   expected_revision?: number | null;
 }
 
+export interface WorkspaceDocumentSnapshot {
+  schema_version: "dmb_workspace_document_snapshot_v1";
+  record: WorkspaceDocumentRecord;
+  markdown: string;
+  content_sha256: string;
+  file_fingerprint: string;
+  file_exists: boolean;
+  loaded_revision: number;
+}
+
 export interface TiptapMarkdownWritePrepareRequest {
   document_id: string;
   markdown: string;
@@ -1438,6 +1448,9 @@ export interface TiptapMarkdownWriteCommitResponse {
   target_relpath: string;
   target_display_path: string;
   registry_revision: number;
+  committed_revision: number;
+  committed_record: WorkspaceDocumentRecord;
+  normalized_content_sha256: string;
   writer_ok: boolean;
   writer_phase?: string | null;
   bytes_written?: number | null;

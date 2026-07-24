@@ -1,7 +1,7 @@
 # HANDOFF — BLD-05 Build configured Surface
 
 - **Created:** 2026-07-22
-- **Status:** PREPARED / DRAFT — may be stacked against the BLD-01/02/03 heads; ACTIVE / MERGEABLE only after those predecessors merge, rebase, and immutable merge-SHA re-anchor.
+- **Status:** SUPERSEDED pending rebuild — PR #390 draft parallel shell is not mergeable. Rebuild only after BLD-05a (`HANDOFF-bld05a-workspace-document-authoring-seam.md`) lands; Build must be a thin consumer of that seam.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld05-build-surface-shell.md`
 - **Suggested branch:** `agent/bld05-build-surface-shell`
 

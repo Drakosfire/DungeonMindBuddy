@@ -80,7 +80,7 @@ export function normalizePlanAgentBackend(
 
 export function createAgentInteractionThread(
   campaignId: string,
-  session: number,
+  session: number | null,
   surfaceId = "plan",
   backend: LiveQueryBackend = "hermes",
   title = "New prep thread",

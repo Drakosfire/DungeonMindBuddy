@@ -971,7 +971,6 @@ describe("liveApi workspace worldbuilding contracts", () => {
   });
 
   it("surfaces prepare diagnostics when writer_ok is false", async () => {
-    const prepare: TiptapMarkdownWritePrepareResponse = {
       schema_version: "dmb_tiptap_markdown_write_prepare_v1",
       document_id: "11111111-1111-4111-8111-111111111111",
       title: "World Lore",
@@ -996,5 +995,26 @@ describe("liveApi workspace worldbuilding contracts", () => {
     expect(response.writer_ok).toBe(false);
     expect(response.writer_confirm_token).toBeNull();
     expect(response.diagnostics.some((item) => item.includes("lossy"))).toBe(true);
+  });
+
+  it("fetches workspace document snapshots", async () => {
+    const record = worldbuildingRecord({ revision: 2, content_status: "committed" });
+    const snapshotPayload = {
+      schema_version: "dmb_workspace_document_snapshot_v1",
+      record,
+      markdown: "# Committed\n",
+      content_sha256: "sha-committed",
+      file_fingerprint: "present",
+      file_exists: true,
+      loaded_revision: 2,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(snapshotPayload));
+
+    const { getWorkspaceDocumentSnapshot } = await import("./liveApi");
+    const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+
+    expect(snapshot.markdown).toBe("# Committed\n");
+    expect(snapshot.loaded_revision).toBe(2);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain(`/workspace-documents/${record.document_id}/snapshot`);
   });
 });

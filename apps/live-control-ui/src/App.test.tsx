@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
 import * as liveApi from "./api/liveApi";
+import type { WorkspaceDocumentSnapshot } from "./api/types";
+import { fixtureWorkspaceDocumentRecord } from "./planSurface/config/planSessionDescriptor";
 import { makeCapabilityResponse, makeRollTableArtifact, mockCatalog, mockLayout, mockPlanView, mockState } from "./test/fixtures";
 
 vi.mock("./api/liveApi", async (importOriginal) => {
@@ -21,13 +23,34 @@ vi.mock("./api/liveApi", async (importOriginal) => {
     getCapabilities: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
+    listWorkspaceDocuments: vi.fn(),
+    getWorkspaceDocument: vi.fn(),
+    getWorkspaceDocumentSnapshot: vi.fn(),
+    createWorkspaceDocument: vi.fn(),
   };
 });
+
+function fixtureSnapshot(
+  overrides: Partial<WorkspaceDocumentSnapshot> = {},
+): WorkspaceDocumentSnapshot {
+  const record = fixtureWorkspaceDocumentRecord();
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1",
+    record,
+    markdown: "",
+    content_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    file_fingerprint: "absent",
+    file_exists: false,
+    loaded_revision: record.revision,
+    ...overrides,
+  };
+}
 
 describe("App inspector integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.history.pushState({}, "", "/");
+    localStorage.clear();
     vi.mocked(liveApi.getSurface).mockResolvedValue({
       catalog: mockCatalog,
       layout: mockLayout,
@@ -53,6 +76,13 @@ describe("App inspector integration", () => {
     });
     vi.mocked(liveApi.getArtifact).mockResolvedValue(makeRollTableArtifact());
     vi.mocked(liveApi.getCapabilities).mockResolvedValue(makeCapabilityResponse());
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [fixtureWorkspaceDocumentRecord()],
+    });
+    vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(fixtureWorkspaceDocumentRecord());
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(fixtureWorkspaceDocumentRecord());
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(fixtureSnapshot());
   });
 
   it("renders the launcher at the root route", () => {
@@ -61,6 +91,7 @@ describe("App inspector integration", () => {
     expect(screen.getByRole("heading", { name: /mireward local tools/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
     expect(screen.getByRole("link", { name: /ingest memory ingest/i })).toHaveAttribute("href", "/ingest");
+    expect(screen.getByRole("link", { name: /worldbuilding source/i })).toHaveAttribute("href", "/build");
     expect(screen.getByRole("link", { name: /live play command board/i })).toHaveAttribute(
       "href",
       "/evals/c2_live_prep/mireward-prep/live-play.html",

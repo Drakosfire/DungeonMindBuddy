@@ -105,6 +105,10 @@ def test_commit_writes_after_prepare(tmp_path: Path):
     assert committed.content_status == "committed"
     assert committed.revision == doc.revision + 1
     assert response.registry_revision == committed.revision
+    assert response.committed_revision == committed.revision
+    assert response.normalized_content_sha256
+    assert response.committed_record.revision == committed.revision
+    assert response.file_fingerprint.startswith("present:")
 
 
 def test_stale_token_is_rejected_without_overwrite(tmp_path: Path):

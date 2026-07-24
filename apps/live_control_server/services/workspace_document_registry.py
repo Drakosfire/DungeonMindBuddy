@@ -86,6 +86,20 @@ class WorkspaceDocumentRevisionRequest(BaseModel):
     expected_revision: int | None = None
 
 
+class WorkspaceDocumentSnapshot(BaseModel):
+    """Coherent registry record + Markdown bytes for one loaded revision."""
+
+    schema_version: Literal["dmb_workspace_document_snapshot_v1"] = (
+        "dmb_workspace_document_snapshot_v1"
+    )
+    record: WorkspaceDocumentRecord
+    markdown: str
+    content_sha256: str
+    file_fingerprint: str
+    file_exists: bool
+    loaded_revision: int
+
+
 def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
@@ -339,6 +353,94 @@ def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRec
             status_code=404,
         )
     return record
+
+
+def get_workspace_document_snapshot(root: Path, document_id: str) -> WorkspaceDocumentSnapshot:
+    """Load record + target Markdown as one coherent revision snapshot.
+
+    Holds ``workspace_document_mutation_lock`` across registry-record read, target
+    authorization, file-byte read, and digest/fingerprint construction so a concurrent
+    commit cannot mix revision N metadata with revision N+1 bytes.
+
+    ``content_status=committed`` with a missing/unreadable target is an integrity
+    failure (409), not an empty editor payload.
+    """
+    with workspace_document_mutation_lock(root, document_id):
+        return get_workspace_document_snapshot_unlocked(root, document_id)
+
+
+def get_workspace_document_snapshot_unlocked(
+    root: Path, document_id: str
+) -> WorkspaceDocumentSnapshot:
+    """Snapshot read for callers that already hold ``workspace_document_mutation_lock``."""
+    import hashlib
+
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        TiptapMarkdownWriteError,
+        authorize_target_for_record,
+        resolve_tiptap_markdown_target,
+    )
+
+    record = load_workspace_document_under_registry_lock(root, document_id)
+    if record.target_relpath is None or record.target_relpath == "":
+        if record.content_status == "committed":
+            raise WorkspaceDocumentRegistryError(
+                "committed workspace document has no target_relpath",
+                status_code=409,
+            )
+        empty_digest = hashlib.sha256(b"").hexdigest()
+        return WorkspaceDocumentSnapshot(
+            record=record,
+            markdown="",
+            content_sha256=empty_digest,
+            file_fingerprint="absent",
+            file_exists=False,
+            loaded_revision=record.revision,
+        )
+
+    try:
+        relpath = authorize_target_for_record(record)
+        target = resolve_tiptap_markdown_target(root, relpath)
+    except TiptapMarkdownWriteError as exc:
+        raise WorkspaceDocumentRegistryError(str(exc), status_code=422) from exc
+
+    if not target.is_file():
+        if record.content_status == "committed":
+            raise WorkspaceDocumentRegistryError(
+                "committed workspace target file is missing",
+                status_code=409,
+            )
+        empty_digest = hashlib.sha256(b"").hexdigest()
+        return WorkspaceDocumentSnapshot(
+            record=record,
+            markdown="",
+            content_sha256=empty_digest,
+            file_fingerprint="absent",
+            file_exists=False,
+            loaded_revision=record.revision,
+        )
+
+    try:
+        raw = target.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise WorkspaceDocumentRegistryError(
+            f"failed to read workspace target: {exc}",
+            status_code=500,
+        ) from exc
+
+    # Normalize newlines the same way SourceArtifact packaging does for digests.
+    content = raw.replace("\r\n", "\n").replace("\r", "\n")
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    stat = target.stat()
+    fingerprint = f"present:{stat.st_mtime_ns}:{stat.st_size}"
+    return WorkspaceDocumentSnapshot(
+        record=record,
+        markdown=content,
+        content_sha256=digest,
+        file_fingerprint=fingerprint,
+        file_exists=True,
+        loaded_revision=record.revision,
+    )
 
 
 def update_workspace_document_metadata(

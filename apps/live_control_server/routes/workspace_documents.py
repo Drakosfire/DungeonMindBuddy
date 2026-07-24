@@ -13,11 +13,13 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
     WorkspaceDocumentRegistryError,
     WorkspaceDocumentRevisionRequest,
+    WorkspaceDocumentSnapshot,
     WorkspaceDocumentsListResponse,
     _UNSET,
     create_workspace_document,
     discard_workspace_document,
     get_workspace_document,
+    get_workspace_document_snapshot,
     list_workspace_documents,
     restore_workspace_document,
     update_workspace_document_metadata,
@@ -72,6 +74,18 @@ def get_workspace_document_route(document_id: str) -> dict[str, Any]:
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _record_response(record)
+
+
+@router.get(
+    "/workspace-documents/{document_id}/snapshot",
+    response_model=WorkspaceDocumentSnapshot,
+)
+def get_workspace_document_snapshot_route(document_id: str) -> dict[str, Any]:
+    try:
+        snapshot = get_workspace_document_snapshot(repo_root(), document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return snapshot.model_dump(mode="json")
 
 
 @router.patch("/workspace-documents/{document_id}", response_model=WorkspaceDocumentRecord)

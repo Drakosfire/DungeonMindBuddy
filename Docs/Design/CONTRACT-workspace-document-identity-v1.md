@@ -64,7 +64,8 @@ Prefix: `/api/live`
 | --- | --- | --- |
 | `GET` | `/workspace-documents` | List (default `status=active`) |
 | `POST` | `/workspace-documents` | Create (server issues UUID) |
-| `GET` | `/workspace-documents/{document_id}` | Read |
+| `GET` | `/workspace-documents/{document_id}` | Read metadata record |
+| `GET` | `/workspace-documents/{document_id}/snapshot` | Coherent record + Markdown + content fingerprint (BLD-05a) |
 | `PATCH` | `/workspace-documents/{document_id}` | Metadata update (optional `expected_revision`) |
 | `POST` | `/workspace-documents/{document_id}/discard` | Retained discard |
 | `POST` | `/workspace-documents/{document_id}/restore` | Restore to active |
@@ -82,12 +83,15 @@ The writer resolves `title` and `target_relpath` from the registry. Clients must
 
 ## 4. Client rules
 
-- Local draft storage key: `dmb.workspaceDocument.{documentId}` with schema `dmb_workspace_document_local_state_v2`.
+- Local draft storage key: `dmb.workspaceDocument.{documentId}` with schema `dmb_workspace_document_local_state_v3` (includes `base_revision` + `base_content_sha256`; supports `worldbuilding_source` / `build`).
 - Agent thread index/active keys include `documentId` when a document is selected.
 - URL selection uses `?documentId=<uuid>`. `?session=` remains memory/graph focus only.
+- Worldbuilding / Build agent scope uses `sessionNumber: null` (never synthetic `0`).
 - Do not derive identity from title, `prepSession`, or path basename at runtime.
-- Opening without `documentId` resolves or creates an active plan document via the registry.
+- Opening Build without `documentId` is an explicit new-source state (no durable write until create).
+- Plan may still resolve/create an active plan document via the registry when no `documentId` is present.
 - Warning-level Markdown import diagnostics are commit-blocking for durable writes.
+- Snapshot integrity: `content_status=committed` with missing/unreadable target bytes is a fail-closed error, not an empty editor.
 
 ---
 

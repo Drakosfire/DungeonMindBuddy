@@ -70,7 +70,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     setActiveThread(thread);
     refreshSummaries({
       campaignId: thread.campaignId,
-      sessionNumber: thread.session ?? 0,
+      sessionNumber: thread.session ?? null,
       surfaceId: thread.surfaceId,
       documentId: thread.documentId,
     });

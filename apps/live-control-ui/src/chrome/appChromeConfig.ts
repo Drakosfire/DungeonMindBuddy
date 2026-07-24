@@ -1,4 +1,4 @@
-export type AppRouteKey = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest";
+export type AppRouteKey = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest" | "build";
 
 export interface AppNavItem {
   route?: AppRouteKey;
@@ -64,6 +64,11 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: "Ingest",
   },
   {
+    route: "build",
+    href: "/build",
+    label: "Build",
+  },
+  {
     route: "tiptap-callout-spike",
     href: "/tiptap-callout-spike",
     label: "Tiptap Spike",
@@ -75,5 +80,6 @@ export const APP_ROUTE_LABELS: Record<AppRouteKey, string> = {
   surface: "Live Control",
   plan: "Plan",
   ingest: "Memory Ingest",
+  build: "Build",
   "tiptap-callout-spike": "Tiptap callout bridge",
 };
