@@ -156,7 +156,7 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 | Bite | Status | Mission | Exclusions |
 |---|---|---|---|
 | `SBW05a` | MERGED `#398` | Validate client + Buddy route + digest association | Editor UI, workbench, save |
-| `SBW05b` | **NEXT** — dispatch from handoff §12 | Pure editor library + Output→Input initializer + local fingerprint + typed preservation fallback + unit tests | Backend, `liveApi`, workbench host, save, acceptance, Server `definition_digest` recreation, durable editor schema |
+| `SBW05b` | **NEXT** — dispatch from handoff §12 | Pure editor library + Output→Input initializer + local fingerprint + visible protected preservation fallback + unit tests | Backend, `liveApi`, workbench host, save, acceptance, Server `definition_digest` recreation, durable editor schema, unchecked Output→Input cast |
 | `SBW05c` | After `SBW05b` | Host proven editor; call SBW05a route; reject stale; preserve edits on dependency failure; edit→validate→edit→stale | Accept/save path, revise, graph |
 
 ### SBW07 — Persist accepted mechanics

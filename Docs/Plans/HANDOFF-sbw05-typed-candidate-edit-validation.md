@@ -17,7 +17,7 @@
 | Bite | Status | PR mission | Allowlist focus | Still false |
 |---|---|---|---|---|
 | `SBW05a` | MERGED `#398` | Validate transport: client method + Buddy route + digest association tests | Backend client/service/route/tests only | Editor UI, workbench, save, revise |
-| `SBW05b` | **NEXT** — see §12 | Pure editor library + Output→Input initializer + local fingerprint/state machine + field/control matrix + typed preservation fallback + unit tests | `apps/live-control-ui/src/statblocks/editor/**` + unit tests **only** | Backend, `liveApi`, workbench host, save, acceptance, durable editor schema, Server `definition_digest` recreation |
+| `SBW05b` | **NEXT** — see §12 | Pure editor library + Output→Input initializer + local fingerprint/state machine + field/control matrix + visible protected preservation fallback + unit tests | `apps/live-control-ui/src/statblocks/editor/**` + unit tests **only** | Backend, `liveApi`, workbench host, save, acceptance, durable editor schema, Server `definition_digest` recreation |
 | `SBW05c` | After `SBW05b` — see §13 | Host proven editor; call merged SBW05a validate route; reject stale responses; preserve edits on dependency failure; demonstrate edit→validate→edit→stale | Workbench module + `liveApi` wiring | Accept/save path, revise, graph |
 
 Each bite uses this handoff’s §6 contract as amended by §12/§13; do not expand that bite’s allowlist mid-review.
@@ -87,7 +87,7 @@ Read in order:
 | Edit after validation | Undefined | Prior receipt becomes stale immediately | Yes | editor state |
 | Timeout/unavailable | No real dependency | Working copy retained; typed retry state | Yes | UI/service |
 | Candidate reload/navigation | Read-only candidate can reload | Unsaved editor state behavior is explicitly session-only unless persisted by predecessor | Yes | module |
-| Unknown future element | Renderer can show unsupported | **Out of SBW05b scope** as future-schema inventiveness; preservation applies to typed-but-unhandled *current* generated-contract structures | Yes | typed preservation fallback |
+| Unknown future element | Renderer can show unsupported | **Out of SBW05b scope** as future-schema inventiveness; typed-but-unhandled *current* structures must stay in the working copy and appear as a visible read-only/protected block | Yes | visible protected preservation fallback |
 
 ## §4 Files in scope — allowlist
 
@@ -171,7 +171,7 @@ Trust boundary:
 ### Editor decisions
 
 - The working copy is complete, never a sparse patch.
-- Dedicated controls may cover the first-release common fields, but unhandled **current** generated-contract structures must remain preserved. Structured fallback means preservation (and optional typed-constrained display/edit) for typed-but-unhandled structures present in today’s OpenAPI types — **not** arbitrary future schema support and **not** introducing unknown keys.
+- Dedicated controls may cover the first-release common fields, but unhandled **current** generated-contract structures must remain in the working copy **and** appear to the GM as at least a **visible structured read-only/protected block** (key/type/order + honest protected disclosure; SBW04 visible-unsupported spirit). Typed-constrained editing of those regions is optional. Structured fallback is **not** silent retention, arbitrary future-schema support, or inventing unknown keys.
 - Element identity/order must be preserved. Editing text cannot regenerate keys.
 - Numeric controls enforce only contract-level shape/ranges locally; authoritative semantic validation remains Server-owned.
 - `rules_text` is edited as text and always clears validation eligibility.
@@ -185,7 +185,7 @@ Trust boundary:
 | Path | Loading | Exact success | Ordinary miss | Dependency unavailable | Integrity failure | Stale | Retry |
 |---|---|---|---|---|---|---|---|
 | Initialize editor | copy exact candidate | complete working definition | candidate missing handled by SBW04 | N/A | fail closed/read-only source | candidate expired after load does not erase working copy | reload source explicitly |
-| Edit | N/A | dirty/unvalidated | N/A | N/A | preserve typed-but-unhandled current structures | prior receipt stale | undo may restore local fingerprint; receipt reuse only if exact association is proven |
+| Edit | N/A | dirty/unvalidated | N/A | N/A | keep typed-but-unhandled current structures in working copy + visible protected block | prior receipt stale | undo may restore local fingerprint; receipt reuse only if exact association is proven |
 | Validate | validating state | receipt bound to digest | N/A | retain working copy; unavailable | fail closed/global issue | response for old digest discarded | safe |
 | Issue display | N/A | field/global issues | no issues | N/A | malformed path becomes global | stale receipt labeled/not used | revalidate |
 
@@ -226,8 +226,8 @@ The implementation PR must complete a real field/control matrix. Required catego
 | abilities/saves/skills | tables/rows | unknown proficiency entries retained | round-trip test |
 | senses/languages | lists | order/values retained | request snapshot |
 | traits/actions/reactions | typed repeated element editor | keys/types/order retained | element-path issue test |
-| spellcasting | typed nested editor or preserved structured fallback | no flattening to prose | spellcaster round-trip |
-| legendary/lair/phases | typed nested editor or preserved fallback | all limits/keys retained | complex fixture |
+| spellcasting | typed nested editor or visible protected structured fallback | no flattening to prose; must remain visible | spellcaster round-trip + UI disclosure |
+| legendary/lair/phases | typed nested editor or visible protected fallback | all limits/keys retained and disclosed | complex fixture + UI disclosure |
 | human-adjudicated | editable text/typed metadata with warning | never converted to automation | fixture |
 | validation issue path | field/global issue | exact path mapping; malformed retained globally | issue tests |
 
@@ -286,7 +286,7 @@ After each fix, rerun complex round-trip, edit-after-validation, stale-response,
 
 ### Mission
 
-Ship a reusable editor library that initializes a complete editable `StatblockDefinitionV1_Input` from a generated candidate `StatblockDefinitionV1_Output`, tracks local edit eligibility with a working-copy fingerprint/state revision, and preserves every current generated-contract structure that lacks a dedicated control.
+Ship a reusable editor library that initializes a complete editable `StatblockDefinitionV1_Input` from a generated candidate `StatblockDefinitionV1_Output`, tracks local edit eligibility with a working-copy fingerprint/state revision, and keeps every current generated-contract structure that lacks a dedicated control in the working copy with **visible** read-only/protected disclosure.
 
 ### Allowlist (deny everything else)
 
@@ -305,17 +305,24 @@ apps/live-control-ui/src/statblocks/editor/**
 
 ### Required initializer
 
-- Provide an **explicit, tested** function mapping generated candidate `StatblockDefinitionV1_Output` → complete `StatblockDefinitionV1_Input`.
-- No type cast, no `as`, no sparse patch, no partial bag.
+- Provide an **explicit, tested** function mapping generated candidate `StatblockDefinitionV1_Output` → complete `StatblockDefinitionV1_Input` that constructs/validates a complete input without claiming type identity by assertion alone.
+- **Forbid** unchecked Output→Input bypass: no `as StatblockDefinitionV1_Input`, no double-assertion through `unknown`/`any`, no sparse patch treated as a complete input.
+- **Allow** ordinary TypeScript narrowing and literal helpers elsewhere in the editor library (`as const`, discriminated-union narrowing, exhaustiveness checks). The ban targets the Output→Input boundary, not every assertion in the file.
+- Do not invent a second handwritten mechanics schema to satisfy the scoped ban; if a second schema is required, stop (parent stop conditions).
 - Source candidate object remains **immutable**; the editor mutates only its working copy.
 - Preserve element **keys**, **types**, **ordering**, and every current generated-contract structure that lacks a dedicated control.
 
 ### Structured fallback (closed definition)
 
-Structured fallback = **preservation** for typed-but-unhandled structures that exist in the **current** generated OpenAPI contract.
+Structured fallback for typed-but-unhandled structures in the **current** generated OpenAPI contract means:
+
+1. **Must** keep the structure in the complete working copy (no silent drop).
+2. **Must** surface it to the GM as at least a **visible structured read-only/protected block** (key/type/order + honest “not editable via dedicated control” / protected disclosure). Follow SBW04’s visible-unsupported pattern in spirit; do not invent a second schema.
+3. **May** offer typed-constrained editing of that region; editing is optional for SBW05b merge.
 
 It is **not**:
 
+- silent retention without UI disclosure;
 - arbitrary future-schema support;
 - a license to invent unknown keys;
 - flattening complex regions into prose.
@@ -342,6 +349,8 @@ Complex round-trips covering at least:
 - **untouched-field equality** after edits elsewhere
 
 Also prove: initializer completeness; source candidate immutability; edit/normalization/undo/redo clears eligibility; session-only (no storage writes).
+
+For at least one complex fixture region that lacks a dedicated control: the structure remains in the working copy **and** a queryable protected/read-only block is present in the rendered editor UI (visible disclosure, not data-only preservation).
 
 ### Verification commands (SBW05b only)
 

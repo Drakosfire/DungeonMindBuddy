@@ -186,7 +186,7 @@ SBW04 (Milestone A gate)
 | Bite | Mission | Merge bar (one claim) | Status |
 |---|---|---|---|
 | `SBW05a` | Validate transport: client + Buddy route + digest association | Submitted definition digest matches receipt; transport vs validation-issue semantics distinct | MERGED `#398` |
-| `SBW05b` | Pure editor library + unit tests: Output→Input initializer, local fingerprint, typed preservation fallback | Complex round-trips (spellcasting/legendary/lair/phases/human-adjudicated/nested effects) + untouched-field equality; edit clears eligibility; session-only; no Server digest recreation | **NEXT** |
+| `SBW05b` | Pure editor library + unit tests: Output→Input initializer, local fingerprint, visible protected preservation fallback | Complex round-trips (spellcasting/legendary/lair/phases/human-adjudicated/nested effects) + untouched-field equality; visible protected disclosure for unhandled current structures; edit clears eligibility; session-only; no Server digest recreation; no unchecked Output→Input cast | **NEXT** |
 | `SBW05c` | Workbench hosts proven editor; calls SBW05a route; rejects stale; preserves edits on dependency failure | Live edit→validate→edit→stale; no accept/save path | PRE-DESIGNED |
 | `SBW07-contract` | Approve-or-reject frozen HANDOFF-sbw07 §12 table (docs only; do not rewrite unless review rejects a closed decision) | Reviewer can approve/reject the closed schema + transition table alone; no optional pending field | After `SBW05c` |
 | `SBW07a` | Create/read Server client + fixtures | Exact IDs/digest parse; no draft mutation | After contract |
