@@ -1,22 +1,26 @@
 # HANDOFF — SBW05 Complete-definition candidate editing and preview validation
 
 **Created:** 2026-07-22  
-**Status:** PRE-DESIGNED — dispatch after `SBW04` merges as bites `SBW05a` → `SBW05b` → `SBW05c` (roadmap §5.1). Re-anchor paths, fixtures, and base SHA.  
+**Updated:** 2026-07-23 — re-anchored after SBW04/`#397` and SBW05a/`#398`  
+**Status:** IN PROGRESS — `SBW05a` MERGED `#398` (`58db1fc5`); **next dispatch `SBW05b`** per §12; then `SBW05c`; then SBW07-contract.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw05-typed-candidate-edit-validation.md`  
 **Workstream:** `SBW05`  
-**Repository:** `Drakosfire/DungeonMindBuddy`
+**Repository:** `Drakosfire/DungeonMindBuddy`  
+**Repository tip (not an SBW claim):** `ea7ad826` on `main` (includes unrelated BLD work)  
+**Last SBW integration:** `#398` / `58db1fc5`  
+**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream.
 
 > Dispatch one capability across three PRs: edit a complete typed candidate working copy and obtain authoritative preview validation. Do not save mechanics, revise with a model, publish graph truth, or add media/combat behavior.
 
 ## Bite schedule
 
-| Bite | PR mission | Allowlist focus | Still false |
-|---|---|---|---|
-| `SBW05a` | Validate transport: client method + Buddy route + digest association tests | Backend client/service/route/tests only | Editor UI, workbench, save, revise |
-| `SBW05b` | Editor library + state machine + field/control matrix + structured fallback | `apps/live-control-ui/src/statblocks/editor/**` + unit tests | Workbench accept/save, durable editor schema |
-| `SBW05c` | Workbench edit/validate host + live proof | Workbench module + liveApi wiring | Revise, accept/save, graph |
+| Bite | Status | PR mission | Allowlist focus | Still false |
+|---|---|---|---|---|
+| `SBW05a` | MERGED `#398` | Validate transport: client method + Buddy route + digest association tests | Backend client/service/route/tests only | Editor UI, workbench, save, revise |
+| `SBW05b` | **NEXT** — see §12 | Pure editor library + Output→Input initializer + local fingerprint/state machine + field/control matrix + visible protected preservation fallback + unit tests | `apps/live-control-ui/src/statblocks/editor/**` + unit tests **only** | Backend, `liveApi`, workbench host, save, acceptance, durable editor schema, Server `definition_digest` recreation |
+| `SBW05c` | After `SBW05b` — see §13 | Host proven editor; call merged SBW05a validate route; reject stale responses; preserve edits on dependency failure; demonstrate edit→validate→edit→stale | Workbench module + `liveApi` wiring | Accept/save path, revise, graph |
 
-Each bite uses this handoff’s §6 contract; do not expand the parent allowlist mid-review.
+Each bite uses this handoff’s §6 contract as amended by §12/§13; do not expand that bite’s allowlist mid-review.
 
 ## §0 Capability decomposition decision
 
@@ -55,8 +59,8 @@ This is not one slice if it must also generate a revised candidate, create/appen
 |---|---|
 | Parent authority | Integration design §6.3; tracker `SBW05`; DungeonMindServer v1 validation contract |
 | Repository rules | `AGENTS.md`; external-agent PR loop rules/template |
-| Base revision | Actual merged SHA containing `SBW01–04` |
-| Predecessor contract | Shared semantic renderer and exact candidate read payload |
+| Base revision | Actual merged SHA containing `SBW01–04` + `SBW05a` (last SBW integration `#398` / `58db1fc5`; repository tip may be ahead with unrelated work) |
+| Predecessor contract | Shared semantic renderer and exact candidate read payload (`SBW04`); authoritative validate transport (`SBW05a`) |
 | Exact input consumed | Complete candidate definition copied into local editor state; exact candidate/draft locators |
 | Named successor | `SBW07` immutable mechanics save (before revise), then `SBW06` revise/regenerate |
 | What remains false | No accepted mechanics exist; validation is advisory eligibility state only |
@@ -83,7 +87,7 @@ Read in order:
 | Edit after validation | Undefined | Prior receipt becomes stale immediately | Yes | editor state |
 | Timeout/unavailable | No real dependency | Working copy retained; typed retry state | Yes | UI/service |
 | Candidate reload/navigation | Read-only candidate can reload | Unsaved editor state behavior is explicitly session-only unless persisted by predecessor | Yes | module |
-| Unknown future element | Renderer can show unsupported | Editor preserves it even when no dedicated control exists | Yes | typed fallback editor |
+| Unknown future element | Renderer can show unsupported | **Out of SBW05b scope** as future-schema inventiveness; typed-but-unhandled *current* structures must stay in the working copy and appear as a visible read-only/protected block | Yes | visible protected preservation fallback |
 
 ## §4 Files in scope — allowlist
 
@@ -142,8 +146,9 @@ Output:
   bound to a deterministic digest of the exact submitted definition
 
 Invariant:
-  validation is valid only for the exact digest submitted; every edit clears eligibility
-
+  validation eligibility is bound only after proven association with the current working copy;
+  every edit/normalization/undo/redo clears eligibility unless that association still holds
+  (SBW05b: local fingerprint/state revision only; SBW05c+: Server receipt digest from SBW05a)
 Failure behavior:
   local impossible state/contract mismatch -> fail closed, preserve source candidate
   Server validation errors -> successful validation response with error issues; not a transport failure
@@ -166,20 +171,21 @@ Trust boundary:
 ### Editor decisions
 
 - The working copy is complete, never a sparse patch.
-- Dedicated controls may cover the first-release common fields, but unhandled typed structures must remain preserved. A structured fallback editor is allowed only when it remains constrained by generated types and cannot introduce unknown keys.
+- Dedicated controls may cover the first-release common fields, but unhandled **current** generated-contract structures must remain in the working copy **and** appear to the GM as at least a **visible structured read-only/protected block** (key/type/order + honest protected disclosure; SBW04 visible-unsupported spirit). Typed-constrained editing of those regions is optional. Structured fallback is **not** silent retention, arbitrary future-schema support, or inventing unknown keys.
 - Element identity/order must be preserved. Editing text cannot regenerate keys.
 - Numeric controls enforce only contract-level shape/ranges locally; authoritative semantic validation remains Server-owned.
-- `rules_text` is edited as text and always triggers revalidation.
-- Any change, undo/redo result, or programmatic normalization that changes the digest marks validation stale.
+- `rules_text` is edited as text and always clears validation eligibility.
+- Edit detection uses a **local working-copy fingerprint / state revision only**. Do **not** recreate or claim equality with the Server canonical `definition_digest`. Server digest association is proven only after a successful SBW05a validate response (SBW05c+) for the exact submitted body.
+- Any change, normalization, undo, or redo clears validation eligibility unless exact association with the current working copy has been proven (same local fingerprint/state revision that was validated).
 - The UI distinguishes: `clean_unvalidated`, `dirty_unvalidated`, `validating`, `validated_with_warnings`, `validated_with_errors`, `validation_unavailable`.
-- No save/accept eligibility claim exists beyond a derived `validation_has_no_errors` state for the exact digest.
-
+- No save/accept eligibility claim exists beyond a derived `validation_has_no_errors` state for the exact currently associated receipt.
+- The working copy is **session-only and unsaved**. No `localStorage`, IndexedDB, or durable editor schema in SBW05b/c.
 ### §6A State and fallback matrix
 
 | Path | Loading | Exact success | Ordinary miss | Dependency unavailable | Integrity failure | Stale | Retry |
 |---|---|---|---|---|---|---|---|
 | Initialize editor | copy exact candidate | complete working definition | candidate missing handled by SBW04 | N/A | fail closed/read-only source | candidate expired after load does not erase working copy | reload source explicitly |
-| Edit | N/A | dirty/unvalidated | N/A | N/A | preserve unknown element/read-only block | prior receipt stale | undo may restore digest; receipt reuse only if exact digest association is proven |
+| Edit | N/A | dirty/unvalidated | N/A | N/A | keep typed-but-unhandled current structures in working copy + visible protected block | prior receipt stale | undo may restore local fingerprint; receipt reuse only if exact association is proven |
 | Validate | validating state | receipt bound to digest | N/A | retain working copy; unavailable | fail closed/global issue | response for old digest discarded | safe |
 | Issue display | N/A | field/global issues | no issues | N/A | malformed path becomes global | stale receipt labeled/not used | revalidate |
 
@@ -190,7 +196,7 @@ No fallback to local validation, previous candidate receipt, Markdown parsing, o
 | Situation | Rule | Ambiguity | Fallback? | Consequence |
 |---|---|---|---|---|
 | Candidate | exact candidate ID for source attribution | none | No | editing does not mutate Server candidate |
-| Definition | deterministic canonical digest over complete typed input using an explicitly tested normalization | mismatch means stale | No | receipt bound to digest |
+| Definition | local working-copy fingerprint/state revision for edit detection; Server `definition_digest` only after proven SBW05a association | mismatch means stale | No | do not claim local fingerprint equals Server digest |
 | Element | exact contract element key where present | duplicate/missing key handled as validation/global error | No name matching | preserve order/identity |
 | Field issue | exact typed path segments | unmappable path → global issue | No silent nearest-field match | issue retained |
 | Name | editable display/mechanics field | duplicates irrelevant | No | never identity key |
@@ -220,8 +226,8 @@ The implementation PR must complete a real field/control matrix. Required catego
 | abilities/saves/skills | tables/rows | unknown proficiency entries retained | round-trip test |
 | senses/languages | lists | order/values retained | request snapshot |
 | traits/actions/reactions | typed repeated element editor | keys/types/order retained | element-path issue test |
-| spellcasting | typed nested editor or preserved structured fallback | no flattening to prose | spellcaster round-trip |
-| legendary/lair/phases | typed nested editor or preserved fallback | all limits/keys retained | complex fixture |
+| spellcasting | typed nested editor or visible protected structured fallback | no flattening to prose; must remain visible | spellcaster round-trip + UI disclosure |
+| legendary/lair/phases | typed nested editor or visible protected fallback | all limits/keys retained and disclosed | complex fixture + UI disclosure |
 | human-adjudicated | editable text/typed metadata with warning | never converted to automation | fixture |
 | validation issue path | field/global issue | exact path mapping; malformed retained globally | issue tests |
 
@@ -274,6 +280,107 @@ Start with round-trip preservation on the most complex fixture. Then audit diges
 
 After each fix, rerun complex round-trip, edit-after-validation, stale-response, malformed-path, and timeout tests. Verify the fix does not introduce durable editor storage or acceptance semantics.
 
+## §12 SBW05b dispatch contract (normative — implementation agent)
+
+`SBW05b` is a **pure editor library + unit tests** bite. Hand this section to the implementation agent as the closed mission.
+
+### Mission
+
+Ship a reusable editor library that initializes a complete editable `StatblockDefinitionV1_Input` from a generated candidate `StatblockDefinitionV1_Output`, tracks local edit eligibility with a working-copy fingerprint/state revision, and keeps every current generated-contract structure that lacks a dedicated control in the working copy with **visible** read-only/protected disclosure.
+
+### Allowlist (deny everything else)
+
+```text
+apps/live-control-ui/src/statblocks/editor/**
++ unit tests colocated under that tree (or explicitly named *.test.ts(x) for those modules)
+```
+
+**Explicitly out of SBW05b scope (even if listed in the parent §4 allowlist):**
+
+- any backend / `apps/live_control_server/**`
+- `apps/live-control-ui/src/api/liveApi.ts` and related API tests
+- `StatblockWorkbenchModule.tsx` / workbench host wiring
+- save, accept, revise, graph, localStorage, IndexedDB, durable editor schema
+- recreating or claiming equality with Server canonical `definition_digest`
+
+### Required initializer
+
+- Provide an **explicit, tested** function mapping generated candidate `StatblockDefinitionV1_Output` → complete `StatblockDefinitionV1_Input` that constructs/validates a complete input without claiming type identity by assertion alone.
+- **Forbid** unchecked Output→Input bypass: no `as StatblockDefinitionV1_Input`, no double-assertion through `unknown`/`any`, no sparse patch treated as a complete input.
+- **Allow** ordinary TypeScript narrowing and literal helpers elsewhere in the editor library (`as const`, discriminated-union narrowing, exhaustiveness checks). The ban targets the Output→Input boundary, not every assertion in the file.
+- Do not invent a second handwritten mechanics schema to satisfy the scoped ban; if a second schema is required, stop (parent stop conditions).
+- Source candidate object remains **immutable**; the editor mutates only its working copy.
+- Preserve element **keys**, **types**, **ordering**, and every current generated-contract structure that lacks a dedicated control.
+
+### Structured fallback (closed definition)
+
+Structured fallback for typed-but-unhandled structures in the **current** generated OpenAPI contract means:
+
+1. **Must** keep the structure in the complete working copy (no silent drop).
+2. **Must** surface it to the GM as at least a **visible structured read-only/protected block** (key/type/order + honest “not editable via dedicated control” / protected disclosure). Follow SBW04’s visible-unsupported pattern in spirit; do not invent a second schema.
+3. **May** offer typed-constrained editing of that region; editing is optional for SBW05b merge.
+
+It is **not**:
+
+- silent retention without UI disclosure;
+- arbitrary future-schema support;
+- a license to invent unknown keys;
+- flattening complex regions into prose.
+
+### Local fingerprint vs Server digest
+
+- Use a local working-copy fingerprint / state revision **only** for edit detection and eligibility clearing.
+- Do **not** recreate or claim equality with the Server canonical `definition_digest`.
+- Any edit, normalization, undo, or redo clears validation eligibility unless exact association with the current working copy has already been proven (SBW05c will prove association via SBW05a responses; SBW05b only needs the clear-on-edit state machine).
+
+### Session-only disclosure
+
+The working copy is **session-only and unsaved**. UI copy and tests must state this. No durable persistence path.
+
+### Merge proof (required tests)
+
+Complex round-trips covering at least:
+
+- spellcasting
+- legendary / lair data
+- phases
+- human-adjudicated mechanics
+- nested effects
+- **untouched-field equality** after edits elsewhere
+
+Also prove: initializer completeness; source candidate immutability; edit/normalization/undo/redo clears eligibility; session-only (no storage writes).
+
+For at least one complex fixture region that lacks a dedicated control: the structure remains in the working copy **and** a queryable protected/read-only block is present in the rendered editor UI (visible disclosure, not data-only preservation).
+
+### Verification commands (SBW05b only)
+
+```bash
+cd apps/live-control-ui && npm test -- --run src/statblocks/editor/
+cd apps/live-control-ui && npm run build
+git diff --check
+git diff --name-only <base>...HEAD
+```
+
+Report `git diff --stat` filtered to the editor allowlist only.
+
+## §13 SBW05c host contract (after SBW05b)
+
+`SBW05c` may:
+
+- host the proven SBW05b editor in the workbench;
+- call the already-merged SBW05a `/statblock-definitions:validate` route;
+- reject stale responses (response association must match the current working-copy fingerprint/state revision);
+- preserve edits on dependency failure;
+- demonstrate **edit → validate → edit → stale**.
+
+`SBW05c` must **still contain no accept/save path**.
+
+## §14 After SBW05c — SBW07-contract
+
+After `SBW05c` merges, open `SBW07-contract` as an **approve-or-reject doc-only PR** over the existing frozen table in `HANDOFF-sbw07-persist-accepted-mechanics.md` §12.
+
+Do **not** rewrite that contract unless review rejects a specific closed decision.
+
 ## Stop conditions
 
 Stop if:
@@ -288,7 +395,12 @@ Stop if:
 
 ## Final dispatch check
 
-- [ ] Re-anchor after `SBW04`.
-- [ ] Capture current generated validation fixtures.
-- [ ] Decide and state session-only editor persistence honestly.
-- [ ] Confirm `SBW06–07` and all graph/projection/runtime successors remain false.
+- [x] Re-anchor after `SBW04` / `#397` and `SBW05a` / `#398`.
+- [x] Distinguish repository tip (`ea7ad826`) from last SBW integration (`58db1fc5`).
+- [x] Record SBW04 real-candidate live-proof verification debt as open.
+- [x] Capture current generated validation fixtures (SBW05a).
+- [x] State session-only editor persistence honestly (§12).
+- [ ] Dispatch `SBW05b` against §12 only; confirm backend/`liveApi`/workbench/save remain false.
+- [ ] After `SBW05b`, dispatch `SBW05c` against §13 only.
+- [ ] After `SBW05c`, open `SBW07-contract` over frozen HANDOFF-sbw07 §12 without rewrite unless rejected.
+- [ ] Confirm `SBW06` and all graph/projection/runtime successors remain false until their ordered bites.
