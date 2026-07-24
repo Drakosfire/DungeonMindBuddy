@@ -572,4 +572,93 @@ describe("BuildSurfaceShell", () => {
     const stored = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
     expect(stored).toContain("Build proof insert");
   });
+
+  it("publishes neutral Agent Interaction when a successful receipt lacks file_fingerprint", async () => {
+    const snapshot = buildWorldbuildingSnapshot(DOC_ID);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_ID,
+      title: "Build Source",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token",
+      writer_diff: "+edited\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_ID,
+      title: "Build Source",
+      target_relpath: snapshot.record.target_relpath,
+      target_display_path: snapshot.record.target_relpath,
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: {
+        ...snapshot.record,
+        revision: 2,
+        content_status: "committed",
+      },
+      normalized_content_sha256: "sha-committed-missing-fp",
+      writer_ok: true,
+      bytes_written: 42,
+      file_fingerprint: null,
+      diagnostics: [],
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
+        "data-markdown-editor-status",
+        "ready",
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-document-id", DOC_ID);
+    });
+
+    await waitFor(() => expect(buildShellTestEditor).not.toBeNull());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      buildShellTestEditor?.commands.insertContent(" Missing fingerprint edit");
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("build-save-button")).not.toBeDisabled();
+    });
+
+    await act(async () => {
+      screen.getByTestId("build-save-button").click();
+    });
+
+    expect(await screen.findByTestId("build-surface-conflict")).toBeInTheDocument();
+    await waitFor(() => {
+      const probe = screen.getByTestId("scope-probe");
+      expect(probe).toHaveAttribute("data-context-document-id", "null");
+      expect(probe).toHaveAttribute("data-document-id", "null");
+      expect(probe).toHaveAttribute("data-envelope", "null");
+      expect(probe).toHaveAttribute("data-ambient", "Document reconciliation required");
+      const serialized = [
+        probe.getAttribute("data-ambient"),
+        probe.getAttribute("data-context-document-id"),
+        probe.getAttribute("data-document-id"),
+        probe.getAttribute("data-envelope"),
+      ].join("|");
+      expect(serialized).not.toContain(DOC_ID);
+      expect(serialized).not.toContain(snapshot.record.target_relpath);
+      expect(serialized).not.toContain("sha-build");
+      expect(serialized).not.toContain("sha-committed-missing-fp");
+    });
+
+    const storedRaw = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
+    expect(storedRaw).toBeTruthy();
+    expect(JSON.parse(storedRaw!).base_revision).toBe(2);
+  });
 });

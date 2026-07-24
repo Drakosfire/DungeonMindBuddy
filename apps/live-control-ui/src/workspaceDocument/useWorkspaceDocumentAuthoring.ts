@@ -132,6 +132,8 @@ export function useWorkspaceDocumentAuthoring(
   const expectedRevisionRef = useRef<number | null>(null);
   /** Monotonic generation so stale verification completions cannot clobber newer saves. */
   const verificationGenerationRef = useRef(0);
+  /** Monotonic generation so a newer save supersedes an older save's prepare/commit/apply path. */
+  const saveGenerationRef = useRef(0);
   /** Monotonic generation so superseded open/reload completions cannot clobber a newer document. */
   const openGenerationRef = useRef(0);
   const localDirtyRef = useRef(false);
@@ -279,6 +281,11 @@ export function useWorkspaceDocumentAuthoring(
 
     const expectedRevision = expectedRevisionRef.current ?? snapshot.loaded_revision;
     const tiptapJson = editor.getJSON();
+    const saveGeneration = ++saveGenerationRef.current;
+    // A newer save immediately invalidates verification belonging to an older save,
+    // including while this save is still preparing/committing.
+    verificationGenerationRef.current += 1;
+
     try {
       dispatch({ type: "PREPARE_STARTED" });
       const prepared = await prepareTiptapMarkdownWrite({
@@ -286,6 +293,9 @@ export function useWorkspaceDocumentAuthoring(
         markdown,
         expected_revision: expectedRevision,
       });
+      if (saveGeneration !== saveGenerationRef.current) {
+        return;
+      }
       if (!prepared.writer_ok || !prepared.writer_confirm_token) {
         dispatch({ type: "SAVE_FAILED", message: "Markdown save could not be prepared." });
         return;
@@ -298,6 +308,9 @@ export function useWorkspaceDocumentAuthoring(
         writer_confirm_token: prepared.writer_confirm_token,
         expected_revision: expectedRevision,
       });
+      if (saveGeneration !== saveGenerationRef.current) {
+        return;
+      }
       setLastCommitReceipt(committed);
       const receiptForThisSave = committed;
       const verificationGeneration = ++verificationGenerationRef.current;
@@ -317,6 +330,10 @@ export function useWorkspaceDocumentAuthoring(
       localDirtyRef.current = false;
 
       if (committed.writer_ok && (committed.file_fingerprint == null || committed.file_fingerprint === "")) {
+        // Durable write happened, but identity is incomplete: keep receipt-backed local base
+        // and quarantine the prior snapshot so N−1 cannot remain the accepted record.
+        setSnapshot(null);
+        setDocumentKey(`${args.documentId}:${committed.committed_revision}:receipt-unverified`);
         dispatch({
           type: "VERIFICATION_MISMATCH",
           reason: "Commit receipt is missing file_fingerprint after successful write.",
@@ -341,7 +358,10 @@ export function useWorkspaceDocumentAuthoring(
       dispatch({ type: "VERIFICATION_STARTED" });
       try {
         const refreshed = await getWorkspaceDocumentSnapshot(args.documentId);
-        if (verificationGeneration !== verificationGenerationRef.current) {
+        if (
+          saveGeneration !== saveGenerationRef.current
+          || verificationGeneration !== verificationGenerationRef.current
+        ) {
           return;
         }
         const verification = verifyCommitReceiptAgainstSnapshot(receiptForThisSave, refreshed);
@@ -352,7 +372,10 @@ export function useWorkspaceDocumentAuthoring(
         dispatch({ type: "VERIFICATION_SUCCEEDED", dirty: localDirtyRef.current });
         expectedRevisionRef.current = receiptForThisSave.committed_revision;
       } catch (verifyError) {
-        if (verificationGeneration !== verificationGenerationRef.current) {
+        if (
+          saveGeneration !== saveGenerationRef.current
+          || verificationGeneration !== verificationGenerationRef.current
+        ) {
           return;
         }
         dispatch({
@@ -364,6 +387,9 @@ export function useWorkspaceDocumentAuthoring(
         });
       }
     } catch (saveError) {
+      if (saveGeneration !== saveGenerationRef.current) {
+        return;
+      }
       dispatch({
         type: "SAVE_FAILED",
         message: saveError instanceof Error ? saveError.message : "Markdown save failed.",

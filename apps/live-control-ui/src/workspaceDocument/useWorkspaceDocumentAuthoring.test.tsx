@@ -420,7 +420,13 @@ describe("useWorkspaceDocumentAuthoring", () => {
     10000,
   );
 
-  it("enters conflict when commit receipt omits file_fingerprint after writer_ok", async () => {
+  it("quarantines stale snapshot when commit receipt omits file_fingerprint after writer_ok", async () => {
+    const committedRecord = fixtureWorkspaceDocumentRecord({
+      document_id: BUILD_DOC_ID,
+      kind: "worldbuilding_source",
+      revision: 2,
+      content_status: "committed",
+    });
     vi.mocked(commitTiptapMarkdownWrite).mockResolvedValueOnce({
       schema_version: "dmb_tiptap_markdown_write_commit_v1",
       document_id: BUILD_DOC_ID,
@@ -429,12 +435,7 @@ describe("useWorkspaceDocumentAuthoring", () => {
       target_display_path: "out/workspace/worldbuilding/build.md",
       registry_revision: 2,
       committed_revision: 2,
-      committed_record: fixtureWorkspaceDocumentRecord({
-        document_id: BUILD_DOC_ID,
-        kind: "worldbuilding_source",
-        revision: 2,
-        content_status: "committed",
-      }),
+      committed_record: committedRecord,
       normalized_content_sha256: "sha-committed",
       writer_ok: true,
       bytes_written: 42,
@@ -465,9 +466,316 @@ describe("useWorkspaceDocumentAuthoring", () => {
     await waitFor(() => {
       expect(result.current.phase).toBe("conflict");
     });
-    expect(result.current.phase).not.toBe("ready_clean");
     expect(result.current.statusLabel).toMatch(/missing file_fingerprint/i);
+    expect(result.current.snapshot).toBeNull();
+    expect(result.current.record).toBeNull();
+    expect(result.current.saveDisabled).toBe(true);
     expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
+
+    const storedRaw = window.localStorage.getItem(workspaceDocumentStorageKey(BUILD_DOC_ID));
+    expect(storedRaw).toBeTruthy();
+    const stored = JSON.parse(storedRaw!);
+    expect(stored.base_revision).toBe(2);
+    expect(stored.base_content_sha256).toBe("sha-committed");
+
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(
+      verificationSnapshotForRevision(2, "sha-committed", "fp-server-2"),
+    );
+    await act(async () => {
+      await result.current.reloadFromSnapshot();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    expect(result.current.snapshot?.loaded_revision).toBe(2);
+    expect(result.current.record?.revision).toBe(2);
+  });
+
+  it("ignores verification A while Save B commit is still pending", async () => {
+    type PendingVerification = { resolve: (snapshot: WorkspaceDocumentSnapshot) => void };
+    const pendingVerifications: PendingVerification[] = [];
+    let releaseCommitB: ((receipt: ReturnType<typeof commitReceiptForRevision>) => void) | undefined;
+
+    vi.mocked(getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(buildSnapshot())
+      .mockImplementation(() => new Promise((resolve) => {
+        pendingVerifications.push({ resolve });
+      }));
+    vi.mocked(commitTiptapMarkdownWrite)
+      .mockResolvedValueOnce(commitReceiptForRevision(2, "sha-commit-2", "fp-2"))
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        releaseCommitB = resolve;
+      }));
+
+    const editor = createEditor("Build Source");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+      result.current.markDirty();
+    });
+
+    let saveA: Promise<void> | undefined;
+    act(() => {
+      saveA = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("committed_verification_pending");
+    });
+    expect(pendingVerifications).toHaveLength(1);
+
+    act(() => {
+      editor.editTo("Build Source save B content");
+      result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+    });
+    await waitFor(() => {
+      expect(result.current.dirty).toBe(true);
+      expect(result.current.phase).toBe("ready_dirty");
+    });
+
+    let saveB: Promise<void> | undefined;
+    act(() => {
+      saveB = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("committing");
+    });
+    expect(result.current.saveDisabled).toBe(true);
+
+    await act(async () => {
+      pendingVerifications[0]?.resolve(
+        verificationSnapshotForRevision(2, "sha-commit-2", "fp-2"),
+      );
+      await saveA;
+    });
+
+    expect(result.current.phase).toBe("committing");
+    expect(result.current.saveDisabled).toBe(true);
+    expect(result.current.dirty).toBe(true);
+    const storedDuringB = window.localStorage.getItem(workspaceDocumentStorageKey(BUILD_DOC_ID));
+    expect(storedDuringB).toContain("Build Source save B content");
+
+    await act(async () => {
+      releaseCommitB?.(commitReceiptForRevision(3, "sha-commit-3", "fp-3"));
+      await waitFor(() => {
+        expect(pendingVerifications.length).toBeGreaterThanOrEqual(2);
+      });
+      pendingVerifications[1]?.resolve(
+        verificationSnapshotForRevision(3, "sha-commit-3", "fp-3"),
+      );
+      await saveB;
+    });
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    expect(result.current.snapshot?.loaded_revision).toBe(3);
+  });
+
+  it("keeps Save B prepare failure authoritative when verification A resolves afterward", async () => {
+    type PendingVerification = { resolve: (snapshot: WorkspaceDocumentSnapshot) => void };
+    const pendingVerifications: PendingVerification[] = [];
+    let releasePrepareB: ((error: Error) => void) | undefined;
+
+    vi.mocked(getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(buildSnapshot())
+      .mockImplementation(() => new Promise((resolve) => {
+        pendingVerifications.push({ resolve });
+      }));
+    vi.mocked(commitTiptapMarkdownWrite)
+      .mockResolvedValueOnce(commitReceiptForRevision(2, "sha-commit-2", "fp-2"));
+    vi.mocked(prepareTiptapMarkdownWrite)
+      .mockResolvedValueOnce({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: BUILD_DOC_ID,
+        title: "Build Source",
+        target_relpath: "out/workspace/worldbuilding/build.md",
+        target_display_path: "out/workspace/worldbuilding/build.md",
+        registry_revision: 1,
+        file_exists: false,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "+# Build Source\n",
+        warnings: [],
+        diagnostics: [],
+      })
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => {
+        releasePrepareB = reject;
+      }));
+
+    const editor = createEditor("Build Source");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+      result.current.markDirty();
+    });
+
+    let saveA: Promise<void> | undefined;
+    act(() => {
+      saveA = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("committed_verification_pending");
+    });
+
+    act(() => {
+      editor.editTo("Build Source after A");
+      result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+    });
+
+    let saveB: Promise<void> | undefined;
+    act(() => {
+      saveB = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("preparing");
+    });
+
+    await act(async () => {
+      releasePrepareB?.(new Error("prepare B failed"));
+      await saveB;
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("save_error");
+    });
+    expect(result.current.error).toMatch(/prepare B failed/);
+
+    await act(async () => {
+      pendingVerifications[0]?.resolve(
+        verificationSnapshotForRevision(2, "sha-commit-2", "fp-2"),
+      );
+      await saveA;
+    });
+
+    expect(result.current.phase).toBe("save_error");
+    expect(result.current.error).toMatch(/prepare B failed/);
+    expect(result.current.phase).not.toBe("ready_clean");
+
+    vi.mocked(prepareTiptapMarkdownWrite).mockClear();
+    vi.mocked(prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: BUILD_DOC_ID,
+      title: "Build Source",
+      target_relpath: "out/workspace/worldbuilding/build.md",
+      target_display_path: "out/workspace/worldbuilding/build.md",
+      registry_revision: 2,
+      file_exists: true,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token-retry",
+      writer_diff: "+retry\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(
+      verificationSnapshotForRevision(2, "sha-commit-2", "fp-2"),
+    );
+    vi.mocked(commitTiptapMarkdownWrite).mockResolvedValue(
+      commitReceiptForRevision(3, "sha-commit-3", "fp-3"),
+    );
+
+    act(() => {
+      result.current.markDirty();
+    });
+    await act(async () => {
+      await result.current.saveMarkdown();
+    });
+    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ expected_revision: 2 }),
+    );
+  });
+
+  it("keeps Save B commit failure authoritative when verification A resolves afterward", async () => {
+    type PendingVerification = { resolve: (snapshot: WorkspaceDocumentSnapshot) => void };
+    const pendingVerifications: PendingVerification[] = [];
+    let releaseCommitB: ((error: Error) => void) | undefined;
+
+    vi.mocked(getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(buildSnapshot())
+      .mockImplementation(() => new Promise((resolve) => {
+        pendingVerifications.push({ resolve });
+      }));
+    vi.mocked(commitTiptapMarkdownWrite)
+      .mockResolvedValueOnce(commitReceiptForRevision(2, "sha-commit-2", "fp-2"))
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => {
+        releaseCommitB = reject;
+      }));
+
+    const editor = createEditor("Build Source");
+    const { result } = renderHook(() => useWorkspaceDocumentAuthoring({
+      documentId: BUILD_DOC_ID,
+      surface: "build",
+      kind: "worldbuilding_source",
+    }));
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe("ready_clean");
+    });
+    act(() => {
+      result.current.setEditor(editor);
+      result.current.markDirty();
+    });
+
+    let saveA: Promise<void> | undefined;
+    act(() => {
+      saveA = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("committed_verification_pending");
+    });
+
+    act(() => {
+      editor.editTo("Build Source after A for commit fail");
+      result.current.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+    });
+
+    let saveB: Promise<void> | undefined;
+    act(() => {
+      saveB = result.current.saveMarkdown();
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("committing");
+    });
+    expect(result.current.saveDisabled).toBe(true);
+
+    await act(async () => {
+      releaseCommitB?.(new Error("commit B failed"));
+      await saveB;
+    });
+    await waitFor(() => {
+      expect(result.current.phase).toBe("save_error");
+    });
+    expect(result.current.error).toMatch(/commit B failed/);
+
+    await act(async () => {
+      pendingVerifications[0]?.resolve(
+        verificationSnapshotForRevision(2, "sha-commit-2", "fp-2"),
+      );
+      await saveA;
+    });
+
+    expect(result.current.phase).toBe("save_error");
+    expect(result.current.error).toMatch(/commit B failed/);
+    // B finished with save_error; save may be enabled again for retry, but A must not
+    // have cleared B's error into ready_clean / accidentally opened a third save path.
+    expect(result.current.phase).not.toBe("ready_clean");
+    expect(result.current.phase).not.toBe("committed_verification_pending");
   });
 
   it("keeps dirty unsaved state and committed revision when verification throws after post-commit edits", async () => {

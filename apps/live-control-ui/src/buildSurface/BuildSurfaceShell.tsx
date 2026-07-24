@@ -57,7 +57,16 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
       return;
     }
 
-    if (!authoring.record) return;
+    // No accepted record (including conflict after quarantined snapshot) must not
+    // retain a prior UUID/path/hash in Agent Interaction.
+    if (!authoring.record) {
+      publishNeutral(
+        authoring.phase === "conflict"
+          ? "Document reconciliation required"
+          : "Build surface idle",
+      );
+      return;
+    }
 
     rehydrateScope({
       campaignId: authoring.record.campaign_id,
