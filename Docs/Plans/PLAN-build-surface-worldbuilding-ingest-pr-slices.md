@@ -63,7 +63,7 @@ external_pull_requests:
       candidate after save/verification ordered-race and malformed-receipt
       quarantine fixes; accept only when HANDOFF evidence ledger is green on
       the PR-described head.
-    functional_evidence_sha: ef31c90ab468fc4018507e6ca96d0f9d52b5aa0f
+    functional_evidence_sha: fc9f47890dbdacfe604deaee7ce500e2e2e79cfb
     judgment_record:
       verdict: pending
       evaluated_at: null
@@ -71,8 +71,10 @@ external_pull_requests:
       base_sha: ea7ad826a2ca4f9d275ce245a3884d4af72278a8
       notes: >-
         Final functional fix closes (1) older verification dispatch after a
-        newer save begins and (2) missing-fingerprint receipts exposing an
-        N−1 accepted record beside an N local base. Operator-granted waiver:
+        newer save begins, (2) missing-fingerprint receipts exposing an
+        N−1 accepted record beside an N local base, (3) edits during
+        prepare/commit discarded by captured receipt content, and (4)
+        in-flight prepare/commit applying after document open/switch. Operator-granted waiver:
         npm run build / tsc -b fails identically on base ea7ad826 and final
         head with pre-existing planSurface/graphReviewWorkbench/IngestionModule
         errors outside §4; npx tsc --noEmit is green. App.test.tsx spike
