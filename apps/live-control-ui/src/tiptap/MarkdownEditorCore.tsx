@@ -62,13 +62,14 @@ export function MarkdownEditorCore({
     [baseExtensions, extensions],
   );
   // Only the synchronous create/hydration update (if TipTap emits one) is
-  // programmatic. Clear after the current turn so a real user transaction is
-  // never suppressed merely for being "next".
+  // programmatic. Arm during render when documentKey changes (not in a later
+  // effect) so a post-paint re-arm cannot suppress the first real user edit.
   const hydrationPendingRef = useRef(true);
-
-  useEffect(() => {
+  const documentKeyRef = useRef(documentKey);
+  if (documentKeyRef.current !== documentKey) {
+    documentKeyRef.current = documentKey;
     hydrationPendingRef.current = true;
-  }, [documentKey]);
+  }
 
   const editor = useEditor(
     {

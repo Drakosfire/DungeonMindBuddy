@@ -29,7 +29,14 @@ export function verifyCommitReceiptAgainstSnapshot(
       reason: "Commit receipt normalized_content_sha256 does not match snapshot content_sha256.",
     };
   }
+
   const receiptFingerprint = receipt.file_fingerprint;
+  if (receipt.writer_ok && (receiptFingerprint == null || receiptFingerprint === "")) {
+    return {
+      ok: false,
+      reason: "Commit receipt is missing file_fingerprint after successful write.",
+    };
+  }
   if (receiptFingerprint != null && receiptFingerprint !== snapshot.file_fingerprint) {
     return {
       ok: false,

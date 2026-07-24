@@ -34,6 +34,7 @@ function receipt(overrides: Partial<TiptapMarkdownWriteCommitResponse> = {}): Ti
     committed_revision: 2,
     committed_record: fixtureWorkspaceDocumentRecord({ document_id: DOC_ID, revision: 2 }),
     normalized_content_sha256: "sha-match",
+    file_fingerprint: "fp-match",
     writer_ok: true,
     diagnostics: [],
     ...overrides,
@@ -45,11 +46,22 @@ describe("verifyCommitReceiptAgainstSnapshot", () => {
     expect(verifyCommitReceiptAgainstSnapshot(receipt(), snapshot())).toEqual({ ok: true });
   });
 
-  it("agrees when receipt omits file_fingerprint", () => {
-    expect(verifyCommitReceiptAgainstSnapshot(
+  it("rejects missing file_fingerprint on a successful writer_ok receipt", () => {
+    const result = verifyCommitReceiptAgainstSnapshot(
       receipt({ file_fingerprint: null }),
       snapshot({ file_fingerprint: "fp-match" }),
-    )).toEqual({ ok: true });
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/missing file_fingerprint/i);
+  });
+
+  it("rejects empty file_fingerprint on a successful writer_ok receipt", () => {
+    const result = verifyCommitReceiptAgainstSnapshot(
+      receipt({ file_fingerprint: "" }),
+      snapshot({ file_fingerprint: "fp-match" }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/missing file_fingerprint/i);
   });
 
   it("rejects document_id mismatch", () => {

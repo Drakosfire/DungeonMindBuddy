@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { Editor } from "@tiptap/core";
+import type { ComponentProps } from "react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +10,26 @@ vi.mock("./config/planSessionDescriptor", async (importOriginal) => {
   return {
     ...actual,
     resolvePlanningDocument: vi.fn(async () => actual.fixturePlanDocumentDescriptor()),
+  };
+});
+
+let planShellTestEditor: Editor | null = null;
+
+vi.mock("../tiptap/MarkdownEditorCore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../tiptap/MarkdownEditorCore")>();
+  return {
+    ...actual,
+    MarkdownEditorCore: (
+      props: ComponentProps<typeof actual.MarkdownEditorCore>,
+    ) => (
+      <actual.MarkdownEditorCore
+        {...props}
+        onEditorChange={(editor) => {
+          planShellTestEditor = editor;
+          props.onEditorChange?.(editor);
+        }}
+      />
+    ),
   };
 });
 
@@ -169,6 +191,7 @@ function fixtureWorkspaceDocumentSnapshot(
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    planShellTestEditor = null;
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(worldGraphProjection);
     vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue(mockSourceBundle);
     vi.spyOn(liveApi, "listWorkspaceDocuments").mockResolvedValue({
@@ -1786,6 +1809,130 @@ describe("PlanSurfaceShell", () => {
     await waitFor(() => {
       expect(handback).toHaveBeenCalledTimes(1);
     });
+    expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Committed/i);
+  });
+
+  it("marks dirty after a real editor insert, saves once, and handbacks once", async () => {
+    const handback = vi.fn();
+    const sessionDescriptor = fixturePlanSessionDescriptor();
+    const config = createPlanSurfaceConfig(
+      mockPlanView,
+      sessionDescriptor.planningDocument,
+      "?campaigns=longmont-c1,longmont-c2",
+    );
+    const planTarget =
+      "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 23 Prep.md";
+    let editorTools: AppChromeTools | null = null;
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot())
+      .mockResolvedValueOnce(fixtureWorkspaceDocumentSnapshot({
+        loaded_revision: 2,
+        content_sha256: "abc123sha256",
+        file_fingerprint: "abc123",
+        record: fixtureWorkspaceDocumentRecord({ content_status: "committed", revision: 2 }),
+      }));
+
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+            document_id: FIXTURE_DOC_ID,
+            title: "C2 Session 23 Prep",
+            target_relpath: planTarget,
+            target_display_path: planTarget,
+            file_exists: false,
+            writer_ok: true,
+            writer_phase: "prepare",
+            writer_confirm_token: "confirm-token",
+            writer_diff: "+insert proof\n",
+            warnings: [],
+            diagnostics: [],
+          }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            schema_version: "dmb_tiptap_markdown_write_commit_v1",
+            document_id: FIXTURE_DOC_ID,
+            title: "C2 Session 23 Prep",
+            target_relpath: planTarget,
+            target_display_path: planTarget,
+            registry_revision: 2,
+            committed_revision: 2,
+            committed_record: fixtureWorkspaceDocumentRecord({
+              content_status: "committed",
+              revision: 2,
+            }),
+            normalized_content_sha256: "abc123sha256",
+            writer_ok: true,
+            writer_phase: "commit",
+            bytes_written: 42,
+            file_fingerprint: "abc123",
+            diagnostics: [],
+          }),
+      } as Response);
+
+    render(
+      <EditCapabilityProvider>
+        <ProjectionProvider config={config}>
+          <PlanGraphLensProvider planCampaignId={sessionDescriptor.campaignId}>
+            <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+              <PlanSurfaceCanvas
+                sessionDescriptor={sessionDescriptor}
+                theme={config.theme}
+                onEditorToolsChange={(tools) => { editorTools = tools; }}
+                onPlanningDocumentCommitted={handback}
+              />
+            </PlanGraphReferenceResolverProvider>
+          </PlanGraphLensProvider>
+        </ProjectionProvider>
+      </EditCapabilityProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveAttribute(
+        "data-markdown-editor-status",
+        "ready",
+      );
+    });
+
+    await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      planShellTestEditor?.commands.insertContent(" Plan insert proof");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Unsaved local changes/i);
+    });
+
+    await waitFor(() => {
+      const saveAction = editorTools?.sections
+        ?.find((section) => section.id === "plan-markdown-save")
+        ?.actions.find((action) => action.label === "Save to Markdown");
+      expect(saveAction?.disabled).toBeFalsy();
+    });
+
+    const saveAction = editorTools!.sections!
+      .find((section) => section.id === "plan-markdown-save")!
+      .actions.find((action) => action.label === "Save to Markdown")!;
+    await act(async () => {
+      saveAction.onClick();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("plan-markdown-save-success")).toBeInTheDocument();
+    });
+    expect(handback).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("plan-canvas-save-status")).toHaveTextContent(/Committed/i);
   });
 

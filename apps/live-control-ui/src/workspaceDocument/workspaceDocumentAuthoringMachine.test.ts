@@ -18,7 +18,7 @@ describe("workspaceDocumentAuthoringMachine", () => {
     })).toBe("Committed");
   });
 
-  it("keeps committed truth when verification fails", () => {
+  it("keeps committed truth when verification fails without post-receipt edits", () => {
     let state = initialAuthoringMachineState();
     state = reduceAuthoringMachine(state, { type: "OPEN_STARTED" });
     state = reduceAuthoringMachine(state, { type: "OPEN_READY", dirty: true });
@@ -29,14 +29,39 @@ describe("workspaceDocumentAuthoringMachine", () => {
     state = reduceAuthoringMachine(state, {
       type: "VERIFICATION_FAILED",
       message: "snapshot unavailable",
+      dirty: false,
     });
     expect(state.phase).toBe("committed_verification_pending");
+    expect(state.verificationStatus).toBe("failed");
     expect(state.error).toContain("snapshot unavailable");
     expect(statusLabelForPhase({
       phase: state.phase,
       contentStatus: "committed",
       error: state.error,
+      verificationStatus: state.verificationStatus,
     })).toContain("Committed");
+  });
+
+  it("preserves ready_dirty and unsaved status when verification fails after edits", () => {
+    let state = initialAuthoringMachineState();
+    state = reduceAuthoringMachine(state, { type: "OPEN_READY", dirty: false });
+    state = reduceAuthoringMachine(state, { type: "VERIFICATION_STARTED" });
+    state = reduceAuthoringMachine(state, { type: "EDIT" });
+    expect(state.phase).toBe("ready_dirty");
+    expect(state.verificationStatus).toBe("pending");
+    state = reduceAuthoringMachine(state, {
+      type: "VERIFICATION_FAILED",
+      message: "snapshot unavailable",
+      dirty: true,
+    });
+    expect(state.phase).toBe("ready_dirty");
+    expect(state.verificationStatus).toBe("failed");
+    expect(statusLabelForPhase({
+      phase: state.phase,
+      contentStatus: "committed",
+      error: state.error,
+      verificationStatus: state.verificationStatus,
+    })).toMatch(/Unsaved local changes/);
   });
 
   it("surfaces save failures without collapsing to load_error", () => {
@@ -67,5 +92,6 @@ describe("workspaceDocumentAuthoringMachine", () => {
     state = reduceAuthoringMachine(state, { type: "VERIFICATION_STARTED" });
     state = reduceAuthoringMachine(state, { type: "EDIT" });
     expect(state.phase).toBe("ready_dirty");
+    expect(state.verificationStatus).toBe("pending");
   });
 });

@@ -9,6 +9,9 @@ interface BuildSurfaceShellProps {
   documentId: string;
 }
 
+/** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
+export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
+
 export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
   const { rehydrateScope, publishSurfaceContext } = useAgentInteraction();
   const lastAcceptedCampaignRef = useRef<string>("build");
@@ -25,27 +28,37 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
   }, [authoring.record?.campaign_id]);
 
   useEffect(() => {
-    if (authoring.phase !== "load_error") return;
-    rehydrateScope({
-      campaignId: lastAcceptedCampaignRef.current || "build",
-      sessionNumber: null,
-      surfaceId: "build",
-      documentId: null,
-    });
-    publishSurfaceContext({
-      surfaceId: "build",
-      label: BUILD_SURFACE_LABEL,
-      campaignId: null,
-      documentId: null,
-      sessionNumber: null,
-      ambientSummary: authoring.error ?? "Document rejected",
-      sourceEnvelope: null,
-      updatedAt: new Date().toISOString(),
-    });
-  }, [authoring.error, authoring.phase, publishSurfaceContext, rehydrateScope]);
+    const publishNeutral = (ambientSummary: string) => {
+      rehydrateScope({
+        campaignId: lastAcceptedCampaignRef.current || "build",
+        sessionNumber: null,
+        surfaceId: "build",
+        documentId: null,
+      });
+      publishSurfaceContext({
+        surfaceId: "build",
+        label: BUILD_SURFACE_LABEL,
+        campaignId: null,
+        documentId: null,
+        sessionNumber: null,
+        ambientSummary,
+        sourceEnvelope: null,
+        updatedAt: new Date().toISOString(),
+      });
+    };
 
-  useEffect(() => {
+    if (authoring.phase === "unloaded" || authoring.phase === "loading") {
+      publishNeutral("Loading worldbuilding source…");
+      return;
+    }
+
+    if (authoring.phase === "load_error") {
+      publishNeutral(BUILD_AUTHORITY_REJECTION_AMBIENT);
+      return;
+    }
+
     if (!authoring.record) return;
+
     rehydrateScope({
       campaignId: authoring.record.campaign_id,
       sessionNumber: null,
@@ -98,6 +111,28 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     rehydrateScope,
   ]);
 
+  // Leaving Build (or remounting for a new documentId) must not leave prior accepted context.
+  useEffect(() => {
+    return () => {
+      rehydrateScope({
+        campaignId: lastAcceptedCampaignRef.current || "build",
+        sessionNumber: null,
+        surfaceId: "build",
+        documentId: null,
+      });
+      publishSurfaceContext({
+        surfaceId: "build",
+        label: BUILD_SURFACE_LABEL,
+        campaignId: null,
+        documentId: null,
+        sessionNumber: null,
+        ambientSummary: "Build surface idle",
+        sourceEnvelope: null,
+        updatedAt: new Date().toISOString(),
+      });
+    };
+  }, [publishSurfaceContext, rehydrateScope]);
+
   if (authoring.phase === "loading" || authoring.phase === "unloaded") {
     return (
       <main className="app-status" data-testid="build-surface-loading">
@@ -110,7 +145,7 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     return (
       <main className="app-status app-error" data-testid="build-surface-error">
         <h1>{BUILD_SURFACE_LABEL}</h1>
-        <p>{authoring.error ?? "Unable to load worldbuilding source."}</p>
+        <p data-testid="build-authority-error">{authoring.error ?? "Unable to load worldbuilding source."}</p>
       </main>
     );
   }

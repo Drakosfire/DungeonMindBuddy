@@ -130,7 +130,10 @@ export function useWorkspaceDocumentAuthoring(
   const [documentKey, setDocumentKey] = useState(args.documentId);
   const [lastCommitReceipt, setLastCommitReceipt] = useState<TiptapMarkdownWriteCommitResponse | null>(null);
   const expectedRevisionRef = useRef<number | null>(null);
-  const verificationReceiptRef = useRef<TiptapMarkdownWriteCommitResponse | null>(null);
+  /** Monotonic generation so stale verification completions cannot clobber newer saves. */
+  const verificationGenerationRef = useRef(0);
+  /** Monotonic generation so superseded open/reload completions cannot clobber a newer document. */
+  const openGenerationRef = useRef(0);
   const localDirtyRef = useRef(false);
   const requireDirtyToSave = args.requireDirtyToSave !== false;
   const emptyMarkdownFallback = args.emptyMarkdownFallback;
@@ -146,11 +149,18 @@ export function useWorkspaceDocumentAuthoring(
 
   const openFromSnapshot = useCallback(async (options?: { clearLocalFirst?: boolean }) => {
     dispatch({ type: options?.clearLocalFirst ? "DISCARD_STARTED" : "OPEN_STARTED" });
+    // Invalidate in-flight verification and prior receipt handback for this open.
+    verificationGenerationRef.current += 1;
+    const openGeneration = ++openGenerationRef.current;
+    setLastCommitReceipt(null);
     try {
       if (options?.clearLocalFirst) {
         clearWorkspaceDocumentLocalState(storage, args.documentId);
       }
       const nextSnapshot = await getWorkspaceDocumentSnapshot(args.documentId);
+      if (openGeneration !== openGenerationRef.current) {
+        return;
+      }
       const stored = options?.clearLocalFirst
         ? null
         : readWorkspaceDocumentLocalState(storage, args.documentId);
@@ -196,6 +206,9 @@ export function useWorkspaceDocumentAuthoring(
       );
       dispatch({ type: "OPEN_READY", dirty: opened.localState.dirty });
     } catch (loadError) {
+      if (openGeneration !== openGenerationRef.current) {
+        return;
+      }
       expectedRevisionRef.current = null;
       setSnapshot(null);
       setReconciliation(null);
@@ -286,7 +299,8 @@ export function useWorkspaceDocumentAuthoring(
         expected_revision: expectedRevision,
       });
       setLastCommitReceipt(committed);
-      verificationReceiptRef.current = committed;
+      const receiptForThisSave = committed;
+      const verificationGeneration = ++verificationGenerationRef.current;
 
       // Commit receipt is authoritative — advance local base before any verification GET.
       dispatch({ type: "COMMIT_SUCCEEDED" });
@@ -301,6 +315,15 @@ export function useWorkspaceDocumentAuthoring(
       writeWorkspaceDocumentLocalState(storage, receiptLocal);
       setLocalState(receiptLocal);
       localDirtyRef.current = false;
+
+      if (committed.writer_ok && (committed.file_fingerprint == null || committed.file_fingerprint === "")) {
+        dispatch({
+          type: "VERIFICATION_MISMATCH",
+          reason: "Commit receipt is missing file_fingerprint after successful write.",
+        });
+        return;
+      }
+
       setSnapshot((current) => {
         if (!current) return current;
         return {
@@ -308,7 +331,7 @@ export function useWorkspaceDocumentAuthoring(
           record: committed.committed_record,
           markdown,
           content_sha256: committed.normalized_content_sha256,
-          file_fingerprint: committed.file_fingerprint ?? current.file_fingerprint,
+          file_fingerprint: committed.file_fingerprint as string,
           file_exists: true,
           loaded_revision: committed.committed_revision,
         };
@@ -318,20 +341,26 @@ export function useWorkspaceDocumentAuthoring(
       dispatch({ type: "VERIFICATION_STARTED" });
       try {
         const refreshed = await getWorkspaceDocumentSnapshot(args.documentId);
-        const receiptForVerification = verificationReceiptRef.current ?? committed;
-        const verification = verifyCommitReceiptAgainstSnapshot(receiptForVerification, refreshed);
+        if (verificationGeneration !== verificationGenerationRef.current) {
+          return;
+        }
+        const verification = verifyCommitReceiptAgainstSnapshot(receiptForThisSave, refreshed);
         if (!verification.ok) {
           dispatch({ type: "VERIFICATION_MISMATCH", reason: verification.reason });
           return;
         }
         dispatch({ type: "VERIFICATION_SUCCEEDED", dirty: localDirtyRef.current });
-        expectedRevisionRef.current = receiptForVerification.committed_revision;
+        expectedRevisionRef.current = receiptForThisSave.committed_revision;
       } catch (verifyError) {
+        if (verificationGeneration !== verificationGenerationRef.current) {
+          return;
+        }
         dispatch({
           type: "VERIFICATION_FAILED",
           message: verifyError instanceof Error
             ? verifyError.message
             : "Commit succeeded; snapshot verification failed.",
+          dirty: localDirtyRef.current,
         });
       }
     } catch (saveError) {
@@ -360,8 +389,16 @@ export function useWorkspaceDocumentAuthoring(
       contentStatus: snapshot?.record.content_status ?? null,
       conflictReason: machine.conflictReason ?? reconciliation?.conflictReason,
       error: machine.error,
+      verificationStatus: machine.verificationStatus,
     }),
-    [machine.conflictReason, machine.error, phase, reconciliation?.conflictReason, snapshot?.record.content_status],
+    [
+      machine.conflictReason,
+      machine.error,
+      machine.verificationStatus,
+      phase,
+      reconciliation?.conflictReason,
+      snapshot?.record.content_status,
+    ],
   );
 
   const record = useMemo(() => {

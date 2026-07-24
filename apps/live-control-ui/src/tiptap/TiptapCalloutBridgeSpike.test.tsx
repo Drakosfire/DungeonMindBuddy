@@ -798,6 +798,48 @@ describe("semantic callout Markdown bridge", () => {
     fetchMock.mockRestore();
   });
 
+  it("reconstructs reset starter local state after unmount and remount", async () => {
+    snapshotMock.mockImplementation(async (documentId: string) => {
+      const record = documentId === SPIKE_DOC_ID ? spikeRecord() : northGateRecord();
+      return {
+        ...snapshotFor(record),
+        markdown: "# Imported server copy\n\nServer-only body.\n",
+        content_sha256: "sha-server-copy",
+        file_fingerprint: "present:server",
+        file_exists: true,
+      };
+    });
+
+    window.history.pushState({}, "", `/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
+    const { unmount } = render(<TiptapCalloutBridgeSpike />);
+    expect(await screen.findByTestId("tiptap-editor")).toBeInTheDocument();
+    await waitForEditorReady();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset local draft" }));
+    expect(await screen.findByText("Reset to starter")).toBeInTheDocument();
+
+    const storageKey = workspaceDocumentStorageKey(SPIKE_DOC_ID);
+    const beforeUnmount = window.localStorage.getItem(storageKey);
+    expect(beforeUnmount).toBeTruthy();
+    const parsedBefore = JSON.parse(beforeUnmount!);
+    expect(parsedBefore.dirty).toBe(true);
+
+    unmount();
+
+    window.history.pushState({}, "", `/tiptap-callout-spike?documentId=${SPIKE_DOC_ID}`);
+    render(<TiptapCalloutBridgeSpike />);
+    expect(await screen.findByTestId("tiptap-editor")).toBeInTheDocument();
+    await waitForEditorReady();
+
+    const afterRemount = window.localStorage.getItem(storageKey);
+    expect(afterRemount).toBeTruthy();
+    const parsedAfter = JSON.parse(afterRemount!);
+    expect(parsedAfter.tiptap_json).toEqual(parsedBefore.tiptap_json);
+    expect(parsedAfter.exported_markdown).toEqual(parsedBefore.exported_markdown);
+    expect(parsedAfter.dirty).toBe(true);
+    expect(screen.getByTestId("markdown-export")).toHaveTextContent("# C2S23 North Gate Session Runbook");
+  });
+
   it("does not render page-local tool copy", async () => {
     await renderLoadedSpike();
 

@@ -1,4 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import type { ComponentProps } from "react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import type { Editor } from "@tiptap/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
@@ -9,7 +11,27 @@ import {
   workspaceDocumentStorageKey,
   writeWorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
-import { BuildSurfaceShell } from "./BuildSurfaceShell";
+import { BUILD_AUTHORITY_REJECTION_AMBIENT, BuildSurfaceShell } from "./BuildSurfaceShell";
+
+let buildShellTestEditor: Editor | null = null;
+
+vi.mock("../tiptap/MarkdownEditorCore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../tiptap/MarkdownEditorCore")>();
+  return {
+    ...actual,
+    MarkdownEditorCore: (
+      props: ComponentProps<typeof actual.MarkdownEditorCore>,
+    ) => (
+      <actual.MarkdownEditorCore
+        {...props}
+        onEditorChange={(editor) => {
+          buildShellTestEditor = editor;
+          props.onEditorChange?.(editor);
+        }}
+      />
+    ),
+  };
+});
 
 vi.mock("../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/liveApi")>();
@@ -36,7 +58,47 @@ function ScopeProbe() {
       }
       data-document-id={scope?.documentId ?? "null"}
       data-context-document-id={activeSurfaceContext?.documentId ?? "null"}
+      data-ambient={activeSurfaceContext?.ambientSummary ?? "null"}
+      data-envelope={activeSurfaceContext?.sourceEnvelope ? "present" : "null"}
     />
+  );
+}
+
+function buildWorldbuildingSnapshot(documentId: string) {
+  return {
+    schema_version: "dmb_workspace_document_snapshot_v1" as const,
+    record: {
+      schema_version: "dmb_workspace_document_record_v1" as const,
+      document_id: documentId,
+      title: "Build Source",
+      campaign_id: "eldyrwild",
+      target_session: null,
+      kind: "worldbuilding_source" as const,
+      target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+      status: "active" as const,
+      content_status: "draft" as const,
+      revision: 1,
+      created_at: "2026-07-22T00:00:00Z",
+      updated_at: "2026-07-22T00:00:00Z",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    },
+    markdown: "# Build Source\n",
+    content_sha256: "sha-build",
+    file_fingerprint: "absent",
+    file_exists: false,
+    loaded_revision: 1,
+  };
+}
+
+function BuildDocumentHarness({ documentId }: { documentId: string }) {
+  return (
+    <AgentInteractionProvider>
+      <ScopeProbe />
+      <BuildSurfaceShell key={documentId} documentId={documentId} />
+    </AgentInteractionProvider>
   );
 }
 
@@ -44,6 +106,7 @@ describe("BuildSurfaceShell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    buildShellTestEditor = null;
   });
 
   it("publishes null session scope for worldbuilding build", async () => {
@@ -389,5 +452,124 @@ describe("BuildSurfaceShell", () => {
     );
 
     expect(await screen.findByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+  });
+
+  it("clears accepted document context while the next document is loading", async () => {
+    const DOC_B = "33333333-3333-4333-8333-333333333333";
+    let releaseB: ((snapshot: ReturnType<typeof buildWorldbuildingSnapshot>) => void) | undefined;
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot)
+      .mockResolvedValueOnce(buildWorldbuildingSnapshot(DOC_ID))
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        releaseB = resolve;
+      }));
+
+    const { rerender } = render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("scope-probe")).toHaveAttribute("data-document-id", DOC_ID);
+    });
+
+    rerender(<BuildDocumentHarness documentId={DOC_B} />);
+
+    expect(await screen.findByTestId("build-surface-loading")).toBeInTheDocument();
+    const probe = screen.getByTestId("scope-probe");
+    expect(probe).toHaveAttribute("data-context-document-id", "null");
+    expect(probe.getAttribute("data-ambient") ?? "").not.toContain(DOC_ID);
+
+    releaseB?.(buildWorldbuildingSnapshot(DOC_B));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+    });
+  });
+
+  it("publishes neutral Build authority ambient without UUIDs when navigation is rejected", async () => {
+    const PLAN_DOC_ID = "22222222-2222-4222-8222-222222222222";
+    const validSnapshot = buildWorldbuildingSnapshot(DOC_ID);
+    const rejectedSnapshot = {
+      schema_version: "dmb_workspace_document_snapshot_v1" as const,
+      record: {
+        schema_version: "dmb_workspace_document_record_v1" as const,
+        document_id: PLAN_DOC_ID,
+        title: "Session Prep",
+        campaign_id: "eldyrwild",
+        target_session: 4,
+        kind: "plan" as const,
+        target_relpath: "corpus/prep.md",
+        status: "active" as const,
+        content_status: "committed" as const,
+        revision: 2,
+        created_at: "2026-07-22T00:00:00Z",
+        updated_at: "2026-07-22T00:00:00Z",
+        source_domain: null,
+        document_class: null,
+        authority_state: null,
+        visibility_state: null,
+      },
+      markdown: "# Prep\n",
+      content_sha256: "sha-plan",
+      file_fingerprint: "present",
+      file_exists: true,
+      loaded_revision: 2,
+    };
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(validSnapshot);
+
+    const { rerender } = render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+    });
+
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(rejectedSnapshot);
+    rerender(<BuildDocumentHarness documentId={PLAN_DOC_ID} />);
+
+    expect(await screen.findByTestId("build-surface-error")).toBeInTheDocument();
+    await waitFor(() => {
+      const probe = screen.getByTestId("scope-probe");
+      expect(probe).toHaveAttribute("data-ambient", BUILD_AUTHORITY_REJECTION_AMBIENT);
+      expect(probe).toHaveAttribute("data-envelope", "null");
+      expect(probe).toHaveAttribute("data-context-document-id", "null");
+      const serialized = `${probe.getAttribute("data-ambient")}${probe.getAttribute("data-context-document-id")}${probe.getAttribute("data-document-id")}`;
+      expect(serialized).not.toContain(DOC_ID);
+      expect(serialized).not.toContain(PLAN_DOC_ID);
+    });
+    expect(screen.getByTestId("build-authority-error")).toHaveTextContent(
+      /wrong document kind|plan/i,
+    );
+  });
+
+  it("persists the first real editor transaction to local storage and enables save", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-markdown-editor")).toHaveAttribute(
+        "data-markdown-editor-status",
+        "ready",
+      );
+    });
+
+    const saveButton = screen.getByTestId("build-save-button");
+    expect(saveButton).toBeDisabled();
+
+    await waitFor(() => expect(buildShellTestEditor).not.toBeNull());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      buildShellTestEditor?.commands.insertContent(" Build proof insert");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    });
+    expect(saveButton).not.toBeDisabled();
+    const stored = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
+    expect(stored).toContain("Build proof insert");
   });
 });
