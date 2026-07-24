@@ -170,15 +170,12 @@ export function formatModifier(modifier: number): string {
 
 function formatHitPoints(hp: HitPointProfile): string {
   const average = hp.displayed_average;
-  if (hp.method === "fixed" && hp.fixed_value != null) {
+  if (hp.method === "fixed") {
     return String(hp.fixed_value);
   }
-  if (hp.formula) {
-    const { count, die, modifier = 0 } = hp.formula;
-    const formula = `${count}d${die}${modifier >= 0 ? `+${modifier}` : modifier}`;
-    return average != null ? `${average} (${formula})` : formula;
-  }
-  return average != null ? String(average) : "—";
+  const { count, die, modifier = 0 } = hp.formula;
+  const formula = `${count}d${die}${modifier >= 0 ? `+${modifier}` : modifier}`;
+  return average != null ? `${average} (${formula})` : formula;
 }
 
 function formatDistance(value: { value: number; unit?: string } | null | undefined): string {
@@ -379,11 +376,11 @@ function formatResource(pool: ResourcePool): FormattedResource {
   };
 }
 
-function formatPhase(phase: CreaturePhase): FormattedPhase {
+function formatPhase(phase: CreaturePhase, isDefault: boolean): FormattedPhase {
   return {
     key: phase.key,
     name: phase.name,
-    isDefault: phase.default,
+    isDefault,
     enabledElementKeys: phase.enabled_element_keys ?? [],
     disabledElementKeys: phase.disabled_element_keys ?? [],
     entryRulesText: phase.entry_rules_text ?? null,
@@ -416,7 +413,11 @@ export function buildStatblockViewModel(
     .filter(Boolean)
     .join(", ");
 
-  const acParts = definition.defenses.armor_classes.map((ac) => {
+  const acProfiles = [
+    definition.defenses.default_armor_class,
+    ...(definition.defenses.alternate_armor_classes ?? []),
+  ];
+  const acParts = acProfiles.map((ac) => {
     const label = ac.label ? ` (${ac.label})` : "";
     const condition = ac.condition ? `; ${ac.condition}` : "";
     return `${ac.value}${label}${condition}`;
@@ -479,7 +480,12 @@ export function buildStatblockViewModel(
     damageInteractions: (definition.defenses.damage_interactions ?? []).map(formatDamageInteraction),
     conditionImmunities: definition.defenses.condition_immunities ?? [],
     resources: (definition.resources ?? []).map(formatResource),
-    phases: (definition.phases ?? []).map(formatPhase),
+    phases: definition.phases
+      ? [
+          formatPhase(definition.phases.default_phase, true),
+          ...(definition.phases.additional_phases ?? []).map((phase) => formatPhase(phase, false)),
+        ]
+      : [],
     lair: formatLair(definition.lair),
     flavorSummary: definition.flavor_text?.summary ?? definition.flavor_text?.description ?? null,
     ruleElements: definition.rule_elements.map(formatRuleElement),

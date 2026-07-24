@@ -32,17 +32,15 @@
       "telepathy_range": null
     },
     "defenses": {
-      "armor_classes": [
-        {
-          "condition": null,
-          "default": true,
-          "key": "natural_armor",
-          "label": "natural armor",
-          "value": 15
-        }
-      ],
-      "condition_immunities": [],
-      "damage_interactions": []
+      "default_armor_class": {
+        "condition": null,
+        "key": "natural_armor",
+        "label": "natural armor",
+        "value": 15
+      },
+      "alternate_armor_classes": [],
+      "damage_interactions": [],
+      "condition_immunities": []
     },
     "flavor_text": {
       "description": null,
@@ -69,7 +67,7 @@
         }
       ]
     },
-    "phases": [],
+    "phases": null,
     "proficiencies": {
       "saving_throws": [],
       "skills": []
@@ -140,14 +138,13 @@
     },
     "vitality": {
       "hit_points": {
-        "displayed_average": 68,
-        "fixed_value": null,
+        "method": "formula",
         "formula": {
           "count": 8,
           "die": 10,
           "modifier": 24
         },
-        "method": "formula"
+        "displayed_average": 68
       }
     }
   },

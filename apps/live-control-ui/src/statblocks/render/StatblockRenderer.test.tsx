@@ -74,16 +74,16 @@ describe("statblockViewModel", () => {
           rules_text: "Expend to succeed a failed save.",
         },
       ],
-      phases: [
-        {
+      phases: {
+        default_phase: {
           key: "enraged",
           name: "Enraged",
-          default: false,
           enabled_element_keys: ["frenzy"],
           disabled_element_keys: ["greatclub"],
           entry_rules_text: "Enter when reduced below half HP.",
         },
-      ],
+        additional_phases: [],
+      },
       lair: {
         name: "Ironhold",
         description: "A slag-choked cavern.",
@@ -246,16 +246,16 @@ describe("StatblockRenderer", () => {
       <StatblockRenderer
         candidate={withDefinition(
           {
-            phases: [
-              {
+            phases: {
+              default_phase: {
                 key: "enraged",
                 name: "Enraged",
-                default: false,
                 enabled_element_keys: ["frenzy"],
                 disabled_element_keys: ["greatclub"],
                 entry_rules_text: "Enter when reduced below half HP.",
               },
-            ],
+              additional_phases: [],
+            },
           },
           [transition],
         )}

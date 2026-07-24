@@ -2128,6 +2128,22 @@ button:disabled {
   align-items: center;
 }
 
+.statblock-command-column {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 36rem;
+}
+
+.statblock-command-column label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.statblock-command-column textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
 .statblock-command-status {
   color: #9fb8ff;
   font-size: 0.9rem;

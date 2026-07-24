@@ -192,10 +192,6 @@
             ],
             "title": "Condition"
           },
-          "default": {
-            "title": "Default",
-            "type": "boolean"
-          },
           "key": {
             "pattern": "^[a-z][a-z0-9_]*$",
             "title": "Key",
@@ -220,8 +216,7 @@
         },
         "required": [
           "key",
-          "value",
-          "default"
+          "value"
         ],
         "title": "ArmorClassProfile",
         "type": "object"
@@ -585,9 +580,6 @@
           "kind": {
             "const": "attack",
             "default": "attack",
-            "enum": [
-              "attack"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -758,9 +750,6 @@
           "kind": {
             "const": "attack",
             "default": "attack",
-            "enum": [
-              "attack"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -1050,9 +1039,6 @@
           "kind": {
             "const": "composite",
             "default": "composite",
-            "enum": [
-              "composite"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -1137,9 +1123,6 @@
           "kind": {
             "const": "composite",
             "default": "composite",
-            "enum": [
-              "composite"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -1178,9 +1161,6 @@
           "kind": {
             "const": "condition",
             "default": "condition",
-            "enum": [
-              "condition"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1212,9 +1192,6 @@
           "kind": {
             "const": "condition",
             "default": "condition",
-            "enum": [
-              "condition"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1350,10 +1327,6 @@
       "CreaturePhase": {
         "additionalProperties": false,
         "properties": {
-          "default": {
-            "title": "Default",
-            "type": "boolean"
-          },
           "disabled_element_keys": {
             "items": {
               "type": "string"
@@ -1392,8 +1365,7 @@
         },
         "required": [
           "key",
-          "name",
-          "default"
+          "name"
         ],
         "title": "CreaturePhase",
         "type": "object"
@@ -1422,9 +1394,6 @@
           "kind": {
             "const": "damage",
             "default": "damage",
-            "enum": [
-              "damage"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1460,9 +1429,6 @@
           "kind": {
             "const": "damage",
             "default": "damage",
-            "enum": [
-              "damage"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1527,13 +1493,13 @@
       },
       "DefenseProfile-Input": {
         "additionalProperties": false,
+        "description": "Exactly one default AC is structural: ``default_armor_class`` is required.",
         "properties": {
-          "armor_classes": {
+          "alternate_armor_classes": {
             "items": {
               "$ref": "#/components/schemas/ArmorClassProfile"
             },
-            "minItems": 1,
-            "title": "Armor Classes",
+            "title": "Alternate Armor Classes",
             "type": "array"
           },
           "condition_immunities": {
@@ -1549,23 +1515,26 @@
             },
             "title": "Damage Interactions",
             "type": "array"
+          },
+          "default_armor_class": {
+            "$ref": "#/components/schemas/ArmorClassProfile"
           }
         },
         "required": [
-          "armor_classes"
+          "default_armor_class"
         ],
         "title": "DefenseProfile",
         "type": "object"
       },
       "DefenseProfile-Output": {
         "additionalProperties": false,
+        "description": "Exactly one default AC is structural: ``default_armor_class`` is required.",
         "properties": {
-          "armor_classes": {
+          "alternate_armor_classes": {
             "items": {
               "$ref": "#/components/schemas/ArmorClassProfile"
             },
-            "minItems": 1,
-            "title": "Armor Classes",
+            "title": "Alternate Armor Classes",
             "type": "array"
           },
           "condition_immunities": {
@@ -1581,10 +1550,13 @@
             },
             "title": "Damage Interactions",
             "type": "array"
+          },
+          "default_armor_class": {
+            "$ref": "#/components/schemas/ArmorClassProfile"
           }
         },
         "required": [
-          "armor_classes"
+          "default_armor_class"
         ],
         "title": "DefenseProfile",
         "type": "object"
@@ -1629,9 +1601,6 @@
           "kind": {
             "const": "disable_elements",
             "default": "disable_elements",
-            "enum": [
-              "disable_elements"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1646,11 +1615,7 @@
         "additionalProperties": false,
         "properties": {
           "unit": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DistanceUnit"
-              }
-            ],
+            "$ref": "#/components/schemas/DistanceUnit",
             "default": "feet"
           },
           "value": {
@@ -1666,7 +1631,6 @@
         "type": "object"
       },
       "DistanceUnit": {
-        "const": "feet",
         "enum": [
           "feet"
         ],
@@ -1759,9 +1723,6 @@
           "kind": {
             "const": "enable_elements",
             "default": "enable_elements",
-            "enum": [
-              "enable_elements"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1816,9 +1777,6 @@
           "kind": {
             "const": "enter_phase",
             "default": "enter_phase",
-            "enum": [
-              "enter_phase"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -1900,6 +1858,39 @@
         "title": "ExactRevisionLocatorV1",
         "type": "object"
       },
+      "FixedHitPoints": {
+        "additionalProperties": false,
+        "properties": {
+          "displayed_average": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Average"
+          },
+          "fixed_value": {
+            "minimum": 1.0,
+            "title": "Fixed Value",
+            "type": "integer"
+          },
+          "method": {
+            "const": "fixed",
+            "default": "fixed",
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fixed_value"
+        ],
+        "title": "FixedHitPoints",
+        "type": "object"
+      },
       "ForcedMovementEffect-Input": {
         "additionalProperties": false,
         "properties": {
@@ -1914,9 +1905,6 @@
           "kind": {
             "const": "forced_movement",
             "default": "forced_movement",
-            "enum": [
-              "forced_movement"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1942,9 +1930,6 @@
           "kind": {
             "const": "forced_movement",
             "default": "forced_movement",
-            "enum": [
-              "forced_movement"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1954,6 +1939,37 @@
           "direction"
         ],
         "title": "ForcedMovementEffect",
+        "type": "object"
+      },
+      "FormulaHitPoints": {
+        "additionalProperties": false,
+        "properties": {
+          "displayed_average": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Average"
+          },
+          "formula": {
+            "$ref": "#/components/schemas/DiceExpression"
+          },
+          "method": {
+            "const": "formula",
+            "default": "formula",
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "formula"
+        ],
+        "title": "FormulaHitPoints",
         "type": "object"
       },
       "GenerateCandidateRequestV1": {
@@ -2033,17 +2049,11 @@
           },
           "contract": {
             "const": "dungeonmind.dungeonbuddy-statblocks",
-            "enum": [
-              "dungeonmind.dungeonbuddy-statblocks"
-            ],
             "title": "Contract",
             "type": "string"
           },
           "contract_version": {
             "const": "1.0.0",
-            "enum": [
-              "1.0.0"
-            ],
             "title": "Contract Version",
             "type": "string"
           },
@@ -2340,9 +2350,6 @@
           "kind": {
             "const": "healing",
             "default": "healing",
-            "enum": [
-              "healing"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2365,17 +2372,11 @@
           },
           "contract": {
             "const": "dungeonmind.dungeonbuddy-statblocks",
-            "enum": [
-              "dungeonmind.dungeonbuddy-statblocks"
-            ],
             "title": "Contract",
             "type": "string"
           },
           "contract_version": {
             "const": "1.0.0",
-            "enum": [
-              "1.0.0"
-            ],
             "title": "Contract Version",
             "type": "string"
           },
@@ -2392,58 +2393,6 @@
         "title": "HealthResponseV1",
         "type": "object"
       },
-      "HitPointProfile": {
-        "additionalProperties": false,
-        "properties": {
-          "displayed_average": {
-            "anyOf": [
-              {
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Displayed Average"
-          },
-          "fixed_value": {
-            "anyOf": [
-              {
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fixed Value"
-          },
-          "formula": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DiceExpression"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "method": {
-            "enum": [
-              "formula",
-              "fixed"
-            ],
-            "title": "Method",
-            "type": "string"
-          }
-        },
-        "required": [
-          "method"
-        ],
-        "title": "HitPointProfile",
-        "type": "object"
-      },
       "HumanAdjudicatedEffect": {
         "additionalProperties": false,
         "properties": {
@@ -2455,9 +2404,6 @@
           "kind": {
             "const": "human_adjudicated",
             "default": "human_adjudicated",
-            "enum": [
-              "human_adjudicated"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2481,9 +2427,6 @@
           "kind": {
             "const": "human_adjudicated",
             "default": "human_adjudicated",
-            "enum": [
-              "human_adjudicated"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2571,9 +2514,6 @@
           "kind": {
             "const": "movement",
             "default": "movement",
-            "enum": [
-              "movement"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -2609,9 +2549,6 @@
           "kind": {
             "const": "movement",
             "default": "movement",
-            "enum": [
-              "movement"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -2746,9 +2683,6 @@
           "kind": {
             "const": "multiattack",
             "default": "multiattack",
-            "enum": [
-              "multiattack"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -2834,9 +2768,6 @@
           "kind": {
             "const": "passive",
             "default": "passive",
-            "enum": [
-              "passive"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2911,9 +2842,6 @@
           "kind": {
             "const": "passive",
             "default": "passive",
-            "enum": [
-              "passive"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2993,9 +2921,6 @@
           "kind": {
             "const": "phase_transition",
             "default": "phase_transition",
-            "enum": [
-              "phase_transition"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -3078,9 +3003,6 @@
           "kind": {
             "const": "phase_transition",
             "default": "phase_transition",
-            "enum": [
-              "phase_transition"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -3089,6 +3011,27 @@
           "destination_phase_key"
         ],
         "title": "PhaseTransitionMechanic",
+        "type": "object"
+      },
+      "PhasesProfile": {
+        "additionalProperties": false,
+        "description": "Exactly one default phase is structural when phases are present.",
+        "properties": {
+          "additional_phases": {
+            "items": {
+              "$ref": "#/components/schemas/CreaturePhase"
+            },
+            "title": "Additional Phases",
+            "type": "array"
+          },
+          "default_phase": {
+            "$ref": "#/components/schemas/CreaturePhase"
+          }
+        },
+        "required": [
+          "default_phase"
+        ],
+        "title": "PhasesProfile",
         "type": "object"
       },
       "ProficiencyDerivation": {
@@ -3196,9 +3139,6 @@
         "properties": {
           "contract": {
             "const": "dungeonmind.dungeonbuddy-statblocks",
-            "enum": [
-              "dungeonmind.dungeonbuddy-statblocks"
-            ],
             "title": "Contract",
             "type": "string"
           },
@@ -3276,9 +3216,6 @@
           "kind": {
             "const": "resource_change",
             "default": "resource_change",
-            "enum": [
-              "resource_change"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -3732,7 +3669,6 @@
         "type": "object"
       },
       "RulesetSystem": {
-        "const": "dnd5e",
         "enum": [
           "dnd5e"
         ],
@@ -3806,9 +3742,6 @@
           "kind": {
             "const": "save_effect",
             "default": "save_effect",
-            "enum": [
-              "save_effect"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -3954,9 +3887,6 @@
           "kind": {
             "const": "save_effect",
             "default": "save_effect",
-            "enum": [
-              "save_effect"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4456,9 +4386,6 @@
           "kind": {
             "const": "spellcasting",
             "default": "spellcasting",
-            "enum": [
-              "spellcasting"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4532,9 +4459,6 @@
           "kind": {
             "const": "spellcasting",
             "default": "spellcasting",
-            "enum": [
-              "spellcasting"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4574,9 +4498,6 @@
           "kind": {
             "const": "stat_modifier",
             "default": "stat_modifier",
-            "enum": [
-              "stat_modifier"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4613,9 +4534,6 @@
           "kind": {
             "const": "stat_modifier",
             "default": "stat_modifier",
-            "enum": [
-              "stat_modifier"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4678,11 +4596,14 @@
             "$ref": "#/components/schemas/MovementProfile-Input"
           },
           "phases": {
-            "items": {
-              "$ref": "#/components/schemas/CreaturePhase"
-            },
-            "title": "Phases",
-            "type": "array"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PhasesProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "proficiencies": {
             "$ref": "#/components/schemas/ProficiencyProfile-Input"
@@ -4770,11 +4691,14 @@
             "$ref": "#/components/schemas/MovementProfile-Output"
           },
           "phases": {
-            "items": {
-              "$ref": "#/components/schemas/CreaturePhase"
-            },
-            "title": "Phases",
-            "type": "array"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PhasesProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "proficiencies": {
             "$ref": "#/components/schemas/ProficiencyProfile-Output"
@@ -4899,17 +4823,11 @@
           },
           "contract": {
             "const": "dungeonmind.dungeonbuddy-statblocks",
-            "enum": [
-              "dungeonmind.dungeonbuddy-statblocks"
-            ],
             "title": "Contract",
             "type": "string"
           },
           "contract_version": {
             "const": "1.0.0",
-            "enum": [
-              "1.0.0"
-            ],
             "title": "Contract Version",
             "type": "string"
           },
@@ -4991,9 +4909,6 @@
           "kind": {
             "const": "summon",
             "default": "summon",
-            "enum": [
-              "summon"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -5025,9 +4940,6 @@
           "kind": {
             "const": "summon",
             "default": "summon",
-            "enum": [
-              "summon"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -5460,7 +5372,22 @@
         "additionalProperties": false,
         "properties": {
           "hit_points": {
-            "$ref": "#/components/schemas/HitPointProfile"
+            "discriminator": {
+              "mapping": {
+                "fixed": "#/components/schemas/FixedHitPoints",
+                "formula": "#/components/schemas/FormulaHitPoints"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FormulaHitPoints"
+              },
+              {
+                "$ref": "#/components/schemas/FixedHitPoints"
+              }
+            ],
+            "title": "Hit Points"
           }
         },
         "required": [
@@ -5473,7 +5400,22 @@
         "additionalProperties": false,
         "properties": {
           "hit_points": {
-            "$ref": "#/components/schemas/HitPointProfile"
+            "discriminator": {
+              "mapping": {
+                "fixed": "#/components/schemas/FixedHitPoints",
+                "formula": "#/components/schemas/FormulaHitPoints"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FormulaHitPoints"
+              },
+              {
+                "$ref": "#/components/schemas/FixedHitPoints"
+              }
+            ],
+            "title": "Hit Points"
           }
         },
         "required": [

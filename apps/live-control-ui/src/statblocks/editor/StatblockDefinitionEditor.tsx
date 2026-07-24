@@ -3,9 +3,9 @@ import type { AbilityName, StatblockDefinitionV1_Output } from "../../contracts/
 import { ProtectedStructureBlock } from "./ProtectedStructureBlock";
 import {
   createEditorStateFromOutput,
+  formulaDisplayedAverage,
   getUiStatus,
   identityProtectedRemainder,
-  primaryArmorClassIndexForDisplay,
   resolveHitPointsEditTarget,
   setAbility,
   setHitPointsMax,
@@ -33,20 +33,18 @@ export type StatblockDefinitionEditorProps = {
 };
 
 function readPrimaryArmorClassValue(defenses: StatblockEditorState["workingCopy"]["defenses"]): number {
-  const index = primaryArmorClassIndexForDisplay(defenses);
-  return defenses.armor_classes[index]?.value ?? 0;
+  return defenses.default_armor_class.value;
 }
 
 function readHitPointsEditorValue(vitality: StatblockEditorState["workingCopy"]["vitality"]): number {
   const hitPoints = vitality.hit_points;
-  const target = resolveHitPointsEditTarget(hitPoints);
-  if (target === "displayed_average") {
-    return hitPoints.displayed_average ?? 0;
+  if (hitPoints.method === "fixed") {
+    return hitPoints.fixed_value;
   }
-  if (target === "fixed_value") {
-    return hitPoints.fixed_value ?? 0;
+  if (hitPoints.displayed_average !== null && hitPoints.displayed_average !== undefined) {
+    return hitPoints.displayed_average;
   }
-  return hitPoints.formula?.modifier ?? 0;
+  return formulaDisplayedAverage(hitPoints.formula);
 }
 
 /** Full defenses JSON for disclosure; primary AC value is also editable above. */
@@ -97,17 +95,13 @@ export function StatblockDefinitionEditor({
     onEditorStateChange?.(next);
   };
 
-  const acIndex = primaryArmorClassIndexForDisplay(workingCopy.defenses);
-  const primaryAcEntry = workingCopy.defenses.armor_classes[acIndex];
-  const primaryAcLabel = primaryAcEntry?.default
-    ? "Primary AC value (default armor_classes entry)"
-    : "Primary AC value (armor_classes[0]; no default flagged)";
+  const primaryAcLabel = "Primary AC value (default_armor_class)";
   const hpTarget = resolveHitPointsEditTarget(workingCopy.vitality.hit_points);
 
   return (
     <div className="statblock-definition-editor" data-testid="statblock-definition-editor">
       <p className="statblock-definition-editor__disclosure">
-        Session-only working copy. Changes are unsaved and will be lost on refresh.
+        Browser-local working copy for this candidate. Survives tab close; not a Server save.
       </p>
       <p className="statblock-definition-editor__status" data-testid="editor-ui-status">
         Status: {uiStatus}
@@ -170,10 +164,21 @@ export function StatblockDefinitionEditor({
       <section className="statblock-definition-editor__section" aria-label="Vitality">
         <h3>Hit points</h3>
         <label>
-          Hit points (mutates vitality.hit_points.{hpTarget})
+          Hit points (
+          {hpTarget === "formula_average"
+            ? "adjusts formula.modifier + displayed_average"
+            : "mutates vitality.hit_points.fixed_value"}
+          )
           <input
             type="number"
+            min={1}
+            step={1}
             aria-label="Hit points"
+            title={
+              hpTarget === "formula_average"
+                ? "Steps by 1 HP via formula.modifier so displayed_average always matches the dice formula."
+                : "Fixed hit point value."
+            }
             value={readHitPointsEditorValue(workingCopy.vitality)}
             onChange={(event) => commit(setHitPointsMax(state, Number(event.target.value)))}
           />
@@ -182,7 +187,11 @@ export function StatblockDefinitionEditor({
           path="vitality"
           title="Vitality (full structure)"
           value={vitalityDisclosureValue(workingCopy.vitality)}
-          editableFieldsAbove={`hit_points.${hpTarget}`}
+          editableFieldsAbove={
+            hpTarget === "formula_average"
+              ? "hit_points.formula.modifier + displayed_average"
+              : "hit_points.fixed_value"
+          }
         />
       </section>
 
