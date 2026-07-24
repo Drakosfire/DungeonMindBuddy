@@ -57,26 +57,29 @@ external_pull_requests:
       Post-merge BLD-05a authoring hardening: receipt verification agreement,
       first-transaction persistence, rejected Build context isolation, Plan
       one-shot handback, runbook reset durability.
-    review_status: open_under_review
+    review_status: ready_for_final_review
     review_status_meaning: >-
-      Active gate after PR #399 merged_with_incomplete_evidence. Accept only
-      when every evidence-ledger row in HANDOFF-bld05a-post-merge-authoring-hardening
-      is proved at its owning boundary.
+      Active gate after PR #399 merged_with_incomplete_evidence. Final review
+      candidate after save/verification ordered-race and malformed-receipt
+      quarantine fixes; accept only when HANDOFF evidence ledger is green on
+      the PR-described head.
+    functional_evidence_sha: ef31c90ab468fc4018507e6ca96d0f9d52b5aa0f
     judgment_record:
       verdict: pending
       evaluated_at: null
       evaluator: null
       base_sha: ea7ad826a2ca4f9d275ce245a3884d4af72278a8
       notes: >-
-        REQUEST_CHANGES follow-up head_sha 7970f583667a81d27ae9f21b8f697b300129c667
-        (functional fix 5d324d669c152d64698fcb86864049ec466cd605)
-        on agent/bld05a-post-merge-authoring-hardening. Operator-granted waiver:
-        npm run build / tsc -b fails identically on base ea7ad826 and head with
-        pre-existing planSurface/graphReviewWorkbench/IngestionModule errors
-        outside §4; npx tsc --noEmit is green. App.test.tsx spike fixture is
-        fixed (5/5). Manual §7 dogfood scenarios 1–4: operator-granted waiver
-        for this evidence refresh (headless); owning-boundary automated proofs
-        cover the same adversarial sequences.
+        Final functional fix closes (1) older verification dispatch after a
+        newer save begins and (2) missing-fingerprint receipts exposing an
+        N−1 accepted record beside an N local base. Operator-granted waiver:
+        npm run build / tsc -b fails identically on base ea7ad826 and final
+        head with pre-existing planSurface/graphReviewWorkbench/IngestionModule
+        errors outside §4; npx tsc --noEmit is green. App.test.tsx spike
+        fixture repaired and passing. Manual §7 dogfood scenarios 1–4:
+        operator-granted waiver (headless); owning-boundary automated proofs
+        cover the same adversarial sequences. Final reviewed head SHA lives
+        only in the PR description / reviewer judgment (not in this file).
     rubric_when_we_judge:
       - "Verification exact-match compares document ID, committed revision, content hash, and fingerprint against the receipt."
       - "Verification at N+1 cannot advance expected revision while editor retains N content."
