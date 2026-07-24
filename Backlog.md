@@ -7,6 +7,37 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Start migrating durable `out/` runtime state off the filesystem into a DB — captured 2026-07-24
+**Context:** SBW05c dogfood from a git worktree (`/tmp/dmb-sbw05c`). `out/` is gitignored, so the worktree lacked world graphs / ingest-run artifacts. Symlinking main `out/` into the worktree made paths resolve outside the repo root; Buddy’s `_resolve_repo_contained_path` then failed closed with `unsafe graph-ingest runs root`. Had to copy graph roots into the worktree to continue.
+**Insight:** Local durable product state (World Graph heads, graph-ingest runs, threat drafts, statblock candidate cache, registries) is still filesystem-under-`out/`. That breaks multi-worktree dogfood, fights path-containment safety, and will keep generating “copy/symlink/bind-mount the store” rituals. Related but narrower than the existing corpus-indexing IDEA — this is runtime/store durability, not command-board markdown crawl.
+**Action:** Open a design spike to migrate durable Buddy runtime stores toward a real DB (or one shared store service), starting with the highest-pain `out/` consumers: world-graph root, graph-ingest runs registry, threat-draft store, statblock candidate cache. Keep corpus markdown as auditable source-of-truth where appropriate; do not treat “another JSON tree under `out/`” as the long-term multi-checkout answer.
+**Surfaces when:** worktree dogfood, `out/` missing or empty, `unsafe graph-ingest runs root`, symlink/`relative_to(repo)` path guards, threat-draft/candidate cache portability, world graph root across checkouts, “we need a database”, multi-agent parallel branches sharing campaign state
+**Refs:** sibling `[IDEA] Corpus storage — DB or indexing/query layer` (2026-06-13); `apps/live_control_server/config.py` (`world_graph_root`); `apps/live_control_server/services/graph_ingest_run_registry.py` (`_resolve_repo_contained_path`); `apps/live_control_server/services/threat_draft_store.py`; `apps/live_control_server/services/statblock_candidate_cache.py`; transcript `d9b6ddc5-be0a-42d8-8d33-b4d8a7407924`
+
+## [READY] Workbench ThreatDraft create-and-generate (context-aware, candidate-op owned) — captured 2026-07-24
+**Priority:** high — dogfood friction; pulled out of SBW05c/#404 after review.
+**Context:** Quick “Create & generate” landed in #404 dogfood commit `c7f9201a`, then reverted. Review: create did not claim candidate-op id before `createThreatDraft`; hard-coded world/campaign/fake graph provenance; outside SBW05c allowlist.
+**Insight:** Generate-for-dogfood is a real product surface, but it must be designed as one owned user operation bound to real Plan world/campaign/graph context — not a mid-slice bootstrap with placeholder ids.
+**Action:** Separate UX bite after #404: claim one candidate-operation id before create; thread it through create→generate→load; bind to active surface world/campaign + real graph snapshot (or explicitly unbound contract). Tests for create vs manual-load races. Do not reintroduce placeholder `rev_workbench_quick_create` / hard-coded campaign ids.
+**Surfaces when:** workbench generate, ThreatDraft create UI, SBW05c dogfood without scripts, candidate-operation ownership, fabricated graph provenance
+**Refs:** PR #404 review 4776946899; `StatblockWorkbenchModule.tsx`; reverted `buildQuickThreatDraftCreateRequest.ts`
+
+## [READY] Browser-local editor draft persistence with honest receipt trust — captured 2026-07-24
+**Priority:** medium — useful for tab reopen; pulled out of #404.
+**Context:** `localStorage` draft store was added during SBW05c dogfood then reverted. Review: restoring receipt as authoritative from mutable storage violates exact-definition↔receipt trust.
+**Insight:** Persist working copy / undo / view mode is fine; receipt eligibility must not survive restore via revision-number equality alone.
+**Action:** Dedicated persistence bite: restore as unvalidated; clear validatedRevision/receipt/pending; require fresh Server validate. If receipt restore is required later, design tamper/freshness binding (definition bytes + contract/validator versions) with corrupted-storage tests.
+**Surfaces when:** tab close loses edits, localStorage editor draft, validation receipt restore, SBW05c/SBW07 persistence boundary
+**Refs:** PR #404 review 4776946899; reverted `statblockEditorDraftStore.ts`
+
+## [READY] Vendor Server structural HP/AC/Phases contract into Buddy consumers — captured 2026-07-24
+**Priority:** high — blocks live generate parse against current DungeonMindServer until synced.
+**Context:** Server schema now uses `default_armor_class`, Formula|Fixed HP, `PhasesProfile`. Buddy vendored OpenAPI fingerprint lagged (`75bef3f4` vs `d51883b9`). Temporary vendor landed in #404 dogfood commit then reverted with scope restore.
+**Insight:** Contract sync needs its own PR: fingerprint, codegen procedure, fixtures, Python+TS consumers, combat/editor/renderer impact — not bundled into host/validate.
+**Action:** Focused contract-sync PR from Server `openapi/dungeonbuddy-statblocks-v1.json` → Buddy generated models + UI client + fixtures; prove live generate response parses; include formula-average math helper aligned to Server `(count*(die+1))//2+modifier`.
+**Surfaces when:** `downstream response failed schema validation` after Server schema change, HP/AC editor, generate candidate, OPENAPI_FINGERPRINT mismatch
+**Refs:** DungeonMindServer `statblocks_v1/domain/profiles.py`; Buddy `integrations/dungeonmind_statblocks/generated/`; PR #404
+
 ## [READY] Milestone B contract-freeze PRs before durability code — captured 2026-07-23
 **Priority:** high — prevents another SBW03-style review fix loop on acceptance/revise.
 **Context:** Milestone B bite schedule (roadmap §5.1) after SBW03 operation-authority redesign required many review rounds on terminality/compaction.

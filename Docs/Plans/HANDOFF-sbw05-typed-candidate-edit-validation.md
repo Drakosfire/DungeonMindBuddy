@@ -1,14 +1,16 @@
 # HANDOFF — SBW05 Complete-definition candidate editing and preview validation
 
 **Created:** 2026-07-22  
-**Updated:** 2026-07-23 — re-anchored after SBW04/`#397` and SBW05a/`#398`  
-**Status:** IN PROGRESS — `SBW05a` MERGED `#398` (`58db1fc5`); **next dispatch `SBW05b`** per §12; then `SBW05c`; then SBW07-contract.  
+**Updated:** 2026-07-23 — SBW05b `#402` merged; SBW05c host+validate + doc-sync in #404  
+**Status:** IN PROGRESS — `SBW05a` MERGED `#398`; `SBW05b` MERGED `#402` (`79e22f68`); **`SBW05c` `#404`** per §13; next `SBW07-contract`.  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw05-typed-candidate-edit-validation.md`  
 **Workstream:** `SBW05`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Repository tip (not an SBW claim):** `ea7ad826` on `main` (includes unrelated BLD work)  
-**Last SBW integration:** `#398` / `58db1fc5`  
-**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream.
+**Repository tip (not an SBW claim):** see `main` at PR open (includes unrelated work)  
+**Last SBW integration on `main` before #404:** `#402` / `d4587f1f` — SBW05b editor library  
+**This PR (`#404`):** SBW05c workbench host + preview validate + doc-sync  
+**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream.  
+**Verification debt (SBW05c §7 live walkthrough):** required merge gate. Automated tests are necessary but **not equivalent**. Merge without the walkthrough requires an **explicit operator waiver** naming residual risk and follow-up owner/artifact.
 
 > Dispatch one capability across three PRs: edit a complete typed candidate working copy and obtain authoritative preview validation. Do not save mechanics, revise with a model, publish graph truth, or add media/combat behavior.
 
@@ -17,8 +19,8 @@
 | Bite | Status | PR mission | Allowlist focus | Still false |
 |---|---|---|---|---|
 | `SBW05a` | MERGED `#398` | Validate transport: client method + Buddy route + digest association tests | Backend client/service/route/tests only | Editor UI, workbench, save, revise |
-| `SBW05b` | **NEXT** — see §12 | Pure editor library + Output→Input initializer + local fingerprint/state machine + field/control matrix + visible protected preservation fallback + unit tests | `apps/live-control-ui/src/statblocks/editor/**` + unit tests **only** | Backend, `liveApi`, workbench host, save, acceptance, durable editor schema, Server `definition_digest` recreation |
-| `SBW05c` | After `SBW05b` — see §13 | Host proven editor; call merged SBW05a validate route; reject stale responses; preserve edits on dependency failure; demonstrate edit→validate→edit→stale | Workbench module + `liveApi` wiring | Accept/save path, revise, graph |
+| `SBW05b` | MERGED `#402` | Pure editor library + Output→Input initializer + local fingerprint/state machine + field/control matrix + visible protected preservation fallback + unit tests | `apps/live-control-ui/src/statblocks/editor/**` + unit tests **only** | Backend, `liveApi`, workbench host, save, acceptance, durable editor schema, Server `definition_digest` recreation |
+| `SBW05c` | **#404** — see §13 | Host proven editor; call merged SBW05a validate route; reject stale responses; preserve edits on dependency failure; demonstrate edit→validate→edit→stale | Workbench module + `liveApi` wiring + preview issue partition | Accept/save path, revise, graph |
 
 Each bite uses this handoff’s §6 contract as amended by §12/§13; do not expand that bite’s allowlist mid-review.
 
@@ -363,17 +365,76 @@ git diff --name-only <base>...HEAD
 
 Report `git diff --stat` filtered to the editor allowlist only.
 
-## §13 SBW05c host contract (after SBW05b)
+## §13 SBW05c host contract (normative — #404)
 
-`SBW05c` may:
+### Mission
 
-- host the proven SBW05b editor in the workbench;
-- call the already-merged SBW05a `/statblock-definitions:validate` route;
-- reject stale responses (response association must match the current working-copy fingerprint/state revision);
-- preserve edits on dependency failure;
-- demonstrate **edit → validate → edit → stale**.
+Host the proven SBW05b `StatblockDefinitionEditor` in the Plan workbench; submit the **exact current** `workingCopy` (`StatblockDefinitionV1_Input`) to the merged SBW05a Buddy validate route; associate a receipt only when the response matches the in-flight local `stateRevision`; preserve the working copy on transport/dependency failure; prove **edit → validate → edit → stale**. No accept/save.
 
-`SBW05c` must **still contain no accept/save path**.
+### Allowlist
+
+- `apps/live-control-ui/src/api/types.ts`
+- `apps/live-control-ui/src/api/liveApi.ts`
+- `apps/live-control-ui/src/api/liveApi.test.ts`
+- `apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.tsx`
+- `apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.test.tsx`
+- `apps/live-control-ui/src/statblocks/editor/statblockValidationIssues.ts` (+ test)
+- Docs: this handoff, PR-TRACKER, ROADMAP (status + this §13)
+
+### UI composition
+
+- Modes: `review` | `edit` (default **`edit`** on successful candidate load).
+- Review = immutable `StatblockRenderer` (generation receipt).
+- Edit = controlled `StatblockDefinitionEditor` + workbench **Validate working copy** control + preview validation panel.
+- Editor state owned by the workbench; recreated via `createEditorStateFromOutput` on each successful load/reload.
+- Copy must say preview validation / unsaved — no Accept, Save, or `mechanics_saved`.
+
+### Validate orchestration
+
+```text
+onValidate:
+  1. capture editorEpoch + beginValidationAttempt(editorState)
+  2. capture requestedRevision = editorState.stateRevision
+  3. record pendingValidation { requestId, editorEpoch, stateRevision }
+  4. POST validateStatblockDefinition({ definition: editorState.workingCopy })
+  5. if requestId/epoch/revision ownership is stale → discard all effects
+  6. if outcome === failure or throw (ownership current) → revision-owned validationFailure + markValidationUnavailable
+  7. if outcome === success (ownership current):
+       require validation_receipt and matching top-level definition_digest
+       map receipt.status:
+         valid → validated
+         warnings → validated_with_warnings
+         invalid → validated_with_errors
+       markValidationAssociated(state, mapped)
+       store preview receipt + digest for display
+```
+
+- Validation ownership is `(requestId, editorEpoch, stateRevision)` with revision-owned `pendingValidation` / `validationFailure` records (not free-floating booleans/strings).
+- Any working-copy revision change (edit/undo/redo) immediately orphans the prior request id, clears pending + failure for the prior revision, and leaves older successful receipts only as visibly stale.
+- Loading/reloading/retry and draft-generation share one monotonic **candidate-operation id**; every success/miss/error/generate outcome verifies it is still the latest user operation before mutating candidate input, generate status, or editor state (latest-user-operation-wins across manual load, retry, and generation).
+- A stale generation success or failure must not replace the editor, alter the candidate input, or present itself as the current candidate operation.
+- Never compare local fingerprint to Server `definition_digest` for equality/eligibility.
+- Server `invalid` is a success outcome with receipt association — not transport failure.
+- Pending `validating` and `validation_unavailable` never associate a revision.
+- Issue severities `info` | `warning` | `error` are preserved exactly (info is not rendered as warning).
+
+### Issue mapping
+
+`statblockValidationIssues.ts` partitions issues into field vs global against the **current working copy**:
+
+- Parse `field_path` with exact state-machine grammar (no whitespace normalization; no property immediately after `]` without a `.`).
+- Only paths that fully resolve on the current working copy are field issues.
+- Empty, malformed (`identity..name`, `.identity.name`, `rule_elements[0]mechanic`, leading/trailing spaces), unknown/future, and out-of-range paths are **global**.
+- Global issues preserve and visibly disclose the original non-empty path, plus exact code, severity, message, and non-null suggested_resolution.
+- Severities `info` | `warning` | `error` remain distinct.
+
+### Still false
+
+Accept/save path, revise (`SBW06`), graph, durable editor storage, backend route changes.
+
+### Merge proof
+
+Workbench tests must prove: host editor; clean `valid` → `validated`; edit→validate→edit→stale; stale race discard; dependency failure retains edits; field+global issue display; no Accept/Save controls.
 
 ## §14 After SBW05c — SBW07-contract
 
@@ -396,11 +457,11 @@ Stop if:
 ## Final dispatch check
 
 - [x] Re-anchor after `SBW04` / `#397` and `SBW05a` / `#398`.
-- [x] Distinguish repository tip (`ea7ad826`) from last SBW integration (`58db1fc5`).
+- [x] Distinguish repository tip from last SBW integration.
 - [x] Record SBW04 real-candidate live-proof verification debt as open.
 - [x] Capture current generated validation fixtures (SBW05a).
 - [x] State session-only editor persistence honestly (§12).
-- [ ] Dispatch `SBW05b` against §12 only; confirm backend/`liveApi`/workbench/save remain false.
-- [ ] After `SBW05b`, dispatch `SBW05c` against §13 only.
+- [x] Dispatch `SBW05b` against §12 only (`#402`); backend/`liveApi`/workbench/save remained false in that bite.
+- [x] After `SBW05b`, dispatch `SBW05c` against §13 (#404).
 - [ ] After `SBW05c`, open `SBW07-contract` over frozen HANDOFF-sbw07 §12 without rewrite unless rejected.
 - [ ] Confirm `SBW06` and all graph/projection/runtime successors remain false until their ordered bites.

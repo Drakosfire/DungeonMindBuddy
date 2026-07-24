@@ -1,12 +1,35 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
-import { generateThreatDraftCandidate, getStatblockCandidate } from "../../api/liveApi";
+import {
+  generateThreatDraftCandidate,
+  getStatblockCandidate,
+  validateStatblockDefinition,
+} from "../../api/liveApi";
 import type {
   GenerateThreatDraftCandidateResponseV1,
   ReadStatblockCandidateResponseV1,
+  ValidateDefinitionBuddyResponseV1,
 } from "../../api/types";
-import type { GeneratedStatblockCandidateV1 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import type {
+  GeneratedStatblockCandidateV1,
+  StatblockDefinitionV1_Input,
+  ValidationReceiptV1,
+} from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import { StatblockDefinitionEditor } from "../../statblocks/editor/StatblockDefinitionEditor";
+import {
+  beginValidationAttempt,
+  createEditorStateFromOutput,
+  getUiStatus,
+  markValidationAssociated,
+  markValidationUnavailable,
+  type StatblockEditorState,
+} from "../../statblocks/editor/statblockEditorState";
+import {
+  mapServerValidationStatus,
+  partitionValidationIssuesByPath,
+  splitIssuesBySeverity,
+} from "../../statblocks/editor/statblockValidationIssues";
 import { StatblockRenderer } from "../../statblocks/render/StatblockRenderer";
 
 type LoadState =
@@ -22,6 +45,27 @@ type LoadState =
     }
   | { kind: "error"; candidateId: string; message: string };
 
+type ViewMode = "review" | "edit";
+
+type PreviewValidation = {
+  associatedRevision: number;
+  editorEpoch: number;
+  receipt: ValidationReceiptV1;
+  definitionDigest: string;
+};
+
+type PendingValidation = {
+  requestId: number;
+  editorEpoch: number;
+  stateRevision: number;
+};
+
+type ValidationFailure = {
+  editorEpoch: number;
+  stateRevision: number;
+  message: string;
+};
+
 function readCandidateIdFromLocation(): string {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
@@ -34,6 +78,44 @@ function isIntegrityFailureCategory(category: string | null | undefined): boolea
     category === "integrity_failure" ||
     category === "contract_failure" ||
     category.endsWith("_integrity_failure")
+  );
+}
+
+/** GM-visible global issue line: code, severity, original path, message, suggested_resolution. */
+function GlobalIssueLine({
+  issue,
+}: {
+  issue: {
+    code: string;
+    severity: string;
+    field_path: string;
+    message: string;
+    suggested_resolution?: string | null;
+  };
+}) {
+  const path = typeof issue.field_path === "string" ? issue.field_path : "";
+  return (
+    <>
+      <span data-issue-code={issue.code}>code={issue.code}</span>
+      {" · "}
+      <span data-issue-severity-label={issue.severity}>severity={issue.severity}</span>
+      {path ? (
+        <>
+          {" · "}
+          <span data-issue-path={path}>path={path}</span>
+        </>
+      ) : null}
+      {" · "}
+      <span data-issue-message={issue.message}>{issue.message}</span>
+      {issue.suggested_resolution != null ? (
+        <>
+          {" · "}
+          <span data-issue-suggested-resolution={issue.suggested_resolution}>
+            suggested={issue.suggested_resolution}
+          </span>
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -109,6 +191,158 @@ function CandidateStatusPanel({
   );
 }
 
+function PreviewValidationPanel({
+  preview,
+  editorState,
+  editorEpoch,
+  validationFailure,
+  workingCopy,
+}: {
+  preview: PreviewValidation | null;
+  editorState: StatblockEditorState | null;
+  editorEpoch: number;
+  validationFailure: ValidationFailure | null;
+  workingCopy: StatblockDefinitionV1_Input | null;
+}) {
+  const uiStatus = editorState ? getUiStatus(editorState) : null;
+  const failureCurrent =
+    validationFailure != null &&
+    editorState != null &&
+    validationFailure.editorEpoch === editorEpoch &&
+    validationFailure.stateRevision === editorState.stateRevision;
+
+  const previewCurrent =
+    preview != null &&
+    editorState != null &&
+    preview.editorEpoch === editorEpoch &&
+    editorState.validatedRevision === preview.associatedRevision &&
+    editorState.stateRevision === preview.associatedRevision &&
+    (uiStatus === "validated" ||
+      uiStatus === "validated_with_warnings" ||
+      uiStatus === "validated_with_errors");
+
+  if (failureCurrent) {
+    return (
+      <section
+        className="statblock-section"
+        role="status"
+        data-testid="preview-validation-panel"
+        data-preview-state="unavailable"
+      >
+        <h3>Preview validation</h3>
+        <p className="module-muted">
+          Validation unavailable. Working copy retained (unsaved). {validationFailure.message}
+        </p>
+      </section>
+    );
+  }
+
+  if (!preview) {
+    return (
+      <section
+        className="statblock-section"
+        role="status"
+        data-testid="preview-validation-panel"
+        data-preview-state="none"
+      >
+        <h3>Preview validation</h3>
+        <p className="module-muted">
+          No preview receipt yet. Validate submits the exact session working copy; nothing is saved or
+          accepted.
+        </p>
+      </section>
+    );
+  }
+
+  if (!previewCurrent) {
+    return (
+      <section
+        className="statblock-section"
+        role="status"
+        data-testid="preview-validation-panel"
+        data-preview-state="stale"
+      >
+        <h3>Preview validation</h3>
+        <p className="module-muted">
+          Prior preview receipt is stale / not current for this working-copy revision.
+        </p>
+        <p className="module-muted">
+          Last digest: <code>{preview.definitionDigest}</code>
+        </p>
+      </section>
+    );
+  }
+
+  const { fieldIssues, globalIssues } = partitionValidationIssuesByPath(
+    preview.receipt.issues,
+    workingCopy,
+  );
+  const fieldSplit = splitIssuesBySeverity(fieldIssues);
+  const globalSplit = splitIssuesBySeverity(globalIssues);
+
+  return (
+    <section
+      className="statblock-section"
+      role="status"
+      data-testid="preview-validation-panel"
+      data-preview-state="current"
+      data-preview-receipt-status={preview.receipt.status}
+    >
+      <h3>Preview validation</h3>
+      <p>
+        Server status: <code>{preview.receipt.status}</code> → UI{" "}
+        <code>{mapServerValidationStatus(preview.receipt.status)}</code>
+      </p>
+      <p className="module-muted">
+        Associated digest: <code>{preview.definitionDigest}</code>
+      </p>
+
+      <div data-testid="preview-field-issues">
+        <h4>Field issues</h4>
+        {fieldIssues.length === 0 ? <p className="module-muted">None</p> : null}
+        {fieldSplit.errors.map((issue) => (
+          <p key={`fe-${issue.code}-${issue.field_path}`} data-issue-severity="error">
+            [error] <code>{issue.field_path}</code>: {issue.message}
+          </p>
+        ))}
+        {fieldSplit.warnings.map((issue) => (
+          <p key={`fw-${issue.code}-${issue.field_path}`} data-issue-severity="warning">
+            [warning] <code>{issue.field_path}</code>: {issue.message}
+          </p>
+        ))}
+        {fieldSplit.infos.map((issue) => (
+          <p key={`fi-${issue.code}-${issue.field_path}`} data-issue-severity="info">
+            [info] <code>{issue.field_path}</code>: {issue.message}
+          </p>
+        ))}
+      </div>
+
+      <div data-testid="preview-global-issues">
+        <h4>Global issues</h4>
+        {globalIssues.length === 0 ? <p className="module-muted">None</p> : null}
+        {globalSplit.errors.map((issue) => (
+          <p key={`ge-${issue.code}-${issue.field_path}-${issue.message}`} data-issue-severity="error">
+            <GlobalIssueLine issue={issue} />
+          </p>
+        ))}
+        {globalSplit.warnings.map((issue) => (
+          <p
+            key={`gw-${issue.code}-${issue.field_path}-${issue.message}`}
+            data-issue-severity="warning"
+          >
+            <GlobalIssueLine issue={issue} />
+          </p>
+        ))}
+        {globalSplit.infos.map((issue) => (
+          <p key={`gi-${issue.code}-${issue.field_path}-${issue.message}`} data-issue-severity="info">
+            <GlobalIssueLine issue={issue} />
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function StatblockWorkbenchModule() {
   const [candidateIdInput, setCandidateIdInput] = useState(readCandidateIdFromLocation);
   const [draftIdInput, setDraftIdInput] = useState("");
@@ -117,37 +351,124 @@ export function StatblockWorkbenchModule() {
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [pendingGenerate, setPendingGenerate] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("edit");
+  const [editorState, setEditorState] = useState<StatblockEditorState | null>(null);
+  const [previewValidation, setPreviewValidation] = useState<PreviewValidation | null>(null);
+  const [pendingValidation, setPendingValidation] = useState<PendingValidation | null>(null);
+  const [validationFailure, setValidationFailure] = useState<ValidationFailure | null>(null);
+  const [editorEpoch, setEditorEpoch] = useState(0);
 
-  const loadCandidate = useCallback(async (candidateId: string) => {
-    const trimmed = candidateId.trim();
-    if (!trimmed) {
-      setLoadState({ kind: "error", candidateId: "", message: "Enter an exact candidate ID." });
-      return;
-    }
-    setLoadState({ kind: "loading", candidateId: trimmed });
-    setGenerateMessage(null);
-    setGenerateError(null);
-    try {
-      const response = await getStatblockCandidate(trimmed);
-      if (response.status === "active" && response.candidate) {
-        setLoadState({ kind: "success", response });
+  const validateRequestIdRef = useRef(0);
+  const editorEpochRef = useRef(0);
+  /** Shared monotonic identity for manual load, retry, and draft generation. */
+  const candidateOpIdRef = useRef(0);
+  const editorStateRef = useRef<StatblockEditorState | null>(null);
+  editorStateRef.current = editorState;
+  editorEpochRef.current = editorEpoch;
+
+  const bumpEditorEpoch = useCallback(() => {
+    const next = editorEpochRef.current + 1;
+    editorEpochRef.current = next;
+    setEditorEpoch(next);
+    return next;
+  }, []);
+
+  const isCurrentCandidateOp = useCallback((opId: number): boolean => {
+    return opId === candidateOpIdRef.current;
+  }, []);
+
+  /** Claim the next candidate operation; orphans every prior load/generate outcome. */
+  const beginCandidateOp = useCallback(() => {
+    return ++candidateOpIdRef.current;
+  }, []);
+
+  /** Orphan in-flight validate and clear revision-owned pending/failure records. */
+  const invalidateValidationOwnership = useCallback(() => {
+    validateRequestIdRef.current += 1;
+    setPendingValidation(null);
+    setValidationFailure(null);
+    setPreviewValidation(null);
+  }, []);
+
+  const isCurrentValidateOwnership = useCallback(
+    (requestId: number, epoch: number, requestedRevision: number): boolean => {
+      if (requestId !== validateRequestIdRef.current) return false;
+      if (epoch !== editorEpochRef.current) return false;
+      const latest = editorStateRef.current;
+      return latest != null && latest.stateRevision === requestedRevision;
+    },
+    [],
+  );
+
+  const onEditorStateChange = useCallback(
+    (next: StatblockEditorState) => {
+      const prev = editorStateRef.current;
+      editorStateRef.current = next;
+      setEditorState(next);
+      if (prev && next.stateRevision !== prev.stateRevision) {
+        // Immediate stale-request invalidation for the prior revision.
+        validateRequestIdRef.current += 1;
+        setPendingValidation(null);
+        setValidationFailure(null);
+      }
+    },
+    [],
+  );
+
+  const loadCandidate = useCallback(
+    async (candidateId: string, options?: { opId?: number }) => {
+      const trimmed = candidateId.trim();
+      const opId = options?.opId ?? beginCandidateOp();
+      // A fresh manual/retry load orphans in-flight generation UI.
+      if (options?.opId == null) {
+        setPendingGenerate(false);
+        setGenerateMessage(null);
+        setGenerateError(null);
+      }
+      bumpEditorEpoch();
+      invalidateValidationOwnership();
+      setEditorState(null);
+      editorStateRef.current = null;
+
+      if (!trimmed) {
+        if (!isCurrentCandidateOp(opId)) return;
+        setLoadState({ kind: "error", candidateId: "", message: "Enter an exact candidate ID." });
         return;
       }
-      setLoadState({
-        kind: "status",
-        candidateId: response.candidate_id || trimmed,
-        status: response.status === "active" ? "missing" : response.status,
-        failureCategory: response.failure_category ?? null,
-        failureMessage: response.failure_message ?? null,
-      });
-    } catch (error) {
-      setLoadState({
-        kind: "error",
-        candidateId: trimmed,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, []);
+
+      if (!isCurrentCandidateOp(opId)) return;
+      setLoadState({ kind: "loading", candidateId: trimmed });
+
+      try {
+        const response = await getStatblockCandidate(trimmed);
+        if (!isCurrentCandidateOp(opId)) return;
+
+        if (response.status === "active" && response.candidate) {
+          const nextEditor = createEditorStateFromOutput(response.candidate.definition);
+          editorStateRef.current = nextEditor;
+          setLoadState({ kind: "success", response });
+          setEditorState(nextEditor);
+          setViewMode("edit");
+          return;
+        }
+        setLoadState({
+          kind: "status",
+          candidateId: response.candidate_id || trimmed,
+          status: response.status === "active" ? "missing" : response.status,
+          failureCategory: response.failure_category ?? null,
+          failureMessage: response.failure_message ?? null,
+        });
+      } catch (error) {
+        if (!isCurrentCandidateOp(opId)) return;
+        setLoadState({
+          kind: "error",
+          candidateId: trimmed,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp],
+  );
 
   useEffect(() => {
     const initial = readCandidateIdFromLocation();
@@ -169,14 +490,19 @@ export function StatblockWorkbenchModule() {
       setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
       return;
     }
+    const opId = beginCandidateOp();
+    // Newer generation orphans prior load outcomes and prior generate UI.
     setPendingGenerate(true);
     setGenerateError(null);
     setGenerateMessage(null);
+    setLoadState((prev) => (prev.kind === "loading" ? { kind: "idle" } : prev));
     try {
       const response: GenerateThreatDraftCandidateResponseV1 = await generateThreatDraftCandidate(
         draftId,
         { expected_draft_version: expectedVersion },
       );
+      if (!isCurrentCandidateOp(opId)) return;
+
       if (response.outcome === "success" && response.candidate?.candidate_id) {
         const candidateId = response.candidate.candidate_id;
         setCandidateIdInput(candidateId);
@@ -185,7 +511,7 @@ export function StatblockWorkbenchModule() {
             response.cache_status ? ` (${response.cache_status})` : ""
           }. Loading structured review…`,
         );
-        await loadCandidate(candidateId);
+        await loadCandidate(candidateId, { opId });
         return;
       }
       setGenerateError(
@@ -194,27 +520,124 @@ export function StatblockWorkbenchModule() {
           "Generation failed without a typed candidate.",
       );
     } catch (error) {
+      if (!isCurrentCandidateOp(opId)) return;
       setGenerateError(error instanceof Error ? error.message : String(error));
     } finally {
-      setPendingGenerate(false);
+      if (isCurrentCandidateOp(opId)) {
+        setPendingGenerate(false);
+      }
     }
+  };
+
+  const onValidateWorkingCopy = async () => {
+    const current = editorStateRef.current;
+    if (!current) return;
+
+    const epoch = editorEpochRef.current;
+    const requestId = ++validateRequestIdRef.current;
+    const requestedRevision = current.stateRevision;
+    const workingCopy = current.workingCopy;
+    setValidationFailure(null);
+    setPendingValidation({ requestId, editorEpoch: epoch, stateRevision: requestedRevision });
+    const validating = beginValidationAttempt(current);
+    editorStateRef.current = validating;
+    setEditorState(validating);
+
+    let response: ValidateDefinitionBuddyResponseV1;
+    try {
+      response = await validateStatblockDefinition({ definition: workingCopy });
+    } catch (error) {
+      if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+        return;
+      }
+      setPendingValidation(null);
+      setValidationFailure({
+        editorEpoch: epoch,
+        stateRevision: requestedRevision,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setEditorState((prev) => {
+        if (!prev || prev.stateRevision !== requestedRevision) return prev;
+        const next = markValidationUnavailable(prev);
+        editorStateRef.current = next;
+        return next;
+      });
+      return;
+    }
+
+    if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+      return;
+    }
+
+    if (
+      response.outcome !== "success" ||
+      !response.validation_receipt ||
+      response.definition_digest == null ||
+      response.definition_digest !== response.validation_receipt.definition_digest
+    ) {
+      if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+        return;
+      }
+      setPendingValidation(null);
+      setValidationFailure({
+        editorEpoch: epoch,
+        stateRevision: requestedRevision,
+        message:
+          response.failure_message ??
+          response.failure_category ??
+          "Validation dependency unavailable",
+      });
+      setEditorState((prev) => {
+        if (!prev || prev.stateRevision !== requestedRevision) return prev;
+        const next = markValidationUnavailable(prev);
+        editorStateRef.current = next;
+        return next;
+      });
+      return;
+    }
+
+    if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+      return;
+    }
+
+    const uiStatus = mapServerValidationStatus(response.validation_receipt.status);
+    setPendingValidation(null);
+    setValidationFailure(null);
+    setPreviewValidation({
+      associatedRevision: requestedRevision,
+      editorEpoch: epoch,
+      receipt: response.validation_receipt,
+      definitionDigest: response.definition_digest,
+    });
+    setEditorState((prev) => {
+      if (!prev || prev.stateRevision !== requestedRevision) return prev;
+      const next = markValidationAssociated(prev, uiStatus);
+      editorStateRef.current = next;
+      return next;
+    });
   };
 
   const activeCandidate: GeneratedStatblockCandidateV1 | null =
     loadState.kind === "success" ? loadState.response.candidate ?? null : null;
 
+  const validatePendingForCurrent =
+    pendingValidation != null &&
+    editorState != null &&
+    pendingValidation.editorEpoch === editorEpoch &&
+    pendingValidation.stateRevision === editorState.stateRevision;
+
   return (
     <div className="module-panel statblock-workbench" data-module-id="statblock_workbench">
       <header className="statblock-workbench-header">
         <div>
-          <p className="eyebrow">Typed candidate review</p>
+          <p className="eyebrow">Typed candidate review and preview validation</p>
           <h2 className="module-title">Statblock Workbench</h2>
           <p className="module-muted">
-            Displays mechanics only from a structured DungeonMind candidate definition and receipts.
-            Mock generate, Markdown corpus drafts, and corpus promotion are not the normal review path.
+            Displays mechanics from a structured DungeonMind candidate. Edit mode holds a session-only
+            working copy; preview validation does not accept or save mechanics.
           </p>
         </div>
-        <span className="badge">sbw04-review</span>
+        <span className="badge">sbw05c-preview</span>
       </header>
 
       <section className="statblock-section">
@@ -230,9 +653,7 @@ export function StatblockWorkbenchModule() {
               spellCheck={false}
             />
           </label>
-          <button type="submit" disabled={loadState.kind === "loading"}>
-            {loadState.kind === "loading" ? "Loading…" : "Load candidate"}
-          </button>
+          <button type="submit">Load candidate</button>
         </form>
         <p className="module-muted">
           Optional deep link: <code>?candidateId=cand_…</code>
@@ -303,7 +724,62 @@ export function StatblockWorkbenchModule() {
         />
       ) : null}
 
-      {activeCandidate ? <StatblockRenderer candidate={activeCandidate} mode="review" /> : null}
+      {activeCandidate ? (
+        <section className="statblock-section" data-testid="candidate-view-modes">
+          <h3>Candidate {activeCandidate.candidate_id}</h3>
+          <div className="statblock-command-row" role="group" aria-label="Candidate view mode">
+            <button
+              type="button"
+              aria-pressed={viewMode === "review"}
+              onClick={() => setViewMode("review")}
+            >
+              Review source
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewMode === "edit"}
+              onClick={() => setViewMode("edit")}
+            >
+              Edit working copy
+            </button>
+          </div>
+
+          {viewMode === "review" ? (
+            <StatblockRenderer candidate={activeCandidate} mode="review" />
+          ) : null}
+
+          {viewMode === "edit" && editorState ? (
+            <>
+              <div className="statblock-command-row">
+                <button
+                  type="button"
+                  onClick={() => void onValidateWorkingCopy()}
+                  disabled={validatePendingForCurrent || getUiStatus(editorState) === "validating"}
+                >
+                  {validatePendingForCurrent || getUiStatus(editorState) === "validating"
+                    ? "Validating…"
+                    : "Validate working copy"}
+                </button>
+                <p className="module-muted">
+                  Preview validation only — session-only and unsaved. No accept or save path.
+                </p>
+              </div>
+              <PreviewValidationPanel
+                preview={previewValidation}
+                editorState={editorState}
+                editorEpoch={editorEpoch}
+                validationFailure={validationFailure}
+                workingCopy={editorState.workingCopy}
+              />
+              <StatblockDefinitionEditor
+                output={activeCandidate.definition}
+                editorState={editorState}
+                onEditorStateChange={onEditorStateChange}
+              />
+            </>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }
