@@ -5,7 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 
 import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../api/types";
 import {
-  GraphNodeChipRuntimeProvider,
+  GraphNodeChipDelegationHost,
   type GraphNodeChipDeltaPresentation,
 } from "../../graphReference";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
@@ -102,19 +102,16 @@ function ReadOnlyTiptapRecap({
     onGraphAuthoringSelection,
   });
 
+  const [domEpoch, setDomEpoch] = useState(0);
+
   useEffect(() => {
     editor?.commands.setContent(content, false);
+    // TipTap paints asynchronously; bump epoch after the next frame so pill paint sees buttons.
+    const frame = window.requestAnimationFrame(() => {
+      setDomEpoch((value) => value + 1);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [content, editor]);
-
-  const chipRuntime = useMemo(
-    () => ({
-      nodeViews,
-      activeNodeId,
-      onSelectNode,
-      deltaByNodeId: nodeDeltaPresentations ?? {},
-    }),
-    [nodeViews, activeNodeId, onSelectNode, nodeDeltaPresentations],
-  );
 
   useEffect(() => {
     const root = readerRef.current;
@@ -123,14 +120,30 @@ function ReadOnlyTiptapRecap({
     if (highlighted && typeof highlighted.scrollIntoView === "function") {
       highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
     }
+    const frame = window.requestAnimationFrame(() => {
+      setDomEpoch((value) => value + 1);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [content, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
 
+  const contentEpoch = useMemo(() => {
+    const spanKey = sourceSpans.map((span) => span.span_id).join("|");
+    return `${projectionMarkdown.length}:${spanKey}:${selectedEvidenceSpanId ?? ""}:${domEpoch}`;
+  }, [projectionMarkdown, sourceSpans, selectedEvidenceSpanId, domEpoch]);
+
   return (
-    <GraphNodeChipRuntimeProvider value={chipRuntime}>
+    <GraphNodeChipDelegationHost
+      rootRef={readerRef}
+      contentEpoch={contentEpoch}
+      nodeViews={nodeViews}
+      activeNodeId={activeNodeId}
+      deltaByNodeId={nodeDeltaPresentations ?? {}}
+      onSelectNode={onSelectNode}
+    >
       <div className="union-supergraph-tiptap-reader" ref={readerRef}>
         <EditorContent editor={editor} />
       </div>
-    </GraphNodeChipRuntimeProvider>
+    </GraphNodeChipDelegationHost>
   );
 }
 
@@ -244,8 +257,8 @@ export function GraphProjectionReader({
 
       {typeof mentionsCount === "number" ? (
         <p className="recap-reader-hint union-supergraph-mentions-hint">
-          Read-only TipTap projection of ingested recap Markdown. Editing and corpus writes are intentionally out of
-          scope here. Graph chips are preview memory candidates; evidence highlights show the recap paragraph that supports the selected graph context. {mentionsCount} graph mention{mentionsCount === 1 ? "" : "s"} projected.
+          {mentionsCount} graph mention{mentionsCount === 1 ? "" : "s"} · click a chip to inspect · highlight text to
+          author
         </p>
       ) : null}
 

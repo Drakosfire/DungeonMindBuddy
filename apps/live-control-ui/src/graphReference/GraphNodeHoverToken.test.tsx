@@ -55,6 +55,10 @@ describe("GraphNodeHoverToken", () => {
     expect(screen.getByRole("button", { name: /Bubbles the Float Goat/i })).toBeInTheDocument();
     const wrap = document.querySelector(".recap-node-token-wrap.recap-node-glance");
     expect(wrap).toBeInTheDocument();
+    expect(wrap?.querySelector(".recap-node-hover-card")).toBeNull();
+
+    fireEvent.mouseEnter(wrap!);
+
     const glance = wrap?.querySelector(".recap-node-hover-card");
     expect(glance).toBeInTheDocument();
     expect(glance).toHaveAttribute("role", "tooltip");
@@ -92,6 +96,9 @@ describe("GraphNodeHoverToken", () => {
       />,
     );
 
+    const wrap = document.querySelector(".recap-node-glance");
+    fireEvent.mouseEnter(wrap!);
+
     const kind = document.querySelector(".recap-node-hover-card .recap-node-kind");
     expect(kind?.textContent).toBe("npc · creature");
   });
@@ -122,9 +129,7 @@ describe("GraphNodeHoverToken", () => {
     );
 
     const wrap = document.querySelector(".recap-node-glance");
-    const card = wrap?.querySelector(".recap-node-hover-card");
     expect(wrap).toBeTruthy();
-    expect(card).toBeTruthy();
 
     Object.defineProperty(wrap!, "getBoundingClientRect", {
       value: () => ({
@@ -136,6 +141,11 @@ describe("GraphNodeHoverToken", () => {
         height: 20,
       }),
     });
+
+    fireEvent.mouseEnter(wrap!);
+
+    const card = wrap?.querySelector(".recap-node-hover-card");
+    expect(card).toBeTruthy();
     Object.defineProperty(card!, "getBoundingClientRect", {
       value: () => ({
         top: 0,
@@ -147,6 +157,8 @@ describe("GraphNodeHoverToken", () => {
       }),
     });
 
+    // Re-enter so activate remeasures with the stubbed card height.
+    fireEvent.mouseLeave(wrap!);
     fireEvent.mouseEnter(wrap!);
 
     expect(wrap).toHaveAttribute("data-open", "true");

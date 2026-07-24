@@ -64,9 +64,8 @@ export function GraphObjectAuthoringRelationshipForm({
   return (
     <section className="graph-object-authoring-relationship-form" aria-label="Stage a relationship">
       <p className="graph-object-authoring-relationship-lede">
-        Stage a relationship between two objects. This does not require a
-        current text selection. Nothing is written until a later authoring
-        step.
+        Search for objects and stage relationships. Source stays filled after each stage so you
+        can add many edges without leaving this tab. Nothing is written until prepare and commit.
       </p>
       <GraphObjectAuthoringObjectRefPicker
         label="Source object"

@@ -38,8 +38,9 @@ export function GraphObjectAuthoringBindExistingPanel({
         <p className="plan-surface-kicker">Bind or create</p>
         <h4>Is “{phrase}” already in the campaign?</h4>
         <p className="graph-object-authoring-surface-hint">
-          Most of the time this is an alias of an existing node. Bind it below, or
-          keep scrolling to create a new object.
+          Most of the time this is an alias of an existing node. Bind it below
+          (stays on this tab — review the staged tray, then commit when ready),
+          or keep scrolling to create a new object.
         </p>
       </header>
 

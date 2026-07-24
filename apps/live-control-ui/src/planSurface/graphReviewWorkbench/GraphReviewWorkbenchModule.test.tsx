@@ -330,13 +330,19 @@ describe("GraphReviewWorkbenchModule", () => {
     });
     fireEvent.click(aldenPill);
     fireEvent.click(screen.getByRole("tab", { name: "Relationships" }));
-    expect(screen.getByLabelText("Source object")).toHaveValue("existing_node:alden");
+    expect(screen.getByRole("group", { name: "Source object" })).toHaveAttribute(
+      "data-ref-value",
+      "existing_node:alden",
+    );
 
     const beraPill = within(reader)
       .getAllByRole("button", { name: /Bera/ })
       .find((button) => button.classList.contains("recap-node-token")) as HTMLButtonElement;
     fireEvent.click(beraPill);
-    expect(screen.getByLabelText("Target object")).toHaveValue("existing_node:bera");
+    expect(screen.getByRole("group", { name: "Target object" })).toHaveAttribute(
+      "data-ref-value",
+      "existing_node:bera",
+    );
     expect(
       screen.getByRole("button", { name: "Stage relationship" }),
     ).toBeEnabled();

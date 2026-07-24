@@ -1,13 +1,17 @@
 import { mergeAttributes, Node } from "@tiptap/core";
-import { ReactNodeViewRenderer } from "@tiptap/react";
-
-import { GraphNodeReferenceView } from "./GraphNodeReferenceView";
 
 export interface GraphNodeReferenceAttrs {
   nodeId: string;
   label: string;
 }
 
+/**
+ * Inline graph mention chip.
+ *
+ * Uses native `renderHTML` (no React NodeView) so dense recaps stay cheap.
+ * Role / delta / pinned styling and hover glance are applied by
+ * `GraphNodeChipDelegationHost` + `paintGraphNodePills` in the reader.
+ */
 export const GraphNodeReferenceNode = Node.create({
   name: "graphNodeReference",
   group: "inline",
@@ -25,7 +29,7 @@ export const GraphNodeReferenceNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'button[data-graph-node-id]',
+        tag: "button[data-graph-node-id]",
         getAttrs: (element) => {
           if (!(element instanceof HTMLElement)) {
             return false;
@@ -55,9 +59,5 @@ export const GraphNodeReferenceNode = Node.create({
       }),
       attrs.label || attrs.nodeId,
     ];
-  },
-
-  addNodeView() {
-    return ReactNodeViewRenderer(GraphNodeReferenceView);
   },
 });

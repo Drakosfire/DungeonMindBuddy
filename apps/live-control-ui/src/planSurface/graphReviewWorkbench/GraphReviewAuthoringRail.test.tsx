@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { applyAuthoringPillSelection } from "./GraphReviewAuthoringRail";
+import {
+  applyAuthoringPillSelection,
+  resolveAuthoringWorkingNodeContext,
+} from "./GraphReviewAuthoringRail";
 import type { GraphObjectAuthoringRelationshipFormState } from "./graphObjectAuthoringDraft";
-import { createDefaultGraphObjectAuthoringRelationshipFormState } from "./graphObjectAuthoringDraft";
+import {
+  createDefaultGraphObjectAuthoringFormState,
+  createDefaultGraphObjectAuthoringRelationshipFormState,
+} from "./graphObjectAuthoringDraft";
 
 describe("applyAuthoringPillSelection", () => {
   const projection = {
@@ -58,5 +64,40 @@ describe("applyAuthoringPillSelection", () => {
 
     expect(selected).toEqual({ laneRole: "live", nodeId: "bera" });
     expect(formState.targetObjectRef?.label).toBe("Bera");
+  });
+});
+
+describe("resolveAuthoringWorkingNodeContext", () => {
+  it("prefers the selected projected node name and type", () => {
+    const context = resolveAuthoringWorkingNodeContext({
+      selectedNode: {
+        node_id: "bbq",
+        label: "BBQ",
+        kind: "event",
+        role: null,
+      } as never,
+      relationshipSource: null,
+      formState: createDefaultGraphObjectAuthoringFormState(null),
+      selectedSource: null,
+    });
+
+    expect(context).toEqual({ name: "BBQ", typeLabel: "event" });
+  });
+
+  it("falls back to relationship source when no selected node", () => {
+    const context = resolveAuthoringWorkingNodeContext({
+      selectedNode: null,
+      relationshipSource: {
+        refKind: "existing_graph_node",
+        nodeId: "bbq",
+        label: "BBQ",
+        kind: "event",
+        role: null,
+      },
+      formState: createDefaultGraphObjectAuthoringFormState(null),
+      selectedSource: null,
+    });
+
+    expect(context).toEqual({ name: "BBQ", typeLabel: "event" });
   });
 });

@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 
 import {
   readBottomObstacleTop,
@@ -105,6 +106,8 @@ export function GraphNodeHoverToken({
 }: GraphNodeHoverTokenProps) {
   const wrapRef = useRef<HTMLSpanElement>(null);
   const cardRef = useRef<HTMLSpanElement>(null);
+  /** Mount glance DOM only after first hover/focus — idle chips stay cheap. */
+  const [cardMounted, setCardMounted] = useState(false);
   const [glance, setGlance] = useState<{ open: boolean; placement: GlancePlacement }>({
     open: false,
     placement: "below",
@@ -122,6 +125,11 @@ export function GraphNodeHoverToken({
   const glanceThreads = presentation.threadHints.slice(0, MAX_GLANCE_THREADS);
 
   const activate = () => {
+    if (!cardMounted) {
+      flushSync(() => {
+        setCardMounted(true);
+      });
+    }
     const wrap = wrapRef.current;
     const card = cardRef.current;
     // Measure while hidden, then open already on the correct side — no below→above flash.
@@ -201,38 +209,40 @@ export function GraphNodeHoverToken({
           <span className="graph-review-pill-delta-badge">{deltaLabel ?? normalizedDeltaStatus}</span>
         ) : null}
       </button>
-      <span
-        ref={cardRef}
-        className="recap-node-hover-card recap-planning-card"
-        role="tooltip"
-        data-placement={placement}
-      >
-        {glanceType ? <span className="recap-node-kind">{glanceType}</span> : null}
-        {presentation.summary ? (
-          <small className="recap-planning-summary">{presentation.summary}</small>
-        ) : null}
-        {presentation.whyNow ? (
-          <PlanningScanSection title="Why now">
-            <small>{presentation.whyNow}</small>
-          </PlanningScanSection>
-        ) : null}
-        {deltaStatus && showDeltaBadge ? (
-          <PlanningScanSection title="Graph review delta">
-            <small>{deltaSummary ?? deltaLabel ?? deltaStatus}</small>
-          </PlanningScanSection>
-        ) : null}
-        {glanceThreads.length ? (
-          <PlanningScanSection title="Threads">
-            <ul className="recap-planning-thread-list">
-              {glanceThreads.map((hint) => (
-                <li key={`${presentation.nodeId}:${hint.nodeId}`}>
-                  {truncateThreadLabel(hint.edgeLabel)}
-                </li>
-              ))}
-            </ul>
-          </PlanningScanSection>
-        ) : null}
-      </span>
+      {cardMounted ? (
+        <span
+          ref={cardRef}
+          className="recap-node-hover-card recap-planning-card"
+          role="tooltip"
+          data-placement={placement}
+        >
+          {glanceType ? <span className="recap-node-kind">{glanceType}</span> : null}
+          {presentation.summary ? (
+            <small className="recap-planning-summary">{presentation.summary}</small>
+          ) : null}
+          {presentation.whyNow ? (
+            <PlanningScanSection title="Why now">
+              <small>{presentation.whyNow}</small>
+            </PlanningScanSection>
+          ) : null}
+          {deltaStatus && showDeltaBadge ? (
+            <PlanningScanSection title="Graph review delta">
+              <small>{deltaSummary ?? deltaLabel ?? deltaStatus}</small>
+            </PlanningScanSection>
+          ) : null}
+          {glanceThreads.length ? (
+            <PlanningScanSection title="Threads">
+              <ul className="recap-planning-thread-list">
+                {glanceThreads.map((hint) => (
+                  <li key={`${presentation.nodeId}:${hint.nodeId}`}>
+                    {truncateThreadLabel(hint.edgeLabel)}
+                  </li>
+                ))}
+              </ul>
+            </PlanningScanSection>
+          ) : null}
+        </span>
+      ) : null}
     </span>
   );
 }

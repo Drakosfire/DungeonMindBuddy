@@ -240,7 +240,10 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
     fireEvent.click(aldenPill);
     fireEvent.click(screen.getByRole("tab", { name: "Relationships" }));
 
-    expect(screen.getByLabelText("Source object")).toHaveValue("existing_node:alden");
+    expect(screen.getByRole("group", { name: "Source object" })).toHaveAttribute(
+      "data-ref-value",
+      "existing_node:alden",
+    );
   });
 
   it("stages a relationship after source and target pills without dialog churn", async () => {
@@ -267,8 +270,14 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
     fireEvent.click(beraPill);
     fireEvent.click(screen.getByRole("tab", { name: "Relationships" }));
 
-    expect(screen.getByLabelText("Source object")).toHaveValue("existing_node:alden");
-    expect(screen.getByLabelText("Target object")).toHaveValue("existing_node:bera");
+    expect(screen.getByRole("group", { name: "Source object" })).toHaveAttribute(
+      "data-ref-value",
+      "existing_node:alden",
+    );
+    expect(screen.getByRole("group", { name: "Target object" })).toHaveAttribute(
+      "data-ref-value",
+      "existing_node:bera",
+    );
 
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
     fireEvent.click(screen.getByRole("tab", { name: "Stage & commit" }));
@@ -382,16 +391,21 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("tab", { name: "Existing object" })).toHaveAttribute(
+      expect(screen.getByRole("tab", { name: "New object" })).toHaveAttribute(
         "aria-selected",
         "true",
       );
     });
     await waitFor(() => {
-      expect(
-        screen.getByTestId("graph-review-authoring-next-relationships-button"),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("graph-object-authoring-post-create-banner")).toHaveTextContent(
+        /Object saved as Questionable Company/i,
+      );
     });
+    expect(screen.getByRole("group", { name: "Source object" })).toHaveAttribute(
+      "data-ref-value",
+      "existing_node:authored:assert-test123",
+    );
+    expect(screen.getByTestId("graph-object-authoring-relationship-section")).toBeInTheDocument();
   });
 });
 

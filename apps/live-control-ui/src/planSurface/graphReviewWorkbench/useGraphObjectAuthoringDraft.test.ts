@@ -48,6 +48,47 @@ describe("useGraphObjectAuthoringDraft stageRelationshipProposal", () => {
 
     expect(result.current.proposals).toHaveLength(1);
     expect(result.current.proposals[0]?.proposalKind).toBe("relationship");
+    expect(result.current.relationshipFormState.sourceObjectRef).toEqual(sourceRef);
+    expect(result.current.relationshipFormState.targetObjectRef).toBeNull();
+    expect(result.current.relationshipFormState.relationshipType).toBe("has_member");
+  });
+
+  it("can stage a second relationship without re-picking the source", () => {
+    const { result } = renderHook(() => useGraphObjectAuthoringDraft());
+    const sourceRef = buildObjectRefFromInspectedNode({ node_id: "bbq", label: "BBQ", kind: "event" });
+    const festivalRef = buildObjectRefFromInspectedNode({
+      node_id: "festival",
+      label: "Festival of Embers",
+      kind: "event",
+    });
+    const alleyRef = buildObjectRefFromInspectedNode({
+      node_id: "alley",
+      label: "Alley",
+      kind: "location",
+    });
+
+    act(() => {
+      result.current.updateRelationshipField("sourceObjectRef", sourceRef);
+    });
+    act(() => {
+      result.current.updateRelationshipField("targetObjectRef", festivalRef);
+    });
+    act(() => {
+      result.current.updateRelationshipField("relationshipType", "related_to");
+    });
+    act(() => {
+      result.current.stageRelationshipProposal();
+    });
+    act(() => {
+      result.current.updateRelationshipField("targetObjectRef", alleyRef);
+    });
+    act(() => {
+      result.current.stageRelationshipProposal();
+    });
+
+    expect(result.current.proposals).toHaveLength(2);
+    expect(result.current.relationshipFormState.sourceObjectRef).toEqual(sourceRef);
+    expect(result.current.relationshipFormState.targetObjectRef).toBeNull();
   });
 });
 

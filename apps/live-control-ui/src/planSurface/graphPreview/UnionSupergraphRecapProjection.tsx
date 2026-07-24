@@ -100,8 +100,8 @@ export function UnionSupergraphRecapProjection({
       </div>
 
       <p className="recap-reader-hint union-supergraph-mentions-hint">
-        Read-only TipTap projection of ingested recap Markdown. Editing and corpus writes are intentionally out of
-        scope here. Graph chips are preview memory candidates; evidence highlights show the recap paragraph that supports the selected graph context. {payload.mentions.length} graph mention{payload.mentions.length === 1 ? "" : "s"} projected.
+        {payload.mentions.length} graph mention{payload.mentions.length === 1 ? "" : "s"} · click a
+        chip to inspect
       </p>
 
       <GraphProjectionReader

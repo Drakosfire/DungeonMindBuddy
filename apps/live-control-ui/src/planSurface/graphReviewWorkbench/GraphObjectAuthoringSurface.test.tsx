@@ -39,6 +39,55 @@ const defaultExistingNodes: GraphObjectAuthoringInspectedNode[] = [
   { node_id: "bonogo", label: "Bonogo", kind: "pc", role: "rogue" },
 ];
 
+function getObjectRefPicker(name: "Source object" | "Target object") {
+  return screen.getByRole("group", { name });
+}
+
+function expectPickerValue(name: "Source object" | "Target object", value: string) {
+  expect(getObjectRefPicker(name)).toHaveAttribute("data-ref-value", value);
+}
+
+function clearObjectRefPicker(name: "Source object" | "Target object") {
+  const picker = getObjectRefPicker(name);
+  const changeButton = within(picker).queryByRole("button", { name: `Change ${name}` });
+  if (changeButton) {
+    fireEvent.click(changeButton);
+  }
+}
+
+function selectExistingObjectRef(
+  name: "Source object" | "Target object",
+  nodeLabel: string,
+) {
+  clearObjectRefPicker(name);
+  const picker = getObjectRefPicker(name);
+  const search = within(picker).getByTestId("graph-object-authoring-ref-picker-search");
+  fireEvent.change(search, { target: { value: nodeLabel } });
+  const results = within(picker).getByTestId("graph-object-authoring-ref-picker-results");
+  const match = within(results)
+    .getAllByRole("button")
+    .find((button) => button.textContent?.includes(nodeLabel) && !button.textContent?.includes("Manual"));
+  expect(match).toBeTruthy();
+  fireEvent.click(match as HTMLButtonElement);
+}
+
+function selectManualObjectRef(
+  name: "Source object" | "Target object",
+  label?: string,
+) {
+  clearObjectRefPicker(name);
+  const picker = getObjectRefPicker(name);
+  fireEvent.click(within(picker).getByTestId("graph-object-authoring-ref-picker-manual"));
+  if (label !== undefined) {
+    fireEvent.change(within(picker).getByTestId("graph-object-authoring-ref-picker-manual-input"), {
+      target: { value: label },
+    });
+    if (label.trim()) {
+      fireEvent.click(within(picker).getByTestId("graph-object-authoring-ref-picker-done-manual"));
+    }
+  }
+}
+
 function Harness({
   initialSelection,
   existingNodes = defaultExistingNodes,
@@ -265,11 +314,63 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(screen.getByTestId("graph-object-authoring-stage-button")).toHaveTextContent(
       "Creating…",
     );
-    expect(screen.getByText("Bind highlighted text or create a node")).toBeInTheDocument();
+    expect(screen.getByText("Create a node and add relationships")).toBeInTheDocument();
     expect(
       screen.getByText(/Prefer adding an alias to an existing node/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Commit did not complete.");
+  });
+
+  it("shows relationships and staging on the create_new focus panel", () => {
+    render(<Harness focusPanel="create_new" />);
+
+    expect(screen.getByTestId("graph-object-authoring-relationship-section")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-review-staged-memory")).toBeInTheDocument();
+  });
+
+  it("shows a post-create banner when a relationship source is already set", () => {
+    function PostCreateHarness() {
+      const draft = useGraphObjectAuthoringDraft();
+      return (
+        <GraphObjectAuthoringSurface
+          focusPanel="create_new"
+          selectedSource={null}
+          formState={draft.formState}
+          proposals={draft.proposals}
+          onFormFieldChange={draft.updateFormField}
+          onStageProposal={draft.stageProposal}
+          onRemoveProposal={draft.removeProposal}
+          onStartManualDraft={() =>
+            draft.openWithSelection(
+              buildManualGraphAuthoringSelection({
+                campaignId: "longmont-c1",
+                sessionId: "session-2",
+              }),
+            )
+          }
+          relationshipFormState={{
+            ...draft.relationshipFormState,
+            sourceObjectRef: {
+              refKind: "existing_graph_node",
+              label: "BBQ",
+              nodeId: "event:bbq",
+              kind: "event",
+              role: null,
+            },
+          }}
+          onRelationshipFieldChange={draft.updateRelationshipField}
+          onStageRelationshipProposal={draft.stageRelationshipProposal}
+          existingNodes={defaultExistingNodes}
+        />
+      );
+    }
+
+    render(<PostCreateHarness />);
+
+    expect(screen.getByTestId("graph-object-authoring-post-create-banner")).toHaveTextContent(
+      /Object saved as BBQ/i,
+    );
+    expect(screen.getByTestId("graph-object-authoring-relationship-section")).toBeInTheDocument();
   });
 
   it("seeds the label field from the selected text once opened", () => {
@@ -359,17 +460,11 @@ describe("GraphObjectAuthoringSurface", () => {
   it("stages a relationship proposal between the inspected node and a manual ref without requiring a selection", () => {
     render(<Harness />);
 
-    fireEvent.change(screen.getByLabelText("Source object"), {
-      target: { value: "existing_node:bonogo" },
-    });
+    selectExistingObjectRef("Source object", "Bonogo");
     fireEvent.change(screen.getByLabelText("Relationship type"), {
       target: { value: "has_member" },
     });
-    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
-    const manualInputs = screen.getAllByPlaceholderText("Type a label for an object not staged yet");
-    fireEvent.change(manualInputs[manualInputs.length - 1], {
-      target: { value: "Questionable Company" },
-    });
+    selectManualObjectRef("Target object", "Questionable Company");
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
 
     const stagedProposal = screen.getByTestId("graph-object-authoring-staged-proposal");
@@ -379,6 +474,8 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(
       screen.getByText(/These drafts are local until you prepare and commit them/i),
     ).toBeInTheDocument();
+    expectPickerValue("Source object", "existing_node:bonogo");
+    expectPickerValue("Target object", "");
   });
 
   it("lists every quick relationship predicate in the type select", () => {
@@ -409,20 +506,14 @@ describe("GraphObjectAuthoringSurface", () => {
   it("stages a custom relationship predicate when Custom is selected", () => {
     render(<Harness />);
 
-    fireEvent.change(screen.getByLabelText("Source object"), {
-      target: { value: "existing_node:bonogo" },
-    });
+    selectExistingObjectRef("Source object", "Bonogo");
     fireEvent.change(screen.getByLabelText("Relationship type"), {
       target: { value: "__custom__" },
     });
     fireEvent.change(screen.getByLabelText("Custom relationship type"), {
       target: { value: "owes_debt_to" },
     });
-    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
-    const manualInputs = screen.getAllByPlaceholderText("Type a label for an object not staged yet");
-    fireEvent.change(manualInputs[manualInputs.length - 1], {
-      target: { value: "Questionable Company" },
-    });
+    selectManualObjectRef("Target object", "Questionable Company");
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
 
     expect(screen.getByTestId("graph-object-authoring-staged-proposal")).toHaveTextContent(
@@ -433,20 +524,14 @@ describe("GraphObjectAuthoringSurface", () => {
   it("shows identity guidance for custom same_as predicates without blocking staging", () => {
     render(<Harness />);
 
-    fireEvent.change(screen.getByLabelText("Source object"), {
-      target: { value: "existing_node:bonogo" },
-    });
+    selectExistingObjectRef("Source object", "Bonogo");
     fireEvent.change(screen.getByLabelText("Relationship type"), {
       target: { value: "__custom__" },
     });
     fireEvent.change(screen.getByLabelText("Custom relationship type"), {
       target: { value: "same_as" },
     });
-    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
-    const manualInputs = screen.getAllByPlaceholderText("Type a label for an object not staged yet");
-    fireEvent.change(manualInputs[manualInputs.length - 1], {
-      target: { value: "Questionable Company" },
-    });
+    selectManualObjectRef("Target object", "Questionable Company");
 
     expect(screen.getByTestId("graph-object-authoring-identity-predicate-warning")).toBeInTheDocument();
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeEnabled();
@@ -455,12 +540,8 @@ describe("GraphObjectAuthoringSurface", () => {
   it("disables relationship staging when source and target are the exact same object", () => {
     render(<Harness />);
 
-    fireEvent.change(screen.getByLabelText("Source object"), {
-      target: { value: "existing_node:bonogo" },
-    });
-    fireEvent.change(screen.getByLabelText("Target object"), {
-      target: { value: "existing_node:bonogo" },
-    });
+    selectExistingObjectRef("Source object", "Bonogo");
+    selectExistingObjectRef("Target object", "Bonogo");
 
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
     expect(screen.getByTestId("graph-object-authoring-same-object-warning")).toBeInTheDocument();
@@ -476,12 +557,18 @@ describe("GraphObjectAuthoringSurface", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Source object"), {
-      target: { value: "existing_node:glowkindle-char" },
+    selectExistingObjectRef("Source object", "Glowkindle");
+    // First match is glowkindle-char (sorted by label then insertion); change target to faction via search meta.
+    clearObjectRefPicker("Target object");
+    const targetPicker = getObjectRefPicker("Target object");
+    fireEvent.change(within(targetPicker).getByTestId("graph-object-authoring-ref-picker-search"), {
+      target: { value: "Glowkindle" },
     });
-    fireEvent.change(screen.getByLabelText("Target object"), {
-      target: { value: "existing_node:glowkindle-faction" },
-    });
+    const factionButton = within(targetPicker)
+      .getAllByRole("button")
+      .find((button) => button.textContent?.includes("faction"));
+    expect(factionButton).toBeTruthy();
+    fireEvent.click(factionButton as HTMLButtonElement);
 
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeEnabled();
     expect(screen.queryByTestId("graph-object-authoring-same-object-warning")).not.toBeInTheDocument();
@@ -490,13 +577,8 @@ describe("GraphObjectAuthoringSurface", () => {
   it("lets relationship drafts use player_visible visibility", () => {
     render(<Harness />);
 
-    fireEvent.change(screen.getByLabelText("Source object"), {
-      target: { value: "existing_node:bonogo" },
-    });
-    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
-    fireEvent.change(screen.getAllByPlaceholderText("Type a label for an object not staged yet")[0], {
-      target: { value: "Questionable Company" },
-    });
+    selectExistingObjectRef("Source object", "Bonogo");
+    selectManualObjectRef("Target object", "Questionable Company");
     fireEvent.change(screen.getByLabelText("Relationship visibility"), {
       target: { value: "player_visible" },
     });
@@ -515,44 +597,37 @@ describe("GraphObjectAuthoringSurface", () => {
   it("keeps relationship staging disabled when a manual ref is selected but the label is blank", () => {
     render(<Harness />);
 
-    fireEvent.change(screen.getByLabelText("Source object"), {
-      target: { value: "existing_node:bonogo" },
-    });
+    selectExistingObjectRef("Source object", "Bonogo");
     fireEvent.change(screen.getByLabelText("Relationship type"), {
       target: { value: "has_member" },
     });
-    fireEvent.change(screen.getByLabelText("Target object"), { target: { value: "manual" } });
+    selectManualObjectRef("Target object");
 
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
 
-    const manualInputs = screen.getAllByPlaceholderText("Type a label for an object not staged yet");
-    fireEvent.change(manualInputs[manualInputs.length - 1], { target: { value: "   " } });
+    fireEvent.change(screen.getByTestId("graph-object-authoring-ref-picker-manual-input"), {
+      target: { value: "   " },
+    });
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
   });
 
-  it("clears the manual object input after staging so stale text does not leak into the next proposal", () => {
+  it("keeps source and clears target after staging so the next relationship is ready", () => {
     render(<Harness />);
 
-    fireEvent.change(screen.getByLabelText("Source object"), { target: { value: "manual" } });
-    fireEvent.change(screen.getByPlaceholderText("Type a label for an object not staged yet"), {
-      target: { value: "Questionable Company" },
-    });
+    selectManualObjectRef("Source object", "Questionable Company");
     fireEvent.change(screen.getByLabelText("Relationship type"), {
       target: { value: "has_member" },
     });
-    fireEvent.change(screen.getByLabelText("Target object"), {
-      target: { value: "existing_node:bonogo" },
-    });
+    selectExistingObjectRef("Target object", "Bonogo");
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
 
-    // The relationship section stays mounted after staging. Re-selecting manual
-    // entry for a fresh proposal must not resurrect the previous typed label.
-    fireEvent.change(screen.getByLabelText("Source object"), { target: { value: "manual" } });
-    expect(screen.getByPlaceholderText("Type a label for an object not staged yet")).toHaveValue("");
+    expectPickerValue("Source object", "manual");
+    expect(getObjectRefPicker("Source object")).toHaveTextContent("Questionable Company");
+    expectPickerValue("Target object", "");
     expect(screen.getByTestId("graph-object-authoring-stage-relationship-button")).toBeDisabled();
   });
 
-  it("offers every existing graph object as a target, not just a single last-inspected node", () => {
+  it("offers every existing graph object as a searchable target, not just a single last-inspected node", () => {
     render(
       <Harness
         existingNodes={[
@@ -563,14 +638,15 @@ describe("GraphObjectAuthoringSurface", () => {
       />,
     );
 
-    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingGroup = within(sourcePicker).getByRole("group", { name: "Current recap" });
-    const options = within(existingGroup).getAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual([
-      "Alden · npc",
-      "Bonogo · pc",
-      "Grishna · npc",
-    ]);
+    const sourcePicker = getObjectRefPicker("Source object");
+    const results = within(sourcePicker).getByTestId("graph-object-authoring-ref-picker-results");
+    const labels = within(results)
+      .getAllByRole("button")
+      .map((button) => button.textContent ?? "")
+      .filter((text) => !text.includes("Manual"));
+    expect(labels.some((text) => text.includes("Alden"))).toBe(true);
+    expect(labels.some((text) => text.includes("Bonogo"))).toBe(true);
+    expect(labels.some((text) => text.includes("Grishna"))).toBe(true);
   });
 
   it("deduplicates existing graph object candidates by node id", () => {
@@ -583,9 +659,14 @@ describe("GraphObjectAuthoringSurface", () => {
       />,
     );
 
-    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingGroup = within(sourcePicker).getByRole("group", { name: "Current recap" });
-    expect(within(existingGroup).getAllByRole("option")).toHaveLength(1);
+    const sourcePicker = getObjectRefPicker("Source object");
+    fireEvent.change(within(sourcePicker).getByTestId("graph-object-authoring-ref-picker-search"), {
+      target: { value: "Alden" },
+    });
+    const matches = within(sourcePicker)
+      .getAllByRole("button")
+      .filter((button) => button.textContent?.includes("Alden") && !button.textContent?.includes("Manual"));
+    expect(matches).toHaveLength(1);
   });
 
   it("keeps existing object proposal staging working alongside the new proposal kinds", () => {
@@ -620,7 +701,7 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(screen.getByTestId("graph-object-authoring-overlap-warnings")).toBeInTheDocument();
   });
 
-  it("groups authored and extracted nodes separately in the picker", () => {
+  it("groups authored and extracted nodes separately in the picker search results", () => {
     render(
       <Harness
         existingNodes={[
@@ -636,11 +717,36 @@ describe("GraphObjectAuthoringSurface", () => {
       />,
     );
 
-    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    expect(within(sourcePicker).getByRole("group", { name: "Authored memory" })).toBeInTheDocument();
-    expect(within(sourcePicker).getByRole("group", { name: "Current recap" })).toBeInTheDocument();
+    const sourcePicker = getObjectRefPicker("Source object");
+    const resultsText = within(sourcePicker).getByTestId(
+      "graph-object-authoring-ref-picker-results",
+    ).textContent;
+    expect(resultsText).toContain("Authored memory");
+    expect(resultsText).toContain("Current recap");
   });
 
+  it("filters picker results by typeahead query", () => {
+    render(
+      <Harness
+        existingNodes={[
+          { node_id: "alden", label: "Alden", kind: "npc" },
+          { node_id: "festival", label: "Festival of Embers", kind: "event" },
+          { node_id: "bonogo", label: "Bonogo", kind: "pc" },
+        ]}
+      />,
+    );
+
+    const targetPicker = getObjectRefPicker("Target object");
+    fireEvent.change(within(targetPicker).getByTestId("graph-object-authoring-ref-picker-search"), {
+      target: { value: "Festival" },
+    });
+    const resultsText = within(targetPicker).getByTestId(
+      "graph-object-authoring-ref-picker-results",
+    ).textContent;
+    expect(resultsText).toContain("Festival of Embers");
+    expect(resultsText).not.toContain("Alden");
+    expect(resultsText).not.toContain("Bonogo");
+  });
   it("does not show prepare button until proposals exist and prepare/commit wiring is enabled", () => {
     render(<Harness withPrepareCommit />);
     expect(screen.queryByTestId("graph-object-authoring-prepare-button")).not.toBeInTheDocument();

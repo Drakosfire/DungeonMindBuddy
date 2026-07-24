@@ -173,13 +173,21 @@ export function GraphObjectAuthoringSurface({
   );
 
   const showCreateNew = focusPanel === "all" || focusPanel === "create_new";
-  const showRelationships = focusPanel === "all" || focusPanel === "relationships";
-  const showStageOverlay = focusPanel === "all" || focusPanel === "stage_overlay";
+  // Create tab also hosts relationships + staging so BBQ → event → Festival stays one surface.
+  const showRelationships =
+    focusPanel === "all" || focusPanel === "relationships" || focusPanel === "create_new";
+  const showStageOverlay =
+    focusPanel === "all" || focusPanel === "stage_overlay" || focusPanel === "create_new";
 
   const hasUnusedPendingSelection = Boolean(
     pendingSelection &&
       pendingSelection.selectedText.trim() &&
       (!selectedSource || selectedSource.selectedText !== pendingSelection.selectedText),
+  );
+
+  const postCreateRelationshipSource = relationshipFormState?.sourceObjectRef ?? null;
+  const showPostCreateBanner = Boolean(
+    showCreateNew && !selectedSource && postCreateRelationshipSource?.label?.trim(),
   );
 
   const handleBindAsAlias = (candidate: GraphReviewExistingObjectCandidate) => {
@@ -199,15 +207,15 @@ export function GraphObjectAuthoringSurface({
     focusPanel === "create_new"
       ? {
           kicker: "New object",
-          title: "Bind highlighted text or create a node",
+          title: "Create a node and add relationships",
           hint:
-            "Highlight recap text, then use it below. Prefer adding an alias to an existing node when one matches; otherwise create a new object.",
+            "Highlight recap text, then use it below. Prefer adding an alias to an existing node when one matches; otherwise create a new object. After create, search targets and stage relationships on this same tab.",
         }
       : focusPanel === "relationships"
         ? {
             kicker: "Relationships",
             title: "Stage a relationship",
-            hint: "Click graph pills in the recap to set source and target.",
+            hint: "Click graph pills in the recap to set source and target, or search for objects below.",
           }
         : focusPanel === "stage_overlay"
           ? {
@@ -305,6 +313,29 @@ export function GraphObjectAuthoringSurface({
                 ) : null}
               </div>
             </>
+          ) : showPostCreateBanner && postCreateRelationshipSource ? (
+            <div
+              className="graph-object-authoring-post-create-banner"
+              data-testid="graph-object-authoring-post-create-banner"
+              role="status"
+            >
+              <p>
+                Object saved as <strong>{postCreateRelationshipSource.label}</strong> — add
+                relationships below. Stage as many as you need, then prepare and commit on this
+                tab.
+              </p>
+              {onStartManualDraft ? (
+                <div className="graph-object-authoring-surface-actions">
+                  <button
+                    type="button"
+                    data-testid="graph-object-authoring-start-manual-draft-button"
+                    onClick={onStartManualDraft}
+                  >
+                    Create another object
+                  </button>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <div className="graph-object-authoring-surface-empty-state">
               <p className="graph-object-authoring-surface-empty-hint">
@@ -328,11 +359,16 @@ export function GraphObjectAuthoringSurface({
       ) : null}
 
       {showRelationships && supportsRelationship && relationshipFormState && onRelationshipFieldChange ? (
-        <section className="graph-object-authoring-relationship-section" aria-label="Relationship authoring">
+        <section
+          className="graph-object-authoring-relationship-section"
+          aria-label="Relationship authoring"
+          data-testid="graph-object-authoring-relationship-section"
+        >
           <header className="graph-object-authoring-relationship-header">
-            <h4>Relationship</h4>
+            <h4>Relationships</h4>
             <p className="graph-object-authoring-surface-hint">
-              Stage a relationship between two objects. Draft only.
+              Search for other objects and stage relationships. Source stays filled so you can
+              add many edges without leaving this tab.
             </p>
           </header>
           <GraphObjectAuthoringRelationshipForm

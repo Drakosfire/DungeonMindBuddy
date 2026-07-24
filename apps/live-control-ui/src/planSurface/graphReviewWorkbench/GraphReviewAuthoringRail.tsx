@@ -17,6 +17,8 @@ import {
   buildGraphObjectAuthoringProposal,
   buildObjectRefFromInspectedNode,
   createLocalGraphObjectProposalId,
+  type GraphObjectAuthoringFormState,
+  type GraphObjectAuthoringObjectRef,
 } from "./graphObjectAuthoringDraft";
 import {
   formatGraphObjectType,
@@ -27,6 +29,7 @@ import {
 import type { UseGraphObjectAuthoringDraftResult } from "./useGraphObjectAuthoringDraft";
 import { useGraphObjectAuthoringQuickCommit } from "./useGraphObjectAuthoringQuickCommit";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
+import type { GraphProjectionNodeView } from "../../api/types";
 
 export type AuthoringWorkflowTab =
   | "create_new"
@@ -35,6 +38,57 @@ export type AuthoringWorkflowTab =
   | "relationships"
   | "stage_commit";
 
+export type AuthoringWorkingNodeContext = {
+  name: string;
+  typeLabel: string;
+};
+
+/** Resolve the sticky “working on” chip: name + type only. */
+export function resolveAuthoringWorkingNodeContext(input: {
+  selectedNode: GraphProjectionNodeView | null;
+  relationshipSource: GraphObjectAuthoringObjectRef | null;
+  formState: GraphObjectAuthoringFormState;
+  selectedSource: GraphAuthoringSelection | null;
+}): AuthoringWorkingNodeContext | null {
+  if (input.selectedNode) {
+    const name = input.selectedNode.label.trim();
+    if (name) {
+      return {
+        name,
+        typeLabel: formatGraphObjectType(input.selectedNode.kind, input.selectedNode.role),
+      };
+    }
+  }
+
+  const relationshipSource = input.relationshipSource;
+  if (relationshipSource?.label?.trim()) {
+    return {
+      name: relationshipSource.label.trim(),
+      typeLabel: formatGraphObjectType(relationshipSource.kind, relationshipSource.role),
+    };
+  }
+
+  const formLabel = input.formState.label.trim();
+  if (input.selectedSource && formLabel) {
+    return {
+      name: formLabel,
+      typeLabel: formatGraphObjectType(input.formState.kind, input.formState.role || null),
+    };
+  }
+
+  const selectedText = input.selectedSource?.selectedText?.trim();
+  if (selectedText) {
+    return {
+      name: selectedText,
+      typeLabel: formatGraphObjectType(
+        input.formState.kind || null,
+        input.formState.role || null,
+      ),
+    };
+  }
+
+  return null;
+}
 function toExistingNodeOptions(
   nodeViews: Record<string, import("../../api/types").GraphProjectionNodeView> | undefined,
 ): GraphObjectAuthoringInspectedNode[] {
@@ -96,7 +150,6 @@ export function GraphReviewAuthoringRail({
   const [linkRecapPillEnabled, setLinkRecapPillEnabled] = useState(false);
   const [focusedMergeCandidate, setFocusedMergeCandidate] =
     useState<GraphObjectMergeCandidate | null>(null);
-  const [wizardAutoSearchQuery, setWizardAutoSearchQuery] = useState<string | null>(null);
 
   const quickCommit = useGraphObjectAuthoringQuickCommit({
     campaignId,
@@ -128,9 +181,19 @@ export function GraphReviewAuthoringRail({
     const nodeId = result.nodeId;
     if (nodeId) {
       onSelectAuthoringNode({ laneRole: "live", nodeId });
-      setWizardAutoSearchQuery(proposal.objectRef.label);
+      // Prefill relationship source from the just-created object; stay on Create tab.
+      graphObjectAuthoringDraft.updateRelationshipField(
+        "sourceObjectRef",
+        buildObjectRefFromInspectedNode({
+          node_id: nodeId,
+          label: proposal.objectRef.label,
+          kind: proposal.objectRef.kind,
+          role: proposal.objectRef.role,
+        }),
+      );
+      graphObjectAuthoringDraft.updateRelationshipField("targetObjectRef", null);
     }
-    onActiveTabChange("modify_existing");
+    onActiveTabChange("create_new");
   }, [
     graphObjectAuthoringDraft,
     onActiveTabChange,
@@ -150,7 +213,8 @@ export function GraphReviewAuthoringRail({
       relationshipFormState: graphObjectAuthoringDraft.relationshipFormState,
       updateRelationshipField: graphObjectAuthoringDraft.updateRelationshipField,
     });
-    onActiveTabChange("relationships");
+    // Relationships now live on New object; dedicated Relationships tab remains secondary.
+    onActiveTabChange("create_new");
   }, [
     goldProjection,
     graphObjectAuthoringDraft.relationshipFormState,
@@ -204,8 +268,9 @@ export function GraphReviewAuthoringRail({
       });
     },
     onStageLinkExistingComplete: () => {
+      // Stay on New object — the staging tray is already on this tab.
+      // Jumping to Stage & commit mid-flow was disorienting.
       graphObjectAuthoringDraft.dismissSelection();
-      onActiveTabChange("stage_commit");
     },
     creatingObject: quickCommit.committing,
     createObjectError: quickCommit.error,
@@ -229,17 +294,60 @@ export function GraphReviewAuthoringRail({
     projectionNodeViews: projection?.node_views,
   };
 
+  const workingNodeContext = useMemo(
+    () =>
+      resolveAuthoringWorkingNodeContext({
+        selectedNode: selectedAuthoringViewModel?.node ?? null,
+        relationshipSource: graphObjectAuthoringDraft.relationshipFormState.sourceObjectRef,
+        formState: graphObjectAuthoringDraft.formState,
+        selectedSource: graphObjectAuthoringDraft.selectedSource,
+      }),
+    [
+      selectedAuthoringViewModel,
+      graphObjectAuthoringDraft.relationshipFormState.sourceObjectRef,
+      graphObjectAuthoringDraft.formState,
+      graphObjectAuthoringDraft.selectedSource,
+    ],
+  );
+
   return (
     <aside
       className="graph-review-author-draft-rail"
       aria-label="Author Draft rail"
       data-testid="graph-review-authoring-rail"
     >
-      <nav
-        className="graph-review-authoring-workflow-tabs"
-        role="tablist"
-        aria-label="Authoring workflow"
-      >
+      <div className="graph-review-authoring-rail-sticky-chrome">
+        {workingNodeContext ? (
+          <div
+            className="graph-review-authoring-working-node"
+            data-testid="graph-review-authoring-working-node"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="graph-review-authoring-working-node-name">
+              {workingNodeContext.name}
+            </span>
+            <span className="graph-review-authoring-working-node-type">
+              {workingNodeContext.typeLabel}
+            </span>
+          </div>
+        ) : (
+          <div
+            className="graph-review-authoring-working-node graph-review-authoring-working-node--empty"
+            data-testid="graph-review-authoring-working-node"
+            role="status"
+          >
+            <span className="graph-review-authoring-working-node-name">No node selected</span>
+            <span className="graph-review-authoring-working-node-type">
+              Highlight text or click a pill
+            </span>
+          </div>
+        )}
+        <nav
+          className="graph-review-authoring-workflow-tabs"
+          role="tablist"
+          aria-label="Authoring workflow"
+        >
         <button
           type="button"
           role="tab"
@@ -295,7 +403,8 @@ export function GraphReviewAuthoringRail({
         >
           Stage &amp; commit
         </button>
-      </nav>
+        </nav>
+      </div>
 
       {activeTab === "create_new" ? (
         <div
@@ -362,7 +471,7 @@ export function GraphReviewAuthoringRail({
                 data-testid="graph-review-authoring-next-relationships-button"
                 onClick={handleAdvanceToRelationships}
               >
-                Next: Relationships
+                Add relationships
               </button>
             </div>
           ) : null}
@@ -370,7 +479,6 @@ export function GraphReviewAuthoringRail({
             campaignId={campaignId}
             sessionId={sessionId}
             laneRole="live"
-            autoSearchQuery={wizardAutoSearchQuery}
             linkSourceNode={
               linkRecapPillEnabled && selectedAuthoringViewModel
                 ? selectedAuthoringViewModel.node
@@ -400,7 +508,9 @@ export function GraphReviewAuthoringRail({
                   }
                 : undefined
             }
-            onStageLinkIntentComplete={() => onActiveTabChange("stage_commit")}
+            onStageLinkIntentComplete={() => {
+              /* Stay on Existing object — tray/commit is opt-in via Stage & commit tab. */
+            }}
             onReviewMerge={(candidate) => {
               setFocusedMergeCandidate(candidate);
               onActiveTabChange("merge_candidates");
@@ -414,7 +524,9 @@ export function GraphReviewAuthoringRail({
                 sourceGraphId: input.sourceGraphId ?? projection?.graph_id ?? null,
               })
             }
-            onStageSearchMergeComplete={() => onActiveTabChange("stage_commit")}
+            onStageSearchMergeComplete={() => {
+              /* Stay on Existing object after staging a merge draft. */
+            }}
           />
         </section>
       </div>

@@ -165,7 +165,16 @@ export function useGraphObjectAuthoringDraft(
       return;
     }
     setProposals((prev) => [...prev, proposal]);
-    setRelationshipFormState(createDefaultGraphObjectAuthoringRelationshipFormState());
+    // Keep source (and type/visibility) so the GM can stage many relationships in a row.
+    setRelationshipFormState((prev) => ({
+      ...createDefaultGraphObjectAuthoringRelationshipFormState(),
+      sourceObjectRef: prev.sourceObjectRef,
+      relationshipType: prev.relationshipType,
+      relationshipLabel: prev.relationshipLabel,
+      direction: prev.direction,
+      visibility: prev.visibility,
+      targetObjectRef: null,
+    }));
   }, [relationshipFormState, selectedSource]);
 
   const stageMergeProposal = useCallback(

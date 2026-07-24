@@ -5742,6 +5742,59 @@ body.plan-toolbox-open .plan-agent-shell {
   border-left: none;
 }
 
+.graph-review-authoring-rail-sticky-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  gap: 0.45rem;
+  margin: 0 -0.15rem 0 -0.35rem;
+  padding: 0.35rem 0.15rem 0.55rem 0.35rem;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.98) 70%,
+    rgba(15, 23, 42, 0.88) 100%
+  );
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.graph-review-authoring-working-node {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 0.5rem;
+  background: rgba(8, 47, 73, 0.45);
+}
+
+.graph-review-authoring-working-node--empty {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(30, 41, 59, 0.45);
+}
+
+.graph-review-authoring-working-node-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f8fafc;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.graph-review-authoring-working-node-type {
+  flex-shrink: 0;
+  color: #7dd3fc;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
 .graph-review-author-draft-rail > * {
   max-width: 100%;
   min-width: 0;
@@ -6416,7 +6469,8 @@ body.plan-toolbox-open .plan-agent-shell {
   min-width: 0;
 }
 
-.graph-object-authoring-ref-picker label {
+.graph-object-authoring-ref-picker label,
+.graph-object-authoring-ref-picker-label {
   display: grid;
   gap: 0.3rem;
   color: #cbd5e1;
@@ -6426,7 +6480,8 @@ body.plan-toolbox-open .plan-agent-shell {
 }
 
 .graph-object-authoring-ref-picker select,
-.graph-object-authoring-ref-picker input {
+.graph-object-authoring-ref-picker input,
+.graph-object-authoring-ref-picker-search {
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 0.5rem;
   background: rgba(15, 23, 42, 0.6);
@@ -6440,10 +6495,110 @@ body.plan-toolbox-open .plan-agent-shell {
   box-sizing: border-box;
 }
 
+.graph-object-authoring-ref-picker-selected {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.graph-object-authoring-ref-picker-manual-block {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.graph-object-authoring-ref-picker-manual-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.graph-object-authoring-ref-picker-clear {
+  flex-shrink: 0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.4rem;
+  background: rgba(30, 41, 59, 0.8);
+  color: #e2e8f0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.graph-object-authoring-ref-picker-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+  max-height: 12rem;
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.5rem;
+  background: rgba(2, 6, 23, 0.55);
+}
+
+.graph-object-authoring-ref-picker-empty {
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.graph-object-authoring-ref-picker-result {
+  display: grid;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #f1f5f9;
+  padding: 0.4rem 0.55rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.graph-object-authoring-ref-picker-result:hover,
+.graph-object-authoring-ref-picker-result:focus-visible {
+  background: rgba(56, 189, 248, 0.12);
+  outline: none;
+}
+
+.graph-object-authoring-ref-picker-result-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.graph-object-authoring-ref-picker-result-meta {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.graph-object-authoring-ref-picker-result--manual {
+  color: #7dd3fc;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 .graph-object-authoring-ref-picker-summary {
   margin: 0;
   color: #94a3b8;
   font-size: 0.78rem;
+}
+
+.graph-object-authoring-post-create-banner {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 0.55rem;
+  background: rgba(8, 47, 73, 0.45);
+  color: #e0f2fe;
+  font-size: 0.85rem;
+}
+
+.graph-object-authoring-post-create-banner p {
+  margin: 0;
 }
 
 .graph-object-authoring-ref-picker-kind {
