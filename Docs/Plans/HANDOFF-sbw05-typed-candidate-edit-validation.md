@@ -9,7 +9,7 @@
 **Repository tip (not an SBW claim):** see `main` at PR open (includes unrelated work)  
 **Last SBW integration on `main` before #404:** `#402` / `d4587f1f` — SBW05b editor library  
 **This PR (`#404`):** SBW05c workbench host + preview validate + doc-sync  
-**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream. SBW05c live workbench proof is automated in unit tests; manual §7 live proof may remain verification debt if env unavailable.
+**Verification debt (predecessor):** SBW04 `#397` real-candidate live proof remains unchecked — do not treat as closed by this workstream. **SBW05c §7 manual live workbench walkthrough is verification debt** (not waived by automated tests; automated coverage is necessary but not equivalent evidence).
 
 > Dispatch one capability across three PRs: edit a complete typed candidate working copy and obtain authoritative preview validation. Do not save mechanics, revise with a model, publish graph truth, or add media/combat behavior.
 
@@ -392,12 +392,13 @@ Host the proven SBW05b `StatblockDefinitionEditor` in the Plan workbench; submit
 
 ```text
 onValidate:
-  1. beginValidationAttempt(editorState)
+  1. capture editorEpoch + beginValidationAttempt(editorState)
   2. capture requestedRevision = editorState.stateRevision
   3. POST validateStatblockDefinition({ definition: editorState.workingCopy })
-  4. if current stateRevision !== requestedRevision → discard (no mark*)
-  5. if outcome === failure or throw → markValidationUnavailable; keep workingCopy
-  6. if outcome === success:
+  4. if requestId/epoch ownership is stale → discard all effects (no receipt, preview, failure, unavailable, or pending mutation owned by the old request)
+  5. if ownership holds but stateRevision !== requestedRevision → discard effects; clear pending only
+  6. if outcome === failure or throw (and ownership+revision current) → markValidationUnavailable; keep workingCopy
+  7. if outcome === success (and ownership+revision current):
        require validation_receipt and matching top-level definition_digest
        map receipt.status:
          valid → validated
@@ -407,10 +408,12 @@ onValidate:
        store preview receipt + digest for display
 ```
 
+- Validation ownership is `(requestId, editorEpoch, stateRevision)`. Loading/reloading a candidate immediately bumps `editorEpoch`, orphans the prior request id, and clears pending validation.
 - Monotonic validate request id so overlapping validates never apply an older response after a newer one started.
 - Never compare local fingerprint to Server `definition_digest` for equality/eligibility.
 - Server `invalid` is a success outcome with receipt association — not transport failure.
 - Pending `validating` and `validation_unavailable` never associate a revision.
+- Issue severities `info` | `warning` | `error` are preserved exactly (info is not rendered as warning).
 
 ### Issue mapping
 

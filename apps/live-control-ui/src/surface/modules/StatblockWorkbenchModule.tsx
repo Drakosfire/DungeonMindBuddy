@@ -244,6 +244,11 @@ function PreviewValidationPanel({
             [warning] <code>{issue.field_path}</code>: {issue.message}
           </p>
         ))}
+        {fieldSplit.infos.map((issue) => (
+          <p key={`fi-${issue.code}-${issue.field_path}`} data-issue-severity="info">
+            [info] <code>{issue.field_path}</code>: {issue.message}
+          </p>
+        ))}
       </div>
 
       <div data-testid="preview-global-issues">
@@ -257,6 +262,11 @@ function PreviewValidationPanel({
         {globalSplit.warnings.map((issue) => (
           <p key={`gw-${issue.code}-${issue.message}`} data-issue-severity="warning">
             [warning] {issue.message}
+          </p>
+        ))}
+        {globalSplit.infos.map((issue) => (
+          <p key={`gi-${issue.code}-${issue.message}`} data-issue-severity="info">
+            [info] {issue.message}
           </p>
         ))}
       </div>
@@ -278,46 +288,69 @@ export function StatblockWorkbenchModule() {
   const [validateFailureMessage, setValidateFailureMessage] = useState<string | null>(null);
   const [pendingValidate, setPendingValidate] = useState(false);
   const validateRequestIdRef = useRef(0);
+  const editorEpochRef = useRef(0);
   const editorStateRef = useRef<StatblockEditorState | null>(null);
   editorStateRef.current = editorState;
 
-  const loadCandidate = useCallback(async (candidateId: string) => {
-    const trimmed = candidateId.trim();
-    if (!trimmed) {
-      setLoadState({ kind: "error", candidateId: "", message: "Enter an exact candidate ID." });
-      return;
-    }
-    setLoadState({ kind: "loading", candidateId: trimmed });
-    setGenerateMessage(null);
-    setGenerateError(null);
-    setEditorState(null);
-    setPreviewValidation(null);
+  /** Invalidate in-flight validate ownership (candidate/editor epoch + request id). */
+  const invalidateValidationOwnership = useCallback(() => {
+    editorEpochRef.current += 1;
+    validateRequestIdRef.current += 1;
+    setPendingValidate(false);
     setValidateFailureMessage(null);
-    try {
-      const response = await getStatblockCandidate(trimmed);
-      if (response.status === "active" && response.candidate) {
-        setLoadState({ kind: "success", response });
-        setEditorState(createEditorStateFromOutput(response.candidate.definition));
-        setViewMode("edit");
-        setPreviewValidation(null);
-        setValidateFailureMessage(null);
+    setPreviewValidation(null);
+  }, []);
+
+  const isCurrentValidateOwnership = useCallback(
+    (requestId: number, epoch: number, requestedRevision: number): boolean => {
+      if (requestId !== validateRequestIdRef.current) return false;
+      if (epoch !== editorEpochRef.current) return false;
+      const latest = editorStateRef.current;
+      return latest != null && latest.stateRevision === requestedRevision;
+    },
+    [],
+  );
+
+  const loadCandidate = useCallback(
+    async (candidateId: string) => {
+      const trimmed = candidateId.trim();
+      if (!trimmed) {
+        invalidateValidationOwnership();
+        setEditorState(null);
+        setLoadState({ kind: "error", candidateId: "", message: "Enter an exact candidate ID." });
         return;
       }
-      setLoadState({
-        kind: "status",
-        candidateId: response.candidate_id || trimmed,
-        status: response.status === "active" ? "missing" : response.status,
-        failureCategory: response.failure_category ?? null,
-        failureMessage: response.failure_message ?? null,
-      });
-    } catch (error) {
-      setLoadState({
-        kind: "error",
-        candidateId: trimmed,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }, []);
+      // Immediately orphan any in-flight validate for the previous editor/candidate.
+      invalidateValidationOwnership();
+      setLoadState({ kind: "loading", candidateId: trimmed });
+      setGenerateMessage(null);
+      setGenerateError(null);
+      setEditorState(null);
+      try {
+        const response = await getStatblockCandidate(trimmed);
+        if (response.status === "active" && response.candidate) {
+          setLoadState({ kind: "success", response });
+          setEditorState(createEditorStateFromOutput(response.candidate.definition));
+          setViewMode("edit");
+          return;
+        }
+        setLoadState({
+          kind: "status",
+          candidateId: response.candidate_id || trimmed,
+          status: response.status === "active" ? "missing" : response.status,
+          failureCategory: response.failure_category ?? null,
+          failureMessage: response.failure_message ?? null,
+        });
+      } catch (error) {
+        setLoadState({
+          kind: "error",
+          candidateId: trimmed,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [invalidateValidationOwnership],
+  );
 
   useEffect(() => {
     const initial = readCandidateIdFromLocation();
@@ -374,6 +407,7 @@ export function StatblockWorkbenchModule() {
     const current = editorStateRef.current;
     if (!current) return;
 
+    const epoch = editorEpochRef.current;
     const requestId = ++validateRequestIdRef.current;
     const requestedRevision = current.stateRevision;
     const workingCopy = current.workingCopy;
@@ -385,7 +419,12 @@ export function StatblockWorkbenchModule() {
     try {
       response = await validateStatblockDefinition({ definition: workingCopy });
     } catch (error) {
-      if (requestId !== validateRequestIdRef.current) {
+      // Superseded by a newer validate or candidate/editor epoch — no UI effects.
+      if (requestId !== validateRequestIdRef.current || epoch !== editorEpochRef.current) {
+        return;
+      }
+      // Same ownership, but working copy moved — drop pending only; no unavailable UI.
+      if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
         setPendingValidate(false);
         return;
       }
@@ -398,13 +437,10 @@ export function StatblockWorkbenchModule() {
       return;
     }
 
-    if (requestId !== validateRequestIdRef.current) {
-      setPendingValidate(false);
+    if (requestId !== validateRequestIdRef.current || epoch !== editorEpochRef.current) {
       return;
     }
-
-    const latest = editorStateRef.current;
-    if (!latest || latest.stateRevision !== requestedRevision) {
+    if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
       setPendingValidate(false);
       return;
     }
@@ -415,6 +451,10 @@ export function StatblockWorkbenchModule() {
       response.definition_digest == null ||
       response.definition_digest !== response.validation_receipt.definition_digest
     ) {
+      if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+        setPendingValidate(false);
+        return;
+      }
       setEditorState((prev) => {
         if (!prev || prev.stateRevision !== requestedRevision) return prev;
         return markValidationUnavailable(prev);
@@ -424,6 +464,11 @@ export function StatblockWorkbenchModule() {
           response.failure_category ??
           "Validation dependency unavailable",
       );
+      setPendingValidate(false);
+      return;
+    }
+
+    if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
       setPendingValidate(false);
       return;
     }

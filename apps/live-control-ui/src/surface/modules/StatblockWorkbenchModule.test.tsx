@@ -316,6 +316,110 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.getByDisplayValue("Edited During Flight")).toBeTruthy();
   });
 
+  it("does not apply unavailable UI from a stale rejected validate after edit", async () => {
+    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    let rejectValidate: (reason?: unknown) => void = () => undefined;
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectValidate = reject;
+        }),
+    );
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+    });
+
+    const nameInput = screen.getByLabelText("Creature name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Before Reject");
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("validating");
+    });
+
+    await user.clear(nameInput);
+    await user.type(nameInput, "Edited Before Reject");
+    rejectValidate(new Error("upstream timed out"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("dirty_unvalidated");
+    });
+    expect(screen.getByTestId("editor-ui-status").textContent).not.toContain(
+      "validation_unavailable",
+    );
+    expect(document.querySelector('[data-preview-state="unavailable"]')).toBeNull();
+    expect(screen.queryByText(/Validation unavailable/i)).toBeNull();
+    expect(screen.getByDisplayValue("Edited Before Reject")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Validate working copy" })).not.toBeDisabled();
+  });
+
+  it("invalidates in-flight validation when loading another candidate", async () => {
+    const candidateB: GeneratedStatblockCandidateV1 = {
+      ...candidate,
+      candidate_id: "cand_fixture2",
+      definition: {
+        ...candidate.definition,
+        identity: {
+          ...candidate.definition.identity,
+          name: "Second Candidate",
+        },
+      },
+    };
+    const activeB: ReadStatblockCandidateResponseV1 = {
+      schema: "dmb_statblock_candidate_read_v1",
+      candidate_id: candidateB.candidate_id,
+      status: "active",
+      candidate: candidateB,
+    };
+
+    vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+      if (id === "cand_fixture2") return activeB;
+      return activeResponse;
+    });
+
+    let resolveValidate: (value: ValidateDefinitionBuddyResponseV1) => void = () => undefined;
+    vi.spyOn(liveApi, "validateStatblockDefinition").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveValidate = resolve;
+        }),
+    );
+
+    const user = await loadId("cand_fixture1");
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Ironhide Brute")).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-ui-status").textContent).toContain("validating");
+    });
+
+    const candidateInput = screen.getByPlaceholderText("cand_…");
+    await user.clear(candidateInput);
+    await user.type(candidateInput, "cand_fixture2");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Second Candidate")).toBeTruthy();
+    });
+    expect(screen.getByTestId("editor-ui-status").textContent).toContain("clean_unvalidated");
+    expect(screen.getByRole("button", { name: "Validate working copy" })).not.toBeDisabled();
+
+    resolveValidate(successValidate("valid"));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Second Candidate")).toBeTruthy();
+    });
+    expect(screen.getByTestId("editor-ui-status").textContent).toContain("clean_unvalidated");
+    expect(screen.getByTestId("editor-ui-status").textContent).not.toContain("Status: validated");
+    expect(document.querySelector('[data-preview-state="current"]')).toBeNull();
+    expect(screen.getByRole("button", { name: "Validate working copy" })).not.toBeDisabled();
+  });
+
   it("preserves edits when validation dependency fails", async () => {
     vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
     vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue({
@@ -343,7 +447,7 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.queryByRole("button", { name: /accept/i })).toBeNull();
   });
 
-  it("shows field and global issues distinctly for invalid receipts", async () => {
+  it("shows field and global issues for error, warning, and info severities", async () => {
     vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
     vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(
       successValidate("invalid", [
@@ -354,10 +458,22 @@ describe("StatblockWorkbenchModule", () => {
           message: "missing attack bonus",
         },
         {
-          code: "MALFORMED",
+          code: "BALANCE_WARNING",
           severity: "warning",
+          field_path: "identity.name",
+          message: "name warning",
+        },
+        {
+          code: "STYLE_INFO",
+          severity: "info",
+          field_path: "abilities.strength",
+          message: "field informational note",
+        },
+        {
+          code: "GLOBAL_INFO",
+          severity: "info",
           field_path: "",
-          message: "malformed path issue",
+          message: "global informational note",
         },
       ]),
     );
@@ -377,7 +493,21 @@ describe("StatblockWorkbenchModule", () => {
     const globalPanel = screen.getByTestId("preview-global-issues");
     expect(fieldPanel.textContent).toMatch(/missing attack bonus/);
     expect(fieldPanel.querySelector('[data-issue-severity="error"]')).toBeTruthy();
-    expect(globalPanel.textContent).toMatch(/malformed path issue/);
-    expect(globalPanel.querySelector('[data-issue-severity="warning"]')).toBeTruthy();
+    expect(fieldPanel.textContent).toMatch(/name warning/);
+    expect(fieldPanel.querySelector('[data-issue-severity="warning"]')).toBeTruthy();
+    expect(fieldPanel.textContent).toMatch(/field informational note/);
+    expect(fieldPanel.querySelector('[data-issue-severity="info"]')?.textContent).toMatch(
+      /\[info\].*field informational note/,
+    );
+    expect(fieldPanel.querySelector('[data-issue-severity="info"]')?.textContent).not.toMatch(
+      /\[warning\]/,
+    );
+    expect(globalPanel.textContent).toMatch(/global informational note/);
+    expect(globalPanel.querySelector('[data-issue-severity="info"]')?.textContent).toMatch(
+      /\[info\].*global informational note/,
+    );
+    expect(globalPanel.querySelector('[data-issue-severity="info"]')?.textContent).not.toMatch(
+      /\[warning\]/,
+    );
   });
 });

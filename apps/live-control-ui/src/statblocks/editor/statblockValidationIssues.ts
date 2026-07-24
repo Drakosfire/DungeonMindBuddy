@@ -9,6 +9,12 @@ export type PartitionedValidationIssues = {
   globalIssues: ValidationIssueV1[];
 };
 
+export type SeverityBuckets = {
+  errors: ValidationIssueV1[];
+  warnings: ValidationIssueV1[];
+  infos: ValidationIssueV1[];
+};
+
 /** Non-empty field_path maps to field; empty/whitespace → global (never dropped). */
 export function partitionValidationIssuesByPath(
   issues: ValidationIssueV1[] | null | undefined,
@@ -25,13 +31,12 @@ export function partitionValidationIssuesByPath(
   return { fieldIssues, globalIssues };
 }
 
-export function splitIssuesBySeverity(issues: ValidationIssueV1[]): {
-  errors: ValidationIssueV1[];
-  warnings: ValidationIssueV1[];
-} {
+/** Preserve Server severities exactly: info | warning | error. */
+export function splitIssuesBySeverity(issues: ValidationIssueV1[]): SeverityBuckets {
   return {
     errors: issues.filter((issue) => issue.severity === "error"),
-    warnings: issues.filter((issue) => issue.severity !== "error"),
+    warnings: issues.filter((issue) => issue.severity === "warning"),
+    infos: issues.filter((issue) => issue.severity === "info"),
   };
 }
 

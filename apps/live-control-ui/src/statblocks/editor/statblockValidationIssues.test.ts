@@ -8,7 +8,8 @@ import {
 } from "./statblockValidationIssues";
 
 function issue(
-  overrides: Partial<ValidationIssueV1> & Pick<ValidationIssueV1, "code" | "severity" | "field_path" | "message">,
+  overrides: Partial<ValidationIssueV1> &
+    Pick<ValidationIssueV1, "code" | "severity" | "field_path" | "message">,
 ): ValidationIssueV1 {
   return overrides;
 }
@@ -46,7 +47,7 @@ describe("statblockValidationIssues", () => {
     ]);
   });
 
-  it("keeps errors and warnings distinct by severity", () => {
+  it("preserves info, warning, and error severities exactly", () => {
     const issues = [
       issue({
         code: "E1",
@@ -67,9 +68,36 @@ describe("statblockValidationIssues", () => {
         message: "info",
       }),
     ];
-    const { errors, warnings } = splitIssuesBySeverity(issues);
+    const { errors, warnings, infos } = splitIssuesBySeverity(issues);
     expect(errors.map((entry) => entry.code)).toEqual(["E1"]);
-    expect(warnings.map((entry) => entry.code)).toEqual(["W1", "I1"]);
+    expect(warnings.map((entry) => entry.code)).toEqual(["W1"]);
+    expect(infos.map((entry) => entry.code)).toEqual(["I1"]);
+  });
+
+  it("keeps informational issues in field and global partitions without relabeling", () => {
+    const issues = [
+      issue({
+        code: "INFO_FIELD",
+        severity: "info",
+        field_path: "abilities.strength",
+        message: "field info",
+      }),
+      issue({
+        code: "INFO_GLOBAL",
+        severity: "info",
+        field_path: "",
+        message: "global info",
+      }),
+    ];
+    const { fieldIssues, globalIssues } = partitionValidationIssuesByPath(issues);
+    expect(splitIssuesBySeverity(fieldIssues).infos.map((entry) => entry.code)).toEqual([
+      "INFO_FIELD",
+    ]);
+    expect(splitIssuesBySeverity(globalIssues).infos.map((entry) => entry.code)).toEqual([
+      "INFO_GLOBAL",
+    ]);
+    expect(splitIssuesBySeverity(fieldIssues).warnings).toHaveLength(0);
+    expect(splitIssuesBySeverity(globalIssues).warnings).toHaveLength(0);
   });
 
   it("maps Server validation statuses onto receipt-bearing UI statuses", () => {
