@@ -68,14 +68,14 @@ external_pull_requests:
       evaluator: null
       base_sha: ea7ad826a2ca4f9d275ce245a3884d4af72278a8
       notes: >-
-        REQUEST_CHANGES follow-up in flight on branch
-        agent/bld05a-post-merge-authoring-hardening. Operator-granted waiver:
+        REQUEST_CHANGES follow-up head_sha 5d324d669c152d64698fcb86864049ec466cd605
+        on agent/bld05a-post-merge-authoring-hardening. Operator-granted waiver:
         npm run build / tsc -b fails identically on base ea7ad826 and head with
         pre-existing planSurface/graphReviewWorkbench/IngestionModule errors
         outside §4; npx tsc --noEmit is green. App.test.tsx spike fixture is
         fixed (5/5). Manual §7 dogfood scenarios 1–4: operator-granted waiver
         for this evidence refresh (headless); owning-boundary automated proofs
-        cover the same adversarial sequences. Fill head_sha after push.
+        cover the same adversarial sequences.
     rubric_when_we_judge:
       - "Verification exact-match compares document ID, committed revision, content hash, and fingerprint against the receipt."
       - "Verification at N+1 cannot advance expected revision while editor retains N content."
