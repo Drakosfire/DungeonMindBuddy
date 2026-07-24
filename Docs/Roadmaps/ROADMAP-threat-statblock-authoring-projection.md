@@ -1,11 +1,11 @@
 # Roadmap — Threat + Statblock Authoring and Projection
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP  
-**Date:** 2026-07-23  
-**Repository tip:** see `main` at PR open (includes unrelated work; not an SBW claim)  
-**Last SBW integration on `main` before #404:** `#402` / `d4587f1f` — SBW05b editor library  
-**This PR (`#404`):** `SBW05c` workbench host + preview validate + doc-sync  
-**Next dispatch after #404 merges:** `SBW07-contract` (doc-only)  
+**Date:** 2026-07-24  
+**PR base / repository tip:** `bf28e46c` on `main` at PR open (includes unrelated work; not an SBW claim)  
+**Logical SBW predecessor:** `#404` / `427a357b` — SBW05c workbench host + preview validate  
+**This PR:** `SBW07-contract` — docs-only approve/reject of frozen HANDOFF-sbw07 §12  
+**Next dispatch after this PR merges:** `SBW07a` (create/read Server client + fixtures)  
 
 
 **Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
@@ -65,9 +65,9 @@ Workstream IDs are stable design identifiers. GitHub PR numbers are assigned whe
 | `SBW02` | MERGED `#387` (`0d4831ee`, 2026-07-22) | Persistent versioned `ThreatDraftV1` CRUD with no generation side effects. |
 | `SBW03` | MERGED `#388` (`889acf96`, 2026-07-23) | One exact draft version generates one typed candidate; failure preserves the draft. Operation-authority durability journal with Server durable-code terminality. |
 | `SBW04` | MERGED `#397` (`40ea5234`, 2026-07-23) | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. **Verification debt:** real-candidate live proof from the SBW04 handoff remains unchecked. |
-| `SBW05` | IN PROGRESS — `SBW05a` MERGED `#398`; `SBW05b` MERGED `#402`; `SBW05c` #404 → then `SBW07-contract` | Complete-definition typed editing and editor-preview validation. |
+| `SBW05` | MERGED — `SBW05a` `#398`; `SBW05b` `#402`; `SBW05c` `#404` / `427a357b` | Complete-definition typed editing and editor-preview validation. |
 | `SBW06` | PRE-DESIGNED — bites `SBW06-contract` + `SBW06a–d`; **after SBW07** | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
-| `SBW07` | PRE-DESIGNED — bites `SBW07-contract` + `SBW07a–c`; **before SBW06** | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |
+| `SBW07` | IN PROGRESS — `SBW07-contract` (this PR) → `SBW07a–c`; **before SBW06** | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |
 | `SBW08` | PRE-DESIGNED / PARALLEL | Typed external-resource node + `ThreatStatblockBinding` edge state in Kernel/projection contracts; no product write yet. |
 | `SBW09` | PRE-DESIGNED | Preview/confirm Threat + exact binding publication with recoverable partial completion. |
 | `SBW10` | PRE-DESIGNED | Exact-revision Threat Sheet/full statblock read projection opened from graph/Plan. |
@@ -188,8 +188,8 @@ SBW04 (Milestone A gate)
 |---|---|---|---|
 | `SBW05a` | Validate transport: client + Buddy route + digest association | Submitted definition digest matches receipt; transport vs validation-issue semantics distinct | MERGED `#398` |
 | `SBW05b` | Pure editor library + unit tests: Output→Input initializer, local fingerprint, visible protected preservation fallback | Complex round-trips (spellcasting/legendary/lair/phases/human-adjudicated/nested effects) + untouched-field equality; visible protected disclosure for unhandled current structures; edit clears eligibility; session-only; no Server digest recreation; no unchecked Output→Input cast | MERGED `#402` |
-| `SBW05c` | Workbench hosts proven editor; calls SBW05a route; rejects stale; preserves edits on dependency failure | Live edit→validate→edit→stale (automated); no accept/save path | **#404** |
-| `SBW07-contract` | Approve-or-reject frozen HANDOFF-sbw07 §12 table (docs only; do not rewrite unless review rejects a closed decision) | Reviewer can approve/reject the closed schema + transition table alone; no optional pending field | **NEXT** after `SBW05c` |
+| `SBW05c` | Workbench hosts proven editor; calls SBW05a route; rejects stale; preserves edits on dependency failure | Live edit→validate→edit→stale; no accept/save path | MERGED `#404` / `427a357b` |
+| `SBW07-contract` | Approve-or-reject frozen HANDOFF-sbw07 §12 table (docs only; do not rewrite unless review rejects a closed decision) | Reviewer can approve/reject the closed schema + transition table alone; no optional pending field | **THIS PR** |
 | `SBW07a` | Create/read Server client + fixtures | Exact IDs/digest parse; no draft mutation | After contract |
 | `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Post-commit local failure never deletes Server revision; recovery converges | After `SBW07a` |
 | `SBW07c` | Accept UI + corpus-promotion demolition | “Saved ≠ published”; demolition ledger complete | After `SBW07b` |
