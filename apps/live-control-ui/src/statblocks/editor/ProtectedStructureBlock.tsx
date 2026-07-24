@@ -3,12 +3,12 @@ import type { ReactNode } from "react";
 export type ProtectedStructureBlockProps = {
   path: string;
   title: string;
-  summary: Record<string, unknown> | string;
+  value: unknown;
   children?: ReactNode;
 };
 
-export function ProtectedStructureBlock({ path, title, summary, children }: ProtectedStructureBlockProps) {
-  const summaryText = typeof summary === "string" ? summary : JSON.stringify(summary, null, 2);
+export function ProtectedStructureBlock({ path, title, value, children }: ProtectedStructureBlockProps) {
+  const valueText = typeof value === "string" ? value : JSON.stringify(value, null, 2);
 
   return (
     <section
@@ -19,9 +19,9 @@ export function ProtectedStructureBlock({ path, title, summary, children }: Prot
     >
       <header className="statblock-editor-protected__header">
         <strong>{title}</strong>
-        <span className="statblock-editor-protected__badge">Protected</span>
+        <span className="statblock-editor-protected__badge">Protected · not editable via dedicated controls</span>
       </header>
-      <pre className="statblock-editor-protected__summary">{summaryText}</pre>
+      <pre className="statblock-editor-protected__summary">{valueText}</pre>
       {children}
     </section>
   );

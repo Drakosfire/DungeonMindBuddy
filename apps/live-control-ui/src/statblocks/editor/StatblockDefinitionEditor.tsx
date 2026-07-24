@@ -1,9 +1,10 @@
 import { useState } from "react";
-import type { AbilityName, RuleElement_Input, StatblockDefinitionV1_Output } from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import type { AbilityName, StatblockDefinitionV1_Output } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { ProtectedStructureBlock } from "./ProtectedStructureBlock";
 import {
   createEditorStateFromOutput,
   getUiStatus,
+  primaryArmorClassIndexForDisplay,
   resolveHitPointsEditTarget,
   setAbility,
   setHitPointsMax,
@@ -30,13 +31,8 @@ export type StatblockDefinitionEditorProps = {
   onEditorStateChange?: (state: StatblockEditorState) => void;
 };
 
-function primaryArmorClassIndex(defenses: StatblockDefinitionV1_Output["defenses"]): number {
-  const defaultIndex = defenses.armor_classes.findIndex((entry) => entry.default);
-  return defaultIndex >= 0 ? defaultIndex : 0;
-}
-
 function readPrimaryArmorClassValue(defenses: StatblockEditorState["workingCopy"]["defenses"]): number {
-  const index = primaryArmorClassIndex(defenses);
+  const index = primaryArmorClassIndexForDisplay(defenses);
   return defenses.armor_classes[index]?.value ?? 0;
 }
 
@@ -50,26 +46,6 @@ function readHitPointsEditorValue(vitality: StatblockEditorState["workingCopy"][
     return hitPoints.fixed_value ?? 0;
   }
   return hitPoints.formula?.modifier ?? 0;
-}
-
-function mechanicSummary(element: RuleElement_Input): Record<string, unknown> {
-  const mechanic = element.mechanic;
-  const kind = mechanic.kind ?? "unknown";
-  const summary: Record<string, unknown> = { kind };
-  if (kind === "spellcasting" && "groups" in mechanic) {
-    summary.casting_mode = mechanic.casting_mode;
-    summary.group_count = mechanic.groups.length;
-  }
-  if (kind === "human_adjudicated" && "adjudication_tags" in mechanic) {
-    summary.adjudication_tags = mechanic.adjudication_tags ?? [];
-  }
-  if (kind === "phase_transition" && "destination_phase_key" in mechanic) {
-    summary.destination_phase_key = mechanic.destination_phase_key;
-  }
-  if (kind === "attack" && "hit_effects" in mechanic) {
-    summary.hit_effects = mechanic.hit_effects ?? [];
-  }
-  return summary;
 }
 
 export function StatblockDefinitionEditor({
@@ -91,15 +67,11 @@ export function StatblockDefinitionEditor({
     onEditorStateChange?.(next);
   };
 
-  const identityProtected = {
-    size: workingCopy.identity.size,
-    creature_type: workingCopy.identity.creature_type,
-    subtypes: workingCopy.identity.subtypes ?? [],
-    alignment: workingCopy.identity.alignment ?? null,
-  };
-
-  const acIndex = primaryArmorClassIndex(workingCopy.defenses);
-  const otherArmorClasses = workingCopy.defenses.armor_classes.filter((_entry, index) => index !== acIndex);
+  const acIndex = primaryArmorClassIndexForDisplay(workingCopy.defenses);
+  const primaryAcEntry = workingCopy.defenses.armor_classes[acIndex];
+  const primaryAcLabel = primaryAcEntry?.default
+    ? "Primary AC (default armor_classes entry)"
+    : "Primary AC (armor_classes[0]; no default flagged)";
 
   return (
     <div className="statblock-definition-editor" data-testid="statblock-definition-editor">
@@ -120,7 +92,7 @@ export function StatblockDefinitionEditor({
             onChange={(event) => commit(setIdentityName(state, event.target.value))}
           />
         </label>
-        <ProtectedStructureBlock path="identity" title="Identity structure" summary={identityProtected} />
+        <ProtectedStructureBlock path="identity" title="Identity structure" value={workingCopy.identity} />
       </section>
 
       <section className="statblock-definition-editor__section" aria-label="Abilities">
@@ -143,7 +115,7 @@ export function StatblockDefinitionEditor({
       <section className="statblock-definition-editor__section" aria-label="Defenses">
         <h3>Armor class</h3>
         <label>
-          Primary AC value
+          {primaryAcLabel}
           <input
             type="number"
             aria-label="Primary armor class"
@@ -151,29 +123,13 @@ export function StatblockDefinitionEditor({
             onChange={(event) => commit(setPrimaryArmorClassValue(state, Number(event.target.value)))}
           />
         </label>
-        {otherArmorClasses.length > 0 ? (
-          <ProtectedStructureBlock
-            path="defenses.armor_classes.additional"
-            title="Additional armor classes"
-            summary={{ entries: otherArmorClasses }}
-          />
-        ) : null}
-        <ProtectedStructureBlock
-          path="defenses.damage_interactions"
-          title="Damage interactions"
-          summary={{ entries: workingCopy.defenses.damage_interactions ?? [] }}
-        />
-        <ProtectedStructureBlock
-          path="defenses.condition_immunities"
-          title="Condition immunities"
-          summary={{ entries: workingCopy.defenses.condition_immunities ?? [] }}
-        />
+        <ProtectedStructureBlock path="defenses" title="Defenses" value={workingCopy.defenses} />
       </section>
 
       <section className="statblock-definition-editor__section" aria-label="Vitality">
         <h3>Hit points</h3>
         <label>
-          Hit points ({resolveHitPointsEditTarget(workingCopy.vitality.hit_points)})
+          Hit points (mutates vitality.hit_points.{resolveHitPointsEditTarget(workingCopy.vitality.hit_points)})
           <input
             type="number"
             aria-label="Hit points"
@@ -181,34 +137,30 @@ export function StatblockDefinitionEditor({
             onChange={(event) => commit(setHitPointsMax(state, Number(event.target.value)))}
           />
         </label>
-        <ProtectedStructureBlock
-          path="vitality.hit_points.profile"
-          title="Hit point profile"
-          summary={workingCopy.vitality.hit_points}
-        />
+        <ProtectedStructureBlock path="vitality" title="Vitality" value={workingCopy.vitality} />
       </section>
 
-      <ProtectedStructureBlock path="ruleset" title="Ruleset" summary={workingCopy.ruleset} />
-      <ProtectedStructureBlock path="movement" title="Movement" summary={workingCopy.movement} />
-      <ProtectedStructureBlock path="proficiencies" title="Proficiencies" summary={workingCopy.proficiencies} />
-      <ProtectedStructureBlock path="senses" title="Senses" summary={workingCopy.senses} />
-      <ProtectedStructureBlock path="communication" title="Communication" summary={workingCopy.communication} />
-      <ProtectedStructureBlock path="challenge" title="Challenge" summary={workingCopy.challenge} />
+      <ProtectedStructureBlock path="ruleset" title="Ruleset" value={workingCopy.ruleset} />
+      <ProtectedStructureBlock path="movement" title="Movement" value={workingCopy.movement} />
+      <ProtectedStructureBlock path="proficiencies" title="Proficiencies" value={workingCopy.proficiencies} />
+      <ProtectedStructureBlock path="senses" title="Senses" value={workingCopy.senses} />
+      <ProtectedStructureBlock path="communication" title="Communication" value={workingCopy.communication} />
+      <ProtectedStructureBlock path="challenge" title="Challenge" value={workingCopy.challenge} />
 
       {workingCopy.resources && workingCopy.resources.length > 0 ? (
-        <ProtectedStructureBlock path="resources" title="Resources" summary={{ entries: workingCopy.resources }} />
+        <ProtectedStructureBlock path="resources" title="Resources" value={workingCopy.resources} />
       ) : null}
 
       {workingCopy.phases && workingCopy.phases.length > 0 ? (
-        <ProtectedStructureBlock path="phases" title="Phases" summary={{ entries: workingCopy.phases }} />
+        <ProtectedStructureBlock path="phases" title="Phases" value={workingCopy.phases} />
       ) : null}
 
-      {workingCopy.lair ? (
-        <ProtectedStructureBlock path="lair" title="Lair profile" summary={workingCopy.lair} />
+      {workingCopy.lair !== undefined && workingCopy.lair !== null ? (
+        <ProtectedStructureBlock path="lair" title="Lair profile" value={workingCopy.lair} />
       ) : null}
 
       {workingCopy.flavor_text ? (
-        <ProtectedStructureBlock path="flavor_text" title="Flavor text" summary={workingCopy.flavor_text} />
+        <ProtectedStructureBlock path="flavor_text" title="Flavor text" value={workingCopy.flavor_text} />
       ) : null}
 
       <section className="statblock-definition-editor__section" aria-label="Rule elements">
@@ -232,9 +184,9 @@ export function StatblockDefinitionEditor({
               />
             </label>
             <ProtectedStructureBlock
-              path={`rule_elements[${index}].meta`}
-              title="Element identity and order"
-              summary={{
+              path={`rule_elements[${index}].structure`}
+              title="Element structure (key, section, order, tags, automation_support)"
+              value={{
                 key: element.key,
                 section: element.section,
                 order: index,
@@ -245,22 +197,22 @@ export function StatblockDefinitionEditor({
             <ProtectedStructureBlock
               path={`rule_elements[${index}].activation`}
               title="Activation"
-              summary={element.activation}
+              value={element.activation}
             />
             <ProtectedStructureBlock
               path={`rule_elements[${index}].usage`}
               title="Usage"
-              summary={element.usage}
+              value={element.usage}
             />
             <ProtectedStructureBlock
               path={`rule_elements[${index}].costs`}
               title="Costs"
-              summary={{ entries: element.costs ?? [] }}
+              value={element.costs ?? []}
             />
             <ProtectedStructureBlock
               path={`rule_elements[${index}].mechanic`}
               title="Mechanic (protected)"
-              summary={mechanicSummary(element)}
+              value={element.mechanic}
             />
           </article>
         ))}

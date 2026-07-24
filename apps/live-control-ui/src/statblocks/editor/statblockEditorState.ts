@@ -13,8 +13,6 @@ export type ValidationUiStatus =
   | "validated_with_errors"
   | "validation_unavailable";
 
-export type ValidationEligibility = "unvalidated" | "associated";
-
 export type StatblockEditorState = {
   sourceOutput: StatblockDefinitionV1_Output;
   baselineFingerprint: string;
@@ -22,7 +20,8 @@ export type StatblockEditorState = {
   stateRevision: number;
   undoStack: StatblockDefinitionV1_Input[];
   redoStack: StatblockDefinitionV1_Input[];
-  validationEligibility: ValidationEligibility;
+  /** Revision at which validation was last associated; session-only receipt. */
+  validatedRevision: number | null;
   validationUiStatus: ValidationUiStatus;
 };
 
@@ -51,17 +50,18 @@ function isDirty(state: StatblockEditorState): boolean {
   return getLocalFingerprint(state) !== state.baselineFingerprint;
 }
 
+const PRESERVED_VALIDATION_UI: ValidationUiStatus[] = [
+  "validating",
+  "validated_with_warnings",
+  "validated_with_errors",
+  "validation_unavailable",
+];
+
 function deriveUiStatus(state: StatblockEditorState): ValidationUiStatus {
-  const preserved: ValidationUiStatus[] = [
-    "validating",
-    "validated_with_warnings",
-    "validated_with_errors",
-    "validation_unavailable",
-  ];
   if (
-    state.validationEligibility === "associated" &&
-    preserved.includes(state.validationUiStatus) &&
-    !isDirty(state)
+    state.validatedRevision !== null &&
+    state.stateRevision === state.validatedRevision &&
+    PRESERVED_VALIDATION_UI.includes(state.validationUiStatus)
   ) {
     return state.validationUiStatus;
   }
@@ -90,33 +90,34 @@ function applyWorkingCopy(
     ...withUndo,
     workingCopy: cloneWorkingCopy(nextWorkingCopy),
     stateRevision: state.stateRevision + 1,
-    validationEligibility: "unvalidated",
+    validatedRevision: null,
     validationUiStatus: "dirty_unvalidated",
   };
   next.validationUiStatus = deriveUiStatus(next);
   return next;
 }
 
-export function clearValidationEligibility(state: StatblockEditorState): StatblockEditorState {
+export function clearValidationAssociation(state: StatblockEditorState): StatblockEditorState {
   const next: StatblockEditorState = {
     ...state,
-    validationEligibility: "unvalidated",
-    validationUiStatus: deriveUiStatus({ ...state, validationEligibility: "unvalidated" }),
+    validatedRevision: null,
+    validationUiStatus: deriveUiStatus({ ...state, validatedRevision: null }),
   };
   return next;
 }
+
+/** @deprecated Use clearValidationAssociation */
+export const clearValidationEligibility = clearValidationAssociation;
 
 export function markValidationAssociated(
   state: StatblockEditorState,
   uiStatus: Exclude<ValidationUiStatus, "clean_unvalidated" | "dirty_unvalidated">,
 ): StatblockEditorState {
-  const next: StatblockEditorState = {
+  return {
     ...state,
-    validationEligibility: "associated",
+    validatedRevision: state.stateRevision,
     validationUiStatus: uiStatus,
   };
-  next.validationUiStatus = deriveUiStatus(next);
-  return next;
 }
 
 export function createEditorStateFromOutput(output: StatblockDefinitionV1_Output): StatblockEditorState {
@@ -129,7 +130,7 @@ export function createEditorStateFromOutput(output: StatblockDefinitionV1_Output
     stateRevision: 0,
     undoStack: [],
     redoStack: [],
-    validationEligibility: "unvalidated",
+    validatedRevision: null,
     validationUiStatus: "clean_unvalidated",
   };
 }
@@ -163,11 +164,16 @@ export function setAbility(state: StatblockEditorState, ability: AbilityName, va
   }));
 }
 
-function primaryArmorClassIndex(defenses: StatblockDefinitionV1_Input["defenses"]): number {
+export function primaryArmorClassIndexForDisplay(defenses: StatblockDefinitionV1_Input["defenses"]): number {
   const defaultIndex = defenses.armor_classes.findIndex((entry) => entry.default);
   return defaultIndex >= 0 ? defaultIndex : 0;
 }
 
+function primaryArmorClassIndex(defenses: StatblockDefinitionV1_Input["defenses"]): number {
+  return primaryArmorClassIndexForDisplay(defenses);
+}
+
+/** Mutates `defenses.armor_classes[primaryArmorClassIndex(defenses)]` (default entry, else index 0). */
 export function setPrimaryArmorClassValue(state: StatblockEditorState, value: number): StatblockEditorState {
   return updateWorkingCopy(state, (current) => {
     const index = primaryArmorClassIndex(current.defenses);
@@ -257,7 +263,7 @@ export function undo(state: StatblockEditorState): StatblockEditorState {
     undoStack,
     redoStack: [...state.redoStack, cloneWorkingCopy(state.workingCopy)],
     stateRevision: state.stateRevision + 1,
-    validationEligibility: "unvalidated",
+    validatedRevision: null,
     validationUiStatus: "dirty_unvalidated",
   };
   next.validationUiStatus = deriveUiStatus(next);
@@ -276,7 +282,7 @@ export function redo(state: StatblockEditorState): StatblockEditorState {
     redoStack,
     undoStack: [...state.undoStack, cloneWorkingCopy(state.workingCopy)],
     stateRevision: state.stateRevision + 1,
-    validationEligibility: "unvalidated",
+    validatedRevision: null,
     validationUiStatus: "dirty_unvalidated",
   };
   next.validationUiStatus = deriveUiStatus(next);

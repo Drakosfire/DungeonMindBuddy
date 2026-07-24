@@ -12,6 +12,12 @@ export function baseCandidateDefinition(): StatblockDefinitionV1_Output {
   return structuredClone(candidate.definition);
 }
 
+/** Base definition with explicit `lair: null` for clone parity tests. */
+export function baseCandidateDefinitionWithNullLair(): StatblockDefinitionV1_Output {
+  const base = baseCandidateDefinition();
+  return { ...base, lair: null };
+}
+
 export function complexCandidateDefinition(): StatblockDefinitionV1_Output {
   const base = baseCandidateDefinition();
   const baseElement = base.rule_elements[0] as RuleElement_Output;
@@ -43,7 +49,10 @@ export function complexCandidateDefinition(): StatblockDefinitionV1_Output {
           },
           level: 3,
           slots: 1,
-          spells: [{ name: "Fear", school: "illusion", source_id: null, rules_text: null }],
+          spells: [
+            { name: "Fear", school: "illusion", source_id: null, rules_text: null },
+            { name: "Fireball", school: "evocation", source_id: null, rules_text: null },
+          ],
         },
       ],
     },
@@ -83,7 +92,10 @@ export function complexCandidateDefinition(): StatblockDefinitionV1_Output {
     mechanic: {
       kind: "phase_transition",
       destination_phase_key: "enraged",
-      effects: [],
+      effects: [
+        { kind: "enable_elements", element_keys: ["frenzy"] },
+        { kind: "disable_elements", element_keys: ["greatclub"] },
+      ],
     },
   };
 
@@ -94,6 +106,7 @@ export function complexCandidateDefinition(): StatblockDefinitionV1_Output {
     section: "trait",
     rules_text: "The GM decides when the pressure escalates.",
     automation_support: "manual",
+    tags: ["lair", "pressure"],
     mechanic: {
       kind: "human_adjudicated",
       adjudication_tags: ["table_judgment"],
@@ -111,6 +124,30 @@ export function complexCandidateDefinition(): StatblockDefinitionV1_Output {
         {
           kind: "human_adjudicated",
           adjudication_text: "GM may rule extra knockback on a crit.",
+        },
+      ],
+      miss_effects: [
+        {
+          kind: "enable_elements",
+          element_keys: ["opening"],
+        },
+      ],
+    },
+  };
+
+  const omittedKindEffectElement: RuleElement_Output = {
+    ...baseElement,
+    key: "wild_surge",
+    name: "Wild Surge",
+    section: "trait",
+    rules_text: "Surges of wild magic.",
+    mechanic: {
+      kind: "composite",
+      target: null,
+      effects: [
+        {
+          condition: "frightened",
+          duration: null,
         },
       ],
     },
@@ -144,6 +181,13 @@ export function complexCandidateDefinition(): StatblockDefinitionV1_Output {
         rules_text: "Expend to succeed a failed save.",
       },
     ],
-    rule_elements: [nestedAttack, spellcasting, lairAction, transition, humanAdjudicated],
+    rule_elements: [
+      nestedAttack,
+      spellcasting,
+      lairAction,
+      transition,
+      humanAdjudicated,
+      omittedKindEffectElement,
+    ],
   };
 }
