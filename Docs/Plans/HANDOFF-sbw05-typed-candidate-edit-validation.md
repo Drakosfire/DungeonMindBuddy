@@ -177,7 +177,7 @@ Trust boundary:
 - `rules_text` is edited as text and always clears validation eligibility.
 - Edit detection uses a **local working-copy fingerprint / state revision only**. Do **not** recreate or claim equality with the Server canonical `definition_digest`. Server digest association is proven only after a successful SBW05a validate response (SBW05c+) for the exact submitted body.
 - Any change, normalization, undo, or redo clears validation eligibility unless exact association with the current working copy has been proven (same local fingerprint/state revision that was validated).
-- The UI distinguishes: `clean_unvalidated`, `dirty_unvalidated`, `validating`, `validated_with_warnings`, `validated_with_errors`, `validation_unavailable`.
+- The UI distinguishes: `clean_unvalidated`, `dirty_unvalidated`, `validating`, `validated` (Server `valid`), `validated_with_warnings` (Server `warnings`), `validated_with_errors` (Server `invalid`), `validation_unavailable`. Receipt-bearing states are only `validated` | `validated_with_warnings` | `validated_with_errors`; pending `validating` and `validation_unavailable` never associate a revision.
 - No save/accept eligibility claim exists beyond a derived `validation_has_no_errors` state for the exact currently associated receipt.
 - The working copy is **session-only and unsaved**. No `localStorage`, IndexedDB, or durable editor schema in SBW05b/c.
 ### §6A State and fallback matrix

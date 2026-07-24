@@ -47,6 +47,23 @@ describe("statblockEditorState", () => {
     expect(getLocalFingerprint(associated)).not.toBe(associated.baselineFingerprint);
   });
 
+  it("associates clean valid receipt with edited revision and clears on subsequent edit", () => {
+    const initial = createEditorStateFromOutput(baseCandidateDefinition());
+    const edited = setIdentityName(initial, "Clean Valid");
+    expect(getUiStatus(edited)).toBe("dirty_unvalidated");
+
+    const associated = markValidationAssociated(edited, "validated");
+    expect(associated.validatedRevision).toBe(edited.stateRevision);
+    expect(associated.validationAttempt).toBe("none");
+    expect(getUiStatus(associated)).toBe("validated");
+    expect(getLocalFingerprint(associated)).not.toBe(associated.baselineFingerprint);
+
+    const editedAgain = setIdentityName(associated, "After Valid");
+    expect(editedAgain.validatedRevision).toBeNull();
+    expect(editedAgain.validationAttempt).toBe("none");
+    expect(getUiStatus(editedAgain)).toBe("dirty_unvalidated");
+  });
+
   it("invalidates association on subsequent edit", () => {
     const initial = createEditorStateFromOutput(baseCandidateDefinition());
     const edited = setIdentityName(initial, "Once");

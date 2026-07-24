@@ -9,12 +9,20 @@ export type ValidationUiStatus =
   | "clean_unvalidated"
   | "dirty_unvalidated"
   | "validating"
+  | "validated"
   | "validated_with_warnings"
   | "validated_with_errors"
   | "validation_unavailable";
 
-/** Receipt-bearing outcomes only — pending/unavailable never get an associated revision. */
-export type ValidationReceiptStatus = "validated_with_warnings" | "validated_with_errors";
+/**
+ * Receipt-bearing outcomes only — maps Server receipt status:
+ * valid → validated, warnings → validated_with_warnings, invalid → validated_with_errors.
+ * Pending/unavailable never get an associated revision.
+ */
+export type ValidationReceiptStatus =
+  | "validated"
+  | "validated_with_warnings"
+  | "validated_with_errors";
 
 export type ValidationAttempt = "none" | "validating" | "unavailable";
 
@@ -27,7 +35,7 @@ export type StatblockEditorState = {
   redoStack: StatblockDefinitionV1_Input[];
   /**
    * Revision bound to an authoritative validation receipt.
-   * Set only for validated_with_warnings | validated_with_errors.
+   * Set only for validated | validated_with_warnings | validated_with_errors.
    * Never set for validating or validation_unavailable.
    */
   validatedRevision: number | null;
@@ -61,12 +69,19 @@ function isDirty(state: StatblockEditorState): boolean {
   return getLocalFingerprint(state) !== state.baselineFingerprint;
 }
 
+function isReceiptBearingUiStatus(status: ValidationUiStatus): status is ValidationReceiptStatus {
+  return (
+    status === "validated" ||
+    status === "validated_with_warnings" ||
+    status === "validated_with_errors"
+  );
+}
+
 function deriveUiStatus(state: StatblockEditorState): ValidationUiStatus {
   if (
     state.validatedRevision !== null &&
     state.stateRevision === state.validatedRevision &&
-    (state.validationUiStatus === "validated_with_warnings" ||
-      state.validationUiStatus === "validated_with_errors")
+    isReceiptBearingUiStatus(state.validationUiStatus)
   ) {
     return state.validationUiStatus;
   }
@@ -152,7 +167,7 @@ export function markValidationUnavailable(state: StatblockEditorState): Statbloc
 
 /**
  * Associate an authoritative Server receipt with the current working-copy revision.
- * Only warning/error receipt outcomes are accepted — never validating or unavailable.
+ * Accepts clean valid, warnings, or invalid receipt outcomes — never validating or unavailable.
  */
 export function markValidationAssociated(
   state: StatblockEditorState,
