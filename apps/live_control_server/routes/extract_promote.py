@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+
+logger = logging.getLogger(__name__)
 
 from apps.live_control_server.models.extract_promote import (
     ExtractPromoteConfirmReceipt,
@@ -29,6 +32,18 @@ from apps.live_control_server.services.extract_promote import (
 
 def _error_response(exc: ExtractPromoteError) -> JSONResponse:
     body = exc.response().model_dump(mode="json", by_alias=True, exclude_none=True)
+    # Interim dogfood inspect until review-package returns inspectable 200s for
+    # binding failures (Backlog: false_anchor / run_not_promotable).
+    logger.warning(
+        "extract-promote error code=%s status=%s message=%s diagnostics=%s",
+        exc.code,
+        exc.status_code,
+        str(exc),
+        [
+            {"code": item.code, "message": item.message, "severity": item.severity}
+            for item in exc.diagnostics
+        ],
+    )
     return JSONResponse(status_code=exc.status_code, content=body)
 
 
@@ -142,12 +157,22 @@ def post_extract_promote_prepare(
         response = prepare(request)
     except ExtractPromoteError as exc:
         return _error_response(exc)
-    except Exception:
+    except Exception as exc:
+        # Uvicorn access logs only show the 500 line; force the real cause onto
+        # the error logger and into diagnostics so dogfood isn't opaque.
+        logger.exception("extract-promote prepare failed unexpectedly")
         return _error_response(
             ExtractPromoteError(
                 "The extract-promote prepare operation failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
+                diagnostics=[
+                    ExtractPromoteDiagnostic(
+                        code="unexpected_exception",
+                        message=f"{type(exc).__name__}: {exc}",
+                        severity="error",
+                    )
+                ],
             )
         )
     return response.model_dump(mode="json", by_alias=True)
@@ -163,12 +188,20 @@ def post_extract_promote_confirm(
         response = confirm(request)
     except ExtractPromoteError as exc:
         return _error_response(exc)
-    except Exception:
+    except Exception as exc:
+        logger.exception("extract-promote confirm failed unexpectedly")
         return _error_response(
             ExtractPromoteError(
                 "The extract-promote confirm operation failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
+                diagnostics=[
+                    ExtractPromoteDiagnostic(
+                        code="unexpected_exception",
+                        message=f"{type(exc).__name__}: {exc}",
+                        severity="error",
+                    )
+                ],
             )
         )
     return response.model_dump(mode="json", by_alias=True)

@@ -457,6 +457,23 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         setExactReviewStatus("ready");
       } catch (error) {
         if (cancelled) return;
+        // Interim dogfood inspect: full error body in the browser console until
+        // inspectable review-package lands (Backlog: false_anchor / run_not_promotable).
+        if (error instanceof ExtractPromoteApiError) {
+          console.error("[graph-review] exact-run review-package failed", {
+            runId: run.run_id,
+            status: error.status,
+            code: error.code,
+            message: error.message,
+            diagnostics: error.body?.diagnostics ?? null,
+            body: error.body,
+          });
+        } else {
+          console.error("[graph-review] exact-run review-package failed", {
+            runId: run.run_id,
+            error,
+          });
+        }
         setExactReview(null);
         setExactReviewStatus("error");
         setExactReviewError(
@@ -660,9 +677,24 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     } catch (error) {
       setExactPrepared(null);
       if (error instanceof ExtractPromoteApiError) {
-        setExactPrepareError(error.message);
+        const diagnosticTail = (error.body?.diagnostics ?? [])
+          .map((item) => item.message)
+          .filter((message): message is string => Boolean(message?.trim()))
+          .join(" · ");
+        setExactPrepareError(
+          diagnosticTail ? `${error.message} (${diagnosticTail})` : error.message,
+        );
+        console.error("[graph-review] exact-run prepare failed", {
+          runId: exactHandoff.extractionRunId,
+          status: error.status,
+          code: error.code,
+          message: error.message,
+          diagnostics: error.body?.diagnostics ?? null,
+          body: error.body,
+        });
       } else if (error instanceof Error) {
         setExactPrepareError(error.message);
+        console.error("[graph-review] exact-run prepare failed", error);
       } else {
         setExactPrepareError("Failed to prepare promotion for exact run.");
       }

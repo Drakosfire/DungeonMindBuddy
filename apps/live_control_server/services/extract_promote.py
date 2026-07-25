@@ -54,6 +54,7 @@ from graph_memory.extract_promote_ops import (
     resolve_merged_contribution_from_package,
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
+from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 
 # Narrow server-owned roots for non-run promote source evidence (confirm of
 # legacy/CLI seals, dedicated fixture roots). Product prepare never uses these
@@ -847,6 +848,16 @@ def prepare(
     except ExtractPromoteWorldError as exc:
         raise ExtractPromoteError(
             str(exc),
+            code="world_not_initialized",
+            status_code=409,
+            diagnostics=[_diagnostic("world_not_initialized", str(exc))],
+        ) from exc
+    except WorldGraphNotFoundError as exc:
+        # Identity gate opens the head before wrapping; missing head is an
+        # expected operator state, not extract_promote_internal_error.
+        raise ExtractPromoteError(
+            "The World Graph is not initialized. Bootstrap or restore an "
+            f"eldyrwild head under the configured world root before merging. ({exc})",
             code="world_not_initialized",
             status_code=409,
             diagnostics=[_diagnostic("world_not_initialized", str(exc))],
