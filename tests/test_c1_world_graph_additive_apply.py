@@ -1,5 +1,8 @@
 """Tests for C1 additive World Graph apply (PC world-ownership + Heroes + S1–S3)."""
 
+# PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: fixture ledger mutation for additive-apply
+# proof; keep until tests move fully onto kernel contribution helpers.
+
 from __future__ import annotations
 
 import json

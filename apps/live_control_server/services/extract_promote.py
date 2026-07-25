@@ -1091,11 +1091,11 @@ def _try_already_applied_after_stale_parent(
     Returns None when the sealed contribution is not already active/applied
     (true stale proposal → caller re-raises verification failure).
     """
-    from graph_memory.world_supergraph.contribution_store import (
+    import graph_memory.kernel as kernel
+    from graph_memory.kernel.contribution_merge import (
         load_contribution_index,
         load_contribution_record,
     )
-    import graph_memory.kernel as kernel
 
     try:
         world_id_hint = str(

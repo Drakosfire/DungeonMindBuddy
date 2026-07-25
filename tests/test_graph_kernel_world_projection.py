@@ -671,6 +671,8 @@ def test_payload_hash_uses_on_disk_bytes_not_model_dump_round_trip(
         dump_union_supergraph_store,
         parse_union_supergraph_store,
     )
+    # PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: canonicalize/sha helpers for hash
+    # round-trip proof against on-disk revision payloads.
     from graph_memory.world_supergraph.storage import canonicalize_graph_payload, sha256_hex
 
     result = _initialize(tmp_path, loaded_bundle)

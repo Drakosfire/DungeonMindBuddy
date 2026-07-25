@@ -4,14 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";
 
 describe("GraphReviewWorkbenchHeader", () => {
-  it("shows only Load recap when nothing is loaded", () => {
+  it("shows empty-state copy and Load recap button when nothing is loaded", () => {
     render(
       <GraphReviewWorkbenchHeader loaded={false} sessionLabel={null} onOpenLoad={vi.fn()} />,
     );
 
-    expect(screen.queryByRole("heading", { name: "Graph Review Workbench" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Prose-first review tool")).not.toBeInTheDocument();
-    expect(screen.queryByText("No session loaded")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
+    expect(screen.getByText("Prose-first review tool")).toBeInTheDocument();
+    expect(screen.getByText("No session loaded")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
     expect(screen.queryByTestId("graph-authoring-mode-toggle")).not.toBeInTheDocument();
   });

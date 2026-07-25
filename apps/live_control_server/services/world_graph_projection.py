@@ -19,7 +19,6 @@ from graph_memory.world_projection_cache import (
     make_projection_cache_key,
     put_cached_projection,
 )
-from graph_memory.world_supergraph.storage import open_world_graph_head
 
 
 class WorldGraphProjectionServiceError(ValueError):
@@ -81,7 +80,7 @@ def project_world_graph(
         cache_key = None
         if _service_cache_enabled() and not request.query_text:
             try:
-                head = open_world_graph_head(graph_root, request.world_id)
+                head = kernel.open_world_graph_head(graph_root, request.world_id)
                 revision_id = request.revision_pin or head.head_revision_id
                 cache_key = make_projection_cache_key(
                     graph_root,

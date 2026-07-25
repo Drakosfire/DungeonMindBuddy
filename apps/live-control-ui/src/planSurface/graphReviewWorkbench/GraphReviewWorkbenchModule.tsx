@@ -814,14 +814,6 @@ export function GraphReviewWorkbenchModule({
     }
   }, [exactConfirmInFlight, exactHandoff, exactPreparing, exactRunPromotable]);
 
-  if (!sessionsLoaded && !exactHandoff) {
-    return (
-      <GraphReviewWorkbenchLoadingChrome
-        onSurfaceChromeChange={onSurfaceChromeChange}
-      />
-    );
-  }
-
   const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
   const hasExactRunLoad = Boolean(exactHandoff && exactRunStatus === "ready" && exactRun);
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
@@ -848,6 +840,14 @@ export function GraphReviewWorkbenchModule({
       ingestSession: sessionNumber,
     });
   }, [context, reviewCampaignId, reviewSessionId]);
+
+  if (!sessionsLoaded && !exactHandoff) {
+    return (
+      <GraphReviewWorkbenchLoadingChrome
+        onSurfaceChromeChange={onSurfaceChromeChange}
+      />
+    );
+  }
 
   return (
     <ProjectionProvider config={toolboxConfig}>

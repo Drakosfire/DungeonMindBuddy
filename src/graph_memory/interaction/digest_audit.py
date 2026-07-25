@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from graph_memory.interaction.schema_constants import DIGEST_AUDIT_SCHEMA
-from graph_memory.kernel.contributions import compute_contribution_source_payload_sha256
-from graph_memory.world_supergraph.contribution_store import (
+from graph_memory.kernel import load_current_world_graph
+from graph_memory.kernel.contribution_merge import (
     load_contribution_index,
     load_contribution_record,
 )
-from graph_memory.world_supergraph.storage import load_current_world_graph
+from graph_memory.kernel.contributions import compute_contribution_source_payload_sha256
 
 TRIPOD_CONTRIBUTION_ID = "contribution:022187fdefdf4557"
 

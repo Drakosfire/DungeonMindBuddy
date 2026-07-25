@@ -41,7 +41,7 @@ from graph_memory.kernel.identity_models import IdentityResolution
 from graph_memory.kernel.world_graph import load_world_graph_revision
 from graph_memory.kernel.world_projection import _edge_core_semantic_fingerprint
 from graph_memory.union_supergraph.model import UnionSupergraphStore
-from graph_memory.world_supergraph.contribution_store import load_contribution_record
+from graph_memory.kernel.contribution_merge import load_contribution_record
 
 _MUTATING_OUTCOMES = frozenset({"resolved_existing", "created_new", "human_override"})
 _CONNECT_EXISTING_OUTCOMES = frozenset({"resolved_existing", "human_override"})

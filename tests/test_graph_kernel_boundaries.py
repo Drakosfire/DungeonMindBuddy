@@ -164,6 +164,16 @@ TS_LEGACY_SELECTOR_ALLOWLIST: dict[str, frozenset[str]] = {
             "preview_union_store_path",
         }
     ),
+    "apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewExtractPromoteSheet.test.tsx": frozenset(
+        {
+            "preview_union_store_path",
+        }
+    ),
+    "apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx": frozenset(
+        {
+            "preview_union_store_path",
+        }
+    ),
     "apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewLiveReviewState.ts": frozenset(
         {
             "graphRunManifestPath",

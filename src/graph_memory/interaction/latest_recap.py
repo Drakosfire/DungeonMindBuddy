@@ -14,7 +14,7 @@ from apps.live_control_server.services.recap_artifacts import (
     RecapArtifactRecord,
     list_recap_artifact_records,
 )
-from graph_memory.world_supergraph.storage import load_current_world_graph
+from graph_memory.kernel import load_current_world_graph
 
 LATEST_RECAP_CHANGE_SCHEMA = "dmb_latest_recap_change_context_v1"
 

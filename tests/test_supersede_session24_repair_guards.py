@@ -169,6 +169,8 @@ def test_validate_repair_target_accepts_live_session24_contribution_if_present()
         EXPECTED_ACCEPTED_ASSERTION_ID_SET_SHA256,
         EXPECTED_ACCEPTED_ASSERTIONS_DUMP_SHA256,
     )
+    # PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: live contribution fixture read for
+    # Session 24 repair guard proof.
     from graph_memory.world_supergraph.contribution_store import load_contribution_record
 
     path = (

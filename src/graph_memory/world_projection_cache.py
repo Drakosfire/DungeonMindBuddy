@@ -4,6 +4,10 @@ NOT wired into the kernel by default. Projection integrity tests may mutate
 contribution ledger bytes under an existing revision id; caching only on
 revision id would hide those failures. Callers that opt in must include a
 ledger fingerprint (contribution index mtime/size) in the cache key.
+
+# PR003_INTERNAL_GRAPH_KERNEL_EXEMPTION: ledger fingerprint needs contribution
+# index/dir paths; fold behind a kernel facade when projection cache graduates
+# from optional live-server helper (delete with projection-cache kernelization).
 """
 
 from __future__ import annotations
