@@ -276,10 +276,15 @@ def _is_line_start(markdown: str, index: int) -> bool:
 
 
 def _skip_link_label(markdown: str, index: int) -> int | None:
-    """Advance past a Markdown link/image label ``[...]`` starting at ``[``."""
+    """Advance past a Markdown link/image label ``[...]`` starting at ``[``.
+
+    Nested brackets are tracked by depth so ``[The [old] Caelynn Story]`` is
+    one label, not a premature close at the inner ``]``.
+    """
     if index >= len(markdown) or markdown[index] != "[":
         return None
-    i = index + 1
+    depth = 0
+    i = index
     while i < len(markdown):
         ch = markdown[i]
         if ch == "\\":
@@ -287,8 +292,12 @@ def _skip_link_label(markdown: str, index: int) -> int | None:
             continue
         if ch == "\n":
             return None
-        if ch == "]":
-            return i + 1
+        if ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                return i + 1
         i += 1
     return None
 
@@ -316,9 +325,55 @@ def _skip_balanced_parens(markdown: str, index: int) -> int | None:
     return None
 
 
+def _normalize_reference_label(label: str) -> str:
+    return re.sub(r"\s+", " ", label.strip()).casefold()
+
+
+def _reference_definition_labels(markdown: str) -> set[str]:
+    """Labels defined by ``[label]: destination`` lines (CommonMark-style)."""
+    labels: set[str] = set()
+    for match in re.finditer(
+        r"(?m)^[ \t]{0,3}\[((?:[^\]\\]|\\.)+)\]:[ \t]+\S",
+        markdown,
+    ):
+        labels.add(_normalize_reference_label(match.group(1)))
+    return labels
+
+
+def _skip_autolink(markdown: str, index: int) -> int | None:
+    """Advance past ``<https://...>`` / ``<mailto:...>`` / ``<user@host>``."""
+    if index >= len(markdown) or markdown[index] != "<":
+        return None
+    close = markdown.find(">", index + 1)
+    if close < 0:
+        return None
+    inner = markdown[index + 1 : close]
+    if not inner or any(ch.isspace() for ch in inner):
+        return None
+    if inner.startswith(("http://", "https://", "mailto:", "ftp://")):
+        return close + 1
+    if "@" in inner and "/" not in inner:
+        return close + 1
+    return None
+
+
+def _skip_reference_definition_line(markdown: str, index: int) -> int | None:
+    """Advance past a full ``[label]: destination`` definition line."""
+    if not _is_line_start(markdown, index):
+        return None
+    match = re.match(
+        r"[ \t]{0,3}\[(?:[^\]\\]|\\.)+\]:[ \t]+\S[^\n]*",
+        markdown[index:],
+    )
+    if not match:
+        return None
+    return index + match.end()
+
+
 def _protected_ranges(markdown: str) -> list[tuple[int, int]]:
     """Ranges that must not receive mention rewrites: fences, code, links."""
     ranges: list[tuple[int, int]] = []
+    ref_labels = _reference_definition_labels(markdown)
     i = 0
     n = len(markdown)
     while i < n:
@@ -340,16 +395,29 @@ def _protected_ranges(markdown: str) -> list[tuple[int, int]]:
                 i = end
                 continue
 
+            after_def = _skip_reference_definition_line(markdown, i)
+            if after_def is not None:
+                ranges.append((i, after_def))
+                i = after_def
+                continue
+
+        # Matching-backtick code spans may contain line breaks (conservative).
         if markdown[i] == "`":
             run = 1
             while i + run < n and markdown[i + run] == "`":
                 run += 1
             closer = markdown.find("`" * run, i + run)
-            if closer != -1 and "\n" not in markdown[i + run : closer]:
+            if closer != -1:
                 end = closer + run
                 ranges.append((i, end))
                 i = end
                 continue
+
+        after_auto = _skip_autolink(markdown, i)
+        if after_auto is not None:
+            ranges.append((i, after_auto))
+            i = after_auto
+            continue
 
         if markdown[i] == "[" or (
             markdown[i] == "!" and i + 1 < n and markdown[i + 1] == "["
@@ -370,6 +438,13 @@ def _protected_ranges(markdown: str) -> list[tuple[int, int]]:
                         ranges.append((start, after_ref))
                         i = after_ref
                         continue
+                # Shortcut reference link: [label] with a later [label]: def.
+                label_text = markdown[label_at + 1 : after_label - 1]
+                if _normalize_reference_label(label_text) in ref_labels:
+                    # Do not consume a following non-link character.
+                    ranges.append((start, after_label))
+                    i = after_label
+                    continue
 
         i += 1
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -203,6 +204,11 @@ def test_protected_markdown_and_code_ranges_untouched() -> None:
         "Closed fence:\n```\nCaelynn\n```\nafter.",
         "Unclosed fence:\n```\nCaelynn still protected",
         "Prior [chip](dmb-node:pc:other) stays.",
+        # Adversarial CommonMark forms (fail-closed > chip):
+        "[The Caelynn Story]\n\n[The Caelynn Story]: /url",
+        "[The [old] Caelynn Story](https://example.test)",
+        "<https://example.test/Caelynn>",
+        "`before\nCaelynn\nafter`",
     ]
     for markdown in cases:
         projected, mentions, _diagnostics = project_world_markdown_mentions(
@@ -547,3 +553,142 @@ def test_missing_graph_root_fails_closed_without_fixture_fallback(
 
     assert response.status_code >= 400
     assert response.status_code != 200
+
+
+CAELYNN_NODE_ID = "pc:caelynn"
+CAELYNN_CONTRIBUTION_ID = "contribution:33d7cdb0ff623f28"
+HEAD_ONLY_LABEL = "CaelynnRenamedHead"
+
+
+def _load_contribution_json(root: Path, contribution_id: str) -> dict[str, Any]:
+    safe = contribution_id.replace(":", "__")
+    path = (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{safe}.json"
+    )
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _publish_caelynn_label_revision(root: Path) -> tuple[str, str]:
+    """Supersede Caelynn so head B no longer matches surface 'Caelynn'. Return (A, B)."""
+    revision_a = kernel.open_world_graph_head(root, WORLD_ID).head_revision_id
+    original_payload = _load_contribution_json(root, CAELYNN_CONTRIBUTION_ID)
+    replacement_assertions = [
+        kernel.GraphContributionAssertion.model_validate(assertion)
+        for assertion in original_payload["accepted_assertions"]
+    ]
+    for assertion in replacement_assertions:
+        if (
+            assertion.assertion_kind != "node"
+            or assertion.subject_node_id != CAELYNN_NODE_ID
+        ):
+            continue
+        value = dict(assertion.value)
+        assertion.label = HEAD_ONLY_LABEL
+        assertion.value = {
+            **value,
+            "label": HEAD_ONLY_LABEL,
+            "aliases": [HEAD_ONLY_LABEL],
+        }
+
+    replacement_contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id=original_payload["source_artifact_id"],
+        source_revision_id="recap-pin-caelynn-1",
+        accepted_assertions=replacement_assertions,
+        supersedes_contribution_id=CAELYNN_CONTRIBUTION_ID,
+    )
+    superseded = kernel.supersede_graph_contribution(
+        root,
+        world_id=WORLD_ID,
+        new_contribution=replacement_contribution,
+        superseded_contribution_id=CAELYNN_CONTRIBUTION_ID,
+    )
+    assert superseded.published is True
+    revision_b = kernel.open_world_graph_head(root, WORLD_ID).head_revision_id
+    assert revision_b != revision_a
+    return revision_a, revision_b
+
+
+def test_revision_pin_survives_recap_service_boundary(tmp_path: Path) -> None:
+    _initialize(tmp_path)
+    revision_a, revision_b = _publish_caelynn_label_revision(tmp_path)
+
+    markdown = "Caelynn stood at the gate."
+    pinned = build_world_graph_recap_projection(
+        _session_request(revision_pin=revision_a),
+        root=tmp_path,
+        corpus_markdown=markdown,
+    )
+    head_proj = build_world_graph_recap_projection(
+        _session_request(),
+        root=tmp_path,
+        corpus_markdown=markdown,
+    )
+
+    assert pinned.graph_id == revision_a
+    assert pinned.snapshot.revision_id == revision_a
+    assert pinned.snapshot.is_head is False
+    assert pinned.snapshot.head_revision_id == revision_b
+    caelynn_a = pinned.node_views[CAELYNN_NODE_ID]
+    assert caelynn_a.label == "Caelynn"
+    assert HEAD_ONLY_LABEL not in caelynn_a.label
+    assert any(m.node_id == CAELYNN_NODE_ID for m in pinned.mentions)
+    assert "[Caelynn](dmb-node:pc:caelynn)" in pinned.markdown
+
+    assert head_proj.graph_id == revision_b
+    assert head_proj.snapshot.is_head is True
+    caelynn_b = head_proj.node_views[CAELYNN_NODE_ID]
+    assert caelynn_b.label == HEAD_ONLY_LABEL
+    assert not any(m.node_id == CAELYNN_NODE_ID for m in head_proj.mentions)
+    assert "[Caelynn](dmb-node:" not in head_proj.markdown
+    assert head_proj.markdown == markdown
+
+
+def test_revision_pin_survives_recap_route_boundary(
+    client: TestClient,
+    tmp_path: Path,
+) -> None:
+    _initialize(tmp_path)
+    revision_a, revision_b = _publish_caelynn_label_revision(tmp_path)
+
+    import apps.live_control_server.services.world_graph_recap_projection as service
+
+    original = service.load_corpus_normalized_recap_markdown
+    service.load_corpus_normalized_recap_markdown = (  # type: ignore[assignment]
+        lambda **_kwargs: "Caelynn stood at the gate."
+    )
+    try:
+        response = client.post(
+            RECAP_PROJECTION_URL,
+            json={
+                "schema": "dmb_world_graph_projection_request_v1",
+                "worldId": WORLD_ID,
+                "campaignId": CAMPAIGN_ID,
+                "focus": {
+                    "kind": "session",
+                    "sessionId": FOCUS_SESSION_ID,
+                    "campaignId": CAMPAIGN_ID,
+                },
+                "admissibility": "gm",
+                "scopeMode": "campaign",
+                "revisionPin": revision_a,
+            },
+        )
+    finally:
+        service.load_corpus_normalized_recap_markdown = original  # type: ignore[assignment]
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["graphId"] == revision_a
+    assert payload["snapshot"]["revisionId"] == revision_a
+    assert payload["snapshot"]["isHead"] is False
+    assert payload["snapshot"]["headRevisionId"] == revision_b
+    assert payload["nodeViews"][CAELYNN_NODE_ID]["label"] == "Caelynn"
+    assert any(m["nodeId"] == CAELYNN_NODE_ID for m in payload["mentions"])
+    assert "[Caelynn](dmb-node:pc:caelynn)" in payload["markdown"]
