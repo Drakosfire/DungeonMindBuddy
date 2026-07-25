@@ -1,0 +1,19 @@
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "Request validation failed",
+    "details": {
+      "fields": [
+        {
+          "type": "missing",
+          "loc": [
+            "body",
+            "idempotency_key"
+          ],
+          "msg": "Field required",
+          "input": {}
+        }
+      ]
+    }
+  }
+}

@@ -1,11 +1,11 @@
 # PR Tracker — Threat + Statblock Authoring and Projection
 
-**Status:** ACTIVE SLICE / REVIEW AUTHORITY  
+**Status:** ACTIVE SLICE / IMPLEMENTATION  
 **Date:** 2026-07-24  
-**PR base / repository tip:** `bf28e46c` on `main` at PR open (includes unrelated work; not an SBW claim)  
-**Logical SBW predecessor:** `#404` / `427a357b` — SBW05c workbench host + preview validate  
-**This PR:** `SBW07-contract` — docs-only approve/reject of frozen HANDOFF-sbw07 §12  
-**Next dispatch after this PR merges:** `SBW07a` (create/read Server client + fixtures)  
+**PR base / repository tip:** `36582f8b` on `main` (`#405` merge tip; may include unrelated work)  
+**Logical SBW predecessor:** `#405` / `36582f8b` — `SBW07-contract` §12 APPROVED / FROZEN  
+**This PR:** `SBW07a` — create/read Server client + fixtures + terminal inventory  
+**Next dispatch after this PR merges:** `SBW07b` (acceptance journal + §12 orchestration)  
 **Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).  
 
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
@@ -176,9 +176,9 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 
 | Bite | Status | Mission | Exclusions |
 |---|---|---|---|
-| `SBW07-contract` | **this PR** | Doc-only approve-or-reject of frozen HANDOFF-sbw07 §12 (do not rewrite unless review rejects a closed decision) | Implementation code |
-| `SBW07a` | next after contract | Create/read Server client + fixtures | Draft mutation, UI, demolition |
-| `SBW07b` | after `SBW07a` | Acceptance orchestration + atomic ref / pending reconcile | UI, corpus demolition, graph |
+| `SBW07-contract` | MERGED `#405` / `36582f8b` — §12 APPROVED / FROZEN | Doc-only approve-or-reject of frozen HANDOFF-sbw07 §12 (do not rewrite unless review rejects a closed decision) | Implementation code |
+| `SBW07a` | **this PR** | Create/read Server client + fixtures | Draft mutation, UI, demolition |
+| `SBW07b` | next after `SBW07a` | Acceptance orchestration + atomic ref / pending reconcile | UI, corpus demolition, graph |
 | `SBW07c` | after `SBW07b` | Accept UI + corpus-promotion demolition | Graph, append revision |
 
 ### SBW06 — Candidate revise/regenerate lineage

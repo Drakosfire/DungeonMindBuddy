@@ -42,8 +42,14 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.models import 
     StrictModel,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+    CreateStatblockRequestV1,
+    CreateStatblockResponseV1,
     ValidateDefinitionRequestV1,
     ValidationResponseV1,
+)
+from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+    CreateStatblockResult,
+    locator_from_create_response,
 )
 
 # Health/readiness envelopes are tiny; exact-revision payloads include definition.
@@ -68,6 +74,10 @@ class StatblockV1Client(Protocol):
     def validate_definition(
         self, body: dict[str, Any] | ValidateDefinitionRequestV1
     ) -> ValidationResponseV1: ...
+
+    def create_statblock(
+        self, body: dict[str, Any] | CreateStatblockRequestV1
+    ) -> CreateStatblockResult: ...
 
 
 class DungeonMindStatblockV1Client:
@@ -223,6 +233,38 @@ class DungeonMindStatblockV1Client:
                 "validation response digest does not match validation_receipt.definition_digest"
             )
         return response
+
+    def create_statblock(
+        self, body: dict[str, Any] | CreateStatblockRequestV1
+    ) -> CreateStatblockResult:
+        """SBW07a: create logical statblock + first revision; return six-field locator.
+
+        Idempotency key travels in the Server request body (``idempotency_key``).
+        This method never assigns AcceptanceOperationV1 authority states.
+        """
+        json_body: dict[str, Any]
+        if isinstance(body, CreateStatblockRequestV1):
+            json_body = body.model_dump(mode="json", by_alias=True, exclude_none=True)
+        else:
+            json_body = body
+        idempotency_key = json_body.get("idempotency_key")
+        if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+            raise downstream_invalid_request("create request missing idempotency_key")
+        payload = self._request_json(
+            "POST",
+            f"{API_PREFIX}/statblocks",
+            json_body=json_body,
+        )
+        response = self._parse_model(CreateStatblockResponseV1, payload)
+        locator = locator_from_create_response(response)
+        return CreateStatblockResult(
+            locator=locator,
+            server_metadata={
+                        "created_at": response.revision.created_at.isoformat(),
+                "created_by": response.statblock.created_by,
+                "statblock_created_at": response.statblock.created_at.isoformat(),
+            },
+        )
 
     def _ensure_ready(self) -> None:
         if not self._config.enabled:
