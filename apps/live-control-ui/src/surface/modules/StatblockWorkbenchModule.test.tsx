@@ -55,6 +55,7 @@ function successValidate(
 
 afterEach(() => {
   vi.restoreAllMocks();
+  sessionStorage.clear();
 });
 
 async function loadId(id: string) {
@@ -1166,12 +1167,231 @@ describe("StatblockWorkbenchModule", () => {
       await waitFor(() => {
         expect(screen.getByRole("button", { name: "Reconcile acceptance" })).toBeTruthy();
       });
+      const pendingPanel = screen.getByTestId("accept-mechanics-flow");
+      expect(pendingPanel.textContent).toMatch(/ThreatDraft attachment is still pending/i);
+      expect(pendingPanel.textContent).not.toMatch(/Mechanics saved/i);
       await user.click(screen.getByRole("button", { name: "Reconcile acceptance" }));
 
       await waitFor(() => {
         expect(reconcileSpy).toHaveBeenCalledWith("td_pending", "op_pending");
       });
       expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
+    });
+
+    it("does not offer reconcile for accepted_ref_conflict even when authority is server_committed", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_conflict",
+        operation_id: "op_conflict",
+        result_label: "accepted_ref_conflict",
+        authority_state: "server_committed",
+        draft_ref: "conflicted",
+        message: "draft already has different accepted mechanics",
+      });
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_conflict");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await user.type(screen.getByPlaceholderText("td_…"), "td_conflict");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-ref-conflict")).toBeTruthy();
+      });
+      expect(screen.queryByRole("button", { name: "Reconcile acceptance" })).toBeNull();
+      expect(screen.queryByText(/Mechanics saved/i)).toBeNull();
+    });
+
+    it("restores dispatched_unknown after reload and resumes the same operation", async () => {
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_reload_unknown", "op_reload_unknown");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      const getOpSpy = vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_read_acceptance_operation_response_v1",
+        draft_id: "td_reload_unknown",
+        result_label: "dispatched_unknown",
+        operation: {
+          schema: "dmb_statblock_acceptance_operation_v1",
+          operation_id: "op_reload_unknown",
+          idempotency_key: "idem_1",
+          create_request_digest: `sha256:${"b".repeat(64)}`,
+          request_body: {},
+          source_draft_id: "td_reload_unknown",
+          source_draft_version: 1,
+          validation_receipt_digest: PREVIEW_DIGEST,
+          authority_state: "dispatched_unknown",
+          materialization: { draft_ref: "missing" },
+          created_at: "2026-07-25T00:00:00Z",
+          updated_at: "2026-07-25T00:00:00Z",
+        },
+      });
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics");
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+      const reconcileSpy = vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_reload_unknown",
+        operation_id: "op_reload_unknown",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_unknown_recovered",
+          revision_id: "rev_unknown_recovered",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await user.type(screen.getByPlaceholderText("td_…"), "td_reload_unknown");
+
+      await waitFor(() => {
+        expect(getOpSpy).toHaveBeenCalledWith("td_reload_unknown", "op_reload_unknown");
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
+      });
+      expect(screen.queryByText(/Mechanics saved/i)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(uuidSpy).not.toHaveBeenCalled();
+      expect(acceptSpy).not.toHaveBeenCalled();
+
+      await user.click(screen.getByTestId("accept-mechanics-retry"));
+      await waitFor(() => {
+        expect(reconcileSpy).toHaveBeenCalledWith("td_reload_unknown", "op_reload_unknown");
+      });
+      expect(acceptSpy).not.toHaveBeenCalled();
+      expect(uuidSpy).not.toHaveBeenCalled();
+    });
+
+    it("restores server_committed_reference_pending after reload without claiming mechanics_saved", async () => {
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_reload_pending", "op_reload_pending");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_read_acceptance_operation_response_v1",
+        draft_id: "td_reload_pending",
+        result_label: "server_committed_reference_pending",
+        operation: {
+          schema: "dmb_statblock_acceptance_operation_v1",
+          operation_id: "op_reload_pending",
+          idempotency_key: "idem_2",
+          create_request_digest: `sha256:${"c".repeat(64)}`,
+          request_body: {},
+          source_draft_id: "td_reload_pending",
+          source_draft_version: 1,
+          validation_receipt_digest: PREVIEW_DIGEST,
+          authority_state: "server_committed",
+          locator: {
+            provider: "dungeonmind",
+            statblock_id: "sb_pending",
+            revision_id: "rev_pending",
+            contract: "dungeonbuddy-statblocks-v1",
+            contract_version: "1",
+            definition_digest: PREVIEW_DIGEST,
+          },
+          materialization: { draft_ref: "missing" },
+          created_at: "2026-07-25T00:00:00Z",
+          updated_at: "2026-07-25T00:00:00Z",
+        },
+      });
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics");
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+      const reconcileSpy = vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_reload_pending",
+        operation_id: "op_reload_pending",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_pending",
+          revision_id: "rev_pending",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await user.type(screen.getByPlaceholderText("td_…"), "td_reload_pending");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
+      });
+      const flow = screen.getByTestId("accept-mechanics-flow");
+      expect(flow.textContent).toMatch(/ThreatDraft attachment is still pending/i);
+      expect(flow.textContent).not.toMatch(/Mechanics saved/i);
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(uuidSpy).not.toHaveBeenCalled();
+      expect(acceptSpy).not.toHaveBeenCalled();
+
+      await user.click(screen.getByTestId("accept-mechanics-reconcile"));
+      await waitFor(() => {
+        expect(reconcileSpy).toHaveBeenCalledWith("td_reload_pending", "op_reload_pending");
+      });
+      expect(acceptSpy).not.toHaveBeenCalled();
+    });
+
+    it("restores mechanics_saved locator after reload without minting a second operation", async () => {
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_reload_saved", "op_reload_saved");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_read_acceptance_operation_response_v1",
+        draft_id: "td_reload_saved",
+        result_label: "mechanics_saved",
+        operation: {
+          schema: "dmb_statblock_acceptance_operation_v1",
+          operation_id: "op_reload_saved",
+          idempotency_key: "idem_3",
+          create_request_digest: `sha256:${"d".repeat(64)}`,
+          request_body: {},
+          source_draft_id: "td_reload_saved",
+          source_draft_version: 1,
+          validation_receipt_digest: PREVIEW_DIGEST,
+          authority_state: "reconciled",
+          locator: {
+            provider: "dungeonmind",
+            statblock_id: "sb_exact",
+            revision_id: "rev_exact",
+            contract: "dungeonbuddy-statblocks-v1",
+            contract_version: "1",
+            definition_digest: PREVIEW_DIGEST,
+          },
+          materialization: { draft_ref: "attached" },
+          created_at: "2026-07-25T00:00:00Z",
+          updated_at: "2026-07-25T00:00:00Z",
+        },
+      });
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics");
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await user.type(screen.getByPlaceholderText("td_…"), "td_reload_saved");
+
+      await waitFor(() => {
+        expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
+      });
+      const locator = screen.getByTestId("accept-mechanics-locator");
+      expect(locator.textContent).toMatch(/sb_exact/);
+      expect(locator.textContent).toMatch(/rev_exact/);
+      expect(locator.textContent).toMatch(PREVIEW_DIGEST);
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Reconcile acceptance" })).toBeNull();
+      expect(uuidSpy).not.toHaveBeenCalled();
+      expect(acceptSpy).not.toHaveBeenCalled();
     });
   });
 });
