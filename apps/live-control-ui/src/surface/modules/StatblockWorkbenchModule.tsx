@@ -418,19 +418,63 @@ function acceptResultFromRead(
   };
 }
 
-/** Labels that keep the durable operation identity (no replacement UUID). */
-function retainsAcceptOperationIdentity(label: AcceptanceResultLabel | null | undefined): boolean {
+/**
+ * Result-label action classes (response existence ≠ durable journal ownership).
+ *
+ * - ephemeralAttempt: no journal claim retained — discard attempted ID; allow Accept/Save again
+ * - sameOperationRecovery: durable op exists — resume with same ID (reconcile/recover)
+ * - boundDisplay: durable outcome bound to exact identity — no new Accept while shown
+ * - terminalFinished: journal slot free — must mint a new UUID via explicit start-new
+ */
+type AcceptActionClass =
+  | "ephemeralAttempt"
+  | "sameOperationRecovery"
+  | "boundDisplay"
+  | "terminalFinished";
+
+function acceptActionClass(
+  label: AcceptanceResultLabel | null | undefined,
+): AcceptActionClass | null {
+  if (!label) return null;
+  switch (label) {
+    case "acceptance_blocked":
+    case "acceptance_busy":
+    case "acceptance_history_full":
+      return "ephemeralAttempt";
+    case "dispatched_unknown":
+    case "server_committed_reference_pending":
+    case "acceptance_input_conflict":
+    case "acceptance_draft_unavailable":
+      return "sameOperationRecovery";
+    case "mechanics_saved":
+    case "accepted_ref_conflict":
+      return "boundDisplay";
+    case "terminal_failure":
+      return "terminalFinished";
+    default:
+      return null;
+  }
+}
+
+/** Suppress Accept/Save while this durable outcome occupies the draft's accept UI. */
+function suppressesNewAccept(label: AcceptanceResultLabel | null | undefined): boolean {
+  const klass = acceptActionClass(label);
   return (
-    label === "dispatched_unknown" ||
-    label === "server_committed_reference_pending" ||
-    label === "mechanics_saved" ||
-    label === "accepted_ref_conflict" ||
-    label === "terminal_failure" ||
-    label === "acceptance_busy" ||
-    label === "acceptance_input_conflict" ||
-    label === "acceptance_draft_unavailable" ||
-    label === "acceptance_history_full" ||
-    label === "acceptance_blocked"
+    klass === "sameOperationRecovery" ||
+    klass === "boundDisplay" ||
+    klass === "terminalFinished"
+  );
+}
+
+/** Persist operation ID only when a journaled operation exists for this draft. */
+function shouldPersistAcceptOperationId(
+  label: AcceptanceResultLabel | null | undefined,
+): boolean {
+  const klass = acceptActionClass(label);
+  return (
+    klass === "sameOperationRecovery" ||
+    klass === "boundDisplay" ||
+    klass === "terminalFinished"
   );
 }
 
@@ -453,6 +497,7 @@ function AcceptMechanicsFlow({
 }) {
   const eligible = acceptPreviewEligible(preview, editorState, editorEpoch);
   const previewCurrent = previewIsCurrent(preview, editorState, editorEpoch);
+  const normalizedDraftId = draftIdInput.trim();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [acceptPending, setAcceptPending] = useState(false);
   const [restorePending, setRestorePending] = useState(false);
@@ -461,6 +506,19 @@ function AcceptMechanicsFlow({
     null,
   );
   const acceptOperationIdRef = useRef<string | null>(null);
+  /** Draft ID that currently owns acceptResult / operation ref / restore UI. */
+  const ownedDraftIdRef = useRef<string>("");
+  const restoreGenerationRef = useRef(0);
+  const acceptRequestGenerationRef = useRef(0);
+
+  const clearOwnedAcceptState = () => {
+    setConfirmOpen(false);
+    setAcceptPending(false);
+    setRestorePending(false);
+    setAcceptError(null);
+    setAcceptResult(null);
+    acceptOperationIdRef.current = null;
+  };
 
   // Pending identity is independent of validation eligibility — only close the confirm sheet.
   useEffect(() => {
@@ -469,9 +527,16 @@ function AcceptMechanicsFlow({
     }
   }, [eligible]);
 
-  // Restore durable acceptance identity after remount / browser reload.
+  // Draft-scoped ownership: reset when the normalized draft ID changes, then restore only B.
   useEffect(() => {
-    const draftId = draftIdInput.trim();
+    const draftId = normalizedDraftId;
+    restoreGenerationRef.current += 1;
+    acceptRequestGenerationRef.current += 1;
+    const restoreGeneration = restoreGenerationRef.current;
+
+    ownedDraftIdRef.current = draftId;
+    clearOwnedAcceptState();
+
     if (!draftId) {
       return;
     }
@@ -481,38 +546,58 @@ function AcceptMechanicsFlow({
       return;
     }
 
-    let cancelled = false;
     acceptOperationIdRef.current = storedId;
     setRestorePending(true);
-    setAcceptError(null);
 
     void getAcceptanceOperation(draftId, storedId)
       .then((read) => {
-        if (cancelled) return;
+        if (
+          restoreGeneration !== restoreGenerationRef.current ||
+          ownedDraftIdRef.current !== draftId
+        ) {
+          return;
+        }
         const restored = acceptResultFromRead(read);
         if (!restored) {
           clearStoredAcceptOperationId(draftId);
-          if (acceptOperationIdRef.current === storedId) {
+          if (
+            ownedDraftIdRef.current === draftId &&
+            acceptOperationIdRef.current === storedId
+          ) {
             acceptOperationIdRef.current = null;
           }
           return;
         }
         acceptOperationIdRef.current = restored.operation_id;
-        writeStoredAcceptOperationId(draftId, restored.operation_id);
+        if (shouldPersistAcceptOperationId(restored.result_label)) {
+          writeStoredAcceptOperationId(draftId, restored.operation_id);
+        }
         setAcceptResult(restored);
       })
       .catch((error) => {
-        if (cancelled) return;
+        if (
+          restoreGeneration !== restoreGenerationRef.current ||
+          ownedDraftIdRef.current !== draftId
+        ) {
+          return;
+        }
         setAcceptError(error instanceof Error ? error.message : String(error));
       })
       .finally(() => {
-        if (!cancelled) setRestorePending(false);
+        // Always release restorePending for this generation when it still owns the UI.
+        if (
+          restoreGeneration === restoreGenerationRef.current &&
+          ownedDraftIdRef.current === draftId
+        ) {
+          setRestorePending(false);
+        }
       });
 
     return () => {
-      cancelled = true;
+      // Cancellation always releases restorePending (draft change / unmount / Strict Mode).
+      setRestorePending(false);
     };
-  }, [draftIdInput]);
+  }, [normalizedDraftId]);
 
   const ensureOperationId = (): string => {
     if (!acceptOperationIdRef.current) {
@@ -522,20 +607,57 @@ function AcceptMechanicsFlow({
   };
 
   const resetAcceptSession = () => {
-    // Cancel only the pre-submit confirm sheet. Never mint a replacement while a
-    // restored/journaled operation result remains active.
+    // Cancel only the pre-submit confirm sheet. Keep durable/restored operation identity.
     setConfirmOpen(false);
     setAcceptPending(false);
     setAcceptError(null);
-    if (!acceptResult) {
+    if (!acceptResult || acceptActionClass(acceptResult.result_label) === "ephemeralAttempt") {
       acceptOperationIdRef.current = null;
     }
+  };
+
+  const startNewAcceptOperation = () => {
+    const draftId = ownedDraftIdRef.current;
+    if (draftId) {
+      clearStoredAcceptOperationId(draftId);
+    }
+    acceptOperationIdRef.current = null;
+    setAcceptResult(null);
+    setAcceptError(null);
+    setConfirmOpen(false);
+    setAcceptPending(false);
+  };
+
+  const applyAcceptResponseForDraft = (
+    draftId: string,
+    requestGeneration: number,
+    response: AcceptThreatDraftMechanicsResponseV1,
+    fallbackOperationId: string,
+  ) => {
+    if (
+      requestGeneration !== acceptRequestGenerationRef.current ||
+      ownedDraftIdRef.current !== draftId
+    ) {
+      return;
+    }
+    const operationId = response.operation_id || fallbackOperationId;
+    const label = response.result_label;
+    if (shouldPersistAcceptOperationId(label)) {
+      acceptOperationIdRef.current = operationId;
+      writeStoredAcceptOperationId(draftId, operationId);
+    } else {
+      // Ephemeral attempt: do not retain a nonexistent / non-active journal ID.
+      clearStoredAcceptOperationId(draftId);
+      acceptOperationIdRef.current = null;
+    }
+    setAcceptResult(response);
+    setConfirmOpen(false);
   };
 
   const runAccept = async () => {
     if (!preview || !eligible) return;
 
-    const draftId = draftIdInput.trim();
+    const draftId = normalizedDraftId;
     const expectedVersion = Number(draftVersionInput);
     if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
       setAcceptError("Provide a draft ID and expected draft version ≥ 1 before accepting.");
@@ -543,6 +665,9 @@ function AcceptMechanicsFlow({
     }
 
     const operationId = ensureOperationId();
+    const requestGeneration = ++acceptRequestGenerationRef.current;
+    // Persist optimistically so reload during the request can restore if the journal claimed.
+    // Ephemeral outcomes clear this key in applyAcceptResponseForDraft.
     writeStoredAcceptOperationId(draftId, operationId);
     setAcceptPending(true);
     setAcceptError(null);
@@ -557,39 +682,57 @@ function AcceptMechanicsFlow({
         source_candidate_id: sourceCandidateId,
         change_summary: "Accepted via Statblock Workbench",
       });
-      acceptOperationIdRef.current = response.operation_id || operationId;
-      writeStoredAcceptOperationId(draftId, acceptOperationIdRef.current);
-      setAcceptResult(response);
-      setConfirmOpen(false);
+      applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId);
     } catch (error) {
-      setAcceptError(error instanceof Error ? error.message : String(error));
+      if (
+        requestGeneration === acceptRequestGenerationRef.current &&
+        ownedDraftIdRef.current === draftId
+      ) {
+        setAcceptError(error instanceof Error ? error.message : String(error));
+      }
     } finally {
-      setAcceptPending(false);
+      if (
+        requestGeneration === acceptRequestGenerationRef.current &&
+        ownedDraftIdRef.current === draftId
+      ) {
+        setAcceptPending(false);
+      }
     }
   };
 
   const onResumeAcceptance = async () => {
-    const draftId = draftIdInput.trim();
+    const draftId = normalizedDraftId;
     const operationId = acceptOperationIdRef.current;
-    if (!draftId || !operationId) return;
+    if (!draftId || !operationId || ownedDraftIdRef.current !== draftId) return;
 
+    const requestGeneration = ++acceptRequestGenerationRef.current;
     setAcceptPending(true);
     setAcceptError(null);
     try {
-      // recover_acceptance_operation drives both dispatched_unknown and pending attach.
+      // recover_acceptance_operation drives unknown, pending attach, and same-op recovery.
       const response = await reconcileAcceptanceOperation(draftId, operationId);
-      acceptOperationIdRef.current = response.operation_id || operationId;
-      writeStoredAcceptOperationId(draftId, acceptOperationIdRef.current);
-      setAcceptResult(response);
+      applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId);
     } catch (error) {
-      setAcceptError(error instanceof Error ? error.message : String(error));
+      if (
+        requestGeneration === acceptRequestGenerationRef.current &&
+        ownedDraftIdRef.current === draftId
+      ) {
+        setAcceptError(error instanceof Error ? error.message : String(error));
+      }
     } finally {
-      setAcceptPending(false);
+      if (
+        requestGeneration === acceptRequestGenerationRef.current &&
+        ownedDraftIdRef.current === draftId
+      ) {
+        setAcceptPending(false);
+      }
     }
   };
 
   const resultLabel = acceptResult?.result_label ?? null;
-  const hasDurableResult = acceptResult != null && retainsAcceptOperationIdentity(resultLabel);
+  const actionClass = acceptActionClass(resultLabel);
+  const blocksNewAccept = suppressesNewAccept(resultLabel);
+  const showAcceptEntry = eligible && !blocksNewAccept && !restorePending;
 
   if (restorePending && !acceptResult) {
     return (
@@ -599,7 +742,7 @@ function AcceptMechanicsFlow({
     );
   }
 
-  if (!previewCurrent && !hasDurableResult) {
+  if (!previewCurrent && !blocksNewAccept) {
     return (
       <p className="module-muted">
         {preview
@@ -609,7 +752,7 @@ function AcceptMechanicsFlow({
     );
   }
 
-  if (previewCurrent && preview?.receipt.status === "invalid" && !hasDurableResult) {
+  if (previewCurrent && preview?.receipt.status === "invalid" && !blocksNewAccept) {
     return (
       <p className="module-muted" role="status">
         Fix validation errors before accept/save. Invalid preview receipts cannot be accepted.
@@ -618,13 +761,18 @@ function AcceptMechanicsFlow({
   }
 
   return (
-    <div data-testid="accept-mechanics-flow">
-      {eligible && !hasDurableResult ? (
+    <div data-testid="accept-mechanics-flow" data-owned-draft={normalizedDraftId}>
+      {showAcceptEntry ? (
         <div className="statblock-command-row">
           {!confirmOpen ? (
             <button
               type="button"
               onClick={() => {
+                // Drop ephemeral attempt copy when starting a fresh confirm sheet.
+                if (acceptActionClass(acceptResult?.result_label) === "ephemeralAttempt") {
+                  setAcceptResult(null);
+                  acceptOperationIdRef.current = null;
+                }
                 ensureOperationId();
                 setConfirmOpen(true);
                 setAcceptError(null);
@@ -636,7 +784,7 @@ function AcceptMechanicsFlow({
         </div>
       ) : null}
 
-      {confirmOpen && eligible && preview && !hasDurableResult ? (
+      {confirmOpen && eligible && preview && !blocksNewAccept ? (
         <section
           className="statblock-section"
           data-testid="accept-mechanics-panel"
@@ -730,6 +878,24 @@ function AcceptMechanicsFlow({
             </>
           ) : null}
 
+          {resultLabel === "acceptance_input_conflict" ||
+          resultLabel === "acceptance_draft_unavailable" ? (
+            <>
+              <p className="statblock-command-error" role="alert">
+                Accept blocked: {acceptResult.message ?? resultLabel}
+                {acceptResult.failure_category ? ` (${acceptResult.failure_category})` : ""}
+              </p>
+              <button
+                type="button"
+                disabled={acceptPending}
+                onClick={() => void onResumeAcceptance()}
+                data-testid="accept-mechanics-same-op-recover"
+              >
+                {acceptPending ? "Recovering…" : "Resume same operation"}
+              </button>
+            </>
+          ) : null}
+
           {resultLabel === "accepted_ref_conflict" ? (
             <p className="statblock-command-error" role="alert" data-testid="accept-ref-conflict">
               Accepted-ref conflict: this draft already has different saved mechanics. First-save
@@ -741,16 +907,37 @@ function AcceptMechanicsFlow({
 
           {resultLabel === "acceptance_blocked" ||
           resultLabel === "acceptance_busy" ||
-          resultLabel === "acceptance_history_full" ||
-          resultLabel === "acceptance_input_conflict" ||
-          resultLabel === "acceptance_draft_unavailable" ||
-          resultLabel === "terminal_failure" ? (
-            <p className="statblock-command-error" role="alert">
+          resultLabel === "acceptance_history_full" ? (
+            <p className="statblock-command-error" role="alert" data-testid="accept-ephemeral-block">
               Accept blocked: {acceptResult.message ?? resultLabel}
               {acceptResult.failure_category ? ` (${acceptResult.failure_category})` : ""}
-              {resultLabel === "terminal_failure"
-                ? " This operation cannot be retried with the same operation id."
+              {eligible
+                ? " Correct inputs if needed, then use Accept/Save again (this attempt did not claim a durable journal slot)."
                 : ""}
+            </p>
+          ) : null}
+
+          {resultLabel === "terminal_failure" ? (
+            <>
+              <p className="statblock-command-error" role="alert" data-testid="accept-terminal-failure">
+                Accept terminated: {acceptResult.message ?? resultLabel}
+                {acceptResult.failure_category ? ` (${acceptResult.failure_category})` : ""}
+                {" "}This operation cannot be retried with the same operation id.
+              </p>
+              <button
+                type="button"
+                disabled={acceptPending}
+                onClick={() => startNewAcceptOperation()}
+                data-testid="accept-mechanics-start-new"
+              >
+                Start new acceptance attempt
+              </button>
+            </>
+          ) : null}
+
+          {actionClass === null && resultLabel ? (
+            <p className="statblock-command-error" role="alert">
+              Accept blocked: {acceptResult.message ?? resultLabel}
             </p>
           ) : null}
         </section>

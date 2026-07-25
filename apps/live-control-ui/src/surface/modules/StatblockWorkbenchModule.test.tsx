@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type {
+  AcceptThreatDraftMechanicsResponseV1,
   ReadStatblockCandidateResponseV1,
   GenerateThreatDraftCandidateResponseV1,
   ValidateDefinitionBuddyResponseV1,
@@ -1393,5 +1394,419 @@ describe("StatblockWorkbenchModule", () => {
       expect(uuidSpy).not.toHaveBeenCalled();
       expect(acceptSpy).not.toHaveBeenCalled();
     });
+
+    async function setDraftId(
+      user: ReturnType<typeof userEvent.setup>,
+      draftId: string,
+    ) {
+      const input = screen.getByPlaceholderText("td_…");
+      await user.clear(input);
+      if (draftId) {
+        await user.type(input, draftId);
+      }
+    }
+
+    function pendingOperation(
+      draftId: string,
+      operationId: string,
+      resultLabel:
+        | "dispatched_unknown"
+        | "server_committed_reference_pending"
+        | "mechanics_saved"
+        | "terminal_failure" = "server_committed_reference_pending",
+    ) {
+      const authority =
+        resultLabel === "dispatched_unknown"
+          ? "dispatched_unknown"
+          : resultLabel === "mechanics_saved"
+            ? "reconciled"
+            : resultLabel === "terminal_failure"
+              ? "terminal_failure"
+              : "server_committed";
+      return {
+        schema: "dmb_read_acceptance_operation_response_v1" as const,
+        draft_id: draftId,
+        result_label: resultLabel,
+        operation: {
+          schema: "dmb_statblock_acceptance_operation_v1" as const,
+          operation_id: operationId,
+          idempotency_key: `idem_${operationId}`,
+          create_request_digest: `sha256:${"e".repeat(64)}`,
+          request_body: {},
+          source_draft_id: draftId,
+          source_draft_version: 1,
+          validation_receipt_digest: PREVIEW_DIGEST,
+          authority_state: authority as
+            | "dispatched_unknown"
+            | "server_committed"
+            | "reconciled"
+            | "terminal_failure",
+          locator:
+            resultLabel === "dispatched_unknown"
+              ? null
+              : {
+                  provider: "dungeonmind" as const,
+                  statblock_id: `sb_${operationId}`,
+                  revision_id: `rev_${operationId}`,
+                  contract: "dungeonbuddy-statblocks-v1",
+                  contract_version: "1",
+                  definition_digest: PREVIEW_DIGEST,
+                },
+          materialization: {
+            draft_ref:
+              resultLabel === "mechanics_saved"
+                ? ("attached" as const)
+                : ("missing" as const),
+          },
+          created_at: "2026-07-25T00:00:00Z",
+          updated_at: "2026-07-25T00:00:00Z",
+        },
+      };
+    }
+
+    it("clears draft A pending state when switching to draft B with no stored operation", async () => {
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_draft_a", "op_a");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockImplementation(async (draftId, opId) => {
+        if (draftId === "td_draft_a" && opId === "op_a") {
+          return pendingOperation("td_draft_a", "op_a");
+        }
+        return {
+          schema: "dmb_read_acceptance_operation_response_v1",
+          draft_id: draftId,
+          operation: null,
+          result_label: null,
+        };
+      });
+      const reconcileSpy = vi.spyOn(liveApi, "reconcileAcceptanceOperation");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_draft_a");
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
+      });
+
+      await setDraftId(user, "td_draft_b");
+      await waitFor(() => {
+        expect(screen.queryByTestId("accept-mechanics-reconcile")).toBeNull();
+        expect(screen.queryByText(/ThreatDraft attachment is still pending/i)).toBeNull();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_draft_b")).toBeNull();
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_draft_a")).toBe("op_a");
+
+      await validateWorkingCopy(user);
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+      expect(reconcileSpy).not.toHaveBeenCalled();
+    });
+
+    it("restores distinct operations when switching between draft A and draft B", async () => {
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_draft_a", "op_a");
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_draft_b", "op_b");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockImplementation(async (draftId, opId) => {
+        if (draftId === "td_draft_a" && opId === "op_a") {
+          return pendingOperation("td_draft_a", "op_a");
+        }
+        if (draftId === "td_draft_b" && opId === "op_b") {
+          return pendingOperation("td_draft_b", "op_b");
+        }
+        throw new Error(`unexpected getAcceptanceOperation(${draftId}, ${opId})`);
+      });
+      const reconcileSpy = vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_draft_b",
+        operation_id: "op_b",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_op_b",
+          revision_id: "rev_op_b",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_draft_a");
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
+      });
+
+      await setDraftId(user, "td_draft_b");
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-reconcile"));
+      await waitFor(() => {
+        expect(reconcileSpy).toHaveBeenCalledWith("td_draft_b", "op_b");
+      });
+      expect(reconcileSpy).not.toHaveBeenCalledWith("td_draft_b", "op_a");
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_draft_b")).toBe("op_b");
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_draft_a")).toBe("op_a");
+    });
+
+    it("ignores stale restore response after draft ID changes and releases restorePending", async () => {
+      let resolveRestoreA!: (value: ReturnType<typeof pendingOperation>) => void;
+      const restoreAPromise = new Promise<ReturnType<typeof pendingOperation>>((resolve) => {
+        resolveRestoreA = resolve;
+      });
+
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_stale_a", "op_stale_a");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockImplementation(async (draftId, opId) => {
+        if (draftId === "td_stale_a" && opId === "op_stale_a") {
+          return restoreAPromise;
+        }
+        return {
+          schema: "dmb_read_acceptance_operation_response_v1",
+          draft_id: draftId,
+          operation: null,
+          result_label: null,
+        };
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_stale_a");
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-restoring")).toBeTruthy();
+      });
+      await setDraftId(user, "td_stale_b");
+      await waitFor(() => {
+        expect(screen.queryByTestId("accept-mechanics-restoring")).toBeNull();
+      });
+      resolveRestoreA(pendingOperation("td_stale_a", "op_stale_a"));
+      await waitFor(() => {
+        expect(screen.queryByText(/ThreatDraft attachment is still pending/i)).toBeNull();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_stale_b")).toBeNull();
+      await validateWorkingCopy(user);
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+    });
+
+    it("ignores stale accept response after draft ID changes", async () => {
+      let resolveAccept!: (value: AcceptThreatDraftMechanicsResponseV1) => void;
+      const acceptPromise = new Promise<AcceptThreatDraftMechanicsResponseV1>((resolve) => {
+        resolveAccept = resolve;
+      });
+
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_accept_race");
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockImplementation(async () => acceptPromise);
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_accept_race");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+
+      await setDraftId(user, "td_accept_other");
+      resolveAccept({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_accept_race",
+        operation_id: "op_accept_race",
+        result_label: "server_committed_reference_pending",
+        authority_state: "server_committed",
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("accept-mechanics-reconcile")).toBeNull();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_accept_other")).toBeNull();
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_accept_race")).toBe(
+        "op_accept_race",
+      );
+    });
+
+    it("ignores stale reconcile response after draft ID changes", async () => {
+      let resolveReconcile!: (value: AcceptThreatDraftMechanicsResponseV1) => void;
+      const reconcilePromise = new Promise<AcceptThreatDraftMechanicsResponseV1>((resolve) => {
+        resolveReconcile = resolve;
+      });
+
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_rec_a", "op_rec_a");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue(
+        pendingOperation("td_rec_a", "op_rec_a", "dispatched_unknown"),
+      );
+      vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockImplementation(
+        async () => reconcilePromise,
+      );
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_rec_a");
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-retry"));
+      await setDraftId(user, "td_rec_b");
+      resolveReconcile({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_rec_a",
+        operation_id: "op_rec_a",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_op_rec_a",
+          revision_id: "rev_op_rec_a",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByText(/Mechanics saved; not published/i)).toBeNull();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_rec_b")).toBeNull();
+    });
+
+    it.each([
+      ["acceptance_blocked", "ephemeral"],
+      ["acceptance_busy", "ephemeral"],
+      ["acceptance_history_full", "ephemeral"],
+      ["acceptance_input_conflict", "same_op"],
+      ["acceptance_draft_unavailable", "same_op"],
+      ["dispatched_unknown", "same_op_unknown"],
+      ["server_committed_reference_pending", "same_op_pending"],
+      ["accepted_ref_conflict", "bound_conflict"],
+      ["mechanics_saved", "bound_saved"],
+      ["terminal_failure", "terminal"],
+    ] as const)(
+      "classifies result_label %s for actions and storage (%s)",
+      async (resultLabel, kind) => {
+        vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+        vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(
+          successValidate("valid"),
+        );
+        vi.spyOn(crypto, "randomUUID").mockReturnValue("op_label_case");
+        vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_label",
+          operation_id: "op_label_case",
+          result_label: resultLabel,
+          authority_state:
+            resultLabel === "dispatched_unknown"
+              ? "dispatched_unknown"
+              : resultLabel === "mechanics_saved"
+                ? "reconciled"
+                : resultLabel === "terminal_failure"
+                  ? "terminal_failure"
+                  : "server_committed",
+          draft_ref: resultLabel === "accepted_ref_conflict" ? "conflicted" : "missing",
+          message: `msg_${resultLabel}`,
+          locator:
+            resultLabel === "mechanics_saved"
+              ? {
+                  provider: "dungeonmind",
+                  statblock_id: "sb_label",
+                  revision_id: "rev_label",
+                  contract: "dungeonbuddy-statblocks-v1",
+                  contract_version: "1",
+                  definition_digest: PREVIEW_DIGEST,
+                }
+              : null,
+        });
+        vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockResolvedValue({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_label",
+          operation_id: "op_label_case",
+          result_label: "mechanics_saved",
+          locator: {
+            provider: "dungeonmind",
+            statblock_id: "sb_label",
+            revision_id: "rev_label",
+            contract: "dungeonbuddy-statblocks-v1",
+            contract_version: "1",
+            definition_digest: PREVIEW_DIGEST,
+          },
+        });
+
+        const user = await loadId("cand_fixture1");
+        await waitFor(() => {
+          expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+        });
+        await setDraftId(user, "td_label");
+        await validateWorkingCopy(user);
+        await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+        await user.click(screen.getByTestId("accept-mechanics-confirm"));
+
+        await waitFor(() => {
+          expect(document.querySelector(`[data-accept-result="${resultLabel}"]`)).toBeTruthy();
+        });
+
+        const stored = sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_label");
+
+        if (kind === "ephemeral") {
+          expect(stored).toBeNull();
+          expect(screen.getByTestId("accept-ephemeral-block")).toBeTruthy();
+          expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+          expect(screen.queryByTestId("accept-mechanics-reconcile")).toBeNull();
+          expect(screen.queryByTestId("accept-mechanics-retry")).toBeNull();
+          expect(screen.queryByTestId("accept-mechanics-same-op-recover")).toBeNull();
+          expect(screen.queryByText(/Mechanics saved/i)).toBeNull();
+        } else if (kind === "same_op") {
+          expect(stored).toBe("op_label_case");
+          expect(screen.getByTestId("accept-mechanics-same-op-recover")).toBeTruthy();
+          expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+        } else if (kind === "same_op_unknown") {
+          expect(stored).toBe("op_label_case");
+          expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
+          expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+          expect(screen.queryByText(/Mechanics saved/i)).toBeNull();
+        } else if (kind === "same_op_pending") {
+          expect(stored).toBe("op_label_case");
+          expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
+          expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+          expect(screen.queryByText(/Mechanics saved/i)).toBeNull();
+        } else if (kind === "bound_conflict") {
+          expect(stored).toBe("op_label_case");
+          expect(screen.getByTestId("accept-ref-conflict")).toBeTruthy();
+          expect(screen.queryByRole("button", { name: "Reconcile acceptance" })).toBeNull();
+          expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+          expect(screen.queryByText(/Mechanics saved/i)).toBeNull();
+        } else if (kind === "bound_saved") {
+          expect(stored).toBe("op_label_case");
+          expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
+          expect(screen.getByTestId("accept-mechanics-locator").textContent).toMatch(/sb_label/);
+          expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+        } else if (kind === "terminal") {
+          expect(stored).toBe("op_label_case");
+          expect(screen.getByTestId("accept-terminal-failure")).toBeTruthy();
+          expect(screen.queryByRole("button", { name: "Retry accept" })).toBeNull();
+          expect(screen.getByTestId("accept-mechanics-start-new")).toBeTruthy();
+          vi.spyOn(crypto, "randomUUID").mockReturnValue("op_label_new");
+          await user.click(screen.getByTestId("accept-mechanics-start-new"));
+          expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_label")).toBeNull();
+          expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+          await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+          await user.click(screen.getByTestId("accept-mechanics-confirm"));
+          await waitFor(() => {
+            expect(liveApi.acceptThreatDraftMechanics).toHaveBeenCalled();
+          });
+          const lastCall = vi.mocked(liveApi.acceptThreatDraftMechanics).mock.calls.at(-1);
+          expect(lastCall?.[1].operation_id).toBe("op_label_new");
+          expect(lastCall?.[1].operation_id).not.toBe("op_label_case");
+        }
+      },
+    );
   });
 });
