@@ -3,6 +3,7 @@ import type { Content, Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
 import type { AppChromeTools } from "../chrome/AppChrome";
+import { appHref } from "../chrome/appBasePath";
 import { getWorkspaceDocumentSnapshot } from "../api/liveApi";
 import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { defaultMarkdownDocumentAdapter } from "./MarkdownDocumentAdapter";
@@ -481,7 +482,7 @@ function RunbookSpikeEditor({
           <h1>Tiptap Session Runbook Editor</h1>
           <p>Editable local working board that exports semantic Markdown for the static Command Board.</p>
         </div>
-        <a href="/">Back to launcher</a>
+        <a href={appHref("/")}>Back to DungeonBuddy</a>
       </header>
 
       <section className="tiptap-spike-panel" aria-labelledby="editor-heading">

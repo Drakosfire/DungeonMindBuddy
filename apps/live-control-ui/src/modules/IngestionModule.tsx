@@ -21,6 +21,7 @@ import {
   syncReviewCampaignUrl,
 } from "../planSurface/sessionCampaignContext";
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
+import { appHref, stripAppBasePath } from "../chrome/appBasePath";
 import { buildIngestReadiness } from "./ingestReadiness";
 import { mergeInspectResult } from "./ingestResultMerge";
 
@@ -35,7 +36,7 @@ type IngestionSourceMode = "raw" | "processed";
 
 function isIngestSurfacePath(): boolean {
   if (typeof window === "undefined") return false;
-  return window.location.pathname.replace(/\/+$/, "") === "/ingest";
+  return stripAppBasePath(window.location.pathname) === "/ingest";
 }
 
 function corpusCitationPath(relpath: string): string {
@@ -1702,7 +1703,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
 
   function openGraphPreview() {
     if (typeof window !== "undefined") {
-      window.location.assign(`/plan?tool=graph-preview&session=session-${recapSession}`);
+      window.location.assign(appHref(`/plan?tool=graph-preview&session=session-${recapSession}`));
     }
   }
 
@@ -1711,14 +1712,14 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     const params = new URLSearchParams(window.location.search);
     params.set("session", `session-${recapSession}`);
     params.set("campaign", ingestCampaignId);
-    window.history.replaceState({}, "", `/ingest?${params.toString()}`);
+    window.history.replaceState({}, "", appHref(`/ingest?${params.toString()}`));
     window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
     projection?.close();
   }
 
   function openRecapView() {
     if (typeof window !== "undefined") {
-      window.location.assign(`/plan?tool=recap&session=session-${recapSession}`);
+      window.location.assign(appHref(`/plan?tool=recap&session=session-${recapSession}`));
     }
   }
 

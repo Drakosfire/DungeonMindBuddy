@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { getRecapArtifacts } from "../../api/liveApi";
 import type { RecapArtifactRecord } from "../../api/types";
+import { appHref } from "../../chrome/appBasePath";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import type { PlanContextDescriptor } from "../types";
 import {
@@ -98,7 +99,7 @@ export function GraphPreviewModule({ context }: GraphPreviewModuleProps) {
       const params = new URLSearchParams(window.location.search);
       params.set("session", sessionId);
       params.set("campaign", selectedCampaignId);
-      window.history.replaceState({}, "", `/plan?${params.toString()}`);
+      window.history.replaceState({}, "", appHref(`/plan?${params.toString()}`));
     }
   };
 

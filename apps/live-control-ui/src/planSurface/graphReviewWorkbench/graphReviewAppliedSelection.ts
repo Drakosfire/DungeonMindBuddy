@@ -1,5 +1,7 @@
 /** Persist Graph Review "Load recap" selection across browser refresh. */
 
+import { appHref, stripAppBasePath } from "../../chrome/appBasePath";
+
 export interface GraphReviewAppliedSelection {
   campaignId: string;
   sessionId: string;
@@ -39,9 +41,9 @@ export function writeAppliedSelectionToUrl(
   } else {
     params.delete("run");
   }
-  const path = (pathname ?? "/plan").replace(/\/+$/, "") || "/plan";
+  const path = stripAppBasePath(pathname ?? "/plan");
   const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
-  window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
+  window.history.replaceState({}, "", appHref(`${surfacePath}?${params.toString()}`));
 }
 
 export function readAppliedSelectionFromStorage(

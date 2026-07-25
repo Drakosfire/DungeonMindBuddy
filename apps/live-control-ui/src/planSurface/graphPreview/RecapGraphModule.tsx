@@ -9,6 +9,7 @@ import type {
   RecapArtifactRecord,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
+import { appHref } from "../../chrome/appBasePath";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import type { PlanContextDescriptor } from "../types";
 import {
@@ -179,7 +180,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       const params = new URLSearchParams(window.location.search);
       params.set("session", sessionId);
       params.set("campaign", selectedCampaignId);
-      window.history.replaceState({}, "", `/plan?${params.toString()}`);
+      window.history.replaceState({}, "", appHref(`/plan?${params.toString()}`));
     }
   };
 

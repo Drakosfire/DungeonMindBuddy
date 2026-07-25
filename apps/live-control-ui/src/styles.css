@@ -482,6 +482,37 @@ code {
   color: #9aa3b5;
 }
 
+.dungeonbuddy-home-hero {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.dungeonbuddy-home-hero h1 {
+  font-size: clamp(2.4rem, 5vw, 3.4rem);
+  letter-spacing: -0.03em;
+}
+
+.dungeonbuddy-home-cta-row {
+  margin-top: 1.25rem;
+}
+
+.dungeonbuddy-home-cta {
+  max-width: 28rem;
+  min-height: 10rem;
+}
+
+.dungeonbuddy-home-secondary {
+  margin-top: 1.5rem;
+}
+
+.dungeonbuddy-home-dev-link {
+  font-size: 0.9rem;
+}
+
+.dungeonbuddy-home-dev-link a {
+  color: #9ec1ff;
+}
+
 .surface-shell {
   display: flex;
   flex-direction: column;

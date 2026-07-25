@@ -6,6 +6,7 @@ import {
   listWorkspaceDocuments,
 } from "../../api/liveApi";
 import type { PlanViewProjection, WorkspaceDocumentRecord } from "../../api/types";
+import { appHref } from "../../chrome/appBasePath";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "../sessionCampaignContext";
 import type {
@@ -214,7 +215,7 @@ export function buildPlanIngestHref(sessionDescriptor: PlanSessionDescriptor): s
   if (sessionDescriptor.memorySession != null) {
     params.set("session", `session-${sessionDescriptor.memorySession}`);
   }
-  return `/ingest?${params.toString()}`;
+  return appHref(`/ingest?${params.toString()}`);
 }
 
 function sessionPrepStarterMarkdown(sessionDescriptor: PlanSessionDescriptor): string {

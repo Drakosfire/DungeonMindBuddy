@@ -1,6 +1,7 @@
 /** Campaign selection for graph review surfaces. */
 
 import type { RecapArtifactRecord } from "../api/types";
+import { appHref, stripAppBasePath } from "../chrome/appBasePath";
 
 export const REVIEW_CAMPAIGN_IDS = ["longmont-c1", "longmont-c2"] as const;
 
@@ -243,10 +244,10 @@ export function syncPlanGraphLensUrl(lens: PlanGraphLens): void {
   } else {
     params.delete("session");
   }
-  const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
+  const path = stripAppBasePath(window.location.pathname);
   const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
   const query = params.toString();
-  window.history.replaceState({}, "", query ? `${surfacePath}?${query}` : surfacePath);
+  window.history.replaceState({}, "", query ? appHref(`${surfacePath}?${query}`) : appHref(surfacePath));
 }
 
 export function resolveInitialReviewCampaignId(
@@ -263,9 +264,9 @@ export function syncReviewCampaignUrl(campaignId: string): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
   params.set("campaign", campaignId);
-  const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
+  const path = stripAppBasePath(window.location.pathname);
   const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
-  window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
+  window.history.replaceState({}, "", appHref(`${surfacePath}?${params.toString()}`));
 }
 
 export function resolveSessionRecapContext(

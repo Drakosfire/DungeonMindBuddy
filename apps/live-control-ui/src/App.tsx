@@ -13,6 +13,7 @@ import type {
 } from "./api/types";
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
+import { appHref, stripAppBasePath } from "./chrome/appBasePath";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
 import { SurfaceShell } from "./surface/SurfaceShell";
@@ -22,69 +23,98 @@ import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 
 type LoadStatus = "loading" | "ready" | "error";
-type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest" | "build";
+type AppRoute =
+  | "index"
+  | "surface"
+  | "tiptap-callout-spike"
+  | "plan"
+  | "ingest"
+  | "build"
+  | "dev";
 
 function currentRoute(): AppRoute {
-  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  const path = stripAppBasePath(window.location.pathname);
   if (path === "/surface" || path === "/live-control") return "surface";
   if (path === "/tiptap-callout-spike") return "tiptap-callout-spike";
   if (path === "/plan") return "plan";
   if (path === "/ingest") return "ingest";
   if (path === "/build") return "build";
+  if (path === "/dev") return "dev";
   return "index";
 }
 
-function MirewardIndex() {
+function DungeonBuddyHome() {
+  return (
+    <main className="launcher-root dungeonbuddy-home">
+      <header className="launcher-header dungeonbuddy-home-hero">
+        <p className="launcher-kicker">DungeonMind</p>
+        <h1>DungeonBuddy</h1>
+        <p>Campaign memory, prep, and live-table tools for the GM.</p>
+        <div className="dungeonbuddy-home-cta-row">
+          <a className="launcher-card primary dungeonbuddy-home-cta" href={appHref("/plan")}>
+            <span className="launcher-kicker">Start</span>
+            <strong>Open Plan</strong>
+            <span>Session prep canvas with graph memory and Ask DungeonBuddy.</span>
+          </a>
+        </div>
+      </header>
+
+      <section className="launcher-grid dungeonbuddy-home-secondary" aria-label="DungeonBuddy surfaces">
+        <a className="launcher-card" href={appHref("/ingest")}>
+          <span className="launcher-kicker">Ingest</span>
+          <strong>Memory Ingest</strong>
+          <span>Review extracted graph runs and promote campaign memory.</span>
+        </a>
+        <a className="launcher-card" href={appHref("/build")}>
+          <span className="launcher-kicker">Build</span>
+          <strong>Worldbuilding</strong>
+          <span>Create and edit worldbuilding workspace documents.</span>
+        </a>
+      </section>
+
+      <p className="launcher-note dungeonbuddy-home-dev-link">
+        <a href={appHref("/dev")}>Developer tools</a>
+        {" · "}
+        <a href="/">DungeonMind home</a>
+      </p>
+    </main>
+  );
+}
+
+function DevToolsIndex() {
   return (
     <main className="launcher-root">
       <header className="launcher-header">
-        <h1>Mireward local tools</h1>
-        <p>C2 Session 23 launcher. Choose the surface you actually want to use.</p>
+        <h1>Developer tools</h1>
+        <p>Local spikes, eval boards, and legacy live-control surfaces.</p>
       </header>
 
-      <section className="launcher-grid" aria-label="Main surfaces">
-        <a className="launcher-card primary" href="/plan">
-          <span className="launcher-kicker">Plan</span>
-          <strong>Prep surface</strong>
-          <span>Intentional planning canvas with session prep, statblock tools, and reference-chip navigation.</span>
-        </a>
-        <a className="launcher-card" href="/build">
-          <span className="launcher-kicker">Build</span>
-          <strong>Worldbuilding source</strong>
-          <span>Create and edit worldbuilding workspace documents with explicit metadata and save lifecycle.</span>
-        </a>
-        <a className="launcher-card" href="/ingest">
-          <span className="launcher-kicker">Ingest</span>
-          <strong>Memory Ingest</strong>
-          <span>Convert source artifacts into reviewed campaign memory.</span>
+      <section className="launcher-grid" aria-label="Developer surfaces">
+        <a className="launcher-card" href={appHref("/")}>
+          <span className="launcher-kicker">Home</span>
+          <strong>DungeonBuddy</strong>
+          <span>Back to the product entry.</span>
         </a>
         <a className="launcher-card" href="/evals/c2_live_prep/mireward-prep/live-play.html">
           <span className="launcher-kicker">Live Play</span>
           <strong>Command board</strong>
-          <span>At-table launch surface for combat, notes, statblocks, roll tables, and bridge proof links.</span>
+          <span>At-table launch surface for combat, notes, and bridge proof links.</span>
         </a>
         <a className="launcher-card" href="/evals/c2_live_prep/mireward-prep/retrieval.html">
           <span className="launcher-kicker">Retrieval</span>
           <strong>Dogfood surface</strong>
-          <span>Source links, authority labels, planning packets, and retrieval context checks.</span>
+          <span>Source links, authority labels, and retrieval context checks.</span>
         </a>
-        <a className="launcher-card" href="/surface">
+        <a className="launcher-card" href={appHref("/surface")}>
           <span className="launcher-kicker">Live Control</span>
           <strong>React surface</strong>
-          <span>The configurable live-control UI with combat roster, statblock workbench, chat, and record modules.</span>
+          <span>Configurable live-control UI with combat roster and chat modules.</span>
         </a>
-        <a className="launcher-card" href="/tiptap-callout-spike">
+        <a className="launcher-card" href={appHref("/tiptap-callout-spike")}>
           <span className="launcher-kicker">Developer Spike</span>
           <strong>Tiptap callout bridge</strong>
-          <span>Editable semantic callouts, live editor JSON, and Markdown export without canon writes.</span>
+          <span>Editable semantic callouts and Markdown export without canon writes.</span>
         </a>
-      </section>
-
-      <section className="launcher-note">
-        <p>
-          This Vite app serves all UI on <code>5173</code>. The FastAPI backend remains API-only on{" "}
-          <code>8000</code>, and the React live-control surface lives at <code>/surface</code>.
-        </p>
       </section>
     </main>
   );
@@ -245,7 +275,13 @@ export function App() {
   if (route === "index") {
     content = (
       <AppChrome activeRoute="index">
-        <MirewardIndex />
+        <DungeonBuddyHome />
+      </AppChrome>
+    );
+  } else if (route === "dev") {
+    content = (
+      <AppChrome activeRoute="dev">
+        <DevToolsIndex />
       </AppChrome>
     );
   } else if (route === "tiptap-callout-spike") {

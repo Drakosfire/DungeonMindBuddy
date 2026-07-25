@@ -3,6 +3,7 @@ import type {
   GoldReviewMissEntry,
   GoldReviewSessionSummary,
 } from "../../api/types";
+import { appHref } from "../../chrome/appBasePath";
 
 export type GoldReviewObjectKind =
   | "nodes"
@@ -55,7 +56,7 @@ export function syncGoldReviewUrl(sessionId: string, campaignId?: string): void 
   if (campaignId) {
     params.set("campaign", campaignId);
   }
-  window.history.replaceState({}, "", `/plan?${params.toString()}`);
+  window.history.replaceState({}, "", appHref(`/plan?${params.toString()}`));
 }
 
 export function pickDefaultSession(

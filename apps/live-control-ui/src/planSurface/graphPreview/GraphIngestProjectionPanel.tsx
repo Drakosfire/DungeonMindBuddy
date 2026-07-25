@@ -9,6 +9,7 @@ import type {
   GraphIngestRunSummary,
   UnionSupergraphProjectionResponse,
 } from "../../api/types";
+import { appHref } from "../../chrome/appBasePath";
 import type { PlanContextDescriptor } from "../types";
 import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection";
 
@@ -100,7 +101,9 @@ export function GraphIngestProjectionPanel({
 
   const openIngestRecap = () => {
     if (typeof window === "undefined") return;
-    window.location.assign(`/plan?tool=ingest-recap&session=${encodeURIComponent(sessionId)}`);
+    window.location.assign(
+      appHref(`/plan?tool=ingest-recap&session=${encodeURIComponent(sessionId)}`),
+    );
   };
 
   const openUnionGraph = async () => {
