@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Protocol
+
+# Profile-owned post-extraction gate. Returns human-readable errors; empty means ok.
+PostExtractionValidator = Callable[[Mapping[str, Any]], Sequence[str]]
 
 
 @dataclass(frozen=True)
@@ -39,6 +43,10 @@ class ExtractionProfile:
     schema_ids: Mapping[str, str] = field(default_factory=dict)
     vocabulary_policy: Mapping[str, Any] = field(default_factory=dict)
     post_extraction_validation_policy: Mapping[str, Any] = field(default_factory=dict)
+    # Executable profile-owned bounds check. Invoked by the generic production
+    # controller before VALIDATED/REVIEWABLE. Descriptive policy mappings alone
+    # are not sufficient — wire a callable when the profile declares bounds.
+    post_extraction_validator: PostExtractionValidator | None = None
 
     @property
     def qualified_id(self) -> str:

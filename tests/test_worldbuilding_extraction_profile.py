@@ -86,6 +86,7 @@ def test_unknown_profile_version_fails_closed() -> None:
 def test_category_bounds_accept_included_and_reject_excluded() -> None:
     assert "character" in INCLUDED_NODE_TYPES
     assert "faction" in INCLUDED_NODE_TYPES
+    assert "institution" not in INCLUDED_NODE_TYPES
     assert "item" in EXCLUDED_NODE_TYPES
     ok = {
         "session_id": None,
@@ -108,7 +109,12 @@ def test_category_bounds_accept_included_and_reject_excluded() -> None:
                 "node_id": "item:rations",
                 "node_type": "item",
                 "evidence_refs": [],
-            }
+            },
+            {
+                "node_id": "landmark:ridge",
+                "node_type": "landmark",
+                "evidence_refs": [{"source_span_ref_id": "span:1"}],
+            },
         ],
         "edges": [{"edge_id": "e1", "from_node_id": "a"}],
         "beats": [{"beat_id": "b1"}],
@@ -116,6 +122,7 @@ def test_category_bounds_accept_included_and_reject_excluded() -> None:
     errors = validate_worldbuilding_candidate_bounds(bad)
     assert any("session_id" in e for e in errors)
     assert any("excluded type" in e for e in errors)
+    assert any("undeclared type" in e for e in errors)
     assert any("missing evidence_refs" in e for e in errors)
     assert any("exact endpoints" in e for e in errors)
     assert any("beats" in e for e in errors)
