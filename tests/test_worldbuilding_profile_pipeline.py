@@ -249,7 +249,7 @@ def test_pipeline_rejects_missing_evidence_as_non_reviewable(
     """
     from src.graph_memory.extraction import category_candidate_graph_extractor as extractor
 
-    def _project_keep_empty_evidence(graph: dict, warning_count: int | None = None) -> dict:
+    def _project_keep_empty_evidence(graph: dict, warning_count: int | None = None, **_kwargs: Any) -> dict:
         for edge in graph.get("edges") or []:
             if isinstance(edge, dict):
                 for key in extractor._EDGE_PROMOTE_DROP_KEYS:
@@ -293,6 +293,44 @@ def test_pipeline_rejects_missing_evidence_as_non_reviewable(
     assert result.failure_kind == "validation"
     assert result.run.status.value != "reviewable"
     assert any("evidence" in d.lower() for d in result.diagnostics)
+
+
+def test_pipeline_rejects_empty_edge_evidence_without_endpoint_inheritance(
+    tmp_path: Path,
+) -> None:
+    """Empty edge evidence_refs must not inherit endpoint citations under BLD-08."""
+    fixture = _load_fixture()
+    source, span_id = _admit_fixture_source(tmp_path)
+    pass_outputs = _pass_outputs_for_span(fixture, span_id)
+    # Keep valid evidenced endpoints; strip relationship-native evidence only.
+    pass_outputs["edge_pass"] = {
+        "observation_edges": [
+            {
+                "edge_id": "edge:vell-commands-flock",
+                "from_node_id": "npc:vell",
+                "to_node_id": "faction:shepherds-flock",
+                "relationship_type": "commands",
+                "predicate_family": "authority",
+                "label": "commands",
+                "evidence_refs": [],
+            }
+        ]
+    }
+    result = _run_with_pass_outputs(
+        tmp_path,
+        source=source,
+        pass_outputs=pass_outputs,
+        subdir="wb-empty-edge-evidence",
+    )
+    assert result.failure_kind == "validation"
+    assert result.run.status.value != "reviewable"
+    assert any("evidence" in d.lower() for d in result.diagnostics)
+    # Edge must still be present for validation (not silently dropped/repaired).
+    assert result.candidate_graph is not None
+    edges = result.candidate_graph.get("edges") or []
+    assert any(e.get("edge_id") == "edge:vell-commands-flock" for e in edges)
+    empty = next(e for e in edges if e.get("edge_id") == "edge:vell-commands-flock")
+    assert not (empty.get("evidence_refs") or [])
 
 
 def test_profile_wires_executable_post_extraction_validator() -> None:

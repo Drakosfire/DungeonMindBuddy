@@ -46,6 +46,10 @@ class ExtractionProfile:
     # reconcile). Profiles that forbid automatic identity merges set False so
     # ambiguous collisions remain separate candidates for review.
     enable_automatic_identity_consolidation: bool = True
+    # When True (recap default), empty edge evidence_refs may be repaired by
+    # copying an endpoint node's citation. Profiles that require relationship-
+    # native evidence set False so empty edge evidence reaches validation.
+    enable_edge_evidence_inheritance: bool = True
     allow_null_session: bool = False
     schema_ids: Mapping[str, str] = field(default_factory=dict)
     vocabulary_policy: Mapping[str, Any] = field(default_factory=dict)

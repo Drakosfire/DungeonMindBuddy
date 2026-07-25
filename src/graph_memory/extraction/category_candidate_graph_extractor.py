@@ -144,6 +144,7 @@ def project_candidate_graph_for_promote(
     graph: dict[str, Any],
     *,
     warning_count: int | None = None,
+    drop_empty_evidence_edges: bool = True,
 ) -> dict[str, Any]:
     """Project extractor graph dict onto typed promote-eligible CandidateGraphPreview IR.
 
@@ -156,6 +157,10 @@ def project_candidate_graph_for_promote(
     Until standing-context partition (successor slice) owns those objects,
     drop empty-evidence nodes/edges/beats here so session-evidenced extracts
     remain promotable without a hidden dependency on multi-contribution seal.
+
+    When ``drop_empty_evidence_edges`` is False (profiles that forbid endpoint
+    evidence inheritance), empty-evidence edges are retained so post-extraction
+    validation can fail closed rather than silently discarding them.
     """
     for edge in graph.get("edges") or []:
         if isinstance(edge, dict):
@@ -178,7 +183,9 @@ def project_candidate_graph_for_promote(
     }
     kept_edges = []
     for edge in graph.get("edges") or []:
-        if not isinstance(edge, Mapping) or not _evidence_refs_nonempty(edge):
+        if not isinstance(edge, Mapping):
+            continue
+        if drop_empty_evidence_edges and not _evidence_refs_nonempty(edge):
             continue
         from_id = str(edge.get("from_node_id") or "").strip()
         to_id = str(edge.get("to_node_id") or "").strip()
@@ -1087,7 +1094,14 @@ def consolidate_category_outputs(
 def repair_edge_evidence_refs(
     parts: Mapping[str, Any],
     allowed_span_refs: set[str],
+    *,
+    inherit_from_endpoints: bool = True,
 ) -> dict[str, int]:
+    """Normalize edge evidence; optionally inherit from endpoints when empty.
+
+    Endpoint inheritance is a recap convenience. Profiles that require
+    relationship-native evidence must pass ``inherit_from_endpoints=False``.
+    """
     node_refs: dict[str, list[dict[str, str]]] = {}
     for node in parts.get("nodes") or []:
         if isinstance(node, Mapping):
@@ -1103,18 +1117,28 @@ def repair_edge_evidence_refs(
         if refs:
             edge["evidence_refs"] = refs
             continue
+        if not inherit_from_endpoints:
+            edge["evidence_refs"] = []
+            continue
         from_id = str(edge.get("from_node_id") or "")
         to_id = str(edge.get("to_node_id") or "")
         inherited = node_refs.get(from_id) or node_refs.get(to_id)
         if inherited:
             edge["evidence_refs"] = list(inherited[:1])
             repaired += 1
-    return {"repaired_edge_evidence_refs": repaired}
+        else:
+            edge["evidence_refs"] = []
+    return {
+        "repaired_edge_evidence_refs": repaired,
+        "edge_evidence_inheritance": inherit_from_endpoints,
+    }
 
 
 def sanitize_parts(
     parts: Mapping[str, Any],
     allowed_span_refs: set[str],
+    *,
+    drop_empty_evidence_edges: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     dropped: dict[str, list[str]] = {}
     out: dict[str, Any] = {}
@@ -1134,8 +1158,12 @@ def sanitize_parts(
                 isinstance(obj.get("corpus_ref"), Mapping)
                 and obj.get("corpus_ref", {}).get("resolution") == "resolved"
             )
+            drop_empty = True
+            if key == "edges" and not drop_empty_evidence_edges:
+                drop_empty = False
             if (
-                key in ("nodes", "edges", "beats")
+                drop_empty
+                and key in ("nodes", "edges", "beats")
                 and not refs
                 and not is_context_anchor
                 and not (key == "nodes" and has_resolved_corpus)
@@ -1164,6 +1192,7 @@ def assemble_envelope(
     model_id: str,
     preview_suffix: str = "category",
     source_ref_id: str | None = None,
+    drop_empty_evidence_edges: bool = True,
 ) -> dict[str, Any]:
     warning_count = len(
         consolidated.get("consolidation_diagnostics", {}).get("merged_nodes", [])
@@ -1189,7 +1218,11 @@ def assemble_envelope(
         source_artifact_id=source_artifact_id,
         source_ref_id=source_ref_id,
     )
-    project_candidate_graph_for_promote(graph, warning_count=warning_count)
+    project_candidate_graph_for_promote(
+        graph,
+        warning_count=warning_count,
+        drop_empty_evidence_edges=drop_empty_evidence_edges,
+    )
     return {
         "schema": ENVELOPE_SCHEMA,
         "version": ENVELOPE_VERSION,
@@ -1442,10 +1475,16 @@ def render_encounter_job_pass_prompt(
     )
 
 
-def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
+def canonical_graph_for_runner(
+    envelope: Mapping[str, Any],
+    *,
+    drop_empty_evidence_edges: bool = True,
+) -> dict[str, Any]:
     """Return candidate graph payload suitable for graph_preview_runner artifacts.
 
     Always re-projects to promote-eligible IR so runner artifacts stay prepare-safe.
+    When ``drop_empty_evidence_edges`` is False, empty-evidence edges are retained
+    so profile validation can fail closed on missing relationship evidence.
     """
     graph = dict(envelope.get("candidate_graph") or envelope)
     # Deep-copy mutable collections so we do not mutate the envelope in place.
@@ -1466,7 +1505,11 @@ def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
             warning_count = int(graph["diagnostics"].get("warning_count") or 0)
         except (TypeError, ValueError):
             warning_count = 0
-    project_candidate_graph_for_promote(graph, warning_count=warning_count)
+    project_candidate_graph_for_promote(
+        graph,
+        warning_count=warning_count,
+        drop_empty_evidence_edges=drop_empty_evidence_edges,
+    )
     return graph
 
 
@@ -1812,8 +1855,17 @@ def run_category_pipeline(
         known_entity_registry=known_entity_registry,
         profile=active_profile,
     )
-    repair_diag = repair_edge_evidence_refs(consolidated, allowed_span_refs)
-    sanitized, sanitize_diag = sanitize_parts(consolidated, allowed_span_refs)
+    inherit_edge_evidence = active_profile.enable_edge_evidence_inheritance
+    repair_diag = repair_edge_evidence_refs(
+        consolidated,
+        allowed_span_refs,
+        inherit_from_endpoints=inherit_edge_evidence,
+    )
+    sanitized, sanitize_diag = sanitize_parts(
+        consolidated,
+        allowed_span_refs,
+        drop_empty_evidence_edges=inherit_edge_evidence,
+    )
     recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
         sanitized
     )
@@ -1834,8 +1886,12 @@ def run_category_pipeline(
         source_artifact_id=source_artifact_id,
         source_ref_id=source_ref_id,
         model_id=model_id,
+        drop_empty_evidence_edges=inherit_edge_evidence,
     )
-    candidate_graph = canonical_graph_for_runner(envelope)
+    candidate_graph = canonical_graph_for_runner(
+        envelope,
+        drop_empty_evidence_edges=inherit_edge_evidence,
+    )
     registry_context_graph: dict[str, Any] | None = None
     if standing_parts.get("nodes"):
         ensure_standing_warning(standing_parts)
@@ -1847,8 +1903,12 @@ def run_category_pipeline(
             source_ref_id=document_source_ref_id(registry_artifact_id),
             model_id=model_id,
             preview_suffix="standing",
+            drop_empty_evidence_edges=inherit_edge_evidence,
         )
-        registry_context_graph = canonical_graph_for_runner(standing_envelope)
+        registry_context_graph = canonical_graph_for_runner(
+            standing_envelope,
+            drop_empty_evidence_edges=inherit_edge_evidence,
+        )
         stamp_standing_registry_evidence(
             registry_context_graph, source_artifact_id=registry_artifact_id
         )

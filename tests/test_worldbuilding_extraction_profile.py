@@ -49,6 +49,7 @@ def test_profile_owns_worldbuilding_instructions_not_recap_beats() -> None:
     assert profile.beat_pass is None
     assert profile.enable_session_relationship_sweep is False
     assert profile.enable_automatic_identity_consolidation is False
+    assert profile.enable_edge_evidence_inheritance is False
 
 
 def test_rendered_worldbuilding_edge_prompt_omits_recap_sweep_and_requires_schema() -> None:

@@ -286,8 +286,8 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
     expected_content_sha256 = body.get("expected_content_sha256")
     # Build product default is the bounded BLD-08 profile; plumbing remains
     # explicitly selectable for compatibility.
-    profile_id = body.get("profile_id") or WORLDBUILDING_PROFILE_ID
-    profile_version = body.get("profile_version") or WORLDBUILDING_PROFILE_VERSION
+    raw_profile_id = body.get("profile_id")
+    raw_profile_version = body.get("profile_version")
     # Build launches always execute production extraction under server-owned
     # model policy. Any client-supplied allow_llm is ignored.
     if not isinstance(document_id, str) or not document_id.strip():
@@ -299,6 +299,24 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             status_code=422,
             detail="expected_content_sha256 is required for Build extraction launch",
         )
+    if raw_profile_id is None:
+        profile_id = WORLDBUILDING_PROFILE_ID
+    elif not isinstance(raw_profile_id, str) or not raw_profile_id.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="profile_id must be a non-empty string",
+        )
+    else:
+        profile_id = raw_profile_id.strip()
+    if raw_profile_version is None:
+        profile_version = WORLDBUILDING_PROFILE_VERSION
+    elif not isinstance(raw_profile_version, str) or not raw_profile_version.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="profile_version must be a non-empty string",
+        )
+    else:
+        profile_version = raw_profile_version.strip()
     if (profile_id, profile_version) not in _ALLOWED_BUILD_PROFILES:
         allowed = ", ".join(
             f"{pid}@{pver}" for pid, pver in sorted(_ALLOWED_BUILD_PROFILES)

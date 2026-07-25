@@ -585,3 +585,32 @@ def test_launch_still_allows_explicit_plumbing_profile(
     assert launch.json()["run"]["profile_id"] == (
         f"{WORLDBUILDING_PLUMBING_PROFILE_ID}@{WORLDBUILDING_PLUMBING_PROFILE_VERSION}"
     )
+
+
+@pytest.mark.parametrize(
+    "payload_extra,detail_fragment",
+    [
+        ({"profile_id": ["not", "a", "string"]}, "profile_id"),
+        ({"profile_version": {"v": "0.1"}}, "profile_version"),
+        ({"profile_id": ""}, "profile_id"),
+        ({"profile_version": "   "}, "profile_version"),
+    ],
+)
+def test_launch_rejects_malformed_profile_selectors_with_422(
+    client: TestClient,
+    tmp_path: Path,
+    payload_extra: dict[str, Any],
+    detail_fragment: str,
+) -> None:
+    committed, digest = _commit_source(tmp_path)
+    launch = client.post(
+        "/api/live/graph-preview/extraction-runs",
+        json={
+            "document_id": committed.document_id,
+            "expected_revision": committed.revision,
+            "expected_content_sha256": digest,
+            **payload_extra,
+        },
+    )
+    assert launch.status_code == 422, launch.text
+    assert detail_fragment in launch.json()["detail"]
