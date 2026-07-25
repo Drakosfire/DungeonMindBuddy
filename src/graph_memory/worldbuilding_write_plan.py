@@ -1110,7 +1110,7 @@ def build_worldbuilding_write_plan(
         summary=summary,
         diagnostics=sorted(set(diagnostics)),
     )
-    verify_worldbuilding_write_plan(_plan_mapping(plan))
+    verify_worldbuilding_write_plan(_plan_mapping(plan), preview=preview)
     return plan
 
 
@@ -1253,6 +1253,19 @@ def _verify_assertion_authority(
                 "missing source-span id",
                 code="plan_verification_failed",
             )
+        expected_evidence_id = f"evidence:{source_artifact_id}:{span}"
+        if evidence_id != expected_evidence_id:
+            raise WorldbuildingWritePlanError(
+                f"assertion {assertion.assertion_id!r} evidence[{index}] "
+                "has non-canonical evidence_ref_id",
+                code="plan_verification_failed",
+            )
+        if evidence.get("locator") != span:
+            raise WorldbuildingWritePlanError(
+                f"assertion {assertion.assertion_id!r} evidence[{index}] "
+                "locator must equal source_span_ref_id",
+                code="plan_verification_failed",
+            )
         if evidence.get("source_domain") != "worldbuilding":
             raise WorldbuildingWritePlanError(
                 f"assertion {assertion.assertion_id!r} evidence[{index}] "
@@ -1318,6 +1331,85 @@ def _verify_assertion_authority(
             )
 
 
+def _expected_candidate_evidence_ids(
+    evidence_refs: Sequence[Any],
+    *,
+    source_artifact_id: str,
+) -> list[str]:
+    evidence_ids: list[str] = []
+    for index, ref in enumerate(evidence_refs):
+        span = str(getattr(ref, "source_span_ref_id", None) or "").strip()
+        artifact = str(getattr(ref, "source_artifact_id", None) or "").strip()
+        if not span:
+            raise WorldbuildingWritePlanError(
+                f"candidate evidence[{index}] missing source_span_ref_id",
+                code="plan_verification_failed",
+            )
+        if artifact != source_artifact_id:
+            raise WorldbuildingWritePlanError(
+                f"candidate evidence[{index}] source_artifact_id disagrees "
+                "with plan envelope",
+                code="plan_verification_failed",
+            )
+        evidence_id = f"evidence:{artifact}:{span}"
+        if evidence_id not in evidence_ids:
+            evidence_ids.append(evidence_id)
+    if not evidence_ids:
+        raise WorldbuildingWritePlanError(
+            "candidate is missing evidence refs",
+            code="plan_verification_failed",
+        )
+    return evidence_ids
+
+
+def _edge_predicate(edge: CandidateEdge) -> str:
+    return (edge.relationship_type or "related_to").strip() or "related_to"
+
+
+def _verify_edge_matches_candidate(
+    assertion: GraphContributionAssertion,
+    *,
+    edge: CandidateEdge,
+    candidate_id: str,
+    expected_subject: str,
+    expected_target: str,
+    expected_outcome: str,
+    source_artifact_id: str,
+) -> None:
+    if assertion.assertion_kind != "edge":
+        raise WorldbuildingWritePlanError(
+            f"edge candidate {candidate_id!r} did not map to an edge assertion",
+            code="plan_verification_failed",
+        )
+    if assertion.identity_resolution_outcome != expected_outcome:
+        raise WorldbuildingWritePlanError(
+            f"edge candidate {candidate_id!r} has wrong identity outcome",
+            code="plan_verification_failed",
+        )
+    expected_predicate = _edge_predicate(edge)
+    if (
+        assertion.subject_node_id != expected_subject
+        or assertion.target_node_id != expected_target
+        or assertion.predicate != expected_predicate
+        or (assertion.value or {}).get("direction") != "outbound"
+        or (assertion.value or {}).get("extract_edge_id") != edge.edge_id
+        or edge.edge_id != candidate_id
+    ):
+        raise WorldbuildingWritePlanError(
+            f"edge candidate {candidate_id!r} has inconsistent effect",
+            code="plan_verification_failed",
+        )
+    expected_evidence = _expected_candidate_evidence_ids(
+        edge.evidence_refs,
+        source_artifact_id=source_artifact_id,
+    )
+    if list(assertion.evidence_ref_ids) != expected_evidence:
+        raise WorldbuildingWritePlanError(
+            f"edge candidate {candidate_id!r} evidence is not edge-native",
+            code="plan_verification_failed",
+        )
+
+
 def _assertion_by_id(
     assertions: Sequence[GraphContributionAssertion],
     assertion_id: str,
@@ -1352,9 +1444,33 @@ def _claim_effect_assertion(
 def _verify_effect_consistency(
     effect: Mapping[str, Any],
     *,
+    preview: CandidateGraphPreview,
     source_artifact_id: str,
     source_revision_id: str,
+    candidate_preview_id: str,
+    candidate_schema: str,
+    candidate_version: str,
 ) -> None:
+    if preview.preview_id != candidate_preview_id:
+        raise WorldbuildingWritePlanError(
+            "preview.preview_id disagrees with plan envelope",
+            code="plan_verification_failed",
+        )
+    if preview.schema != candidate_schema:
+        raise WorldbuildingWritePlanError(
+            "preview.schema disagrees with plan envelope",
+            code="plan_verification_failed",
+        )
+    if preview.version != candidate_version:
+        raise WorldbuildingWritePlanError(
+            "preview.version disagrees with plan envelope",
+            code="plan_verification_failed",
+        )
+    if preview.session_id not in (None, ""):
+        raise WorldbuildingWritePlanError(
+            "preview must keep session_id null",
+            code="plan_verification_failed",
+        )
     meta = effect["contribution_meta"]
     if meta["source_kind"] != WORLD_BUILDING_WRITE_PLAN_SOURCE_KIND:
         raise WorldbuildingWritePlanError(
@@ -1418,6 +1534,18 @@ def _verify_effect_consistency(
     edges = {
         item["assertion_id"]: item for item in decisions if item["candidate_kind"] == "edge"
     }
+    preview_nodes = {node.node_id: node for node in preview.nodes}
+    preview_edges = {edge.edge_id: edge for edge in preview.edges}
+    if set(nodes) != set(preview_nodes):
+        raise WorldbuildingWritePlanError(
+            "decision_snapshot nodes disagree with candidate preview",
+            code="plan_verification_failed",
+        )
+    if set(edges) != set(preview_edges):
+        raise WorldbuildingWritePlanError(
+            "decision_snapshot edges disagree with candidate preview",
+            code="plan_verification_failed",
+        )
     node_map = effect["node_id_map"]
     identity_snapshot = effect["identity_outcome_snapshot"]
     candidate_effect_map = effect["candidate_effect_map"]
@@ -1467,7 +1595,6 @@ def _verify_effect_consistency(
         )
 
     claimed: dict[str, str] = {}
-    resolved_node_ids = set(node_map.values())
     for candidate_id, item in {**nodes, **edges}.items():
         decision = item["decision"]
         mapped_ids = candidate_effect_map[candidate_id]
@@ -1578,23 +1705,27 @@ def _verify_effect_consistency(
                     f"accepted edge {candidate_id!r} must map to exactly one assertion",
                     code="plan_verification_failed",
                 )
+            edge = preview_edges[candidate_id]
+            if (
+                edge.from_node_id not in node_map
+                or edge.to_node_id not in node_map
+            ):
+                raise WorldbuildingWritePlanError(
+                    f"accepted edge {candidate_id!r} has unresolved endpoints",
+                    code="plan_verification_failed",
+                )
             assertion = _assertion_by_id(
                 accepted, mapped_ids[0], candidate_id=candidate_id
             )
-            if (
-                assertion.assertion_kind != "edge"
-                or assertion.identity_resolution_outcome != "accepted_by_operator"
-                or not assertion.predicate
-                or not assertion.subject_node_id
-                or not assertion.target_node_id
-                or assertion.subject_node_id not in resolved_node_ids
-                or assertion.target_node_id not in resolved_node_ids
-                or (assertion.value or {}).get("extract_edge_id") != candidate_id
-            ):
-                raise WorldbuildingWritePlanError(
-                    f"accepted edge {candidate_id!r} has inconsistent effect",
-                    code="plan_verification_failed",
-                )
+            _verify_edge_matches_candidate(
+                assertion,
+                edge=edge,
+                candidate_id=candidate_id,
+                expected_subject=node_map[edge.from_node_id],
+                expected_target=node_map[edge.to_node_id],
+                expected_outcome="accepted_by_operator",
+                source_artifact_id=source_artifact_id,
+            )
             _claim_effect_assertion(
                 claimed, assertion_id=mapped_ids[0], candidate_id=candidate_id
             )
@@ -1604,21 +1735,19 @@ def _verify_effect_consistency(
                     f"rejected edge {candidate_id!r} must map to exactly one assertion",
                     code="plan_verification_failed",
                 )
+            edge = preview_edges[candidate_id]
             assertion = _assertion_by_id(
                 rejected, mapped_ids[0], candidate_id=candidate_id
             )
-            if (
-                assertion.assertion_kind != "edge"
-                or assertion.identity_resolution_outcome != "rejected_by_operator"
-                or not assertion.predicate
-                or not assertion.subject_node_id
-                or not assertion.target_node_id
-                or (assertion.value or {}).get("extract_edge_id") != candidate_id
-            ):
-                raise WorldbuildingWritePlanError(
-                    f"rejected edge {candidate_id!r} is missing from rejected_assertions",
-                    code="plan_verification_failed",
-                )
+            _verify_edge_matches_candidate(
+                assertion,
+                edge=edge,
+                candidate_id=candidate_id,
+                expected_subject=edge.from_node_id,
+                expected_target=edge.to_node_id,
+                expected_outcome="rejected_by_operator",
+                source_artifact_id=source_artifact_id,
+            )
             _claim_effect_assertion(
                 claimed, assertion_id=mapped_ids[0], candidate_id=candidate_id
             )
@@ -1635,37 +1764,66 @@ def _verify_effect_consistency(
                 code="plan_verification_failed",
             )
 
-    mentions = {
-        mention["mention_id"]: mention for mention in effect["unresolved_mentions"]
-    }
+    raw_mentions = effect["unresolved_mentions"]
+    mention_ids = [mention["mention_id"] for mention in raw_mentions]
+    if len(mention_ids) != len(set(mention_ids)):
+        raise WorldbuildingWritePlanError(
+            "unresolved_mentions contains duplicate mention_id values",
+            code="plan_verification_failed",
+        )
     deferred_nodes = {
         assertion_id
         for assertion_id, item in nodes.items()
         if item["decision"] == "defer"
     }
-    if set(mentions) != deferred_nodes:
+    if set(mention_ids) != deferred_nodes:
         raise WorldbuildingWritePlanError(
             "unresolved_mentions is inconsistent with deferred nodes",
             code="plan_verification_failed",
         )
-    if any(
-        mention["identity_resolution_outcome"] != "deferred_by_operator"
-        for mention in mentions.values()
-    ):
-        raise WorldbuildingWritePlanError(
-            "deferred mention has the wrong identity outcome",
-            code="plan_verification_failed",
+    for mention in raw_mentions:
+        candidate_id = mention["mention_id"]
+        node = preview_nodes[candidate_id]
+        expected_label = (node.label or node.node_id).strip()
+        expected_kind = _candidate_kernel_kind(node)
+        expected_aliases = [
+            str(alias).strip() for alias in node.aliases if str(alias).strip()
+        ]
+        expected_evidence = _expected_candidate_evidence_ids(
+            node.evidence_refs,
+            source_artifact_id=source_artifact_id,
         )
+        if (
+            mention["label"] != expected_label
+            or mention["object_kind"] != expected_kind
+            or list(mention.get("aliases") or []) != expected_aliases
+            or list(mention.get("evidence_ref_ids") or []) != expected_evidence
+            or list(mention.get("candidate_node_ids") or []) != []
+            or mention.get("identity_resolution_outcome") != "deferred_by_operator"
+            or list(mention.get("diagnostics") or [])
+            != ["operator_disposition:defer"]
+        ):
+            raise WorldbuildingWritePlanError(
+                f"deferred mention {candidate_id!r} does not match candidate preview",
+                code="plan_verification_failed",
+            )
 
 
 def verify_worldbuilding_write_plan(
     plan: Mapping[str, Any],
+    *,
+    preview: CandidateGraphPreview,
 ) -> dict[str, Any]:
     """Verify a response-carried inert worldbuilding plan without mutation."""
     try:
         if not isinstance(plan, Mapping):
             raise WorldbuildingWritePlanError(
                 "worldbuilding write plan must be an object",
+                code="plan_verification_failed",
+            )
+        if not isinstance(preview, CandidateGraphPreview):
+            raise WorldbuildingWritePlanError(
+                "worldbuilding write plan verification requires the exact candidate preview",
                 code="plan_verification_failed",
             )
         schema = _field(plan, "schema")
@@ -1723,8 +1881,12 @@ def verify_worldbuilding_write_plan(
             )
         _verify_effect_consistency(
             effect,
+            preview=preview,
             source_artifact_id=top_fields["source_artifact_id"],
             source_revision_id=top_fields["source_revision_id"],
+            candidate_preview_id=top_fields["candidate_preview_id"],
+            candidate_schema=top_fields["candidate_schema"],
+            candidate_version=top_fields["candidate_version"],
         )
         decision_digest = _digest(effect["decision_snapshot"])
         if decision_digest != top_fields["decision_digest"]:

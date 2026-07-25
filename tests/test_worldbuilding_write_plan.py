@@ -169,6 +169,28 @@ def _reseal_package(package: dict[str, object]) -> dict[str, object]:
     return package
 
 
+def _verify(package: dict[str, object], preview=None):
+    return verify_worldbuilding_write_plan(
+        package,
+        preview=preview if preview is not None else _preview(),
+    )
+
+
+def _recompute_assertion_id(assertion: dict[str, object]) -> str:
+    return kernel.compute_assertion_id(
+        assertion_kind=assertion["assertion_kind"],  # type: ignore[arg-type]
+        subject_node_id=assertion.get("subject_node_id"),  # type: ignore[arg-type]
+        target_node_id=assertion.get("target_node_id"),  # type: ignore[arg-type]
+        predicate=assertion.get("predicate"),  # type: ignore[arg-type]
+        label=assertion.get("label"),  # type: ignore[arg-type]
+        value=dict(assertion.get("value") or {}),  # type: ignore[arg-type]
+        campaign_scope=assertion.get("campaign_scope"),  # type: ignore[arg-type]
+        temporal_scope=assertion.get("temporal_scope"),  # type: ignore[arg-type]
+        epistemic_kind=assertion.get("epistemic_kind"),  # type: ignore[arg-type]
+        visibility=assertion.get("visibility"),  # type: ignore[arg-type]
+    )
+
+
 def test_reviewed_worldbuilding_mapping_is_separate_from_recap() -> None:
     # CandidateGraphPreview's dataclass is the public semantic input type.
     from graph_memory.candidate_graph_preview import SemanticState
@@ -208,8 +230,9 @@ def test_same_dispositions_in_reverse_order_have_same_authority(tmp_path: Path) 
 def test_verify_worldbuilding_write_plan_accepts_unmodified_response_package(
     tmp_path: Path,
 ) -> None:
-    plan = _build(tmp_path)
-    verified = verify_worldbuilding_write_plan(_response_package(plan))
+    preview = _preview()
+    plan = _build_from_inputs(_inputs(tmp_path), preview=preview)
+    verified = _verify(_response_package(plan), preview)
     assert verified["plan_id"] == plan.plan_id
     assert verified["plan_digest"] == plan.plan_digest
 
@@ -246,7 +269,7 @@ def test_verify_worldbuilding_write_plan_rejects_tampering(
     package = _response_package(_build(tmp_path))
     mutation(package)
     with pytest.raises(WorldbuildingWritePlanError) as exc:
-        verify_worldbuilding_write_plan(package)
+        _verify(package)
     assert exc.value.code == "plan_verification_failed"
 
 
@@ -259,9 +282,30 @@ def test_verify_rejects_stripped_evidence_after_digest_recompute(
     assertion["value"]["evidence"] = []
     _reseal_package(package)
     with pytest.raises(WorldbuildingWritePlanError) as exc:
-        verify_worldbuilding_write_plan(package)
+        _verify(package)
     assert exc.value.code == "plan_verification_failed"
     assert "evidence" in str(exc.value).lower()
+
+
+def test_verify_rejects_redirected_evidence_after_digest_recompute(
+    tmp_path: Path,
+) -> None:
+    package = _response_package(_build(tmp_path))
+    assertion = package["effect"]["accepted_proposals"][0]
+    evidence = assertion["value"]["evidence"][0]
+    span = evidence["source_span_ref_id"]
+    redirected = "evidence:some-existing-unrelated-id"
+    evidence["evidence_ref_id"] = redirected
+    evidence["locator"] = "a-different-location"
+    assertion["evidence_ref_ids"] = [redirected]
+    # Evidence is provenance-only, so keep/recompute the assertion id explicitly.
+    assertion["assertion_id"] = _recompute_assertion_id(assertion)
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package)
+    assert exc.value.code == "plan_verification_failed"
+    assert "evidence" in str(exc.value).lower() or "locator" in str(exc.value).lower()
+    assert span  # retained for readability of the attack fixture
 
 
 def test_verify_rejects_noncanonical_assertion_id_after_digest_recompute(
@@ -273,7 +317,7 @@ def test_verify_rejects_noncanonical_assertion_id_after_digest_recompute(
     # Keep the old assertion_id so contents and ID disagree, then reseal digests.
     _reseal_package(package)
     with pytest.raises(WorldbuildingWritePlanError) as exc:
-        verify_worldbuilding_write_plan(package)
+        _verify(package)
     assert exc.value.code == "plan_verification_failed"
     assert "canonical" in str(exc.value).lower()
 
@@ -299,7 +343,72 @@ def test_verify_rejects_edge_substitution_after_digest_recompute(
     effect["candidate_effect_map"][edge_candidate] = [node_assertion_id]
     _reseal_package(package)
     with pytest.raises(WorldbuildingWritePlanError) as exc:
-        verify_worldbuilding_write_plan(package)
+        _verify(package)
+    assert exc.value.code == "plan_verification_failed"
+
+
+def test_verify_rejects_edge_endpoint_rewrite_after_digest_recompute(
+    tmp_path: Path,
+) -> None:
+    package = _response_package(_build(tmp_path))
+    effect = package["effect"]
+    edge_candidate = next(
+        item["assertion_id"]
+        for item in effect["decision_snapshot"]
+        if item["candidate_kind"] == "edge"
+    )
+    old_assertion_id = effect["candidate_effect_map"][edge_candidate][0]
+    assertion = next(
+        item
+        for item in effect["accepted_proposals"]
+        if item["assertion_id"] == old_assertion_id
+    )
+    # Swap endpoints while remaining inside the resolved node set.
+    assertion["subject_node_id"], assertion["target_node_id"] = (
+        assertion["target_node_id"],
+        assertion["subject_node_id"],
+    )
+    assertion["value"]["edge_id"] = (
+        f"edge:{assertion['subject_node_id']}:{assertion['predicate']}:"
+        f"{assertion['target_node_id']}"
+    )
+    new_assertion_id = _recompute_assertion_id(assertion)
+    assertion["assertion_id"] = new_assertion_id
+    effect["candidate_effect_map"][edge_candidate] = [new_assertion_id]
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package)
+    assert exc.value.code == "plan_verification_failed"
+
+
+def test_verify_rejects_edge_predicate_rewrite_after_digest_recompute(
+    tmp_path: Path,
+) -> None:
+    package = _response_package(_build(tmp_path))
+    effect = package["effect"]
+    edge_candidate = next(
+        item["assertion_id"]
+        for item in effect["decision_snapshot"]
+        if item["candidate_kind"] == "edge"
+    )
+    old_assertion_id = effect["candidate_effect_map"][edge_candidate][0]
+    assertion = next(
+        item
+        for item in effect["accepted_proposals"]
+        if item["assertion_id"] == old_assertion_id
+    )
+    assertion["predicate"] = "rewritten_predicate"
+    assertion["value"]["predicate"] = "rewritten_predicate"
+    assertion["value"]["edge_id"] = (
+        f"edge:{assertion['subject_node_id']}:rewritten_predicate:"
+        f"{assertion['target_node_id']}"
+    )
+    new_assertion_id = _recompute_assertion_id(assertion)
+    assertion["assertion_id"] = new_assertion_id
+    effect["candidate_effect_map"][edge_candidate] = [new_assertion_id]
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package)
     assert exc.value.code == "plan_verification_failed"
 
 
@@ -311,24 +420,37 @@ def test_verify_rejects_unclaimed_effect_assertion_after_digest_recompute(
     clone = copy.deepcopy(effect["accepted_proposals"][0])
     clone["value"] = dict(clone["value"] or {})
     clone["value"]["summary"] = "unclaimed-extra-summary"
-    clone["assertion_id"] = kernel.compute_assertion_id(
-        assertion_kind=clone["assertion_kind"],
-        subject_node_id=clone.get("subject_node_id"),
-        target_node_id=clone.get("target_node_id"),
-        predicate=clone.get("predicate"),
-        label=clone.get("label"),
-        value=dict(clone["value"] or {}),
-        campaign_scope=clone.get("campaign_scope"),
-        temporal_scope=clone.get("temporal_scope"),
-        epistemic_kind=clone.get("epistemic_kind"),
-        visibility=clone.get("visibility"),
-    )
+    clone["assertion_id"] = _recompute_assertion_id(clone)
     effect["accepted_proposals"].append(clone)
     _reseal_package(package)
     with pytest.raises(WorldbuildingWritePlanError) as exc:
-        verify_worldbuilding_write_plan(package)
+        _verify(package)
     assert exc.value.code == "plan_verification_failed"
     assert "unclaimed" in str(exc.value).lower()
+
+
+def test_verify_rejects_tampered_deferred_mention_after_digest_recompute(
+    tmp_path: Path,
+) -> None:
+    preview = _preview()
+    plan = _build_from_inputs(
+        _inputs(tmp_path),
+        preview=preview,
+        dispositions=[
+            {"assertion_id": "wb_node_0", "decision": "reject"},
+            {"assertion_id": "wb_node_1", "decision": "defer"},
+            {"assertion_id": "wb_edge_0", "decision": "defer"},
+        ],
+    )
+    package = _response_package(plan)
+    mention = package["effect"]["unresolved_mentions"][0]
+    mention["object_kind"] = "location"
+    mention["evidence_ref_ids"] = []
+    package["effect"]["unresolved_mentions"].append(copy.deepcopy(mention))
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, preview)
+    assert exc.value.code == "plan_verification_failed"
 
 
 def test_two_candidates_can_bind_to_the_same_durable_node(
@@ -373,9 +495,10 @@ def test_two_candidates_can_bind_to_the_same_durable_node(
         edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
         for ref in edge["evidence_refs"]:
             ref["source_artifact_id"] = "artifact:worldbuilding:test"
+    preview = candidate_graph_preview_from_dict(payload)
     plan = _build_from_inputs(
         inputs,
-        preview=candidate_graph_preview_from_dict(payload),
+        preview=preview,
         dispositions=[
             {
                 "assertion_id": "wb_bind_0",
@@ -406,7 +529,7 @@ def test_two_candidates_can_bind_to_the_same_durable_node(
     assert all(
         item["subject_node_id"] == "npc:shared-bind-target" for item in support
     )
-    verified = verify_worldbuilding_write_plan(_response_package(plan))
+    verified = _verify(_response_package(plan), preview)
     assert verified["plan_id"] == plan.plan_id
     assert set(plan.effect["candidate_effect_map"]) == {
         "wb_bind_0",
