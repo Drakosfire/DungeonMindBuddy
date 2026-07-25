@@ -212,20 +212,12 @@ def _statblock_workbench_future_actions() -> list[StatblockWorkbenchAction]:
     future_pr_reason = (
         "Disabled in PR3: future lifecycle PR will make this action durable."
     )
+    # SBW07c: corpus promotion is no longer the normal mechanics-acceptance path.
+    # preview_corpus_promotion / promote_to_corpus removed from workbench action surface.
     return [
         StatblockWorkbenchAction(
             action_id="store_draft",
             label="Store draft",
-            disabled_reason=future_pr_reason,
-        ),
-        StatblockWorkbenchAction(
-            action_id="preview_corpus_promotion",
-            label="Preview corpus promotion",
-            disabled_reason=future_pr_reason,
-        ),
-        StatblockWorkbenchAction(
-            action_id="promote_to_corpus",
-            label="Promote to corpus",
             disabled_reason=future_pr_reason,
         ),
         StatblockWorkbenchAction(

@@ -1,15 +1,15 @@
 # HANDOFF — SBW07 Persist accepted mechanics as an immutable revision
 
 **Created:** 2026-07-22
-**Updated:** 2026-07-24 — `SBW07-contract` merged; `SBW07a` merged; `SBW07b` active
-**Status:** IN PROGRESS — `SBW07b` (acceptance journal + §12 orchestration). Next: `SBW07c`. **Before SBW06**.
+**Updated:** 2026-07-25 — `SBW07b` merged `#407` / `00464e2a`; `SBW07c` active (Accept UI + demolition)
+**Status:** IN PROGRESS — `SBW07c` (Accept UI + corpus-promotion demolition). **Before SBW06**.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw07-persist-accepted-mechanics.md`
 **Workstream:** `SBW07`
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**PR base / repository tip (not an SBW claim):** `51661055` on `main` (`#406` merge tip; includes unrelated work)
-**Logical SBW predecessor:** `#406` / `51661055` — `SBW07a` create/read adapter
-**This PR:** `SBW07b` — acceptance journal + §12 orchestration
-**Next code bite after this PR merges:** `SBW07c` (Accept UI + corpus-promotion demolition)
+**PR base / repository tip (not an SBW claim):** `00464e2a` on `main` (`#407` merge tip; includes unrelated work)
+**Logical SBW predecessor:** `#407` / `00464e2a` — `SBW07b` acceptance journal + §12 orchestration
+**This PR:** `SBW07c` — Accept UI + corpus-promotion demolition from the normal acceptance path
+**Next after this PR merges:** workstream `SBW07` closes; sibling `SBW06` or later `SBW08–09` (outside this bite)
 
 > Dispatch one capability across a contract PR plus three code PRs: persist validated mechanics as one logical statblock with one exact immutable first revision and record that locator on the ThreatDraft. Do not publish a Threat, update a graph binding, append a later revision, embed Markdown, or add combat/media behavior.
 
@@ -19,8 +19,8 @@
 |---|---|---|---|---|
 | `SBW07-contract` | MERGED `#405` / `36582f8b` — §12 APPROVED / FROZEN | Doc-only acceptance authority + partial-state transition table + ThreatDraft schema delta (§12 approve/reject) | Docs only; no implementation | All code |
 | `SBW07a` | MERGED `#406` / `51661055` | Create/read Server client + fixtures | Integration client + tests | Draft mutation, UI, demolition |
-| `SBW07b` | **this PR** | Acceptance orchestration + atomic ref / pending reconcile | Service/store/routes/tests | UI, corpus demolition, graph |
-| `SBW07c` | after `SBW07b` | Accept UI + corpus-promotion demolition | Workbench + demolition ledger | Graph, append revision |
+| `SBW07b` | MERGED `#407` / `00464e2a` | Acceptance orchestration + atomic ref / pending reconcile | Service/store/routes/tests | UI, corpus demolition, graph |
+| `SBW07c` | **this PR** | Accept UI + corpus-promotion demolition | Workbench + demolition ledger | Graph, append revision |
 
 **Deferred outside this workstream (`Backlog.md`):** Server HP/AC/Phases consumer sync into Buddy; context-aware workbench ThreatDraft create-and-generate; browser-local editor draft persistence (restore as unvalidated). These remain parallel READY backlog items and are not part of `SBW07a` unless create/read fixtures literally cannot parse without the structural contract sync.
 
@@ -320,10 +320,29 @@ Stop if:
 
 - [x] Re-anchor after predecessor merge (`SBW05c` `#404` / `427a357b`).
 - [x] Capture real create/read/idempotency fixtures (`SBW07a`).
-- [ ] Name demolition consumers/deletion owner (`SBW07c`).
+- [x] Name demolition consumers/deletion owner (`SBW07c`) — see §13.
 - [x] Confirm all graph/projection/runtime successors remain false for this contract PR.
 - [x] `SBW07-contract` transition table approved (`#405` / `36582f8b`) before `SBW07a+` code.
 - [x] Re-anchor after `SBW07-contract` merge; `SBW07a` is the active code bite.
+- [x] Re-anchor after `SBW07b` merge `#407` / `00464e2a`; `SBW07c` is the active code bite.
+
+## §13 Demolition ledger (`SBW07c`)
+
+Corpus promotion is **not** the normal mechanics-acceptance path. Mechanics accept is ThreatDraft `mechanics:accept` (SBW07b) + workbench Accept/Save (SBW07c).
+
+| Path | Role | Action in SBW07c | Owner |
+|---|---|---|---|
+| `StatblockWorkbenchModule.tsx` | Accept/Save UX | **Extended** — Accept/Save + pending/reconcile | SBW07c |
+| `liveApi.ts` accept/read/reconcile | Client wrappers for SBW07b routes | **Added** | SBW07c |
+| `liveApi.ts` corpus-preview / corpus-write wrappers | Former normal-acceptance client | **Deleted** | SBW07c |
+| `liveApi.test.ts` corpus-write cases | Client tests for deleted wrappers | **Deleted**; accept route tests added | SBW07c |
+| `statblock_workbench.py` future actions | Disabled `preview_corpus_promotion` / `promote_to_corpus` labels | **Removed** from action surface | SBW07c |
+| `routes/live.py` corpus-preview / corpus-write | HTTP for markdown promotion + retrieval chain | **Kept** (not mechanics accept) | Retrieval / C2 dogfood |
+| `statblock_corpus_write.py` / `statblock_corpus_preview.py` | Markdown two-phase write | **Kept** until retrieval re-owned | Retrieval activation |
+| `evals/.../prep.js` “Promote to corpus” | Dogfood markdown write | **Retained** with clarified non-accept title | C2 dogfood owner |
+| `RUNBOOK-statblock-combat-dogfood.md` | Dogfood checklist | **Updated** — Accept mechanics vs corpus markdown | Docs |
+
+**Still false:** graph publication, append revision, preferred/latest, embed, combat-from-accept, media.
 
 ## §12 Acceptance operation-authority model (normative — `SBW07-contract`)
 

@@ -5,9 +5,12 @@
 This runbook makes the completed local alpha lifecycle safe, repeatable, and testable by a human GM:
 
 ```text
-Workbench → generate/render draft → store draft → preview corpus promotion → confirmed corpus write
+Workbench → generate/render draft → store draft → (optional dogfood) markdown corpus write
 → activate/verify retrieval → Statblock View → Add to Combat → Combat Roster
 → refresh/restart persistence check
+
+Note: ThreatDraft "Accept / Save mechanics" (SBW07) is a separate Server-backed path and is
+not corpus promotion. Corpus write remains dogfood for generated markdown + retrieval only.
 ```
 
 Use it to answer: can a GM manually walk the full generated-statblock lifecycle and use the result in combat without code-agent assistance?
@@ -150,7 +153,7 @@ Copy `Docs/Runbooks/TEMPLATE-statblock-combat-dogfood-results.md` for each run, 
 - [ ] Generate/render draft.
 - [ ] Store draft.
 - [ ] Reload stored draft.
-- [ ] Preview corpus promotion.
+- [ ] Preview corpus promotion (dogfood markdown path — not SBW07 mechanics accept).
 - [ ] Prepare corpus write.
 - [ ] Confirm corpus write.
 - [ ] Generated markdown file exists.

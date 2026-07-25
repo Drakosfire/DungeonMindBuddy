@@ -3219,6 +3219,91 @@ export interface ValidateDefinitionBuddyResponseV1 {
   failure_message?: string | null;
 }
 
+/** SBW07b/c: accept validated mechanics onto a ThreatDraft (Server create + draft attach). */
+export type AcceptanceAuthorityState =
+  | "dispatched_unknown"
+  | "server_committed"
+  | "reconciled"
+  | "terminal_failure";
+
+export type AcceptanceDraftRefState = "missing" | "attached" | "failed" | "conflicted";
+
+export type AcceptanceResultLabel =
+  | "acceptance_blocked"
+  | "acceptance_busy"
+  | "acceptance_history_full"
+  | "acceptance_input_conflict"
+  | "acceptance_draft_unavailable"
+  | "dispatched_unknown"
+  | "server_committed_reference_pending"
+  | "mechanics_saved"
+  | "accepted_ref_conflict"
+  | "terminal_failure";
+
+export interface MechanicsLocatorV1 {
+  provider: "dungeonmind";
+  statblock_id: string;
+  revision_id: string;
+  contract: string;
+  contract_version: string;
+  definition_digest: string;
+}
+
+export interface AcceptThreatDraftMechanicsRequestV1 {
+  operation_id: string;
+  expected_draft_version: number;
+  definition: StatblockDefinitionV1_Input;
+  validation_receipt: ValidationReceiptV1;
+  validation_definition_digest: string;
+  source_candidate_id?: string | null;
+  change_summary: string;
+  actor?: string | null;
+  accepted_through?: Record<string, unknown> | null;
+}
+
+export interface AcceptThreatDraftMechanicsResponseV1 {
+  schema: "dmb_accept_threat_draft_mechanics_response_v1";
+  draft_id: string;
+  operation_id: string;
+  result_label: AcceptanceResultLabel;
+  authority_state?: AcceptanceAuthorityState | null;
+  draft_ref?: AcceptanceDraftRefState | null;
+  workflow_state?: "drafting" | "candidate_ready" | "mechanics_saved" | null;
+  locator?: MechanicsLocatorV1 | null;
+  terminal_code?: string | null;
+  failure_category?: string | null;
+  http_status?: number | null;
+  message?: string | null;
+}
+
+export interface AcceptanceOperationV1 {
+  schema: "dmb_statblock_acceptance_operation_v1";
+  operation_id: string;
+  idempotency_key: string;
+  create_request_digest: string;
+  request_body: Record<string, unknown>;
+  source_draft_id: string;
+  source_draft_version: number;
+  source_candidate_id?: string | null;
+  validation_receipt_digest: string;
+  authority_state: AcceptanceAuthorityState;
+  locator?: MechanicsLocatorV1 | null;
+  materialization: { draft_ref: AcceptanceDraftRefState };
+  terminal_code?: string | null;
+  failure_category?: string | null;
+  http_status?: number | null;
+  terminal_details?: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReadAcceptanceOperationResponseV1 {
+  schema: "dmb_read_acceptance_operation_response_v1";
+  draft_id: string;
+  operation?: AcceptanceOperationV1 | null;
+  result_label?: AcceptanceResultLabel | null;
+}
+
 export interface StatblockIntegrationReadinessV1 {
   schema: "dmb_statblock_integration_readiness_v1";
   configured: boolean;

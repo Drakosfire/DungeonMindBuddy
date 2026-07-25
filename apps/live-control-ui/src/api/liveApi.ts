@@ -35,12 +35,6 @@ import type {
   SurfaceLayout,
   ListStatblockDraftsResponse,
   ReadStatblockDraftResponse,
-  StatblockCorpusPromotionPreviewRequest,
-  StatblockCorpusPromotionPreviewResponse,
-  StatblockCorpusWriteCommitRequest,
-  StatblockCorpusWriteCommitResponse,
-  StatblockCorpusWritePrepareRequest,
-  StatblockCorpusWritePrepareResponse,
   StatblockRetrievalActivationResponse,
   StatblockRetrievalVerifyRequest,
   StatblockRetrievalVerifyResponse,
@@ -108,6 +102,9 @@ import type {
   ReadStatblockCandidateResponseV1,
   ValidateDefinitionBuddyRequestV1,
   ValidateDefinitionBuddyResponseV1,
+  AcceptThreatDraftMechanicsRequestV1,
+  AcceptThreatDraftMechanicsResponseV1,
+  ReadAcceptanceOperationResponseV1,
   StatblockIntegrationReadinessV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
@@ -859,12 +856,12 @@ export async function addGeneratedStatblockToCombat(
   );
 }
 
-export async function previewStatblockCorpusPromotion(
-  artifactId: string,
-  request: StatblockCorpusPromotionPreviewRequest = {},
-): Promise<StatblockCorpusPromotionPreviewResponse> {
-  return apiFetch<StatblockCorpusPromotionPreviewResponse>(
-    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-preview`,
+export async function acceptThreatDraftMechanics(
+  draftId: string,
+  request: AcceptThreatDraftMechanicsRequestV1,
+): Promise<AcceptThreatDraftMechanicsResponseV1> {
+  return apiFetch<AcceptThreatDraftMechanicsResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/mechanics:accept`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -873,30 +870,23 @@ export async function previewStatblockCorpusPromotion(
   );
 }
 
-export async function prepareStatblockCorpusWrite(
-  artifactId: string,
-  request: StatblockCorpusWritePrepareRequest = {},
-): Promise<StatblockCorpusWritePrepareResponse> {
-  return apiFetch<StatblockCorpusWritePrepareResponse>(
-    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-write/prepare`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    },
+export async function getAcceptanceOperation(
+  draftId: string,
+  operationId: string,
+): Promise<ReadAcceptanceOperationResponseV1> {
+  return apiFetch<ReadAcceptanceOperationResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/acceptance-operations/${encodeURIComponent(operationId)}`,
   );
 }
 
-export async function commitStatblockCorpusWrite(
-  artifactId: string,
-  request: StatblockCorpusWriteCommitRequest,
-): Promise<StatblockCorpusWriteCommitResponse> {
-  return apiFetch<StatblockCorpusWriteCommitResponse>(
-    `/api/live/statblocks/workbench/drafts/${encodeURIComponent(artifactId)}/corpus-write/commit`,
+export async function reconcileAcceptanceOperation(
+  draftId: string,
+  operationId: string,
+): Promise<AcceptThreatDraftMechanicsResponseV1> {
+  return apiFetch<AcceptThreatDraftMechanicsResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/acceptance-operations/${encodeURIComponent(operationId)}:reconcile`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
     },
   );
 }

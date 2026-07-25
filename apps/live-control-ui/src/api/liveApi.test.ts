@@ -5,7 +5,6 @@ import {
   addGeneratedStatblockToCombat,
   advanceCombatTurn,
   applyCombatHpDelta,
-  commitStatblockCorpusWrite,
   commitTiptapMarkdownWrite,
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
@@ -27,15 +26,16 @@ import {
   getStatblockCandidate,
   generateThreatDraftCandidate,
   validateStatblockDefinition,
+  acceptThreatDraftMechanics,
+  getAcceptanceOperation,
+  reconcileAcceptanceOperation,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
   patchCombatEntity,
   postCommand,
   postCitationSource,
   postStatblockWorkbenchCommand,
-  prepareStatblockCorpusWrite,
   prepareTiptapMarkdownWrite,
-  previewStatblockCorpusPromotion,
   setCombatActiveTurn,
   sortCombatInitiative,
   storeStatblockWorkbenchDraft,
@@ -511,57 +511,70 @@ describe("liveApi artifact/capability helpers", () => {
     expect(JSON.parse(String(init?.body))).toEqual(request);
   });
 
-  it("previewStatblockCorpusPromotion posts encoded preview request", async () => {
+  it("acceptThreatDraftMechanics posts to mechanics:accept", async () => {
+    const request = {
+      operation_id: "11111111-1111-4111-8111-111111111111",
+      expected_draft_version: 2,
+      definition: { name: "Ironhide" },
+      validation_receipt: {
+        status: "valid",
+        mode: "editor_preview",
+        validator_version: "1",
+        canonicalizer_version: "1",
+        definition_digest: `sha256:${"a".repeat(64)}`,
+        issues: [],
+      },
+      validation_definition_digest: `sha256:${"a".repeat(64)}`,
+      change_summary: "Accept validated working copy",
+    };
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       mockJsonResponse({
-        schema_version: "dmb_statblock_corpus_promotion_preview_v1",
-        preview_token: "preview-token",
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "draft-1",
+        operation_id: request.operation_id,
+        result_label: "mechanics_saved",
       }),
     );
 
-    await previewStatblockCorpusPromotion("statblock:draft test", {
-      include_writer_allowlist_check: false,
-    });
+    await acceptThreatDraftMechanics("draft 1", request as never);
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test/corpus-preview");
+    expect(String(url)).toBe("/api/live/threat-drafts/draft%201/mechanics:accept");
     expect(init?.method).toBe("POST");
-    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
-    expect(JSON.parse(String(init?.body))).toEqual({ include_writer_allowlist_check: false });
-  });
-
-  it("prepareStatblockCorpusWrite posts encoded prepare request", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema_version: "dmb_statblock_corpus_write_prepare_v1" }),
-    );
-
-    await prepareStatblockCorpusWrite("statblock:draft test", {
-      preview_token: "preview-token",
-    });
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test/corpus-write/prepare");
-    expect(init?.method).toBe("POST");
-    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
-    expect(JSON.parse(String(init?.body))).toEqual({ preview_token: "preview-token" });
-  });
-
-  it("commitStatblockCorpusWrite posts encoded commit request", async () => {
-    const request = { preview_token: "preview-token", writer_confirm_token: "writer-token" };
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema_version: "dmb_statblock_corpus_write_commit_v1" }),
-    );
-
-    await commitStatblockCorpusWrite("statblock:draft test", request);
-
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0];
-    expect(String(url)).toBe("/api/live/statblocks/workbench/drafts/statblock%3Adraft%20test/corpus-write/commit");
-    expect(init?.method).toBe("POST");
-    expect(init?.headers).toEqual({ "Content-Type": "application/json" });
     expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+
+  it("getAcceptanceOperation and reconcileAcceptanceOperation hit exact routes", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        mockJsonResponse({
+          schema: "dmb_read_acceptance_operation_response_v1",
+          draft_id: "draft-1",
+          operation: null,
+          result_label: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockJsonResponse({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "draft-1",
+          operation_id: "op-1",
+          result_label: "mechanics_saved",
+        }),
+      );
+
+    await getAcceptanceOperation("draft 1", "op 1");
+    await reconcileAcceptanceOperation("draft 1", "op 1");
+
+    expect(String(fetchSpy.mock.calls[0][0])).toBe(
+      "/api/live/threat-drafts/draft%201/acceptance-operations/op%201",
+    );
+    expect(String(fetchSpy.mock.calls[1][0])).toBe(
+      "/api/live/threat-drafts/draft%201/acceptance-operations/op%201:reconcile",
+    );
+    expect(fetchSpy.mock.calls[1][1]?.method).toBe("POST");
   });
 
   it("posts Tiptap Markdown prepare and commit requests", async () => {
