@@ -23,6 +23,14 @@ _PROMOTE_EVIDENCE_ROLE = frozenset({"source_evidence"})
 _PROMOTE_LIFECYCLE = frozenset({"candidate", "validated"})
 _PROMOTE_VISIBILITY = frozenset({"gm_private", "player_visible", "spoiler_sensitive"})
 _PROMOTE_ACTIONS = frozenset({"create", "anchor"})
+_WORLDBUILDING_CANON = frozenset({"worldbuilding_draft"})
+_WORLDBUILDING_AUTHORITY = frozenset({"system_derived"})
+_WORLDBUILDING_EVIDENCE_ROLE = frozenset({"source_evidence"})
+_WORLDBUILDING_LIFECYCLE = frozenset({"candidate", "validated"})
+_WORLDBUILDING_VISIBILITY = frozenset(
+    {"gm_private", "player_visible", "spoiler_sensitive"}
+)
+_WORLDBUILDING_ACTIONS = frozenset({"create", "anchor"})
 
 
 class CandidateSemanticPromoteError(ValueError):
@@ -112,6 +120,80 @@ def map_candidate_semantics_to_kernel(
         epistemic_kind="source_derived_candidate",
         approval_state="accepted" if acceptance_state == "accepted" else "candidate",
     )
+
+
+def map_reviewed_worldbuilding_semantics_to_kernel(
+    *,
+    object_id: str,
+    semantic: SemanticState,
+    proposed_action: str,
+    confidence: str = "medium",
+    warnings: tuple[str, ...] = (),
+    acceptance_state: str = "accepted",
+) -> KernelSemanticMapping:
+    """Map an explicitly reviewed BLD-08 worldbuilding candidate.
+
+    This policy is deliberately separate from recap promotion.  The caller
+    must have admitted an explicit disposition before using the ``accepted``
+    mapping; rejected assertions may use the same strict semantic validation
+    with ``acceptance_state="rejected"``.
+    """
+    if semantic.canon_state not in _WORLDBUILDING_CANON:
+        raise CandidateSemanticPromoteError(
+            f"{object_id}: canon_state={semantic.canon_state!r} is not "
+            "reviewed-worldbuilding eligible (require worldbuilding_draft)"
+        )
+    if semantic.authority_state not in _WORLDBUILDING_AUTHORITY:
+        raise CandidateSemanticPromoteError(
+            f"{object_id}: authority_state={semantic.authority_state!r} is not "
+            "reviewed-worldbuilding eligible (require system_derived)"
+        )
+    if semantic.evidence_role not in _WORLDBUILDING_EVIDENCE_ROLE:
+        raise CandidateSemanticPromoteError(
+            f"{object_id}: evidence_role={semantic.evidence_role!r} is not "
+            "reviewed-worldbuilding eligible (require source_evidence)"
+        )
+    if semantic.lifecycle_state not in _WORLDBUILDING_LIFECYCLE:
+        raise CandidateSemanticPromoteError(
+            f"{object_id}: lifecycle_state={semantic.lifecycle_state!r} is not "
+            "reviewed-worldbuilding eligible (require candidate|validated)"
+        )
+    if semantic.visibility_state not in _WORLDBUILDING_VISIBILITY:
+        raise CandidateSemanticPromoteError(
+            f"{object_id}: visibility_state={semantic.visibility_state!r} is not "
+            "reviewed-worldbuilding eligible"
+        )
+    if proposed_action in COMMITTED_ACTIONS or proposed_action not in _WORLDBUILDING_ACTIONS:
+        raise CandidateSemanticPromoteError(
+            f"{object_id}: proposed_action={proposed_action!r} is not "
+            "reviewed-worldbuilding eligible (require create|anchor)"
+        )
+    if acceptance_state not in {"accepted", "rejected"}:
+        raise CandidateSemanticPromoteError(
+            f"{object_id}: acceptance_state={acceptance_state!r} is unsupported "
+            "for reviewed-worldbuilding mapping"
+        )
+    _ = confidence, warnings
+    return KernelSemanticMapping(
+        canon_state="canonical",
+        visibility=kernel_visibility_for_candidate(semantic.visibility_state),
+        epistemic_kind="source_derived_candidate",
+        approval_state=acceptance_state,
+    )
+
+
+def reviewed_worldbuilding_semantics_summary() -> dict[str, Any]:
+    """Return the bounded semantic policy without changing recap policy data."""
+    return {
+        "canon_state": sorted(_WORLDBUILDING_CANON),
+        "authority_state": sorted(_WORLDBUILDING_AUTHORITY),
+        "evidence_role": sorted(_WORLDBUILDING_EVIDENCE_ROLE),
+        "lifecycle_state": sorted(_WORLDBUILDING_LIFECYCLE),
+        "visibility_state": sorted(_WORLDBUILDING_VISIBILITY),
+        "proposed_action": sorted(_WORLDBUILDING_ACTIONS),
+        "kernel_canon_state": "canonical",
+        "kernel_epistemic_kind": "source_derived_candidate",
+    }
 
 
 def assert_node_promote_eligible(node: CandidateNode) -> KernelSemanticMapping:
