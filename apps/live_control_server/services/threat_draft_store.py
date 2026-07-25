@@ -8,6 +8,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Literal
 
+from apps.live_control_server.models.statblock_mechanics_acceptance import (
+    AcceptedMechanicsRefV1,
+)
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
     MAX_CANDIDATE_REFS,
@@ -394,3 +397,65 @@ def append_candidate_ref(
         )
         _save_draft_unlocked(root, updated, as_draft_id=committed_id)
         return updated
+
+
+class AcceptedMechanicsRefConflictError(ThreatDraftStoreError):
+    """Draft already holds a different accepted mechanics locator."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "accepted mechanics ref conflict",
+            status_code=409,
+        )
+
+
+def attach_accepted_mechanics_ref(
+    root: Path,
+    *,
+    draft_id: str,
+    expected_version: int,
+    locator: AcceptedMechanicsRefV1,
+) -> ThreatDraftV1:
+    """Phase 1 ThreatDraft attach under store lock + version CAS.
+
+    Does not mutate the acceptance journal.
+    """
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        same_mechanics_locator,
+    )
+
+    with _store_lock(root):
+        committed_id = _require_committed_draft_id(root, draft_id)
+        current = _load_draft_unlocked(root, committed_id)
+        if current.version != expected_version:
+            raise ThreatDraftStoreError("expected_version mismatch", status_code=409)
+
+        existing = current.accepted_mechanics_ref
+        if existing is None:
+            updated = current.model_copy(
+                update={
+                    "version": current.version + 1,
+                    "accepted_mechanics_ref": locator,
+                    "workflow_state": "mechanics_saved",
+                    "updated_at": _utc_now_iso(),
+                }
+            )
+            _save_draft_unlocked(root, updated, as_draft_id=committed_id)
+            return updated
+
+        if same_mechanics_locator(
+            existing.to_mechanics_locator(), locator.to_mechanics_locator()
+        ):
+            if current.workflow_state == "mechanics_saved":
+                return current
+            updated = current.model_copy(
+                update={
+                    "version": current.version + 1,
+                    "workflow_state": "mechanics_saved",
+                    "updated_at": _utc_now_iso(),
+                }
+            )
+            _save_draft_unlocked(root, updated, as_draft_id=committed_id)
+            return updated
+
+        raise AcceptedMechanicsRefConflictError()

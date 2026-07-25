@@ -496,3 +496,62 @@ def test_store_exposes_candidate_ref_append_for_sbw03() -> None:
     import apps.live_control_server.services.threat_draft_store as store
 
     assert hasattr(store, "append_candidate_ref")
+
+
+def test_attach_accepted_mechanics_ref_cas_and_conflict(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        AcceptedMechanicsRefConflictError,
+        attach_accepted_mechanics_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+
+    def _ref(rev: str, *, accepted_at: str = "2020-01-01T00:00:00Z") -> AcceptedMechanicsRefV1:
+        loc = MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_a",
+            revision_id=rev,
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "a" * 64,
+        )
+        return AcceptedMechanicsRefV1.from_locator(
+            loc,
+            accepted_from_draft_version=1,
+            accepted_at=accepted_at,
+            accepted_from_candidate_id=None,
+        )
+
+    updated = attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=1,
+        locator=_ref("rev_one"),
+    )
+    assert updated.workflow_state == "mechanics_saved"
+    assert updated.version == 2
+
+    with pytest.raises(AcceptedMechanicsRefConflictError):
+        attach_accepted_mechanics_ref(
+            tmp_path,
+            draft_id=created.draft_id,
+            expected_version=2,
+            locator=_ref("rev_two"),
+        )
+
+    idempotent = attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=2,
+        locator=_ref("rev_one", accepted_at="2099-01-01T00:00:00Z"),
+    )
+    assert idempotent.version == 2
+    assert idempotent.accepted_mechanics_ref is not None
+    assert idempotent.accepted_mechanics_ref.accepted_at == "2020-01-01T00:00:00Z"

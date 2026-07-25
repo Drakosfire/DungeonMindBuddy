@@ -7,6 +7,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from apps.live_control_server.models.statblock_mechanics_acceptance import (
+    AcceptedMechanicsRefV1,
+)
+
 SCHEMA = "dmb_threat_draft_v1"
 SUMMARY_SCHEMA = "dmb_threat_draft_summary_v1"
 INDEX_SCHEMA = "dmb_threat_draft_index_v1"
@@ -144,8 +148,10 @@ class ThreatDraftV1(StrictModel):
     candidate_refs: list[ThreatDraftCandidateRefV1] = Field(
         default_factory=list, max_length=_MAX_LIST
     )
-    accepted_mechanics_ref: None = None
-    workflow_state: Literal["drafting", "candidate_ready"] = "drafting"
+    accepted_mechanics_ref: AcceptedMechanicsRefV1 | None = None
+    workflow_state: Literal["drafting", "candidate_ready", "mechanics_saved"] = (
+        "drafting"
+    )
     created_by: str = Field(min_length=1, max_length=_MAX_NAME)
     created_at: str
     updated_at: str
