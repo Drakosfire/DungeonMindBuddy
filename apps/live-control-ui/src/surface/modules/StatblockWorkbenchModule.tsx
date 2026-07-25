@@ -467,7 +467,8 @@ function acceptResultFromRead(
  *
  * Blocked replay after a transport failure cannot treat a null journal read as proof that the
  * original POST will never claim. Bounded misses stay unresolved; only journal_present may
- * promote to recovery retain. Correction requires an explicit abandon (concurrency-closing).
+ * promote to recovery retain. A replacement UUID is allowed only after backend-proven
+ * terminal_failure (SBW07a non-begin), never after local storage deletion.
  */
 type AcceptActionClass =
   | "ephemeralAttempt"
@@ -808,6 +809,8 @@ function AcceptMechanicsFlow({
   };
 
   const startNewAcceptOperation = () => {
+    // Only safe after backend-proven terminal_failure (SBW07a non-begin). Local storage
+    // deletion alone must never be treated as closing a possibly still-claiming operation.
     const draftId = ownedDraftIdRef.current;
     if (draftId) {
       clearStoredAcceptOperationId(draftId);
@@ -1178,29 +1181,19 @@ function AcceptMechanicsFlow({
             >
               {acceptPending ? "Resuming…" : "Resume acceptance"}
             </button>
-            <button
-              type="button"
-              disabled={acceptPending || restorePending}
-              onClick={() => startNewAcceptOperation()}
-              data-testid="accept-mechanics-abandon"
-            >
-              Abandon attempt
-            </button>
           </div>
-          <p className="module-muted">
-            Abandon attempt explicitly closes this operation id and allows a corrected Accept/Save
-            with a new id. Do not abandon while the original request may still be claiming.
-          </p>
           {!replayRequest ? (
             <p className="module-muted">
               Exact Accept body is unavailable for replay — use Resume only after a journal claim
-              exists, or Retry lookup.
+              exists, or Retry lookup. A new Accept/Save attempt is not offered while this
+              operation id may still claim server-side.
             </p>
           ) : (
             <p className="module-muted">
               Replay accept re-sends the exact same-key Accept body. Resume acceptance reconciles
               only after a journal operation exists. Bounded journal misses are not proof the
-              original POST cannot still claim.
+              original POST cannot still claim — local storage is not abandoned, and no
+              replacement operation id is offered until the backend proves terminal non-begin.
             </p>
           )}
         </section>

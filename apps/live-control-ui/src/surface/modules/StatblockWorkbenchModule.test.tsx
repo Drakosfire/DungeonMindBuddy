@@ -1950,9 +1950,7 @@ describe("StatblockWorkbenchModule", () => {
     it("keeps operation id after replay validation rejection when journal lookup returns null", async () => {
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
-      vi.spyOn(crypto, "randomUUID")
-        .mockReturnValueOnce("op_replay_valid_fail")
-        .mockReturnValueOnce("op_replay_valid_new");
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_replay_valid_fail");
       const acceptSpy = vi
         .spyOn(liveApi, "acceptThreatDraftMechanics")
         .mockRejectedValueOnce(new Error("Failed to fetch"))
@@ -1962,20 +1960,6 @@ describe("StatblockWorkbenchModule", () => {
           operation_id: "op_replay_valid_fail",
           result_label: "acceptance_blocked",
           message: "acceptance blocked: definition failed authoritative validation",
-        })
-        .mockResolvedValue({
-          schema: "dmb_accept_threat_draft_mechanics_response_v1",
-          draft_id: "td_replay_valid_fail",
-          operation_id: "op_replay_valid_new",
-          result_label: "mechanics_saved",
-          locator: {
-            provider: "dungeonmind",
-            statblock_id: "sb_corrected",
-            revision_id: "rev_corrected",
-            contract: "dungeonbuddy-statblocks-v1",
-            contract_version: "1",
-            definition_digest: PREVIEW_DIGEST,
-          },
         });
       vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
         schema: "dmb_read_acceptance_operation_response_v1",
@@ -2005,18 +1989,79 @@ describe("StatblockWorkbenchModule", () => {
         "op_replay_valid_fail",
       );
       expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(screen.queryByTestId("accept-mechanics-abandon")).toBeNull();
+      expect(screen.queryByTestId("accept-mechanics-start-new")).toBeNull();
       expect(acceptSpy).toHaveBeenCalledTimes(2);
+      expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
+    });
 
-      // Explicit abandon is the concurrency-closing path for corrected Accept/Save.
-      await user.click(screen.getByTestId("accept-mechanics-abandon"));
-      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_valid_fail")).toBeNull();
-      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+    it("does not orphan a still-claiming operation via local abandon", async () => {
+      ACCEPT_RESTORE_LOOKUP.maxAttempts = 3;
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_no_local_abandon");
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics")
+        .mockRejectedValueOnce(new Error("Failed to fetch"))
+        .mockResolvedValueOnce({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_no_local_abandon",
+          operation_id: "op_no_local_abandon",
+          result_label: "acceptance_blocked",
+          message: "acceptance journal temporarily unavailable",
+        });
+      let lookups = 0;
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockImplementation(async () => {
+        lookups += 1;
+        if (lookups <= ACCEPT_RESTORE_LOOKUP.maxAttempts) {
+          return {
+            schema: "dmb_read_acceptance_operation_response_v1",
+            draft_id: "td_no_local_abandon",
+            operation: null,
+            result_label: null,
+          };
+        }
+        // Original POST continues server-side and eventually claims.
+        return pendingOperation(
+          "td_no_local_abandon",
+          "op_no_local_abandon",
+          "server_committed_reference_pending",
+        );
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_no_local_abandon");
+      await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
       await user.click(screen.getByTestId("accept-mechanics-confirm"));
       await waitFor(() => {
-        expect(acceptSpy).toHaveBeenCalledTimes(3);
+        expect(screen.getByTestId("accept-mechanics-replay")).toBeTruthy();
       });
-      expect(acceptSpy.mock.calls[2][1].operation_id).toBe("op_replay_valid_new");
+      await user.click(screen.getByTestId("accept-mechanics-replay"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
+      });
+
+      // No local abandon / replacement UUID while the original POST may still claim.
+      expect(screen.queryByTestId("accept-mechanics-abandon")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(screen.queryByTestId("accept-mechanics-start-new")).toBeNull();
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_no_local_abandon")).toBe(
+        "op_no_local_abandon",
+      );
+      expect(document.body.textContent).not.toMatch(/explicitly closes this operation/i);
+
+      // Eventual durable claim remains recoverable through the retained pointer.
+      await user.click(screen.getByTestId("accept-mechanics-retry-lookup"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_no_local_abandon")).toBe(
+        "op_no_local_abandon",
+      );
+      expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
     });
 
     it("keeps operation id after replay version mismatch when journal lookup returns null", async () => {
