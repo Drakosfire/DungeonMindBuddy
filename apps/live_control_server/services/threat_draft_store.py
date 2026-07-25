@@ -55,7 +55,16 @@ def _storage_unavailable() -> ThreatDraftStoreError:
 
 @contextmanager
 def _store_lock(root: Path) -> Iterator[None]:
-    """Exclusive lock covering index and draft mutation for one store root."""
+    """Exclusive lock covering index and draft mutation for one store root.
+
+    Lock orders involving this lock:
+    - Acceptance: acceptance journal lock → this lock.
+    - New generation admission: this lock → generation reconciliation lock.
+
+    Do not acquire the acceptance journal lock while holding this lock.
+    Callers may nest the generation reconciliation lock while holding this lock
+    only for brand-new generation admission (claim must complete before release).
+    """
     try:
         store_root = threat_drafts_root(root)
         store_root.mkdir(parents=True, exist_ok=True)
@@ -261,7 +270,8 @@ def read_committed_draft_version(root: Path, draft_id: str) -> int:
     """Read a committed draft's version under the ThreatDraft store lock.
 
     Callers that already hold the acceptance journal lock may nest this call
-    (documented lock order: acceptance journal → ThreatDraft store).
+    (lock order: acceptance journal → ThreatDraft store). Do not call this
+    while holding the generation reconciliation lock.
     """
     with _store_lock(root):
         committed_id = _require_committed_draft_id(root, draft_id)

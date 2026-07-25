@@ -107,7 +107,9 @@ def _draft_acceptance_lock(root: Path, draft_id: str) -> Iterator[None]:
     """Draft-scoped exclusive lock for acceptance journal mutations.
 
     Lock order when both stores are needed: acquire this lock before the
-    ThreatDraft store lock (``threat_draft_store._store_lock``).
+    ThreatDraft store lock (``threat_draft_store._store_lock``). Generation
+    reconciliation locking is independent and must never nest under this lock
+    or the store lock in the reverse direction of documented orders.
     """
     directory = _draft_directory(root, draft_id)
     try:

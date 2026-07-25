@@ -32,9 +32,12 @@ from apps.live_control_server.services.statblock_candidate_cache import (
     store_candidate_payload,
 )
 from apps.live_control_server.services.statblock_generation_reconciliation import (
+    ClaimOutcome,
     GenerationOperationV2,
     GenerationReconciliationError,
     GenerationTombstoneV1,
+    _claim_generation_request_unlocked,
+    _reconciliation_lock,
     claim_generation_request,
     finalize_generation_request,
     load_received_candidate,
@@ -48,9 +51,73 @@ from apps.live_control_server.services.statblock_generation_reconciliation impor
 )
 from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
+    _load_draft_unlocked,
+    _require_committed_draft_id,
+    _store_lock,
     append_candidate_ref,
     get_threat_draft,
 )
+
+# Test-only hook: runs after pre-save observation opportunity and before the
+# store-locked new-generation admission boundary. Production keeps this None.
+_pre_new_generation_admit_hook: Any = None
+
+
+def _admit_and_claim_new_generation(
+    root: Path,
+    *,
+    draft_id: str,
+    expected_draft_version: int,
+    request_id: str,
+) -> tuple[
+    ThreatDraftV1,
+    dict[str, Any],
+    str,
+    ClaimOutcome,
+    GenerationOperationV2 | GenerationTombstoneV1,
+]:
+    """Admit a brand-new generation under the ThreatDraft store lock.
+
+    Lock order: ThreatDraft store → generation reconciliation.
+    Existing-operation / tombstone recovery must run before this path.
+    No Server client construction or network I/O while either lock is held.
+    The durable generation claim is persisted before either lock is released.
+    """
+    hook = _pre_new_generation_admit_hook
+    if hook is not None:
+        hook()
+
+    with _store_lock(root):
+        committed_id = _require_committed_draft_id(root, draft_id)
+        draft = _load_draft_unlocked(root, committed_id)
+        if draft.workflow_state == "mechanics_saved":
+            raise ThreatDraftStoreError(
+                "new candidate generation rejected: draft mechanics already saved",
+                status_code=409,
+            )
+        if draft.version != expected_draft_version:
+            raise ThreatDraftStoreError(
+                "expected_version mismatch",
+                status_code=409,
+            )
+
+        body = map_draft_to_generate_request(draft, request_id=request_id)
+        request_digest = request_digest_for_body(body)
+        ref_candidate_ids = {ref.candidate_id for ref in draft.candidate_refs}
+        ref_entries = [(ref.candidate_id, ref.request_id) for ref in draft.candidate_refs]
+
+        with _reconciliation_lock(root):
+            claim_status, claim = _claim_generation_request_unlocked(
+                root,
+                draft_id=draft.draft_id,
+                draft_version=expected_draft_version,
+                request_id=request_id,
+                request_digest=request_digest,
+                request_body=body,
+                ref_candidate_ids=ref_candidate_ids,
+                ref_entries=ref_entries,
+            )
+        return draft, body, request_digest, claim_status, claim
 
 
 def _utc_now() -> datetime:
@@ -1002,50 +1069,27 @@ def generate_candidate_from_draft(
         )
 
     try:
-        draft = get_threat_draft(root, draft_id)
-    except ThreatDraftStoreError as exc:
-        if exc.status_code == 404:
-            raise
-        raise
-
-    # After existing-operation recovery: brand-new generation is revise/regenerate.
-    # SBW07b keeps that successor capability false — reject before claim or Server.
-    if draft.workflow_state == "mechanics_saved":
-        raise ThreatDraftStoreError(
-            "new candidate generation rejected: draft mechanics already saved",
-            status_code=409,
-        )
-
-    if draft.version != source_version:
-        raise ThreatDraftStoreError("expected_version mismatch", status_code=409)
-
-    body = map_draft_to_generate_request(draft, request_id=request_id)
-    request_digest = request_digest_for_body(body)
-    ref_candidate_ids = {ref.candidate_id for ref in draft.candidate_refs}
-    ref_entries = [(ref.candidate_id, ref.request_id) for ref in draft.candidate_refs]
-
-    try:
-        claim_status, claim = claim_generation_request(
+        draft, body, request_digest, claim_status, claim = _admit_and_claim_new_generation(
             root,
-            draft_id=draft.draft_id,
-            draft_version=source_version,
+            draft_id=draft_id,
+            expected_draft_version=source_version,
             request_id=request_id,
-            request_digest=request_digest,
-            request_body=body,
-            ref_candidate_ids=ref_candidate_ids,
-            ref_entries=ref_entries,
         )
+    except ThreatDraftStoreError:
+        raise
     except GenerationReconciliationError as exc:
         mapped = _map_reconciliation_error(exc)
         if mapped is not None:
             raise mapped from None
         return _failure(
-            draft_id=draft.draft_id,
+            draft_id=draft_id,
             draft_version=source_version,
             request_id=request_id,
             category="integrity_failure",
             message=str(exc),
         )
+
+    ref_candidate_ids = {ref.candidate_id for ref in draft.candidate_refs}
 
     if claim_status in {
         "candidate_received",
@@ -1067,7 +1111,7 @@ def generate_candidate_from_draft(
     }:
         return _terminal_response(entry=claim, request_digest=request_digest)
 
-    # claimed / dispatched_retry: call Server. PR23 makes generate idempotent.
+    # claimed / dispatched_retry: call Server only after admission locks released.
     candidate_or_failure = _call_server_generate(
         body=body,
         draft_id=draft.draft_id,
