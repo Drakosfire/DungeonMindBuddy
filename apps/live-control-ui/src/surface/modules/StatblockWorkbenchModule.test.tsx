@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type {
@@ -14,7 +14,11 @@ import type {
   ValidationReceiptV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import fixture from "../../../../../tests/fixtures/statblocks/v1/candidate-response.json";
-import { presentCandidateStatus, StatblockWorkbenchModule } from "./StatblockWorkbenchModule";
+import {
+  ACCEPT_RESTORE_LOOKUP,
+  presentCandidateStatus,
+  StatblockWorkbenchModule,
+} from "./StatblockWorkbenchModule";
 
 const candidate = fixture as GeneratedStatblockCandidateV1;
 
@@ -57,6 +61,8 @@ function successValidate(
 afterEach(() => {
   vi.restoreAllMocks();
   sessionStorage.clear();
+  ACCEPT_RESTORE_LOOKUP.delayMs = 40;
+  ACCEPT_RESTORE_LOOKUP.maxAttempts = 3;
 });
 
 async function loadId(id: string) {
@@ -1050,6 +1056,11 @@ describe("StatblockWorkbenchModule", () => {
   });
 
   describe("accept/save mechanics (SBW07c)", () => {
+    beforeEach(() => {
+      ACCEPT_RESTORE_LOOKUP.delayMs = 0;
+      ACCEPT_RESTORE_LOOKUP.maxAttempts = 3;
+    });
+
     it("shows Accept/Save after valid preview and confirms with stable operation_id", async () => {
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
@@ -1808,5 +1819,177 @@ describe("StatblockWorkbenchModule", () => {
         }
       },
     );
+
+    it("retains optimistic operation id across reload-before-claim miss then finds it on retry", async () => {
+      ACCEPT_RESTORE_LOOKUP.maxAttempts = 3;
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_race_claim", "op_race_claim");
+      let lookups = 0;
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      const getOpSpy = vi.spyOn(liveApi, "getAcceptanceOperation").mockImplementation(async () => {
+        lookups += 1;
+        if (lookups < 3) {
+          return {
+            schema: "dmb_read_acceptance_operation_response_v1",
+            draft_id: "td_race_claim",
+            operation: null,
+            result_label: null,
+          };
+        }
+        return pendingOperation("td_race_claim", "op_race_claim", "dispatched_unknown");
+      });
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_race_claim");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
+      });
+      expect(getOpSpy.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_race_claim")).toBe(
+        "op_race_claim",
+      );
+      expect(uuidSpy).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+    });
+
+    it("does not clear optimistic id after bounded restore misses while claim may still be in flight", async () => {
+      ACCEPT_RESTORE_LOOKUP.maxAttempts = 3;
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_miss", "op_miss_inflight");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      const getOpSpy = vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_read_acceptance_operation_response_v1",
+        draft_id: "td_miss",
+        operation: null,
+        result_label: null,
+      });
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_miss");
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
+      });
+      expect(getOpSpy).toHaveBeenCalledTimes(3);
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_miss")).toBe("op_miss_inflight");
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(uuidSpy).not.toHaveBeenCalled();
+
+      // A later lookup can still attach without minting a replacement UUID.
+      getOpSpy.mockResolvedValue(
+        pendingOperation("td_miss", "op_miss_inflight", "server_committed_reference_pending"),
+      );
+      await user.click(screen.getByTestId("accept-mechanics-retry-lookup"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_miss")).toBe("op_miss_inflight");
+      expect(uuidSpy).not.toHaveBeenCalled();
+    });
+
+    it("treats fresh validation acceptance_blocked as ephemeral and clears the attempted id", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_fresh_blocked");
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_fresh_blocked",
+        operation_id: "op_fresh_blocked",
+        result_label: "acceptance_blocked",
+        message: "expected draft version mismatch",
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_fresh_blocked");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-ephemeral-block")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_fresh_blocked")).toBeNull();
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+      expect(screen.queryByTestId("accept-mechanics-same-op-recover")).toBeNull();
+    });
+
+    it("retains operation id when recovery returns acceptance_blocked for journal unavailability", async () => {
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_rec_blocked", "op_rec_blocked");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue(
+        pendingOperation("td_rec_blocked", "op_rec_blocked", "dispatched_unknown"),
+      );
+      vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_rec_blocked",
+        operation_id: "op_rec_blocked",
+        result_label: "acceptance_blocked",
+        message: "acceptance journal temporarily unavailable",
+      });
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_rec_blocked");
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-retry"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-blocked-recovery")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_rec_blocked")).toBe(
+        "op_rec_blocked",
+      );
+      expect(screen.getByTestId("accept-mechanics-same-op-recover")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(uuidSpy).not.toHaveBeenCalled();
+    });
+
+    it("preserves operation id across transient reconcile transport failures", async () => {
+      sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_rec_transport", "op_rec_transport");
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue(
+        pendingOperation("td_rec_transport", "op_rec_transport"),
+      );
+      vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockRejectedValue(
+        new Error("network down"),
+      );
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_rec_transport");
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-reconcile"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
+      });
+      expect(screen.getByText(/network down/i)).toBeTruthy();
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_rec_transport")).toBe(
+        "op_rec_transport",
+      );
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(uuidSpy).not.toHaveBeenCalled();
+    });
   });
 });

@@ -422,9 +422,12 @@ function acceptResultFromRead(
  * Result-label action classes (response existence ≠ durable journal ownership).
  *
  * - ephemeralAttempt: no journal claim retained — discard attempted ID; allow Accept/Save again
- * - sameOperationRecovery: durable op exists — resume with same ID (reconcile/recover)
+ * - sameOperationRecovery: durable op exists or may exist — resume with same ID
  * - boundDisplay: durable outcome bound to exact identity — no new Accept while shown
  * - terminalFinished: journal slot free — must mint a new UUID via explicit start-new
+ *
+ * `acceptance_blocked` is contextual: fresh pre-claim rejects are ephemeral; blocked
+ * responses from restore/reconcile retain the original ID (journal may already exist).
  */
 type AcceptActionClass =
   | "ephemeralAttempt"
@@ -432,12 +435,22 @@ type AcceptActionClass =
   | "boundDisplay"
   | "terminalFinished";
 
+type AcceptResultOrigin = "fresh" | "recovery";
+
+/** Tunable for tests: bounded restore lookup while an optimistic claim may still be in flight. */
+export const ACCEPT_RESTORE_LOOKUP = {
+  maxAttempts: 3,
+  delayMs: 40,
+};
+
 function acceptActionClass(
   label: AcceptanceResultLabel | null | undefined,
+  origin: AcceptResultOrigin = "fresh",
 ): AcceptActionClass | null {
   if (!label) return null;
   switch (label) {
     case "acceptance_blocked":
+      return origin === "recovery" ? "sameOperationRecovery" : "ephemeralAttempt";
     case "acceptance_busy":
     case "acceptance_history_full":
       return "ephemeralAttempt";
@@ -457,8 +470,11 @@ function acceptActionClass(
 }
 
 /** Suppress Accept/Save while this durable outcome occupies the draft's accept UI. */
-function suppressesNewAccept(label: AcceptanceResultLabel | null | undefined): boolean {
-  const klass = acceptActionClass(label);
+function suppressesNewAccept(
+  label: AcceptanceResultLabel | null | undefined,
+  origin: AcceptResultOrigin = "fresh",
+): boolean {
+  const klass = acceptActionClass(label, origin);
   return (
     klass === "sameOperationRecovery" ||
     klass === "boundDisplay" ||
@@ -466,15 +482,49 @@ function suppressesNewAccept(label: AcceptanceResultLabel | null | undefined): b
   );
 }
 
-/** Persist operation ID only when a journaled operation exists for this draft. */
+/** Persist operation ID when a journaled (or unresolved optimistic) operation must be retained. */
 function shouldPersistAcceptOperationId(
   label: AcceptanceResultLabel | null | undefined,
+  origin: AcceptResultOrigin = "fresh",
 ): boolean {
-  const klass = acceptActionClass(label);
+  const klass = acceptActionClass(label, origin);
   return (
     klass === "sameOperationRecovery" ||
     klass === "boundDisplay" ||
     klass === "terminalFinished"
+  );
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function readAcceptanceOperationWithRetries(
+  draftId: string,
+  operationId: string,
+  isCurrent: () => boolean,
+): Promise<ReadAcceptanceOperationResponseV1 | "cancelled"> {
+  let last: ReadAcceptanceOperationResponseV1 | null = null;
+  for (let attempt = 1; attempt <= ACCEPT_RESTORE_LOOKUP.maxAttempts; attempt++) {
+    if (!isCurrent()) return "cancelled";
+    last = await getAcceptanceOperation(draftId, operationId);
+    if (!isCurrent()) return "cancelled";
+    if (last.operation != null && last.result_label != null) {
+      return last;
+    }
+    if (attempt < ACCEPT_RESTORE_LOOKUP.maxAttempts) {
+      await delay(ACCEPT_RESTORE_LOOKUP.delayMs);
+    }
+  }
+  return (
+    last ?? {
+      schema: "dmb_read_acceptance_operation_response_v1",
+      draft_id: draftId,
+      operation: null,
+      result_label: null,
+    }
   );
 }
 
@@ -501,10 +551,12 @@ function AcceptMechanicsFlow({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [acceptPending, setAcceptPending] = useState(false);
   const [restorePending, setRestorePending] = useState(false);
+  const [existenceUnresolved, setExistenceUnresolved] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [acceptResult, setAcceptResult] = useState<AcceptThreatDraftMechanicsResponseV1 | null>(
     null,
   );
+  const [acceptResultOrigin, setAcceptResultOrigin] = useState<AcceptResultOrigin>("fresh");
   const acceptOperationIdRef = useRef<string | null>(null);
   /** Draft ID that currently owns acceptResult / operation ref / restore UI. */
   const ownedDraftIdRef = useRef<string>("");
@@ -515,9 +567,78 @@ function AcceptMechanicsFlow({
     setConfirmOpen(false);
     setAcceptPending(false);
     setRestorePending(false);
+    setExistenceUnresolved(false);
     setAcceptError(null);
     setAcceptResult(null);
+    setAcceptResultOrigin("fresh");
     acceptOperationIdRef.current = null;
+  };
+
+  const isRestoreGenerationCurrent = (draftId: string, restoreGeneration: number) => {
+    return (
+      restoreGeneration === restoreGenerationRef.current && ownedDraftIdRef.current === draftId
+    );
+  };
+
+  const applyRestoredOperation = (
+    draftId: string,
+    restoreGeneration: number,
+    read: ReadAcceptanceOperationResponseV1,
+  ): boolean => {
+    if (!isRestoreGenerationCurrent(draftId, restoreGeneration)) {
+      return false;
+    }
+    const restored = acceptResultFromRead(read);
+    if (!restored) {
+      return false;
+    }
+    acceptOperationIdRef.current = restored.operation_id;
+    writeStoredAcceptOperationId(draftId, restored.operation_id);
+    setAcceptResultOrigin("recovery");
+    setAcceptResult(restored);
+    setExistenceUnresolved(false);
+    setAcceptError(null);
+    return true;
+  };
+
+  const markExistenceUnresolved = (draftId: string, operationId: string) => {
+    acceptOperationIdRef.current = operationId;
+    writeStoredAcceptOperationId(draftId, operationId);
+    setExistenceUnresolved(true);
+    setAcceptResult(null);
+    setAcceptError(null);
+  };
+
+  const runRestoreLookup = async (draftId: string, storedId: string, restoreGeneration: number) => {
+    acceptOperationIdRef.current = storedId;
+    setRestorePending(true);
+    setExistenceUnresolved(false);
+    setAcceptError(null);
+
+    try {
+      const read = await readAcceptanceOperationWithRetries(draftId, storedId, () =>
+        isRestoreGenerationCurrent(draftId, restoreGeneration),
+      );
+      if (read === "cancelled" || !isRestoreGenerationCurrent(draftId, restoreGeneration)) {
+        return;
+      }
+      if (applyRestoredOperation(draftId, restoreGeneration, read)) {
+        return;
+      }
+      // Miss after bounded retries is not proof the claim will never appear — retain ID.
+      markExistenceUnresolved(draftId, storedId);
+    } catch (error) {
+      if (!isRestoreGenerationCurrent(draftId, restoreGeneration)) {
+        return;
+      }
+      // Transient journal/read failure: keep the optimistic ID and allow retry.
+      markExistenceUnresolved(draftId, storedId);
+      setAcceptError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (isRestoreGenerationCurrent(draftId, restoreGeneration)) {
+        setRestorePending(false);
+      }
+    }
   };
 
   // Pending identity is independent of validation eligibility — only close the confirm sheet.
@@ -546,52 +667,7 @@ function AcceptMechanicsFlow({
       return;
     }
 
-    acceptOperationIdRef.current = storedId;
-    setRestorePending(true);
-
-    void getAcceptanceOperation(draftId, storedId)
-      .then((read) => {
-        if (
-          restoreGeneration !== restoreGenerationRef.current ||
-          ownedDraftIdRef.current !== draftId
-        ) {
-          return;
-        }
-        const restored = acceptResultFromRead(read);
-        if (!restored) {
-          clearStoredAcceptOperationId(draftId);
-          if (
-            ownedDraftIdRef.current === draftId &&
-            acceptOperationIdRef.current === storedId
-          ) {
-            acceptOperationIdRef.current = null;
-          }
-          return;
-        }
-        acceptOperationIdRef.current = restored.operation_id;
-        if (shouldPersistAcceptOperationId(restored.result_label)) {
-          writeStoredAcceptOperationId(draftId, restored.operation_id);
-        }
-        setAcceptResult(restored);
-      })
-      .catch((error) => {
-        if (
-          restoreGeneration !== restoreGenerationRef.current ||
-          ownedDraftIdRef.current !== draftId
-        ) {
-          return;
-        }
-        setAcceptError(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        // Always release restorePending for this generation when it still owns the UI.
-        if (
-          restoreGeneration === restoreGenerationRef.current &&
-          ownedDraftIdRef.current === draftId
-        ) {
-          setRestorePending(false);
-        }
-      });
+    void runRestoreLookup(draftId, storedId, restoreGeneration);
 
     return () => {
       // Cancellation always releases restorePending (draft change / unmount / Strict Mode).
@@ -607,11 +683,15 @@ function AcceptMechanicsFlow({
   };
 
   const resetAcceptSession = () => {
-    // Cancel only the pre-submit confirm sheet. Keep durable/restored operation identity.
+    // Cancel only the pre-submit confirm sheet. Keep durable/restored/unresolved identity.
     setConfirmOpen(false);
     setAcceptPending(false);
     setAcceptError(null);
-    if (!acceptResult || acceptActionClass(acceptResult.result_label) === "ephemeralAttempt") {
+    if (
+      !existenceUnresolved &&
+      (!acceptResult ||
+        acceptActionClass(acceptResult.result_label, acceptResultOrigin) === "ephemeralAttempt")
+    ) {
       acceptOperationIdRef.current = null;
     }
   };
@@ -623,6 +703,8 @@ function AcceptMechanicsFlow({
     }
     acceptOperationIdRef.current = null;
     setAcceptResult(null);
+    setAcceptResultOrigin("fresh");
+    setExistenceUnresolved(false);
     setAcceptError(null);
     setConfirmOpen(false);
     setAcceptPending(false);
@@ -633,6 +715,7 @@ function AcceptMechanicsFlow({
     requestGeneration: number,
     response: AcceptThreatDraftMechanicsResponseV1,
     fallbackOperationId: string,
+    origin: AcceptResultOrigin,
   ) => {
     if (
       requestGeneration !== acceptRequestGenerationRef.current ||
@@ -642,13 +725,16 @@ function AcceptMechanicsFlow({
     }
     const operationId = response.operation_id || fallbackOperationId;
     const label = response.result_label;
-    if (shouldPersistAcceptOperationId(label)) {
+    setAcceptResultOrigin(origin);
+    if (shouldPersistAcceptOperationId(label, origin)) {
       acceptOperationIdRef.current = operationId;
       writeStoredAcceptOperationId(draftId, operationId);
+      setExistenceUnresolved(false);
     } else {
-      // Ephemeral attempt: do not retain a nonexistent / non-active journal ID.
+      // Fresh ephemeral attempt: do not retain a nonexistent / non-active journal ID.
       clearStoredAcceptOperationId(draftId);
       acceptOperationIdRef.current = null;
+      setExistenceUnresolved(false);
     }
     setAcceptResult(response);
     setConfirmOpen(false);
@@ -656,6 +742,10 @@ function AcceptMechanicsFlow({
 
   const runAccept = async () => {
     if (!preview || !eligible) return;
+    // Never mint/replace while an optimistic or restored operation is unresolved.
+    if (existenceUnresolved || suppressesNewAccept(acceptResult?.result_label, acceptResultOrigin)) {
+      return;
+    }
 
     const draftId = normalizedDraftId;
     const expectedVersion = Number(draftVersionInput);
@@ -667,7 +757,7 @@ function AcceptMechanicsFlow({
     const operationId = ensureOperationId();
     const requestGeneration = ++acceptRequestGenerationRef.current;
     // Persist optimistically so reload during the request can restore if the journal claimed.
-    // Ephemeral outcomes clear this key in applyAcceptResponseForDraft.
+    // Fresh ephemeral outcomes clear this key in applyAcceptResponseForDraft.
     writeStoredAcceptOperationId(draftId, operationId);
     setAcceptPending(true);
     setAcceptError(null);
@@ -682,12 +772,14 @@ function AcceptMechanicsFlow({
         source_candidate_id: sourceCandidateId,
         change_summary: "Accepted via Statblock Workbench",
       });
-      applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId);
+      applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId, "fresh");
     } catch (error) {
       if (
         requestGeneration === acceptRequestGenerationRef.current &&
         ownedDraftIdRef.current === draftId
       ) {
+        // Transport failure after optimistic persist: keep ID; existence may be unresolved.
+        markExistenceUnresolved(draftId, operationId);
         setAcceptError(error instanceof Error ? error.message : String(error));
       }
     } finally {
@@ -711,12 +803,16 @@ function AcceptMechanicsFlow({
     try {
       // recover_acceptance_operation drives unknown, pending attach, and same-op recovery.
       const response = await reconcileAcceptanceOperation(draftId, operationId);
-      applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId);
+      applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId, "recovery");
     } catch (error) {
       if (
         requestGeneration === acceptRequestGenerationRef.current &&
         ownedDraftIdRef.current === draftId
       ) {
+        // Transient reconcile failure: preserve operation ID for retry.
+        acceptOperationIdRef.current = operationId;
+        writeStoredAcceptOperationId(draftId, operationId);
+        setExistenceUnresolved(true);
         setAcceptError(error instanceof Error ? error.message : String(error));
       }
     } finally {
@@ -729,12 +825,21 @@ function AcceptMechanicsFlow({
     }
   };
 
+  const onRetryLookup = async () => {
+    const draftId = normalizedDraftId;
+    const operationId = acceptOperationIdRef.current ?? readStoredAcceptOperationId(draftId);
+    if (!draftId || !operationId || ownedDraftIdRef.current !== draftId) return;
+    const restoreGeneration = ++restoreGenerationRef.current;
+    await runRestoreLookup(draftId, operationId, restoreGeneration);
+  };
+
   const resultLabel = acceptResult?.result_label ?? null;
-  const actionClass = acceptActionClass(resultLabel);
-  const blocksNewAccept = suppressesNewAccept(resultLabel);
+  const actionClass = acceptActionClass(resultLabel, acceptResultOrigin);
+  const blocksNewAccept =
+    existenceUnresolved || suppressesNewAccept(resultLabel, acceptResultOrigin);
   const showAcceptEntry = eligible && !blocksNewAccept && !restorePending;
 
-  if (restorePending && !acceptResult) {
+  if (restorePending && !acceptResult && !existenceUnresolved) {
     return (
       <p className="module-muted" role="status" data-testid="accept-mechanics-restoring">
         Restoring acceptance operation…
@@ -769,7 +874,10 @@ function AcceptMechanicsFlow({
               type="button"
               onClick={() => {
                 // Drop ephemeral attempt copy when starting a fresh confirm sheet.
-                if (acceptActionClass(acceptResult?.result_label) === "ephemeralAttempt") {
+                if (
+                  acceptActionClass(acceptResult?.result_label, acceptResultOrigin) ===
+                  "ephemeralAttempt"
+                ) {
                   setAcceptResult(null);
                   acceptOperationIdRef.current = null;
                 }
@@ -826,6 +934,41 @@ function AcceptMechanicsFlow({
         </p>
       ) : null}
 
+      {existenceUnresolved ? (
+        <section
+          className="statblock-section"
+          role="status"
+          data-testid="accept-existence-unresolved"
+        >
+          <p className="module-muted">
+            Stored acceptance operation is not yet visible in the journal (claim may still be in
+            flight, or the journal read failed transiently). The operation id is retained — do not
+            start a new acceptance attempt.
+          </p>
+          <p className="module-muted">
+            Operation: <code>{acceptOperationIdRef.current}</code>
+          </p>
+          <div className="statblock-command-row">
+            <button
+              type="button"
+              disabled={acceptPending || restorePending}
+              onClick={() => void onRetryLookup()}
+              data-testid="accept-mechanics-retry-lookup"
+            >
+              {restorePending ? "Looking up…" : "Retry lookup"}
+            </button>
+            <button
+              type="button"
+              disabled={acceptPending || restorePending}
+              onClick={() => void onResumeAcceptance()}
+              data-testid="accept-mechanics-resume-unresolved"
+            >
+              {acceptPending ? "Resuming…" : "Resume acceptance"}
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {acceptResult ? (
         <section className="statblock-section" role="status" data-accept-result={resultLabel ?? ""}>
           {resultLabel === "mechanics_saved" ? (
@@ -879,11 +1022,23 @@ function AcceptMechanicsFlow({
           ) : null}
 
           {resultLabel === "acceptance_input_conflict" ||
-          resultLabel === "acceptance_draft_unavailable" ? (
+          resultLabel === "acceptance_draft_unavailable" ||
+          (resultLabel === "acceptance_blocked" && acceptResultOrigin === "recovery") ? (
             <>
-              <p className="statblock-command-error" role="alert">
+              <p
+                className="statblock-command-error"
+                role="alert"
+                data-testid={
+                  resultLabel === "acceptance_blocked"
+                    ? "accept-blocked-recovery"
+                    : "accept-same-op-block"
+                }
+              >
                 Accept blocked: {acceptResult.message ?? resultLabel}
                 {acceptResult.failure_category ? ` (${acceptResult.failure_category})` : ""}
+                {resultLabel === "acceptance_blocked"
+                  ? " The original operation id is retained — retry the same operation."
+                  : ""}
               </p>
               <button
                 type="button"
@@ -905,9 +1060,9 @@ function AcceptMechanicsFlow({
             </p>
           ) : null}
 
-          {resultLabel === "acceptance_blocked" ||
-          resultLabel === "acceptance_busy" ||
-          resultLabel === "acceptance_history_full" ? (
+          {(resultLabel === "acceptance_busy" ||
+            resultLabel === "acceptance_history_full" ||
+            (resultLabel === "acceptance_blocked" && acceptResultOrigin === "fresh")) ? (
             <p className="statblock-command-error" role="alert" data-testid="accept-ephemeral-block">
               Accept blocked: {acceptResult.message ?? resultLabel}
               {acceptResult.failure_category ? ` (${acceptResult.failure_category})` : ""}
