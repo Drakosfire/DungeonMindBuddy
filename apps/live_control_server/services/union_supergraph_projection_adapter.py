@@ -557,10 +557,19 @@ def _load_focus_recap_markdown_from_store(
     return _strip_yaml_frontmatter(input_path.read_text(encoding="utf-8"))
 
 
-def _load_corpus_normalized_recap_markdown(*, campaign_id: str, session_id: str) -> str | None:
+class CorpusNormalizedRecapLoadError(ValueError):
+    """Fail-closed corpus recap identity/read error for World Graph recap projection."""
+
+    def __init__(self, message: str, *, code: str, status_code: int) -> None:
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+
+
+def _normalized_recap_candidates(*, campaign_id: str, session_id: str) -> list[Path]:
     match = re.fullmatch(r"session-(\d+)", session_id.strip())
     if not match:
-        return None
+        return []
     session = int(match.group(1))
     campaign_number = campaign_number_from_id(campaign_id)
     normalized_dir = (
@@ -568,13 +577,54 @@ def _load_corpus_normalized_recap_markdown(*, campaign_id: str, session_id: str)
         / f"Longmont Campaign/Campaign {campaign_number}/Session Recaps/_normalized"
     )
     if not normalized_dir.is_dir():
-        return None
+        return []
     candidates = sorted(normalized_dir.glob(f"Session {session:02d} - *.md"))
     if not candidates:
         candidates = sorted(normalized_dir.glob(f"Session {session} - *.md"))
+    return candidates
+
+
+def load_corpus_normalized_recap_markdown(
+    *,
+    campaign_id: str,
+    session_id: str,
+    on_ambiguous: str = "first",
+) -> str | None:
+    """Load stripped body markdown for a campaign session's normalized recap.
+
+    ``on_ambiguous``:
+      - ``first``: legacy first-file-wins (union/preview callers).
+      - ``fail``: raise ``CorpusNormalizedRecapLoadError`` with
+        ``recap_source_ambiguous`` when more than one candidate matches.
+    """
+    candidates = _normalized_recap_candidates(
+        campaign_id=campaign_id,
+        session_id=session_id,
+    )
     if not candidates:
         return None
-    return _strip_yaml_frontmatter(candidates[0].read_text(encoding="utf-8"))
+    if len(candidates) > 1 and on_ambiguous == "fail":
+        names = ", ".join(path.name for path in candidates)
+        raise CorpusNormalizedRecapLoadError(
+            (
+                f"Ambiguous normalized recap identity for {campaign_id} {session_id}: "
+                f"{names}"
+            ),
+            code="recap_source_ambiguous",
+            status_code=422,
+        )
+    try:
+        return _strip_yaml_frontmatter(candidates[0].read_text(encoding="utf-8"))
+    except UnicodeDecodeError as exc:
+        raise CorpusNormalizedRecapLoadError(
+            f"Normalized recap is not valid UTF-8 for {campaign_id} {session_id}.",
+            code="recap_source_unreadable",
+            status_code=500,
+        ) from exc
+
+
+# Retained alias for in-module call sites (legacy first-file-wins behavior).
+_load_corpus_normalized_recap_markdown = load_corpus_normalized_recap_markdown
 
 
 def _strip_yaml_frontmatter(markdown: str) -> str:

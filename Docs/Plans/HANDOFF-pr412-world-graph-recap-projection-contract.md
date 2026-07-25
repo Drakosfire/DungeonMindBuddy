@@ -1,11 +1,12 @@
-# HANDOFF — PR #411 / PR380A World Graph recap projection contract
+# HANDOFF — PR #412 / PR380A World Graph recap projection contract
 
 **Created:** 2026-07-25, America/Denver  
 **Status:** ACTIVE — dispatch exactly one reconstitution capability from PR #380.  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-pr411-world-graph-recap-projection-contract.md`  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-pr412-world-graph-recap-projection-contract.md`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Implementation base:** `0165d5e16efbc561e86fa942e3827ca78058fc18`  
-**Suggested branch:** `agent/pr411-pr380a-world-graph-recap-projection`  
+**Suggested branch:** `agent/pr412-pr380a-world-graph-recap-projection`  
+**Planned PR number:** `#412` (next free after open `#411` BLD-10a). If GitHub assigns a different number, rename this handoff/branch to match and continue — do not stop.  
 **Source branch for selective reconstruction:** PR #380, head `8a60fe33efff4a8925eb741275d8fd70302cd863`  
 **Roadmap anchor:** `Docs/Roadmaps/ROADMAP-cross-surface-statblock-demo.md` — `DEMO-00` and the read-contract foundation of `DEMO-01`  
 **Product anchor:** GitHub issue #410 — Cross-surface World Graph + hoisted agent continuity demo  
@@ -256,7 +257,7 @@ Every changed path must appear below or be admitted by the bounded discovery exc
 
 | Action | Path | Purpose: how this establishes or proves §1 |
 |---|---|---|
-| Create | `Docs/Plans/HANDOFF-pr411-world-graph-recap-projection-contract.md` | Canonical dispatch authority for PR #411 / PR380A |
+| Create | `Docs/Plans/HANDOFF-pr412-world-graph-recap-projection-contract.md` | Canonical dispatch authority for PR #412 / PR380A |
 | Create | `src/graph_memory/projection/world_recap_projection.py` | Own the versioned recap response schema, trust boundary, mention diagnostic vocabulary, and pure deterministic node/mention adaptation contract |
 | Modify | `src/graph_memory/projection/__init__.py` | Export only the new public projection models/helpers required by service/tests, if repository style requires it |
 | Create | `apps/live_control_server/services/world_graph_recap_projection.py` | Validate recap-specific request constraints, call the generic World Graph service exactly once, read the canonical recap, adapt exact graph state, and produce the response |
@@ -542,7 +543,7 @@ uv run ruff check \
 git diff --check
 
 git diff --stat 0165d5e16efbc561e86fa942e3827ca78058fc18...HEAD -- \
-  Docs/Plans/HANDOFF-pr411-world-graph-recap-projection-contract.md \
+  Docs/Plans/HANDOFF-pr412-world-graph-recap-projection-contract.md \
   src/graph_memory/projection/world_recap_projection.py \
   src/graph_memory/projection/__init__.py \
   apps/live_control_server/services/world_graph_recap_projection.py \
@@ -705,7 +706,7 @@ Stop and report rather than broadening the slice when implementation discovers:
 - a required path falls outside §4 and the bounded exception;
 - active Build/statblock work introduces a conflicting API/type contract;
 - a baseline failure requires operator waiver;
-- the planned PR number #411 is no longer available before the handoff lands.
+- (PR number collision is not a stop — rename handoff/branch to the opened number and continue.)
 
 Use this report:
 
