@@ -9,6 +9,7 @@ interface GraphReviewExactRunSummary {
   documentId: string | null;
   revision: number | null;
   reviewable: boolean;
+  promotable?: boolean;
 }
 
 interface GraphReviewWorkbenchHeaderProps {

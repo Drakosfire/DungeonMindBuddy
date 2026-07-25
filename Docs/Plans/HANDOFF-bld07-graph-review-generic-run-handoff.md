@@ -14,19 +14,20 @@ not silent scope expansion**. The implementation reached that boundary:
 
 - **Why the existing sealed inputs are insufficient:** `prepare_extract_promote`
   is the only seam that stamps an evidence domain onto the sealed contribution,
-  and it hardcoded `source_domain="recap"`. Every worldbuilding assertion would
-  otherwise be sealed and merged into the World Supergraph labeled as recap
-  evidence. No caller-visible input could express the run's real domain.
+  and it hardcoded `source_domain="recap"`. A future promote-eligible non-recap
+  domain would otherwise seal as recap evidence. No caller-visible input could
+  express the run's real domain.
 - **What changed:** one additive keyword-only parameter, `source_domain: str = "recap"`,
   passed through to the existing identity gate. Contribution identity, candidate
   mapping, identity resolution, merge/retraction rules, and graph-head commit
   behavior are untouched, and the default preserves every existing caller.
-- **Proof:** `test_prepare_confirm_exact_worldbuilding_extraction_run` asserts the
-  sealed package carries exactly `{"worldbuilding"}`;
-  `test_recap_prepare_still_seals_recap_source_domain` asserts recap runs still
-  seal `recap` and never `worldbuilding`.
+- **Capability narrowing (REQUEST CHANGES):** worldbuilding ExtractionRuns are
+  inspect-only in this slice (`promotable=false`, prepare `not_promote_eligible`).
+  They do **not** exercise prepare/confirm publication. Recap prepare still seals
+  `recap` (`test_recap_prepare_still_seals_recap_source_domain`).
 - **Requires:** explicit operator/architecture sign-off on this one parameter
-  before merge. It is disclosed here and in the PR body rather than absorbed.
+  before merge (or waive now that worldbuilding publication is out of scope).
+  It is disclosed here and in the PR body rather than absorbed.
 
 ## Bounded discovery report (§4)
 
@@ -49,19 +50,24 @@ BLD-06, and no new public response field was required).
 | Add a second promotion service or protocol | No — prohibited duplicate authority | Yes | Reject |
 | Add Hermes writes | Yes | Yes | Successor |
 
-**Selected capability:** Graph Review can bind an exact source-domain-neutral run
-to the existing governed prepare/confirm flow without changing Kernel semantics.
+**Selected capability:** Graph Review can bind an exact ExtractionRun for
+inspectable source/evidence review. Recap (promote-eligible) runs may use the
+existing prepare/confirm publication path. Worldbuilding runs stamped
+`worldbuilding_draft` are inspect-only until an approved authority-elevation
+contract (BLD-08+) lands — this slice does not claim worldbuilding publication.
 
 ## §1 Mission
 
-Graph Review can load an exact recap or worldbuilding ExtractionRun, display its
-source/evidence context without a fabricated session lens, and use the existing
-revision-bound prepare/confirm publication path to commit selected assertions to
-the World Supergraph.
+Graph Review can load an exact recap or worldbuilding ExtractionRun and display
+its source/evidence context without a fabricated session lens. Promote-eligible
+recap runs may use the existing revision-bound prepare/confirm path to commit
+selected assertions to the World Supergraph. Worldbuilding ExtractionRuns are
+reviewable for inspection but project `promotable=false` and reject prepare with
+`not_promote_eligible` — they do not advance the graph head in this slice.
 
 **Invariant:** the browser selects an exact server-resolved run and assertions;
 only the existing Graph Review confirmation boundary and shared Kernel ops may
-advance the graph head.
+advance the graph head; worldbuilding_draft never silently becomes played_canon.
 
 ## §2 Context, authority, and boundaries
 
@@ -312,11 +318,19 @@ git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD
 
 ```text
 Existing surface: Graph Review
-Scenario: open one exact sessionless worldbuilding run, inspect source evidence,
+Scenario A (recap publication — unchanged): open one exact promote-eligible
+recap run (graph-ingest or exact recap ExtractionRun), inspect source evidence,
 select one assertion, prepare, confirm, reload exact committed revision, then
 exercise stale proposal and already-applied receipt paths.
 Expected: existing Kernel path is reused; only selected assertions commit; no
 session/latest-run is invented; commit and reload truth are distinct.
+
+Scenario B (worldbuilding inspect-only — BLD-07 narrowed): open one exact
+sessionless worldbuilding ExtractionRun stamped worldbuilding_draft, inspect
+source evidence / assertions, confirm the UI shows a clear non-promotable
+state with no Review & merge action, and confirm prepare rejects with
+not_promote_eligible without advancing the head.
+Expected: no worldbuilding → played_canon publication in this slice.
 ```
 
 ## §8 Required handback
@@ -335,6 +349,11 @@ semantics and ownership were unchanged.
 - [ ] Selection/evidence/proposal/revision identities remain exact and distinct.
 - [ ] Stale/rejected/invalid proposals cannot advance the head.
 - [ ] Post-commit reload truthfully distinguishes commit success from read degradation.
+- [ ] Worldbuilding ExtractionRuns are inspect-only: review-package projects
+      `promotable=false`, UI hides merge, prepare returns `not_promote_eligible`.
+- [ ] Fixtures stamp real worldbuilding_draft semantics (not synthetic played_canon).
+- [ ] Evidence validation loads the run-pinned `source_span_index` component path.
+- [ ] Unexpected 500 responses never echo raw exception text to HTTP clients.
 - [ ] No second promotion service/protocol or Build commit action exists.
 - [ ] Only §4 and approved discovery paths changed.
 

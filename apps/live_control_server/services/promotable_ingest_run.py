@@ -82,6 +82,10 @@ class PromotableIngestRun:
     registry_context_graph_path: Path | None = None
     diagnostics: list[str] = field(default_factory=list)
     source_domain: str = "recap"
+    # Exact ExtractionRun path: the run-pinned source_span_index component path.
+    # Review/prepare must load this URI — never re-derive the registry canonical
+    # index from source_artifact_id alone.
+    source_span_index_path: Path | None = None
 
 
 def ingest_runs_artifact_root(root: Path | None = None) -> Path:
@@ -376,6 +380,9 @@ def _resolve_promotable_extraction_run(
     source_path = _resolve_extraction_component_path(
         repo, run.components["source_artifact"].uri, label="source_artifact"
     )
+    span_index_path = _resolve_extraction_component_path(
+        repo, run.components["source_span_index"].uri, label="source_span_index"
+    )
 
     source_revision_id = _normalize_digest(artifact.content_sha256)
     if not source_revision_id:
@@ -411,6 +418,7 @@ def _resolve_promotable_extraction_run(
             f"session_scope={'null' if not (run.session_id or '').strip() else 'session'}",
         ],
         source_domain=(run.source_domain or "worldbuilding").strip() or "worldbuilding",
+        source_span_index_path=span_index_path,
     )
 
 

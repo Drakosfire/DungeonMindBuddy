@@ -1134,86 +1134,69 @@ def test_path_contract_still_rejects_world_store_sources(world_client) -> None:
     assert "world graph store" in str(exc.value) or "ingest-run" in str(exc.value)
 
 
-def test_prepare_confirm_exact_campaignless_worldbuilding_run(world_client) -> None:
-    """Campaignless exact runs prepare/confirm without inventing campaign scope."""
+def test_campaignless_worldbuilding_run_is_inspect_only(world_client) -> None:
+    """Campaignless worldbuilding loads for review but cannot prepare/confirm."""
     from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
 
     client, world_root, repo, *_rest = world_client
     run_id, _source = _write_reviewable_extraction_run(
         repo, campaign_id=None, candidate_campaign_id=None
     )
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    body = review.json()
+    assert body.get("campaignId") in (None, "")
+    assert body.get("sessionId") in (None, "")
+    assert body["promotable"] is False
+    assert "inspect-only" in (body.get("promotableReason") or "").lower()
+
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     prepare = client.post(
         PREPARE_URL,
         json=_prepare_body(run_id, node_ids=["obj_session22_vial", "mystery_puddles"]),
     )
-    assert prepare.status_code == 200, prepare.text
-    prepared = prepare.json()
-    assert prepared.get("campaignId") in (None, "")
-    assert prepared.get("sessionId") in (None, "")
-    package = prepared["reviewPackage"]
-    assertion_ids = _selectable_assertion_ids(prepared)
-    assert assertion_ids
-    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
-    confirm = client.post(CONFIRM_URL, json=_confirm_body(package, assertion_ids))
-    assert confirm.status_code == 200, confirm.text
-    confirmed = confirm.json()
-    # Campaignless publishes may degrade audit while still advancing head —
-    # that is the degraded-read contract for sessionless/campaignless runs.
-    assert confirmed["outcome"] in {"committed", "published_audit_degraded"}
-    assert confirmed["committedRevisionId"]
+    assert prepare.status_code == 422, prepare.text
+    assert prepare.json()["code"] == "not_promote_eligible"
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
-    assert head_after != head_before
-    assert confirmed["committedRevisionId"] == head_after
-    if confirmed["outcome"] == "published_audit_degraded":
-        assert confirmed["auditStatus"] == "degraded"
-
-    replay = client.post(CONFIRM_URL, json=_confirm_body(package, assertion_ids))
-    assert replay.status_code == 200, replay.text
-    assert replay.json()["outcome"] == "already_applied"
-    assert replay.json()["headAdvanced"] is False
-    assert (
-        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
-        == head_after
-    )
+    assert head_after == head_before
 
 
-def test_prepare_confirm_exact_worldbuilding_extraction_run(world_client) -> None:
-    """Product prepare remains runId-only for canonical ExtractionRun IDs."""
+def test_prepare_rejects_worldbuilding_draft_extraction_run(world_client) -> None:
+    """Real worldbuilding-profile semantics are inspect-only — not publishable."""
     from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
 
     client, world_root, repo, *_rest = world_client
     run_id, _source = _write_reviewable_extraction_run(repo)
+
+    # Fixture stamps the profile's worldbuilding_draft semantic, not played_canon.
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    candidate = json.loads(resolved.candidate_graph_path.read_text(encoding="utf-8"))
+    assert candidate["nodes"][0]["semantic_state"]["canon_state"] == "worldbuilding_draft"
+
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    assert review.json()["promotable"] is False
+
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     prepare = client.post(
         PREPARE_URL,
         json=_prepare_body(run_id, node_ids=["obj_session22_vial", "mystery_puddles"]),
     )
-    assert prepare.status_code == 200, prepare.text
-    prepared = prepare.json()
-    assert prepared["runId"] == run_id
-    assert prepared["campaignId"] == CAMPAIGN_ID
-    assert prepared.get("sessionId") in (None, "")
-    package = prepared["reviewPackage"]
-    sealed_uri = package["effect"]["verified_source_uri"]
-    assert sealed_uri.startswith("repo://out/graph_memory/runs/")
-    # The run's own domain is sealed into the proposal; recap is never assumed.
-    assert _sealed_source_domains(package) == {"worldbuilding"}
-    assertion_ids = _selectable_assertion_ids(prepared)
-    assert assertion_ids
-    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
-    confirm = client.post(CONFIRM_URL, json=_confirm_body(package, assertion_ids))
-    assert confirm.status_code == 200, confirm.text
-    confirmed = confirm.json()
-    assert confirmed["outcome"] == "committed"
+    assert prepare.status_code == 422, prepare.text
+    body = prepare.json()
+    assert body["code"] == "not_promote_eligible"
+    assert "worldbuilding" in body["message"].lower()
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
-    assert head_after != head_before
+    assert head_after == head_before
 
 
-def test_exact_worldbuilding_confirm_replay_is_a_truthful_no_op(world_client) -> None:
+def test_exact_recap_confirm_replay_is_a_truthful_no_op(world_client) -> None:
     """Response-loss retry reuses the existing receipt; the head advances once."""
-    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
-
-    client, world_root, repo, *_rest = world_client
-    run_id, _source = _write_reviewable_extraction_run(repo)
+    client, world_root, _repo, run_id, *_rest = world_client
     prepare = client.post(
         PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
     )
@@ -1238,12 +1221,9 @@ def test_exact_worldbuilding_confirm_replay_is_a_truthful_no_op(world_client) ->
     )
 
 
-def test_exact_worldbuilding_confirm_rejects_tampered_package(world_client) -> None:
-    """A generic run gets the same sealed-proposal protection as a recap run."""
-    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
-
-    client, world_root, repo, *_rest = world_client
-    run_id, _source = _write_reviewable_extraction_run(repo)
+def test_exact_recap_confirm_rejects_tampered_package(world_client) -> None:
+    """Sealed-proposal protection remains for the recap publication path."""
+    client, world_root, _repo, run_id, *_rest = world_client
     prepare = client.post(
         PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
     )
@@ -1305,6 +1285,8 @@ def test_exact_run_review_package_includes_source_prose_and_evidence(
     assert body["sourceDomain"] == "worldbuilding"
     assert body.get("campaignId") in (None, "")
     assert body.get("sessionId") in (None, "")
+    assert body["promotable"] is False
+    assert body.get("promotableReason")
     assert "Worldbuilding source for promote." in body["sourceProse"]
     assert body["sourceProse"] == source.read_text(encoding="utf-8")
     assert body["assertions"]
@@ -1463,7 +1445,9 @@ def test_prepare_rejects_campaign_invention_for_campaignless_extraction_run(
     assert "invents a campaign" in body["message"]
 
 
-def test_prepare_permits_both_campaignless_extraction_run(world_client) -> None:
+def test_prepare_rejects_both_campaignless_worldbuilding_extraction_run(
+    world_client,
+) -> None:
     from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
 
     client, _world, repo, *_rest = world_client
@@ -1475,13 +1459,11 @@ def test_prepare_permits_both_campaignless_extraction_run(world_client) -> None:
     response = client.post(
         PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
     )
-    assert response.status_code == 200, response.text
-    prepared = response.json()
-    assert prepared.get("campaignId") in (None, "")
-    assert prepared.get("sessionId") in (None, "")
+    assert response.status_code == 422
+    assert response.json()["code"] == "not_promote_eligible"
 
 
-def test_prepare_permits_campaign_bound_extraction_run_with_matching_candidate(
+def test_prepare_rejects_campaign_bound_worldbuilding_extraction_run(
     world_client,
 ) -> None:
     from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
@@ -1491,8 +1473,8 @@ def test_prepare_permits_campaign_bound_extraction_run_with_matching_candidate(
     response = client.post(
         PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
     )
-    assert response.status_code == 200, response.text
-    assert response.json()["campaignId"] == CAMPAIGN_ID
+    assert response.status_code == 422
+    assert response.json()["code"] == "not_promote_eligible"
 
 
 def test_prepare_rejects_campaign_bound_run_with_missing_candidate_campaign(
@@ -1522,3 +1504,69 @@ def test_prepare_rejects_campaign_bound_run_with_different_candidate_campaign(
     response = client.post(PREPARE_URL, json=_prepare_body(run_id))
     assert response.status_code == 422
     assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_maps_missing_world_graph_head_to_world_not_initialized(
+    world_client,
+) -> None:
+    """Missing head is a diagnosable 409, not an opaque 500."""
+    client, world_root, _repo, run_id, *_rest = world_client
+    head = world_root / "graph_memory" / "worlds" / WORLD_ID / "head.json"
+    assert head.is_file()
+    head.unlink()
+
+    response = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert response.status_code == 409, response.text
+    body = response.json()
+    assert body["code"] == "world_not_initialized"
+    assert "not initialized" in body["message"].lower()
+    # Public diagnostics must stay non-sensitive (no traceback / absolute paths).
+    for item in body.get("diagnostics") or []:
+        message = str(item.get("message") or "")
+        assert "Traceback" not in message
+        assert "/tmp/" not in message
+
+
+def test_review_package_uses_run_pinned_span_index_component(world_client) -> None:
+    """Evidence validation must follow the run-pinned span-index URI, not the registry canonical path."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, pin_noncanonical_span_index=True
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        source_span_index_path,
+    )
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.source_span_index_path is not None
+    assert resolved.source_span_index_path.name == "alt_source_span_index.json"
+    pinned_span_id = json.loads(
+        resolved.source_span_index_path.read_text(encoding="utf-8")
+    )["spans"][0]["source_span_id"]
+    canonical_ids = {
+        span["source_span_id"]
+        for span in json.loads(
+            source_span_index_path(repo, resolved.source_artifact_id).read_text(
+                encoding="utf-8"
+            )
+        )["spans"]
+    }
+    assert pinned_span_id not in canonical_ids
+
+    response = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["assertions"]
+    evidence_span_ids = {
+        item["evidence"][0]["sourceSpanRefId"]
+        for item in body["assertions"]
+        if item.get("evidence")
+    }
+    assert pinned_span_id in evidence_span_ids

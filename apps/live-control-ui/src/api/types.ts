@@ -3096,6 +3096,9 @@ export interface ExactRunReviewPackage {
   sourceProse: string;
   assertions: ExactRunReviewAssertion[];
   diagnostics: string[];
+  /** False for worldbuilding_draft inspect-only runs (BLD-07 narrowed). */
+  promotable?: boolean;
+  promotableReason?: string | null;
 }
 
 export interface ExtractPromotePrepareRequest {

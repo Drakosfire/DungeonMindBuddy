@@ -651,6 +651,17 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   };
 
   const exactRunReviewable = exactRun?.status === "reviewable";
+  const exactRunPromotable =
+    exactRunReviewable
+    && exactReview?.promotable !== false
+    && (exactRun?.source_domain ?? "").trim() !== "worldbuilding";
+  const exactRunNonPromotableReason =
+    exactReview?.promotableReason?.trim()
+    || (
+      (exactRun?.source_domain ?? "").trim() === "worldbuilding"
+        ? "Worldbuilding ExtractionRuns are inspect-only until an approved authority-elevation contract lands."
+        : null
+    );
   const exactRunSummary =
     exactHandoff && exactRun
       ? {
@@ -664,11 +675,12 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           documentId: exactLineage?.documentId ?? null,
           revision: exactLineage?.revision ?? null,
           reviewable: exactRunReviewable,
+          promotable: exactRunPromotable,
         }
       : null;
 
   const onPrepareExactRun = useCallback(async () => {
-    if (!exactHandoff || !exactRunReviewable || exactPreparing || exactConfirmInFlight) return;
+    if (!exactHandoff || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
     setExactPreparing(true);
     setExactPrepareError(null);
     try {
@@ -701,7 +713,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     } finally {
       setExactPreparing(false);
     }
-  }, [exactConfirmInFlight, exactHandoff, exactPreparing, exactRunReviewable]);
+  }, [exactConfirmInFlight, exactHandoff, exactPreparing, exactRunPromotable]);
 
   if (!sessionsLoaded && !exactHandoff) {
     return (
@@ -798,6 +810,11 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
                 <p data-testid="graph-review-exact-run-unreviewable">
                   Run status is <code>{exactRun!.status}</code> and is not reviewable for
                   promotion.
+                </p>
+              ) : !exactRunPromotable ? (
+                <p data-testid="graph-review-exact-run-not-promotable">
+                  {exactRunNonPromotableReason
+                    ?? "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."}
                 </p>
               ) : exactReviewStatus === "error" ? null : (
                 <div className="graph-review-extract-promote-actions">

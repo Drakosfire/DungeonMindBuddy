@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -157,10 +158,13 @@ def post_extract_promote_prepare(
         response = prepare(request)
     except ExtractPromoteError as exc:
         return _error_response(exc)
-    except Exception as exc:
-        # Uvicorn access logs only show the 500 line; force the real cause onto
-        # the error logger and into diagnostics so dogfood isn't opaque.
-        logger.exception("extract-promote prepare failed unexpectedly")
+    except Exception:
+        # Log the full traceback server-side; never echo exception text to clients.
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.exception(
+            "extract-promote prepare failed unexpectedly correlation_id=%s",
+            correlation_id,
+        )
         return _error_response(
             ExtractPromoteError(
                 "The extract-promote prepare operation failed unexpectedly.",
@@ -168,8 +172,8 @@ def post_extract_promote_prepare(
                 status_code=500,
                 diagnostics=[
                     ExtractPromoteDiagnostic(
-                        code="unexpected_exception",
-                        message=f"{type(exc).__name__}: {exc}",
+                        code="internal_error",
+                        message=f"Internal error. Reference: {correlation_id}",
                         severity="error",
                     )
                 ],
@@ -188,8 +192,12 @@ def post_extract_promote_confirm(
         response = confirm(request)
     except ExtractPromoteError as exc:
         return _error_response(exc)
-    except Exception as exc:
-        logger.exception("extract-promote confirm failed unexpectedly")
+    except Exception:
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.exception(
+            "extract-promote confirm failed unexpectedly correlation_id=%s",
+            correlation_id,
+        )
         return _error_response(
             ExtractPromoteError(
                 "The extract-promote confirm operation failed unexpectedly.",
@@ -197,8 +205,8 @@ def post_extract_promote_confirm(
                 status_code=500,
                 diagnostics=[
                     ExtractPromoteDiagnostic(
-                        code="unexpected_exception",
-                        message=f"{type(exc).__name__}: {exc}",
+                        code="internal_error",
+                        message=f"Internal error. Reference: {correlation_id}",
                         severity="error",
                     )
                 ],

@@ -387,18 +387,46 @@ def _paragraph_for_span(source_lines: list[str], *, start_line: int, end_line: i
 
 
 def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
-    """Load the SourceSpanIndex bound to the resolved run's SourceArtifact.
+    """Load the SourceSpanIndex pinned by the resolved ExtractionRun component.
 
-    Unavailable index is a blocking failure for ExtractionRun-backed review and
-    prepare — never a soft diagnostic.
+    Uses the run's frozen ``source_span_index`` component path carried on
+    ``PromotableIngestRun``. Never re-derives the registry's canonical index
+    path from ``source_artifact_id`` alone — a run may pin a different
+    repo-contained, digest-valid index for the same artifact.
     """
     from apps.live_control_server.services.source_artifact_registry import (
         SourceArtifactRegistryError,
-        load_source_span_index,
+        get_source_artifact,
     )
+    from graph_memory.source_span import (
+        source_span_index_from_dict,
+        validate_source_span_index,
+    )
+    from src.live_play.live_store import load_json
+
+    span_path = getattr(resolved, "source_span_index_path", None)
+    if span_path is None:
+        raise ExtractPromoteError(
+            "exact-run source span index is unavailable",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "source_span_index_unavailable",
+                    "resolved run does not carry a pinned source_span_index path",
+                )
+            ],
+        )
 
     try:
-        return load_source_span_index(repo_root(), resolved.source_artifact_id)
+        payload = load_json(span_path)
+        index = source_span_index_from_dict(payload)
+        artifact = get_source_artifact(repo_root(), resolved.source_artifact_id)
+        validate_source_span_index(
+            index,
+            source_artifact_id=artifact.source_artifact_id,
+            content_sha256=artifact.content_sha256 or "",
+        )
     except SourceArtifactRegistryError as exc:
         raise ExtractPromoteError(
             "exact-run source span index is unavailable",
@@ -406,6 +434,36 @@ def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
             status_code=422,
             diagnostics=[_diagnostic("source_span_index_unavailable", str(exc))],
         ) from exc
+    except (OSError, TypeError, ValueError, KeyError) as exc:
+        raise ExtractPromoteError(
+            "exact-run source span index is unavailable",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("source_span_index_unavailable", str(exc))],
+        ) from exc
+    return index
+
+
+_WORLDBUILDING_INSPECT_ONLY_REASON = (
+    "Worldbuilding ExtractionRuns are inspect-only in this slice. "
+    "Assertions stamped worldbuilding_draft are not eligible for World Graph "
+    "prepare/confirm until an approved authority-elevation contract lands."
+)
+
+
+def _worldbuilding_inspect_only_error() -> ExtractPromoteError:
+    return ExtractPromoteError(
+        _WORLDBUILDING_INSPECT_ONLY_REASON,
+        code="not_promote_eligible",
+        status_code=422,
+        diagnostics=[
+            _diagnostic("worldbuilding_draft_not_promotable", _WORLDBUILDING_INSPECT_ONLY_REASON)
+        ],
+    )
+
+
+def _is_worldbuilding_inspect_only(resolved: Any) -> bool:
+    return (getattr(resolved, "source_domain", None) or "").strip() == "worldbuilding"
 
 
 def _assert_and_project_candidate_evidence(
@@ -652,6 +710,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         span_index=span_index,
     )
 
+    inspect_only = _is_worldbuilding_inspect_only(resolved)
     return ExactRunReviewPackage(
         run_id=resolved.run_id,
         source_domain=resolved.source_domain,
@@ -662,6 +721,8 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         source_prose=source_prose,
         assertions=assertions,
         diagnostics=list(resolved.diagnostics),
+        promotable=not inspect_only,
+        promotable_reason=_WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None,
     )
 
 
@@ -726,6 +787,11 @@ def prepare(
             source_artifact_id=resolved.source_artifact_id,
             span_index=span_index,
         )
+
+    # BLD-07 narrowed: worldbuilding is inspect-only. Fail after evidence
+    # validation so binding errors remain visible; never seal draft canon.
+    if _is_worldbuilding_inspect_only(resolved):
+        raise _worldbuilding_inspect_only_error()
 
     extraction_profile = resolved.extraction_profile or "current_default"
 
@@ -857,10 +923,15 @@ def prepare(
         # expected operator state, not extract_promote_internal_error.
         raise ExtractPromoteError(
             "The World Graph is not initialized. Bootstrap or restore an "
-            f"eldyrwild head under the configured world root before merging. ({exc})",
+            "eldyrwild head under the configured world root before merging.",
             code="world_not_initialized",
             status_code=409,
-            diagnostics=[_diagnostic("world_not_initialized", str(exc))],
+            diagnostics=[
+                _diagnostic(
+                    "world_not_initialized",
+                    "no world graph head for world_id='eldyrwild'",
+                )
+            ],
         ) from exc
 
     return ExtractPromotePrepareResponse(

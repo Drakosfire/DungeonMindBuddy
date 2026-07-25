@@ -7,6 +7,16 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Map WorldGraphNotFoundError on extract-promote prepare to world_not_initialized — captured 2026-07-24, done 2026-07-24
+**Priority:** high — blocks Build exact-run merge dogfood; opaque 500.
+**Context:** Mireward Reach exact-run "Review & merge" returned `The extract-promote prepare operation failed unexpectedly.` Local reproduce: `WorldGraphNotFoundError: no world graph head for world_id='eldyrwild'`.
+**Insight:** Uninitialized World Graph is an expected operator state, not an internal error. Unexpected 500s must log full traceback server-side and never echo raw `str(exc)` to HTTP clients.
+**Action completed:** Catch `WorldGraphNotFoundError` → `world_not_initialized` 409; safe public 500 boundary with correlation id; `test_prepare_maps_missing_world_graph_head_to_world_not_initialized` on PR #393.
+**Surfaces when:** extract-promote prepare unexpected, World Graph not initialized, empty head.json, Build promote dogfood in a fresh worktree
+**Refs:** `apps/live_control_server/routes/extract_promote.py`; `apps/live_control_server/services/extract_promote.py`; transcript `db5e8b9a-b889-4cf3-ae3d-c0d944d10a01`
+
+---
+
 ## [DONE] SBW03 operation-authority durability model — captured 2026-07-22, done 2026-07-23
 **Context:** PR 388 review loop (SBW03 generate-candidate); layered pending/abandoned/completed patches hit permanent-backpressure architecture
 **Insight:** Bounded storage via refusing new work while never deleting unresolved evidence is a correct *constraint*, but insufficient as a *model*. Without explicit terminality + proof-based compaction, abandoned slots never free, “safe” completed eviction breaks draft-advance replay, and known candidates can remain classified abandoned under partial persistence. Terminality must use Server durable generate-operation codes (`operation_terminal`), not HTTP/auth categories.

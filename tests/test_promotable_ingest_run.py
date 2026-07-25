@@ -370,6 +370,7 @@ def _write_reviewable_extraction_run(
     campaign_id: str | None = CAMPAIGN_ID,
     invent_session_in_candidate: bool = False,
     candidate_campaign_id: str | None = ...,  # type: ignore[assignment]
+    pin_noncanonical_span_index: bool = False,
 ) -> tuple[str, Path]:
     """Build a canonical worldbuilding ExtractionRun through its owning services.
 
@@ -382,6 +383,11 @@ def _write_reviewable_extraction_run(
     (worldbuilding SourceArtifacts may omit campaign). The workspace document
     still needs a storage campaign for the file write; the artifact/run are
     then rewritten to drop that campaign before promotion.
+
+    ``pin_noncanonical_span_index=True`` writes a second valid index for the same
+    artifact (different span IDs) and pins the ExtractionRun component to that
+    path — used to prove review/prepare load the run-pinned URI, not the
+    registry canonical path.
     """
     from apps.live_control_server.services.graph_run_registry import (
         create_extraction_run,
@@ -403,6 +409,9 @@ def _write_reviewable_extraction_run(
         ExtractionRunComponentKind,
         ExtractionRunComponentRef,
         ExtractionRunStatus,
+    )
+    from graph_memory.source_span import (
+        source_span_index_to_dict,
     )
     from src.live_play.live_store import load_json, write_json
 
@@ -469,6 +478,59 @@ def _write_reviewable_extraction_run(
             span_ref_id = str(span["source_span_id"])
             break
 
+    run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    if pin_noncanonical_span_index:
+        # Whole-document span → different stable span IDs than the registry
+        # paragraph index, but still digest-valid for the same artifact bytes.
+        from graph_memory.source_span import (
+            SOURCE_SPAN_INDEX_SCHEMA,
+            SOURCE_SPAN_INDEX_VERSION,
+            SourceSpanIndex,
+            SourceSpanIndexEntry,
+            build_stable_source_span_id,
+            document_source_ref_id,
+        )
+
+        digest = artifact.content_sha256 or ""
+        n_lines = max(1, len(source_lines))
+        source_ref = document_source_ref_id(artifact.source_artifact_id)
+        alt_span_id = build_stable_source_span_id(
+            source_artifact_id=artifact.source_artifact_id,
+            content_sha256=digest,
+            start_line=1,
+            end_line=n_lines,
+        )
+        canonical_ids = {str(span["source_span_id"]) for span in span_index["spans"]}
+        assert alt_span_id not in canonical_ids
+        alt_index = SourceSpanIndex(
+            schema=SOURCE_SPAN_INDEX_SCHEMA,
+            version=SOURCE_SPAN_INDEX_VERSION,
+            source_artifact_id=artifact.source_artifact_id,
+            content_sha256=digest,
+            source_ref_id=source_ref,
+            spans=(
+                SourceSpanIndexEntry(
+                    source_span_id=alt_span_id,
+                    source_ref_id=source_ref,
+                    source_artifact_id=artifact.source_artifact_id,
+                    content_sha256=digest,
+                    start_line=1,
+                    end_line=n_lines,
+                ),
+            ),
+        )
+        alt_rel = "out/graph_memory/runs/extraction/wb1/alt_source_span_index.json"
+        alt_path = repo / alt_rel
+        write_json(alt_path, source_span_index_to_dict(alt_index))
+        span_component_uri = f"repo://{alt_rel}"
+        span_component_path = alt_path
+        span_ref_id = alt_span_id
+    else:
+        span_component_uri = f"repo://{span_rel}"
+        span_component_path = span_path
+
     candidate_payload = _candidate_graph_payload(
         campaign_id=candidate_campaign_id or "",
         session_id="session-99" if invent_session_in_candidate else "",
@@ -478,17 +540,23 @@ def _write_reviewable_extraction_run(
     if candidate_campaign_id is None:
         candidate_payload["campaign_id"] = None
     candidate_payload["source_artifact_ids"] = [artifact.source_artifact_id]
+    # Stamp the real worldbuilding profile default — not played_canon. BLD-07
+    # narrowed worldbuilding to inspect-only; fixtures must not hide the gate.
+    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+        WORLDBUILDING_PLUMBING_PROFILE,
+    )
+
+    worldbuilding_semantic = dict(WORLDBUILDING_PLUMBING_PROFILE.default_semantic_state)
     for holder in (
         *(candidate_payload.get("nodes") or []),
         *(candidate_payload.get("edges") or []),
     ):
+        holder["semantic_state"] = dict(worldbuilding_semantic)
         for ref in holder.get("evidence_refs") or []:
             ref["source_artifact_id"] = artifact.source_artifact_id
             ref["source_span_ref_id"] = span_ref_id
             ref["anchor_quotes"] = ["Worldbuilding source for promote."]
 
-    run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1"
-    run_dir.mkdir(parents=True, exist_ok=True)
     candidate_path = run_dir / "candidate_graph.json"
     candidate_path.write_text(
         json.dumps(candidate_payload, indent=2) + "\n", encoding="utf-8"
@@ -505,8 +573,8 @@ def _write_reviewable_extraction_run(
         ),
         "source_span_index": ExtractionRunComponentRef(
             kind=ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
-            uri=f"repo://{span_rel}",
-            sha256=_digest(span_path),
+            uri=span_component_uri,
+            sha256=_digest(span_component_path),
         ),
         "candidate_graph": ExtractionRunComponentRef(
             kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
@@ -564,6 +632,8 @@ def test_resolve_reviewable_worldbuilding_extraction_run(tmp_path: Path) -> None
     assert resolved.candidate_graph_path.is_file()
     assert resolved.sealed_source_uri.startswith("repo://out/graph_memory/runs/promote_seals/")
     assert resolved.normalized_recap_path.is_file()
+    assert resolved.source_span_index_path is not None
+    assert resolved.source_span_index_path.is_file()
     assert "session_scope=null" in resolved.diagnostics
     # Registry-owned source bytes are sealed by digest, not read in place, and the
     # run's own artifact directory is never mutated to make that possible.
@@ -685,3 +755,33 @@ def test_resolve_non_reviewable_canonical_run_does_not_fall_back_to_legacy(
         resolve_promotable_ingest_run(run_id, root=repo)
     assert exc.value.code == "run_not_promotable"
     assert "not reviewable" in str(exc.value)
+
+
+def test_resolve_carries_run_pinned_noncanonical_span_index_path(tmp_path: Path) -> None:
+    """PromotableIngestRun must expose the ExtractionRun component path, not the registry default."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, pin_noncanonical_span_index=True
+    )
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.source_span_index_path is not None
+    assert resolved.source_span_index_path.name == "alt_source_span_index.json"
+    from apps.live_control_server.services.source_artifact_registry import (
+        source_span_index_path,
+    )
+
+    canonical = source_span_index_path(repo, resolved.source_artifact_id)
+    assert resolved.source_span_index_path.resolve() != canonical.resolve()
+    pinned_ids = {
+        span["source_span_id"]
+        for span in json.loads(
+            resolved.source_span_index_path.read_text(encoding="utf-8")
+        )["spans"]
+    }
+    canonical_ids = {
+        span["source_span_id"]
+        for span in json.loads(canonical.read_text(encoding="utf-8"))["spans"]
+    }
+    assert pinned_ids.isdisjoint(canonical_ids)

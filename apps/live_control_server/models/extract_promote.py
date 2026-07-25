@@ -221,3 +221,7 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
     source_prose: str
     assertions: list[ExactRunReviewAssertion] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
+    # BLD-07 narrowed: worldbuilding_draft runs are inspect-only; publication
+    # remains reserved for promote-eligible (played_canon) recap paths.
+    promotable: bool = True
+    promotable_reason: str | None = None
