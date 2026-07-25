@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 from pathlib import Path
 
@@ -15,8 +16,12 @@ from graph_memory.candidate_semantic_promote_matrix import (
     map_reviewed_worldbuilding_semantics_to_kernel,
 )
 from graph_memory.worldbuilding_write_plan import (
+    WORLD_BUILDING_WRITE_PLAN_SCHEMA,
+    WORLD_BUILDING_WRITE_PLAN_VERSION,
+    WORLDBUILDING_BIND_SUPPORT_PREDICATE,
     WorldbuildingWritePlanError,
     build_worldbuilding_write_plan,
+    verify_worldbuilding_write_plan,
 )
 from graph_memory.contribution_bundles import load_contribution_bundle
 from src.graph_memory.extraction.worldbuilding_extraction_profile import (
@@ -91,9 +96,11 @@ def _build_from_inputs(
     inputs: dict[str, object],
     *,
     dispositions: list[dict[str, str]] | None = None,
+    preview: object | None = None,
+    campaign_scope: str | None = CAMPAIGN_ID,
 ):
     return build_worldbuilding_write_plan(
-        preview=_preview(),  # type: ignore[arg-type]
+        preview=preview or _preview(),  # type: ignore[arg-type]
         world_root=inputs["world_root"],  # type: ignore[arg-type]
         world_id=WORLD_ID,
         expected_parent_revision_id=inputs["parent"],  # type: ignore[arg-type]
@@ -102,9 +109,33 @@ def _build_from_inputs(
         source_revision_id=inputs["source_revision"],  # type: ignore[arg-type]
         source_uri=inputs["source_uri"],  # type: ignore[arg-type]
         extraction_profile="worldbuilding_shepherds_flock_v0@0.1",
-        campaign_scope=CAMPAIGN_ID,
+        campaign_scope=campaign_scope,
         dispositions=dispositions or _dispositions(),
     )
+
+
+def _response_package(plan) -> dict[str, object]:
+    return {
+        "schema": WORLD_BUILDING_WRITE_PLAN_SCHEMA,
+        "version": WORLD_BUILDING_WRITE_PLAN_VERSION,
+        "planId": plan.plan_id,
+        "planDigest": plan.plan_digest,
+        "decisionDigest": plan.decision_digest,
+        "worldId": plan.world_id,
+        "parentRevisionId": plan.parent_revision_id,
+        "runId": plan.run_id,
+        "sourceDomain": "worldbuilding",
+        "sourceArtifactId": plan.source_artifact_id,
+        "sourceRevisionId": plan.source_revision_id,
+        "extractionProfile": plan.extraction_profile,
+        "candidatePreviewId": plan.candidate_preview_id,
+        "candidateSchema": plan.candidate_schema,
+        "candidateVersion": plan.candidate_version,
+        "effect": copy.deepcopy(plan.effect),
+        "summary": copy.deepcopy(plan.summary),
+        "diagnostics": list(plan.diagnostics),
+        "confirmable": False,
+    }
 
 
 def test_reviewed_worldbuilding_mapping_is_separate_from_recap() -> None:
@@ -141,6 +172,78 @@ def test_same_dispositions_in_reverse_order_have_same_authority(tmp_path: Path) 
     assert first.decision_digest == second.decision_digest
     assert first.effect == second.effect
     assert first.summary == second.summary
+
+
+def test_verify_worldbuilding_write_plan_accepts_unmodified_response_package(
+    tmp_path: Path,
+) -> None:
+    plan = _build(tmp_path)
+    verified = verify_worldbuilding_write_plan(_response_package(plan))
+    assert verified["plan_id"] == plan.plan_id
+    assert verified["plan_digest"] == plan.plan_digest
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda package: package["effect"]["accepted_proposals"][0].update(
+            label="tampered"
+        ),
+        lambda package: package["effect"]["decision_snapshot"][0].update(
+            target_node_id="node:wrong-target"
+        ),
+        lambda package: package.update(parentRevisionId="rev:tampered"),
+        lambda package: package["effect"]["decision_snapshot"][0].update(
+            decision="reject"
+        ),
+        lambda package: package.update(planDigest="sha256:" + ("0" * 64)),
+        lambda package: package.update(planId="worldbuilding-write-plan:tampered"),
+    ],
+    ids=[
+        "assertion-body",
+        "bind-target-in-snapshot",
+        "parent-revision",
+        "decision-snapshot",
+        "plan-digest",
+        "plan-id",
+    ],
+)
+def test_verify_worldbuilding_write_plan_rejects_tampering(
+    tmp_path: Path,
+    mutation,
+) -> None:
+    package = _response_package(_build(tmp_path))
+    mutation(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        verify_worldbuilding_write_plan(package)
+    assert exc.value.code == "plan_verification_failed"
+
+
+def test_campaign_lineage_is_embedded_only_for_campaign_scoped_plans(
+    tmp_path: Path,
+) -> None:
+    scoped = _build(tmp_path)
+    scoped_artifacts = [
+        artifact
+        for assertion in scoped.effect["accepted_proposals"]
+        for artifact in assertion["value"]["source_artifacts"]
+    ]
+    assert scoped_artifacts
+    assert all(artifact["campaign_id"] == CAMPAIGN_ID for artifact in scoped_artifacts)
+
+    unscoped_root = tmp_path / "unscoped"
+    unscoped_root.mkdir()
+    unscoped = _build_from_inputs(
+        _inputs(unscoped_root),
+        campaign_scope=None,
+    )
+    unscoped_artifacts = [
+        artifact
+        for assertion in unscoped.effect["accepted_proposals"]
+        for artifact in assertion["value"]["source_artifacts"]
+    ]
+    assert unscoped_artifacts
+    assert all("campaign_id" not in artifact for artifact in unscoped_artifacts)
 
 
 def test_reject_and_defer_remain_distinct(tmp_path: Path) -> None:
@@ -312,6 +415,111 @@ def test_bind_existing_uses_exact_active_same_kind_target(
         item["identity_resolution_outcome"] == "human_override"
         for item in support_assertions
     )
+    attribute_assertions = [
+        item for item in support_assertions if item["assertion_kind"] == "attribute"
+    ]
+    assert len(attribute_assertions) == 1
+    assert attribute_assertions[0]["predicate"] == WORLDBUILDING_BIND_SUPPORT_PREDICATE
+    assert attribute_assertions[0]["predicate"] != "session_observation"
+    assert attribute_assertions[0]["temporal_scope"] is None
+    assert "session_ids" not in attribute_assertions[0]["value"]
+
+
+def _build_with_bind_target(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    candidate_type: str,
+    target_kind: str,
+):
+    inputs = _inputs(tmp_path)
+    current_store = kernel.open_current_world_graph(
+        inputs["world_root"], WORLD_ID  # type: ignore[arg-type]
+    )[2]
+    target_id = f"{target_kind}:family-target"
+    existing = next(iter(current_store.nodes.values())).model_copy(
+        update={
+            "node_id": target_id,
+            "kind": target_kind,
+            "role": target_kind,
+            "state": {
+                "memory_state": "graph_read_model",
+                "identity_canon_state": "canonical",
+            },
+        }
+    )
+    monkeypatch.setattr(
+        kernel,
+        "load_world_graph_revision",
+        lambda *_args, **_kwargs: current_store.model_copy(
+            update={"nodes": {**current_store.nodes, target_id: existing}}
+        ),
+    )
+    preview_payload = _candidate_graph_payload(session_id=None)
+    preview_payload["preview_id"] = "preview:worldbuilding-family"
+    preview_payload["source_artifact_ids"] = ["artifact:worldbuilding:test"]
+    preview_payload["nodes"][0]["node_type"] = candidate_type
+    for node in preview_payload["nodes"]:
+        node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for ref in node["evidence_refs"]:
+            ref["source_artifact_id"] = "artifact:worldbuilding:test"
+    for edge in preview_payload["edges"]:
+        edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for ref in edge["evidence_refs"]:
+            ref["source_artifact_id"] = "artifact:worldbuilding:test"
+    preview = candidate_graph_preview_from_dict(preview_payload)
+    return _build_from_inputs(
+        inputs,
+        preview=preview,
+        dispositions=[
+            {
+                "assertion_id": "obj_session22_vial",
+                "decision": "bind_existing",
+                "target_node_id": target_id,
+            },
+            {"assertion_id": "mystery_puddles", "decision": "create_new"},
+            {"assertion_id": "e33", "decision": "accept"},
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("candidate_type", "target_kind"),
+    [
+        ("character", "pc"),
+        ("character", "npc"),
+        ("organization", "faction"),
+        ("collective", "party"),
+    ],
+)
+def test_bind_existing_accepts_same_kind_families(
+    tmp_path: Path,
+    monkeypatch,
+    candidate_type: str,
+    target_kind: str,
+) -> None:
+    plan = _build_with_bind_target(
+        tmp_path,
+        monkeypatch,
+        candidate_type=candidate_type,
+        target_kind=target_kind,
+    )
+    assert plan.effect["node_id_map"]["obj_session22_vial"] == (
+        f"{target_kind}:family-target"
+    )
+
+
+def test_bind_existing_rejects_cross_family_target(
+    tmp_path: Path, monkeypatch
+) -> None:
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _build_with_bind_target(
+            tmp_path,
+            monkeypatch,
+            candidate_type="character",
+            target_kind="location",
+        )
+    assert exc.value.code == "bind_target_kind_mismatch"
 
 
 def test_plan_does_not_call_kernel_mutation_apis(tmp_path: Path, monkeypatch) -> None:

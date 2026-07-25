@@ -60,6 +60,7 @@ from graph_memory.worldbuilding_write_plan import (
     WorldbuildingDispositionInput,
     WorldbuildingWritePlanError,
     build_worldbuilding_write_plan,
+    verify_worldbuilding_write_plan,
 )
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 
@@ -1054,7 +1055,7 @@ def prepare_worldbuilding(
             diagnostics=[_diagnostic("candidate_invalid", str(exc))],
         ) from exc
 
-    from graph_memory.extraction.extraction_profile import get_extraction_profile
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
 
     try:
         profile = get_extraction_profile(
@@ -1132,7 +1133,7 @@ def prepare_worldbuilding(
             diagnostics=[_diagnostic(exc.code, str(exc))],
         ) from exc
 
-    return WorldbuildingWritePlanResponse(
+    response = WorldbuildingWritePlanResponse(
         plan_id=plan.plan_id,
         plan_digest=plan.plan_digest,
         decision_digest=plan.decision_digest,
@@ -1149,6 +1150,18 @@ def prepare_worldbuilding(
         summary=plan.summary,
         diagnostics=plan.diagnostics,
     )
+    try:
+        verify_worldbuilding_write_plan(
+            response.model_dump(mode="json", by_alias=True)
+        )
+    except WorldbuildingWritePlanError as exc:
+        raise ExtractPromoteError(
+            "worldbuilding write plan failed self-verification",
+            code="plan_verification_failed",
+            status_code=500,
+            diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
+        ) from exc
+    return response
 
 
 def _project_assertion_fields(
