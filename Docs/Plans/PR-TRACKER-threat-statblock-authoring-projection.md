@@ -1,11 +1,11 @@
 # PR Tracker — Threat + Statblock Authoring and Projection
 
 **Status:** ACTIVE SLICE / IMPLEMENTATION
-**Date:** 2026-07-24
-**PR base / repository tip:** `51661055` on `main` (`#406` merge tip; may include unrelated work)
-**Logical SBW predecessor:** `#406` / `51661055` — `SBW07a` create/read adapter
-**This PR:** `SBW07b` — acceptance journal + §12 orchestration
-**Next dispatch after this PR merges:** `SBW07c` (Accept UI + corpus-promotion demolition)
+**Date:** 2026-07-25
+**PR base / repository tip:** `742415e7` on `main` (includes `#409` SBW07c merge; may include unrelated work)
+**Logical SBW predecessor:** `#409` / `455daf49` — `SBW07` COMPLETE
+**This PR:** `SBW06-contract` — revise journal + lineage/status transition table (docs only)
+**Next dispatch after this PR merges:** `SBW06a` (blocked on HANDOFF-sbw06 §12.11 Server revise recovery gate)
 **Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).
 
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
@@ -44,8 +44,8 @@ Required deletion owner:
 | `SBW03` | MERGED `#388` | `SBW01–02` | Generate one candidate from one exact draft version | [`HANDOFF-sbw03-generate-candidate-from-draft.md`](HANDOFF-sbw03-generate-candidate-from-draft.md) |
 | `SBW04` | MERGED `#397` (`40ea5234`); **live-proof debt open** | `SBW03` | Shared semantic renderer + real read-only candidate workbench | [`HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`](HANDOFF-sbw04-semantic-renderer-candidate-workbench.md) |
 | `SBW05` | MERGED — `05a` `#398`; `05b` `#402`; `05c` `#404` / `427a357b` | `SBW04` | Complete-definition editing + authoritative preview validation | [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](HANDOFF-sbw05-typed-candidate-edit-validation.md) |
-| `SBW07` | IN PROGRESS — `07-contract` (this PR) → `07a–c`; **before SBW06** | `SBW05` | Persist accepted mechanics as exact immutable first revision | [`HANDOFF-sbw07-persist-accepted-mechanics.md`](HANDOFF-sbw07-persist-accepted-mechanics.md) |
-| `SBW06` | PRE-DESIGNED — bites `06-contract` + `06a–d`; **after SBW07** | `SBW05` + `SBW07` | Revise/regenerate candidate lineage | [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md) |
+| `SBW07` | COMPLETE — `07-contract` `#405`; `07a` `#406`; `07b` `#407`; `07c` `#409` / `455daf49` | `SBW05` | Persist accepted mechanics as exact immutable first revision | [`HANDOFF-sbw07-persist-accepted-mechanics.md`](HANDOFF-sbw07-persist-accepted-mechanics.md) |
+| `SBW06` | IN PROGRESS — `06-contract` (this PR) → `06a–d`; **after SBW07** | `SBW05` + `SBW07` | Revise/regenerate candidate lineage | [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md) |
 | `SBW08` | PRE-DESIGNED / PARALLEL | Stable current graph contracts | External statblock resource + typed Threat binding graph contract | [`HANDOFF-sbw08-world-graph-statblock-binding-contract.md`](HANDOFF-sbw08-world-graph-statblock-binding-contract.md) |
 | `SBW09` | PRE-DESIGNED | `SBW07–08` + governed graph review | Publish planned Threat + exact binding through preview/confirm | [`HANDOFF-sbw09-governed-threat-binding-publication.md`](HANDOFF-sbw09-governed-threat-binding-publication.md) |
 | `SBW10` | PRE-DESIGNED | `SBW09` | Exact-revision Threat Sheet/full view | [`HANDOFF-sbw10-exact-revision-threat-sheet.md`](HANDOFF-sbw10-exact-revision-threat-sheet.md) |
@@ -178,8 +178,8 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 |---|---|---|---|
 | `SBW07-contract` | MERGED `#405` / `36582f8b` — §12 APPROVED / FROZEN | Doc-only approve-or-reject of frozen HANDOFF-sbw07 §12 (do not rewrite unless review rejects a closed decision) | Implementation code |
 | `SBW07a` | MERGED `#406` / `51661055` | Create/read Server client + fixtures | Draft mutation, UI, demolition |
-| `SBW07b` | **this PR** | Acceptance orchestration + atomic ref / pending reconcile | UI, corpus demolition, graph |
-| `SBW07c` | after `SBW07b` | Accept UI + corpus-promotion demolition | Graph, append revision |
+| `SBW07b` | MERGED `#407` / `00464e2a` | Acceptance orchestration + atomic ref / pending reconcile | UI, corpus demolition, graph |
+| `SBW07c` | MERGED `#409` / `455daf49` — SBW07 COMPLETE | Accept UI + corpus-promotion demolition | Graph, append revision |
 
 ### SBW06 — Candidate revise/regenerate lineage
 
@@ -191,17 +191,17 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 
 **Demolition:** remove any regenerate action that silently replaces current state.
 
-**Dispatch order:** after `SBW07` merges (accepted-revision source requires locators; durability surface deferred until first save is proven).
+**Dispatch order:** after `SBW07` COMPLETE (accepted-revision source requires locators; durability surface deferred until first save is proven).
 
 **Bites (ship separately; contract PR before code):**
 
-| Bite | Mission | Exclusions |
-|---|---|---|
-| `SBW06-contract` | Doc-only revise journal + lineage/status transition table | Implementation code |
-| `SBW06a` | Revise from edited `source_definition` | Status UI, accepted-revision source |
-| `SBW06b` | Candidate-ref status + lineage persistence | UI, accepted-revision revise |
-| `SBW06c` | Revise UI | Accepted-revision source |
-| `SBW06d` | Revise from accepted `source_locator` | Graph, compare, media |
+| Bite | Status | Mission | Exclusions |
+|---|---|---|---|
+| `SBW06-contract` | **this PR** | Doc-only revise journal + lineage/status transition table (§12 freeze) | Implementation code |
+| `SBW06a` | after contract + §12.11 gate | Revise from edited `source_definition` | Status UI, accepted-revision source, lineage attach as ordinary success |
+| `SBW06b` | after `SBW06a` | Candidate-ref status + lineage persistence | UI, accepted-revision revise |
+| `SBW06c` | after `SBW06b` | Revise UI | Accepted-revision source |
+| `SBW06d` | after `SBW06c` | Revise from accepted `source_locator` | Graph, compare, media |
 
 ### SBW08 — World Graph external resource/binding contract
 
