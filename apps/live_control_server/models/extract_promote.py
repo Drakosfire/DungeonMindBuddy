@@ -222,6 +222,7 @@ class WorldbuildingWritePlanEffect(_ExtractPromoteModel):
     deferred_candidate_ids: list[str] = Field(default_factory=list)
     node_id_map: dict[str, str] = Field(default_factory=dict)
     identity_outcome_snapshot: dict[str, str] = Field(default_factory=dict)
+    candidate_effect_map: dict[str, list[str]] = Field(default_factory=dict)
     decision_snapshot: list[WorldbuildingWritePlanDecisionSnapshot] = Field(
         default_factory=list
     )
