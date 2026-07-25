@@ -616,9 +616,11 @@ def test_client_exposes_create_statblock_for_sbw07a() -> None:
 
 
 def test_create_statblock_serializes_request_and_idempotency_key() -> None:
-    # Request body is the Server-captured transcript leaf (dict). Full
-    # CreateStatblockRequestV1 typing of structural HP/AC awaits contract sync.
-    request = _fixture("create-request.json")
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        CreateStatblockRequestV1,
+    )
+
+    request = CreateStatblockRequestV1.model_validate(_fixture("create-request.json"))
     captured: dict[str, object] = {}
 
     def handler(request_http: httpx.Request) -> httpx.Response:

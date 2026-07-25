@@ -26,15 +26,17 @@
           "telepathy_range": null
         },
         "defenses": {
-          "alternate_armor_classes": [],
+          "armor_classes": [
+            {
+              "condition": null,
+              "default": true,
+              "key": "natural_armor",
+              "label": "natural armor",
+              "value": 15
+            }
+          ],
           "condition_immunities": [],
-          "damage_interactions": [],
-          "default_armor_class": {
-            "condition": null,
-            "key": "natural_armor",
-            "label": "natural armor",
-            "value": 15
-          }
+          "damage_interactions": []
         },
         "flavor_text": {
           "description": null,
@@ -61,7 +63,7 @@
             }
           ]
         },
-        "phases": null,
+        "phases": [],
         "proficiencies": {
           "saving_throws": [],
           "skills": []
@@ -138,6 +140,7 @@
         "vitality": {
           "hit_points": {
             "displayed_average": 68,
+            "fixed_value": null,
             "formula": {
               "count": 8,
               "die": 10,
@@ -160,7 +163,7 @@
           "is_persistence_ready": false,
           "validation_receipt": {
             "canonicalizer_version": "statblock-canonicalizer-v1",
-            "definition_digest": "sha256:cc8d13af3c2253ec34ad5a66271cdd6ef821e9dc1b31042c46b441762237021f",
+            "definition_digest": "sha256:ffa75f84c36431706a8e3dc3409c0b8371ed1ef403b6dd52704181aa6a88aac1",
             "issues": [
               {
                 "code": "UNKNOWN_RESOURCE_REFERENCE",

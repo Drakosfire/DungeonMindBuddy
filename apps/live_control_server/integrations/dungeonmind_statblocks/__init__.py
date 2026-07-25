@@ -21,7 +21,6 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.errors import 
     StatblockIntegrationError,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
-    CreateStatblockResponseEnvelopeV1,
     CreateStatblockResult,
     MechanicsLocatorV1,
     same_mechanics_locator,
@@ -38,7 +37,6 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.readiness impo
 
 __all__ = [
     "CREATE_OUTCOME_INVENTORY",
-    "CreateStatblockResponseEnvelopeV1",
     "CreateStatblockResult",
     "DungeonMindStatblockV1Client",
     "ExactRevisionResourceV1",

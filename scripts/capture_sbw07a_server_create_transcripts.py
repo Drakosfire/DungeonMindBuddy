@@ -1,62 +1,121 @@
 #!/usr/bin/env python3
-"""Capture SBW07a create/read Server transcripts from DungeonMindServer TestClient.
+"""Capture SBW07a create/read Server transcripts from a clean DungeonMindServer checkout.
 
 Run from a DungeonMindServer checkout (uv env with statblocks_v1 installed):
 
   uv run python /path/to/DungeonMindBuddy/scripts/capture_sbw07a_server_create_transcripts.py \\
     --buddy-repo /path/to/DungeonMindBuddy \\
-    --out-subdir tests/fixtures/statblocks/v1/server_transcripts
+    --server-repo /path/to/DungeonMindServer
 
-Writes request/response pairs plus MANIFEST.json citing this Server commit and the
-server-owned tests that already prove the same behaviors.
+Hard requirements:
+- Server worktree must be clean (no staged/unstaged/untracked changes that affect capture).
+- Imported ``statblocks_v1`` package path must resolve inside ``--server-repo``.
+- Recorded OpenAPI fingerprint must match Buddy's vendored OPENAPI_FINGERPRINT unless
+  ``--allow-fingerprint-mismatch`` is set (escape hatch only).
 """
 from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 
-def _git_rev_parse(repo: Path) -> str:
-    return subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=repo, text=True
-    ).strip()
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.check_output(["git", *args], cwd=repo, text=True).strip()
 
 
-def _git_subject(repo: Path) -> str:
-    return subprocess.check_output(
-        ["git", "log", "-1", "--format=%s"], cwd=repo, text=True
-    ).strip()
+def _sha256_file(path: Path) -> str:
+    return f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return f"sha256:{hashlib.sha256(data).hexdigest()}"
+
+
+def _assert_clean_worktree(server_repo: Path) -> None:
+    status = _git(server_repo, "status", "--porcelain")
+    if status:
+        raise SystemExit(
+            "Server worktree is dirty; refuse to capture provenance-bearing transcripts.\n"
+            f"git status --porcelain:\n{status}\n"
+            "Use a clean detached worktree of the intended commit."
+        )
+
+
+def _assert_package_from_checkout(server_repo: Path) -> Path:
+    import statblocks_v1
+
+    package_file = Path(statblocks_v1.__file__).resolve()
+    package_root = package_file.parent.resolve()
+    server_root = server_repo.resolve()
+    try:
+        package_root.relative_to(server_root)
+    except ValueError as exc:
+        raise SystemExit(
+            "Imported statblocks_v1 is not from --server-repo.\n"
+            f"  server_repo={server_root}\n"
+            f"  package={package_file}\n"
+            "Run the capture script with PYTHONPATH/cwd pointing at the clean checkout."
+        ) from exc
+    return package_file
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--buddy-repo",
-        type=Path,
-        required=True,
-        help="DungeonMindBuddy repo root (fixture destination)",
-    )
-    parser.add_argument(
-        "--server-repo",
-        type=Path,
-        default=Path.cwd(),
-        help="DungeonMindServer repo root (default: cwd)",
-    )
+    parser.add_argument("--buddy-repo", type=Path, required=True)
+    parser.add_argument("--server-repo", type=Path, default=Path.cwd())
     parser.add_argument(
         "--out-subdir",
         type=str,
         default="tests/fixtures/statblocks/v1/server_transcripts",
     )
+    parser.add_argument(
+        "--allow-fingerprint-mismatch",
+        action="store_true",
+        help="Escape hatch only; do not use for SBW07a merge evidence.",
+    )
     args = parser.parse_args()
 
-    # Import Server test stack only after resolving paths.
+    server_repo = args.server_repo.resolve()
+    buddy_repo = args.buddy_repo.resolve()
+    _assert_clean_worktree(server_repo)
+    package_file = _assert_package_from_checkout(server_repo)
+
+    openapi_path = server_repo / "openapi" / "dungeonbuddy-statblocks-v1.json"
+    if not openapi_path.is_file():
+        raise SystemExit(f"Missing Server OpenAPI artifact: {openapi_path}")
+    server_openapi_fingerprint = _sha256_file(openapi_path)
+
+    # Import Buddy fingerprint without importing the live Buddy app stack.
+    sys.path.insert(0, str(buddy_repo))
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        OPENAPI_FINGERPRINT as BUDDY_OPENAPI_FINGERPRINT,
+    )
+
+    if (
+        server_openapi_fingerprint != BUDDY_OPENAPI_FINGERPRINT
+        and not args.allow_fingerprint_mismatch
+    ):
+        raise SystemExit(
+            "Server OpenAPI fingerprint does not match Buddy vendored contract.\n"
+            f"  server={server_openapi_fingerprint}\n"
+            f"  buddy ={BUDDY_OPENAPI_FINGERPRINT}\n"
+            "Land the structural HP/AC/Phases contract sync first, or capture from a "
+            "clean Server revision that matches the currently vendored Buddy OpenAPI."
+        )
+
+    import os
+
     from fastapi.testclient import TestClient
 
     from statblocks_v1.api.dependencies import (
+        INTERNAL_KEY_ENV,
+        INTERNAL_KEY_HEADER,
         get_candidate_repository,
         get_clock,
         get_persistence_repository,
@@ -70,18 +129,14 @@ def main() -> None:
     )
     from statblocks_v1.testing import create_test_app
 
-    server_repo = args.server_repo.resolve()
-    buddy_repo = args.buddy_repo.resolve()
     out_dir = buddy_repo / args.out_subdir
     out_dir.mkdir(parents=True, exist_ok=True)
 
     fixture_root = server_repo / "Docs/Design/fixtures/dungeonbuddy-statblock-v1"
-    definition = json.loads((fixture_root / "simple_bruiser.json").read_text())
-    invalid = json.loads((fixture_root / "unknown_resource_pool.json").read_text())
-
-    import os
-
-    from statblocks_v1.api.dependencies import INTERNAL_KEY_ENV, INTERNAL_KEY_HEADER
+    simple_bruiser_path = fixture_root / "simple_bruiser.json"
+    unknown_pool_path = fixture_root / "unknown_resource_pool.json"
+    definition = json.loads(simple_bruiser_path.read_text())
+    invalid = json.loads(unknown_pool_path.read_text())
 
     auth_key = "sbw07a-capture-internal-key"
     os.environ[INTERNAL_KEY_ENV] = auth_key
@@ -115,7 +170,6 @@ def main() -> None:
 
     transcripts: dict[str, object] = {}
 
-    # 1) First create
     create_req = create_payload(definition, "sbw07a-create-1")
     create_res = client.post(
         "/api/internal/dungeonbuddy/v1/statblocks",
@@ -125,11 +179,14 @@ def main() -> None:
     assert create_res.status_code == 200, create_res.text
     create_body = create_res.json()
     transcripts["create_success"] = {
-        "request": {"method": "POST", "path": "/api/internal/dungeonbuddy/v1/statblocks", "json": create_req},
+        "request": {
+            "method": "POST",
+            "path": "/api/internal/dungeonbuddy/v1/statblocks",
+            "json": create_req,
+        },
         "response": {"status": create_res.status_code, "json": create_body},
     }
 
-    # 2) Same-key same-body replay
     replay_res = client.post(
         "/api/internal/dungeonbuddy/v1/statblocks",
         json=create_req,
@@ -138,10 +195,17 @@ def main() -> None:
     assert replay_res.status_code == 200, replay_res.text
     replay_body = replay_res.json()
     assert replay_body["revision"]["revision_id"] == create_body["revision"]["revision_id"]
-    assert replay_body["revision"]["definition_digest"] == create_body["revision"]["definition_digest"]
+    assert (
+        replay_body["revision"]["definition_digest"]
+        == create_body["revision"]["definition_digest"]
+    )
     assert replay_body["statblock"]["statblock_id"] == create_body["statblock"]["statblock_id"]
     transcripts["same_key_same_body_replay"] = {
-        "request": {"method": "POST", "path": "/api/internal/dungeonbuddy/v1/statblocks", "json": create_req},
+        "request": {
+            "method": "POST",
+            "path": "/api/internal/dungeonbuddy/v1/statblocks",
+            "json": create_req,
+        },
         "first_response": {"status": 200, "json": create_body},
         "second_response": {"status": replay_res.status_code, "json": replay_body},
         "asserted_equal_fields": [
@@ -153,7 +217,6 @@ def main() -> None:
         ],
     }
 
-    # 3) Same-key changed-body conflict (new key space so we don't collide with above)
     conflict_key = "sbw07a-conflict-1"
     original_req = create_payload(definition, conflict_key)
     original_res = client.post(
@@ -183,10 +246,12 @@ def main() -> None:
             "path": "/api/internal/dungeonbuddy/v1/statblocks",
             "json": changed_req,
         },
-        "conflict_response": {"status": conflict_res.status_code, "json": conflict_res.json()},
+        "conflict_response": {
+            "status": conflict_res.status_code,
+            "json": conflict_res.json(),
+        },
     }
 
-    # 4) Exact revision read of first create
     sid = create_body["statblock"]["statblock_id"]
     rid = create_body["revision"]["revision_id"]
     read_path = f"/api/internal/dungeonbuddy/v1/statblocks/{sid}/revisions/{rid}"
@@ -202,7 +267,6 @@ def main() -> None:
         "exact_read_response": {"status": read_res.status_code, "json": read_body},
     }
 
-    # 5) Persistence validation failed (non-begin)
     invalid_req = create_payload(invalid, "sbw07a-invalid-persist")
     invalid_res = client.post(
         "/api/internal/dungeonbuddy/v1/statblocks",
@@ -220,10 +284,11 @@ def main() -> None:
             "json": invalid_req,
         },
         "response": {"status": invalid_res.status_code, "json": invalid_body},
-        "server_source_fixture": "Docs/Design/fixtures/dungeonbuddy-statblock-v1/unknown_resource_pool.json",
+        "server_source_fixture": str(
+            unknown_pool_path.relative_to(server_repo)
+        ),
     }
 
-    # 6) invalid_request before handler (open provenance rejected)
     spoofed = create_payload(definition, "sbw07a-invalid-request")
     spoofed["provenance"] = {
         "candidate": {
@@ -251,7 +316,6 @@ def main() -> None:
         ),
     }
 
-    # Write individual leaf fixtures used by Buddy client tests (stable names).
     leaf = {
         "create-request.json": create_req,
         "create-response.json": create_body,
@@ -272,14 +336,36 @@ def main() -> None:
             json.dumps(payload, indent=2, sort_keys=True) + "\n"
         )
 
+    # Prove create request body is an untransformed copy of the source fixture definition.
+    if create_req["definition"] != definition:
+        raise SystemExit(
+            "Capture mutated simple_bruiser definition before create; refuse to write transcripts."
+        )
+
     manifest = {
         "schema": "sbw07a_server_create_transcript_manifest_v1",
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "dungeonmind_server": {
-            "commit": _git_rev_parse(server_repo),
-            "subject": _git_subject(server_repo),
+            "commit": _git(server_repo, "rev-parse", "HEAD"),
+            "subject": _git(server_repo, "log", "-1", "--format=%s"),
             "repo_path_at_capture": str(server_repo),
+            "worktree_clean": True,
+            "statblocks_v1_package_path": str(package_file),
+            "openapi_path": str(openapi_path.relative_to(server_repo)),
+            "openapi_fingerprint": server_openapi_fingerprint,
         },
+        "buddy_vendored_openapi_fingerprint": BUDDY_OPENAPI_FINGERPRINT,
+        "openapi_fingerprint_match": server_openapi_fingerprint == BUDDY_OPENAPI_FINGERPRINT,
+        "server_source_fixtures": [
+            {
+                "path": str(simple_bruiser_path.relative_to(server_repo)),
+                "sha256": _sha256_file(simple_bruiser_path),
+            },
+            {
+                "path": str(unknown_pool_path.relative_to(server_repo)),
+                "sha256": _sha256_file(unknown_pool_path),
+            },
+        ],
         "server_owned_tests": [
             {
                 "path": "tests/statblocks_v1/api/test_statblock_resource_routes.py",
@@ -300,21 +386,35 @@ def main() -> None:
                 ],
             }
         ],
-        "server_source_fixtures": [
-            "Docs/Design/fixtures/dungeonbuddy-statblock-v1/simple_bruiser.json",
-            "Docs/Design/fixtures/dungeonbuddy-statblock-v1/unknown_resource_pool.json",
-        ],
         "capture_script": "scripts/capture_sbw07a_server_create_transcripts.py",
         "transcripts": sorted(transcripts.keys()),
         "leaf_fixtures": sorted(leaf.keys()),
+        "leaf_fixture_sha256": {
+            name: _sha256_bytes(
+                json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+            )
+            for name, payload in leaf.items()
+        },
         "notes": [
-            "Transcripts were recorded from DungeonMindServer create_test_app() TestClient, not invented by Buddy mocks.",
-            "Buddy client tests must consume these recorded bodies; mocks may only replay recorded Server responses.",
+            "Transcripts were recorded from a clean DungeonMindServer checkout TestClient.",
+            "Capture refuses dirty worktrees and imported packages outside --server-repo.",
+            "Create request definition bytes match the cited simple_bruiser source fixture.",
+            "Buddy client tests must consume these recorded bodies; mocks may only replay them.",
             "validation_failed is terminal only when details.is_persistence_ready is exactly false.",
         ],
     }
     (out_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(json.dumps({"out_dir": str(out_dir), "server_commit": manifest["dungeonmind_server"]["commit"]}, indent=2))
+    print(
+        json.dumps(
+            {
+                "out_dir": str(out_dir),
+                "server_commit": manifest["dungeonmind_server"]["commit"],
+                "openapi_fingerprint": server_openapi_fingerprint,
+                "fingerprint_match": manifest["openapi_fingerprint_match"],
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

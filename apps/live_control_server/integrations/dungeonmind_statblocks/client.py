@@ -43,11 +43,11 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.models import 
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
     CreateStatblockRequestV1,
+    CreateStatblockResponseV1,
     ValidateDefinitionRequestV1,
     ValidationResponseV1,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
-    CreateStatblockResponseEnvelopeV1,
     CreateStatblockResult,
     locator_from_create_response,
 )
@@ -255,27 +255,14 @@ class DungeonMindStatblockV1Client:
             f"{API_PREFIX}/statblocks",
             json_body=json_body,
         )
-        # Identity envelope only: full StatblockDefinitionV1 consumer typing is
-        # owned by the separate structural contract-sync backlog. Locator proof
-        # requires exact IDs/digest/contract fields, not definition revalidation.
-        response = self._parse_model(CreateStatblockResponseEnvelopeV1, payload)
+        response = self._parse_model(CreateStatblockResponseV1, payload)
         locator = locator_from_create_response(response)
-        created_at = response.revision.created_at
-        created_at_text = (
-            created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at)
-        )
-        statblock_created_at = response.statblock.created_at
-        statblock_created_at_text = (
-            statblock_created_at.isoformat()
-            if hasattr(statblock_created_at, "isoformat")
-            else str(statblock_created_at)
-        )
         return CreateStatblockResult(
             locator=locator,
             server_metadata={
-                "created_at": created_at_text,
+                "created_at": response.revision.created_at.isoformat(),
                 "created_by": response.statblock.created_by,
-                "statblock_created_at": statblock_created_at_text,
+                "statblock_created_at": response.statblock.created_at.isoformat(),
             },
         )
 
