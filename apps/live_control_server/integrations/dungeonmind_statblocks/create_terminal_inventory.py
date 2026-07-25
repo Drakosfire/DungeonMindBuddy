@@ -10,8 +10,9 @@ or product workflow states (``mechanics_saved``).
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
@@ -25,9 +26,36 @@ __all__ = [
     "CREATE_OUTCOME_INVENTORY",
     "TERMINAL_NON_BEGIN_SPECS",
     "NON_TERMINAL_SPECS",
-    "is_fixture_proven_terminal_non_begin",
     "is_changed_body_idempotency_conflict",
+    "is_fixture_proven_terminal_non_begin",
+    "is_invalid_request_terminal_non_begin",
+    "is_persistence_validation_terminal_non_begin",
 ]
+
+
+def is_persistence_validation_terminal_non_begin(
+    error: StatblockIntegrationError,
+) -> bool:
+    """Terminal only when Server proves persistence mode was not ready.
+
+    ``validation_failed`` + HTTP 422 alone is insufficient: the published create
+    contract uses 422 for both request validation and persistence-mode failure.
+    The fixture-backed non-begin proof is ``details.is_persistence_ready is False``.
+    """
+
+    if error.error_code != "validation_failed" or error.status_code != 422:
+        return False
+    if "is_persistence_ready" not in error.details:
+        return False
+    ready = error.details.get("is_persistence_ready")
+    # Exact boolean False only — missing, True, or malformed values are non-terminal.
+    return ready is False
+
+
+def is_invalid_request_terminal_non_begin(error: StatblockIntegrationError) -> bool:
+    """Terminal when Server rejects the create request before the handler runs."""
+
+    return error.error_code == "invalid_request" and error.status_code == 422
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +70,7 @@ class CreateOutcomeSpec:
     buddy_category: str
     terminal_non_begin: TerminalProof
     proof: str
+    terminal_predicate: Callable[[StatblockIntegrationError], bool] | None = None
 
 
 CREATE_OUTCOME_INVENTORY: tuple[CreateOutcomeSpec, ...] = (
@@ -59,7 +88,7 @@ CREATE_OUTCOME_INVENTORY: tuple[CreateOutcomeSpec, ...] = (
         name="same_key_same_body_replay",
         server_error_code=None,
         http_status=200,
-        fixture="create-response.json",
+        fixture="server_transcripts/same_key_same_body_replay.json",
         fixture_kind="server",
         buddy_category="create_replay",
         terminal_non_begin="no",
@@ -69,7 +98,7 @@ CREATE_OUTCOME_INVENTORY: tuple[CreateOutcomeSpec, ...] = (
         name="same_key_changed_body_conflict",
         server_error_code="idempotency_conflict",
         http_status=409,
-        fixture="create-idempotency-conflict.json",
+        fixture="server_transcripts/same_key_changed_body_conflict.json",
         fixture_kind="server",
         buddy_category="downstream_conflict",
         terminal_non_begin="no",
@@ -85,9 +114,9 @@ CREATE_OUTCOME_INVENTORY: tuple[CreateOutcomeSpec, ...] = (
         terminal_non_begin="yes",
         proof=(
             "Server PersistenceValidationError emits validation_failed with "
-            "details.is_persistence_ready=false before durable create begins "
-            "(DungeonMindServer domain error + HTTP acceptance fixture shape)."
+            "details.is_persistence_ready=false before durable create begins."
         ),
+        terminal_predicate=is_persistence_validation_terminal_non_begin,
     ),
     CreateOutcomeSpec(
         name="request_validation_failed",
@@ -98,9 +127,10 @@ CREATE_OUTCOME_INVENTORY: tuple[CreateOutcomeSpec, ...] = (
         buddy_category="downstream_validation_failed",
         terminal_non_begin="yes",
         proof=(
-            "DungeonMindServer v1 RequestValidationError handler returns invalid_request "
-            "before the create handler runs; persistence has not begun."
+            "DungeonMindServer v1 RequestValidationError / open-provenance rejection "
+            "returns invalid_request before the create handler runs; persistence has not begun."
         ),
+        terminal_predicate=is_invalid_request_terminal_non_begin,
     ),
     CreateOutcomeSpec(
         name="transport_timeout",
@@ -172,12 +202,6 @@ NON_TERMINAL_SPECS: tuple[CreateOutcomeSpec, ...] = tuple(
     spec for spec in CREATE_OUTCOME_INVENTORY if spec.terminal_non_begin == "no"
 )
 
-_TERMINAL_BY_CODE: dict[tuple[str, int], CreateOutcomeSpec] = {
-    (spec.server_error_code, spec.http_status): spec
-    for spec in TERMINAL_NON_BEGIN_SPECS
-    if spec.server_error_code is not None and spec.http_status is not None
-}
-
 
 def is_changed_body_idempotency_conflict(error: StatblockIntegrationError) -> bool:
     """True only for Server idempotency_conflict (changed-body attempt conflict)."""
@@ -192,12 +216,36 @@ def is_changed_body_idempotency_conflict(error: StatblockIntegrationError) -> bo
 def is_fixture_proven_terminal_non_begin(error: StatblockIntegrationError) -> bool:
     """Conservative terminal candidate check for SBW07b.
 
-    Requires an exact (server_error_code, http_status) match from the inventory.
-    HTTP status alone, category alone, or unrecognized codes never return True.
+    Dispatches to outcome-specific predicates. HTTP status alone, category alone,
+    or ``validation_failed`` without ``is_persistence_ready is False`` never
+    return True.
     """
 
-    if error.error_code is None or error.status_code is None:
-        return False
     if is_changed_body_idempotency_conflict(error):
         return False
-    return (error.error_code, error.status_code) in _TERMINAL_BY_CODE
+    for spec in TERMINAL_NON_BEGIN_SPECS:
+        predicate = spec.terminal_predicate
+        if predicate is not None and predicate(error):
+            return True
+    return False
+
+
+def describe_terminal_proof_requirements() -> list[dict[str, Any]]:
+    """Operator-facing summary of required proof fields per terminal outcome."""
+
+    rows: list[dict[str, Any]] = []
+    for spec in TERMINAL_NON_BEGIN_SPECS:
+        rows.append(
+            {
+                "name": spec.name,
+                "server_error_code": spec.server_error_code,
+                "http_status": spec.http_status,
+                "fixture": spec.fixture,
+                "required_evidence": (
+                    "details.is_persistence_ready is False"
+                    if spec.name == "persistence_validation_failed"
+                    else "error_code == invalid_request (pre-handler)"
+                ),
+            }
+        )
+    return rows

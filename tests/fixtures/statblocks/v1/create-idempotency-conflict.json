@@ -1,9 +1,9 @@
 {
   "error": {
     "code": "idempotency_conflict",
-    "message": "Idempotency key was reused with a different request",
     "details": {
-      "idempotency_key": "sbw07a-create-1"
-    }
+      "idempotency_key": "sbw07a-conflict-1"
+    },
+    "message": "Idempotency key was reused with a different request"
   }
 }

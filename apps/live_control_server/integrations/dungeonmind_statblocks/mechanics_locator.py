@@ -3,6 +3,11 @@
 Maps Server create/exact-read identity onto the frozen SBW07 §12 locator shape
 consumed by later acceptance orchestration. Does not assign operation-authority
 or product workflow states.
+
+Create responses are parsed through an identity envelope (statblock resource +
+``ExactRevisionResourceV1``) so locator extraction does not depend on the full
+generated ``StatblockDefinitionV1`` consumer contract. Full definition typing
+remains a separate contract-sync concern.
 """
 from __future__ import annotations
 
@@ -14,7 +19,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.errors import 
     downstream_unexpected,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated.models import (
-    CreateStatblockResponseV1,
+    StatblockResourceV1,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
     ContractNameV1,
@@ -30,6 +35,7 @@ _REVISION_ID_PATTERN = r"^rev_[a-z0-9]+$"
 _DEFINITION_DIGEST_PATTERN = r"^sha256:[0-9a-f]{64}$"
 
 __all__ = [
+    "CreateStatblockResponseEnvelopeV1",
     "CreateStatblockResult",
     "MechanicsLocatorV1",
     "PROVIDER_DUNGEONMIND",
@@ -50,6 +56,13 @@ class MechanicsLocatorV1(StrictModel):
     definition_digest: str = Field(pattern=_DEFINITION_DIGEST_PATTERN)
 
 
+class CreateStatblockResponseEnvelopeV1(StrictModel):
+    """Buddy identity envelope for create responses (locator extraction only)."""
+
+    statblock: StatblockResourceV1
+    revision: ExactRevisionResourceV1
+
+
 class CreateStatblockResult(StrictModel):
     """Buddy-facing create adapter result (transport observation only)."""
 
@@ -68,7 +81,9 @@ def same_mechanics_locator(
     return left_fields == right_fields
 
 
-def locator_from_create_response(response: CreateStatblockResponseV1) -> MechanicsLocatorV1:
+def locator_from_create_response(
+    response: CreateStatblockResponseEnvelopeV1,
+) -> MechanicsLocatorV1:
     """Parse create response into a strict six-field locator; fail closed."""
 
     statblock = response.statblock
@@ -85,8 +100,8 @@ def locator_from_create_response(response: CreateStatblockResponseV1) -> Mechani
         provider=PROVIDER_DUNGEONMIND,
         statblock_id=revision.statblock_id,
         revision_id=revision.revision_id,
-        contract=revision.contract,  # type: ignore[arg-type]
-        contract_version=revision.contract_version,  # type: ignore[arg-type]
+        contract=revision.contract,
+        contract_version=revision.contract_version,
         definition_digest=revision.definition_digest,
     )
 
@@ -125,7 +140,7 @@ def _locator_identity_fields(
             str(value["contract_version"]),
             str(value["definition_digest"]),
         )
-    except KeyError as exc:
+    except KeyError:
         raise downstream_unexpected(
             "locator identity fields incomplete for same_mechanics_locator"
         ) from None

@@ -3,7 +3,7 @@
     "surface": "review_panel"
   },
   "actor": "user_123",
-  "change_summary": "Accepted after DungeonBuddy review.",
+  "change_summary": "A changed acceptance decision.",
   "definition": {
     "abilities": {
       "charisma": 8,
@@ -140,5 +140,5 @@
       }
     }
   },
-  "idempotency_key": "sbw07a-create-1"
+  "idempotency_key": "sbw07a-conflict-1"
 }

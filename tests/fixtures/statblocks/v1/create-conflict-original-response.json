@@ -150,8 +150,8 @@
       },
       "change_summary": "Accepted after DungeonBuddy review."
     },
-    "revision_id": "rev_000002",
-    "statblock_id": "sb_000001",
+    "revision_id": "rev_000004",
+    "statblock_id": "sb_000003",
     "validation_receipt": {
       "canonicalizer_version": "statblock-canonicalizer-v1",
       "definition_digest": "sha256:7c052e610fc73c29e26439c5e38aa331df485782054a8c4ec0e4c49a837358fd",
@@ -165,7 +165,7 @@
   "statblock": {
     "created_at": "2026-01-01T00:00:00Z",
     "created_by": "dungeonbuddy",
-    "latest_revision_id": "rev_000002",
-    "statblock_id": "sb_000001"
+    "latest_revision_id": "rev_000004",
+    "statblock_id": "sb_000003"
   }
 }

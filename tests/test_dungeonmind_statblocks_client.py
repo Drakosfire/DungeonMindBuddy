@@ -530,7 +530,7 @@ def test_exact_revision_rejects_non_published_path_ids() -> None:
 
     client = _client(httpx.MockTransport(handler))
     with pytest.raises(StatblockIntegrationError) as exc_info:
-        client.get_exact_revision("SB_UPPER", "rev_fixture1")
+        client.get_exact_revision("SB_UPPER", "rev_000002")
     assert exc_info.value.category == "downstream_invalid_request"
 
 
@@ -539,13 +539,13 @@ def test_exact_revision_fixture_retains_identity() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers.get(INTERNAL_KEY_HEADER) == SECRET
-        assert request.url.path.endswith("/statblocks/sb_fixture1/revisions/rev_fixture1")
+        assert request.url.path.endswith("/statblocks/sb_000001/revisions/rev_000002")
         return httpx.Response(200, json=payload)
 
     client = _client(httpx.MockTransport(handler))
-    revision = client.get_exact_revision("sb_fixture1", "rev_fixture1")
-    assert revision.statblock_id == "sb_fixture1"
-    assert revision.revision_id == "rev_fixture1"
+    revision = client.get_exact_revision("sb_000001", "rev_000002")
+    assert revision.statblock_id == "sb_000001"
+    assert revision.revision_id == "rev_000002"
     assert revision.definition_digest.startswith("sha256:")
     assert revision.contract == "dungeonmind.dungeonbuddy-statblocks"
     assert revision.contract_version == "1.0.0"
@@ -616,11 +616,9 @@ def test_client_exposes_create_statblock_for_sbw07a() -> None:
 
 
 def test_create_statblock_serializes_request_and_idempotency_key() -> None:
-    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
-        CreateStatblockRequestV1,
-    )
-
-    request = CreateStatblockRequestV1.model_validate(_fixture("create-request.json"))
+    # Request body is the Server-captured transcript leaf (dict). Full
+    # CreateStatblockRequestV1 typing of structural HP/AC awaits contract sync.
+    request = _fixture("create-request.json")
     captured: dict[str, object] = {}
 
     def handler(request_http: httpx.Request) -> httpx.Response:
@@ -640,8 +638,8 @@ def test_create_statblock_serializes_request_and_idempotency_key() -> None:
     assert body["change_summary"]
     assert "definition" in body
     assert result.locator.provider == "dungeonmind"
-    assert result.locator.statblock_id == "sb_fixture1"
-    assert result.locator.revision_id == "rev_fixture1"
+    assert result.locator.statblock_id == "sb_000001"
+    assert result.locator.revision_id == "rev_000002"
     assert result.locator.contract == "dungeonmind.dungeonbuddy-statblocks"
     assert result.locator.contract_version == "1.0.0"
     assert result.locator.definition_digest.startswith("sha256:")
@@ -702,63 +700,90 @@ def test_create_statblock_rejects_malformed_success_without_inventing_locator() 
 
 
 def test_create_same_key_same_body_replay_returns_identical_locator() -> None:
-    calls: list[dict] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(json.loads(request.content.decode("utf-8")))
-        return httpx.Response(200, json=_fixture("create-response.json"))
-
-    client = _client(httpx.MockTransport(handler))
-    body = _fixture("create-request.json")
-    first = client.create_statblock(body)
-    second = client.create_statblock(body)
-    assert len(calls) == 2
-    assert calls[0] == calls[1]
-    assert calls[0]["idempotency_key"] == "sbw07a-create-1"
+    """Replay recorded Server first/second responses (not an unconditional mock)."""
     from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
         same_mechanics_locator,
     )
 
+    transcript = _fixture("server_transcripts/same_key_same_body_replay.json")
+    request_body = transcript["request"]["json"]
+    recorded = [
+        transcript["first_response"],
+        transcript["second_response"],
+    ]
+    # Server fact: recorded responses share exact identity fields.
+    for field in (
+        ("statblock", "statblock_id"),
+        ("revision", "revision_id"),
+        ("revision", "definition_digest"),
+        ("revision", "contract"),
+        ("revision", "contract_version"),
+    ):
+        left = recorded[0]["json"]
+        right = recorded[1]["json"]
+        cur_l, cur_r = left, right
+        for key in field:
+            cur_l = cur_l[key]
+            cur_r = cur_r[key]
+        assert cur_l == cur_r
+
+    call_idx = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode("utf-8"))
+        assert body == request_body
+        assert body["idempotency_key"] == request_body["idempotency_key"]
+        idx = call_idx["n"]
+        call_idx["n"] += 1
+        entry = recorded[idx]
+        return httpx.Response(entry["status"], json=entry["json"])
+
+    client = _client(httpx.MockTransport(handler))
+    first = client.create_statblock(request_body)
+    second = client.create_statblock(request_body)
+    assert call_idx["n"] == 2
     assert same_mechanics_locator(first.locator, second.locator)
-    assert first.locator.statblock_id == second.locator.statblock_id
-    assert first.locator.revision_id == second.locator.revision_id
+    assert first.locator.statblock_id == second.locator.statblock_id == "sb_000001"
+    assert first.locator.revision_id == second.locator.revision_id == "rev_000002"
     assert first.locator.definition_digest == second.locator.definition_digest
-    assert first.locator.contract == second.locator.contract
-    assert first.locator.contract_version == second.locator.contract_version
-    assert first.locator.provider == second.locator.provider
 
 
 def test_create_changed_body_conflict_is_not_terminal() -> None:
+    """Conflict response comes from Server transcript for same key + changed body."""
     from apps.live_control_server.integrations.dungeonmind_statblocks.create_terminal_inventory import (
         is_changed_body_idempotency_conflict,
         is_fixture_proven_terminal_non_begin,
     )
 
-    bodies: list[dict] = []
+    transcript = _fixture("server_transcripts/same_key_changed_body_conflict.json")
+    original_req = transcript["original_request"]["json"]
+    changed_req = transcript["changed_request"]["json"]
+    assert original_req["idempotency_key"] == changed_req["idempotency_key"]
+    assert original_req["change_summary"] != changed_req["change_summary"]
+    assert transcript["conflict_response"]["status"] == 409
+    assert transcript["conflict_response"]["json"]["error"]["code"] == "idempotency_conflict"
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content.decode("utf-8"))
-        bodies.append(body)
-        if len(bodies) == 1:
-            return httpx.Response(200, json=_fixture("create-response.json"))
-        return httpx.Response(409, json=_fixture("create-idempotency-conflict.json"))
+        if body == original_req:
+            entry = transcript["original_response"]
+            return httpx.Response(entry["status"], json=entry["json"])
+        if body == changed_req:
+            entry = transcript["conflict_response"]
+            return httpx.Response(entry["status"], json=entry["json"])
+        raise AssertionError("request body does not match Server transcript")
 
     client = _client(httpx.MockTransport(handler))
-    original = client.create_statblock(_fixture("create-request.json"))
-    changed = _fixture("create-request.json")
-    changed["change_summary"] = "Different body for conflict proof."
+    original = client.create_statblock(original_req)
     with pytest.raises(StatblockIntegrationError) as exc_info:
-        client.create_statblock(changed)
+        client.create_statblock(changed_req)
     error = exc_info.value
     assert error.category == "downstream_conflict"
     assert error.error_code == "idempotency_conflict"
     assert error.status_code == 409
     assert is_changed_body_idempotency_conflict(error)
     assert is_fixture_proven_terminal_non_begin(error) is False
-    # Adapter does not mint a second locator or a new key.
-    assert original.locator.statblock_id == "sb_fixture1"
-    assert bodies[0]["idempotency_key"] == bodies[1]["idempotency_key"] == "sbw07a-create-1"
-    assert bodies[0]["change_summary"] != bodies[1]["change_summary"]
+    assert original.locator.statblock_id == transcript["original_response"]["json"]["statblock"]["statblock_id"]
 
 
 def test_create_to_exact_read_identity_match() -> None:
@@ -767,17 +792,20 @@ def test_create_to_exact_read_identity_match() -> None:
         same_mechanics_locator,
     )
 
+    transcript = _fixture("server_transcripts/create_to_exact_read.json")
+    create_body = transcript["create_response"]["json"]
+    read_body = transcript["exact_read_response"]["json"]
     observed_paths: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         observed_paths.append(request.url.path)
         if request.method == "POST" and request.url.path.endswith("/statblocks"):
-            return httpx.Response(200, json=_fixture("create-response.json"))
+            return httpx.Response(200, json=create_body)
         if request.method == "GET" and "/revisions/" in request.url.path:
-            assert request.url.path.endswith(
-                "/statblocks/sb_fixture1/revisions/rev_fixture1"
+            assert request.url.path == transcript["exact_read_request"]["path"]
+            return httpx.Response(
+                transcript["exact_read_response"]["status"], json=read_body
             )
-            return httpx.Response(200, json=_fixture("exact-revision-response.json"))
         raise AssertionError(f"unexpected request {request.method} {request.url.path}")
 
     client = _client(httpx.MockTransport(handler))
@@ -794,10 +822,11 @@ def test_create_to_exact_read_identity_match() -> None:
     assert revision.contract_version == created.locator.contract_version
     assert observed_paths == [
         "/api/internal/dungeonbuddy/v1/statblocks",
-        "/api/internal/dungeonbuddy/v1/statblocks/sb_fixture1/revisions/rev_fixture1",
+        transcript["exact_read_request"]["path"],
     ]
     assert not any("latest" in path for path in observed_paths)
     assert not any("corpus" in path for path in observed_paths)
+
 
 
 def test_create_transport_and_auth_uncertainty_remain_non_terminal() -> None:
@@ -877,6 +906,7 @@ def test_create_terminal_inventory_does_not_infer_from_status_alone() -> None:
     from apps.live_control_server.integrations.dungeonmind_statblocks.create_terminal_inventory import (
         CREATE_OUTCOME_INVENTORY,
         is_fixture_proven_terminal_non_begin,
+        is_persistence_validation_terminal_non_begin,
     )
     from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
         StatblockIntegrationError,
@@ -898,6 +928,48 @@ def test_create_terminal_inventory_does_not_infer_from_status_alone() -> None:
         error_code=None,
     )
     assert is_fixture_proven_terminal_non_begin(status_only) is False
+
+    # validation_failed without is_persistence_ready proof → non-terminal.
+    missing_ready = StatblockIntegrationError(
+        category="downstream_validation_failed",
+        message="Definition is not persistence-ready",
+        status_code=422,
+        error_code="validation_failed",
+        details={},
+    )
+    assert is_persistence_validation_terminal_non_begin(missing_ready) is False
+    assert is_fixture_proven_terminal_non_begin(missing_ready) is False
+
+    contradictory = StatblockIntegrationError(
+        category="downstream_validation_failed",
+        message="Definition is not persistence-ready",
+        status_code=422,
+        error_code="validation_failed",
+        details={"is_persistence_ready": True},
+    )
+    assert is_persistence_validation_terminal_non_begin(contradictory) is False
+    assert is_fixture_proven_terminal_non_begin(contradictory) is False
+
+    malformed = StatblockIntegrationError(
+        category="downstream_validation_failed",
+        message="Definition is not persistence-ready",
+        status_code=422,
+        error_code="validation_failed",
+        details={"is_persistence_ready": "false"},
+    )
+    assert is_persistence_validation_terminal_non_begin(malformed) is False
+    assert is_fixture_proven_terminal_non_begin(malformed) is False
+
+    proven = StatblockIntegrationError(
+        category="downstream_validation_failed",
+        message="Definition is not persistence-ready",
+        status_code=422,
+        error_code="validation_failed",
+        details={"is_persistence_ready": False},
+    )
+    assert is_persistence_validation_terminal_non_begin(proven) is True
+    assert is_fixture_proven_terminal_non_begin(proven) is True
+
     assert all(spec.proof for spec in CREATE_OUTCOME_INVENTORY)
     assert all(
         spec.fixture_kind == "server"

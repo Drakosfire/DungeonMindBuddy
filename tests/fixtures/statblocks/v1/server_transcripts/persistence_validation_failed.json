@@ -1,0 +1,185 @@
+{
+  "request": {
+    "json": {
+      "accepted_through": {
+        "surface": "review_panel"
+      },
+      "actor": "user_123",
+      "change_summary": "Accepted after DungeonBuddy review.",
+      "definition": {
+        "abilities": {
+          "charisma": 8,
+          "constitution": 16,
+          "dexterity": 10,
+          "intelligence": 6,
+          "strength": 18,
+          "wisdom": 10
+        },
+        "challenge": {
+          "proficiency_bonus": 2,
+          "rating": "3",
+          "xp_override": null
+        },
+        "communication": {
+          "languages": [],
+          "special_modes": [],
+          "telepathy_range": null
+        },
+        "defenses": {
+          "alternate_armor_classes": [],
+          "condition_immunities": [],
+          "damage_interactions": [],
+          "default_armor_class": {
+            "condition": null,
+            "key": "natural_armor",
+            "label": "natural armor",
+            "value": 15
+          }
+        },
+        "flavor_text": {
+          "description": null,
+          "summary": "A brutal enforcer."
+        },
+        "identity": {
+          "alignment": "unaligned",
+          "creature_type": "giant",
+          "name": "Ironhide Brute",
+          "size": "Large",
+          "subtypes": []
+        },
+        "lair": null,
+        "movement": {
+          "modes": [
+            {
+              "distance": {
+                "unit": "feet",
+                "value": 30
+              },
+              "key": "walk",
+              "mode": "walk",
+              "qualifiers": []
+            }
+          ]
+        },
+        "phases": null,
+        "proficiencies": {
+          "saving_throws": [],
+          "skills": []
+        },
+        "resources": [],
+        "rule_elements": [
+          {
+            "activation": {
+              "kind": "action",
+              "timing_text": null,
+              "trigger": null
+            },
+            "automation_support": "full",
+            "costs": [
+              {
+                "amount": 1,
+                "resource_key": "missing_pool"
+              }
+            ],
+            "key": "greatclub",
+            "mechanic": {
+              "attack_bonus": 6,
+              "attack_type": "melee_weapon",
+              "hit_effects": [
+                {
+                  "damage": {
+                    "count": 2,
+                    "die": 8,
+                    "modifier": 4
+                  },
+                  "damage_type": "bludgeoning",
+                  "duration": null,
+                  "kind": "damage"
+                }
+              ],
+              "kind": "attack",
+              "miss_effects": [],
+              "range": null,
+              "reach": {
+                "unit": "feet",
+                "value": 10
+              },
+              "target": {
+                "area": null,
+                "count": 1,
+                "kind": "creature",
+                "qualifiers": [],
+                "range": null
+              }
+            },
+            "name": "Greatclub",
+            "rules_text": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.",
+            "section": "action",
+            "summary": null,
+            "tags": [],
+            "usage": {
+              "kind": "at_will",
+              "recharge_range": null,
+              "refresh_text": null,
+              "resource_key": null,
+              "uses": null
+            }
+          }
+        ],
+        "ruleset": {
+          "edition": "2024",
+          "house_ruleset_id": null,
+          "system": "dnd5e"
+        },
+        "senses": {
+          "passive_perception": 10,
+          "senses": []
+        },
+        "vitality": {
+          "hit_points": {
+            "displayed_average": 68,
+            "formula": {
+              "count": 8,
+              "die": 10,
+              "modifier": 24
+            },
+            "method": "formula"
+          }
+        }
+      },
+      "idempotency_key": "sbw07a-invalid-persist"
+    },
+    "method": "POST",
+    "path": "/api/internal/dungeonbuddy/v1/statblocks"
+  },
+  "response": {
+    "json": {
+      "error": {
+        "code": "validation_failed",
+        "details": {
+          "is_persistence_ready": false,
+          "validation_receipt": {
+            "canonicalizer_version": "statblock-canonicalizer-v1",
+            "definition_digest": "sha256:cc8d13af3c2253ec34ad5a66271cdd6ef821e9dc1b31042c46b441762237021f",
+            "issues": [
+              {
+                "code": "UNKNOWN_RESOURCE_REFERENCE",
+                "field_path": "rule_elements[0].costs[0].resource_key",
+                "message": "Unknown local reference 'missing_pool'.",
+                "severity": "error",
+                "suggested_resolution": null
+              }
+            ],
+            "mode": "persistence",
+            "status": "invalid",
+            "validated_at": "2026-01-01T00:00:00Z",
+            "validator_version": "statblock-validator-v1.1"
+          }
+        },
+        "message": "Definition is not persistence-ready"
+      }
+    },
+    "status": 422
+  },
+  "server_source_fixture": "Docs/Design/fixtures/dungeonbuddy-statblock-v1/unknown_resource_pool.json"
+}

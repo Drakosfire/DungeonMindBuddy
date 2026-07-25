@@ -14,11 +14,14 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.create_termina
     CREATE_OUTCOME_INVENTORY,
     is_changed_body_idempotency_conflict,
     is_fixture_proven_terminal_non_begin,
+    is_invalid_request_terminal_non_begin,
+    is_persistence_validation_terminal_non_begin,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
 )
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+    CreateStatblockResponseEnvelopeV1,
     CreateStatblockResult,
     MechanicsLocatorV1,
     same_mechanics_locator,
@@ -35,6 +38,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.readiness impo
 
 __all__ = [
     "CREATE_OUTCOME_INVENTORY",
+    "CreateStatblockResponseEnvelopeV1",
     "CreateStatblockResult",
     "DungeonMindStatblockV1Client",
     "ExactRevisionResourceV1",
@@ -50,6 +54,8 @@ __all__ = [
     "evaluate_statblock_integration_readiness",
     "is_changed_body_idempotency_conflict",
     "is_fixture_proven_terminal_non_begin",
+    "is_invalid_request_terminal_non_begin",
+    "is_persistence_validation_terminal_non_begin",
     "load_statblock_integration_config",
     "same_mechanics_locator",
 ]

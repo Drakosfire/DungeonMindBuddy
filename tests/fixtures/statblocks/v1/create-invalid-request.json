@@ -1,19 +1,24 @@
 {
   "error": {
     "code": "invalid_request",
-    "message": "Request validation failed",
     "details": {
       "fields": [
         {
-          "type": "missing",
+          "input": {
+            "candidate": {
+              "accepted_definition_changed": false,
+              "candidate_id": "cand_forged"
+            }
+          },
           "loc": [
             "body",
-            "idempotency_key"
+            "provenance"
           ],
-          "msg": "Field required",
-          "input": {}
+          "msg": "Extra inputs are not permitted",
+          "type": "extra_forbidden"
         }
       ]
-    }
+    },
+    "message": "Request validation failed"
   }
 }

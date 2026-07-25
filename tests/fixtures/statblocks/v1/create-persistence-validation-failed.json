@@ -5,7 +5,7 @@
       "is_persistence_ready": false,
       "validation_receipt": {
         "canonicalizer_version": "statblock-canonicalizer-v1",
-        "definition_digest": "sha256:ffa75f84c36431706a8e3dc3409c0b8371ed1ef403b6dd52704181aa6a88aac1",
+        "definition_digest": "sha256:cc8d13af3c2253ec34ad5a66271cdd6ef821e9dc1b31042c46b441762237021f",
         "issues": [
           {
             "code": "UNKNOWN_RESOURCE_REFERENCE",

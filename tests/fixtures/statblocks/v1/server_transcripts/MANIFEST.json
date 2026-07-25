@@ -1,0 +1,58 @@
+{
+  "schema": "sbw07a_server_create_transcript_manifest_v1",
+  "captured_at": "2026-07-25T02:43:14.886825+00:00",
+  "dungeonmind_server": {
+    "commit": "7a214741af81d3895866c5f29332937bd2af87ab",
+    "subject": "Fail closed on past op expiry before candidate agreement checks.",
+    "repo_path_at_capture": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindServer"
+  },
+  "server_owned_tests": [
+    {
+      "path": "tests/statblocks_v1/api/test_statblock_resource_routes.py",
+      "names": [
+        "test_create_append_and_exact_replay",
+        "test_create_idempotent_replay_binds_observability",
+        "test_write_idempotency_parent_stale_and_exact_locator_errors",
+        "test_persistence_validation_failure_returns_receipt",
+        "test_open_provenance_field_rejected_and_actor_is_not_created_by",
+        "test_idempotency_conflict_before_validation_for_changed_invalid_payload"
+      ],
+      "proves": [
+        "same-key same-body replay returns identical revision identity",
+        "same-key changed-body returns idempotency_conflict 409",
+        "exact revision read matches create locator/digest",
+        "persistence validation_failed includes is_persistence_ready=false",
+        "invalid_request occurs before create persistence"
+      ]
+    }
+  ],
+  "server_source_fixtures": [
+    "Docs/Design/fixtures/dungeonbuddy-statblock-v1/simple_bruiser.json",
+    "Docs/Design/fixtures/dungeonbuddy-statblock-v1/unknown_resource_pool.json"
+  ],
+  "capture_script": "scripts/capture_sbw07a_server_create_transcripts.py",
+  "transcripts": [
+    "create_success",
+    "create_to_exact_read",
+    "persistence_validation_failed",
+    "request_validation_failed",
+    "same_key_changed_body_conflict",
+    "same_key_same_body_replay"
+  ],
+  "leaf_fixtures": [
+    "create-conflict-changed-request.json",
+    "create-conflict-original-response.json",
+    "create-idempotency-conflict.json",
+    "create-invalid-request.json",
+    "create-persistence-validation-failed.json",
+    "create-replay-second-response.json",
+    "create-request.json",
+    "create-response.json",
+    "exact-revision-response.json"
+  ],
+  "notes": [
+    "Transcripts were recorded from DungeonMindServer create_test_app() TestClient, not invented by Buddy mocks.",
+    "Buddy client tests must consume these recorded bodies; mocks may only replay recorded Server responses.",
+    "validation_failed is terminal only when details.is_persistence_ready is exactly false."
+  ]
+}
