@@ -465,8 +465,10 @@ function acceptResultFromRead(
  * - boundDisplay: durable outcome bound to exact identity — no new Accept while shown
  * - terminalFinished: journal slot free — must mint a new UUID via explicit start-new
  *
- * `acceptance_blocked` is contextual: fresh pre-claim rejects are ephemeral; blocked
- * responses from restore/reconcile retain the original ID (journal may already exist).
+ * `acceptance_blocked` is contextual, but UI-call origin alone is insufficient for replay:
+ * mechanics:accept can block pre-claim (validation/version/source) or on journal-read failure.
+ * Replay classifies blocked responses with authoritative getAcceptanceOperation evidence before
+ * choosing fresh (clear) vs recovery (retain) vs unresolved (lookup failed).
  */
 type AcceptActionClass =
   | "ephemeralAttempt"
@@ -476,11 +478,34 @@ type AcceptActionClass =
 
 type AcceptResultOrigin = "fresh" | "recovery";
 
+/** Authoritative claim-state evidence after an acceptance_blocked response. */
+type BlockedClaimEvidence =
+  | "pre_claim_absent"
+  | "journal_present"
+  | "lookup_uncertain";
+
 /** Tunable for tests: bounded restore lookup while an optimistic claim may still be in flight. */
 export const ACCEPT_RESTORE_LOOKUP = {
   maxAttempts: 3,
   delayMs: 40,
 };
+
+async function resolveBlockedClaimEvidence(
+  draftId: string,
+  operationId: string,
+): Promise<BlockedClaimEvidence> {
+  try {
+    const read = await getAcceptanceOperation(draftId, operationId);
+    if (read.operation != null) {
+      return "journal_present";
+    }
+    // Authoritative miss: no journal claim for this operation id.
+    return "pre_claim_absent";
+  } catch {
+    // Journal temporarily unreadable — existence is uncertain; retain the id.
+    return "lookup_uncertain";
+  }
+}
 
 function acceptActionClass(
   label: AcceptanceResultLabel | null | undefined,
@@ -895,6 +920,50 @@ function AcceptMechanicsFlow({
 
     try {
       const response = await acceptThreatDraftMechanics(draftId, replayBody);
+      if (
+        requestGeneration !== acceptRequestGenerationRef.current ||
+        ownedDraftIdRef.current !== draftId
+      ) {
+        return;
+      }
+
+      if (response.result_label === "acceptance_blocked") {
+        // Call origin is not enough: blocked may be pre-claim rejection or journal-read failure.
+        const evidence = await resolveBlockedClaimEvidence(draftId, operationId);
+        if (
+          requestGeneration !== acceptRequestGenerationRef.current ||
+          ownedDraftIdRef.current !== draftId
+        ) {
+          return;
+        }
+        if (evidence === "pre_claim_absent") {
+          // Authoritative: no journal op — allow corrected Accept/Save with a new attempt.
+          applyAcceptResponseForDraft(
+            draftId,
+            requestGeneration,
+            response,
+            operationId,
+            "fresh",
+          );
+        } else if (evidence === "journal_present") {
+          applyAcceptResponseForDraft(
+            draftId,
+            requestGeneration,
+            response,
+            operationId,
+            "recovery",
+          );
+        } else {
+          markExistenceUnresolved(draftId, operationId);
+          setReplayRequest(replayBody);
+          setAcceptError(
+            response.message ??
+              "acceptance blocked; journal lookup uncertain — retaining operation id",
+          );
+        }
+        return;
+      }
+
       applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId, "recovery");
     } catch (error) {
       if (

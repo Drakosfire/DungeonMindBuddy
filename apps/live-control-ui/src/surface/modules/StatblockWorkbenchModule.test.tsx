@@ -1947,6 +1947,194 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.queryByTestId("accept-mechanics-same-op-recover")).toBeNull();
     });
 
+    it("clears after replay validation rejection when journal has no operation", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID")
+        .mockReturnValueOnce("op_replay_valid_fail")
+        .mockReturnValueOnce("op_replay_valid_new");
+      const acceptSpy = vi
+        .spyOn(liveApi, "acceptThreatDraftMechanics")
+        .mockRejectedValueOnce(new Error("Failed to fetch"))
+        .mockResolvedValueOnce({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_replay_valid_fail",
+          operation_id: "op_replay_valid_fail",
+          result_label: "acceptance_blocked",
+          message: "acceptance blocked: definition failed authoritative validation",
+        })
+        .mockResolvedValue({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_replay_valid_fail",
+          operation_id: "op_replay_valid_new",
+          result_label: "mechanics_saved",
+          locator: {
+            provider: "dungeonmind",
+            statblock_id: "sb_corrected",
+            revision_id: "rev_corrected",
+            contract: "dungeonbuddy-statblocks-v1",
+            contract_version: "1",
+            definition_digest: PREVIEW_DIGEST,
+          },
+        });
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_read_acceptance_operation_response_v1",
+        draft_id: "td_replay_valid_fail",
+        operation: null,
+        result_label: null,
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_replay_valid_fail");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-replay")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-replay"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-ephemeral-block")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_valid_fail")).toBeNull();
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+      expect(screen.queryByTestId("accept-mechanics-same-op-recover")).toBeNull();
+      expect(acceptSpy).toHaveBeenCalledTimes(2);
+
+      // Corrected Accept/Save mints a new operation id.
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+      await waitFor(() => {
+        expect(acceptSpy).toHaveBeenCalledTimes(3);
+      });
+      expect(acceptSpy.mock.calls[2][1].operation_id).toBe("op_replay_valid_new");
+    });
+
+    it("clears after replay version mismatch when journal has no operation", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_replay_version");
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics")
+        .mockRejectedValueOnce(new Error("Failed to fetch"))
+        .mockResolvedValueOnce({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_replay_version",
+          operation_id: "op_replay_version",
+          result_label: "acceptance_blocked",
+          message: "expected draft version mismatch",
+        });
+      const getOpSpy = vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_read_acceptance_operation_response_v1",
+        draft_id: "td_replay_version",
+        operation: null,
+        result_label: null,
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_replay_version");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-replay")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-replay"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-ephemeral-block")).toBeTruthy();
+      });
+      expect(getOpSpy).toHaveBeenCalledWith("td_replay_version", "op_replay_version");
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_version")).toBeNull();
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+    });
+
+    it("retains id when replay is blocked but journal already has the operation", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_replay_present");
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics")
+        .mockRejectedValueOnce(new Error("Failed to fetch"))
+        .mockResolvedValueOnce({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_replay_present",
+          operation_id: "op_replay_present",
+          result_label: "acceptance_blocked",
+          message: "acceptance journal temporarily unavailable",
+        });
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue(
+        pendingOperation("td_replay_present", "op_replay_present", "dispatched_unknown"),
+      );
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_replay_present");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-replay")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-replay"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-blocked-recovery")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_present")).toBe(
+        "op_replay_present",
+      );
+      expect(screen.getByTestId("accept-mechanics-same-op-recover")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+    });
+
+    it("retains id when replay is blocked and journal lookup is uncertain", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_replay_uncertain");
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics")
+        .mockRejectedValueOnce(new Error("Failed to fetch"))
+        .mockResolvedValueOnce({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_replay_uncertain",
+          operation_id: "op_replay_uncertain",
+          result_label: "acceptance_blocked",
+          message: "acceptance journal temporarily unavailable",
+        });
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockRejectedValue(
+        new Error("journal storage unavailable"),
+      );
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_replay_uncertain");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-replay")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-replay"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_uncertain")).toBe(
+        "op_replay_uncertain",
+      );
+      expect(screen.getByTestId("accept-mechanics-replay")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+    });
+
     it("retains operation id when recovery returns acceptance_blocked for journal unavailability", async () => {
       sessionStorage.setItem("dmb.sbw07.acceptOperationId:td_rec_blocked", "op_rec_blocked");
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
