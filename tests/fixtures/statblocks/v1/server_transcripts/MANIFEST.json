@@ -1,0 +1,83 @@
+{
+  "schema": "sbw07a_server_create_transcript_manifest_v1",
+  "captured_at": "2026-07-25T03:07:45.509026+00:00",
+  "dungeonmind_server": {
+    "commit": "7a214741af81d3895866c5f29332937bd2af87ab",
+    "subject": "Fail closed on past op expiry before candidate agreement checks.",
+    "repo_path_at_capture": "/tmp/dms-sbw07a-clean",
+    "worktree_clean": true,
+    "statblocks_v1_package_path": "/tmp/dms-sbw07a-clean/statblocks_v1/__init__.py",
+    "openapi_path": "openapi/dungeonbuddy-statblocks-v1.json",
+    "openapi_fingerprint": "sha256:75bef3f4d3cffa30532e557fb822fe1d0cb3877a9a46d5b83ff637f3078cd748"
+  },
+  "buddy_vendored_openapi_fingerprint": "sha256:75bef3f4d3cffa30532e557fb822fe1d0cb3877a9a46d5b83ff637f3078cd748",
+  "openapi_fingerprint_match": true,
+  "server_source_fixtures": [
+    {
+      "path": "Docs/Design/fixtures/dungeonbuddy-statblock-v1/simple_bruiser.json",
+      "sha256": "sha256:bb14940f3b0797b380f95b960574365ddf911422ba81bf9df42190bb50d7f9e5"
+    },
+    {
+      "path": "Docs/Design/fixtures/dungeonbuddy-statblock-v1/unknown_resource_pool.json",
+      "sha256": "sha256:56293e07c0786a7f751004a3e9b3c6561290bb16cbb55cf26099d94c5b3582d5"
+    }
+  ],
+  "server_owned_tests": [
+    {
+      "path": "tests/statblocks_v1/api/test_statblock_resource_routes.py",
+      "names": [
+        "test_create_append_and_exact_replay",
+        "test_create_idempotent_replay_binds_observability",
+        "test_write_idempotency_parent_stale_and_exact_locator_errors",
+        "test_persistence_validation_failure_returns_receipt",
+        "test_open_provenance_field_rejected_and_actor_is_not_created_by",
+        "test_idempotency_conflict_before_validation_for_changed_invalid_payload"
+      ],
+      "proves": [
+        "same-key same-body replay returns identical revision identity",
+        "same-key changed-body returns idempotency_conflict 409",
+        "exact revision read matches create locator/digest",
+        "persistence validation_failed includes is_persistence_ready=false",
+        "invalid_request occurs before create persistence"
+      ]
+    }
+  ],
+  "capture_script": "scripts/capture_sbw07a_server_create_transcripts.py",
+  "transcripts": [
+    "create_success",
+    "create_to_exact_read",
+    "persistence_validation_failed",
+    "request_validation_failed",
+    "same_key_changed_body_conflict",
+    "same_key_same_body_replay"
+  ],
+  "leaf_fixtures": [
+    "create-conflict-changed-request.json",
+    "create-conflict-original-response.json",
+    "create-idempotency-conflict.json",
+    "create-invalid-request.json",
+    "create-persistence-validation-failed.json",
+    "create-replay-second-response.json",
+    "create-request.json",
+    "create-response.json",
+    "exact-revision-response.json"
+  ],
+  "leaf_fixture_sha256": {
+    "create-request.json": "sha256:7a07e9e21c5a80532ef8d92038269739aaff503ba49ffe46dc472bf11538de02",
+    "create-response.json": "sha256:f3237096eee77af6ab8acb90dd05a854ef4010fb84225b9e5067be54a4b0cebe",
+    "create-replay-second-response.json": "sha256:f3237096eee77af6ab8acb90dd05a854ef4010fb84225b9e5067be54a4b0cebe",
+    "create-idempotency-conflict.json": "sha256:396a3bedfbebdc790b67fa2869173a42807578acdb5770ba189e87d38628d839",
+    "create-conflict-original-response.json": "sha256:1ffd1c7151ffd6fcb4541a39eac3239afff09f2a9301bd75d3e8ab5c01a6814c",
+    "create-conflict-changed-request.json": "sha256:bba3c687f62af158c255e101b35ceb21dbb8eecb77476c87ff3a4ef7c90f5f13",
+    "exact-revision-response.json": "sha256:9d394518ef716f0cd8677eb009fe177c06659b7f69f60676530c5fd95e6af4d2",
+    "create-persistence-validation-failed.json": "sha256:462c5416f420b30402febcdb35d75e994833622b2cf22ba4c9e2ffbf2f72fdf9",
+    "create-invalid-request.json": "sha256:e0c39189c4160c19724cdeb085f4da987a44d703d8ad6158ab3ea9a529d08b37"
+  },
+  "notes": [
+    "Transcripts were recorded from a clean DungeonMindServer checkout TestClient.",
+    "Capture refuses dirty worktrees and imported packages outside --server-repo.",
+    "Create request definition bytes match the cited simple_bruiser source fixture.",
+    "Buddy client tests must consume these recorded bodies; mocks may only replay them.",
+    "validation_failed is terminal only when details.is_persistence_ready is exactly false."
+  ]
+}
