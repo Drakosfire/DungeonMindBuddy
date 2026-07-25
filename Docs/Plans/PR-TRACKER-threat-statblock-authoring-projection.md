@@ -1,15 +1,15 @@
 # PR Tracker — Threat + Statblock Authoring and Projection
 
-**Status:** ACTIVE SLICE / IMPLEMENTATION  
-**Date:** 2026-07-24  
-**PR base / repository tip:** `36582f8b` on `main` (`#405` merge tip; may include unrelated work)  
-**Logical SBW predecessor:** `#405` / `36582f8b` — `SBW07-contract` §12 APPROVED / FROZEN  
-**This PR:** `SBW07a` — create/read Server client + fixtures + terminal inventory  
-**Next dispatch after this PR merges:** `SBW07b` (acceptance journal + §12 orchestration)  
-**Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).  
+**Status:** ACTIVE SLICE / IMPLEMENTATION
+**Date:** 2026-07-24
+**PR base / repository tip:** `51661055` on `main` (`#406` merge tip; may include unrelated work)
+**Logical SBW predecessor:** `#406` / `51661055` — `SBW07a` create/read adapter
+**This PR:** `SBW07b` — acceptance journal + §12 orchestration
+**Next dispatch after this PR merges:** `SBW07c` (Accept UI + corpus-promotion demolition)
+**Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).
 
-**Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
-**Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
+**Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
+**Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)
 **Contract owner:** DungeonMindServer statblock v1; DungeonBuddy consumes generated contracts and owns workflow, projection, graph bindings, Plan documents, media selection, and runtime combat state.
 
 This tracker is the implementation sequencing authority for this workstream. It does not override Campaign Supergraph sequencing for unrelated graph infrastructure.
@@ -177,8 +177,8 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 | Bite | Status | Mission | Exclusions |
 |---|---|---|---|
 | `SBW07-contract` | MERGED `#405` / `36582f8b` — §12 APPROVED / FROZEN | Doc-only approve-or-reject of frozen HANDOFF-sbw07 §12 (do not rewrite unless review rejects a closed decision) | Implementation code |
-| `SBW07a` | **this PR** | Create/read Server client + fixtures | Draft mutation, UI, demolition |
-| `SBW07b` | next after `SBW07a` | Acceptance orchestration + atomic ref / pending reconcile | UI, corpus demolition, graph |
+| `SBW07a` | MERGED `#406` / `51661055` | Create/read Server client + fixtures | Draft mutation, UI, demolition |
+| `SBW07b` | **this PR** | Acceptance orchestration + atomic ref / pending reconcile | UI, corpus demolition, graph |
 | `SBW07c` | after `SBW07b` | Accept UI + corpus-promotion demolition | Graph, append revision |
 
 ### SBW06 — Candidate revise/regenerate lineage

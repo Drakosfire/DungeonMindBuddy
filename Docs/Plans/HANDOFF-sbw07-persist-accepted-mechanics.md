@@ -1,15 +1,15 @@
 # HANDOFF — SBW07 Persist accepted mechanics as an immutable revision
 
-**Created:** 2026-07-22  
-**Updated:** 2026-07-24 — `SBW07-contract` merged; `SBW07a` create/read adapter active  
-**Status:** IN PROGRESS — `SBW07a` (create/read Server client + fixtures). Next: `SBW07b` → `SBW07c`. **Before SBW06**.  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-sbw07-persist-accepted-mechanics.md`  
-**Workstream:** `SBW07`  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**PR base / repository tip (not an SBW claim):** `36582f8b` on `main` (`#405` merge tip; includes unrelated work)  
-**Logical SBW predecessor:** `#405` / `36582f8b` — `SBW07-contract` §12 APPROVED / FROZEN  
-**This PR:** `SBW07a` — typed create/read adapter + fixture-backed terminal inventory  
-**Next code bite after this PR merges:** `SBW07b` (acceptance journal + §12 orchestration)
+**Created:** 2026-07-22
+**Updated:** 2026-07-24 — `SBW07-contract` merged; `SBW07a` merged; `SBW07b` active
+**Status:** IN PROGRESS — `SBW07b` (acceptance journal + §12 orchestration). Next: `SBW07c`. **Before SBW06**.
+**Canonical handoff path:** `Docs/Plans/HANDOFF-sbw07-persist-accepted-mechanics.md`
+**Workstream:** `SBW07`
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**PR base / repository tip (not an SBW claim):** `51661055` on `main` (`#406` merge tip; includes unrelated work)
+**Logical SBW predecessor:** `#406` / `51661055` — `SBW07a` create/read adapter
+**This PR:** `SBW07b` — acceptance journal + §12 orchestration
+**Next code bite after this PR merges:** `SBW07c` (Accept UI + corpus-promotion demolition)
 
 > Dispatch one capability across a contract PR plus three code PRs: persist validated mechanics as one logical statblock with one exact immutable first revision and record that locator on the ThreatDraft. Do not publish a Threat, update a graph binding, append a later revision, embed Markdown, or add combat/media behavior.
 
@@ -18,8 +18,8 @@
 | Bite | Status | PR mission | Allowlist focus | Still false |
 |---|---|---|---|---|
 | `SBW07-contract` | MERGED `#405` / `36582f8b` — §12 APPROVED / FROZEN | Doc-only acceptance authority + partial-state transition table + ThreatDraft schema delta (§12 approve/reject) | Docs only; no implementation | All code |
-| `SBW07a` | **this PR** | Create/read Server client + fixtures | Integration client + tests | Draft mutation, UI, demolition |
-| `SBW07b` | next after `SBW07a` | Acceptance orchestration + atomic ref / pending reconcile | Service/store/routes/tests | UI, corpus demolition, graph |
+| `SBW07a` | MERGED `#406` / `51661055` | Create/read Server client + fixtures | Integration client + tests | Draft mutation, UI, demolition |
+| `SBW07b` | **this PR** | Acceptance orchestration + atomic ref / pending reconcile | Service/store/routes/tests | UI, corpus demolition, graph |
 | `SBW07c` | after `SBW07b` | Accept UI + corpus-promotion demolition | Workbench + demolition ledger | Graph, append revision |
 
 **Deferred outside this workstream (`Backlog.md`):** Server HP/AC/Phases consumer sync into Buddy; context-aware workbench ThreatDraft create-and-generate; browser-local editor draft persistence (restore as unvalidated). These remain parallel READY backlog items and are not part of `SBW07a` unless create/read fixtures literally cannot parse without the structural contract sync.

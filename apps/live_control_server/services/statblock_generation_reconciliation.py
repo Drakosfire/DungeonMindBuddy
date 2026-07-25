@@ -208,6 +208,17 @@ def _storage_unavailable() -> GenerationReconciliationError:
 
 @contextmanager
 def _reconciliation_lock(root: Path) -> Iterator[None]:
+    """Exclusive lock for generation journal mutations.
+
+    Lock order when ThreatDraft admission is required for a *new* generation
+    claim: acquire the ThreatDraft store lock first, then this lock
+    (``threat_draft_store._store_lock`` → ``_reconciliation_lock``).
+
+    Do not acquire the ThreatDraft store lock while holding this lock (avoids
+    deadlock with new-generation admission). Acceptance journal locking is
+    independent; acceptance uses acceptance journal → ThreatDraft store and
+    never nests this lock.
+    """
     lock_path = reconciliation_root(root) / LOCK_NAME
     try:
         lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -863,6 +874,131 @@ def read_reconciliation(
         )
 
 
+def _claim_generation_request_unlocked(
+    root: Path,
+    *,
+    draft_id: str,
+    draft_version: int,
+    request_id: str,
+    request_digest: str,
+    request_body: dict[str, Any],
+    ref_candidate_ids: set[str],
+    ref_entries: list[tuple[str, str]] | None = None,
+) -> tuple[ClaimOutcome, GenerationOperationV2 | GenerationTombstoneV1]:
+    """Claim under an already-held ``_reconciliation_lock``.
+
+    Brand-new generation admission must hold the ThreatDraft store lock as well
+    (lock order: store → reconciliation). Callers that already re-read a same-key
+    durable entry under those locks may invoke this helper with the *stored*
+    request body and digest to classify replay/recovery without applying
+    new-generation workflow gates. Genuinely empty keys must still verify
+    committed membership, version, and ``workflow_state`` under the store lock
+    before constructing a new body and claiming.
+    """
+    body_digest = request_digest_for_body(request_body)
+    if body_digest != request_digest:
+        raise GenerationReconciliationError(
+            "generation request body digest mismatch",
+            status_code=500,
+        )
+
+    now = _utc_now()
+    # Opportunistic compaction requires independent lineage proof when provided.
+    # Never invent empty request_ids — that would fake lineage evidence.
+    entries = _compact_eligible_for_draft_unlocked(
+        root,
+        draft_id=draft_id,
+        ref_candidate_ids=ref_candidate_ids,
+        ref_entries=ref_entries,
+    )
+
+    existing = _read_entry_unlocked(
+        root,
+        draft_id=draft_id,
+        draft_version=draft_version,
+        request_id=request_id,
+        ref_candidate_ids=ref_candidate_ids,
+        persist_upgrade=True,
+    )
+    if existing is not None:
+        if isinstance(existing, GenerationTombstoneV1):
+            if existing.request_digest != request_digest:
+                raise GenerationReconciliationError(
+                    "generation reconciliation conflict",
+                    status_code=409,
+                )
+            if existing.outcome == "reconciled":
+                return "tombstone_reconciled", existing
+            if existing.outcome == "terminal_failure":
+                return "tombstone_terminal_failure", existing
+            return "tombstone_terminal_expired", existing
+
+        if existing.request_digest != request_digest:
+            raise GenerationReconciliationError(
+                "generation reconciliation conflict",
+                status_code=409,
+            )
+        if existing.request_body != request_body:
+            raise GenerationReconciliationError(
+                "generation reconciliation conflict",
+                status_code=409,
+            )
+        if existing.status == "reconciled":
+            return "reconciled", existing
+        if existing.status == "candidate_received":
+            return "candidate_received", existing
+        if existing.status == "terminal_failure":
+            return "terminal_failure", existing
+        if existing.status == "terminal_expired":
+            return "terminal_expired", existing
+        if existing.status == "dispatched_unknown":
+            refreshed = _refresh_claim_ttl(existing, now=now)
+            _write_operation_unlocked(root, refreshed)
+            return "dispatched_retry", refreshed
+
+    usage = _capacity_usage(entries, ref_candidate_ids=ref_candidate_ids)
+    if usage >= MAX_CANDIDATE_REFS:
+        raise GenerationReconciliationError(
+            "candidate_refs limit exceeded",
+            status_code=422,
+        )
+
+    if _operation_count(entries) >= MAX_OPERATION_RECORDS_PER_DRAFT:
+        raise GenerationReconciliationError(
+            "generation reconciliation storage bound exceeded",
+            status_code=500,
+        )
+    if _tombstone_count(entries) >= MAX_TOMBSTONES_PER_DRAFT:
+        raise GenerationReconciliationError(
+            "generation reconciliation tombstone bound exceeded",
+            status_code=500,
+        )
+
+    now_iso = _utc_now_iso()
+    expires_at = (now + CLAIM_TTL).isoformat().replace("+00:00", "Z")
+    try:
+        record = GenerationOperationV2(
+            draft_id=require_draft_id(draft_id),
+            draft_version=draft_version,
+            request_id=validate_request_id(request_id),
+            request_digest=request_digest,
+            request_body=request_body,
+            status="dispatched_unknown",
+            candidate_id=None,
+            candidate_payload=None,
+            materialization=MaterializationV2(),
+            created_at=now_iso,
+            updated_at=now_iso,
+            claim_expires_at=expires_at,
+        )
+    except GenerationReconciliationError:
+        raise
+    except ValueError as exc:
+        raise GenerationReconciliationError(str(exc), status_code=422) from None
+    _write_operation_unlocked(root, record)
+    return "claimed", record
+
+
 def claim_generation_request(
     root: Path,
     *,
@@ -874,110 +1010,23 @@ def claim_generation_request(
     ref_candidate_ids: set[str],
     ref_entries: list[tuple[str, str]] | None = None,
 ) -> tuple[ClaimOutcome, GenerationOperationV2 | GenerationTombstoneV1]:
-    """Atomically claim capacity and observe prior durable outcomes."""
-    body_digest = request_digest_for_body(request_body)
-    if body_digest != request_digest:
-        raise GenerationReconciliationError(
-            "generation request body digest mismatch",
-            status_code=500,
-        )
+    """Atomically claim capacity and observe prior durable outcomes.
 
+    For brand-new generation against a ThreatDraft that may race acceptance
+    Phase 1, prefer ``statblock_candidate_generation``'s store-locked admission
+    path so workflow/version checks and this claim share one admission boundary.
+    """
     with _reconciliation_lock(root):
-        now = _utc_now()
-        # Opportunistic compaction requires independent lineage proof when provided.
-        # Never invent empty request_ids — that would fake lineage evidence.
-        entries = _compact_eligible_for_draft_unlocked(
-            root,
-            draft_id=draft_id,
-            ref_candidate_ids=ref_candidate_ids,
-            ref_entries=ref_entries,
-        )
-
-        existing = _read_entry_unlocked(
+        return _claim_generation_request_unlocked(
             root,
             draft_id=draft_id,
             draft_version=draft_version,
             request_id=request_id,
+            request_digest=request_digest,
+            request_body=request_body,
             ref_candidate_ids=ref_candidate_ids,
-            persist_upgrade=True,
+            ref_entries=ref_entries,
         )
-        if existing is not None:
-            if isinstance(existing, GenerationTombstoneV1):
-                if existing.request_digest != request_digest:
-                    raise GenerationReconciliationError(
-                        "generation reconciliation conflict",
-                        status_code=409,
-                    )
-                if existing.outcome == "reconciled":
-                    return "tombstone_reconciled", existing
-                if existing.outcome == "terminal_failure":
-                    return "tombstone_terminal_failure", existing
-                return "tombstone_terminal_expired", existing
-
-            if existing.request_digest != request_digest:
-                raise GenerationReconciliationError(
-                    "generation reconciliation conflict",
-                    status_code=409,
-                )
-            if existing.request_body != request_body:
-                raise GenerationReconciliationError(
-                    "generation reconciliation conflict",
-                    status_code=409,
-                )
-            if existing.status == "reconciled":
-                return "reconciled", existing
-            if existing.status == "candidate_received":
-                return "candidate_received", existing
-            if existing.status == "terminal_failure":
-                return "terminal_failure", existing
-            if existing.status == "terminal_expired":
-                return "terminal_expired", existing
-            if existing.status == "dispatched_unknown":
-                refreshed = _refresh_claim_ttl(existing, now=now)
-                _write_operation_unlocked(root, refreshed)
-                return "dispatched_retry", refreshed
-
-        usage = _capacity_usage(entries, ref_candidate_ids=ref_candidate_ids)
-        if usage >= MAX_CANDIDATE_REFS:
-            raise GenerationReconciliationError(
-                "candidate_refs limit exceeded",
-                status_code=422,
-            )
-
-        if _operation_count(entries) >= MAX_OPERATION_RECORDS_PER_DRAFT:
-            raise GenerationReconciliationError(
-                "generation reconciliation storage bound exceeded",
-                status_code=500,
-            )
-        if _tombstone_count(entries) >= MAX_TOMBSTONES_PER_DRAFT:
-            raise GenerationReconciliationError(
-                "generation reconciliation tombstone bound exceeded",
-                status_code=500,
-            )
-
-        now_iso = _utc_now_iso()
-        expires_at = (now + CLAIM_TTL).isoformat().replace("+00:00", "Z")
-        try:
-            record = GenerationOperationV2(
-                draft_id=require_draft_id(draft_id),
-                draft_version=draft_version,
-                request_id=validate_request_id(request_id),
-                request_digest=request_digest,
-                request_body=request_body,
-                status="dispatched_unknown",
-                candidate_id=None,
-                candidate_payload=None,
-                materialization=MaterializationV2(),
-                created_at=now_iso,
-                updated_at=now_iso,
-                claim_expires_at=expires_at,
-            )
-        except GenerationReconciliationError:
-            raise
-        except ValueError as exc:
-            raise GenerationReconciliationError(str(exc), status_code=422) from None
-        _write_operation_unlocked(root, record)
-        return "claimed", record
 
 
 def record_candidate_received(

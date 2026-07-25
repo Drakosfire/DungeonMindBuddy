@@ -1,16 +1,16 @@
 # Roadmap — Threat + Statblock Authoring and Projection
 
-**Status:** ACTIVE IMPLEMENTATION ROADMAP  
-**Date:** 2026-07-24  
-**PR base / repository tip:** `36582f8b` on `main` (`#405` merge tip; may include unrelated work)  
-**Logical SBW predecessor:** `#405` / `36582f8b` — `SBW07-contract` §12 APPROVED / FROZEN  
-**This PR:** `SBW07a` — create/read Server client + fixtures + terminal inventory  
-**Next dispatch after this PR merges:** `SBW07b` (acceptance journal + §12 orchestration)  
+**Status:** ACTIVE IMPLEMENTATION ROADMAP
+**Date:** 2026-07-24
+**PR base / repository tip:** `51661055` on `main` (`#406` merge tip; may include unrelated work)
+**Logical SBW predecessor:** `#406` / `51661055` — `SBW07a` create/read adapter
+**This PR:** `SBW07b` — acceptance journal + §12 orchestration
+**Next dispatch after this PR merges:** `SBW07c` (Accept UI + corpus-promotion demolition)
 
 
-**Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)  
-**PR tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
-**DungeonBuddy domain boundary:** [`../Design/DECISION-statblock-contract-consumer-boundary.md`](../Design/DECISION-statblock-contract-consumer-boundary.md)  
+**Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
+**PR tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)
+**DungeonBuddy domain boundary:** [`../Design/DECISION-statblock-contract-consumer-boundary.md`](../Design/DECISION-statblock-contract-consumer-boundary.md)
 **Campaign Supergraph authority:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 
 ## 1. Goal
@@ -190,8 +190,8 @@ SBW04 (Milestone A gate)
 | `SBW05b` | Pure editor library + unit tests: Output→Input initializer, local fingerprint, visible protected preservation fallback | Complex round-trips (spellcasting/legendary/lair/phases/human-adjudicated/nested effects) + untouched-field equality; visible protected disclosure for unhandled current structures; edit clears eligibility; session-only; no Server digest recreation; no unchecked Output→Input cast | MERGED `#402` |
 | `SBW05c` | Workbench hosts proven editor; calls SBW05a route; rejects stale; preserves edits on dependency failure | Live edit→validate→edit→stale; no accept/save path | MERGED `#404` / `427a357b` |
 | `SBW07-contract` | Approve-or-reject frozen HANDOFF-sbw07 §12 table (docs only; do not rewrite unless review rejects a closed decision) | Reviewer can approve/reject the closed schema + transition table alone; no optional pending field | MERGED `#405` / `36582f8b` — §12 APPROVED / FROZEN |
-| `SBW07a` | Create/read Server client + fixtures | Exact IDs/digest parse; no draft mutation | **THIS PR** |
-| `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Post-commit local failure never deletes Server revision; recovery converges | After `SBW07a` |
+| `SBW07a` | Create/read Server client + fixtures | Exact IDs/digest parse; no draft mutation | MERGED `#406` / `51661055` |
+| `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Post-commit local failure never deletes Server revision; recovery converges | **THIS PR** |
 | `SBW07c` | Accept UI + corpus-promotion demolition | “Saved ≠ published”; demolition ledger complete | After `SBW07b` |
 | `SBW06-contract` | Revise journal choice + lineage/status transition table (docs only) | Reviewer can approve/reject the table alone | After `SBW07` |
 | `SBW06a` | Revise from edited `source_definition` | New `candidate_id`; source unchanged; failure retains edits/instructions | After contract |

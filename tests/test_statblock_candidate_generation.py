@@ -2178,3 +2178,958 @@ def test_terminal_journal_write_failure_is_not_swallowed(tmp_path: Path) -> None
     assert result.outcome == "failure"
     assert result.failure_category == "downstream_validation_failed"
     assert any(f.component == "reconciliation" for f in result.persistence_failures)
+
+
+def _mark_mechanics_saved(tmp_path: Path, draft) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        attach_accepted_mechanics_ref,
+    )
+
+    current = get_threat_draft(tmp_path, draft.draft_id)
+    ref = AcceptedMechanicsRefV1.from_locator(
+        MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_saved01",
+            revision_id="rev_saved01",
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "a" * 64,
+        ),
+        accepted_from_draft_version=current.version,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_version=current.version,
+        locator=ref,
+    )
+
+
+def test_new_generation_rejected_after_mechanics_saved(tmp_path: Path, monkeypatch) -> None:
+    draft = _create_draft(tmp_path)
+    _mark_mechanics_saved(tmp_path, draft)
+    saved = get_threat_draft(tmp_path, draft.draft_id)
+    assert saved.workflow_state == "mechanics_saved"
+    accepted = saved.accepted_mechanics_ref
+    assert accepted is not None
+
+    admit_calls: list[object] = []
+
+    def _boom_admit(*args, **kwargs):
+        admit_calls.append(kwargs)
+        raise AssertionError("admit must reject before nested claim after mechanics_saved")
+
+    # Patch unlocked claim — admission must reject under the store lock first.
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation."
+        "_claim_generation_request_unlocked",
+        _boom_admit,
+    )
+    client = FakeClient(payload=_candidate_payload(request_id="req-new-after-save"))
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        generate_candidate_from_draft(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request=GenerateThreatDraftCandidateRequestV1(
+                expected_draft_version=saved.version,
+                client_request_id="req-new-after-save",
+            ),
+            client=client,  # type: ignore[arg-type]
+        )
+    assert exc_info.value.status_code == 409
+    assert "mechanics already saved" in str(exc_info.value)
+    assert client.calls == []
+    assert admit_calls == []
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert reloaded.workflow_state == "mechanics_saved"
+    assert reloaded.accepted_mechanics_ref == accepted
+
+
+def test_in_flight_generation_recovers_after_mechanics_saved(tmp_path: Path) -> None:
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    recover_id = "req-inflight-after-save"
+    recover_body = map_draft_to_generate_request(draft, request_id=recover_id)
+    recover_path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=draft.version,
+        request_id=recover_id,
+    )
+    recover_path.parent.mkdir(parents=True, exist_ok=True)
+    recover_record = rec.GenerationOperationV2(
+        draft_id=draft.draft_id,
+        draft_version=draft.version,
+        request_id=recover_id,
+        request_digest=rec.request_digest_for_body(recover_body),
+        request_body=recover_body,
+        status="dispatched_unknown",
+        candidate_id=None,
+        candidate_payload=None,
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+        claim_expires_at="2099-01-01T00:00:00Z",
+    )
+    recover_path.write_text(
+        json.dumps(recover_record.model_dump(mode="json", by_alias=True)),
+        encoding="utf-8",
+    )
+
+    _mark_mechanics_saved(tmp_path, draft)
+    before = get_threat_draft(tmp_path, draft.draft_id)
+    assert before.workflow_state == "mechanics_saved"
+    accepted = before.accepted_mechanics_ref
+    assert accepted is not None
+
+    client = FakeClient(payload=_candidate_payload(request_id=recover_id))
+    recovered = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=draft.version,
+            client_request_id=recover_id,
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert recovered.outcome == "success"
+    assert recovered.candidate_ref is not None
+    assert len(client.calls) == 1
+
+    after = get_threat_draft(tmp_path, draft.draft_id)
+    assert after.workflow_state == "mechanics_saved"
+    assert after.accepted_mechanics_ref == accepted
+    assert any(ref.request_id == recover_id for ref in after.candidate_refs)
+
+
+def _mp_gen_loses_to_acceptance(
+    root_s: str,
+    draft_id: str,
+    expected_version: int,
+    request_id: str,
+    observed_s: str,
+    go_s: str,
+    result_s: str,
+) -> None:
+    """Observe pre-save draft, pause before admit, then attempt brand-new generation."""
+    import time
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from apps.live_control_server.models.statblock_candidate_workflow import (
+        GenerateThreatDraftCandidateRequestV1,
+    )
+    from apps.live_control_server.services import statblock_candidate_generation as gen
+    from apps.live_control_server.services.threat_draft_store import (
+        ThreatDraftStoreError,
+        get_threat_draft,
+    )
+
+    root = Path(root_s)
+    observed = Path(observed_s)
+    go = Path(go_s)
+    result = Path(result_s)
+
+    draft = get_threat_draft(root, draft_id)
+    assert draft.workflow_state != "mechanics_saved"
+    assert draft.version == expected_version
+    observed.write_text("1", encoding="utf-8")
+
+    def _pause_before_admit() -> None:
+        deadline = time.time() + 8.0
+        while not go.exists() and time.time() < deadline:
+            time.sleep(0.01)
+        if not go.exists():
+            raise TimeoutError("acceptance did not signal go")
+
+    gen._pre_new_generation_admit_hook = _pause_before_admit
+    try:
+        try:
+            with patch.object(
+                gen,
+                "DungeonMindStatblockV1Client",
+                side_effect=AssertionError("Server client must not be constructed"),
+            ):
+                gen.generate_candidate_from_draft(
+                    root,
+                    draft_id=draft_id,
+                    request=GenerateThreatDraftCandidateRequestV1(
+                        expected_draft_version=expected_version,
+                        client_request_id=request_id,
+                    ),
+                    client=None,
+                )
+            result.write_text(
+                json.dumps({"outcome": "unexpected_success"}),
+                encoding="utf-8",
+            )
+        except ThreatDraftStoreError as exc:
+            result.write_text(
+                json.dumps(
+                    {
+                        "outcome": "rejected",
+                        "status_code": exc.status_code,
+                        "message": str(exc),
+                    }
+                ),
+                encoding="utf-8",
+            )
+        except Exception as exc:  # noqa: BLE001 — child reports any failure
+            result.write_text(
+                json.dumps({"outcome": "error", "message": f"{type(exc).__name__}: {exc}"}),
+                encoding="utf-8",
+            )
+    finally:
+        gen._pre_new_generation_admit_hook = None
+
+
+def _mp_acceptance_phase1(
+    root_s: str,
+    draft_id: str,
+    expected_version: int,
+    observed_s: str,
+    go_s: str,
+    result_s: str,
+) -> None:
+    """Complete acceptance Phase 1 after generation observes pre-save state."""
+    import time
+    from pathlib import Path
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        attach_accepted_mechanics_ref,
+        get_threat_draft,
+    )
+
+    root = Path(root_s)
+    observed = Path(observed_s)
+    go = Path(go_s)
+    result = Path(result_s)
+    deadline = time.time() + 8.0
+    while not observed.exists() and time.time() < deadline:
+        time.sleep(0.01)
+    if not observed.exists():
+        result.write_text(json.dumps({"outcome": "timeout_waiting_observe"}), encoding="utf-8")
+        return
+
+    current = get_threat_draft(root, draft_id)
+    ref = AcceptedMechanicsRefV1.from_locator(
+        MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_race01",
+            revision_id="rev_race01",
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "b" * 64,
+        ),
+        accepted_from_draft_version=current.version,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    updated = attach_accepted_mechanics_ref(
+        root,
+        draft_id=draft_id,
+        expected_version=expected_version,
+        locator=ref,
+    )
+    go.write_text("1", encoding="utf-8")
+    result.write_text(
+        json.dumps(
+            {
+                "outcome": "phase1_done",
+                "version": updated.version,
+                "workflow_state": updated.workflow_state,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_generation_versus_acceptance_multiprocess_gen_loses(tmp_path: Path) -> None:
+    """Brand-new generation paused before admit loses to Phase 1 → 409, zero side effects."""
+    import multiprocessing as mp
+
+    from apps.live_control_server.services import statblock_candidate_cache as cache
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    request_id = "req-mp-gen-loses"
+    barrier = tmp_path / "barrier_gen_loses"
+    barrier.mkdir()
+    observed = barrier / "observed"
+    go = barrier / "go"
+    gen_result = barrier / "gen.json"
+    accept_result = barrier / "accept.json"
+
+    ctx = mp.get_context("spawn")
+    gen_proc = ctx.Process(
+        target=_mp_gen_loses_to_acceptance,
+        args=(
+            str(tmp_path),
+            draft.draft_id,
+            draft.version,
+            request_id,
+            str(observed),
+            str(go),
+            str(gen_result),
+        ),
+    )
+    accept_proc = ctx.Process(
+        target=_mp_acceptance_phase1,
+        args=(
+            str(tmp_path),
+            draft.draft_id,
+            draft.version,
+            str(observed),
+            str(go),
+            str(accept_result),
+        ),
+    )
+    gen_proc.start()
+    accept_proc.start()
+    gen_proc.join(timeout=15)
+    accept_proc.join(timeout=15)
+    assert gen_proc.exitcode == 0
+    assert accept_proc.exitcode == 0
+    assert not gen_proc.is_alive()
+    assert not accept_proc.is_alive()
+
+    accepted = json.loads(accept_result.read_text(encoding="utf-8"))
+    generated = json.loads(gen_result.read_text(encoding="utf-8"))
+    assert accepted["outcome"] == "phase1_done"
+    assert accepted["workflow_state"] == "mechanics_saved"
+    assert generated["outcome"] == "rejected"
+    assert generated["status_code"] == 409
+    assert "mechanics already saved" in generated["message"]
+
+    # Losing generation writes no operation/tombstone, cache, or candidate ref.
+    entries = list((rec.reconciliation_root(tmp_path) / draft.draft_id).glob("*.json")) if (
+        rec.reconciliation_root(tmp_path) / draft.draft_id
+    ).is_dir() else []
+    assert entries == []
+    after = get_threat_draft(tmp_path, draft.draft_id)
+    assert after.workflow_state == "mechanics_saved"
+    assert after.accepted_mechanics_ref is not None
+    assert after.candidate_refs == []
+    assert list(cache.candidate_cache_root(tmp_path).glob("**/*")) == [] or not any(
+        p.is_file() for p in cache.candidate_cache_root(tmp_path).rglob("*")
+    )
+
+
+def _mp_gen_claims_first(
+    root_s: str,
+    draft_id: str,
+    expected_version: int,
+    request_id: str,
+    claimed_s: str,
+    resume_s: str,
+    result_s: str,
+) -> None:
+    """Claim brand-new generation, pause before Server returns, resume after Phase 1."""
+    import json
+    import time
+    from pathlib import Path
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
+        GeneratedStatblockCandidateV1,
+    )
+    from apps.live_control_server.models.statblock_candidate_workflow import (
+        GenerateThreatDraftCandidateRequestV1,
+    )
+    from apps.live_control_server.services import statblock_candidate_generation as gen
+    from apps.live_control_server.services.threat_draft_store import get_threat_draft
+
+    root = Path(root_s)
+    claimed = Path(claimed_s)
+    resume = Path(resume_s)
+    result = Path(result_s)
+
+    fixture_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "statblocks"
+        / "v1"
+        / "candidate-response.json"
+    )
+    # When spawned, __file__ may not resolve; fall back via importlib.
+    if not fixture_path.is_file():
+        import importlib.util
+
+        spec = importlib.util.find_spec("tests.test_statblock_candidate_generation")
+        assert spec is not None and spec.origin is not None
+        fixture_path = (
+            Path(spec.origin).resolve().parent
+            / "fixtures"
+            / "statblocks"
+            / "v1"
+            / "candidate-response.json"
+        )
+    raw = json.loads(fixture_path.read_text(encoding="utf-8"))
+    raw = dict(raw)
+    raw["candidate_id"] = "cand_mpclaim01"
+    raw["expires_at"] = "2099-01-01T00:00:00Z"
+    receipt = dict(raw["generation_receipt"])
+    receipt["request_id"] = request_id
+    raw["generation_receipt"] = receipt
+    payload = GeneratedStatblockCandidateV1.model_validate(raw)
+
+    class _CountingClient:
+        def __init__(self) -> None:
+            self.calls: list[object] = []
+
+        def generate_candidate(self, body):  # noqa: ANN001
+            self.calls.append(body)
+            claimed.write_text("1", encoding="utf-8")
+            deadline = time.time() + 8.0
+            while not resume.exists() and time.time() < deadline:
+                time.sleep(0.01)
+            if not resume.exists():
+                raise TimeoutError("acceptance did not signal resume")
+            return payload
+
+        def close(self) -> None:
+            return None
+
+    client = _CountingClient()
+    try:
+        outcome = gen.generate_candidate_from_draft(
+            root,
+            draft_id=draft_id,
+            request=GenerateThreatDraftCandidateRequestV1(
+                expected_draft_version=expected_version,
+                client_request_id=request_id,
+            ),
+            client=client,  # type: ignore[arg-type]
+        )
+        after = get_threat_draft(root, draft_id)
+        result.write_text(
+            json.dumps(
+                {
+                    "outcome": outcome.outcome,
+                    "server_calls": len(client.calls),
+                    "workflow_state": after.workflow_state,
+                    "accepted_ref": (
+                        after.accepted_mechanics_ref.model_dump(mode="json")
+                        if after.accepted_mechanics_ref is not None
+                        else None
+                    ),
+                    "candidate_request_ids": [r.request_id for r in after.candidate_refs],
+                }
+            ),
+            encoding="utf-8",
+        )
+    except Exception as exc:  # noqa: BLE001
+        result.write_text(
+            json.dumps({"outcome": "error", "message": f"{type(exc).__name__}: {exc}"}),
+            encoding="utf-8",
+        )
+
+
+def _mp_acceptance_after_claim(
+    root_s: str,
+    draft_id: str,
+    expected_version: int,
+    claimed_s: str,
+    resume_s: str,
+    result_s: str,
+) -> None:
+    """Phase 1 after generation claim is durable (signaled by Server pause)."""
+    import time
+    from pathlib import Path
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        attach_accepted_mechanics_ref,
+        get_threat_draft,
+    )
+
+    root = Path(root_s)
+    claimed = Path(claimed_s)
+    resume = Path(resume_s)
+    result = Path(result_s)
+    deadline = time.time() + 8.0
+    while not claimed.exists() and time.time() < deadline:
+        time.sleep(0.01)
+    if not claimed.exists():
+        result.write_text(json.dumps({"outcome": "timeout_waiting_claim"}), encoding="utf-8")
+        return
+
+    current = get_threat_draft(root, draft_id)
+    # Draft version is still the pre-save version; claim keyed to that version.
+    ref = AcceptedMechanicsRefV1.from_locator(
+        MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_race02",
+            revision_id="rev_race02",
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "c" * 64,
+        ),
+        accepted_from_draft_version=current.version,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    updated = attach_accepted_mechanics_ref(
+        root,
+        draft_id=draft_id,
+        expected_version=expected_version,
+        locator=ref,
+    )
+    locator = updated.accepted_mechanics_ref
+    resume.write_text("1", encoding="utf-8")
+    result.write_text(
+        json.dumps(
+            {
+                "outcome": "phase1_done",
+                "version": updated.version,
+                "workflow_state": updated.workflow_state,
+                "accepted_ref": locator.model_dump(mode="json") if locator else None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_generation_versus_acceptance_multiprocess_claim_first(tmp_path: Path) -> None:
+    """Already-claimed generation remains recoverable after acceptance Phase 1."""
+    import multiprocessing as mp
+
+    draft = _create_draft(tmp_path)
+    request_id = "req-mp-claim-first"
+    barrier = tmp_path / "barrier_claim_first"
+    barrier.mkdir()
+    claimed = barrier / "claimed"
+    resume = barrier / "resume"
+    gen_result = barrier / "gen.json"
+    accept_result = barrier / "accept.json"
+
+    ctx = mp.get_context("spawn")
+    gen_proc = ctx.Process(
+        target=_mp_gen_claims_first,
+        args=(
+            str(tmp_path),
+            draft.draft_id,
+            draft.version,
+            request_id,
+            str(claimed),
+            str(resume),
+            str(gen_result),
+        ),
+    )
+    accept_proc = ctx.Process(
+        target=_mp_acceptance_after_claim,
+        args=(
+            str(tmp_path),
+            draft.draft_id,
+            draft.version,
+            str(claimed),
+            str(resume),
+            str(accept_result),
+        ),
+    )
+    gen_proc.start()
+    accept_proc.start()
+    gen_proc.join(timeout=20)
+    accept_proc.join(timeout=20)
+    assert gen_proc.exitcode == 0
+    assert accept_proc.exitcode == 0
+    assert not gen_proc.is_alive()
+    assert not accept_proc.is_alive()
+
+    accepted = json.loads(accept_result.read_text(encoding="utf-8"))
+    generated = json.loads(gen_result.read_text(encoding="utf-8"))
+    assert accepted["outcome"] == "phase1_done"
+    assert accepted["workflow_state"] == "mechanics_saved"
+    assert generated["outcome"] == "success"
+    assert generated["server_calls"] == 1
+    assert generated["workflow_state"] == "mechanics_saved"
+    assert generated["accepted_ref"] == accepted["accepted_ref"]
+    assert request_id in generated["candidate_request_ids"]
+
+    after = get_threat_draft(tmp_path, draft.draft_id)
+    assert after.workflow_state == "mechanics_saved"
+    assert after.accepted_mechanics_ref is not None
+    assert after.accepted_mechanics_ref.model_dump(mode="json") == accepted["accepted_ref"]
+    assert any(ref.request_id == request_id for ref in after.candidate_refs)
+
+
+def _mp_same_key_retry_b(
+    root_s: str,
+    draft_id: str,
+    expected_version: int,
+    request_id: str,
+    empty_s: str,
+    go_s: str,
+    result_s: str,
+) -> None:
+    """Retry B: empty optimistic journal, pause before admit, then same-key recover."""
+    import time
+    from pathlib import Path
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.models import (
+        GeneratedStatblockCandidateV1,
+    )
+    from apps.live_control_server.models.statblock_candidate_workflow import (
+        GenerateThreatDraftCandidateRequestV1,
+    )
+    from apps.live_control_server.services import statblock_candidate_generation as gen
+    from apps.live_control_server.services.threat_draft_store import (
+        ThreatDraftStoreError,
+        get_threat_draft,
+    )
+
+    root = Path(root_s)
+    empty = Path(empty_s)
+    go = Path(go_s)
+    result = Path(result_s)
+
+    fixture_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "statblocks"
+        / "v1"
+        / "candidate-response.json"
+    )
+    if not fixture_path.is_file():
+        import importlib.util
+
+        spec = importlib.util.find_spec("tests.test_statblock_candidate_generation")
+        assert spec is not None and spec.origin is not None
+        fixture_path = (
+            Path(spec.origin).resolve().parent
+            / "fixtures"
+            / "statblocks"
+            / "v1"
+            / "candidate-response.json"
+        )
+    raw = dict(json.loads(fixture_path.read_text(encoding="utf-8")))
+    raw["candidate_id"] = "cand_mpsame01"
+    raw["expires_at"] = "2099-01-01T00:00:00Z"
+    receipt = dict(raw["generation_receipt"])
+    receipt["request_id"] = request_id
+    raw["generation_receipt"] = receipt
+    payload = GeneratedStatblockCandidateV1.model_validate(raw)
+
+    class _Client:
+        def __init__(self) -> None:
+            self.calls: list[dict] = []
+
+        def generate_candidate(self, body):  # noqa: ANN001
+            self.calls.append(body)
+            return payload
+
+        def close(self) -> None:
+            return None
+
+    def _pause_before_admit() -> None:
+        # Reached only after optimistic journal miss; signal before atomic admit.
+        empty.write_text("1", encoding="utf-8")
+        deadline = time.time() + 10.0
+        while not go.exists() and time.time() < deadline:
+            time.sleep(0.01)
+        if not go.exists():
+            raise TimeoutError("acceptance did not signal go")
+
+    client = _Client()
+    gen._pre_new_generation_admit_hook = _pause_before_admit
+    try:
+        try:
+            outcome = gen.generate_candidate_from_draft(
+                root,
+                draft_id=draft_id,
+                request=GenerateThreatDraftCandidateRequestV1(
+                    expected_draft_version=expected_version,
+                    client_request_id=request_id,
+                ),
+                client=client,  # type: ignore[arg-type]
+            )
+            after = get_threat_draft(root, draft_id)
+            result.write_text(
+                json.dumps(
+                    {
+                        "outcome": outcome.outcome,
+                        "status_code": None,
+                        "message": None,
+                        "server_calls": len(client.calls),
+                        "server_bodies": client.calls,
+                        "workflow_state": after.workflow_state,
+                        "accepted_ref": (
+                            after.accepted_mechanics_ref.model_dump(mode="json")
+                            if after.accepted_mechanics_ref is not None
+                            else None
+                        ),
+                    }
+                ),
+                encoding="utf-8",
+            )
+        except ThreatDraftStoreError as exc:
+            result.write_text(
+                json.dumps(
+                    {
+                        "outcome": "rejected",
+                        "status_code": exc.status_code,
+                        "message": str(exc),
+                        "server_calls": len(client.calls),
+                        "server_bodies": client.calls,
+                    }
+                ),
+                encoding="utf-8",
+            )
+        except Exception as exc:  # noqa: BLE001
+            result.write_text(
+                json.dumps({"outcome": "error", "message": f"{type(exc).__name__}: {exc}"}),
+                encoding="utf-8",
+            )
+    finally:
+        gen._pre_new_generation_admit_hook = None
+
+
+def _mp_same_key_claimer_a(
+    root_s: str,
+    draft_id: str,
+    expected_version: int,
+    request_id: str,
+    empty_s: str,
+    claimed_s: str,
+    result_s: str,
+) -> None:
+    """Caller A: after B sees empty journal, durably claim the same key/body."""
+    import time
+    from pathlib import Path
+
+    from apps.live_control_server.services.statblock_candidate_generation import (
+        map_draft_to_generate_request,
+    )
+    from apps.live_control_server.services.statblock_generation_reconciliation import (
+        claim_generation_request,
+        request_digest_for_body,
+    )
+    from apps.live_control_server.services.threat_draft_store import get_threat_draft
+
+    root = Path(root_s)
+    empty = Path(empty_s)
+    claimed = Path(claimed_s)
+    result = Path(result_s)
+    deadline = time.time() + 10.0
+    while not empty.exists() and time.time() < deadline:
+        time.sleep(0.01)
+    if not empty.exists():
+        result.write_text(json.dumps({"outcome": "timeout_waiting_empty"}), encoding="utf-8")
+        return
+
+    draft = get_threat_draft(root, draft_id)
+    body = map_draft_to_generate_request(draft, request_id=request_id)
+    digest = request_digest_for_body(body)
+    status, record = claim_generation_request(
+        root,
+        draft_id=draft_id,
+        draft_version=expected_version,
+        request_id=request_id,
+        request_digest=digest,
+        request_body=body,
+        ref_candidate_ids=set(),
+        ref_entries=[],
+    )
+    claimed.write_text("1", encoding="utf-8")
+    result.write_text(
+        json.dumps(
+            {
+                "outcome": "claimed",
+                "claim_status": status,
+                "request_id": record.request_id,
+                "draft_id": record.draft_id,
+                "draft_version": record.draft_version,
+                "request_digest": record.request_digest,
+                "request_body": record.request_body,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _mp_same_key_acceptance(
+    root_s: str,
+    draft_id: str,
+    expected_version: int,
+    claimed_s: str,
+    go_s: str,
+    result_s: str,
+) -> None:
+    """Phase 1 after A’s same-key claim is durable; then release retry B."""
+    import time
+    from pathlib import Path
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        attach_accepted_mechanics_ref,
+        get_threat_draft,
+    )
+
+    root = Path(root_s)
+    claimed = Path(claimed_s)
+    go = Path(go_s)
+    result = Path(result_s)
+    deadline = time.time() + 10.0
+    while not claimed.exists() and time.time() < deadline:
+        time.sleep(0.01)
+    if not claimed.exists():
+        result.write_text(json.dumps({"outcome": "timeout_waiting_claim"}), encoding="utf-8")
+        return
+
+    current = get_threat_draft(root, draft_id)
+    ref = AcceptedMechanicsRefV1.from_locator(
+        MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_samekey01",
+            revision_id="rev_samekey01",
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "d" * 64,
+        ),
+        accepted_from_draft_version=current.version,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    updated = attach_accepted_mechanics_ref(
+        root,
+        draft_id=draft_id,
+        expected_version=expected_version,
+        locator=ref,
+    )
+    locator = updated.accepted_mechanics_ref
+    go.write_text("1", encoding="utf-8")
+    result.write_text(
+        json.dumps(
+            {
+                "outcome": "phase1_done",
+                "workflow_state": updated.workflow_state,
+                "accepted_ref": locator.model_dump(mode="json") if locator else None,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_same_key_retry_recovers_after_peer_claim_and_acceptance(tmp_path: Path) -> None:
+    """Optimistic-empty retry must reclassify under locks, not return new-gen 409."""
+    import multiprocessing as mp
+
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    request_id = "req-mp-same-key"
+    barrier = tmp_path / "barrier_same_key"
+    barrier.mkdir()
+    empty = barrier / "empty"
+    claimed = barrier / "claimed"
+    go = barrier / "go"
+    b_result = barrier / "b.json"
+    a_result = barrier / "a.json"
+    accept_result = barrier / "accept.json"
+
+    ctx = mp.get_context("spawn")
+    b_proc = ctx.Process(
+        target=_mp_same_key_retry_b,
+        args=(
+            str(tmp_path),
+            draft.draft_id,
+            draft.version,
+            request_id,
+            str(empty),
+            str(go),
+            str(b_result),
+        ),
+    )
+    a_proc = ctx.Process(
+        target=_mp_same_key_claimer_a,
+        args=(
+            str(tmp_path),
+            draft.draft_id,
+            draft.version,
+            request_id,
+            str(empty),
+            str(claimed),
+            str(a_result),
+        ),
+    )
+    accept_proc = ctx.Process(
+        target=_mp_same_key_acceptance,
+        args=(
+            str(tmp_path),
+            draft.draft_id,
+            draft.version,
+            str(claimed),
+            str(go),
+            str(accept_result),
+        ),
+    )
+    b_proc.start()
+    a_proc.start()
+    accept_proc.start()
+    b_proc.join(timeout=20)
+    a_proc.join(timeout=20)
+    accept_proc.join(timeout=20)
+    assert b_proc.exitcode == 0
+    assert a_proc.exitcode == 0
+    assert accept_proc.exitcode == 0
+    assert not b_proc.is_alive()
+    assert not a_proc.is_alive()
+    assert not accept_proc.is_alive()
+
+    a = json.loads(a_result.read_text(encoding="utf-8"))
+    b = json.loads(b_result.read_text(encoding="utf-8"))
+    accepted = json.loads(accept_result.read_text(encoding="utf-8"))
+
+    assert a["outcome"] == "claimed"
+    assert a["claim_status"] == "claimed"
+    assert accepted["outcome"] == "phase1_done"
+    assert accepted["workflow_state"] == "mechanics_saved"
+    assert b["outcome"] == "success"
+    assert b["status_code"] is None
+    assert b["server_calls"] == 1
+    assert b["server_bodies"] == [a["request_body"]]
+    assert b["workflow_state"] == "mechanics_saved"
+    assert b["accepted_ref"] == accepted["accepted_ref"]
+
+    draft_dir = rec.reconciliation_root(tmp_path) / draft.draft_id
+    entries = sorted(p for p in draft_dir.glob("*.json") if p.is_file())
+    assert len(entries) == 1
+    stored = json.loads(entries[0].read_text(encoding="utf-8"))
+    assert stored["request_id"] == request_id
+    assert stored["draft_id"] == draft.draft_id
+    assert stored["draft_version"] == draft.version
+    assert stored["request_digest"] == a["request_digest"]
+    if "request_body" in stored:
+        assert stored["request_body"] == a["request_body"]
+    else:
+        # Successful recovery may compact to a tombstone; digest/outcome remain.
+        assert stored.get("schema") == rec.TOMBSTONE_SCHEMA
+        assert stored.get("outcome") in {"reconciled", "terminal_failure", "terminal_expired"}
+
+    after = get_threat_draft(tmp_path, draft.draft_id)
+    assert after.workflow_state == "mechanics_saved"
+    assert after.accepted_mechanics_ref is not None
+    assert after.accepted_mechanics_ref.model_dump(mode="json") == accepted["accepted_ref"]

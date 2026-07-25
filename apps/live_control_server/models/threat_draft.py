@@ -5,7 +5,11 @@ import re
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from apps.live_control_server.models.statblock_mechanics_acceptance import (
+    AcceptedMechanicsRefV1,
+)
 
 SCHEMA = "dmb_threat_draft_v1"
 SUMMARY_SCHEMA = "dmb_threat_draft_summary_v1"
@@ -144,8 +148,10 @@ class ThreatDraftV1(StrictModel):
     candidate_refs: list[ThreatDraftCandidateRefV1] = Field(
         default_factory=list, max_length=_MAX_LIST
     )
-    accepted_mechanics_ref: None = None
-    workflow_state: Literal["drafting", "candidate_ready"] = "drafting"
+    accepted_mechanics_ref: AcceptedMechanicsRefV1 | None = None
+    workflow_state: Literal["drafting", "candidate_ready", "mechanics_saved"] = (
+        "drafting"
+    )
     created_by: str = Field(min_length=1, max_length=_MAX_NAME)
     created_at: str
     updated_at: str
@@ -166,6 +172,19 @@ class ThreatDraftV1(StrictModel):
     @classmethod
     def _role_tag_items(cls, values: list[str]) -> list[str]:
         return _bounded_string_list(values, label="role or tag")
+
+    @model_validator(mode="after")
+    def _accepted_mechanics_workflow_invariant(self) -> ThreatDraftV1:
+        has_ref = self.accepted_mechanics_ref is not None
+        if has_ref and self.workflow_state != "mechanics_saved":
+            raise ValueError(
+                "accepted_mechanics_ref requires workflow_state=mechanics_saved"
+            )
+        if self.workflow_state == "mechanics_saved" and not has_ref:
+            raise ValueError(
+                "workflow_state=mechanics_saved requires accepted_mechanics_ref"
+            )
+        return self
 
 
 class ThreatDraftSummaryV1(StrictModel):

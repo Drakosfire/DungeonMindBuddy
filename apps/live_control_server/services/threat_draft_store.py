@@ -8,6 +8,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator, Literal
 
+from apps.live_control_server.models.statblock_mechanics_acceptance import (
+    AcceptedMechanicsRefV1,
+)
 from apps.live_control_server.models.threat_draft import (
     DEFAULT_LIST_LIMIT,
     MAX_CANDIDATE_REFS,
@@ -52,7 +55,16 @@ def _storage_unavailable() -> ThreatDraftStoreError:
 
 @contextmanager
 def _store_lock(root: Path) -> Iterator[None]:
-    """Exclusive lock covering index and draft mutation for one store root."""
+    """Exclusive lock covering index and draft mutation for one store root.
+
+    Lock orders involving this lock:
+    - Acceptance: acceptance journal lock → this lock.
+    - New generation admission: this lock → generation reconciliation lock.
+
+    Do not acquire the acceptance journal lock while holding this lock.
+    Callers may nest the generation reconciliation lock while holding this lock
+    only for brand-new generation admission (claim must complete before release).
+    """
     try:
         store_root = threat_drafts_root(root)
         store_root.mkdir(parents=True, exist_ok=True)
@@ -153,6 +165,13 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
         raise
     except OSError:
         raise _storage_unavailable() from None
+    except Exception:
+        # JSONDecodeError / TypeError / other parse failures must fail closed
+        # as a typed store error so recovery can retain journal authority.
+        raise ThreatDraftStoreError(
+            "corrupt threat draft record",
+            status_code=500,
+        ) from None
     try:
         draft = ThreatDraftV1.model_validate(payload)
     except ThreatDraftStoreError:
@@ -245,6 +264,18 @@ def get_threat_draft(root: Path, draft_id: str) -> ThreatDraftV1:
     with _store_lock(root):
         committed_id = _require_committed_draft_id(root, draft_id)
         return _load_draft_unlocked(root, committed_id)
+
+
+def read_committed_draft_version(root: Path, draft_id: str) -> int:
+    """Read a committed draft's version under the ThreatDraft store lock.
+
+    Callers that already hold the acceptance journal lock may nest this call
+    (lock order: acceptance journal → ThreatDraft store). Do not call this
+    while holding the generation reconciliation lock.
+    """
+    with _store_lock(root):
+        committed_id = _require_committed_draft_id(root, draft_id)
+        return _load_draft_unlocked(root, committed_id).version
 
 
 def list_threat_drafts(
@@ -385,7 +416,11 @@ def append_candidate_ref(
             "candidate_refs": refs,
             "updated_at": _utc_now_iso(),
         }
-        if workflow_state is not None:
+        # Saved mechanics are monotonic in SBW07: never regress workflow_state
+        # from mechanics_saved back to candidate_ready/drafting.
+        if current.workflow_state == "mechanics_saved":
+            updates["workflow_state"] = "mechanics_saved"
+        elif workflow_state is not None:
             updates["workflow_state"] = workflow_state
         # Validate the full record before write so an over-limit or invalid
         # payload cannot be persisted and fail on reload.
@@ -394,3 +429,65 @@ def append_candidate_ref(
         )
         _save_draft_unlocked(root, updated, as_draft_id=committed_id)
         return updated
+
+
+class AcceptedMechanicsRefConflictError(ThreatDraftStoreError):
+    """Draft already holds a different accepted mechanics locator."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "accepted mechanics ref conflict",
+            status_code=409,
+        )
+
+
+def attach_accepted_mechanics_ref(
+    root: Path,
+    *,
+    draft_id: str,
+    expected_version: int,
+    locator: AcceptedMechanicsRefV1,
+) -> ThreatDraftV1:
+    """Phase 1 ThreatDraft attach under store lock + version CAS.
+
+    Does not mutate the acceptance journal.
+    """
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        same_mechanics_locator,
+    )
+
+    with _store_lock(root):
+        committed_id = _require_committed_draft_id(root, draft_id)
+        current = _load_draft_unlocked(root, committed_id)
+        if current.version != expected_version:
+            raise ThreatDraftStoreError("expected_version mismatch", status_code=409)
+
+        existing = current.accepted_mechanics_ref
+        if existing is None:
+            updated = current.model_copy(
+                update={
+                    "version": current.version + 1,
+                    "accepted_mechanics_ref": locator,
+                    "workflow_state": "mechanics_saved",
+                    "updated_at": _utc_now_iso(),
+                }
+            )
+            _save_draft_unlocked(root, updated, as_draft_id=committed_id)
+            return updated
+
+        if same_mechanics_locator(
+            existing.to_mechanics_locator(), locator.to_mechanics_locator()
+        ):
+            if current.workflow_state == "mechanics_saved":
+                return current
+            updated = current.model_copy(
+                update={
+                    "version": current.version + 1,
+                    "workflow_state": "mechanics_saved",
+                    "updated_at": _utc_now_iso(),
+                }
+            )
+            _save_draft_unlocked(root, updated, as_draft_id=committed_id)
+            return updated
+
+        raise AcceptedMechanicsRefConflictError()
