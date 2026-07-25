@@ -291,6 +291,22 @@ describe("GraphReviewExtractPromoteSheet", () => {
     expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
   });
 
+  it("preserves campaignless receipt and reports degraded read without projecting a campaign", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
+    vi.mocked(postWorldGraphProjection).mockClear();
+
+    renderSheet(prepareResponse({ campaignId: null, sessionId: null }));
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    });
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
+    expect(screen.getByTestId("graph-review-extract-promote-reload-error")).toHaveTextContent(
+      /campaignless exact runs cannot be reloaded through a campaign projection lens/i,
+    );
+  });
+
   it("freezes selection during deferred confirm", async () => {
     let resolveConfirm!: (value: ExtractPromoteConfirmReceipt) => void;
     const deferred = new Promise<ExtractPromoteConfirmReceipt>((resolve) => {

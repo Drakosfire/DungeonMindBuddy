@@ -435,6 +435,24 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       try {
         const packageResponse = await getExactRunReviewPackage(run.run_id);
         if (cancelled) return;
+        const packageCampaign = (packageResponse.campaignId ?? "").trim();
+        const runCampaign = (run.campaign_id ?? "").trim();
+        const packageSession = (packageResponse.sessionId ?? "").trim();
+        const runSession = (run.session_id ?? "").trim();
+        if (
+          packageResponse.runId !== run.run_id ||
+          packageResponse.sourceArtifactId !== run.source_artifact_id ||
+          packageResponse.sourceDomain !== run.source_domain ||
+          packageCampaign !== runCampaign ||
+          packageSession !== runSession
+        ) {
+          setExactReview(null);
+          setExactReviewStatus("error");
+          setExactReviewError(
+            "exact-run review package identity does not match the loaded ExtractionRun",
+          );
+          return;
+        }
         setExactReview(packageResponse);
         setExactReviewStatus("ready");
       } catch (error) {
@@ -667,11 +685,14 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
   // Ingest Recap remains reachable from the empty /ingest landing state.
+  // Exact campaignless runs must not inherit applied/draft/context campaign lenses.
+  const exactRunCampaignId = hasExactRunLoad
+    ? (exactRun?.campaign_id ?? "").trim()
+    : null;
   const reviewCampaignId =
-    (hasExactRunLoad ? exactRun?.campaign_id : null) ??
-    appliedSession?.campaignId ??
-    draftCampaignId ??
-    context.campaignId;
+    hasExactRunLoad
+      ? (exactRunCampaignId ?? "")
+      : appliedSession?.campaignId ?? draftCampaignId ?? context.campaignId;
   // Exact worldbuilding runs keep session null — never invent a session lens.
   // A rejected or unresolved handoff must not degrade the recap lens either.
   const reviewSessionId = hasExactRunLoad
@@ -746,13 +767,18 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
                   Run status is <code>{exactRun!.status}</code> and is not reviewable for
                   promotion.
                 </p>
-              ) : (
+              ) : exactReviewStatus === "error" ? null : (
                 <div className="graph-review-extract-promote-actions">
                   <button
                     type="button"
                     className="primary"
                     data-testid="graph-review-exact-run-prepare"
-                    disabled={exactPreparing || exactConfirmInFlight || exactReviewStatus !== "ready"}
+                    disabled={
+                      exactPreparing ||
+                      exactConfirmInFlight ||
+                      exactReviewStatus !== "ready" ||
+                      !exactReview
+                    }
                     onClick={() => {
                       void onPrepareExactRun();
                     }}

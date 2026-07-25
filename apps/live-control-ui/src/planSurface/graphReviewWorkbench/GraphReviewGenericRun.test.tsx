@@ -146,6 +146,50 @@ describe("GraphReviewGenericRun", () => {
     expect(liveApi.getExtractionRun).toHaveBeenCalledTimes(1);
   });
 
+  it("does not inherit Plan context campaign for a campaignless exact run", async () => {
+    mockCatalogApis();
+    const campaignlessRun = { ...exactRun, campaign_id: null };
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(campaignlessRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue({
+      ...buildContext,
+      run: campaignlessRun,
+    });
+    mockExactRunReviewPackage({
+      ...reviewPackage,
+      campaignId: null,
+    });
+
+    render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-exact-run-scope")).toHaveTextContent(
+        "world / source authority · no session",
+      );
+    });
+    expect(screen.getByTestId("graph-review-exact-run-scope")).not.toHaveTextContent(
+      "longmont-c2",
+    );
+  });
+
+  it("rejects a review package whose SourceArtifact disagrees with the loaded run", async () => {
+    mockCatalogApis();
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
+    mockExactRunReviewPackage({
+      ...reviewPackage,
+      sourceArtifactId: "artifact:worldbuilding:other",
+    });
+
+    render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-exact-run-review-error")).toHaveTextContent(
+        "exact-run review package identity does not match the loaded ExtractionRun",
+      );
+    });
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+  });
+
   it("displays canonical source prose and assertion evidence for the exact run", async () => {
     mockCatalogApis();
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
@@ -321,6 +365,89 @@ describe("GraphReviewGenericRun", () => {
     await waitFor(() => {
       expect(prepare).toHaveBeenCalledWith({ runId: "extraction-run-wb-1" });
     });
+  });
+
+  it("campaignless exact-run confirm preserves receipt and never projects a fallback campaign", async () => {
+    mockCatalogApis();
+    const campaignlessRun = { ...exactRun, campaign_id: null };
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(campaignlessRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue({
+      ...buildContext,
+      run: campaignlessRun,
+    });
+    mockExactRunReviewPackage({ ...reviewPackage, campaignId: null });
+    vi.spyOn(extractPromoteApi, "prepareExtractPromote").mockResolvedValue({
+      schema: "dmb_extract_promote_prepare_v1",
+      proposalId: "prop-1",
+      proposalDigest: "digest-1",
+      parentRevisionId: "rev:1",
+      worldId: "eldyrwild",
+      acceptedProposalsCount: 1,
+      unresolvedMentionsCount: 0,
+      rejectedAssertionsCount: 0,
+      reviewPackage: { effect: {} },
+      reviewItems: [
+        {
+          assertionId: "a1",
+          sliceQualifiedId: "slice:a1",
+          contributionSliceId: "slice",
+          kind: "object",
+          label: "Vial",
+          summary: "sample",
+          action: "create",
+          identityOutcome: "created_new",
+          selectable: true,
+          selectedByDefault: true,
+          dependsOnAssertionIds: [],
+          dependsOnSliceQualifiedIds: [],
+          warnings: [],
+        },
+      ],
+      reviewSummary: {
+        newObjectCount: 1,
+        connectExistingCount: 0,
+        relationshipCount: 0,
+        unresolvedMentionCount: 0,
+        rejectedAssertionCount: 0,
+      },
+      runId: "extraction-run-wb-1",
+      campaignId: null,
+      sessionId: null,
+    });
+    vi.spyOn(extractPromoteApi, "confirmExtractPromote").mockResolvedValue({
+      schema: "dmb_extract_promote_confirm_v2",
+      outcome: "committed",
+      worldId: "eldyrwild",
+      proposalId: "prop-1",
+      proposalDigest: "digest-1",
+      parentRevisionId: "rev:1",
+      committedRevisionId: "rev:committed",
+      headAdvanced: true,
+      selectedAssertionIds: ["a1"],
+      acceptedAssertionIds: ["a1"],
+      affectedObjectIds: ["obj-vial"],
+      appliedAssertionCount: 1,
+      auditStatus: "ok",
+      warnings: [],
+    });
+    const projectionSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
+
+    render(<GraphReviewWorkbenchModule context={context} />);
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-exact-run-prepare")).toBeEnabled();
+    });
+    await userEvent.click(screen.getByTestId("graph-review-exact-run-prepare"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-merge-cta")).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    });
+    expect(projectionSpy).not.toHaveBeenCalled();
+    expect(screen.getByTestId("graph-review-extract-promote-reload-error")).toHaveTextContent(
+      /campaignless exact runs cannot be reloaded through a campaign projection lens/i,
+    );
   });
 
   it("shows unreviewable state without prepare action", async () => {

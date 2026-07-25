@@ -171,9 +171,17 @@ Discovery used on this branch:
 2. `GraphReviewWorkbenchHeader.tsx` — actual header owner (allowlist named
    `GraphReviewWorkbenchHeaderWithActivity.tsx`, which does not exist).
 
-Also: prepare/confirm/review-package client lives in
-`apps/live-control-ui/src/api/extractPromoteApi.ts` (existing extract-promote
-product client), not `liveApi.ts`.
+Beyond the bounded-discovery directory (requires explicit operator approval):
+
+- `apps/live-control-ui/src/api/extractPromoteApi.ts` — owning extract-promote
+  product client (allowlist named `liveApi.ts`; prepare/confirm already lived here).
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewExtractPromoteSheet.tsx`
+  — campaignless degraded-read gate after confirm (preserve receipt; never
+  substitute a campaign projection).
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewLiveReviewState.ts`
+  — belt-and-suspenders: empty campaignId fails closed on committed-revision reload.
+
+Operator test-plan handoff parameter: `extractionRunId` (not `runId`).
 
 ## §5 Explicitly out of scope
 

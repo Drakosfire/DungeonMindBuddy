@@ -192,7 +192,13 @@ def resolve_promotable_ingest_run(
     root: Path | None = None,
     include_eval_roots: bool = False,
 ) -> PromotableIngestRun:
-    """Resolve ``run_id`` to promote inputs; fail closed when not promotable."""
+    """Resolve ``run_id`` to promote inputs; fail closed when not promotable.
+
+    Canonical ExtractionRun IDs win over legacy graph-ingest manifests. When the
+    ID exists in the ExtractionRun registry, this seam never falls back to a
+    colliding legacy manifest — even for damaged, superseded, or non-reviewable
+    canonical runs.
+    """
     text = (run_id or "").strip()
     if not text:
         raise PromotableIngestRunError(
@@ -202,6 +208,37 @@ def resolve_promotable_ingest_run(
         )
 
     repo = (root or repo_root()).resolve()
+
+    from apps.live_control_server.services.graph_run_registry import (
+        get_extraction_run,
+    )
+
+    try:
+        get_extraction_run(repo, text)
+        canonical_present = True
+    except GraphRunRegistryError as exc:
+        if exc.status_code == 404:
+            canonical_present = False
+        else:
+            raise PromotableIngestRunError(
+                str(exc),
+                code="run_not_promotable",
+                status_code=exc.status_code if exc.status_code in {422, 409, 500} else 422,
+                diagnostics=[str(exc)],
+            ) from exc
+
+    if canonical_present:
+        # Never consult legacy manifests for an ID that exists in the canonical
+        # ExtractionRun namespace — including non-reviewable failures.
+        extraction = _resolve_promotable_extraction_run(repo, text)
+        if extraction is None:
+            raise PromotableIngestRunError(
+                f"extraction run is not promotable: {text}",
+                code="run_not_promotable",
+                status_code=422,
+            )
+        return extraction
+
     matches = _find_manifests_for_run_id(
         repo, text, include_eval_roots=include_eval_roots
     )
@@ -224,10 +261,6 @@ def resolve_promotable_ingest_run(
             registry_root=registry_root,
             run_id=text,
         )
-
-    extraction = _resolve_promotable_extraction_run(repo, text)
-    if extraction is not None:
-        return extraction
 
     raise PromotableIngestRunError(
         f"unknown graph-ingest runId: {text}",

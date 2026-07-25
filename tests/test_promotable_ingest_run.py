@@ -640,3 +640,48 @@ def test_resolve_unknown_still_404_without_latest_fallback(tmp_path: Path) -> No
         resolve_promotable_ingest_run("extraction-run-missing", root=repo)
     assert exc.value.code == "run_not_found"
     assert exc.value.status_code == 404
+
+
+def test_resolve_prefers_canonical_extraction_run_over_legacy_manifest(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A colliding legacy manifest must not shadow the ExtractionRun SourceArtifact."""
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    run = get_extraction_run(repo, run_id)
+    canonical_artifact = run.source_artifact_id
+
+    # Plant a legacy graph-ingest manifest that reuses the same run_id but a
+    # different SourceArtifact — the collision this seam must refuse to honor.
+    _write_promotable_run(repo, run_id=run_id)
+    manifest_path = (
+        repo
+        / "out/graph_memory/runs/longmont-c2/session-22/fixture-promote"
+        / "graph_ingest_run_manifest.json"
+    )
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload["run_id"] == run_id
+    assert payload["source"]["source_artifact_id"] != canonical_artifact
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.source_artifact_id == canonical_artifact
+    assert any("canonical ExtractionRun" in item for item in resolved.diagnostics)
+
+
+def test_resolve_non_reviewable_canonical_run_does_not_fall_back_to_legacy(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv(GRAPH_INGEST_RUNS_ENV, "out/graph_memory/runs")
+    run_id, _source = _write_reviewable_extraction_run(repo, status="prepared")
+    _write_promotable_run(repo, run_id=run_id)
+
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+    assert "not reviewable" in str(exc.value)

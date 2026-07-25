@@ -149,6 +149,15 @@ export function GraphReviewExtractPromoteSheet({
   const applyCommittedRevision = useCallback(
     async (nextReceipt: ExtractPromoteConfirmReceipt) => {
       setReloadError(null);
+      // Campaignless sealed proposals cannot be re-read through a campaign lens.
+      // Preserve the receipt and report degraded read — never substitute a campaign.
+      const preparedCampaign = (prepared.campaignId ?? "").trim();
+      if (!preparedCampaign) {
+        setReloadError(
+          "Committed revision preserved; campaignless exact runs cannot be reloaded through a campaign projection lens (degraded read).",
+        );
+        return;
+      }
       try {
         await reloadCommittedWorldProjection(
           nextReceipt.committedRevisionId,
@@ -163,7 +172,7 @@ export function GraphReviewExtractPromoteSheet({
         );
       }
     },
-    [reloadCommittedWorldProjection, selectDurableObjectIds],
+    [prepared.campaignId, reloadCommittedWorldProjection, selectDurableObjectIds],
   );
 
   const runConfirm = useCallback(

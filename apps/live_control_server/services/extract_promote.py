@@ -385,46 +385,209 @@ def _paragraph_for_span(source_lines: list[str], *, start_line: int, end_line: i
     return "\n".join(source_lines[start_line - 1 : end_line])
 
 
-def _evidence_from_refs(
-    refs: Any,
+def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
+    """Load the SourceSpanIndex bound to the resolved run's SourceArtifact.
+
+    Unavailable index is a blocking failure for ExtractionRun-backed review and
+    prepare — never a soft diagnostic.
+    """
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        load_source_span_index,
+    )
+
+    try:
+        return load_source_span_index(repo_root(), resolved.source_artifact_id)
+    except SourceArtifactRegistryError as exc:
+        raise ExtractPromoteError(
+            "exact-run source span index is unavailable",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("source_span_index_unavailable", str(exc))],
+        ) from exc
+
+
+def _assert_and_project_candidate_evidence(
     *,
-    source_lines: list[str],
-    span_by_id: Mapping[str, Any],
-) -> list[ExactRunReviewEvidence]:
-    evidence: list[ExactRunReviewEvidence] = []
-    if not isinstance(refs, list):
-        return evidence
-    for raw in refs:
-        if not isinstance(raw, dict):
-            continue
-        span_id = str(raw.get("source_span_ref_id") or "").strip()
-        artifact_id = str(raw.get("source_artifact_id") or "").strip()
-        if not span_id or not artifact_id:
-            continue
-        quotes = [
-            str(item).strip()
-            for item in (raw.get("anchor_quotes") or [])
-            if str(item).strip()
-        ]
-        span = span_by_id.get(span_id)
-        start_line = int(span.start_line) if span is not None else None
-        end_line = int(span.end_line) if span is not None else None
-        paragraph = (
-            _paragraph_for_span(source_lines, start_line=start_line, end_line=end_line)
-            if start_line is not None and end_line is not None
-            else ""
+    candidate_payload: dict[str, Any],
+    source_prose: str,
+    source_artifact_id: str,
+    span_index: Any,
+) -> list[ExactRunReviewAssertion]:
+    """Fail closed when candidate evidence is not bound to frozen span content.
+
+    Uses the typed candidate validator, requires every promotable node/edge
+    evidence ref to resolve against the span index + SourceArtifact, and verifies
+    anchor quotes against canonical source paragraph bytes.
+    """
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+    from graph_memory.candidate_graph_to_contribution import (
+        CandidateGraphMappingError,
+        load_typed_candidate_graph,
+    )
+
+    try:
+        typed = load_typed_candidate_graph(candidate_payload)
+    except CandidateGraphMappingError as exc:
+        raise ExtractPromoteError(
+            f"candidate graph failed typed validation: {exc}",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("candidate_invalid", str(exc))],
+        ) from exc
+
+    span_by_id = {span.source_span_id: span for span in span_index.spans}
+    source_lines = source_prose.splitlines()
+    expected_artifact = (source_artifact_id or "").strip()
+    assertions: list[ExactRunReviewAssertion] = []
+
+    def _project_holder(
+        *,
+        assertion_id: str,
+        kind: str,
+        label: str,
+        summary: str,
+        evidence_refs: Any,
+    ) -> ExactRunReviewAssertion:
+        if not evidence_refs:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} is missing evidence_refs",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("missing_evidence", f"assertion={assertion_id}"),
+                ],
+            )
+        projected: list[ExactRunReviewEvidence] = []
+        for index, ref in enumerate(evidence_refs):
+            span_id = str(getattr(ref, "source_span_ref_id", "") or "").strip()
+            artifact_id = str(getattr(ref, "source_artifact_id", "") or "").strip()
+            if not span_id:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] missing source_span_ref_id",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic(
+                            "missing_span_ref",
+                            f"assertion={assertion_id} evidence_index={index}",
+                        )
+                    ],
+                )
+            if artifact_id != expected_artifact:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] source_artifact_id "
+                    f"does not match the run SourceArtifact",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("source_artifact_mismatch", artifact_id or "<missing>"),
+                        _diagnostic("run_source_artifact", expected_artifact),
+                    ],
+                )
+            span = span_by_id.get(span_id)
+            if span is None:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] references unknown "
+                    f"source_span_ref_id {span_id!r}",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("unknown_span_ref", span_id),
+                        _diagnostic("assertion", assertion_id),
+                    ],
+                )
+            paragraph = _paragraph_for_span(
+                source_lines,
+                start_line=int(span.start_line),
+                end_line=int(span.end_line),
+            ).strip()
+            if not paragraph:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] span resolves to "
+                    "empty source content",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("empty_span_content", span_id),
+                    ],
+                )
+            raw_quotes = [
+                str(item).strip()
+                for item in (getattr(ref, "anchor_quotes", None) or [])
+                if str(item).strip()
+            ]
+            if not raw_quotes:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] is missing anchor_quotes",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("missing_anchor_quotes", span_id),
+                    ],
+                )
+            verified_quotes: list[str] = []
+            for quote in raw_quotes:
+                if not find_anchor_quote_matches(paragraph, [quote]):
+                    raise ExtractPromoteError(
+                        f"assertion {assertion_id!r} evidence[{index}] anchor quote "
+                        "does not occur in the canonical span paragraph",
+                        code="run_not_promotable",
+                        status_code=422,
+                        diagnostics=[
+                            _diagnostic("false_anchor_quote", quote[:120]),
+                            _diagnostic("span_ref", span_id),
+                        ],
+                    )
+                verified_quotes.append(quote)
+            projected.append(
+                ExactRunReviewEvidence(
+                    source_artifact_id=artifact_id,
+                    source_span_ref_id=span_id,
+                    paragraph_text=paragraph,
+                    anchor_quotes=verified_quotes,
+                    start_line=int(span.start_line),
+                    end_line=int(span.end_line),
+                )
+            )
+        return ExactRunReviewAssertion(
+            assertion_id=assertion_id,
+            kind=kind,  # type: ignore[arg-type]
+            label=label,
+            summary=summary,
+            evidence=projected,
         )
-        evidence.append(
-            ExactRunReviewEvidence(
-                source_artifact_id=artifact_id,
-                source_span_ref_id=span_id,
-                paragraph_text=paragraph,
-                anchor_quotes=quotes,
-                start_line=start_line,
-                end_line=end_line,
+
+    for node in typed.nodes:
+        node_id = str(node.node_id or "").strip()
+        if not node_id:
+            continue
+        assertions.append(
+            _project_holder(
+                assertion_id=node_id,
+                kind="object",
+                label=str(node.label or node_id).strip() or node_id,
+                summary=str(getattr(node, "description", "") or "").strip(),
+                evidence_refs=node.evidence_refs,
             )
         )
-    return evidence
+    for edge in typed.edges:
+        edge_id = str(edge.edge_id or "").strip()
+        if not edge_id:
+            continue
+        assertions.append(
+            _project_holder(
+                assertion_id=edge_id,
+                kind="relationship",
+                label=str(getattr(edge, "label", None) or edge_id).strip() or edge_id,
+                summary=(
+                    f"{getattr(edge, 'from_node_id', None) or '?'} → "
+                    f"{getattr(edge, 'to_node_id', None) or '?'}"
+                ),
+                evidence_refs=edge.evidence_refs,
+            )
+        )
+    return assertions
 
 
 def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
@@ -480,61 +643,13 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         session_id=resolved.session_id,
     )
 
-    from apps.live_control_server.services.source_artifact_registry import (
-        SourceArtifactRegistryError,
-        load_source_span_index,
+    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    assertions = _assert_and_project_candidate_evidence(
+        candidate_payload=candidate_payload,
+        source_prose=source_prose,
+        source_artifact_id=resolved.source_artifact_id,
+        span_index=span_index,
     )
-
-    span_by_id: dict[str, Any] = {}
-    diagnostics = list(resolved.diagnostics)
-    try:
-        index = load_source_span_index(repo_root(), resolved.source_artifact_id)
-        span_by_id = {span.source_span_id: span for span in index.spans}
-    except SourceArtifactRegistryError as exc:
-        diagnostics.append(f"source_span_index unavailable: {exc}")
-
-    source_lines = source_prose.splitlines()
-    assertions: list[ExactRunReviewAssertion] = []
-    for node in candidate_payload.get("nodes") or []:
-        if not isinstance(node, dict):
-            continue
-        node_id = str(node.get("node_id") or "").strip()
-        if not node_id:
-            continue
-        assertions.append(
-            ExactRunReviewAssertion(
-                assertion_id=node_id,
-                kind="object",
-                label=str(node.get("label") or node_id).strip() or node_id,
-                summary=str(node.get("description") or "").strip(),
-                evidence=_evidence_from_refs(
-                    node.get("evidence_refs"),
-                    source_lines=source_lines,
-                    span_by_id=span_by_id,
-                ),
-            )
-        )
-    for edge in candidate_payload.get("edges") or []:
-        if not isinstance(edge, dict):
-            continue
-        edge_id = str(edge.get("edge_id") or "").strip()
-        if not edge_id:
-            continue
-        assertions.append(
-            ExactRunReviewAssertion(
-                assertion_id=edge_id,
-                kind="relationship",
-                label=str(edge.get("label") or edge_id).strip() or edge_id,
-                summary=(
-                    f"{edge.get('from_node_id') or '?'} → {edge.get('to_node_id') or '?'}"
-                ),
-                evidence=_evidence_from_refs(
-                    edge.get("evidence_refs"),
-                    source_lines=source_lines,
-                    span_by_id=span_by_id,
-                ),
-            )
-        )
 
     return ExactRunReviewPackage(
         run_id=resolved.run_id,
@@ -545,7 +660,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         session_id=resolved.session_id or None,
         source_prose=source_prose,
         assertions=assertions,
-        diagnostics=diagnostics,
+        diagnostics=list(resolved.diagnostics),
     )
 
 
@@ -587,6 +702,29 @@ def prepare(
         campaign_id=resolved.campaign_id,
         session_id=resolved.session_id,
     )
+
+    # ExtractionRun-backed prepare: every evidence ref must bind to the frozen
+    # span index and verify against canonical source bytes before sealing.
+    if any(
+        "resolved via canonical ExtractionRun registry" in item
+        for item in resolved.diagnostics
+    ):
+        try:
+            source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ExtractPromoteError(
+                "exact-run source prose could not be read",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[_diagnostic("source_unreadable", str(exc))],
+            ) from exc
+        span_index = _load_frozen_span_index_for_resolved_run(resolved)
+        _assert_and_project_candidate_evidence(
+            candidate_payload=payload,
+            source_prose=source_prose,
+            source_artifact_id=resolved.source_artifact_id,
+            span_index=span_index,
+        )
 
     extraction_profile = resolved.extraction_profile or "current_default"
 
