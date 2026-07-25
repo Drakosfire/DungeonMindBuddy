@@ -1061,13 +1061,14 @@ describe("StatblockWorkbenchModule", () => {
       ACCEPT_RESTORE_LOOKUP.maxAttempts = 3;
     });
 
-    it("shows Accept/Save after valid preview and confirms with stable operation_id", async () => {
+    it("shows Accept/Save after valid preview and confirms with a single in-flight operation_id", async () => {
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      let resolveAccept!: (value: AcceptThreatDraftMechanicsResponseV1) => void;
       const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockImplementation(
         () =>
-          new Promise(() => {
-            /* hang for double-click */
+          new Promise((resolve) => {
+            resolveAccept = resolve;
           }),
       );
       vi.spyOn(crypto, "randomUUID").mockReturnValue("11111111-2222-4333-8444-555555555555");
@@ -1089,21 +1090,43 @@ describe("StatblockWorkbenchModule", () => {
 
       const confirm = screen.getByTestId("accept-mechanics-confirm");
       await user.click(confirm);
+      // Concurrent confirms are disabled / guarded — second click must not start another request.
+      await waitFor(() => {
+        expect(confirm).toBeDisabled();
+      });
       await user.click(confirm);
 
       await waitFor(() => {
-        expect(acceptSpy).toHaveBeenCalledTimes(2);
+        expect(acceptSpy).toHaveBeenCalledTimes(1);
       });
       expect(acceptSpy.mock.calls[0][1].operation_id).toBe(
-        "11111111-2222-4333-8444-555555555555",
-      );
-      expect(acceptSpy.mock.calls[1][1].operation_id).toBe(
         "11111111-2222-4333-8444-555555555555",
       );
       expect(acceptSpy.mock.calls[0][0]).toBe("td_accept1");
       expect(acceptSpy.mock.calls[0][1].expected_draft_version).toBe(1);
       expect(acceptSpy.mock.calls[0][1].validation_definition_digest).toBe(PREVIEW_DIGEST);
       expect(acceptSpy.mock.calls[0][1].source_candidate_id).toBe("cand_fixture1");
+
+      resolveAccept({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_accept1",
+        operation_id: "11111111-2222-4333-8444-555555555555",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_1",
+          revision_id: "rev_1",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+      await waitFor(() => {
+        expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_accept1")).toBe(
+        "11111111-2222-4333-8444-555555555555",
+      );
     });
 
     it("shows mechanics_saved locator and not-published wording", async () => {
@@ -1990,6 +2013,132 @@ describe("StatblockWorkbenchModule", () => {
       );
       expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
       expect(uuidSpy).not.toHaveBeenCalled();
+    });
+
+    it("replays exact Accept body when the request never reached the backend", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_transport_miss");
+      const acceptSpy = vi
+        .spyOn(liveApi, "acceptThreatDraftMechanics")
+        .mockRejectedValueOnce(new Error("Failed to fetch"))
+        .mockResolvedValueOnce({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_transport_miss",
+          operation_id: "op_transport_miss",
+          result_label: "mechanics_saved",
+          locator: {
+            provider: "dungeonmind",
+            statblock_id: "sb_replay",
+            revision_id: "rev_replay",
+            contract: "dungeonbuddy-statblocks-v1",
+            contract_version: "1",
+            definition_digest: PREVIEW_DIGEST,
+          },
+        });
+      vi.spyOn(liveApi, "getAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_read_acceptance_operation_response_v1",
+        draft_id: "td_transport_miss",
+        operation: null,
+        result_label: null,
+      });
+      const reconcileSpy = vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_transport_miss",
+        operation_id: "op_transport_miss",
+        result_label: "acceptance_blocked",
+        message: "acceptance operation not found",
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_transport_miss");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
+      });
+      expect(screen.getByText(/Failed to fetch/i)).toBeTruthy();
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_transport_miss")).toBe(
+        "op_transport_miss",
+      );
+      expect(screen.getByTestId("accept-mechanics-replay")).toBeTruthy();
+      expect(screen.getByTestId("accept-mechanics-resume-unresolved")).toBeTruthy();
+
+      // Reconcile alone cannot claim a never-begun operation.
+      await user.click(screen.getByTestId("accept-mechanics-resume-unresolved"));
+      await waitFor(() => {
+        expect(reconcileSpy).toHaveBeenCalledWith("td_transport_miss", "op_transport_miss");
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-blocked-recovery")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_transport_miss")).toBe(
+        "op_transport_miss",
+      );
+
+      await user.click(screen.getByTestId("accept-mechanics-replay"));
+      await waitFor(() => {
+        expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
+      });
+      expect(acceptSpy).toHaveBeenCalledTimes(2);
+      expect(acceptSpy.mock.calls[1][1].operation_id).toBe("op_transport_miss");
+      expect(acceptSpy.mock.calls[1][1].validation_definition_digest).toBe(PREVIEW_DIGEST);
+      expect(acceptSpy.mock.calls[1][1].expected_draft_version).toBe(1);
+      expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps committed operation recoverable when a duplicate confirm is attempted", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_dup_guard");
+      let resolveAccept!: (value: AcceptThreatDraftMechanicsResponseV1) => void;
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveAccept = resolve;
+          }),
+      );
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_dup_guard");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      const confirm = screen.getByTestId("accept-mechanics-confirm");
+      await user.click(confirm);
+      await waitFor(() => {
+        expect(confirm).toBeDisabled();
+      });
+      await user.click(confirm);
+      expect(acceptSpy).toHaveBeenCalledTimes(1);
+
+      resolveAccept({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_dup_guard",
+        operation_id: "op_dup_guard",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_dup",
+          revision_id: "rev_dup",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+      await waitFor(() => {
+        expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_dup_guard")).toBe("op_dup_guard");
+      expect(acceptSpy).toHaveBeenCalledTimes(1);
+      expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -11,6 +11,7 @@ import {
 } from "../../api/liveApi";
 import type {
   AcceptanceResultLabel,
+  AcceptThreatDraftMechanicsRequestV1,
   AcceptThreatDraftMechanicsResponseV1,
   GenerateThreatDraftCandidateResponseV1,
   ReadAcceptanceOperationResponseV1,
@@ -367,30 +368,68 @@ function PreviewValidationPanel({
 }
 
 const ACCEPT_OP_STORAGE_PREFIX = "dmb.sbw07.acceptOperationId:";
+const ACCEPT_ATTEMPT_STORAGE_PREFIX = "dmb.sbw07.acceptAttempt:";
+
+interface StoredAcceptAttempt {
+  operation_id: string;
+  /** Exact mechanics:accept body for same-key replay when no journal claim exists yet. */
+  request?: AcceptThreatDraftMechanicsRequestV1 | null;
+}
 
 function acceptOpStorageKey(draftId: string): string {
   return `${ACCEPT_OP_STORAGE_PREFIX}${draftId}`;
 }
 
-function readStoredAcceptOperationId(draftId: string): string | null {
+function acceptAttemptStorageKey(draftId: string): string {
+  return `${ACCEPT_ATTEMPT_STORAGE_PREFIX}${draftId}`;
+}
+
+function readStoredAcceptAttempt(draftId: string): StoredAcceptAttempt | null {
   try {
-    const raw = sessionStorage.getItem(acceptOpStorageKey(draftId));
-    return raw && raw.trim() ? raw.trim() : null;
+    const rawAttempt = sessionStorage.getItem(acceptAttemptStorageKey(draftId));
+    if (rawAttempt) {
+      const parsed = JSON.parse(rawAttempt) as StoredAcceptAttempt;
+      if (parsed && typeof parsed.operation_id === "string" && parsed.operation_id.trim()) {
+        return {
+          operation_id: parsed.operation_id.trim(),
+          request: parsed.request ?? null,
+        };
+      }
+    }
+    const legacyOp = sessionStorage.getItem(acceptOpStorageKey(draftId));
+    if (legacyOp && legacyOp.trim()) {
+      return { operation_id: legacyOp.trim(), request: null };
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-function writeStoredAcceptOperationId(draftId: string, operationId: string): void {
+function readStoredAcceptOperationId(draftId: string): string | null {
+  return readStoredAcceptAttempt(draftId)?.operation_id ?? null;
+}
+
+function writeStoredAcceptAttempt(draftId: string, attempt: StoredAcceptAttempt): void {
   try {
-    sessionStorage.setItem(acceptOpStorageKey(draftId), operationId);
+    sessionStorage.setItem(acceptAttemptStorageKey(draftId), JSON.stringify(attempt));
+    sessionStorage.setItem(acceptOpStorageKey(draftId), attempt.operation_id);
   } catch {
-    /* private mode / quota — in-memory ref still covers the session */
+    /* private mode / quota — in-memory state still covers the session */
   }
+}
+
+function writeStoredAcceptOperationId(draftId: string, operationId: string): void {
+  const existing = readStoredAcceptAttempt(draftId);
+  writeStoredAcceptAttempt(draftId, {
+    operation_id: operationId,
+    request: existing?.request ?? null,
+  });
 }
 
 function clearStoredAcceptOperationId(draftId: string): void {
   try {
+    sessionStorage.removeItem(acceptAttemptStorageKey(draftId));
     sessionStorage.removeItem(acceptOpStorageKey(draftId));
   } catch {
     /* ignore */
@@ -557,7 +596,13 @@ function AcceptMechanicsFlow({
     null,
   );
   const [acceptResultOrigin, setAcceptResultOrigin] = useState<AcceptResultOrigin>("fresh");
+  /** Exact Accept body for same-key replay when the journal claim may not exist yet. */
+  const [replayRequest, setReplayRequest] = useState<AcceptThreatDraftMechanicsRequestV1 | null>(
+    null,
+  );
   const acceptOperationIdRef = useRef<string | null>(null);
+  /** Synchronous guard — Confirm can fire twice before React re-renders acceptPending. */
+  const acceptInFlightRef = useRef(false);
   /** Draft ID that currently owns acceptResult / operation ref / restore UI. */
   const ownedDraftIdRef = useRef<string>("");
   const restoreGenerationRef = useRef(0);
@@ -571,7 +616,28 @@ function AcceptMechanicsFlow({
     setAcceptError(null);
     setAcceptResult(null);
     setAcceptResultOrigin("fresh");
+    setReplayRequest(null);
     acceptOperationIdRef.current = null;
+    acceptInFlightRef.current = false;
+  };
+
+  const persistAcceptAttempt = (
+    draftId: string,
+    operationId: string,
+    request?: AcceptThreatDraftMechanicsRequestV1 | null,
+  ) => {
+    const existing = readStoredAcceptAttempt(draftId);
+    writeStoredAcceptAttempt(draftId, {
+      operation_id: operationId,
+      request: request !== undefined ? request : (existing?.request ?? null),
+    });
+    if (request) {
+      setReplayRequest(request);
+    } else if (request === null) {
+      setReplayRequest(null);
+    } else if (existing?.request) {
+      setReplayRequest(existing.request);
+    }
   };
 
   const isRestoreGenerationCurrent = (draftId: string, restoreGeneration: number) => {
@@ -593,7 +659,7 @@ function AcceptMechanicsFlow({
       return false;
     }
     acceptOperationIdRef.current = restored.operation_id;
-    writeStoredAcceptOperationId(draftId, restored.operation_id);
+    persistAcceptAttempt(draftId, restored.operation_id);
     setAcceptResultOrigin("recovery");
     setAcceptResult(restored);
     setExistenceUnresolved(false);
@@ -603,7 +669,11 @@ function AcceptMechanicsFlow({
 
   const markExistenceUnresolved = (draftId: string, operationId: string) => {
     acceptOperationIdRef.current = operationId;
-    writeStoredAcceptOperationId(draftId, operationId);
+    persistAcceptAttempt(draftId, operationId);
+    const stored = readStoredAcceptAttempt(draftId);
+    if (stored?.request) {
+      setReplayRequest(stored.request);
+    }
     setExistenceUnresolved(true);
     setAcceptResult(null);
     setAcceptError(null);
@@ -667,6 +737,11 @@ function AcceptMechanicsFlow({
       return;
     }
 
+    const storedAttempt = readStoredAcceptAttempt(draftId);
+    if (storedAttempt?.request) {
+      setReplayRequest(storedAttempt.request);
+    }
+
     void runRestoreLookup(draftId, storedId, restoreGeneration);
 
     return () => {
@@ -702,8 +777,10 @@ function AcceptMechanicsFlow({
       clearStoredAcceptOperationId(draftId);
     }
     acceptOperationIdRef.current = null;
+    acceptInFlightRef.current = false;
     setAcceptResult(null);
     setAcceptResultOrigin("fresh");
+    setReplayRequest(null);
     setExistenceUnresolved(false);
     setAcceptError(null);
     setConfirmOpen(false);
@@ -728,12 +805,13 @@ function AcceptMechanicsFlow({
     setAcceptResultOrigin(origin);
     if (shouldPersistAcceptOperationId(label, origin)) {
       acceptOperationIdRef.current = operationId;
-      writeStoredAcceptOperationId(draftId, operationId);
+      persistAcceptAttempt(draftId, operationId);
       setExistenceUnresolved(false);
     } else {
       // Fresh ephemeral attempt: do not retain a nonexistent / non-active journal ID.
       clearStoredAcceptOperationId(draftId);
       acceptOperationIdRef.current = null;
+      setReplayRequest(null);
       setExistenceUnresolved(false);
     }
     setAcceptResult(response);
@@ -746,6 +824,8 @@ function AcceptMechanicsFlow({
     if (existenceUnresolved || suppressesNewAccept(acceptResult?.result_label, acceptResultOrigin)) {
       return;
     }
+    // Prevent concurrent confirmations before React disables the button.
+    if (acceptInFlightRef.current || acceptPending) return;
 
     const draftId = normalizedDraftId;
     const expectedVersion = Number(draftVersionInput);
@@ -755,34 +835,78 @@ function AcceptMechanicsFlow({
     }
 
     const operationId = ensureOperationId();
+    const request: AcceptThreatDraftMechanicsRequestV1 = {
+      operation_id: operationId,
+      expected_draft_version: expectedVersion,
+      definition: workingCopy,
+      validation_receipt: preview.receipt,
+      validation_definition_digest: preview.definitionDigest,
+      source_candidate_id: sourceCandidateId,
+      change_summary: "Accepted via Statblock Workbench",
+    };
     const requestGeneration = ++acceptRequestGenerationRef.current;
-    // Persist optimistically so reload during the request can restore if the journal claimed.
-    // Fresh ephemeral outcomes clear this key in applyAcceptResponseForDraft.
-    writeStoredAcceptOperationId(draftId, operationId);
+    acceptInFlightRef.current = true;
+    // Persist optimistically so reload / transport failure can same-body replay.
+    persistAcceptAttempt(draftId, operationId, request);
     setAcceptPending(true);
     setAcceptError(null);
 
     try {
-      const response = await acceptThreatDraftMechanics(draftId, {
-        operation_id: operationId,
-        expected_draft_version: expectedVersion,
-        definition: workingCopy,
-        validation_receipt: preview.receipt,
-        validation_definition_digest: preview.definitionDigest,
-        source_candidate_id: sourceCandidateId,
-        change_summary: "Accepted via Statblock Workbench",
-      });
+      const response = await acceptThreatDraftMechanics(draftId, request);
       applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId, "fresh");
     } catch (error) {
       if (
         requestGeneration === acceptRequestGenerationRef.current &&
         ownedDraftIdRef.current === draftId
       ) {
-        // Transport failure after optimistic persist: keep ID; existence may be unresolved.
+        // Transport failure: keep ID + exact body for same-key Accept replay.
         markExistenceUnresolved(draftId, operationId);
+        setReplayRequest(request);
         setAcceptError(error instanceof Error ? error.message : String(error));
       }
     } finally {
+      acceptInFlightRef.current = false;
+      if (
+        requestGeneration === acceptRequestGenerationRef.current &&
+        ownedDraftIdRef.current === draftId
+      ) {
+        setAcceptPending(false);
+      }
+    }
+  };
+
+  /** Same-key, same-body mechanics:accept replay — used when no journal claim exists yet. */
+  const onReplayAccept = async () => {
+    const draftId = normalizedDraftId;
+    const operationId = acceptOperationIdRef.current;
+    const request = replayRequest ?? readStoredAcceptAttempt(draftId)?.request ?? null;
+    if (!draftId || !operationId || !request || ownedDraftIdRef.current !== draftId) return;
+    if (acceptInFlightRef.current || acceptPending) return;
+
+    const replayBody: AcceptThreatDraftMechanicsRequestV1 = {
+      ...request,
+      operation_id: operationId,
+    };
+    const requestGeneration = ++acceptRequestGenerationRef.current;
+    acceptInFlightRef.current = true;
+    persistAcceptAttempt(draftId, operationId, replayBody);
+    setAcceptPending(true);
+    setAcceptError(null);
+
+    try {
+      const response = await acceptThreatDraftMechanics(draftId, replayBody);
+      applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId, "recovery");
+    } catch (error) {
+      if (
+        requestGeneration === acceptRequestGenerationRef.current &&
+        ownedDraftIdRef.current === draftId
+      ) {
+        markExistenceUnresolved(draftId, operationId);
+        setReplayRequest(replayBody);
+        setAcceptError(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      acceptInFlightRef.current = false;
       if (
         requestGeneration === acceptRequestGenerationRef.current &&
         ownedDraftIdRef.current === draftId
@@ -796,12 +920,14 @@ function AcceptMechanicsFlow({
     const draftId = normalizedDraftId;
     const operationId = acceptOperationIdRef.current;
     if (!draftId || !operationId || ownedDraftIdRef.current !== draftId) return;
+    if (acceptInFlightRef.current || acceptPending) return;
 
     const requestGeneration = ++acceptRequestGenerationRef.current;
+    acceptInFlightRef.current = true;
     setAcceptPending(true);
     setAcceptError(null);
     try {
-      // recover_acceptance_operation drives unknown, pending attach, and same-op recovery.
+      // recover_acceptance_operation — only after a journal operation exists.
       const response = await reconcileAcceptanceOperation(draftId, operationId);
       applyAcceptResponseForDraft(draftId, requestGeneration, response, operationId, "recovery");
     } catch (error) {
@@ -809,13 +935,13 @@ function AcceptMechanicsFlow({
         requestGeneration === acceptRequestGenerationRef.current &&
         ownedDraftIdRef.current === draftId
       ) {
-        // Transient reconcile failure: preserve operation ID for retry.
-        acceptOperationIdRef.current = operationId;
-        writeStoredAcceptOperationId(draftId, operationId);
+        // Transient reconcile failure: preserve operation ID + body for retry/replay.
+        persistAcceptAttempt(draftId, operationId);
         setExistenceUnresolved(true);
         setAcceptError(error instanceof Error ? error.message : String(error));
       }
     } finally {
+      acceptInFlightRef.current = false;
       if (
         requestGeneration === acceptRequestGenerationRef.current &&
         ownedDraftIdRef.current === draftId
@@ -912,6 +1038,7 @@ function AcceptMechanicsFlow({
           <div className="statblock-command-row">
             <button
               type="button"
+              disabled={acceptPending}
               onClick={() => void runAccept()}
               data-testid="accept-mechanics-confirm"
             >
@@ -942,8 +1069,9 @@ function AcceptMechanicsFlow({
         >
           <p className="module-muted">
             Stored acceptance operation is not yet visible in the journal (claim may still be in
-            flight, or the journal read failed transiently). The operation id is retained — do not
-            start a new acceptance attempt.
+            flight, the Accept request may never have reached the backend, or the journal read
+            failed transiently). The operation id is retained — do not start a new acceptance
+            attempt.
           </p>
           <p className="module-muted">
             Operation: <code>{acceptOperationIdRef.current}</code>
@@ -957,6 +1085,16 @@ function AcceptMechanicsFlow({
             >
               {restorePending ? "Looking up…" : "Retry lookup"}
             </button>
+            {replayRequest ? (
+              <button
+                type="button"
+                disabled={acceptPending || restorePending}
+                onClick={() => void onReplayAccept()}
+                data-testid="accept-mechanics-replay"
+              >
+                {acceptPending ? "Replaying…" : "Replay accept"}
+              </button>
+            ) : null}
             <button
               type="button"
               disabled={acceptPending || restorePending}
@@ -966,6 +1104,17 @@ function AcceptMechanicsFlow({
               {acceptPending ? "Resuming…" : "Resume acceptance"}
             </button>
           </div>
+          {!replayRequest ? (
+            <p className="module-muted">
+              Exact Accept body is unavailable for replay — use Resume only after a journal claim
+              exists, or Retry lookup.
+            </p>
+          ) : (
+            <p className="module-muted">
+              Replay accept re-sends the exact same-key Accept body. Resume acceptance reconciles
+              only after a journal operation exists.
+            </p>
+          )}
         </section>
       ) : null}
 
@@ -1040,14 +1189,26 @@ function AcceptMechanicsFlow({
                   ? " The original operation id is retained — retry the same operation."
                   : ""}
               </p>
-              <button
-                type="button"
-                disabled={acceptPending}
-                onClick={() => void onResumeAcceptance()}
-                data-testid="accept-mechanics-same-op-recover"
-              >
-                {acceptPending ? "Recovering…" : "Resume same operation"}
-              </button>
+              <div className="statblock-command-row">
+                {replayRequest ? (
+                  <button
+                    type="button"
+                    disabled={acceptPending}
+                    onClick={() => void onReplayAccept()}
+                    data-testid="accept-mechanics-replay"
+                  >
+                    {acceptPending ? "Replaying…" : "Replay accept"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={acceptPending}
+                  onClick={() => void onResumeAcceptance()}
+                  data-testid="accept-mechanics-same-op-recover"
+                >
+                  {acceptPending ? "Recovering…" : "Resume same operation"}
+                </button>
+              </div>
             </>
           ) : null}
 
