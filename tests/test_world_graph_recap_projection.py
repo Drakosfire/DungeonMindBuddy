@@ -195,18 +195,27 @@ def test_protected_markdown_and_code_ranges_untouched() -> None:
             aliases=["Caelynn"],
         ),
     ]
-    markdown = (
-        "See [Caelynn](https://example.test) and `Caelynn` and "
-        "```\nCaelynn\n``` and [prior](dmb-node:pc:other)."
-    )
-    projected, mentions, _diagnostics = project_world_markdown_mentions(markdown, nodes)
-    assert projected == markdown
-    assert mentions == []
+    cases = [
+        "See [Caelynn](https://example.test) outside.",
+        "Reference [The Caelynn Story][ref] stays intact.",
+        "Nested dest [Caelynn](https://example.test/path_(x)) stays.",
+        "Inline `Caelynn` stays.",
+        "Closed fence:\n```\nCaelynn\n```\nafter.",
+        "Unclosed fence:\n```\nCaelynn still protected",
+        "Prior [chip](dmb-node:pc:other) stays.",
+    ]
+    for markdown in cases:
+        projected, mentions, _diagnostics = project_world_markdown_mentions(
+            markdown, nodes
+        )
+        assert projected == markdown, markdown
+        assert mentions == []
 
 
-def test_adapt_world_node_maps_direction_vocabulary_only() -> None:
+def test_adapt_world_node_preserves_excerpt_highlight_contract() -> None:
     from graph_memory.projection.world_projection import (
         WorldGraphProjectionAdjacencyCandidate,
+        WorldGraphProjectionTextHighlightSpan,
     )
 
     node = WorldGraphProjectionNodeView(
@@ -223,12 +232,23 @@ def test_adapt_world_node_maps_direction_vocabulary_only() -> None:
                 predicate="member_of",
                 direction="outbound",
                 session_ids=["session-23"],
+                source_excerpt="Stafl joined the party at the ford.",
+                source_excerpt_is_full_paragraph=True,
+                source_excerpt_highlight_spans=[
+                    WorldGraphProjectionTextHighlightSpan(start=0, end=5),
+                ],
             )
         ],
     )
     adapted = adapt_world_node_to_recap_view(node)
-    assert adapted.adjacency[0].direction == "outgoing"
-    assert adapted.adjacency[0].session_ids == ["session-23"]
+    edge = adapted.adjacency[0]
+    assert edge.direction == "outgoing"
+    assert edge.session_ids == ["session-23"]
+    assert edge.source_excerpt == "Stafl joined the party at the ford."
+    assert edge.source_excerpt_is_full_paragraph is True
+    assert [(span.start, span.end) for span in edge.source_excerpt_highlight_spans] == [
+        (0, 5)
+    ]
     assert adapted.node_id == "pc:stafl"
 
 
@@ -367,28 +387,48 @@ def test_build_splices_world_ids_into_injected_markdown(tmp_path: Path) -> None:
     assert "session_id" not in payload
 
 
-def test_ambiguous_recap_source_fails_closed(
+def test_ambiguous_recap_source_fails_closed_across_padded_and_unpadded(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Padded + unpadded Session N files must both count toward ambiguity."""
     _initialize(tmp_path)
-    import apps.live_control_server.services.world_graph_recap_projection as service
     from apps.live_control_server.services.union_supergraph_projection_adapter import (
         CorpusNormalizedRecapLoadError,
+        load_corpus_normalized_recap_markdown,
     )
 
-    def _boom(**_kwargs: Any) -> str:
-        raise CorpusNormalizedRecapLoadError(
-            "Ambiguous normalized recap identity",
-            code="recap_source_ambiguous",
-            status_code=422,
-        )
+    corpus = tmp_path / "corpus"
+    normalized = (
+        corpus
+        / "Longmont Campaign"
+        / "Campaign 2"
+        / "Session Recaps"
+        / "_normalized"
+    )
+    normalized.mkdir(parents=True)
+    (normalized / "Session 03 - Alpha.md").write_text("# Alpha\n", encoding="utf-8")
+    (normalized / "Session 3 - Bravo.md").write_text("# Bravo\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "apps.live_control_server.services.union_supergraph_projection_adapter.corpus_root",
+        lambda: corpus,
+    )
 
-    monkeypatch.setattr(service, "load_corpus_normalized_recap_markdown", _boom)
     with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
-        build_world_graph_recap_projection(_session_request(), root=tmp_path)
+        build_world_graph_recap_projection(
+            _session_request(session_id="session-3"),
+            root=tmp_path,
+        )
     assert exc_info.value.code == "recap_source_ambiguous"
     assert exc_info.value.status_code == 422
+
+    with pytest.raises(CorpusNormalizedRecapLoadError) as load_exc:
+        load_corpus_normalized_recap_markdown(
+            campaign_id=CAMPAIGN_ID,
+            session_id="session-3",
+            on_ambiguous="fail",
+        )
+    assert load_exc.value.code == "recap_source_ambiguous"
 
 
 def test_recap_projection_route_rejects_query_params(client: TestClient) -> None:

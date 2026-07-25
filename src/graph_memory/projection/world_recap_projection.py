@@ -20,18 +20,13 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionNodeView,
     WorldGraphProjectionSnapshot,
     WorldGraphProjectionSuggestedExpansion,
+    WorldGraphProjectionTextHighlightSpan,
     WorldGraphProjectionTrustBoundary,
     _ProjectionModel,
 )
 
 RECAP_PROJECTION_RESPONSE_SCHEMA = "dmb_world_graph_recap_projection_v1"
 AMBIGUOUS_MENTION_DIAGNOSTIC = "ambiguous_mention_surface"
-
-_LINK_OR_IMAGE_RE = re.compile(
-    r"!?\[(?:[^\]\\]|\\.)*\]\((?:[^)\\]|\\.)*\)",
-)
-_INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
-_FENCED_CODE_RE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
 
 
 class WorldGraphRecapFocusOverlay(_ProjectionModel):
@@ -54,6 +49,11 @@ class WorldGraphRecapEvidenceBadge(_ProjectionModel):
     source_span_ref_id: str | None = None
 
 
+class WorldGraphRecapTextHighlightSpan(_ProjectionModel):
+    start: int
+    end: int
+
+
 class WorldGraphRecapAdjacencyCandidate(_ProjectionModel):
     edge_id: str
     node_id: str
@@ -69,6 +69,10 @@ class WorldGraphRecapAdjacencyCandidate(_ProjectionModel):
     campaign_scope: str | None = None
     related_summary: str | None = None
     source_excerpt: str | None = None
+    source_excerpt_is_full_paragraph: bool = False
+    source_excerpt_highlight_spans: list[WorldGraphRecapTextHighlightSpan] = Field(
+        default_factory=list
+    )
 
 
 class WorldGraphRecapSuggestedExpansion(WorldGraphRecapAdjacencyCandidate):
@@ -156,6 +160,15 @@ def _adapt_evidence_badge(
     )
 
 
+def _adapt_highlight_spans(
+    spans: list[WorldGraphProjectionTextHighlightSpan],
+) -> list[WorldGraphRecapTextHighlightSpan]:
+    return [
+        WorldGraphRecapTextHighlightSpan(start=span.start, end=span.end)
+        for span in spans
+    ]
+
+
 def _adapt_adjacency(
     candidate: WorldGraphProjectionAdjacencyCandidate,
 ) -> WorldGraphRecapAdjacencyCandidate:
@@ -174,6 +187,10 @@ def _adapt_adjacency(
         campaign_scope=candidate.campaign_scope,
         related_summary=candidate.related_summary,
         source_excerpt=candidate.source_excerpt,
+        source_excerpt_is_full_paragraph=candidate.source_excerpt_is_full_paragraph,
+        source_excerpt_highlight_spans=_adapt_highlight_spans(
+            list(candidate.source_excerpt_highlight_spans)
+        ),
     )
 
 
@@ -254,11 +271,108 @@ def recap_projection_trust_boundary() -> WorldGraphProjectionTrustBoundary:
     )
 
 
+def _is_line_start(markdown: str, index: int) -> bool:
+    return index == 0 or markdown[index - 1] == "\n"
+
+
+def _skip_link_label(markdown: str, index: int) -> int | None:
+    """Advance past a Markdown link/image label ``[...]`` starting at ``[``."""
+    if index >= len(markdown) or markdown[index] != "[":
+        return None
+    i = index + 1
+    while i < len(markdown):
+        ch = markdown[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "\n":
+            return None
+        if ch == "]":
+            return i + 1
+        i += 1
+    return None
+
+
+def _skip_balanced_parens(markdown: str, index: int) -> int | None:
+    """Advance past a ``(...)`` destination with nested parentheses."""
+    if index >= len(markdown) or markdown[index] != "(":
+        return None
+    depth = 0
+    i = index
+    while i < len(markdown):
+        ch = markdown[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        elif ch == "\n":
+            return None
+        i += 1
+    return None
+
+
 def _protected_ranges(markdown: str) -> list[tuple[int, int]]:
+    """Ranges that must not receive mention rewrites: fences, code, links."""
     ranges: list[tuple[int, int]] = []
-    for pattern in (_FENCED_CODE_RE, _INLINE_CODE_RE, _LINK_OR_IMAGE_RE):
-        for match in pattern.finditer(markdown):
-            ranges.append(match.span())
+    i = 0
+    n = len(markdown)
+    while i < n:
+        if _is_line_start(markdown, i):
+            fence_match = re.match(r"[ \t]{0,3}(```+|~~~+)", markdown[i:])
+            if fence_match:
+                marker = fence_match.group(1)[0]
+                fence_len = len(fence_match.group(1))
+                start = i
+                after_opener = i + fence_match.end()
+                nl = markdown.find("\n", after_opener)
+                scan_from = n if nl < 0 else nl + 1
+                close_re = re.compile(
+                    rf"(?m)^[ \t]{{0,3}}{re.escape(marker * fence_len)}+?[ \t]*$",
+                )
+                close = close_re.search(markdown, scan_from)
+                end = n if close is None else close.end()
+                ranges.append((start, end))
+                i = end
+                continue
+
+        if markdown[i] == "`":
+            run = 1
+            while i + run < n and markdown[i + run] == "`":
+                run += 1
+            closer = markdown.find("`" * run, i + run)
+            if closer != -1 and "\n" not in markdown[i + run : closer]:
+                end = closer + run
+                ranges.append((i, end))
+                i = end
+                continue
+
+        if markdown[i] == "[" or (
+            markdown[i] == "!" and i + 1 < n and markdown[i + 1] == "["
+        ):
+            start = i
+            label_at = i + 1 if markdown[i] == "!" else i
+            after_label = _skip_link_label(markdown, label_at)
+            if after_label is not None:
+                if after_label < n and markdown[after_label] == "(":
+                    after_dest = _skip_balanced_parens(markdown, after_label)
+                    if after_dest is not None:
+                        ranges.append((start, after_dest))
+                        i = after_dest
+                        continue
+                if after_label < n and markdown[after_label] == "[":
+                    after_ref = _skip_link_label(markdown, after_label)
+                    if after_ref is not None:
+                        ranges.append((start, after_ref))
+                        i = after_ref
+                        continue
+
+        i += 1
+
     ranges.sort()
     return ranges
 
@@ -296,7 +410,6 @@ def project_world_markdown_mentions(
     diagnostics: list[WorldGraphProjectionDiagnostic] = []
     ambiguous_reported: set[str] = set()
 
-    # Longest unique surface first; keep one display form per casefold key.
     unique_surfaces: list[tuple[str, str]] = []
     for node in nodes:
         for raw in (node.label, *node.aliases):
@@ -311,7 +424,6 @@ def project_world_markdown_mentions(
                 continue
             unique_surfaces.append((surface, node.node_id))
 
-    # Prefer longer surfaces; stable by surface then node_id.
     unique_surfaces.sort(key=lambda item: (-len(item[0]), item[0].casefold(), item[1]))
     seen_keys: set[str] = set()
     ordered: list[tuple[str, str]] = []
@@ -338,11 +450,9 @@ def project_world_markdown_mentions(
             occupied.append((start, end))
             matches.append((start, end, match.group(0), node_id))
 
-    # Diagnostics for ambiguous surfaces that appear outside protected ranges.
     for key, node_ids in owners.items():
         if len(node_ids) < 2 or key in ambiguous_reported:
             continue
-        # Recover a display surface from any owner.
         sample = next(
             (
                 (raw or "").strip()

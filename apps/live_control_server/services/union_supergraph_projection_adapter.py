@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.config import repo_root
-from src.corpus.session_recap_paths import campaign_number_from_id
+from src.corpus.session_recap_paths import (
+    campaign_number_from_id,
+    normalized_recap_candidates,
+)
 from src.live_play.recap_stage_paths import corpus_root
 from graph_memory.ingestion.graph_ingest_run import (
     GraphIngestArtifactKind,
@@ -567,21 +570,17 @@ class CorpusNormalizedRecapLoadError(ValueError):
 
 
 def _normalized_recap_candidates(*, campaign_id: str, session_id: str) -> list[Path]:
+    """Union padded + unpadded Session N filename forms via shared corpus helper."""
     match = re.fullmatch(r"session-(\d+)", session_id.strip())
     if not match:
         return []
     session = int(match.group(1))
     campaign_number = campaign_number_from_id(campaign_id)
-    normalized_dir = (
-        corpus_root()
-        / f"Longmont Campaign/Campaign {campaign_number}/Session Recaps/_normalized"
+    return normalized_recap_candidates(
+        corpus_root(),
+        campaign_number=campaign_number,
+        session=session,
     )
-    if not normalized_dir.is_dir():
-        return []
-    candidates = sorted(normalized_dir.glob(f"Session {session:02d} - *.md"))
-    if not candidates:
-        candidates = sorted(normalized_dir.glob(f"Session {session} - *.md"))
-    return candidates
 
 
 def load_corpus_normalized_recap_markdown(
@@ -595,7 +594,8 @@ def load_corpus_normalized_recap_markdown(
     ``on_ambiguous``:
       - ``first``: legacy first-file-wins (union/preview callers).
       - ``fail``: raise ``CorpusNormalizedRecapLoadError`` with
-        ``recap_source_ambiguous`` when more than one candidate matches.
+        ``recap_source_ambiguous`` when more than one candidate matches
+        across padded and unpadded Session N filename forms.
     """
     candidates = _normalized_recap_candidates(
         campaign_id=campaign_id,
