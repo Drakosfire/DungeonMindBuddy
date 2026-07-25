@@ -144,6 +144,7 @@ def project_candidate_graph_for_promote(
     graph: dict[str, Any],
     *,
     warning_count: int | None = None,
+    drop_empty_evidence_edges: bool = True,
 ) -> dict[str, Any]:
     """Project extractor graph dict onto typed promote-eligible CandidateGraphPreview IR.
 
@@ -156,6 +157,10 @@ def project_candidate_graph_for_promote(
     Until standing-context partition (successor slice) owns those objects,
     drop empty-evidence nodes/edges/beats here so session-evidenced extracts
     remain promotable without a hidden dependency on multi-contribution seal.
+
+    When ``drop_empty_evidence_edges`` is False (profiles that forbid endpoint
+    evidence inheritance), empty-evidence edges are retained so post-extraction
+    validation can fail closed rather than silently discarding them.
     """
     for edge in graph.get("edges") or []:
         if isinstance(edge, dict):
@@ -178,7 +183,9 @@ def project_candidate_graph_for_promote(
     }
     kept_edges = []
     for edge in graph.get("edges") or []:
-        if not isinstance(edge, Mapping) or not _evidence_refs_nonempty(edge):
+        if not isinstance(edge, Mapping):
+            continue
+        if drop_empty_evidence_edges and not _evidence_refs_nonempty(edge):
             continue
         from_id = str(edge.get("from_node_id") or "").strip()
         to_id = str(edge.get("to_node_id") or "").strip()
@@ -491,20 +498,29 @@ def render_category_pass_prompts(
         )
     predicate_catalog = predicate_catalog_prompt_markdown()
     edge = active_profile.edge_pass
+    session_volume = ""
+    relationship_sweep = ""
+    if active_profile.enable_session_relationship_sweep:
+        session_volume = (
+            "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
+            "do not stop after the first few obvious edges.\n\n"
+        )
+        relationship_sweep = (
+            "## Relationship extraction sweep\n\n"
+            "Review the source and nodes systematically before returning JSON:\n"
+            "- Location containment: emit `located_in`, `part_of`, `within`, or related location predicates for gates, walls, roads, inns, rooms, settlements, and regions.\n"
+            "- Authority and command: emit `governs`, `leads`, `commands`, or `reports_to` for mayors, commanders, leaders, and organized refugee groups.\n"
+            "- Threat and displacement: emit `threatens`, `besieges`, `attacks`, or `displaced_from` for attackers, fleeing groups, sieges, and evacuation pressure.\n"
+            "- Knowledge and reports: emit `knows_about`, `aware_of`, or `reports_threat_in` for explicit knowledge, messages, warnings, and learned weaknesses.\n"
+            "- Composition and participation: emit `part_of`, `member_of`, or `participates_in` for waves, groups, encounters, and participants.\n\n"
+        )
     prompts[_prompt_key(edge.pass_id)] = (
         f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n{ledger}"
         f"## Task\n\n{edge.instruction}\n"
         "Using ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
         "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes. "
-        "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
-        "do not stop after the first few obvious edges.\n\n"
-        "## Relationship extraction sweep\n\n"
-        "Review the source and nodes systematically before returning JSON:\n"
-        "- Location containment: emit `located_in`, `part_of`, `within`, or related location predicates for gates, walls, roads, inns, rooms, settlements, and regions.\n"
-        "- Authority and command: emit `governs`, `leads`, `commands`, or `reports_to` for mayors, commanders, leaders, and organized refugee groups.\n"
-        "- Threat and displacement: emit `threatens`, `besieges`, `attacks`, or `displaced_from` for attackers, fleeing groups, sieges, and evacuation pressure.\n"
-        "- Knowledge and reports: emit `knows_about`, `aware_of`, or `reports_threat_in` for explicit knowledge, messages, warnings, and learned weaknesses.\n"
-        "- Composition and participation: emit `part_of`, `member_of`, or `participates_in` for waves, groups, encounters, and participants.\n\n"
+        f"{session_volume}"
+        f"{relationship_sweep}"
         "Prefer specific supported predicates over generic `associated_with` / `linked_to`. "
         "Omit an edge only when no catalog predicate is supported by a source quote or one endpoint cannot be bound to a listed node.\n\n"
         "Return JSON with key `observation_edges` (array). "
@@ -866,8 +882,18 @@ def consolidate_category_outputs(
             beats.append(_normalize_beat(raw))
 
     nodes_before_dedup = len(nodes)
-    node_dedup = ir.dedup_nodes(nodes)
-    deduped_nodes = list(node_dedup["kept"])
+    if active_profile.enable_automatic_identity_consolidation:
+        node_dedup = ir.dedup_nodes(nodes)
+        deduped_nodes = list(node_dedup["kept"])
+    else:
+        # Profile forbids automatic identity merges: preserve ambiguous
+        # same-label / cross-class collisions as separate candidates.
+        node_dedup = {
+            "kept": list(nodes),
+            "merged": [],
+            "automatic_identity_consolidation": False,
+        }
+        deduped_nodes = list(nodes)
     deduped_nodes, anchor_merge_diag = merge_party_anchor_nodes(
         deduped_nodes,
         party_ctx,
@@ -917,10 +943,21 @@ def consolidate_category_outputs(
     # as both a place and a polity (e.g. "Mireward Reach" as location AND
     # organization). dedup_nodes keys on (type_class, label) and keeps both,
     # which makes endpoint binding ambiguous downstream. Collapse exact-label
-    # collisions across type classes into one canonical node and remap edges.
-    cross_class = ir.reconcile_cross_class_label_collisions(deduped_nodes)
-    deduped_nodes = list(cross_class["kept"])
-    cross_class_remap: dict[str, str] = cross_class["remap"]
+    # collisions across type classes into one canonical node and remap edges —
+    # unless the profile forbids automatic identity consolidation.
+    if active_profile.enable_automatic_identity_consolidation:
+        cross_class = ir.reconcile_cross_class_label_collisions(deduped_nodes)
+        deduped_nodes = list(cross_class["kept"])
+        cross_class_remap: dict[str, str] = cross_class["remap"]
+    else:
+        cross_class = {
+            "kept": list(deduped_nodes),
+            "merged": [],
+            "blocked": [],
+            "remap": {},
+            "automatic_identity_consolidation": False,
+        }
+        cross_class_remap = {}
 
     edge_pass_id = active_profile.edge_pass.pass_id
     edge_payload = pass_outputs.get(edge_pass_id, {})
@@ -1027,6 +1064,9 @@ def consolidate_category_outputs(
         "merged_nodes": node_dedup["merged"],
         "cross_class_merged_nodes": cross_class["merged"],
         "cross_class_blocked_nodes": cross_class.get("blocked", []),
+        "automatic_identity_consolidation": (
+            active_profile.enable_automatic_identity_consolidation
+        ),
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
         "edge_predicate_issues": edge_predicate_issues,
@@ -1054,7 +1094,14 @@ def consolidate_category_outputs(
 def repair_edge_evidence_refs(
     parts: Mapping[str, Any],
     allowed_span_refs: set[str],
+    *,
+    inherit_from_endpoints: bool = True,
 ) -> dict[str, int]:
+    """Normalize edge evidence; optionally inherit from endpoints when empty.
+
+    Endpoint inheritance is a recap convenience. Profiles that require
+    relationship-native evidence must pass ``inherit_from_endpoints=False``.
+    """
     node_refs: dict[str, list[dict[str, str]]] = {}
     for node in parts.get("nodes") or []:
         if isinstance(node, Mapping):
@@ -1070,18 +1117,28 @@ def repair_edge_evidence_refs(
         if refs:
             edge["evidence_refs"] = refs
             continue
+        if not inherit_from_endpoints:
+            edge["evidence_refs"] = []
+            continue
         from_id = str(edge.get("from_node_id") or "")
         to_id = str(edge.get("to_node_id") or "")
         inherited = node_refs.get(from_id) or node_refs.get(to_id)
         if inherited:
             edge["evidence_refs"] = list(inherited[:1])
             repaired += 1
-    return {"repaired_edge_evidence_refs": repaired}
+        else:
+            edge["evidence_refs"] = []
+    return {
+        "repaired_edge_evidence_refs": repaired,
+        "edge_evidence_inheritance": inherit_from_endpoints,
+    }
 
 
 def sanitize_parts(
     parts: Mapping[str, Any],
     allowed_span_refs: set[str],
+    *,
+    drop_empty_evidence_edges: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     dropped: dict[str, list[str]] = {}
     out: dict[str, Any] = {}
@@ -1101,8 +1158,12 @@ def sanitize_parts(
                 isinstance(obj.get("corpus_ref"), Mapping)
                 and obj.get("corpus_ref", {}).get("resolution") == "resolved"
             )
+            drop_empty = True
+            if key == "edges" and not drop_empty_evidence_edges:
+                drop_empty = False
             if (
-                key in ("nodes", "edges", "beats")
+                drop_empty
+                and key in ("nodes", "edges", "beats")
                 and not refs
                 and not is_context_anchor
                 and not (key == "nodes" and has_resolved_corpus)
@@ -1131,6 +1192,7 @@ def assemble_envelope(
     model_id: str,
     preview_suffix: str = "category",
     source_ref_id: str | None = None,
+    drop_empty_evidence_edges: bool = True,
 ) -> dict[str, Any]:
     warning_count = len(
         consolidated.get("consolidation_diagnostics", {}).get("merged_nodes", [])
@@ -1156,7 +1218,11 @@ def assemble_envelope(
         source_artifact_id=source_artifact_id,
         source_ref_id=source_ref_id,
     )
-    project_candidate_graph_for_promote(graph, warning_count=warning_count)
+    project_candidate_graph_for_promote(
+        graph,
+        warning_count=warning_count,
+        drop_empty_evidence_edges=drop_empty_evidence_edges,
+    )
     return {
         "schema": ENVELOPE_SCHEMA,
         "version": ENVELOPE_VERSION,
@@ -1409,10 +1475,16 @@ def render_encounter_job_pass_prompt(
     )
 
 
-def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
+def canonical_graph_for_runner(
+    envelope: Mapping[str, Any],
+    *,
+    drop_empty_evidence_edges: bool = True,
+) -> dict[str, Any]:
     """Return candidate graph payload suitable for graph_preview_runner artifacts.
 
     Always re-projects to promote-eligible IR so runner artifacts stay prepare-safe.
+    When ``drop_empty_evidence_edges`` is False, empty-evidence edges are retained
+    so profile validation can fail closed on missing relationship evidence.
     """
     graph = dict(envelope.get("candidate_graph") or envelope)
     # Deep-copy mutable collections so we do not mutate the envelope in place.
@@ -1433,7 +1505,11 @@ def canonical_graph_for_runner(envelope: Mapping[str, Any]) -> dict[str, Any]:
             warning_count = int(graph["diagnostics"].get("warning_count") or 0)
         except (TypeError, ValueError):
             warning_count = 0
-    project_candidate_graph_for_promote(graph, warning_count=warning_count)
+    project_candidate_graph_for_promote(
+        graph,
+        warning_count=warning_count,
+        drop_empty_evidence_edges=drop_empty_evidence_edges,
+    )
     return graph
 
 
@@ -1779,8 +1855,17 @@ def run_category_pipeline(
         known_entity_registry=known_entity_registry,
         profile=active_profile,
     )
-    repair_diag = repair_edge_evidence_refs(consolidated, allowed_span_refs)
-    sanitized, sanitize_diag = sanitize_parts(consolidated, allowed_span_refs)
+    inherit_edge_evidence = active_profile.enable_edge_evidence_inheritance
+    repair_diag = repair_edge_evidence_refs(
+        consolidated,
+        allowed_span_refs,
+        inherit_from_endpoints=inherit_edge_evidence,
+    )
+    sanitized, sanitize_diag = sanitize_parts(
+        consolidated,
+        allowed_span_refs,
+        drop_empty_evidence_edges=inherit_edge_evidence,
+    )
     recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
         sanitized
     )
@@ -1801,8 +1886,12 @@ def run_category_pipeline(
         source_artifact_id=source_artifact_id,
         source_ref_id=source_ref_id,
         model_id=model_id,
+        drop_empty_evidence_edges=inherit_edge_evidence,
     )
-    candidate_graph = canonical_graph_for_runner(envelope)
+    candidate_graph = canonical_graph_for_runner(
+        envelope,
+        drop_empty_evidence_edges=inherit_edge_evidence,
+    )
     registry_context_graph: dict[str, Any] | None = None
     if standing_parts.get("nodes"):
         ensure_standing_warning(standing_parts)
@@ -1814,8 +1903,12 @@ def run_category_pipeline(
             source_ref_id=document_source_ref_id(registry_artifact_id),
             model_id=model_id,
             preview_suffix="standing",
+            drop_empty_evidence_edges=inherit_edge_evidence,
         )
-        registry_context_graph = canonical_graph_for_runner(standing_envelope)
+        registry_context_graph = canonical_graph_for_runner(
+            standing_envelope,
+            drop_empty_evidence_edges=inherit_edge_evidence,
+        )
         stamp_standing_registry_evidence(
             registry_context_graph, source_artifact_id=registry_artifact_id
         )

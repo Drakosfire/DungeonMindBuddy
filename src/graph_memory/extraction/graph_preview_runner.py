@@ -43,6 +43,9 @@ from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 # Ensure profiles register on import.
 from src.graph_memory.extraction import recap_extraction_profile as _recap_profiles  # noqa: F401
 from src.graph_memory.extraction import worldbuilding_plumbing_profile as _wb_profiles  # noqa: F401
+from src.graph_memory.extraction import (  # noqa: F401
+    worldbuilding_extraction_profile as _wb_bounded_profiles,
+)
 
 
 @dataclass(frozen=True)
@@ -523,6 +526,76 @@ def run_production_extraction(
             profile_id=profile.profile_id,
             profile_version=profile.profile_version,
         )
+
+    # Profile-owned executable bounds (category/evidence/session). Descriptive
+    # post_extraction_validation_policy alone is not sufficient.
+    if profile.post_extraction_validator is not None:
+        try:
+            profile_errors = [
+                str(err)
+                for err in profile.post_extraction_validator(extraction.candidate_graph)
+                if str(err).strip()
+            ]
+        except Exception as exc:  # noqa: BLE001 — fail closed around profile callables
+            message = (
+                "profile post-extraction validator raised "
+                f"{type(exc).__name__}"
+            )
+            failed = _fail_run(
+                request.repo_root,
+                extracted,
+                message=message,
+                failure_kind="validation",
+                components=components,
+                incomplete_components=["candidate_graph"],
+                lineage={
+                    "profile_id": profile.profile_id,
+                    "profile_version": profile.profile_version,
+                    "model_id": model_id,
+                    "reviewable": False,
+                    "profile_validator_exception": type(exc).__name__,
+                },
+            )
+            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            return ProductionExtractionResult(
+                run=loaded,
+                candidate_graph=extraction.candidate_graph,
+                source_span_index=span_payload,
+                failure_kind="validation",
+                diagnostics=[message],
+                model_id=model_id,
+                profile_id=profile.profile_id,
+                profile_version=profile.profile_version,
+            )
+        if profile_errors:
+            sample = "; ".join(profile_errors[:5])
+            message = f"profile post-extraction validation failed: {sample}"
+            failed = _fail_run(
+                request.repo_root,
+                extracted,
+                message=message,
+                failure_kind="validation",
+                components=components,
+                incomplete_components=["candidate_graph"],
+                lineage={
+                    "profile_id": profile.profile_id,
+                    "profile_version": profile.profile_version,
+                    "model_id": model_id,
+                    "reviewable": False,
+                    "profile_validation_error_count": len(profile_errors),
+                },
+            )
+            loaded = get_extraction_run(request.repo_root, failed.run_id)
+            return ProductionExtractionResult(
+                run=loaded,
+                candidate_graph=extraction.candidate_graph,
+                source_span_index=span_payload,
+                failure_kind="validation",
+                diagnostics=[message],
+                model_id=model_id,
+                profile_id=profile.profile_id,
+                profile_version=profile.profile_version,
+            )
 
     validated = _advance_run(
         request.repo_root,

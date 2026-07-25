@@ -355,6 +355,8 @@ describe("useBuildExtraction", () => {
       document_id: DOC_A,
       expected_revision: 2,
       expected_content_sha256: "sha-a",
+      profile_id: "worldbuilding_shepherds_flock_v0",
+      profile_version: "0.1",
     });
     expect(result.current.run?.run_id).toBe(RUN_A);
     expect(window.location.search).toContain(`extractionRunId=${RUN_A}`);

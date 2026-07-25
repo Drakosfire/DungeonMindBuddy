@@ -1,0 +1,87 @@
+{
+  "schema_version": "dmb_worldbuilding_profile_fixture_v1",
+  "profile_id": "worldbuilding_shepherds_flock_v0",
+  "profile_version": "0.1",
+  "source_artifact_id": "artifact:worldbuilding:fixture:shepherds-flock:r1",
+  "source_domain": "worldbuilding",
+  "document_class": "lore",
+  "campaign_id": "longmont-c2",
+  "session_id": null,
+  "source_text": "Shepherd's Flock hold the high ridge above Greyfen. Commander Vell commands the Flock. The flockhouse is their only named fortification.\n",
+  "pass_outputs": {
+    "actor_pass": {
+      "observation_nodes": [
+        {
+          "node_id": "npc:vell",
+          "label": "Commander Vell",
+          "node_type": "character",
+          "description": "Commands Shepherd's Flock.",
+          "importance": "high",
+          "evidence_refs": [
+            {
+              "source_span_ref_id": "PLACEHOLDER_SPAN",
+              "anchor_quotes": ["Commander Vell"]
+            }
+          ]
+        }
+      ]
+    },
+    "location_pass": {
+      "observation_nodes": [
+        {
+          "node_id": "loc:flockhouse",
+          "label": "Flockhouse",
+          "node_type": "location",
+          "description": "Named fortification of Shepherd's Flock.",
+          "importance": "medium",
+          "evidence_refs": [
+            {
+              "source_span_ref_id": "PLACEHOLDER_SPAN",
+              "anchor_quotes": ["flockhouse"]
+            }
+          ]
+        }
+      ]
+    },
+    "collective_pass": {
+      "observation_nodes": [
+        {
+          "node_id": "faction:shepherds-flock",
+          "label": "Shepherd's Flock",
+          "node_type": "faction",
+          "description": "Hold the high ridge above Greyfen.",
+          "importance": "high",
+          "evidence_refs": [
+            {
+              "source_span_ref_id": "PLACEHOLDER_SPAN",
+              "anchor_quotes": ["Shepherd's Flock"]
+            }
+          ]
+        }
+      ]
+    },
+    "edge_pass": {
+      "observation_edges": [
+        {
+          "edge_id": "edge:vell-commands-flock",
+          "from_node_id": "npc:vell",
+          "to_node_id": "faction:shepherds-flock",
+          "relationship_type": "commands",
+          "predicate_family": "authority",
+          "label": "commands",
+          "evidence_refs": [
+            {
+              "source_span_ref_id": "PLACEHOLDER_SPAN",
+              "anchor_quotes": ["Commander Vell commands the Flock"]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "excluded_examples": [
+    {"label": "ridge grass", "node_type": "flora", "policy": "omit"},
+    {"label": "trail rations", "node_type": "item", "policy": "omit"}
+  ],
+  "notes": "Redacted minimal contract fixture. Not promoted gold."
+}
