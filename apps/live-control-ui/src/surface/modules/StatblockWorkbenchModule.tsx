@@ -465,10 +465,9 @@ function acceptResultFromRead(
  * - boundDisplay: durable outcome bound to exact identity — no new Accept while shown
  * - terminalFinished: journal slot free — must mint a new UUID via explicit start-new
  *
- * `acceptance_blocked` is contextual, but UI-call origin alone is insufficient for replay:
- * mechanics:accept can block pre-claim (validation/version/source) or on journal-read failure.
- * Replay classifies blocked responses with authoritative getAcceptanceOperation evidence before
- * choosing fresh (clear) vs recovery (retain) vs unresolved (lookup failed).
+ * Blocked replay after a transport failure cannot treat a null journal read as proof that the
+ * original POST will never claim. Bounded misses stay unresolved; only journal_present may
+ * promote to recovery retain. Correction requires an explicit abandon (concurrency-closing).
  */
 type AcceptActionClass =
   | "ephemeralAttempt"
@@ -478,33 +477,51 @@ type AcceptActionClass =
 
 type AcceptResultOrigin = "fresh" | "recovery";
 
-/** Authoritative claim-state evidence after an acceptance_blocked response. */
+/**
+ * Claim-state evidence after an acceptance_blocked replay response.
+ * `claim_unproven` = bounded successful GETs returned null — NOT authoritative non-claim.
+ */
 type BlockedClaimEvidence =
-  | "pre_claim_absent"
   | "journal_present"
+  | "claim_unproven"
   | "lookup_uncertain";
 
-/** Tunable for tests: bounded restore lookup while an optimistic claim may still be in flight. */
+/** Tunable for tests: bounded restore / claim-evidence lookup while a POST may still execute. */
 export const ACCEPT_RESTORE_LOOKUP = {
   maxAttempts: 3,
   delayMs: 40,
 };
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function resolveBlockedClaimEvidence(
   draftId: string,
   operationId: string,
 ): Promise<BlockedClaimEvidence> {
-  try {
-    const read = await getAcceptanceOperation(draftId, operationId);
-    if (read.operation != null) {
-      return "journal_present";
+  let sawSuccessfulNull = false;
+  for (let attempt = 1; attempt <= ACCEPT_RESTORE_LOOKUP.maxAttempts; attempt++) {
+    try {
+      const read = await getAcceptanceOperation(draftId, operationId);
+      if (read.operation != null) {
+        return "journal_present";
+      }
+      sawSuccessfulNull = true;
+    } catch {
+      // Keep polling — a later attempt may succeed. If all fail, existence is uncertain.
+      if (attempt === ACCEPT_RESTORE_LOOKUP.maxAttempts) {
+        return sawSuccessfulNull ? "claim_unproven" : "lookup_uncertain";
+      }
     }
-    // Authoritative miss: no journal claim for this operation id.
-    return "pre_claim_absent";
-  } catch {
-    // Journal temporarily unreadable — existence is uncertain; retain the id.
-    return "lookup_uncertain";
+    if (attempt < ACCEPT_RESTORE_LOOKUP.maxAttempts) {
+      await delay(ACCEPT_RESTORE_LOOKUP.delayMs);
+    }
   }
+  // Bounded null reads are not proof an in-flight original POST cannot still claim.
+  return "claim_unproven";
 }
 
 function acceptActionClass(
@@ -557,12 +574,6 @@ function shouldPersistAcceptOperationId(
     klass === "boundDisplay" ||
     klass === "terminalFinished"
   );
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 async function readAcceptanceOperationWithRetries(
@@ -929,6 +940,7 @@ function AcceptMechanicsFlow({
 
       if (response.result_label === "acceptance_blocked") {
         // Call origin is not enough: blocked may be pre-claim rejection or journal-read failure.
+        // A null journal read is never authoritative non-claim after a timed-out POST.
         const evidence = await resolveBlockedClaimEvidence(draftId, operationId);
         if (
           requestGeneration !== acceptRequestGenerationRef.current ||
@@ -936,16 +948,7 @@ function AcceptMechanicsFlow({
         ) {
           return;
         }
-        if (evidence === "pre_claim_absent") {
-          // Authoritative: no journal op — allow corrected Accept/Save with a new attempt.
-          applyAcceptResponseForDraft(
-            draftId,
-            requestGeneration,
-            response,
-            operationId,
-            "fresh",
-          );
-        } else if (evidence === "journal_present") {
+        if (evidence === "journal_present") {
           applyAcceptResponseForDraft(
             draftId,
             requestGeneration,
@@ -954,11 +957,14 @@ function AcceptMechanicsFlow({
             "recovery",
           );
         } else {
+          // claim_unproven (bounded nulls) or lookup_uncertain — retain id; no replacement UUID.
           markExistenceUnresolved(draftId, operationId);
           setReplayRequest(replayBody);
           setAcceptError(
             response.message ??
-              "acceptance blocked; journal lookup uncertain — retaining operation id",
+              (evidence === "claim_unproven"
+                ? "acceptance blocked; journal miss is not proof the original request cannot claim — retaining operation id"
+                : "acceptance blocked; journal lookup uncertain — retaining operation id"),
           );
         }
         return;
@@ -1172,7 +1178,19 @@ function AcceptMechanicsFlow({
             >
               {acceptPending ? "Resuming…" : "Resume acceptance"}
             </button>
+            <button
+              type="button"
+              disabled={acceptPending || restorePending}
+              onClick={() => startNewAcceptOperation()}
+              data-testid="accept-mechanics-abandon"
+            >
+              Abandon attempt
+            </button>
           </div>
+          <p className="module-muted">
+            Abandon attempt explicitly closes this operation id and allows a corrected Accept/Save
+            with a new id. Do not abandon while the original request may still be claiming.
+          </p>
           {!replayRequest ? (
             <p className="module-muted">
               Exact Accept body is unavailable for replay — use Resume only after a journal claim
@@ -1181,7 +1199,8 @@ function AcceptMechanicsFlow({
           ) : (
             <p className="module-muted">
               Replay accept re-sends the exact same-key Accept body. Resume acceptance reconciles
-              only after a journal operation exists.
+              only after a journal operation exists. Bounded journal misses are not proof the
+              original POST cannot still claim.
             </p>
           )}
         </section>

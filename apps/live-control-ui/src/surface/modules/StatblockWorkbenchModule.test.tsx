@@ -1947,7 +1947,7 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.queryByTestId("accept-mechanics-same-op-recover")).toBeNull();
     });
 
-    it("clears after replay validation rejection when journal has no operation", async () => {
+    it("keeps operation id after replay validation rejection when journal lookup returns null", async () => {
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
       vi.spyOn(crypto, "randomUUID")
@@ -1998,14 +1998,19 @@ describe("StatblockWorkbenchModule", () => {
       await user.click(screen.getByTestId("accept-mechanics-replay"));
 
       await waitFor(() => {
-        expect(screen.getByTestId("accept-ephemeral-block")).toBeTruthy();
+        expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
       });
-      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_valid_fail")).toBeNull();
-      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
-      expect(screen.queryByTestId("accept-mechanics-same-op-recover")).toBeNull();
+      // Null journal reads are not proof the original POST cannot claim — no replacement UUID.
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_valid_fail")).toBe(
+        "op_replay_valid_fail",
+      );
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
       expect(acceptSpy).toHaveBeenCalledTimes(2);
 
-      // Corrected Accept/Save mints a new operation id.
+      // Explicit abandon is the concurrency-closing path for corrected Accept/Save.
+      await user.click(screen.getByTestId("accept-mechanics-abandon"));
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_valid_fail")).toBeNull();
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
       await user.click(screen.getByTestId("accept-mechanics-confirm"));
       await waitFor(() => {
@@ -2014,7 +2019,7 @@ describe("StatblockWorkbenchModule", () => {
       expect(acceptSpy.mock.calls[2][1].operation_id).toBe("op_replay_valid_new");
     });
 
-    it("clears after replay version mismatch when journal has no operation", async () => {
+    it("keeps operation id after replay version mismatch when journal lookup returns null", async () => {
       vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
       vi.spyOn(crypto, "randomUUID").mockReturnValue("op_replay_version");
@@ -2048,11 +2053,77 @@ describe("StatblockWorkbenchModule", () => {
       await user.click(screen.getByTestId("accept-mechanics-replay"));
 
       await waitFor(() => {
-        expect(screen.getByTestId("accept-ephemeral-block")).toBeTruthy();
+        expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
       });
-      expect(getOpSpy).toHaveBeenCalledWith("td_replay_version", "op_replay_version");
-      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_version")).toBeNull();
-      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+      expect(getOpSpy.mock.calls.length).toBeGreaterThanOrEqual(ACCEPT_RESTORE_LOOKUP.maxAttempts);
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_replay_version")).toBe(
+        "op_replay_version",
+      );
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
+    });
+
+    it("retains id when original POST may still claim after client transport failure", async () => {
+      ACCEPT_RESTORE_LOOKUP.maxAttempts = 3;
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_inflight_claim");
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics")
+        .mockRejectedValueOnce(new Error("Failed to fetch"))
+        .mockResolvedValueOnce({
+          schema: "dmb_accept_threat_draft_mechanics_response_v1",
+          draft_id: "td_inflight_claim",
+          operation_id: "op_inflight_claim",
+          result_label: "acceptance_blocked",
+          message: "acceptance journal temporarily unavailable",
+        });
+      let lookups = 0;
+      const getOpSpy = vi.spyOn(liveApi, "getAcceptanceOperation").mockImplementation(async () => {
+        lookups += 1;
+        // Replay's claim-evidence lookups return null before the original server claim lands.
+        if (lookups <= ACCEPT_RESTORE_LOOKUP.maxAttempts) {
+          return {
+            schema: "dmb_read_acceptance_operation_response_v1",
+            draft_id: "td_inflight_claim",
+            operation: null,
+            result_label: null,
+          };
+        }
+        return pendingOperation("td_inflight_claim", "op_inflight_claim", "dispatched_unknown");
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await setDraftId(user, "td_inflight_claim");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-replay")).toBeTruthy();
+      });
+      await user.click(screen.getByTestId("accept-mechanics-replay"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
+      });
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_inflight_claim")).toBe(
+        "op_inflight_claim",
+      );
+      expect(screen.queryByRole("button", { name: "Accept/Save mechanics" })).toBeNull();
+      expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
+
+      // Eventual original claim remains recoverable without a replacement UUID.
+      await user.click(screen.getByTestId("accept-mechanics-retry-lookup"));
+      await waitFor(() => {
+        expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
+      });
+      expect(getOpSpy.mock.calls.length).toBeGreaterThan(ACCEPT_RESTORE_LOOKUP.maxAttempts);
+      expect(sessionStorage.getItem("dmb.sbw07.acceptOperationId:td_inflight_claim")).toBe(
+        "op_inflight_claim",
+      );
+      expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
     });
 
     it("retains id when replay is blocked but journal already has the operation", async () => {
