@@ -887,10 +887,13 @@ def _claim_generation_request_unlocked(
 ) -> tuple[ClaimOutcome, GenerationOperationV2 | GenerationTombstoneV1]:
     """Claim under an already-held ``_reconciliation_lock``.
 
-    Callers performing brand-new generation admission must hold the ThreatDraft
-    store lock as well (lock order: store → reconciliation) and must have
-    verified committed membership, version, and ``workflow_state`` under that
-    store lock before calling this helper.
+    Brand-new generation admission must hold the ThreatDraft store lock as well
+    (lock order: store → reconciliation). Callers that already re-read a same-key
+    durable entry under those locks may invoke this helper with the *stored*
+    request body and digest to classify replay/recovery without applying
+    new-generation workflow gates. Genuinely empty keys must still verify
+    committed membership, version, and ``workflow_state`` under the store lock
+    before constructing a new body and claiming.
     """
     body_digest = request_digest_for_body(request_body)
     if body_digest != request_digest:
