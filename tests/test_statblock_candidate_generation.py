@@ -2178,3 +2178,131 @@ def test_terminal_journal_write_failure_is_not_swallowed(tmp_path: Path) -> None
     assert result.outcome == "failure"
     assert result.failure_category == "downstream_validation_failed"
     assert any(f.component == "reconciliation" for f in result.persistence_failures)
+
+
+def _mark_mechanics_saved(tmp_path: Path, draft) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        attach_accepted_mechanics_ref,
+    )
+
+    current = get_threat_draft(tmp_path, draft.draft_id)
+    ref = AcceptedMechanicsRefV1.from_locator(
+        MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_saved01",
+            revision_id="rev_saved01",
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "a" * 64,
+        ),
+        accepted_from_draft_version=current.version,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_version=current.version,
+        locator=ref,
+    )
+
+
+def test_new_generation_rejected_after_mechanics_saved(tmp_path: Path, monkeypatch) -> None:
+    draft = _create_draft(tmp_path)
+    _mark_mechanics_saved(tmp_path, draft)
+    saved = get_threat_draft(tmp_path, draft.draft_id)
+    assert saved.workflow_state == "mechanics_saved"
+    accepted = saved.accepted_mechanics_ref
+    assert accepted is not None
+
+    claim_calls: list[object] = []
+
+    def _boom_claim(*args, **kwargs):
+        claim_calls.append(kwargs)
+        raise AssertionError("claim_generation_request must not run after mechanics_saved")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_generation.claim_generation_request",
+        _boom_claim,
+    )
+    client = FakeClient(payload=_candidate_payload(request_id="req-new-after-save"))
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        generate_candidate_from_draft(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request=GenerateThreatDraftCandidateRequestV1(
+                expected_draft_version=saved.version,
+                client_request_id="req-new-after-save",
+            ),
+            client=client,  # type: ignore[arg-type]
+        )
+    assert exc_info.value.status_code == 409
+    assert "mechanics already saved" in str(exc_info.value)
+    assert client.calls == []
+    assert claim_calls == []
+    reloaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert reloaded.workflow_state == "mechanics_saved"
+    assert reloaded.accepted_mechanics_ref == accepted
+
+
+def test_in_flight_generation_recovers_after_mechanics_saved(tmp_path: Path) -> None:
+    from apps.live_control_server.services import statblock_generation_reconciliation as rec
+
+    draft = _create_draft(tmp_path)
+    recover_id = "req-inflight-after-save"
+    recover_body = map_draft_to_generate_request(draft, request_id=recover_id)
+    recover_path = rec._record_path(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=draft.version,
+        request_id=recover_id,
+    )
+    recover_path.parent.mkdir(parents=True, exist_ok=True)
+    recover_record = rec.GenerationOperationV2(
+        draft_id=draft.draft_id,
+        draft_version=draft.version,
+        request_id=recover_id,
+        request_digest=rec.request_digest_for_body(recover_body),
+        request_body=recover_body,
+        status="dispatched_unknown",
+        candidate_id=None,
+        candidate_payload=None,
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+        claim_expires_at="2099-01-01T00:00:00Z",
+    )
+    recover_path.write_text(
+        json.dumps(recover_record.model_dump(mode="json", by_alias=True)),
+        encoding="utf-8",
+    )
+
+    _mark_mechanics_saved(tmp_path, draft)
+    before = get_threat_draft(tmp_path, draft.draft_id)
+    assert before.workflow_state == "mechanics_saved"
+    accepted = before.accepted_mechanics_ref
+    assert accepted is not None
+
+    client = FakeClient(payload=_candidate_payload(request_id=recover_id))
+    recovered = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=draft.version,
+            client_request_id=recover_id,
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+    assert recovered.outcome == "success"
+    assert recovered.candidate_ref is not None
+    assert len(client.calls) == 1
+
+    after = get_threat_draft(tmp_path, draft.draft_id)
+    assert after.workflow_state == "mechanics_saved"
+    assert after.accepted_mechanics_ref == accepted
+    assert any(ref.request_id == recover_id for ref in after.candidate_refs)

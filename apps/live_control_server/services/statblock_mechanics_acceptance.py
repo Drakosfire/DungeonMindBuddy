@@ -378,6 +378,71 @@ def _drive_phases(
     return op
 
 
+def _conflict_response(
+    root: Path,
+    *,
+    draft_id: str,
+    op: AcceptanceOperationV1,
+) -> AcceptThreatDraftMechanicsResponseV1:
+    draft_workflow = None
+    draft_accepted = None
+    try:
+        draft_now = get_threat_draft(root, draft_id)
+        draft_workflow = draft_now.workflow_state
+        draft_accepted = draft_now.accepted_mechanics_ref
+    except ThreatDraftStoreError:
+        pass
+    return _response_from_operation(
+        draft_id=draft_id,
+        op=op,
+        draft_workflow=draft_workflow,
+        draft_accepted=draft_accepted,
+        result_label="acceptance_input_conflict",
+        message="operation_id reused with different request body",
+    )
+
+
+def _finish_acceptance(
+    root: Path,
+    *,
+    draft_id: str,
+    op: AcceptanceOperationV1,
+    client: StatblockV1Client | None,
+) -> AcceptThreatDraftMechanicsResponseV1:
+    if op.authority_state == "dispatched_unknown":
+        owns_client = False
+        active = client
+        if active is None:
+            active = DungeonMindStatblockV1Client()
+            owns_client = True
+        try:
+            op = _dispatch_create_if_needed(
+                root, draft_id=draft_id, op=op, client=active
+            )
+        finally:
+            if owns_client and hasattr(active, "close"):
+                active.close()
+
+    op = _drive_phases(root, draft_id=draft_id, op=op)
+
+    try:
+        draft_after = get_threat_draft(root, draft_id)
+    except ThreatDraftStoreError:
+        return _response_from_operation(
+            draft_id=draft_id,
+            op=op,
+            draft_workflow=None,
+            draft_accepted=None,
+            message="threat draft unavailable; journal authority retained",
+        )
+    return _response_from_operation(
+        draft_id=draft_id,
+        op=op,
+        draft_workflow=draft_after.workflow_state,
+        draft_accepted=draft_after.accepted_mechanics_ref,
+    )
+
+
 def begin_or_resume_acceptance(
     root: Path,
     *,
@@ -385,6 +450,46 @@ def begin_or_resume_acceptance(
     request: AcceptThreatDraftMechanicsRequestV1,
     client: StatblockV1Client | None = None,
 ) -> AcceptThreatDraftMechanicsResponseV1:
+    # Build the canonical create body before deciding whether validation is required.
+    # Existing-operation conflict/resume must be local — zero validation / create calls.
+    request_body = _build_create_body(request)
+    digest = create_request_digest_for_body(request_body)
+
+    try:
+        existing = get_acceptance_operation(
+            root, draft_id=draft_id, operation_id=request.operation_id
+        )
+    except AcceptanceReconciliationError as exc:
+        return _blocked(
+            draft_id=draft_id,
+            operation_id=request.operation_id,
+            message=str(exc),
+        )
+
+    if existing is not None:
+        if (
+            existing.create_request_digest != digest
+            or existing.request_body != request_body
+        ):
+            return _conflict_response(root, draft_id=draft_id, op=existing)
+        # Exact-body resume from durable authority — no outbound validation.
+        outcome, op = claim_acceptance_operation(
+            root,
+            draft_id=draft_id,
+            expected_draft_version=request.expected_draft_version,
+            operation_id=request.operation_id,
+            create_request_digest=digest,
+            request_body=request_body,
+            validation_receipt_digest=request.validation_definition_digest,
+            source_candidate_id=request.source_candidate_id,
+        )
+        if outcome == "input_conflict":
+            assert op is not None
+            return _conflict_response(root, draft_id=draft_id, op=op)
+        assert outcome == "resume" and op is not None
+        return _finish_acceptance(root, draft_id=draft_id, op=op, client=client)
+
+    # Genuinely new operation: authoritative validation before claim or create.
     ok, gate_message, _ = _run_validation_gate(request, client=client)
     if not ok:
         return _blocked(
@@ -412,9 +517,6 @@ def begin_or_resume_acceptance(
                 operation_id=request.operation_id,
                 message="source_candidate_id not on draft",
             )
-
-    request_body = _build_create_body(request)
-    digest = create_request_digest_for_body(request_body)
 
     outcome, op = claim_acceptance_operation(
         root,
@@ -449,56 +551,9 @@ def begin_or_resume_acceptance(
         )
     if outcome == "input_conflict":
         assert op is not None
-        draft_workflow = None
-        draft_accepted = None
-        try:
-            draft_now = get_threat_draft(root, draft_id)
-            draft_workflow = draft_now.workflow_state
-            draft_accepted = draft_now.accepted_mechanics_ref
-        except ThreatDraftStoreError:
-            pass
-        return _response_from_operation(
-            draft_id=draft_id,
-            op=op,
-            draft_workflow=draft_workflow,
-            draft_accepted=draft_accepted,
-            result_label="acceptance_input_conflict",
-            message="operation_id reused with different request body",
-        )
+        return _conflict_response(root, draft_id=draft_id, op=op)
     assert op is not None
-
-    if op.authority_state == "dispatched_unknown":
-        owns_client = False
-        active = client
-        if active is None:
-            active = DungeonMindStatblockV1Client()
-            owns_client = True
-        try:
-            op = _dispatch_create_if_needed(
-                root, draft_id=draft_id, op=op, client=active
-            )
-        finally:
-            if owns_client and hasattr(active, "close"):
-                active.close()
-
-    op = _drive_phases(root, draft_id=draft_id, op=op)
-
-    try:
-        draft_after = get_threat_draft(root, draft_id)
-    except ThreatDraftStoreError:
-        return _response_from_operation(
-            draft_id=draft_id,
-            op=op,
-            draft_workflow=None,
-            draft_accepted=None,
-            message="threat draft unavailable; journal authority retained",
-        )
-    return _response_from_operation(
-        draft_id=draft_id,
-        op=op,
-        draft_workflow=draft_after.workflow_state,
-        draft_accepted=draft_after.accepted_mechanics_ref,
-    )
+    return _finish_acceptance(root, draft_id=draft_id, op=op, client=client)
 
 
 def recover_acceptance_operation(
@@ -525,38 +580,7 @@ def recover_acceptance_operation(
             message="acceptance operation not found",
         )
 
-    if op.authority_state == "dispatched_unknown":
-        owns_client = False
-        active = client
-        if active is None:
-            active = DungeonMindStatblockV1Client()
-            owns_client = True
-        try:
-            op = _dispatch_create_if_needed(
-                root, draft_id=draft_id, op=op, client=active
-            )
-        finally:
-            if owns_client and hasattr(active, "close"):
-                active.close()
-
-    op = _drive_phases(root, draft_id=draft_id, op=op)
-
-    try:
-        draft_after = get_threat_draft(root, draft_id)
-    except ThreatDraftStoreError:
-        return _response_from_operation(
-            draft_id=draft_id,
-            op=op,
-            draft_workflow=None,
-            draft_accepted=None,
-            message="threat draft unavailable; journal authority retained",
-        )
-    return _response_from_operation(
-        draft_id=draft_id,
-        op=op,
-        draft_workflow=draft_after.workflow_state,
-        draft_accepted=draft_after.accepted_mechanics_ref,
-    )
+    return _finish_acceptance(root, draft_id=draft_id, op=op, client=client)
 
 
 def read_acceptance_operation(

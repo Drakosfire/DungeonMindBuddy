@@ -1008,6 +1008,14 @@ def generate_candidate_from_draft(
             raise
         raise
 
+    # After existing-operation recovery: brand-new generation is revise/regenerate.
+    # SBW07b keeps that successor capability false — reject before claim or Server.
+    if draft.workflow_state == "mechanics_saved":
+        raise ThreatDraftStoreError(
+            "new candidate generation rejected: draft mechanics already saved",
+            status_code=409,
+        )
+
     if draft.version != source_version:
         raise ThreatDraftStoreError("expected_version mismatch", status_code=409)
 

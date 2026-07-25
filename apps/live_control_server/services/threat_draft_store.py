@@ -156,6 +156,13 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
         raise
     except OSError:
         raise _storage_unavailable() from None
+    except Exception:
+        # JSONDecodeError / TypeError / other parse failures must fail closed
+        # as a typed store error so recovery can retain journal authority.
+        raise ThreatDraftStoreError(
+            "corrupt threat draft record",
+            status_code=500,
+        ) from None
     try:
         draft = ThreatDraftV1.model_validate(payload)
     except ThreatDraftStoreError:
