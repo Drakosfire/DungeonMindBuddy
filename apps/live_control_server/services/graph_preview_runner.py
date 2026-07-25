@@ -21,9 +21,9 @@ from src.graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
-from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
-    WORLDBUILDING_PLUMBING_PROFILE_ID,
-    WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+    WORLDBUILDING_PROFILE_ID,
+    WORLDBUILDING_PROFILE_VERSION,
 )
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 
@@ -91,6 +91,8 @@ def run_worldbuilding_production_extraction(
     *,
     repo_root: Path,
     source_artifact_id: str,
+    profile_id: str = WORLDBUILDING_PROFILE_ID,
+    profile_version: str = WORLDBUILDING_PROFILE_VERSION,
     model_id: str | None = None,
     allow_llm: bool = False,
     category_client: Any | None = None,
@@ -107,8 +109,8 @@ def run_worldbuilding_production_extraction(
         ProductionExtractionRequest(
             repo_root=repo_root,
             source=source,
-            profile_id=WORLDBUILDING_PLUMBING_PROFILE_ID,
-            profile_version=WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+            profile_id=profile_id,
+            profile_version=profile_version,
             model_id=model_id,
             allow_llm=allow_llm,
             category_client=category_client,

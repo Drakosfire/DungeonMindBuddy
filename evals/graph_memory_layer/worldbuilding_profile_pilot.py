@@ -61,6 +61,7 @@ DEFAULT_OUT = REPO_ROOT / "out" / "evals" / "worldbuilding_profile_pilot"
 class TrialSummary:
     trial_id: str
     run_id: str
+    source_artifact_id: str
     status: str
     failure_kind: str | None
     node_count: int
@@ -182,6 +183,7 @@ def run_cohort(*, trials: int, output_dir: Path) -> dict:
             TrialSummary(
                 trial_id=trial_id,
                 run_id=result.run.run_id,
+                source_artifact_id=source.source_artifact_id,
                 status=result.run.status.value,
                 failure_kind=result.failure_kind,
                 node_count=len(graph.get("nodes") or []),
@@ -203,7 +205,8 @@ def run_cohort(*, trials: int, output_dir: Path) -> dict:
         "cohort_id": cohort_id,
         "profile_id": WORLDBUILDING_PROFILE_ID,
         "profile_version": WORLDBUILDING_PROFILE_VERSION,
-        "source_artifact_id": fixture["source_artifact_id"],
+        "fixture_source_artifact_id": fixture["source_artifact_id"],
+        "source_artifact_ids": [row.source_artifact_id for row in summaries],
         "trials_requested": trials,
         "trials_completed": len(summaries),
         "passed": passed,
@@ -217,6 +220,7 @@ def run_cohort(*, trials: int, output_dir: Path) -> dict:
             "Aggregate metrics only; no source prose or model payloads.",
             "Three fixture replays prove plumbing, not independent extraction quality.",
             "Candidates remain inspect-only (BLD-07); no worldbuilding publication path.",
+            "Per-trial source_artifact_id is the registered runtime artifact, not fixture metadata.",
         ],
     }
     manifest_path = output_dir / f"{cohort_id}.json"

@@ -17,6 +17,10 @@ import { readWorkspaceDocumentLocalState } from "../tiptap/state/tiptapLocalStat
 
 const RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
 
+/** Bounded BLD-08 worldbuilding profile (Build product default). */
+export const BUILD_WORLDBUILDING_PROFILE_ID = "worldbuilding_shepherds_flock_v0";
+export const BUILD_WORLDBUILDING_PROFILE_VERSION = "0.1";
+
 function runIdFromLocation(): string | null {
   const value = new URLSearchParams(window.location.search).get("extractionRunId");
   return value?.trim() || null;
@@ -376,6 +380,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         document_id: selectedDocumentId,
         expected_revision: nextSnapshot.loaded_revision,
         expected_content_sha256: nextSnapshot.content_sha256,
+        profile_id: BUILD_WORLDBUILDING_PROFILE_ID,
+        profile_version: BUILD_WORLDBUILDING_PROFILE_VERSION,
       });
       if (generation !== launchGenerationRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;

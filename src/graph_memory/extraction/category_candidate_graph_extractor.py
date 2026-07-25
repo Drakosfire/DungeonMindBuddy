@@ -491,20 +491,29 @@ def render_category_pass_prompts(
         )
     predicate_catalog = predicate_catalog_prompt_markdown()
     edge = active_profile.edge_pass
+    session_volume = ""
+    relationship_sweep = ""
+    if active_profile.enable_session_relationship_sweep:
+        session_volume = (
+            "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
+            "do not stop after the first few obvious edges.\n\n"
+        )
+        relationship_sweep = (
+            "## Relationship extraction sweep\n\n"
+            "Review the source and nodes systematically before returning JSON:\n"
+            "- Location containment: emit `located_in`, `part_of`, `within`, or related location predicates for gates, walls, roads, inns, rooms, settlements, and regions.\n"
+            "- Authority and command: emit `governs`, `leads`, `commands`, or `reports_to` for mayors, commanders, leaders, and organized refugee groups.\n"
+            "- Threat and displacement: emit `threatens`, `besieges`, `attacks`, or `displaced_from` for attackers, fleeing groups, sieges, and evacuation pressure.\n"
+            "- Knowledge and reports: emit `knows_about`, `aware_of`, or `reports_threat_in` for explicit knowledge, messages, warnings, and learned weaknesses.\n"
+            "- Composition and participation: emit `part_of`, `member_of`, or `participates_in` for waves, groups, encounters, and participants.\n\n"
+        )
     prompts[_prompt_key(edge.pass_id)] = (
         f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n{ledger}"
         f"## Task\n\n{edge.instruction}\n"
         "Using ONLY the Source Packet and consolidated node list supplied below, propose durable relationship edges. "
         "Do NOT create new nodes. Use exact `node_id` values from the consolidated nodes. "
-        "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
-        "do not stop after the first few obvious edges.\n\n"
-        "## Relationship extraction sweep\n\n"
-        "Review the source and nodes systematically before returning JSON:\n"
-        "- Location containment: emit `located_in`, `part_of`, `within`, or related location predicates for gates, walls, roads, inns, rooms, settlements, and regions.\n"
-        "- Authority and command: emit `governs`, `leads`, `commands`, or `reports_to` for mayors, commanders, leaders, and organized refugee groups.\n"
-        "- Threat and displacement: emit `threatens`, `besieges`, `attacks`, or `displaced_from` for attackers, fleeing groups, sieges, and evacuation pressure.\n"
-        "- Knowledge and reports: emit `knows_about`, `aware_of`, or `reports_threat_in` for explicit knowledge, messages, warnings, and learned weaknesses.\n"
-        "- Composition and participation: emit `part_of`, `member_of`, or `participates_in` for waves, groups, encounters, and participants.\n\n"
+        f"{session_volume}"
+        f"{relationship_sweep}"
         "Prefer specific supported predicates over generic `associated_with` / `linked_to`. "
         "Omit an edge only when no catalog predicate is supported by a source quote or one endpoint cannot be bound to a listed node.\n\n"
         "Return JSON with key `observation_edges` (array). "
@@ -866,8 +875,18 @@ def consolidate_category_outputs(
             beats.append(_normalize_beat(raw))
 
     nodes_before_dedup = len(nodes)
-    node_dedup = ir.dedup_nodes(nodes)
-    deduped_nodes = list(node_dedup["kept"])
+    if active_profile.enable_automatic_identity_consolidation:
+        node_dedup = ir.dedup_nodes(nodes)
+        deduped_nodes = list(node_dedup["kept"])
+    else:
+        # Profile forbids automatic identity merges: preserve ambiguous
+        # same-label / cross-class collisions as separate candidates.
+        node_dedup = {
+            "kept": list(nodes),
+            "merged": [],
+            "automatic_identity_consolidation": False,
+        }
+        deduped_nodes = list(nodes)
     deduped_nodes, anchor_merge_diag = merge_party_anchor_nodes(
         deduped_nodes,
         party_ctx,
@@ -917,10 +936,21 @@ def consolidate_category_outputs(
     # as both a place and a polity (e.g. "Mireward Reach" as location AND
     # organization). dedup_nodes keys on (type_class, label) and keeps both,
     # which makes endpoint binding ambiguous downstream. Collapse exact-label
-    # collisions across type classes into one canonical node and remap edges.
-    cross_class = ir.reconcile_cross_class_label_collisions(deduped_nodes)
-    deduped_nodes = list(cross_class["kept"])
-    cross_class_remap: dict[str, str] = cross_class["remap"]
+    # collisions across type classes into one canonical node and remap edges —
+    # unless the profile forbids automatic identity consolidation.
+    if active_profile.enable_automatic_identity_consolidation:
+        cross_class = ir.reconcile_cross_class_label_collisions(deduped_nodes)
+        deduped_nodes = list(cross_class["kept"])
+        cross_class_remap: dict[str, str] = cross_class["remap"]
+    else:
+        cross_class = {
+            "kept": list(deduped_nodes),
+            "merged": [],
+            "blocked": [],
+            "remap": {},
+            "automatic_identity_consolidation": False,
+        }
+        cross_class_remap = {}
 
     edge_pass_id = active_profile.edge_pass.pass_id
     edge_payload = pass_outputs.get(edge_pass_id, {})
@@ -1027,6 +1057,9 @@ def consolidate_category_outputs(
         "merged_nodes": node_dedup["merged"],
         "cross_class_merged_nodes": cross_class["merged"],
         "cross_class_blocked_nodes": cross_class.get("blocked", []),
+        "automatic_identity_consolidation": (
+            active_profile.enable_automatic_identity_consolidation
+        ),
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
         "edge_predicate_issues": edge_predicate_issues,

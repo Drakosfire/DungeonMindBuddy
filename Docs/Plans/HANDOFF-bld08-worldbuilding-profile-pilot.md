@@ -1,7 +1,7 @@
 # HANDOFF — BLD-08 bounded worldbuilding extraction profile and pilot
 
 - **Created:** 2026-07-22
-- **Status:** ACTIVE / MERGEABLE candidate — rebased onto `main` after BLD-07 merge (`d4b8a203`). Addressing REQUEST CHANGES: executable profile-validation seam, IR-compatible vocabulary, narrowed deterministic plumbing GO.
+- **Status:** ACTIVE / MERGEABLE candidate — rebased onto `main` after BLD-07 merge (`d4b8a203`). Addressing REQUEST CHANGES round 2: Build launch admits BLD-08 profile, session relationship sweep is profile-gated, automatic identity consolidation is profile-gated, validator exceptions fail closed, pilot records runtime SourceArtifact IDs.
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld08-worldbuilding-profile-pilot.md`
 - **Suggested branch:** `agent/bld08-worldbuilding-profile-pilot`
 - **Base revision:** `d4b8a203e48acfc34290747f4080baffdedd1ab9` (BLD-07 merge)
@@ -136,10 +136,15 @@ BLD-04 profile protocol plus the minimal validator seam above.
 | Action | Path | Purpose |
 |---|---|---|
 | Create | `src/graph_memory/extraction/worldbuilding_extraction_profile.py` | Versioned executable category/pass/prompt/schema/vocabulary/validation policy |
-| Edit | `src/graph_memory/extraction/extraction_profile.py` | Minimal BLD-04 seam: `post_extraction_validator` |
-| Edit | `src/graph_memory/extraction/graph_preview_runner.py` | Register profile; invoke validator before VALIDATED/REVIEWABLE |
-| Create | `tests/test_worldbuilding_extraction_profile.py` | Admission, category bounds, prompt/schema ownership, excluded behavior, and null-session proof |
-| Create | `tests/test_worldbuilding_profile_pipeline.py` | Fixture-backed source → evidence-bearing candidate/run proof + pipeline negatives |
+| Edit | `src/graph_memory/extraction/extraction_profile.py` | BLD-04 seams: `post_extraction_validator`, session-sweep + identity-consolidation flags |
+| Edit | `src/graph_memory/extraction/graph_preview_runner.py` | Register profile; invoke validator (fail-closed on exceptions) |
+| Edit | `src/graph_memory/extraction/category_candidate_graph_extractor.py` | Profile-gated recap relationship sweep + identity consolidation |
+| Edit | `apps/live_control_server/routes/graph_preview.py` | Admit BLD-08 profile on Build launch; pass exact ID/version |
+| Edit | `apps/live_control_server/services/graph_preview_runner.py` | Pass exact profile through `run_worldbuilding_production_extraction` |
+| Edit | `apps/live-control-ui/src/buildSurface/useBuildExtraction.ts` | Launch Build extraction with BLD-08 profile |
+| Create | `tests/test_worldbuilding_extraction_profile.py` | Admission, category bounds, rendered prompt/schema, identity preservation |
+| Create | `tests/test_worldbuilding_profile_pipeline.py` | Fixture-backed pipeline + negatives + validator exception |
+| Edit | `tests/test_graph_preview_routes.py` | Build launch records BLD-08 profile and applies validator |
 | Create | `evals/graph_memory_layer/worldbuilding_profile_pilot.py` | Local deterministic plumbing cohort runner |
 | Create | `evals/graph_memory_layer/fixtures/worldbuilding_profile_fixture.json` | Redacted minimal contract fixture, not promoted gold |
 | Create | `Docs/Reports/REPORT-build-worldbuilding-profile-pilot.md` | Redacted aggregate evidence and scoped go/no-go decision |
@@ -151,16 +156,15 @@ outside the allowlist.
 
 | Path/capability | Why |
 |---|---|
-| Broad generic runtime redesign beyond validator seam | keep predecessor correction minimal |
+| Broad generic runtime redesign beyond profile seams | keep predecessor correction minimal |
 | `src/prompts/**` unrelated prompt registry/files | no second prompt authority or opportunistic redesign |
 | `corpus/**` | no canon rewrite or source mutation |
 | eval gold | pilot evidence is not gold promotion |
-| UI/backend routes | predecessors already expose product path |
 | PDF/OCR | BLD-09 |
 | ecology/resource profile | later bounded profile |
 | worldbuilding prepare/confirm / authority elevation | BLD-07 inspect-only; separate architecture decision |
 | graduating `institution` node type | durable vocabulary predecessor |
-| identity/merge rules | Kernel-owned |
+| Kernel-owned cross-run identity merge policy | only same-run consolidation is profile-gated here |
 
 ## §6 Implementation contract
 

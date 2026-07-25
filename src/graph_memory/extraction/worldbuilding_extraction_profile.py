@@ -189,6 +189,8 @@ WORLDBUILDING_PROFILE = register_extraction_profile(
         enable_party_participation_attachment=False,
         enable_encounter_job_edge_guidance=False,
         enable_dynamic_node_vocabulary_packet=False,
+        enable_session_relationship_sweep=False,
+        enable_automatic_identity_consolidation=False,
         allow_null_session=True,
         schema_ids={
             "envelope": "dmb_live_extractor_candidate_envelope_v0",

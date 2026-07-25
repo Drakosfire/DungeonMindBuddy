@@ -39,6 +39,13 @@ class ExtractionProfile:
     enable_party_participation_attachment: bool = False
     enable_encounter_job_edge_guidance: bool = False
     enable_dynamic_node_vocabulary_packet: bool = False
+    # Recap-oriented session relationship sweep (session-sized counts, refugee/
+    # siege/evac guidance). Profiles that own evergreen prose must set False.
+    enable_session_relationship_sweep: bool = True
+    # Same-run label/type-class consolidation (dedup_nodes + cross-class
+    # reconcile). Profiles that forbid automatic identity merges set False so
+    # ambiguous collisions remain separate candidates for review.
+    enable_automatic_identity_consolidation: bool = True
     allow_null_session: bool = False
     schema_ids: Mapping[str, str] = field(default_factory=dict)
     vocabulary_policy: Mapping[str, Any] = field(default_factory=dict)

@@ -446,3 +446,142 @@ def test_neither_endpoint_substitutes_latest(
         "/api/live/graph-preview/extraction-runs/not-a-real-run-id/build-context"
     )
     assert missing_ctx.status_code == 404
+
+
+def test_launch_bounded_profile_records_exact_profile_and_applies_validator(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Build launch with BLD-08 profile records that profile and enforces its validator."""
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE_ID,
+        WORLDBUILDING_PROFILE_VERSION,
+    )
+
+    class _ItemInjectingClient(_FixtureCategoryClient):
+        def run_pass(self, pass_name: str, **kwargs: Any) -> dict[str, Any]:
+            result = super().run_pass(pass_name, **kwargs)
+            if pass_name == "actor_pass" and self.mode == "ok":
+                nodes = result["parsed"]["observation_nodes"]
+                nodes.append(
+                    {
+                        "node_id": "item:trail-rations",
+                        "label": "trail rations",
+                        "node_type": "item",
+                        "description": "excluded by BLD-08",
+                        "importance": "low",
+                        "evidence_refs": [
+                            {
+                                "source_span_ref_id": self.span_ref or "span-1",
+                                "anchor_quotes": ["Mirathorn"],
+                            }
+                        ],
+                    }
+                )
+            return result
+
+    from apps.live_control_server.services import graph_preview_runner as gpr
+
+    real = gpr.run_worldbuilding_production_extraction
+    captured: list[dict[str, Any]] = []
+
+    def _wrapped(**kwargs: Any):
+        captured.append(dict(kwargs))
+        root = kwargs["repo_root"]
+        artifact_id = kwargs["source_artifact_id"]
+        span_ref = _first_span_ref(root, artifact_id)
+        return real(
+            **{
+                **kwargs,
+                "allow_llm": True,
+                "category_client": _ItemInjectingClient(mode="ok", span_ref=span_ref),
+            }
+        )
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_preview_runner.run_worldbuilding_production_extraction",
+        _wrapped,
+    )
+    committed, digest = _commit_source(tmp_path)
+    launch = client.post(
+        "/api/live/graph-preview/extraction-runs",
+        json={
+            "document_id": committed.document_id,
+            "expected_revision": committed.revision,
+            "expected_content_sha256": digest,
+            "profile_id": WORLDBUILDING_PROFILE_ID,
+            "profile_version": WORLDBUILDING_PROFILE_VERSION,
+        },
+    )
+    assert launch.status_code == 200, launch.text
+    assert captured
+    assert captured[0]["profile_id"] == WORLDBUILDING_PROFILE_ID
+    assert captured[0]["profile_version"] == WORLDBUILDING_PROFILE_VERSION
+    payload = launch.json()
+    assert payload["run"]["profile_id"] == (
+        f"{WORLDBUILDING_PROFILE_ID}@{WORLDBUILDING_PROFILE_VERSION}"
+    )
+    assert payload["run"]["status"] != "reviewable"
+    assert payload["failure_kind"] == "validation"
+    assert any("excluded type" in d for d in payload["diagnostics"])
+
+
+def test_launch_default_uses_bounded_shepherds_flock_profile(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE_ID,
+        WORLDBUILDING_PROFILE_VERSION,
+    )
+
+    captured: list[dict[str, Any]] = []
+    _patch_build_extraction(monkeypatch, capture=captured)
+    committed, digest = _commit_source(tmp_path)
+    launch = client.post(
+        "/api/live/graph-preview/extraction-runs",
+        json={
+            "document_id": committed.document_id,
+            "expected_revision": committed.revision,
+            "expected_content_sha256": digest,
+        },
+    )
+    assert launch.status_code == 200, launch.text
+    assert captured[0]["profile_id"] == WORLDBUILDING_PROFILE_ID
+    assert captured[0]["profile_version"] == WORLDBUILDING_PROFILE_VERSION
+    assert launch.json()["run"]["profile_id"] == (
+        f"{WORLDBUILDING_PROFILE_ID}@{WORLDBUILDING_PROFILE_VERSION}"
+    )
+    assert launch.json()["run"]["status"] == "reviewable"
+
+
+def test_launch_still_allows_explicit_plumbing_profile(
+    client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
+        WORLDBUILDING_PLUMBING_PROFILE_ID,
+        WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+    )
+
+    captured: list[dict[str, Any]] = []
+    _patch_build_extraction(monkeypatch, capture=captured)
+    committed, digest = _commit_source(tmp_path)
+    launch = client.post(
+        "/api/live/graph-preview/extraction-runs",
+        json={
+            "document_id": committed.document_id,
+            "expected_revision": committed.revision,
+            "expected_content_sha256": digest,
+            "profile_id": WORLDBUILDING_PLUMBING_PROFILE_ID,
+            "profile_version": WORLDBUILDING_PLUMBING_PROFILE_VERSION,
+        },
+    )
+    assert launch.status_code == 200, launch.text
+    assert captured[0]["profile_id"] == WORLDBUILDING_PLUMBING_PROFILE_ID
+    assert launch.json()["run"]["profile_id"] == (
+        f"{WORLDBUILDING_PLUMBING_PROFILE_ID}@{WORLDBUILDING_PLUMBING_PROFILE_VERSION}"
+    )

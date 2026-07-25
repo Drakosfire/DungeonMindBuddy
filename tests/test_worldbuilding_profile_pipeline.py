@@ -306,3 +306,33 @@ def test_profile_wires_executable_post_extraction_validator() -> None:
     assert all(
         pass_spec.allowed_node_types is not None for pass_spec in profile.node_passes
     )
+
+
+def test_pipeline_fails_closed_when_post_extraction_validator_raises(
+    tmp_path: Path,
+) -> None:
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+
+    def _boom(_graph: dict[str, Any]) -> list[str]:
+        raise RuntimeError("validator bug")
+
+    fixture = _load_fixture()
+    source, span_id = _admit_fixture_source(tmp_path)
+    profile = get_extraction_profile(
+        WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION
+    )
+    original = profile.post_extraction_validator
+    object.__setattr__(profile, "post_extraction_validator", _boom)
+    try:
+        result = _run_with_pass_outputs(
+            tmp_path,
+            source=source,
+            pass_outputs=_pass_outputs_for_span(fixture, span_id),
+            subdir="wb-validator-raise",
+        )
+    finally:
+        object.__setattr__(profile, "post_extraction_validator", original)
+
+    assert result.failure_kind == "validation"
+    assert result.run.status.value == "failed"
+    assert any("validator raised" in d for d in result.diagnostics)

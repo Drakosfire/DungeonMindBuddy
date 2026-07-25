@@ -128,6 +128,8 @@ describe("BuildIngestToolbar", () => {
       document_id: DOC_ID,
       expected_revision: 2,
       expected_content_sha256: "sha-2",
+      profile_id: "worldbuilding_shepherds_flock_v0",
+      profile_version: "0.1",
     });
     const link = await screen.findByTestId("build-open-graph-review");
     expect(link).toHaveAttribute("href", href);

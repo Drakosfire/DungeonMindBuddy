@@ -267,16 +267,27 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         WorkspaceDocumentRegistryError,
         get_workspace_document,
     )
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE_ID,
+        WORLDBUILDING_PROFILE_VERSION,
+    )
     from src.graph_memory.extraction.worldbuilding_plumbing_profile import (
         WORLDBUILDING_PLUMBING_PROFILE_ID,
         WORLDBUILDING_PLUMBING_PROFILE_VERSION,
     )
 
+    _ALLOWED_BUILD_PROFILES = {
+        (WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION),
+        (WORLDBUILDING_PLUMBING_PROFILE_ID, WORLDBUILDING_PLUMBING_PROFILE_VERSION),
+    }
+
     document_id = body.get("document_id")
     expected_revision = body.get("expected_revision")
     expected_content_sha256 = body.get("expected_content_sha256")
-    profile_id = body.get("profile_id") or WORLDBUILDING_PLUMBING_PROFILE_ID
-    profile_version = body.get("profile_version") or WORLDBUILDING_PLUMBING_PROFILE_VERSION
+    # Build product default is the bounded BLD-08 profile; plumbing remains
+    # explicitly selectable for compatibility.
+    profile_id = body.get("profile_id") or WORLDBUILDING_PROFILE_ID
+    profile_version = body.get("profile_version") or WORLDBUILDING_PROFILE_VERSION
     # Build launches always execute production extraction under server-owned
     # model policy. Any client-supplied allow_llm is ignored.
     if not isinstance(document_id, str) or not document_id.strip():
@@ -288,15 +299,15 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
             status_code=422,
             detail="expected_content_sha256 is required for Build extraction launch",
         )
-    if (
-        profile_id != WORLDBUILDING_PLUMBING_PROFILE_ID
-        or profile_version != WORLDBUILDING_PLUMBING_PROFILE_VERSION
-    ):
+    if (profile_id, profile_version) not in _ALLOWED_BUILD_PROFILES:
+        allowed = ", ".join(
+            f"{pid}@{pver}" for pid, pver in sorted(_ALLOWED_BUILD_PROFILES)
+        )
         raise HTTPException(
             status_code=422,
             detail=(
                 f"unsupported extraction profile {profile_id}@{profile_version}; "
-                f"use {WORLDBUILDING_PLUMBING_PROFILE_ID}@{WORLDBUILDING_PLUMBING_PROFILE_VERSION}"
+                f"use one of: {allowed}"
             ),
         )
 
@@ -329,6 +340,8 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
     result = run_worldbuilding_production_extraction(
         repo_root=root,
         source_artifact_id=artifact.source_artifact_id,
+        profile_id=profile_id,
+        profile_version=profile_version,
         allow_llm=True,
         output_dir=root
         / "out"

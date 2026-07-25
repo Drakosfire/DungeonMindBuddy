@@ -67,6 +67,7 @@
           "from_node_id": "npc:vell",
           "to_node_id": "faction:shepherds-flock",
           "relationship_type": "commands",
+          "predicate_family": "authority",
           "label": "commands",
           "evidence_refs": [
             {
