@@ -1,28 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Content } from "@tiptap/core";
-import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
+import type { Editor } from "@tiptap/core";
+import { EditorContent } from "@tiptap/react";
 
 import type { AppChromeTools } from "../../chrome/AppChrome";
 import {
   GraphNodeChipRuntimeProvider,
   type GraphNodeChipRuntimeValue,
 } from "../../graphReference";
-import { CalloutNode } from "../../tiptap/extensions/CalloutNode";
-import { RunbookReferenceNode } from "../../tiptap/extensions/RunbookReferenceNode";
+import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
+import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
+import {
+  toAppChromeTools,
+  type MarkdownEditorToolbarModel,
+} from "../../tiptap/MarkdownEditorToolbar";
 import {
   CALLOUT_KINDS,
   defaultCalloutLabel,
-  tiptapJsonToSemanticMarkdown,
   type CalloutKind,
 } from "../../tiptap/markdown/calloutMarkdown";
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import { createStarterContentForPlanDocument } from "../config/planSessionDescriptor";
-import {
-  buildInitialWorkspaceDocumentLocalState,
-  readWorkspaceDocumentLocalState,
-  writeWorkspaceDocumentLocalState,
-} from "../../tiptap/state/tiptapLocalState";
+import type { WorkspaceDocumentLocalKind } from "../../tiptap/state/tiptapLocalState";
+import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
+import { useWorkspaceDocumentAuthoring } from "../../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { useEditCapability } from "../edit/editCapability";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
@@ -32,7 +32,6 @@ import { openGraphNodeFromChip } from "../reference/openGraphNodeFromChip";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
-import { usePlanMarkdownSave } from "../save/usePlanMarkdownSave";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
 import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
@@ -57,6 +56,7 @@ export function PlanSurfaceCanvas({
   onPlanningDocumentCommitted,
 }: PlanSurfaceCanvasProps) {
   const planningDocument = sessionDescriptor.planningDocument;
+  const documentKind = planningDocument.kind as WorkspaceDocumentLocalKind;
   const { isLocked, canEdit, toggleLock } = useEditCapability();
   const { openContentFromChip, openPlanReferenceResolution } = useProjection();
   const graphLens = usePlanGraphLens();
@@ -67,66 +67,73 @@ export function PlanSurfaceCanvas({
     projectionError,
   } = usePlanGraphReferenceResolver();
   const editorShellRef = useRef<HTMLDivElement | null>(null);
-  const markDirtyRef = useRef<() => void>(() => {});
-  const skipNextDirtyRef = useRef(true);
-  const [workingState] = useState(() =>
-    readWorkspaceDocumentLocalState(window.localStorage, planningDocument.documentId)
-      ?? buildInitialWorkspaceDocumentLocalState({
-        documentId: planningDocument.documentId,
-        title: planningDocument.title,
-        campaignId: planningDocument.campaignId,
-        kind: planningDocument.kind,
-        targetSession: planningDocument.targetSession,
-        surface: "plan",
-        starterContent: createStarterContentForPlanDocument(sessionDescriptor),
-      }),
+
+  const emptyMarkdownFallback = useMemo(
+    () => createStarterContentForPlanDocument(sessionDescriptor),
+    [
+      sessionDescriptor.campaignId,
+      sessionDescriptor.planningDocument.documentId,
+      sessionDescriptor.targetSession,
+    ],
   );
 
-  const editor = useEditor({
-    extensions: [StarterKit, CalloutNode, RunbookReferenceNode],
-    content: workingState.tiptap_json as Content,
-    editable: canEdit,
-    onUpdate: ({ editor: nextEditor }) => {
-      const tiptapJson = nextEditor.getJSON();
-      const now = new Date().toISOString();
-      writeWorkspaceDocumentLocalState(window.localStorage, {
-        ...workingState,
-        tiptap_json: tiptapJson,
-        updated_at: now,
-        last_local_save_at: now,
-        dirty: true,
-      });
-      if (skipNextDirtyRef.current) {
-        skipNextDirtyRef.current = false;
-        return;
-      }
-      markDirtyRef.current();
-    },
+  const authoring = useWorkspaceDocumentAuthoring({
+    documentId: planningDocument.documentId,
+    surface: "plan",
+    kind: documentKind,
+    emptyMarkdownFallback,
+    requireDirtyToSave: false,
+    canSave: () => planningDocument.targetRelpath != null
+      && planningDocument.targetRelpath !== "TBD durable planning path",
   });
 
-  const {
-    state: saveState,
-    statusLabel,
-    saveDisabled,
-    markDirty,
-    saveMarkdown,
-  } = usePlanMarkdownSave({
-    editor,
-    planningDocument,
+  const editorInteractive = isEditorInteractive(authoring.phase);
+  const showEditor = authoring.phase !== "loading"
+    && authoring.phase !== "unloaded"
+    && authoring.phase !== "conflict"
+    && authoring.phase !== "load_error";
+
+  const deliveredHandbackKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    deliveredHandbackKeysRef.current.clear();
+  }, [planningDocument.documentId]);
+
+  useEffect(() => {
+    const receipt = authoring.lastCommitReceipt;
+    const record = authoring.record;
+    if (!receipt || !record) return;
+    const loadedRevision = authoring.snapshot?.loaded_revision ?? record.revision;
+    if (receipt.document_id !== record.document_id) return;
+    if (receipt.committed_revision !== loadedRevision) return;
+    const key = `${receipt.document_id}:${receipt.committed_revision}:${receipt.normalized_content_sha256}`;
+    if (deliveredHandbackKeysRef.current.has(key)) return;
+    deliveredHandbackKeysRef.current.add(key);
+    onPlanningDocumentCommitted?.({
+      ...planningDocument,
+      title: record.title,
+      targetRelpath: record.target_relpath,
+      revision: record.revision,
+      contentStatus: record.content_status,
+    });
+  }, [
+    authoring.lastCommitReceipt,
+    authoring.record,
+    authoring.snapshot?.loaded_revision,
     onPlanningDocumentCommitted,
-  });
+    planningDocument,
+  ]);
 
   useEffect(() => {
-    markDirtyRef.current = markDirty;
-  }, [markDirty]);
+    onSaveStatusChange?.(authoring.statusLabel);
+  }, [onSaveStatusChange, authoring.statusLabel]);
 
-  useEffect(() => {
-    onSaveStatusChange?.(statusLabel);
-  }, [onSaveStatusChange, statusLabel]);
+  const [editor, setEditor] = useState<Editor | null>(null);
 
-  useEffect(() => {
-    editor?.setEditable(canEdit);
-  }, [canEdit, editor]);
+  const handleEditorChange = useCallback((nextEditor: Editor | null) => {
+    authoring.setEditor(nextEditor);
+    setEditor(nextEditor);
+  }, [authoring.setEditor]);
 
   const insertCallout = useCallback(
     (kind: CalloutKind) => {
@@ -193,13 +200,14 @@ export function PlanSurfaceCanvas({
         nodes={projectionNodes}
         projectionState={projectionState}
         projectionError={projectionError}
-        insertDisabled={!editor || isLocked}
+        insertDisabled={!editor || isLocked || !editorInteractive}
         onInsert={insertRunbookReference}
         onView={handleViewGraphNode}
       />
     ),
     [
       editor,
+      editorInteractive,
       handleViewGraphNode,
       insertRunbookReference,
       isLocked,
@@ -211,7 +219,7 @@ export function PlanSurfaceCanvas({
 
   const copyMarkdown = useCallback(async () => {
     if (!editor || !navigator.clipboard?.writeText) return;
-    const markdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    const markdown = defaultMarkdownDocumentAdapter.exportMarkdown(editor.getJSON());
     await navigator.clipboard.writeText(markdown);
   }, [editor]);
 
@@ -262,100 +270,158 @@ export function PlanSurfaceCanvas({
     };
   }, [handleOpenGraphNodeFromChip, projection?.nodes]);
 
-  useEffect(() => {
-    onEditorToolsChange?.({
-      pinnedActions: [
-        {
-          id: "plan-canvas-edit-lock",
-          eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
-          label: isLocked ? "Unlock editing" : "Lock editing",
-          onClick: toggleLock,
-          pressed: isLocked,
-        },
-      ],
-      sections: [
-        {
-          id: "plan-world-graph-objects",
-          title: "World Graph objects",
-          defaultOpen: true,
-          actions: [],
-          panel: graphRefSearchPanel,
-        },
-        {
-          id: "plan-insert-blocks",
-          title: "Insert blocks",
-          defaultOpen: true,
-          actions: CALLOUT_KINDS.map((kind) => ({
-            id: `plan-insert-${kind}`,
-            eyebrow: "Insert",
-            label: defaultCalloutLabel(kind),
-            onClick: () => insertCallout(kind),
-            disabled: !editor || isLocked,
-          })),
-        },
-        {
-          id: "plan-edit-blocks",
-          title: "Edit blocks",
-          defaultOpen: true,
-          actions: [
-            {
-              id: "plan-remove-block",
-              eyebrow: "Remove",
-              label: "Remove block",
-              onClick: removeActiveBlock,
-              disabled: !editor || isLocked,
+  const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
+    pinnedActions: [
+      {
+        id: "plan-canvas-edit-lock",
+        eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
+        label: isLocked ? "Unlock editing" : "Lock editing",
+        onClick: toggleLock,
+        pressed: isLocked,
+      },
+    ],
+    sections: [
+      {
+        id: "plan-world-graph-objects",
+        title: "World Graph objects",
+        defaultOpen: true,
+        actions: [],
+        panel: graphRefSearchPanel,
+      },
+      {
+        id: "plan-insert-blocks",
+        title: "Insert blocks",
+        defaultOpen: true,
+        actions: CALLOUT_KINDS.map((kind) => ({
+          id: `plan-insert-${kind}`,
+          eyebrow: "Insert",
+          label: defaultCalloutLabel(kind),
+          onClick: () => insertCallout(kind),
+          disabled: !editor || isLocked || !editorInteractive,
+        })),
+      },
+      {
+        id: "plan-edit-blocks",
+        title: "Edit blocks",
+        defaultOpen: true,
+        actions: [
+          {
+            id: "plan-remove-block",
+            eyebrow: "Remove",
+            label: "Remove block",
+            onClick: removeActiveBlock,
+            disabled: !editor || isLocked || !editorInteractive,
+          },
+        ],
+      },
+      {
+        id: "plan-markdown-export",
+        title: "Markdown export",
+        defaultOpen: true,
+        actions: [
+          {
+            id: "plan-copy-markdown",
+            eyebrow: "Export",
+            label: "Copy Markdown",
+            onClick: () => {
+              void copyMarkdown();
             },
-          ],
-        },
-        {
-          id: "plan-markdown-export",
-          title: "Markdown export",
-          defaultOpen: true,
-          actions: [
-            {
-              id: "plan-copy-markdown",
-              eyebrow: "Export",
-              label: "Copy Markdown",
-              onClick: () => {
-                void copyMarkdown();
-              },
-              disabled: !editor,
+            disabled: !editor,
+          },
+        ],
+      },
+      {
+        id: "plan-markdown-save",
+        title: "Markdown save",
+        defaultOpen: true,
+        actions: [
+          {
+            id: "plan-save-markdown",
+            label: "Save to Markdown",
+            onClick: () => {
+              void authoring.saveMarkdown();
             },
-          ],
-        },
-        {
-          id: "plan-markdown-save",
-          title: "Markdown save",
-          defaultOpen: true,
-          actions: [
-            {
-              id: "plan-save-markdown",
-              label: "Save to Markdown",
-              onClick: () => {
-                void saveMarkdown();
-              },
-              disabled: saveDisabled,
-            },
-          ],
-        },
-      ],
-    });
-    return () => onEditorToolsChange?.(null);
-  }, [
+            disabled: authoring.saveDisabled,
+          },
+        ],
+      },
+    ],
+  }), [
+    authoring.saveDisabled,
+    authoring.saveMarkdown,
     copyMarkdown,
     editor,
+    editorInteractive,
     graphRefSearchPanel,
     insertCallout,
-    insertRunbookReference,
     isLocked,
-    onEditorToolsChange,
     removeActiveBlock,
-    saveDisabled,
-    saveMarkdown,
     toggleLock,
   ]);
 
+  useEffect(() => {
+    onEditorToolsChange?.(toAppChromeTools(toolbarModel));
+    return () => onEditorToolsChange?.(null);
+  }, [onEditorToolsChange, toolbarModel]);
+
   const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
+
+  const showSavePanel = Boolean(
+    authoring.lastCommitReceipt
+    || (authoring.phase === "save_error" && authoring.error)
+    || (authoring.phase === "committed_verification_pending" && authoring.error)
+    || authoring.lastCommitReceipt?.diagnostics?.length,
+  );
+
+  const editorBody = (() => {
+    if (authoring.phase === "loading" || authoring.phase === "unloaded") {
+      return (
+        <p data-testid="plan-canvas-authoring-loading">Loading plan document…</p>
+      );
+    }
+    if (authoring.phase === "conflict") {
+      return (
+        <div data-testid="plan-canvas-authoring-conflict">
+          <p>
+            {authoring.reconciliation?.conflictReason
+              ?? "Local draft conflicts with server content."}
+          </p>
+          <button type="button" onClick={() => void authoring.reloadFromSnapshot()}>
+            Reload from server
+          </button>
+          <button type="button" onClick={() => void authoring.discardLocalDraft()}>
+            Discard local draft
+          </button>
+        </div>
+      );
+    }
+    if (authoring.phase === "load_error") {
+      return (
+        <p role="alert" data-testid="plan-canvas-authoring-error">
+          {authoring.error ?? "Unable to load plan document."}
+        </p>
+      );
+    }
+    if (!showEditor) {
+      return null;
+    }
+    return (
+      <MarkdownEditorCore
+        content={authoring.editorContent}
+        documentKey={authoring.documentKey}
+        editable={canEdit}
+        onEditorChange={handleEditorChange}
+        onUpdate={authoring.handleEditorUpdate}
+        dataTestId="plan-surface-canvas-editor"
+      >
+        {(ed) => (
+          <GraphNodeChipRuntimeProvider value={chipRuntime}>
+            <EditorContent editor={ed} />
+          </GraphNodeChipRuntimeProvider>
+        )}
+      </MarkdownEditorCore>
+    );
+  })();
 
   return (
     <section className="plan-surface-canvas" aria-label="Plan canvas">
@@ -364,7 +430,7 @@ export function PlanSurfaceCanvas({
           <p className="plan-surface-kicker">Plan Board</p>
           <h2 data-testid="plan-canvas-title">{planningDocument.title}</h2>
           <p className="plan-canvas-meta" data-testid="plan-canvas-save-status">
-            {statusLabel}
+            {authoring.statusLabel}
           </p>
         </div>
       </header>
@@ -373,17 +439,14 @@ export function PlanSurfaceCanvas({
         ref={editorShellRef}
         className={`tiptap-spike-editor md-content ${editorThemeClass}`}
         data-md-theme={theme.themeId}
-        data-testid="plan-surface-canvas-editor"
         onClick={(event) => {
           void handleChipActivate(event.target);
         }}
       >
-        <GraphNodeChipRuntimeProvider value={chipRuntime}>
-          <EditorContent editor={editor} />
-        </GraphNodeChipRuntimeProvider>
+        {editorBody}
       </div>
 
-      {(saveState.status === "committed" || saveState.error || saveState.warnings?.length || saveState.diagnostics?.length) && (
+      {showSavePanel && (
         <section
           className="plan-markdown-save-panel"
           aria-label="Markdown save status"
@@ -393,35 +456,30 @@ export function PlanSurfaceCanvas({
           <p className="plan-markdown-save-target" data-testid="plan-markdown-save-target">
             Target: {planningDocument.targetRelpath}
           </p>
-          {saveState.warnings?.map((warning) => (
-            <p className="plan-markdown-save-warning" key={warning}>
-              {warning}
-            </p>
-          ))}
-          {saveState.diagnostics?.map((diagnostic) => (
+          {authoring.lastCommitReceipt?.diagnostics?.map((diagnostic) => (
             <p className="plan-markdown-save-diagnostic" key={diagnostic}>
               {diagnostic}
             </p>
           ))}
-          {saveState.error && (
+          {authoring.error && (authoring.phase === "save_error" || authoring.phase === "committed_verification_pending") && (
             <p className="plan-markdown-save-error" role="alert" data-testid="plan-markdown-save-error">
-              {saveState.error}
+              {authoring.error}
             </p>
           )}
-          {saveState.committed && (
+          {authoring.lastCommitReceipt && (
             <dl className="plan-markdown-save-success" data-testid="plan-markdown-save-success">
               <div>
                 <dt>Path</dt>
-                <dd>{saveState.committed.target_display_path}</dd>
+                <dd>{authoring.lastCommitReceipt.target_display_path}</dd>
               </div>
               <div>
                 <dt>Bytes written</dt>
-                <dd>{saveState.committed.bytes_written}</dd>
+                <dd>{authoring.lastCommitReceipt.bytes_written}</dd>
               </div>
-              {saveState.committed.backup_relpath && (
+              {authoring.lastCommitReceipt.backup_relpath && (
                 <div>
                   <dt>Backup</dt>
-                  <dd>{saveState.committed.backup_relpath}</dd>
+                  <dd>{authoring.lastCommitReceipt.backup_relpath}</dd>
                 </div>
               )}
             </dl>

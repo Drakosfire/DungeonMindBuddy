@@ -176,9 +176,19 @@ def artifacts_root(root: Path) -> Path:
 
 def _paragraph_text_for_span(recap_text: str, span: Mapping[str, Any]) -> str:
     lines = recap_text.splitlines()
-    start = int(span["line_start"])
-    end = int(span["line_end"])
+    start = int(span.get("line_start") or span.get("start_line") or 0)
+    end = int(span.get("line_end") or span.get("end_line") or 0)
+    if start < 1 or end < start:
+        return ""
     return "\n".join(lines[start - 1 : end])
+
+
+def _span_lookup_key(span: Mapping[str, Any]) -> str | None:
+    for key in ("source_span_ref_id", "source_span_id", "span_id"):
+        value = span.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 def _recap_text_for_run_bundle(
@@ -728,8 +738,8 @@ def _enrich_evidence_ref(
     line_end: int | None = None
     if spref and spref in span_lookup:
         span = span_lookup[spref]
-        line_start = int(span["line_start"])
-        line_end = int(span["line_end"])
+        line_start = int(span.get("line_start") or span.get("start_line") or 0) or None
+        line_end = int(span.get("line_end") or span.get("end_line") or 0) or None
         paragraph = _paragraph_text_for_span(recap_text, span)
 
     anchor_quotes = coerce_anchor_quotes(ref.get("anchor_quotes"))
@@ -836,7 +846,13 @@ def build_graph_preview_surface(
         raise GraphPreviewSurfaceError(f"run bundle not found: {bundle}", status_code=404)
 
     span_index = _load_json(bundle / "source_span_index.json")
-    span_lookup = {sp["source_span_ref_id"]: sp for sp in span_index.get("spans", [])}
+    span_lookup = {
+        key: sp
+        for sp in span_index.get("spans", [])
+        if isinstance(sp, Mapping)
+        for key in [_span_lookup_key(sp)]
+        if key is not None
+    }
     recap_text, recap_path = _recap_text_for_run_bundle(
         root,
         bundle,
@@ -970,7 +986,13 @@ def build_recap_graph_presentation(
         artifact_record=record,
     )
     span_index = _load_json(bundle / "source_span_index.json")
-    span_lookup = {sp["source_span_ref_id"]: sp for sp in span_index.get("spans", [])}
+    span_lookup = {
+        key: sp
+        for sp in span_index.get("spans", [])
+        if isinstance(sp, Mapping)
+        for key in [_span_lookup_key(sp)]
+        if key is not None
+    }
     recap_text, _ = _recap_text_for_run_bundle(
         root,
         bundle,

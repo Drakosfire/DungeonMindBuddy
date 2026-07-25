@@ -46,7 +46,7 @@ export function workspaceRecordToPlanDocumentDescriptor(
     status: record.status,
     contentStatus: record.content_status,
     revision: record.revision,
-    kind: record.kind,
+    kind: record.kind === "runbook" ? "runbook" : "plan",
     description: record.target_session != null
       ? `Session ${record.target_session} preparation board.`
       : undefined,

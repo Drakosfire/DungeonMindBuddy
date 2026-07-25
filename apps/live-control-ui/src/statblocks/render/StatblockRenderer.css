@@ -1,0 +1,138 @@
+.statblock-renderer {
+  display: grid;
+  gap: 1rem;
+  color: var(--text-primary, inherit);
+}
+
+.statblock-renderer-header h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+}
+
+.statblock-renderer-identity,
+.statblock-renderer-meta {
+  margin: 0;
+  color: var(--text-muted, inherit);
+  font-size: 0.95rem;
+}
+
+.statblock-renderer-flavor {
+  margin: 0.5rem 0 0;
+  font-style: italic;
+}
+
+.statblock-renderer-core {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.statblock-renderer-core div {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0.5rem;
+}
+
+.statblock-renderer-core dt {
+  font-weight: 600;
+}
+
+.statblock-renderer-core dd {
+  margin: 0;
+}
+
+.statblock-ability-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.statblock-ability-table th,
+.statblock-ability-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border-subtle, currentColor);
+}
+
+.statblock-renderer-section h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.statblock-rule-element {
+  margin: 0 0 0.75rem;
+}
+
+.statblock-rule-element-name {
+  font-weight: 600;
+}
+
+.statblock-rule-element-text {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+}
+
+.statblock-rule-meta {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.35rem 0;
+}
+
+.statblock-rule-meta div {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.5rem;
+}
+
+.statblock-rule-meta dt {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.statblock-rule-meta dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.statblock-mechanic-details,
+.statblock-structured-list {
+  margin: 0.35rem 0;
+  padding-left: 1.25rem;
+}
+
+.statblock-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border-subtle, currentColor);
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.statblock-badge-warning {
+  border-color: var(--warning-border, currentColor);
+}
+
+.statblock-badge-error {
+  border-color: var(--danger-border, currentColor);
+}
+
+.statblock-issue-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.statblock-issue-list[data-severity="error"] {
+  color: var(--danger-text, inherit);
+}
+
+.statblock-issue-list[data-severity="warning"] {
+  color: var(--warning-text, inherit);
+}
+
+.statblock-renderer-receipts summary {
+  cursor: pointer;
+  font-weight: 600;
+}

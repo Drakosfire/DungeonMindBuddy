@@ -1,871 +1,785 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 
 import {
-  getStatblockWorkbenchDraft,
-  activateStatblockRetrieval,
-  commitStatblockCorpusWrite,
-  getStatblockWorkbenchSample,
-  listStatblockWorkbenchDrafts,
-  postStatblockWorkbenchCommand,
-  prepareStatblockCorpusWrite,
-  previewStatblockCorpusPromotion,
-  storeStatblockWorkbenchDraft,
-  verifyStatblockRetrieval,
+  generateThreatDraftCandidate,
+  getStatblockCandidate,
+  validateStatblockDefinition,
 } from "../../api/liveApi";
 import type {
-  ListStatblockDraftsResponse,
-  StatblockCombatDefaults,
-  StatblockCorpusPromotionPreviewResponse,
-  StatblockCorpusWriteCommitResponse,
-  StatblockCorpusWritePrepareResponse,
-  StatblockDraftArtifactView,
-  StatblockRetrievalActivationResponse,
-  StatblockRetrievalVerifyResponse,
-  StatblockWorkbenchAction,
-  StatblockWorkbenchCommandType,
-  StoredStatblockDraftSummary,
+  GenerateThreatDraftCandidateResponseV1,
+  ReadStatblockCandidateResponseV1,
+  ValidateDefinitionBuddyResponseV1,
 } from "../../api/types";
+import type {
+  GeneratedStatblockCandidateV1,
+  StatblockDefinitionV1_Input,
+  ValidationReceiptV1,
+} from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import { StatblockDefinitionEditor } from "../../statblocks/editor/StatblockDefinitionEditor";
+import {
+  beginValidationAttempt,
+  createEditorStateFromOutput,
+  getUiStatus,
+  markValidationAssociated,
+  markValidationUnavailable,
+  type StatblockEditorState,
+} from "../../statblocks/editor/statblockEditorState";
+import {
+  mapServerValidationStatus,
+  partitionValidationIssuesByPath,
+  splitIssuesBySeverity,
+} from "../../statblocks/editor/statblockValidationIssues";
+import { StatblockRenderer } from "../../statblocks/render/StatblockRenderer";
 
-interface WorkbenchState {
-  schema_version: string;
-  mode: string;
-  artifact: StatblockDraftArtifactView;
-  command_status: string;
-  diagnostics: string[];
-  available_actions: StatblockWorkbenchAction[];
+type LoadState =
+  | { kind: "idle" }
+  | { kind: "loading"; candidateId: string }
+  | { kind: "success"; response: ReadStatblockCandidateResponseV1 }
+  | {
+      kind: "status";
+      candidateId: string;
+      status: Exclude<ReadStatblockCandidateResponseV1["status"], "active">;
+      failureCategory: string | null;
+      failureMessage: string | null;
+    }
+  | { kind: "error"; candidateId: string; message: string };
+
+type ViewMode = "review" | "edit";
+
+type PreviewValidation = {
+  associatedRevision: number;
+  editorEpoch: number;
+  receipt: ValidationReceiptV1;
+  definitionDigest: string;
+};
+
+type PendingValidation = {
+  requestId: number;
+  editorEpoch: number;
+  stateRevision: number;
+};
+
+type ValidationFailure = {
+  editorEpoch: number;
+  stateRevision: number;
+  message: string;
+};
+
+function readCandidateIdFromLocation(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("candidateId")?.trim() ?? "";
 }
 
-type PendingCommand = StatblockWorkbenchCommandType | null;
-
-function pendingLabel(command: PendingCommand): string | null {
-  if (command === "statblock.draft.generate") return "Running mock generate command…";
-  if (command === "statblock.draft.render") return "Running mock render command…";
-  return null;
-}
-
-function formatLabel(value: string): string {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function displayValue(value: unknown): string {
-  if (value == null || value === "") return "—";
-  if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
-  return String(value);
-}
-
-function JsonDetails({ title, value }: { title: string; value: unknown }) {
+function isIntegrityFailureCategory(category: string | null | undefined): boolean {
+  if (!category) return false;
   return (
-    <details className="statblock-json-details">
-      <summary>{title}</summary>
-      <pre>{JSON.stringify(value, null, 2)}</pre>
-    </details>
+    category === "integrity_failure" ||
+    category === "contract_failure" ||
+    category.endsWith("_integrity_failure")
   );
 }
 
-function CombatDefaults({ defaults }: { defaults: StatblockCombatDefaults }) {
-  const rows: Array<[string, unknown]> = [
-    ["name", defaults.name],
-    ["armor_class", defaults.armor_class],
-    ["hit_points", defaults.hit_points],
-    ["initiative_bonus", defaults.initiative_bonus],
-    ["passive_perception", defaults.passive_perception],
-    ["speed", defaults.speed_summary ?? defaults.speed],
-    ["senses", defaults.senses_summary],
-    ["primary_actions", defaults.primary_actions],
-    ["suggested_tactics", defaults.suggested_tactics],
-    ["legendary_actions", defaults.legendary_actions],
-  ];
-
-  return (
-    <dl className="statblock-defaults-grid">
-      {rows.map(([key, value]) => (
-        <div key={key} className="statblock-default-row">
-          <dt>{formatLabel(key)}</dt>
-          <dd>{displayValue(value)}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function StatusRail({ artifact, commandStatus }: { artifact: StatblockDraftArtifactView; commandStatus: string }) {
-  const statuses = [
-    ["Command", commandStatus],
-    ["Lifecycle", artifact.lifecycle_state],
-    ["Review", artifact.review_status],
-    ["Storage", artifact.storage_status],
-    ["Corpus", artifact.corpus_status],
-    ["Created by", artifact.created_by],
-  ];
-
-  return (
-    <dl className="statblock-status-grid" aria-label="Statblock lifecycle statuses">
-      {statuses.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function StoredDraftsList({
-  drafts,
-  loading,
-  error,
-  pendingLoadId,
-  onLoadDraft,
+/** GM-visible global issue line: code, severity, original path, message, suggested_resolution. */
+function GlobalIssueLine({
+  issue,
 }: {
-  drafts: StoredStatblockDraftSummary[];
-  loading: boolean;
-  error: string | null;
-  pendingLoadId: string | null;
-  onLoadDraft: (artifactId: string) => void;
+  issue: {
+    code: string;
+    severity: string;
+    field_path: string;
+    message: string;
+    suggested_resolution?: string | null;
+  };
 }) {
+  const path = typeof issue.field_path === "string" ? issue.field_path : "";
   return (
-    <section className="statblock-section">
-      <h3>Stored drafts</h3>
-      {loading ? <p className="module-muted">Loading stored drafts…</p> : null}
-      {error ? <p className="statblock-command-error" role="alert">Unable to load stored drafts: {error}</p> : null}
-      {!loading && drafts.length === 0 ? <p className="module-muted">No stored statblock drafts yet.</p> : null}
-      {drafts.length ? (
-        <div className="statblock-stored-draft-list">
-          {drafts.map((draft) => (
-            <article key={draft.artifact_id} className="statblock-stored-draft-card">
-              <div>
-                <h4>{draft.title}</h4>
-                <p className="module-muted">
-                  Review: {draft.review_status} · Storage: {draft.storage_status} · Corpus: {draft.corpus_status}
-                </p>
-                <p className="module-muted">Updated {draft.updated_at}; stored {draft.stored_at}</p>
-                <code>{draft.storage_path}</code>
-              </div>
-              <button
-                type="button"
-                onClick={() => onLoadDraft(draft.artifact_id)}
-                disabled={pendingLoadId !== null}
-              >
-                {pendingLoadId === draft.artifact_id ? "Loading…" : "Load"}
-              </button>
-            </article>
-          ))}
-        </div>
+    <>
+      <span data-issue-code={issue.code}>code={issue.code}</span>
+      {" · "}
+      <span data-issue-severity-label={issue.severity}>severity={issue.severity}</span>
+      {path ? (
+        <>
+          {" · "}
+          <span data-issue-path={path}>path={path}</span>
+        </>
       ) : null}
+      {" · "}
+      <span data-issue-message={issue.message}>{issue.message}</span>
+      {issue.suggested_resolution != null ? (
+        <>
+          {" · "}
+          <span data-issue-suggested-resolution={issue.suggested_resolution}>
+            suggested={issue.suggested_resolution}
+          </span>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+export type CandidateStatusPresentation = {
+  title: string;
+  body: string;
+  stateKind: "expired" | "missing" | "integrity_failure" | "dependency_unavailable";
+};
+
+export function presentCandidateStatus(
+  status: Exclude<ReadStatblockCandidateResponseV1["status"], "active">,
+  failureCategory: string | null | undefined,
+): CandidateStatusPresentation {
+  if (status === "expired") {
+    return {
+      title: "Candidate expired",
+      stateKind: "expired",
+      body: "This candidate has expired. The exact candidate ID is retained; generate a new candidate rather than falling back to mock or corpus output.",
+    };
+  }
+  if (status === "missing") {
+    return {
+      title: "Candidate missing",
+      stateKind: "missing",
+      body: "No candidate exists for this exact ID. There is no fallback to another candidate, mock draft, or corpus file.",
+    };
+  }
+  if (isIntegrityFailureCategory(failureCategory)) {
+    return {
+      title: "Candidate integrity failure",
+      stateKind: "integrity_failure",
+      body: "This candidate cannot be trusted because of a local contract or cache integrity failure. The exact candidate ID is retained; this is not a DungeonMindServer outage. Do not fall back to mock or corpus output.",
+    };
+  }
+  return {
+    title: "Candidate service unavailable",
+    stateKind: "dependency_unavailable",
+    body: "The candidate service is unavailable. Retry the exact ID; mock mechanics are not used as a fallback.",
+  };
+}
+
+function CandidateStatusPanel({
+  candidateId,
+  status,
+  failureCategory,
+  failureMessage,
+  onRetry,
+}: {
+  candidateId: string;
+  status: Exclude<ReadStatblockCandidateResponseV1["status"], "active">;
+  failureCategory: string | null;
+  failureMessage: string | null;
+  onRetry: () => void;
+}) {
+  const presentation = presentCandidateStatus(status, failureCategory);
+  return (
+    <section className="statblock-section" role="status" data-candidate-status={presentation.stateKind}>
+      <h3>{presentation.title}</h3>
+      <p>
+        Exact ID retained: <code>{candidateId}</code>
+      </p>
+      <p className="module-muted">{presentation.body}</p>
+      {failureCategory ? (
+        <p className="module-muted">
+          Category: <code>{failureCategory}</code>
+          {failureMessage ? ` — ${failureMessage}` : ""}
+        </p>
+      ) : null}
+      <button type="button" onClick={onRetry}>
+        Retry exact candidate
+      </button>
     </section>
   );
 }
 
-function CorpusPreviewPanel({ preview }: { preview: StatblockCorpusPromotionPreviewResponse }) {
+function PreviewValidationPanel({
+  preview,
+  editorState,
+  editorEpoch,
+  validationFailure,
+  workingCopy,
+}: {
+  preview: PreviewValidation | null;
+  editorState: StatblockEditorState | null;
+  editorEpoch: number;
+  validationFailure: ValidationFailure | null;
+  workingCopy: StatblockDefinitionV1_Input | null;
+}) {
+  const uiStatus = editorState ? getUiStatus(editorState) : null;
+  const failureCurrent =
+    validationFailure != null &&
+    editorState != null &&
+    validationFailure.editorEpoch === editorEpoch &&
+    validationFailure.stateRevision === editorState.stateRevision;
+
+  const previewCurrent =
+    preview != null &&
+    editorState != null &&
+    preview.editorEpoch === editorEpoch &&
+    editorState.validatedRevision === preview.associatedRevision &&
+    editorState.stateRevision === preview.associatedRevision &&
+    (uiStatus === "validated" ||
+      uiStatus === "validated_with_warnings" ||
+      uiStatus === "validated_with_errors");
+
+  if (failureCurrent) {
+    return (
+      <section
+        className="statblock-section"
+        role="status"
+        data-testid="preview-validation-panel"
+        data-preview-state="unavailable"
+      >
+        <h3>Preview validation</h3>
+        <p className="module-muted">
+          Validation unavailable. Working copy retained (unsaved). {validationFailure.message}
+        </p>
+      </section>
+    );
+  }
+
+  if (!preview) {
+    return (
+      <section
+        className="statblock-section"
+        role="status"
+        data-testid="preview-validation-panel"
+        data-preview-state="none"
+      >
+        <h3>Preview validation</h3>
+        <p className="module-muted">
+          No preview receipt yet. Validate submits the exact session working copy; nothing is saved or
+          accepted.
+        </p>
+      </section>
+    );
+  }
+
+  if (!previewCurrent) {
+    return (
+      <section
+        className="statblock-section"
+        role="status"
+        data-testid="preview-validation-panel"
+        data-preview-state="stale"
+      >
+        <h3>Preview validation</h3>
+        <p className="module-muted">
+          Prior preview receipt is stale / not current for this working-copy revision.
+        </p>
+        <p className="module-muted">
+          Last digest: <code>{preview.definitionDigest}</code>
+        </p>
+      </section>
+    );
+  }
+
+  const { fieldIssues, globalIssues } = partitionValidationIssuesByPath(
+    preview.receipt.issues,
+    workingCopy,
+  );
+  const fieldSplit = splitIssuesBySeverity(fieldIssues);
+  const globalSplit = splitIssuesBySeverity(globalIssues);
+
   return (
-    <section className="statblock-section statblock-corpus-preview-section">
-      <h3>Corpus promotion preview</h3>
-      <p className="module-muted">Preview only: this draft is not yet corpus canon and is not yet retrievable.</p>
-      <dl className="statblock-status-grid">
-        <div>
-          <dt>Proposed corpus path</dt>
-          <dd><code>{preview.proposed_corpus_display_path}</code></dd>
-        </div>
-        <div>
-          <dt>Corpus-relative path</dt>
-          <dd><code>{preview.proposed_corpus_relpath}</code></dd>
-        </div>
-        <div>
-          <dt>Validation</dt>
-          <dd>{preview.validation.ok ? "ok" : "needs review"}</dd>
-        </div>
-        <div>
-          <dt>Preview token</dt>
-          <dd><code>{preview.preview_token}</code></dd>
-        </div>
-      </dl>
+    <section
+      className="statblock-section"
+      role="status"
+      data-testid="preview-validation-panel"
+      data-preview-state="current"
+      data-preview-receipt-status={preview.receipt.status}
+    >
+      <h3>Preview validation</h3>
+      <p>
+        Server status: <code>{preview.receipt.status}</code> → UI{" "}
+        <code>{mapServerValidationStatus(preview.receipt.status)}</code>
+      </p>
+      <p className="module-muted">
+        Associated digest: <code>{preview.definitionDigest}</code>
+      </p>
 
-      <h4>Warnings</h4>
-      {preview.warnings.length ? (
-        <ul className="statblock-warning-list">
-          {preview.warnings.map((warning) => (
-            <li key={warning.code}>
-              <span className={`badge ${warning.severity === "error" ? "error" : "warning"}`}>{warning.severity}</span>
-              <code>{warning.code}</code>
-              <span>{warning.message}</span>
-            </li>
-          ))}
-        </ul>
-      ) : <p className="module-muted">No promotion preview warnings.</p>}
-
-      <h4>Frontmatter</h4>
-      <pre className="statblock-markdown-preview">{preview.frontmatter_text}</pre>
-
-      <h4>Full markdown preview</h4>
-      <pre className="statblock-markdown-preview">{preview.full_markdown}</pre>
-
-      <div className="statblock-split-section">
-        <JsonDetails title="Breadcrumbs" value={preview.breadcrumbs} />
-        <JsonDetails title="Source refs" value={preview.source_refs} />
+      <div data-testid="preview-field-issues">
+        <h4>Field issues</h4>
+        {fieldIssues.length === 0 ? <p className="module-muted">None</p> : null}
+        {fieldSplit.errors.map((issue) => (
+          <p key={`fe-${issue.code}-${issue.field_path}`} data-issue-severity="error">
+            [error] <code>{issue.field_path}</code>: {issue.message}
+          </p>
+        ))}
+        {fieldSplit.warnings.map((issue) => (
+          <p key={`fw-${issue.code}-${issue.field_path}`} data-issue-severity="warning">
+            [warning] <code>{issue.field_path}</code>: {issue.message}
+          </p>
+        ))}
+        {fieldSplit.infos.map((issue) => (
+          <p key={`fi-${issue.code}-${issue.field_path}`} data-issue-severity="info">
+            [info] <code>{issue.field_path}</code>: {issue.message}
+          </p>
+        ))}
       </div>
 
-      {preview.diagnostics.length ? (
-        <>
-          <h4>Preview diagnostics</h4>
-          <ul className="module-list">{preview.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul>
-        </>
-      ) : null}
-
-      <h4>Future actions</h4>
-      <div className="statblock-action-row">
-        {preview.available_actions.map((action) => (
-          <div key={action.action_id} className="statblock-action-card">
-            <button type="button" disabled aria-disabled="true">{action.label}</button>
-            <small>{action.disabled_reason ?? "Disabled until a future lifecycle PR."}</small>
-          </div>
+      <div data-testid="preview-global-issues">
+        <h4>Global issues</h4>
+        {globalIssues.length === 0 ? <p className="module-muted">None</p> : null}
+        {globalSplit.errors.map((issue) => (
+          <p key={`ge-${issue.code}-${issue.field_path}-${issue.message}`} data-issue-severity="error">
+            <GlobalIssueLine issue={issue} />
+          </p>
+        ))}
+        {globalSplit.warnings.map((issue) => (
+          <p
+            key={`gw-${issue.code}-${issue.field_path}-${issue.message}`}
+            data-issue-severity="warning"
+          >
+            <GlobalIssueLine issue={issue} />
+          </p>
+        ))}
+        {globalSplit.infos.map((issue) => (
+          <p key={`gi-${issue.code}-${issue.field_path}-${issue.message}`} data-issue-severity="info">
+            <GlobalIssueLine issue={issue} />
+          </p>
         ))}
       </div>
     </section>
   );
 }
 
+export function StatblockWorkbenchModule() {
+  const [candidateIdInput, setCandidateIdInput] = useState(readCandidateIdFromLocation);
+  const [draftIdInput, setDraftIdInput] = useState("");
+  const [draftVersionInput, setDraftVersionInput] = useState("1");
+  const [loadState, setLoadState] = useState<LoadState>({ kind: "idle" });
+  const [generateMessage, setGenerateMessage] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [pendingGenerate, setPendingGenerate] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("edit");
+  const [editorState, setEditorState] = useState<StatblockEditorState | null>(null);
+  const [previewValidation, setPreviewValidation] = useState<PreviewValidation | null>(null);
+  const [pendingValidation, setPendingValidation] = useState<PendingValidation | null>(null);
+  const [validationFailure, setValidationFailure] = useState<ValidationFailure | null>(null);
+  const [editorEpoch, setEditorEpoch] = useState(0);
 
-function CorpusWritePreparePanel({ prepare }: { prepare: StatblockCorpusWritePrepareResponse }) {
-  return (
-    <section className="statblock-section statblock-corpus-write-section">
-      <h3>Corpus write preparation</h3>
-      <p className="module-muted">This is the corpus writer dry-run. No file is written until confirmation.</p>
-      <dl className="statblock-status-grid">
-        <div><dt>Proposed path</dt><dd><code>{prepare.proposed_corpus_display_path}</code></dd></div>
-        <div><dt>Writer phase</dt><dd>{prepare.writer_phase ?? "—"}</dd></div>
-        <div><dt>New size bytes</dt><dd>{prepare.new_size_bytes ?? "—"}</dd></div>
-        <div><dt>Writer confirm token</dt><dd><code>{prepare.writer_confirm_token ?? "—"}</code></dd></div>
-      </dl>
-      <h4>Writer diff</h4>
-      <pre className="statblock-markdown-preview">{prepare.writer_diff ?? "No writer diff available."}</pre>
-      {prepare.diagnostics.length ? <ul className="module-list">{prepare.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
-    </section>
+  const validateRequestIdRef = useRef(0);
+  const editorEpochRef = useRef(0);
+  /** Shared monotonic identity for manual load, retry, and draft generation. */
+  const candidateOpIdRef = useRef(0);
+  const editorStateRef = useRef<StatblockEditorState | null>(null);
+  editorStateRef.current = editorState;
+  editorEpochRef.current = editorEpoch;
+
+  const bumpEditorEpoch = useCallback(() => {
+    const next = editorEpochRef.current + 1;
+    editorEpochRef.current = next;
+    setEditorEpoch(next);
+    return next;
+  }, []);
+
+  const isCurrentCandidateOp = useCallback((opId: number): boolean => {
+    return opId === candidateOpIdRef.current;
+  }, []);
+
+  /** Claim the next candidate operation; orphans every prior load/generate outcome. */
+  const beginCandidateOp = useCallback(() => {
+    return ++candidateOpIdRef.current;
+  }, []);
+
+  /** Orphan in-flight validate and clear revision-owned pending/failure records. */
+  const invalidateValidationOwnership = useCallback(() => {
+    validateRequestIdRef.current += 1;
+    setPendingValidation(null);
+    setValidationFailure(null);
+    setPreviewValidation(null);
+  }, []);
+
+  const isCurrentValidateOwnership = useCallback(
+    (requestId: number, epoch: number, requestedRevision: number): boolean => {
+      if (requestId !== validateRequestIdRef.current) return false;
+      if (epoch !== editorEpochRef.current) return false;
+      const latest = editorStateRef.current;
+      return latest != null && latest.stateRevision === requestedRevision;
+    },
+    [],
   );
-}
 
-function CorpusWriteResultPanel({ result }: { result: StatblockCorpusWriteCommitResponse }) {
-  return (
-    <section className="statblock-section statblock-corpus-write-section">
-      <h3>Corpus write result</h3>
-      <dl className="statblock-status-grid">
-        <div><dt>Corpus display path</dt><dd><code>{result.proposed_corpus_display_path}</code></dd></div>
-        <div><dt>Corpus-relative path</dt><dd><code>{result.proposed_corpus_relpath}</code></dd></div>
-        <div><dt>Bytes written</dt><dd>{result.bytes_written ?? "—"}</dd></div>
-        <div><dt>New corpus fingerprint</dt><dd><code>{result.new_corpus_fingerprint ?? "—"}</code></dd></div>
-        <div><dt>Stored record corpus status</dt><dd>{result.stored_record.artifact.corpus_status}</dd></div>
-      </dl>
-      <div className="statblock-action-row">
-        <div className="statblock-action-card"><button type="button" disabled>Open in Statblock View</button><small>Disabled until a future corpus-backed Statblock View PR.</small></div>
-        <div className="statblock-action-card"><button type="button" disabled>Add to combat</button><small>Disabled until corpus-backed combat integration exists.</small></div>
-      </div>
-      {result.diagnostics.length ? <ul className="module-list">{result.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
-    </section>
+  const onEditorStateChange = useCallback(
+    (next: StatblockEditorState) => {
+      const prev = editorStateRef.current;
+      editorStateRef.current = next;
+      setEditorState(next);
+      if (prev && next.stateRevision !== prev.stateRevision) {
+        // Immediate stale-request invalidation for the prior revision.
+        validateRequestIdRef.current += 1;
+        setPendingValidation(null);
+        setValidationFailure(null);
+      }
+    },
+    [],
   );
-}
 
-function RetrievalPanel({
-  activation,
-  verification,
-  pendingActivation,
-  pendingVerification,
-  error,
-  canActivate,
-  canVerify,
-  onActivate,
-  onVerify,
-}: {
-  activation: StatblockRetrievalActivationResponse | null;
-  verification: StatblockRetrievalVerifyResponse | null;
-  pendingActivation: boolean;
-  pendingVerification: boolean;
-  error: string | null;
-  canActivate: boolean;
-  canVerify: boolean;
-  onActivate: () => void;
-  onVerify: () => void;
-}) {
-  const entry = activation?.manifest_entry ?? null;
-  const evidence = verification?.admitted_evidence?.[0] ?? null;
-  return (
-    <section className="statblock-section statblock-storage-section">
-      <h3>Retrieval activation</h3>
-      <p className="module-muted">Activates the generated corpus file in the session-scoped manifest overlay; no vector index or combat mutation runs.</p>
-      <div className="statblock-action-row">
-        <button type="button" onClick={onActivate} disabled={!canActivate || pendingActivation || pendingVerification}>
-          {pendingActivation ? "Activating retrieval…" : "Activate retrieval"}
-        </button>
-        <button type="button" onClick={onVerify} disabled={!canVerify || pendingActivation || pendingVerification}>
-          {pendingVerification ? "Verifying retrieval…" : "Verify retrieval"}
-        </button>
-        <button type="button" disabled>Open in Statblock View</button>
-        <button type="button" disabled>Add to combat</button>
-      </div>
-      {!canActivate && !canVerify ? <p className="module-muted">Confirm the corpus write before activating retrieval.</p> : null}
-      {error ? <p className="statblock-command-error" role="alert">Unable to verify retrieval: {error}</p> : null}
-      {activation ? (
-        <>
-          <dl className="statblock-status-grid">
-            <div><dt>Overlay path</dt><dd><code>{activation.manifest_overlay_path}</code></dd></div>
-            <div><dt>Source id</dt><dd><code>{String(entry?.source_id ?? "—")}</code></dd></div>
-            <div><dt>Route</dt><dd><code>{String(entry?.route ?? "—")}</code></dd></div>
-            <div><dt>Authority</dt><dd>{String(entry?.authority ?? "—")}</dd></div>
-            <div><dt>Source role</dt><dd>{String(entry?.source_role ?? "—")}</dd></div>
-            <div><dt>Allowed uses</dt><dd>{displayValue(entry?.allowed_uses)}</dd></div>
-            <div><dt>Forbidden uses</dt><dd>{displayValue(entry?.forbidden_uses)}</dd></div>
-          </dl>
-          <JsonDetails title="Lexical terms" value={entry?.lexical_terms ?? []} />
-          {activation.diagnostics.length ? <ul className="module-list">{activation.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
-        </>
-      ) : null}
-      {verification ? (
-        <>
-          <h4>{verification.status === "verified" ? "Retrieval verified" : "Retrieval verification result"}</h4>
-          <dl className="statblock-status-grid">
-            <div><dt>Status</dt><dd>{verification.status}</dd></div>
-            <div><dt>Query</dt><dd>{verification.query}</dd></div>
-            <div><dt>Admitted evidence</dt><dd>{verification.admitted_evidence.length}</dd></div>
-            <div><dt>Rejected evidence</dt><dd>{verification.rejected_evidence.length}</dd></div>
-            <div><dt>Matched path</dt><dd><code>{String(evidence?.path ?? verification.stored_record?.retrieval_evidence_path ?? "—")}</code></dd></div>
-            <div><dt>Line range</dt><dd>{evidence?.line_start ? `${String(evidence.line_start)}–${String(evidence.line_end ?? evidence.line_start)}` : "—"}</dd></div>
-            <div><dt>Evidence score</dt><dd>{String(evidence?.evidence_score ?? verification.stored_record?.retrieval_evidence_score ?? "—")}</dd></div>
-          </dl>
-          <h4>Evidence excerpt</h4>
-          <pre className="statblock-markdown-preview">{String(evidence?.text_excerpt ?? "No admitted evidence excerpt returned.")}</pre>
-          {verification.diagnostics.length ? <ul className="module-list">{verification.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul> : null}
-        </>
-      ) : null}
-    </section>
+  const loadCandidate = useCallback(
+    async (candidateId: string, options?: { opId?: number }) => {
+      const trimmed = candidateId.trim();
+      const opId = options?.opId ?? beginCandidateOp();
+      // A fresh manual/retry load orphans in-flight generation UI.
+      if (options?.opId == null) {
+        setPendingGenerate(false);
+        setGenerateMessage(null);
+        setGenerateError(null);
+      }
+      bumpEditorEpoch();
+      invalidateValidationOwnership();
+      setEditorState(null);
+      editorStateRef.current = null;
+
+      if (!trimmed) {
+        if (!isCurrentCandidateOp(opId)) return;
+        setLoadState({ kind: "error", candidateId: "", message: "Enter an exact candidate ID." });
+        return;
+      }
+
+      if (!isCurrentCandidateOp(opId)) return;
+      setLoadState({ kind: "loading", candidateId: trimmed });
+
+      try {
+        const response = await getStatblockCandidate(trimmed);
+        if (!isCurrentCandidateOp(opId)) return;
+
+        if (response.status === "active" && response.candidate) {
+          const nextEditor = createEditorStateFromOutput(response.candidate.definition);
+          editorStateRef.current = nextEditor;
+          setLoadState({ kind: "success", response });
+          setEditorState(nextEditor);
+          setViewMode("edit");
+          return;
+        }
+        setLoadState({
+          kind: "status",
+          candidateId: response.candidate_id || trimmed,
+          status: response.status === "active" ? "missing" : response.status,
+          failureCategory: response.failure_category ?? null,
+          failureMessage: response.failure_message ?? null,
+        });
+      } catch (error) {
+        if (!isCurrentCandidateOp(opId)) return;
+        setLoadState({
+          kind: "error",
+          candidateId: trimmed,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp],
   );
-}
 
+  useEffect(() => {
+    const initial = readCandidateIdFromLocation();
+    if (initial) {
+      void loadCandidate(initial);
+    }
+  }, [loadCandidate]);
 
-function ReadyWorkbench({
-  response,
-  pendingCommand,
-  commandError,
-  storeError,
-  storeMessage,
-  storedDrafts,
-  storedDraftsLoading,
-  storedDraftsError,
-  pendingStore,
-  pendingLoadId,
-  corpusPreview,
-  pendingPreview,
-  previewError,
-  corpusWritePrepare,
-  corpusWriteResult,
-  pendingWritePrepare,
-  pendingWriteCommit,
-  writeError,
-  showWriteConfirm,
-  retrievalActivation,
-  retrievalVerification,
-  pendingRetrievalActivation,
-  pendingRetrievalVerification,
-  retrievalError,
-  onPrepareCorpusWrite,
-  onRequestCorpusWriteConfirm,
-  onCancelCorpusWriteConfirm,
-  onCommitCorpusWrite,
-  onActivateRetrieval,
-  onVerifyRetrieval,
-  onRunCommand,
-  onStoreDraft,
-  onLoadDraft,
-  onPreviewCorpusPromotion,
-}: {
-  response: WorkbenchState;
-  pendingCommand: PendingCommand;
-  commandError: string | null;
-  storeError: string | null;
-  storeMessage: string | null;
-  storedDrafts: StoredStatblockDraftSummary[];
-  storedDraftsLoading: boolean;
-  storedDraftsError: string | null;
-  pendingStore: boolean;
-  pendingLoadId: string | null;
-  corpusPreview: StatblockCorpusPromotionPreviewResponse | null;
-  pendingPreview: boolean;
-  previewError: string | null;
-  corpusWritePrepare: StatblockCorpusWritePrepareResponse | null;
-  corpusWriteResult: StatblockCorpusWriteCommitResponse | null;
-  pendingWritePrepare: boolean;
-  pendingWriteCommit: boolean;
-  writeError: string | null;
-  showWriteConfirm: boolean;
-  retrievalActivation: StatblockRetrievalActivationResponse | null;
-  retrievalVerification: StatblockRetrievalVerifyResponse | null;
-  pendingRetrievalActivation: boolean;
-  pendingRetrievalVerification: boolean;
-  retrievalError: string | null;
-  onPrepareCorpusWrite: () => void;
-  onRequestCorpusWriteConfirm: () => void;
-  onCancelCorpusWriteConfirm: () => void;
-  onCommitCorpusWrite: () => void;
-  onActivateRetrieval: () => void;
-  onVerifyRetrieval: () => void;
-  onRunCommand: (commandType: StatblockWorkbenchCommandType) => void;
-  onStoreDraft: () => void;
-  onLoadDraft: (artifactId: string) => void;
-  onPreviewCorpusPromotion: () => void;
-}) {
-  const artifact = response.artifact;
-  const futureActions = response.available_actions.filter((action) => !["store_draft", "preview_corpus_promotion", "ingest_to_semantic_layer", "add_to_combat"].includes(action.action_id));
-  const storeDisabled = pendingCommand !== null || pendingStore || pendingPreview || artifact.storage_status === "stored_draft";
-  const anyRetrievalPending = pendingRetrievalActivation || pendingRetrievalVerification;
-  const anyWritePending = pendingWritePrepare || pendingWriteCommit;
-  const previewDisabled = pendingCommand !== null || pendingStore || pendingPreview || pendingLoadId !== null || anyWritePending || artifact.storage_status !== "stored_draft";
-  const prepareWriteDisabled = previewDisabled || !corpusPreview || anyRetrievalPending;
-  const retrievalStatus = retrievalVerification?.stored_record?.retrieval_status ?? retrievalActivation?.stored_record.retrieval_status ?? null;
-  const retrievalAlreadyActivated = Boolean(retrievalActivation) || retrievalStatus === "manifest_activated" || retrievalStatus === "retrieval_verified";
-  const canActivateRetrieval = artifact.corpus_status === "promotion_confirmed" && !retrievalAlreadyActivated && !anyWritePending && !pendingStore && pendingCommand === null;
-  const canVerifyRetrieval = retrievalAlreadyActivated && !anyWritePending && !pendingStore && pendingCommand === null;
-  const commitReady = Boolean(corpusWritePrepare?.writer_ok && corpusWritePrepare.writer_confirm_token);
+  const onSubmitCandidate = (event: FormEvent) => {
+    event.preventDefault();
+    void loadCandidate(candidateIdInput);
+  };
+
+  const onGenerateFromDraft = async (event: FormEvent) => {
+    event.preventDefault();
+    const draftId = draftIdInput.trim();
+    const expectedVersion = Number(draftVersionInput);
+    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
+      return;
+    }
+    const opId = beginCandidateOp();
+    // Newer generation orphans prior load outcomes and prior generate UI.
+    setPendingGenerate(true);
+    setGenerateError(null);
+    setGenerateMessage(null);
+    setLoadState((prev) => (prev.kind === "loading" ? { kind: "idle" } : prev));
+    try {
+      const response: GenerateThreatDraftCandidateResponseV1 = await generateThreatDraftCandidate(
+        draftId,
+        { expected_draft_version: expectedVersion },
+      );
+      if (!isCurrentCandidateOp(opId)) return;
+
+      if (response.outcome === "success" && response.candidate?.candidate_id) {
+        const candidateId = response.candidate.candidate_id;
+        setCandidateIdInput(candidateId);
+        setGenerateMessage(
+          `Generated ${candidateId}${
+            response.cache_status ? ` (${response.cache_status})` : ""
+          }. Loading structured review…`,
+        );
+        await loadCandidate(candidateId, { opId });
+        return;
+      }
+      setGenerateError(
+        response.failure_message ??
+          response.failure_category ??
+          "Generation failed without a typed candidate.",
+      );
+    } catch (error) {
+      if (!isCurrentCandidateOp(opId)) return;
+      setGenerateError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (isCurrentCandidateOp(opId)) {
+        setPendingGenerate(false);
+      }
+    }
+  };
+
+  const onValidateWorkingCopy = async () => {
+    const current = editorStateRef.current;
+    if (!current) return;
+
+    const epoch = editorEpochRef.current;
+    const requestId = ++validateRequestIdRef.current;
+    const requestedRevision = current.stateRevision;
+    const workingCopy = current.workingCopy;
+    setValidationFailure(null);
+    setPendingValidation({ requestId, editorEpoch: epoch, stateRevision: requestedRevision });
+    const validating = beginValidationAttempt(current);
+    editorStateRef.current = validating;
+    setEditorState(validating);
+
+    let response: ValidateDefinitionBuddyResponseV1;
+    try {
+      response = await validateStatblockDefinition({ definition: workingCopy });
+    } catch (error) {
+      if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+        return;
+      }
+      setPendingValidation(null);
+      setValidationFailure({
+        editorEpoch: epoch,
+        stateRevision: requestedRevision,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      setEditorState((prev) => {
+        if (!prev || prev.stateRevision !== requestedRevision) return prev;
+        const next = markValidationUnavailable(prev);
+        editorStateRef.current = next;
+        return next;
+      });
+      return;
+    }
+
+    if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+      return;
+    }
+
+    if (
+      response.outcome !== "success" ||
+      !response.validation_receipt ||
+      response.definition_digest == null ||
+      response.definition_digest !== response.validation_receipt.definition_digest
+    ) {
+      if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+        return;
+      }
+      setPendingValidation(null);
+      setValidationFailure({
+        editorEpoch: epoch,
+        stateRevision: requestedRevision,
+        message:
+          response.failure_message ??
+          response.failure_category ??
+          "Validation dependency unavailable",
+      });
+      setEditorState((prev) => {
+        if (!prev || prev.stateRevision !== requestedRevision) return prev;
+        const next = markValidationUnavailable(prev);
+        editorStateRef.current = next;
+        return next;
+      });
+      return;
+    }
+
+    if (!isCurrentValidateOwnership(requestId, epoch, requestedRevision)) {
+      return;
+    }
+
+    const uiStatus = mapServerValidationStatus(response.validation_receipt.status);
+    setPendingValidation(null);
+    setValidationFailure(null);
+    setPreviewValidation({
+      associatedRevision: requestedRevision,
+      editorEpoch: epoch,
+      receipt: response.validation_receipt,
+      definitionDigest: response.definition_digest,
+    });
+    setEditorState((prev) => {
+      if (!prev || prev.stateRevision !== requestedRevision) return prev;
+      const next = markValidationAssociated(prev, uiStatus);
+      editorStateRef.current = next;
+      return next;
+    });
+  };
+
+  const activeCandidate: GeneratedStatblockCandidateV1 | null =
+    loadState.kind === "success" ? loadState.response.candidate ?? null : null;
+
+  const validatePendingForCurrent =
+    pendingValidation != null &&
+    editorState != null &&
+    pendingValidation.editorEpoch === editorEpoch &&
+    pendingValidation.stateRevision === editorState.stateRevision;
 
   return (
     <div className="module-panel statblock-workbench" data-module-id="statblock_workbench">
       <header className="statblock-workbench-header">
         <div>
-          <p className="eyebrow">Mock / non-corpus draft lane</p>
+          <p className="eyebrow">Typed candidate review and preview validation</p>
           <h2 className="module-title">Statblock Workbench</h2>
           <p className="module-muted">
-            Lifecycle preview for <strong>{artifact.title}</strong>; drafts may be stored under the live session, but corpus, ingestion, and combat mutation remain disabled.
+            Displays mechanics from a structured DungeonMind candidate. Edit mode holds a session-only
+            working copy; preview validation does not accept or save mechanics.
           </p>
         </div>
-        <span className="badge">{response.mode}</span>
+        <span className="badge">sbw05c-preview</span>
       </header>
 
-      <section className="statblock-command-row" aria-label="Mock statblock commands">
-        <button type="button" onClick={() => onRunCommand("statblock.draft.generate")} disabled={pendingCommand !== null || pendingStore}>
-          Generate mock draft
-        </button>
-        <button type="button" onClick={() => onRunCommand("statblock.draft.render")} disabled={pendingCommand !== null || pendingStore}>
-          Render mock draft
-        </button>
-        {pendingLabel(pendingCommand) ? <span className="statblock-command-status" role="status">{pendingLabel(pendingCommand)}</span> : null}
+      <section className="statblock-section">
+        <h3>Load exact candidate</h3>
+        <form className="statblock-command-row" onSubmit={onSubmitCandidate}>
+          <label>
+            Candidate ID
+            <input
+              value={candidateIdInput}
+              onChange={(event) => setCandidateIdInput(event.target.value)}
+              placeholder="cand_…"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+          <button type="submit">Load candidate</button>
+        </form>
+        <p className="module-muted">
+          Optional deep link: <code>?candidateId=cand_…</code>
+        </p>
       </section>
-      {commandError ? <p className="statblock-command-error" role="alert">Unable to run Workbench command: {commandError}</p> : null}
 
-      <section className="statblock-section statblock-storage-section">
-        <h3>Draft storage</h3>
-        <button type="button" onClick={onStoreDraft} disabled={storeDisabled}>
-          {pendingStore ? "Storing draft…" : "Store draft"}
-        </button>
-        <p className="module-muted">Stores the current artifact as a file-backed non-corpus draft only.</p>
-        {artifact.storage_status === "stored_draft" ? (
-          <p className="module-muted">Stored as non-corpus draft: <code>statblock_drafts/{artifact.artifact_id}.json</code></p>
+      <section className="statblock-section">
+        <h3>Generate from ThreatDraft</h3>
+        <form className="statblock-command-row" onSubmit={onGenerateFromDraft}>
+          <label>
+            Draft ID
+            <input
+              value={draftIdInput}
+              onChange={(event) => setDraftIdInput(event.target.value)}
+              placeholder="td_…"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+          <label>
+            Expected version
+            <input
+              value={draftVersionInput}
+              onChange={(event) => setDraftVersionInput(event.target.value)}
+              inputMode="numeric"
+            />
+          </label>
+          <button type="submit" disabled={pendingGenerate}>
+            {pendingGenerate ? "Generating…" : "Generate candidate"}
+          </button>
+        </form>
+        {generateMessage ? (
+          <p className="statblock-command-status" role="status">
+            {generateMessage}
+          </p>
         ) : null}
-        {storeMessage ? <p className="statblock-command-status" role="status">{storeMessage}</p> : null}
-        {storeError ? <p className="statblock-command-error" role="alert">Unable to store draft: {storeError}</p> : null}
-      </section>
-
-      <section className="statblock-section statblock-storage-section">
-        <h3>Corpus promotion preview</h3>
-        <button type="button" onClick={onPreviewCorpusPromotion} disabled={previewDisabled}>
-          {pendingPreview ? "Previewing corpus promotion…" : "Preview corpus promotion"}
-        </button>
-        {artifact.storage_status !== "stored_draft" ? (
-          <p className="module-muted">Store this draft before previewing corpus promotion.</p>
-        ) : (
-          <p className="module-muted">Builds a deterministic preview only; no corpus write, ingestion, or combat mutation occurs.</p>
-        )}
-        {previewError ? <p className="statblock-command-error" role="alert">Unable to preview corpus promotion: {previewError}</p> : null}
-      </section>
-
-      <section className="statblock-section statblock-storage-section">
-        <h3>Corpus write</h3>
-        <button type="button" onClick={onPrepareCorpusWrite} disabled={prepareWriteDisabled}>
-          {pendingWritePrepare ? "Preparing corpus write…" : "Prepare corpus write"}
-        </button>
-        <p className="module-muted">Runs the corpus writer dry-run and returns the real writer confirm token without writing.</p>
-        {commitReady ? (
-          showWriteConfirm ? (
-            <div className="statblock-action-card">
-              <p>Confirm corpus mutation for <code>{corpusWritePrepare?.proposed_corpus_display_path}</code>.</p>
-              <button type="button" onClick={onCommitCorpusWrite} disabled={pendingWriteCommit}>
-                {pendingWriteCommit ? "Writing corpus file…" : "Write corpus file"}
-              </button>
-              <button type="button" onClick={onCancelCorpusWriteConfirm} disabled={pendingWriteCommit}>Cancel</button>
-            </div>
-          ) : (
-            <button type="button" onClick={onRequestCorpusWriteConfirm} disabled={pendingWriteCommit}>Confirm corpus write</button>
-          )
+        {generateError ? (
+          <p className="statblock-command-error" role="alert">
+            Unable to generate candidate: {generateError}
+          </p>
         ) : null}
-        {writeError ? <p className="statblock-command-error" role="alert">Unable to write corpus file: {writeError}</p> : null}
       </section>
 
-      <RetrievalPanel
-        activation={retrievalActivation}
-        verification={retrievalVerification}
-        pendingActivation={pendingRetrievalActivation}
-        pendingVerification={pendingRetrievalVerification}
-        error={retrievalError}
-        canActivate={canActivateRetrieval}
-        canVerify={canVerifyRetrieval}
-        onActivate={onActivateRetrieval}
-        onVerify={onVerifyRetrieval}
-      />
+      {loadState.kind === "idle" ? (
+        <p className="module-muted">Load an exact candidate ID to review structured mechanics.</p>
+      ) : null}
 
-      <StatusRail artifact={artifact} commandStatus={response.command_status} />
+      {loadState.kind === "loading" ? (
+        <p className="module-muted" role="status">
+          Loading candidate <code>{loadState.candidateId}</code>…
+        </p>
+      ) : null}
 
-      <StoredDraftsList drafts={storedDrafts} loading={storedDraftsLoading} error={storedDraftsError} pendingLoadId={pendingLoadId} onLoadDraft={onLoadDraft} />
+      {loadState.kind === "error" ? (
+        <p className="module-error" role="alert">
+          Unable to load candidate{loadState.candidateId ? ` ${loadState.candidateId}` : ""}:{" "}
+          {loadState.message}
+        </p>
+      ) : null}
 
-      {corpusPreview ? <CorpusPreviewPanel preview={corpusPreview} /> : null}
-      {corpusWritePrepare ? <CorpusWritePreparePanel prepare={corpusWritePrepare} /> : null}
-      {corpusWriteResult ? <CorpusWriteResultPanel result={corpusWriteResult} /> : null}
+      {loadState.kind === "status" ? (
+        <CandidateStatusPanel
+          candidateId={loadState.candidateId}
+          status={loadState.status}
+          failureCategory={loadState.failureCategory}
+          failureMessage={loadState.failureMessage}
+          onRetry={() => void loadCandidate(loadState.candidateId)}
+        />
+      ) : null}
 
-      <section className="statblock-section">
-        <h3>Markdown preview</h3>
-        <pre className="statblock-markdown-preview">{artifact.markdown}</pre>
-      </section>
+      {activeCandidate ? (
+        <section className="statblock-section" data-testid="candidate-view-modes">
+          <h3>Candidate {activeCandidate.candidate_id}</h3>
+          <div className="statblock-command-row" role="group" aria-label="Candidate view mode">
+            <button
+              type="button"
+              aria-pressed={viewMode === "review"}
+              onClick={() => setViewMode("review")}
+            >
+              Review source
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewMode === "edit"}
+              onClick={() => setViewMode("edit")}
+            >
+              Edit working copy
+            </button>
+          </div>
 
-      <section className="statblock-section">
-        <h3>Combat defaults</h3>
-        <CombatDefaults defaults={artifact.combat_defaults} />
-      </section>
+          {viewMode === "review" ? (
+            <StatblockRenderer candidate={activeCandidate} mode="review" />
+          ) : null}
 
-      <section className="statblock-section">
-        <h3>Warnings needing DM review</h3>
-        {artifact.warnings.length ? (
-          <ul className="statblock-warning-list">
-            {artifact.warnings.map((warning, index) => (
-              <li key={`${warning.code ?? "warning"}-${index}`}>
-                <span className="badge warning">{warning.severity ?? "warning"}</span>
-                {warning.code ? <code>{warning.code}</code> : null}
-                <span>{warning.message}</span>
-                {warning.path ? <span className="module-muted">Path: {warning.path}</span> : null}
-              </li>
-            ))}
-          </ul>
-        ) : <p className="module-muted">No warnings returned by the sample artifact.</p>}
-      </section>
-
-      <section className="statblock-section">
-        <h3>Breadcrumbs</h3>
-        <ul className="statblock-breadcrumb-list">
-          {artifact.breadcrumbs.map((breadcrumb) => (
-            <li key={`${breadcrumb.label}-${breadcrumb.source ?? "source"}`}>
-              <span>{breadcrumb.label}</span>
-              {breadcrumb.source ? <small>{breadcrumb.source}</small> : null}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="statblock-section statblock-split-section">
-        <JsonDetails title="Provenance" value={artifact.provenance} />
-        <JsonDetails title="Source refs" value={artifact.source_refs} />
-        <JsonDetails title="Structured statblock" value={artifact.structured_statblock} />
-      </section>
-
-      <section className="statblock-section">
-        <h3>Future actions</h3>
-        <div className="statblock-action-row">
-          {futureActions.map((action) => {
-            const disabledReason = action.disabled_reason ?? "Disabled in this draft-storage PR; future PRs will add handlers.";
-            return (
-              <div key={action.action_id} className="statblock-action-card">
-                <button type="button" disabled aria-disabled="true">{action.label}</button>
-                <small>{disabledReason}</small>
+          {viewMode === "edit" && editorState ? (
+            <>
+              <div className="statblock-command-row">
+                <button
+                  type="button"
+                  onClick={() => void onValidateWorkingCopy()}
+                  disabled={validatePendingForCurrent || getUiStatus(editorState) === "validating"}
+                >
+                  {validatePendingForCurrent || getUiStatus(editorState) === "validating"
+                    ? "Validating…"
+                    : "Validate working copy"}
+                </button>
+                <p className="module-muted">
+                  Preview validation only — session-only and unsaved. No accept or save path.
+                </p>
               </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {response.diagnostics.length ? (
-        <section className="statblock-section">
-          <h3>Diagnostics</h3>
-          <ul className="module-list">{response.diagnostics.map((diagnostic) => <li key={diagnostic}>{diagnostic}</li>)}</ul>
+              <PreviewValidationPanel
+                preview={previewValidation}
+                editorState={editorState}
+                editorEpoch={editorEpoch}
+                validationFailure={validationFailure}
+                workingCopy={editorState.workingCopy}
+              />
+              <StatblockDefinitionEditor
+                output={activeCandidate.definition}
+                editorState={editorState}
+                onEditorStateChange={onEditorStateChange}
+              />
+            </>
+          ) : null}
         </section>
       ) : null}
     </div>
-  );
-}
-
-export function StatblockWorkbenchModule() {
-  const [response, setResponse] = useState<WorkbenchState | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [pendingCommand, setPendingCommand] = useState<PendingCommand>(null);
-  const [commandError, setCommandError] = useState<string | null>(null);
-  const [pendingStore, setPendingStore] = useState(false);
-  const [storeError, setStoreError] = useState<string | null>(null);
-  const [storeMessage, setStoreMessage] = useState<string | null>(null);
-  const [storedDrafts, setStoredDrafts] = useState<StoredStatblockDraftSummary[]>([]);
-  const [storedDraftsLoading, setStoredDraftsLoading] = useState(true);
-  const [storedDraftsError, setStoredDraftsError] = useState<string | null>(null);
-  const [pendingLoadId, setPendingLoadId] = useState<string | null>(null);
-  const [corpusPreview, setCorpusPreview] = useState<StatblockCorpusPromotionPreviewResponse | null>(null);
-  const [pendingPreview, setPendingPreview] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [corpusWritePrepare, setCorpusWritePrepare] = useState<StatblockCorpusWritePrepareResponse | null>(null);
-  const [corpusWriteResult, setCorpusWriteResult] = useState<StatblockCorpusWriteCommitResponse | null>(null);
-  const [pendingWritePrepare, setPendingWritePrepare] = useState(false);
-  const [pendingWriteCommit, setPendingWriteCommit] = useState(false);
-  const [writeError, setWriteError] = useState<string | null>(null);
-  const [showWriteConfirm, setShowWriteConfirm] = useState(false);
-  const [retrievalActivation, setRetrievalActivation] = useState<StatblockRetrievalActivationResponse | null>(null);
-  const [retrievalVerification, setRetrievalVerification] = useState<StatblockRetrievalVerifyResponse | null>(null);
-  const [pendingRetrievalActivation, setPendingRetrievalActivation] = useState(false);
-  const [pendingRetrievalVerification, setPendingRetrievalVerification] = useState(false);
-  const [retrievalError, setRetrievalError] = useState<string | null>(null);
-
-  const refreshStoredDrafts = useCallback(() => {
-    setStoredDraftsLoading(true);
-    setStoredDraftsError(null);
-    return listStatblockWorkbenchDrafts()
-      .then((listResponse: ListStatblockDraftsResponse) => setStoredDrafts(listResponse.drafts))
-      .catch((err: unknown) => setStoredDraftsError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setStoredDraftsLoading(false));
-  }, []);
-
-  const clearRetrievalState = () => {
-    setRetrievalActivation(null);
-    setRetrievalVerification(null);
-    setRetrievalError(null);
-  };
-
-  const clearCorpusWriteState = () => {
-    setCorpusWritePrepare(null);
-    setCorpusWriteResult(null);
-    setWriteError(null);
-    setShowWriteConfirm(false);
-    clearRetrievalState();
-  };
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setStoredDraftsLoading(true);
-    setStoredDraftsError(null);
-
-    getStatblockWorkbenchSample()
-      .then((sample) => {
-        if (active) setResponse(sample);
-      })
-      .catch((err: unknown) => {
-        if (active) setError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    listStatblockWorkbenchDrafts()
-      .then((draftList) => {
-        if (active) setStoredDrafts(draftList.drafts);
-      })
-      .catch((err: unknown) => {
-        if (active) setStoredDraftsError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (active) setStoredDraftsLoading(false);
-      });
-
-    return () => { active = false; };
-  }, []);
-
-  const runCommand = (commandType: StatblockWorkbenchCommandType) => {
-    setPendingCommand(commandType);
-    setCommandError(null);
-    setStoreError(null);
-    setStoreMessage(null);
-    setCorpusPreview(null);
-    setPreviewError(null);
-    clearCorpusWriteState();
-    postStatblockWorkbenchCommand({
-      command_type: commandType,
-      requested_by: "human",
-      breadcrumbs: [{
-        label: "surface:statblock_workbench",
-        source: "live_control_ui",
-        metadata: { trigger: commandType === "statblock.draft.generate" ? "generate_mock_draft" : "render_mock_statblock" },
-      }],
-      as_artifact: true,
-    })
-      .then((commandResponse) => {
-        if (commandResponse.artifact) {
-          setResponse({
-            schema_version: commandResponse.schema_version,
-            mode: commandResponse.mode,
-            artifact: commandResponse.artifact,
-            command_status: commandResponse.command_status,
-            diagnostics: commandResponse.diagnostics,
-            available_actions: commandResponse.available_actions,
-          });
-        } else {
-          setCommandError("Command completed without a draft artifact.");
-        }
-      })
-      .catch((err: unknown) => setCommandError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setPendingCommand(null));
-  };
-
-  const storeCurrentDraft = () => {
-    if (!response?.artifact) return;
-    setPendingStore(true);
-    setStoreError(null);
-    setStoreMessage(null);
-    setCorpusPreview(null);
-    setPreviewError(null);
-    clearCorpusWriteState();
-    storeStatblockWorkbenchDraft({ artifact: response.artifact, source: "workbench" })
-      .then((storeResponse) => {
-        setResponse((current) => current ? { ...current, artifact: storeResponse.record.artifact, command_status: "stored" } : current);
-        setStoreMessage(`Stored as non-corpus draft: ${storeResponse.record.storage_path}`);
-        return refreshStoredDrafts();
-      })
-      .catch((err: unknown) => setStoreError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setPendingStore(false));
-  };
-
-  const loadStoredDraft = (artifactId: string) => {
-    setPendingLoadId(artifactId);
-    setStoreError(null);
-    setStoreMessage(null);
-    setCorpusPreview(null);
-    setPreviewError(null);
-    clearCorpusWriteState();
-    getStatblockWorkbenchDraft(artifactId)
-      .then((readResponse) => {
-        setResponse((current) => current ? { ...current, artifact: readResponse.record.artifact, command_status: "loaded_stored_draft" } : {
-          schema_version: readResponse.schema_version,
-          mode: "stored_draft",
-          artifact: readResponse.record.artifact,
-          command_status: "loaded_stored_draft",
-          diagnostics: ["loaded stored non-corpus draft artifact"],
-          available_actions: [],
-        });
-        setStoreMessage(`Loaded non-corpus draft: ${readResponse.record.storage_path}`);
-      })
-      .catch((err: unknown) => setStoreError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setPendingLoadId(null));
-  };
-
-  const previewCurrentDraft = () => {
-    if (!response?.artifact || response.artifact.storage_status !== "stored_draft") return;
-    setPendingPreview(true);
-    setPreviewError(null);
-    previewStatblockCorpusPromotion(response.artifact.artifact_id, { include_writer_allowlist_check: true })
-      .then((preview) => {
-        setCorpusPreview(preview);
-        clearCorpusWriteState();
-      })
-      .catch((err: unknown) => setPreviewError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setPendingPreview(false));
-  };
-
-  const prepareCorpusWrite = () => {
-    if (!response?.artifact || !corpusPreview) return;
-    setPendingWritePrepare(true);
-    setWriteError(null);
-    setCorpusWriteResult(null);
-    setShowWriteConfirm(false);
-    prepareStatblockCorpusWrite(response.artifact.artifact_id, { preview_token: corpusPreview.preview_token })
-      .then((prepare) => setCorpusWritePrepare(prepare))
-      .catch((err: unknown) => setWriteError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setPendingWritePrepare(false));
-  };
-
-  const commitCorpusWrite = () => {
-    if (!response?.artifact || !corpusWritePrepare?.writer_confirm_token) return;
-    setPendingWriteCommit(true);
-    setWriteError(null);
-    commitStatblockCorpusWrite(response.artifact.artifact_id, {
-      preview_token: corpusWritePrepare.preview_token,
-      writer_confirm_token: corpusWritePrepare.writer_confirm_token,
-    })
-      .then((commit) => {
-        setCorpusWriteResult(commit);
-        setCorpusWritePrepare(null);
-        clearRetrievalState();
-        setResponse((current) => current ? { ...current, artifact: commit.stored_record.artifact, command_status: "corpus_written" } : current);
-        setShowWriteConfirm(false);
-        return refreshStoredDrafts();
-      })
-      .catch((err: unknown) => setWriteError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setPendingWriteCommit(false));
-  };
-
-  const activateRetrieval = () => {
-    if (!response?.artifact) return;
-    setPendingRetrievalActivation(true);
-    setRetrievalError(null);
-    setRetrievalVerification(null);
-    activateStatblockRetrieval(response.artifact.artifact_id)
-      .then((activation) => {
-        setRetrievalActivation(activation);
-        setResponse((current) => current ? { ...current, command_status: "retrieval_activated" } : current);
-        return refreshStoredDrafts();
-      })
-      .catch((err: unknown) => setRetrievalError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setPendingRetrievalActivation(false));
-  };
-
-  const verifyRetrieval = () => {
-    if (!response?.artifact) return;
-    setPendingRetrievalVerification(true);
-    setRetrievalError(null);
-    verifyStatblockRetrieval(response.artifact.artifact_id, {})
-      .then((verification) => {
-        setRetrievalVerification(verification);
-        if (verification.stored_record) {
-          setResponse((current) => current ? { ...current, command_status: "retrieval_verified" } : current);
-        }
-        return refreshStoredDrafts();
-      })
-      .catch((err: unknown) => setRetrievalError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setPendingRetrievalVerification(false));
-  };
-
-  if (loading) {
-    return <div className="module-panel statblock-workbench" data-module-id="statblock_workbench"><h2 className="module-title">Statblock Workbench</h2><p className="module-muted">Loading read-only sample artifact…</p></div>;
-  }
-  if (error) {
-    return <div className="module-panel statblock-workbench" data-module-id="statblock_workbench"><h2 className="module-title">Statblock Workbench</h2><p className="module-error">Unable to load sample statblock artifact: {error}</p></div>;
-  }
-  if (!response) {
-    return <div className="module-panel statblock-workbench" data-module-id="statblock_workbench"><h2 className="module-title">Statblock Workbench</h2><p className="module-muted">No sample artifact returned.</p></div>;
-  }
-
-  return (
-    <ReadyWorkbench
-      response={response}
-      pendingCommand={pendingCommand}
-      commandError={commandError}
-      storeError={storeError}
-      storeMessage={storeMessage}
-      storedDrafts={storedDrafts}
-      storedDraftsLoading={storedDraftsLoading}
-      storedDraftsError={storedDraftsError}
-      pendingStore={pendingStore}
-      pendingLoadId={pendingLoadId}
-      corpusPreview={corpusPreview}
-      pendingPreview={pendingPreview}
-      previewError={previewError}
-      corpusWritePrepare={corpusWritePrepare}
-      corpusWriteResult={corpusWriteResult}
-      pendingWritePrepare={pendingWritePrepare}
-      pendingWriteCommit={pendingWriteCommit}
-      writeError={writeError}
-      showWriteConfirm={showWriteConfirm}
-      retrievalActivation={retrievalActivation}
-      retrievalVerification={retrievalVerification}
-      pendingRetrievalActivation={pendingRetrievalActivation}
-      pendingRetrievalVerification={pendingRetrievalVerification}
-      retrievalError={retrievalError}
-      onPrepareCorpusWrite={prepareCorpusWrite}
-      onRequestCorpusWriteConfirm={() => setShowWriteConfirm(true)}
-      onCancelCorpusWriteConfirm={() => setShowWriteConfirm(false)}
-      onCommitCorpusWrite={commitCorpusWrite}
-      onActivateRetrieval={activateRetrieval}
-      onVerifyRetrieval={verifyRetrieval}
-      onRunCommand={runCommand}
-      onStoreDraft={storeCurrentDraft}
-      onLoadDraft={loadStoredDraft}
-      onPreviewCorpusPromotion={previewCurrentDraft}
-    />
   );
 }

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
+  getExtractionRun,
+  getExtractionRunStatus,
   getGoldReviewCompare,
   getGoldReviewSessions,
   getGraphIngestRuns,
@@ -9,7 +11,19 @@ import {
   LiveApiError,
   postWorldGraphRecapProjection,
 } from "../../api/liveApi";
-import type { GoldReviewCompareResponse, ManualReviewBedDetail, ManualReviewBedSummary } from "../../api/types";
+import type {
+  ExtractionRunRecord,
+  ExtractionRunStatusResponse,
+  GoldReviewCompareResponse,
+  ManualReviewBedDetail,
+  ManualReviewBedSummary,
+} from "../../api/types";
+import {
+  ExtractPromoteApiError,
+  getExactRunReviewPackage,
+  prepareExtractPromote,
+} from "../../api/extractPromoteApi";
+import type { ExactRunReviewPackage, ExtractPromotePrepareResponse } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
@@ -27,6 +41,14 @@ import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
+import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
+import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
+import {
+  type GraphReviewAppliedSelection,
+  resolvePersistedAppliedSelection,
+  writeAppliedSelectionToStorage,
+  writeAppliedSelectionToUrl,
+} from "./graphReviewAppliedSelection";
 import {
   type WarmupStatus,
 } from "./graphReviewActivity";
@@ -42,26 +64,19 @@ import {
   pickDefaultWorkbenchRun,
 } from "./graphReviewWorkbenchUtils";
 import { manualVariantToLaneView } from "./graphReviewVariantReferenceUtils";
+import {
+  assertExactRunHandoff,
+  clearExactRunHandoffFromLocation,
+  parseGraphReviewRunHandoff,
+} from "./graphReviewRunSelection";
+import type {
+  GraphReviewExactRunHandoff,
+  GraphReviewExactRunLineage,
+} from "./graphReviewRunSelection";
 
 interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
   onSurfaceChromeChange?: (chrome: ReactNode) => void;
-}
-
-interface AppliedSelection {
-  campaignId: string;
-  sessionId: string;
-  manifestPath: string | null;
-}
-
-function syncGraphReviewUrl(sessionId: string, campaignId: string): void {
-  if (typeof window === "undefined") return;
-  const params = new URLSearchParams(window.location.search);
-  params.set("session", sessionId);
-  params.set("campaign", campaignId);
-  const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
-  const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
-  window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
 }
 
 function buildDefaultDraft(
@@ -69,7 +84,7 @@ function buildDefaultDraft(
   campaignId: string,
   requestedSessionId: string | null,
   fallbackSessionId: string,
-): AppliedSelection | null {
+): GraphReviewAppliedSelection | null {
   const visibleSessions = catalogSessionsForReviewCampaign(sessions, campaignId);
   const session = pickDefaultCatalogSession(
     visibleSessions,
@@ -85,6 +100,42 @@ function buildDefaultDraft(
     sessionId: session.sessionId,
     manifestPath: run?.manifest_path ?? null,
   };
+}
+
+function resolveSelectionAgainstCatalog(
+  selection: GraphReviewAppliedSelection | null,
+  sessions: GraphReviewCatalogSession[],
+): GraphReviewAppliedSelection | null {
+  if (!selection) return null;
+  const campaignSessions = catalogSessionsForReviewCampaign(sessions, selection.campaignId);
+  const session =
+    campaignSessions.find((entry) => entry.sessionId === selection.sessionId) ?? null;
+  if (!session) return null;
+  const previewRuns = session.availableRuns.filter((run) => run.preview_union_available);
+  if (selection.manifestPath) {
+    const exact =
+      previewRuns.find((run) => run.manifest_path === selection.manifestPath) ??
+      session.availableRuns.find((run) => run.manifest_path === selection.manifestPath);
+    if (exact) {
+      return {
+        campaignId: selection.campaignId,
+        sessionId: selection.sessionId,
+        manifestPath: exact.manifest_path,
+      };
+    }
+  }
+  const fallbackRun = pickDefaultWorkbenchRun(previewRuns);
+  if (!fallbackRun) return null;
+  return {
+    campaignId: selection.campaignId,
+    sessionId: selection.sessionId,
+    manifestPath: fallbackRun.manifest_path,
+  };
+}
+
+function persistAppliedSelection(selection: GraphReviewAppliedSelection): void {
+  writeAppliedSelectionToUrl(selection);
+  writeAppliedSelectionToStorage(selection);
 }
 
 async function loadGraphReviewCatalog(): Promise<GraphReviewCatalogSession[]> {
@@ -156,12 +207,23 @@ export function GraphReviewWorkbenchModule({
 }: GraphReviewWorkbenchModuleProps) {
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
+  const [exactHandoff, setExactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
+    parseGraphReviewRunHandoff(
+      typeof window !== "undefined" ? window.location.search : "",
+    ),
+  );
+  const exactHandoffErrors = useMemo(
+    () => (exactHandoff ? assertExactRunHandoff(exactHandoff) : []),
+    [exactHandoff],
+  );
 
   const [catalogSessions, setCatalogSessions] = useState<GraphReviewCatalogSession[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [catalogRefreshToken, setCatalogRefreshToken] = useState(0);
-  const [appliedSelection, setAppliedSelection] = useState<AppliedSelection | null>(null);
+  const [appliedSelection, setAppliedSelection] = useState<GraphReviewAppliedSelection | null>(
+    null,
+  );
   const [draftCampaignId, setDraftCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(context.campaignId),
   );
@@ -179,6 +241,21 @@ export function GraphReviewWorkbenchModule({
   const [selectedManualBed, setSelectedManualBed] = useState<ManualReviewBedDetail | null>(null);
   const [selectedManualVariantName, setSelectedManualVariantName] = useState<string | null>(null);
   const [warmupStatus, setWarmupStatus] = useState<WarmupStatus>("idle");
+  const [exactRun, setExactRun] = useState<ExtractionRunRecord | null>(null);
+  const [exactLineage, setExactLineage] = useState<GraphReviewExactRunLineage | null>(null);
+  const [exactRunStatus, setExactRunStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    exactHandoff ? "loading" : "idle",
+  );
+  const [exactRunError, setExactRunError] = useState<string | null>(null);
+  const [exactPrepared, setExactPrepared] = useState<ExtractPromotePrepareResponse | null>(null);
+  const [exactPreparing, setExactPreparing] = useState(false);
+  const [exactPrepareError, setExactPrepareError] = useState<string | null>(null);
+  const [exactConfirmInFlight, setExactConfirmInFlight] = useState(false);
+  const [exactReview, setExactReview] = useState<ExactRunReviewPackage | null>(null);
+  const [exactReviewStatus, setExactReviewStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
+  const [exactReviewError, setExactReviewError] = useState<string | null>(null);
   const appliedCampaignSessions = useMemo(
     () =>
       appliedSelection
@@ -252,26 +329,64 @@ export function GraphReviewWorkbenchModule({
   );
 
   const refreshCatalog = useCallback(async () => {
-    setSessionsLoaded(false);
+    // Keep the current projection mounted while refreshing the catalog so a
+    // Load → URL update → dep change cycle cannot flash the empty state.
     setSessionsError(null);
     try {
       const catalog = await loadGraphReviewCatalog();
       const initialCampaignId = resolveInitialReviewCampaignId(context.campaignId);
       setCatalogSessions(catalog);
-      const defaultDraft = buildDefaultDraft(
-        catalog,
-        initialCampaignId,
-        requestedSessionId,
-        fallbackSessionId,
-      );
-      if (defaultDraft) {
-        setDraftCampaignId(defaultDraft.campaignId);
-        setDraftSessionId(defaultDraft.sessionId);
-        setDraftManifestPath(defaultDraft.manifestPath);
+
+      const persistedHint = resolvePersistedAppliedSelection();
+      setAppliedSelection((current) => {
+        const restored = resolveSelectionAgainstCatalog(
+          persistedHint ?? current,
+          catalog,
+        );
+        if (restored) {
+          return restored;
+        }
+        if (!requestedSessionId) {
+          return current;
+        }
+        return (
+          buildDefaultDraft(
+            catalog,
+            initialCampaignId,
+            requestedSessionId,
+            fallbackSessionId,
+          ) ?? current
+        );
+      });
+
+      const draftSource =
+        resolveSelectionAgainstCatalog(persistedHint, catalog) ??
+        buildDefaultDraft(
+          catalog,
+          initialCampaignId,
+          requestedSessionId,
+          fallbackSessionId,
+        );
+      if (draftSource) {
+        setDraftCampaignId(draftSource.campaignId);
+        setDraftSessionId(draftSource.sessionId);
+        setDraftManifestPath(draftSource.manifestPath);
       }
-      if (requestedSessionId && defaultDraft) {
-        setAppliedSelection(defaultDraft);
+
+      const toPersist =
+        resolveSelectionAgainstCatalog(persistedHint, catalog) ??
+        (requestedSessionId
+          ? buildDefaultDraft(
+              catalog,
+              initialCampaignId,
+              requestedSessionId,
+              fallbackSessionId,
+            )
+          : null);
+      if (toPersist) {
+        persistAppliedSelection(toPersist);
       }
+
       setSessionsLoaded(true);
     } catch (error) {
       setCatalogSessions([]);
@@ -290,7 +405,155 @@ export function GraphReviewWorkbenchModule({
     return () => {
       cancelled = true;
     };
-  }, [refreshCatalog, catalogRefreshToken]);
+    // Re-fetch only on mount and when ingest emits a runs-changed signal.
+    // Do not depend on refreshCatalog identity — that used to remount the
+    // projection whenever Load updated the session query param.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [catalogRefreshToken]);
+
+  useEffect(() => {
+    if (!exactHandoff || exactHandoffErrors.length > 0) {
+      if (exactHandoffErrors.length > 0) {
+        setExactRun(null);
+        setExactRunStatus("error");
+        setExactRunError(exactHandoffErrors.join("; "));
+      }
+      return;
+    }
+    let cancelled = false;
+    setExactRunStatus("loading");
+    setExactRunError(null);
+    setExactLineage(null);
+    const fail = (message: string) => {
+      if (cancelled) return;
+      setExactRun(null);
+      setExactLineage(null);
+      setExactRunStatus("error");
+      setExactRunError(message);
+      setExactReview(null);
+      setExactReviewStatus("idle");
+      setExactReviewError(null);
+    };
+    void (async () => {
+      let run: ExtractionRunRecord;
+      try {
+        run = await getExtractionRun(exactHandoff.extractionRunId);
+      } catch (error) {
+        fail(
+          error instanceof LiveApiError || error instanceof Error
+            ? error.message
+            : "Failed to load exact extraction run.",
+        );
+        return;
+      }
+      if (cancelled) return;
+      if (run.run_id !== exactHandoff.extractionRunId) {
+        fail("handoff extractionRunId does not match the loaded run");
+        return;
+      }
+      if (
+        exactHandoff.sourceArtifactId &&
+        run.source_artifact_id !== exactHandoff.sourceArtifactId
+      ) {
+        fail("handoff sourceArtifactId does not match the exact run");
+        return;
+      }
+
+      // A handoff that claims workspace lineage must be confirmed by the
+      // server's own SourceArtifact resolution. URL-supplied document identity
+      // is never displayed or trusted on its own.
+      let lineage: GraphReviewExactRunLineage | null = null;
+      if (exactHandoff.documentId !== null && exactHandoff.revision !== null) {
+        let context: ExtractionRunStatusResponse;
+        try {
+          context = await getExtractionRunStatus(exactHandoff.extractionRunId);
+        } catch (error) {
+          fail(
+            `handoff document lineage could not be verified: ${
+              error instanceof LiveApiError || error instanceof Error
+                ? error.message
+                : "unknown error"
+            }`,
+          );
+          return;
+        }
+        if (cancelled) return;
+        if (
+          context.run.run_id !== exactHandoff.extractionRunId ||
+          context.source_artifact_id !== run.source_artifact_id ||
+          context.document_id !== exactHandoff.documentId ||
+          context.document_revision !== exactHandoff.revision
+        ) {
+          fail("handoff document lineage does not match the server-resolved run");
+          return;
+        }
+        lineage = {
+          documentId: context.document_id,
+          revision: context.document_revision,
+        };
+      }
+      if (cancelled) return;
+      setExactRun(run);
+      setExactLineage(lineage);
+      setExactRunStatus("ready");
+      setExactReviewStatus("loading");
+      setExactReviewError(null);
+      setExactReview(null);
+      try {
+        const packageResponse = await getExactRunReviewPackage(run.run_id);
+        if (cancelled) return;
+        const packageCampaign = (packageResponse.campaignId ?? "").trim();
+        const runCampaign = (run.campaign_id ?? "").trim();
+        const packageSession = (packageResponse.sessionId ?? "").trim();
+        const runSession = (run.session_id ?? "").trim();
+        if (
+          packageResponse.runId !== run.run_id ||
+          packageResponse.sourceArtifactId !== run.source_artifact_id ||
+          packageResponse.sourceDomain !== run.source_domain ||
+          packageCampaign !== runCampaign ||
+          packageSession !== runSession
+        ) {
+          setExactReview(null);
+          setExactReviewStatus("error");
+          setExactReviewError(
+            "exact-run review package identity does not match the loaded ExtractionRun",
+          );
+          return;
+        }
+        setExactReview(packageResponse);
+        setExactReviewStatus("ready");
+      } catch (error) {
+        if (cancelled) return;
+        // Interim dogfood inspect: full error body in the browser console until
+        // inspectable review-package lands (Backlog: false_anchor / run_not_promotable).
+        if (error instanceof ExtractPromoteApiError) {
+          console.error("[graph-review] exact-run review-package failed", {
+            runId: run.run_id,
+            status: error.status,
+            code: error.code,
+            message: error.message,
+            diagnostics: error.body?.diagnostics ?? null,
+            body: error.body,
+          });
+        } else {
+          console.error("[graph-review] exact-run review-package failed", {
+            runId: run.run_id,
+            error,
+          });
+        }
+        setExactReview(null);
+        setExactReviewStatus("error");
+        setExactReviewError(
+          error instanceof ExtractPromoteApiError || error instanceof Error
+            ? error.message
+            : "Failed to load exact-run source evidence.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [exactHandoff, exactHandoffErrors]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -463,30 +726,95 @@ export function GraphReviewWorkbenchModule({
 
   const handleApplyLoad = () => {
     if (!draftSession || !draftLiveRun) return;
-    const nextApplied: AppliedSelection = {
+    const nextApplied: GraphReviewAppliedSelection = {
       campaignId: draftCampaignId,
       sessionId: draftSession.sessionId,
       manifestPath: draftLiveRun.manifest_path,
     };
+    // Loading a recap supersedes exact-run mode: clear handoff identity from
+    // state and the URL so the module renders the selected recap immediately.
+    clearExactRunHandoffFromLocation();
+    setExactHandoff(null);
+    setExactRun(null);
+    setExactLineage(null);
+    setExactRunStatus("idle");
+    setExactRunError(null);
+    setExactReview(null);
+    setExactReviewStatus("idle");
+    setExactReviewError(null);
+    setExactPrepared(null);
+    setExactPrepareError(null);
     setAppliedSelection(nextApplied);
-    syncGraphReviewUrl(nextApplied.sessionId, nextApplied.campaignId);
+    persistAppliedSelection(nextApplied);
     setLoadDialogOpen(false);
   };
 
-  const reviewCampaignId =
-    appliedSession?.campaignId ?? draftCampaignId ?? context.campaignId;
-  const reviewSessionId =
-    appliedSession?.sessionId || draftSessionId || fallbackSessionId;
-  const toolboxConfig = useMemo(() => {
-    const sessionNumber = sessionNumberFromId(reviewSessionId) ?? context.ingestSession;
-    return createIngestSurfaceConfig({
-      ...context,
-      campaignId: reviewCampaignId,
-      ingestSession: sessionNumber,
-    });
-  }, [context, reviewCampaignId, reviewSessionId]);
+  const exactRunReviewable = exactRun?.status === "reviewable";
+  const exactRunPromotable =
+    exactRunReviewable
+    && exactReview?.promotable !== false
+    && (exactRun?.source_domain ?? "").trim() !== "worldbuilding";
+  const exactRunNonPromotableReason =
+    exactReview?.promotableReason?.trim()
+    || (
+      (exactRun?.source_domain ?? "").trim() === "worldbuilding"
+        ? "Worldbuilding ExtractionRuns are inspect-only until an approved authority-elevation contract lands."
+        : null
+    );
+  const exactRunSummary =
+    exactHandoff && exactRun
+      ? {
+          extractionRunId: exactRun.run_id,
+          sourceDomain: exactRun.source_domain,
+          status: exactRun.status,
+          sourceArtifactId: exactRun.source_artifact_id,
+          profileId: exactRun.profile_id ?? null,
+          campaignId: exactRun.campaign_id ?? null,
+          sessionId: exactRun.session_id ?? null,
+          documentId: exactLineage?.documentId ?? null,
+          revision: exactLineage?.revision ?? null,
+          reviewable: exactRunReviewable,
+          promotable: exactRunPromotable,
+        }
+      : null;
 
-  if (!sessionsLoaded) {
+  const onPrepareExactRun = useCallback(async () => {
+    if (!exactHandoff || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
+    setExactPreparing(true);
+    setExactPrepareError(null);
+    try {
+      const response = await prepareExtractPromote({ runId: exactHandoff.extractionRunId });
+      setExactPrepared(response);
+    } catch (error) {
+      setExactPrepared(null);
+      if (error instanceof ExtractPromoteApiError) {
+        const diagnosticTail = (error.body?.diagnostics ?? [])
+          .map((item) => item.message)
+          .filter((message): message is string => Boolean(message?.trim()))
+          .join(" · ");
+        setExactPrepareError(
+          diagnosticTail ? `${error.message} (${diagnosticTail})` : error.message,
+        );
+        console.error("[graph-review] exact-run prepare failed", {
+          runId: exactHandoff.extractionRunId,
+          status: error.status,
+          code: error.code,
+          message: error.message,
+          diagnostics: error.body?.diagnostics ?? null,
+          body: error.body,
+        });
+      } else if (error instanceof Error) {
+        setExactPrepareError(error.message);
+        console.error("[graph-review] exact-run prepare failed", error);
+      } else {
+        setExactPrepareError("Failed to prepare promotion for exact run.");
+      }
+    } finally {
+      setExactPreparing(false);
+    }
+  }, [exactConfirmInFlight, exactHandoff, exactPreparing, exactRunPromotable]);
+
+  if (!sessionsLoaded && !exactHandoff) {
     return (
       <GraphReviewWorkbenchLoadingChrome
         onSurfaceChromeChange={onSurfaceChromeChange}
@@ -495,9 +823,31 @@ export function GraphReviewWorkbenchModule({
   }
 
   const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
+  const hasExactRunLoad = Boolean(exactHandoff && exactRunStatus === "ready" && exactRun);
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
   // Ingest Recap remains reachable from the empty /ingest landing state.
+  // Exact campaignless runs must not inherit applied/draft/context campaign lenses.
+  const exactRunCampaignId = hasExactRunLoad
+    ? (exactRun?.campaign_id ?? "").trim()
+    : null;
+  const reviewCampaignId =
+    hasExactRunLoad
+      ? (exactRunCampaignId ?? "")
+      : appliedSession?.campaignId ?? draftCampaignId ?? context.campaignId;
+  // Exact worldbuilding runs keep session null — never invent a session lens.
+  // A rejected or unresolved handoff must not degrade the recap lens either.
+  const reviewSessionId = hasExactRunLoad
+    ? exactRun?.session_id?.trim() || ""
+    : appliedSession?.sessionId || draftSessionId || fallbackSessionId;
+  const toolboxConfig = useMemo(() => {
+    const sessionNumber = sessionNumberFromId(reviewSessionId) ?? context.ingestSession;
+    return createIngestSurfaceConfig({
+      ...context,
+      campaignId: reviewCampaignId,
+      ingestSession: sessionNumber,
+    });
+  }, [context, reviewCampaignId, reviewSessionId]);
 
   return (
     <ProjectionProvider config={toolboxConfig}>
@@ -531,38 +881,117 @@ export function GraphReviewWorkbenchModule({
         onSelectSelection={setSelection}
       >
         <div className="graph-review-workbench-root">
-          <GraphReviewWorkbenchHeaderWithActivity
-            loaded={hasAppliedLoad}
-            sessionLabel={loadBarSummary}
-            onOpenLoad={openLoadDialog}
-            sessionsLoaded={sessionsLoaded}
-            hasAppliedLoad={hasAppliedLoad}
-            warmupStatus={warmupStatus}
-            draftCampaignId={draftCampaignId}
-            draftSessionId={draftSessionId}
-            onSurfaceChromeChange={onSurfaceChromeChange}
-          />
+          {exactHandoff ? (
+            <GraphReviewWorkbenchHeader
+              loaded={hasAppliedLoad || hasExactRunLoad}
+              sessionLabel={loadBarSummary}
+              onOpenLoad={openLoadDialog}
+              exactRun={exactRunSummary}
+            />
+          ) : (
+            <GraphReviewWorkbenchHeaderWithActivity
+              loaded={hasAppliedLoad}
+              sessionLabel={loadBarSummary}
+              onOpenLoad={openLoadDialog}
+              sessionsLoaded={sessionsLoaded}
+              hasAppliedLoad={hasAppliedLoad}
+              warmupStatus={warmupStatus}
+              draftCampaignId={draftCampaignId}
+              draftSessionId={draftSessionId}
+              onSurfaceChromeChange={onSurfaceChromeChange}
+            />
+          )}
 
           {sessionsError ? <p className="graph-review-error">{sessionsError}</p> : null}
+          {exactRunError ? (
+            <p className="graph-review-error" data-testid="graph-review-exact-run-error">
+              {exactRunError}
+            </p>
+          ) : null}
+          {exactRunStatus === "loading" ? (
+            <p className="plan-projection-empty">Loading exact extraction run…</p>
+          ) : null}
 
-          <GraphReviewAuthorNodeHost
-            onRequestLoad={openLoadDialog}
-            chrome={
-              !hasCatalogSessions ? (
-                <p className="plan-projection-empty">
-                  No preview-ready graph runs are available yet. Use Ingest Recap in the toolbox to
-                  paste a recap, run extraction, and materialize a preview graph.
+          {hasExactRunLoad ? (
+            <div
+              className="graph-review-exact-run-panel"
+              data-testid="graph-review-exact-run-panel"
+            >
+              <p>
+                Bound to exact ExtractionRun <code>{exactRun!.run_id}</code>. Prepare uses
+                runId-only server resolution; no latest-run fallback.
+              </p>
+              {exactReviewStatus === "loading" ? (
+                <p className="plan-projection-empty">Loading source evidence…</p>
+              ) : null}
+              {exactReviewError ? (
+                <p className="graph-review-error" data-testid="graph-review-exact-run-review-error">
+                  {exactReviewError}
                 </p>
-              ) : !hasAppliedLoad ? (
-                <p className="plan-projection-empty graph-review-load-empty">
-                  Load an ingested session to review extracted objects in recap prose.
+              ) : null}
+              {exactReview ? <GraphReviewExactRunProjection review={exactReview} /> : null}
+              {!exactRunReviewable ? (
+                <p data-testid="graph-review-exact-run-unreviewable">
+                  Run status is <code>{exactRun!.status}</code> and is not reviewable for
+                  promotion.
                 </p>
-              ) : (
-                <GraphReviewSessionToolbar />
-              )
-            }
-            projection={hasAppliedLoad ? <GraphReviewLiveProjectionPanel /> : null}
-          />
+              ) : !exactRunPromotable ? (
+                <p data-testid="graph-review-exact-run-not-promotable">
+                  {exactRunNonPromotableReason
+                    ?? "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."}
+                </p>
+              ) : exactReviewStatus === "error" ? null : (
+                <div className="graph-review-extract-promote-actions">
+                  <button
+                    type="button"
+                    className="primary"
+                    data-testid="graph-review-exact-run-prepare"
+                    disabled={
+                      exactPreparing ||
+                      exactConfirmInFlight ||
+                      exactReviewStatus !== "ready" ||
+                      !exactReview
+                    }
+                    onClick={() => {
+                      void onPrepareExactRun();
+                    }}
+                  >
+                    {exactPreparing ? "Preparing…" : "Review & merge"}
+                  </button>
+                  {exactPrepareError ? (
+                    <p className="graph-review-error">{exactPrepareError}</p>
+                  ) : null}
+                </div>
+              )}
+              {exactPrepared ? (
+                <GraphReviewExtractPromoteSheet
+                  prepared={exactPrepared}
+                  onClose={() => setExactPrepared(null)}
+                  onConfirmInFlightChange={setExactConfirmInFlight}
+                  onCatalogRefresh={refreshCatalog}
+                />
+              ) : null}
+            </div>
+          ) : (
+            <GraphReviewAuthorNodeHost
+              onRequestLoad={openLoadDialog}
+              chrome={
+                !hasCatalogSessions ? (
+                  <p className="plan-projection-empty">
+                    No preview-ready graph runs are available yet. Use Ingest Recap in the toolbox to
+                    paste a recap, run extraction, and materialize a preview graph.
+                  </p>
+                ) : !hasAppliedLoad ? (
+                  <p className="plan-projection-empty graph-review-load-empty">
+                    Load an ingested session to review extracted objects in recap prose.
+                  </p>
+                ) : (
+                  <GraphReviewSessionToolbar />
+                )
+              }
+              projection={hasAppliedLoad ? <GraphReviewLiveProjectionPanel /> : null}
+            />
+          )}
 
           <AdaptiveProjectionContainer config={toolboxConfig} />
 

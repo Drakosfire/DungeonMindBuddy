@@ -1,0 +1,91 @@
+.statblock-definition-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-subtle, #3a3a3a);
+  border-radius: 8px;
+}
+
+.statblock-definition-editor__disclosure,
+.statblock-definition-editor__status {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.statblock-definition-editor__status {
+  font-weight: 600;
+}
+
+.statblock-definition-editor__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.statblock-definition-editor__section h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.statblock-definition-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+
+.statblock-definition-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.statblock-definition-editor input,
+.statblock-definition-editor textarea {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, #555);
+  background: var(--surface-elevated, #1e1e1e);
+  color: inherit;
+}
+
+.statblock-definition-editor textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+
+.statblock-editor-protected {
+  border: 1px dashed var(--border-subtle, #666);
+  border-radius: 6px;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--surface-elevated, #1e1e1e) 90%, transparent);
+}
+
+.statblock-editor-protected__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.statblock-editor-protected__badge {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.statblock-editor-protected__summary {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.75rem;
+  overflow-x: auto;
+}
+
+.statblock-definition-editor__rule-element {
+  border-top: 1px solid var(--border-subtle, #333);
+  padding-top: 0.75rem;
+}

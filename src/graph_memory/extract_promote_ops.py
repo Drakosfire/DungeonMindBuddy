@@ -269,6 +269,10 @@ def prepare_extract_promote(
     When standing-context objects are present (sibling registry graph or
     promote-time partition), seals a v3 multi-contribution package: standing
     first, then recap source_extraction.
+
+    Source-extraction contributions always seal as ``source_domain="recap"``.
+    Worldbuilding product runs are inspect-only and never reach this Kernel
+    prepare path; do not reintroduce a speculative domain parameter here.
     """
     payload = dict(candidate_graph)
     standing_payload: dict[str, Any] | None = None

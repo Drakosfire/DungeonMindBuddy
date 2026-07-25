@@ -145,3 +145,122 @@ class GraphIngestRunManifest(_GraphIngestModel):
     @property
     def schema(self) -> str:
         return self.schema_
+
+
+# ---------------------------------------------------------------------------
+# Legacy recap manifest adapter → canonical ExtractionRun
+# ---------------------------------------------------------------------------
+
+_STATUS_MAP: dict[GraphIngestRunStatus, str] = {
+    GraphIngestRunStatus.NOT_STARTED: "draft",
+    GraphIngestRunStatus.SOURCE_READY: "prepared",
+    GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY: "prepared",
+    GraphIngestRunStatus.CANDIDATE_EXTRACTION_READY: "extracted",
+    GraphIngestRunStatus.CANDIDATE_VALIDATION_READY: "validated",
+    GraphIngestRunStatus.PREVIEW_UNION_STORE_READY: "validated",
+    GraphIngestRunStatus.READY_FOR_PROJECTION: "reviewable",
+    GraphIngestRunStatus.FAILED: "failed",
+}
+
+
+def adapt_recap_manifest_to_extraction_run(manifest: GraphIngestRunManifest):
+    """Map a recap/preview manifest into the canonical ExtractionRun contract.
+
+    This module remains the recap/legacy loader surface; ExtractionRun is the
+    canonical exact-run authority for new consumers.
+    """
+    from graph_memory.ingestion.extraction_run import (
+        ExtractionRun,
+        ExtractionRunComponentKind,
+        ExtractionRunComponentRef,
+        ExtractionRunDiagnostics,
+        ExtractionRunStatus,
+    )
+
+    if not manifest.run_id or not manifest.run_id.strip():
+        raise ValueError("recap manifest run_id is required")
+    if not manifest.campaign_id or not manifest.session_id:
+        raise ValueError("recap manifest requires campaign_id and session_id")
+
+    source_artifact_id = manifest.source.source_artifact_id
+    if not source_artifact_id:
+        raise ValueError("recap manifest source.source_artifact_id is required for adaptation")
+
+    # Stable manifest roles map 1:1 onto component kinds so LLM multi-telemetry
+    # artifacts (all PASS_TELEMETRY in the legacy manifest) are preserved.
+    role_kind_map: dict[str, ExtractionRunComponentKind] = {
+        "source_span_index": ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+        "candidate_graph": ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        "candidate_validation_report": ExtractionRunComponentKind.VALIDATION_REPORT,
+        "pass_outputs": ExtractionRunComponentKind.PASS_OUTPUTS,
+        "pass_telemetry": ExtractionRunComponentKind.PASS_TELEMETRY,
+        "consolidation_diagnostics": ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+        "raw_model_response": ExtractionRunComponentKind.RAW_MODEL_RESPONSE,
+        "provenance_index": ExtractionRunComponentKind.PROVENANCE_INDEX,
+    }
+    kind_fallback_map: dict[GraphIngestArtifactKind, ExtractionRunComponentKind] = {
+        GraphIngestArtifactKind.SOURCE_SPAN_INDEX: ExtractionRunComponentKind.SOURCE_SPAN_INDEX,
+        GraphIngestArtifactKind.CANDIDATE_GRAPH: ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT: ExtractionRunComponentKind.VALIDATION_REPORT,
+        GraphIngestArtifactKind.PROVENANCE_INDEX: ExtractionRunComponentKind.PROVENANCE_INDEX,
+        # PASS_TELEMETRY intentionally omitted: require a stable role key.
+    }
+
+    components: dict[str, ExtractionRunComponentRef] = {}
+    for role_key, artifact in manifest.artifacts.items():
+        mapped = role_kind_map.get(role_key)
+        if mapped is None:
+            mapped = kind_fallback_map.get(artifact.kind)
+        if mapped is None:
+            continue
+        if mapped.value in components:
+            raise ValueError(
+                f"duplicate extraction component role {mapped.value!r} "
+                f"(manifest key {role_key!r}); refusing last-write-wins"
+            )
+        components[mapped.value] = ExtractionRunComponentRef(
+            kind=mapped,
+            uri=artifact.uri,
+            sha256=artifact.sha256,
+            exists=artifact.exists,
+        )
+    components["source_artifact"] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.SOURCE_ARTIFACT,
+        uri=manifest.source.input_path_record or manifest.source.normalized_recap_path or "",
+        sha256=manifest.source.normalized_recap_sha256,
+        exists=bool(source_artifact_id),
+    )
+
+    status_value = _STATUS_MAP.get(manifest.status, "incomplete")
+    status = ExtractionRunStatus(status_value)
+    diagnostics = ExtractionRunDiagnostics(
+        messages=list(manifest.warnings),
+        errors=list(manifest.errors),
+    )
+    # Build non-reviewable first so incomplete REVIEWABLE mappings fail closed
+    # without violating the ExtractionRun model validator.
+    construct_status = (
+        ExtractionRunStatus.INCOMPLETE
+        if status == ExtractionRunStatus.REVIEWABLE
+        else status
+    )
+    run = ExtractionRun(
+        run_id=manifest.run_id,
+        source_artifact_id=source_artifact_id,
+        source_domain=manifest.source.source_domain or "recap",
+        status=construct_status,
+        campaign_id=manifest.campaign_id,
+        session_id=manifest.session_id,
+        created_at=manifest.created_at,
+        updated_at=manifest.updated_at,
+        components=components,
+        diagnostics=diagnostics,
+        lineage={
+            "adapter": "graph_ingest_run_manifest_v0",
+            "legacy_status": manifest.status.value,
+        },
+    )
+    if status == ExtractionRunStatus.REVIEWABLE and run.has_required_review_components():
+        run = run.model_copy(update={"status": ExtractionRunStatus.REVIEWABLE})
+    return run
+

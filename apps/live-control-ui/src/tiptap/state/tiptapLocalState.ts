@@ -1,15 +1,21 @@
 import { tiptapJsonToSemanticMarkdown } from "../markdown/calloutMarkdown";
 
-export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v2" as const;
+export const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA = "dmb_workspace_document_local_state_v3" as const;
+const WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V2 = "dmb_workspace_document_local_state_v2" as const;
+
+export type WorkspaceDocumentLocalKind = "plan" | "runbook" | "worldbuilding_source";
+export type WorkspaceDocumentLocalSurface = "plan" | "runbook" | "build";
 
 export interface WorkspaceDocumentLocalState {
   schema_version: typeof WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA;
   document_id: string;
   title: string;
   campaign_id: string;
-  kind: "plan" | "runbook";
+  kind: WorkspaceDocumentLocalKind;
   target_session: number | null;
-  surface: "plan" | "runbook";
+  surface: WorkspaceDocumentLocalSurface;
+  base_revision: number;
+  base_content_sha256: string;
   tiptap_json: unknown;
   exported_markdown: string;
   dirty: boolean;
@@ -29,13 +35,58 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function isWorkspaceDocumentLocalKind(value: unknown): value is WorkspaceDocumentLocalKind {
+  return value === "plan" || value === "runbook" || value === "worldbuilding_source";
+}
+
+function isWorkspaceDocumentLocalSurface(value: unknown): value is WorkspaceDocumentLocalSurface {
+  return value === "plan" || value === "runbook" || value === "build";
+}
+
+function migrateV2LocalState(value: Record<string, unknown>): WorkspaceDocumentLocalState | null {
+  if (value.schema_version !== WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA_V2) return null;
+  if (typeof value.document_id !== "string") return null;
+  if (typeof value.title !== "string") return null;
+  if (typeof value.campaign_id !== "string") return null;
+  const kind = value.kind === "plan" ? "plan" : "runbook";
+  const surface = value.surface === "plan" ? "plan" : "runbook";
+  if (!isObject(value.tiptap_json)) return null;
+  if (typeof value.exported_markdown !== "string") return null;
+  if (typeof value.dirty !== "boolean") return null;
+  if (typeof value.created_at !== "string") return null;
+  if (typeof value.updated_at !== "string") return null;
+  if (typeof value.last_local_save_at !== "string") return null;
+
+  return {
+    schema_version: WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA,
+    document_id: value.document_id,
+    title: value.title,
+    campaign_id: value.campaign_id,
+    kind,
+    target_session: value.target_session === null || typeof value.target_session === "number"
+      ? value.target_session
+      : null,
+    surface,
+    base_revision: 0,
+    base_content_sha256: "",
+    tiptap_json: value.tiptap_json,
+    exported_markdown: value.exported_markdown,
+    dirty: value.dirty,
+    created_at: value.created_at,
+    updated_at: value.updated_at,
+    last_local_save_at: value.last_local_save_at,
+  };
+}
+
 export function buildInitialWorkspaceDocumentLocalState(args: {
   documentId: string;
   title: string;
   campaignId: string;
-  kind: "plan" | "runbook";
+  kind: WorkspaceDocumentLocalKind;
   targetSession: number | null;
-  surface: "plan" | "runbook";
+  surface: WorkspaceDocumentLocalSurface;
+  baseRevision: number;
+  baseContentSha256: string;
   starterContent: unknown;
   now?: string;
 }): WorkspaceDocumentLocalState {
@@ -48,6 +99,8 @@ export function buildInitialWorkspaceDocumentLocalState(args: {
     kind: args.kind,
     target_session: args.targetSession,
     surface: args.surface,
+    base_revision: args.baseRevision,
+    base_content_sha256: args.baseContentSha256,
     tiptap_json: args.starterContent,
     exported_markdown: tiptapJsonToSemanticMarkdown(args.starterContent),
     dirty: false,
@@ -77,6 +130,8 @@ export function buildInitialWorkingBoardState(
     kind: descriptor.kind ?? "runbook",
     targetSession: descriptor.targetSession ?? descriptor.session ?? null,
     surface: descriptor.kind ?? "runbook",
+    baseRevision: 0,
+    baseContentSha256: "",
     starterContent: descriptor.starterContent,
     now,
   });
@@ -90,9 +145,11 @@ export function isWorkspaceDocumentLocalState(value: unknown): value is Workspac
     && typeof value.document_id === "string"
     && typeof value.title === "string"
     && typeof value.campaign_id === "string"
-    && (value.kind === "plan" || value.kind === "runbook")
+    && isWorkspaceDocumentLocalKind(value.kind)
     && (value.target_session === null || typeof value.target_session === "number")
-    && (value.surface === "plan" || value.surface === "runbook")
+    && isWorkspaceDocumentLocalSurface(value.surface)
+    && typeof value.base_revision === "number"
+    && typeof value.base_content_sha256 === "string"
     && isObject(value.tiptap_json)
     && typeof value.exported_markdown === "string"
     && typeof value.dirty === "boolean"
@@ -114,6 +171,17 @@ function deriveWorkspaceDocumentMarkdown(
   };
 }
 
+function parseStoredWorkspaceDocumentLocalState(parsed: unknown): WorkspaceDocumentLocalState | null {
+  if (isWorkspaceDocumentLocalState(parsed)) {
+    return deriveWorkspaceDocumentMarkdown(parsed);
+  }
+  if (isObject(parsed)) {
+    const migrated = migrateV2LocalState(parsed);
+    if (migrated) return deriveWorkspaceDocumentMarkdown(migrated);
+  }
+  return null;
+}
+
 export function readWorkspaceDocumentLocalState(
   storage: Pick<Storage, "getItem">,
   documentId: string,
@@ -122,9 +190,10 @@ export function readWorkspaceDocumentLocalState(
     const stored = storage.getItem(workspaceDocumentStorageKey(documentId));
     if (stored === null) return null;
     const parsed: unknown = JSON.parse(stored);
-    if (!isWorkspaceDocumentLocalState(parsed)) return null;
-    if (parsed.document_id !== documentId) return null;
-    return deriveWorkspaceDocumentMarkdown(parsed);
+    const state = parseStoredWorkspaceDocumentLocalState(parsed);
+    if (!state) return null;
+    if (state.document_id !== documentId) return null;
+    return state;
   } catch {
     return null;
   }

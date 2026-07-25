@@ -70,33 +70,46 @@ def build_plan_union_supergraph_projection(
         has_preview_union_store=bool(preview_union_store_path),
     ) as trace:
         known_entity_mentions: dict[str, Any] | None = None
+        source_spans: list[RecapProjectionSourceSpan] = []
+        paragraph_text_by_span_id: dict[str, str] = {}
         source = "default_fixture"
         if preview_union_store_path is not None:
             source = "preview_union_store"
             with timed_stage("load_preview_union_store"):
                 store = load_preview_union_store(preview_union_store_path)
         elif graph_run_manifest_path is not None:
-            with timed_stage("load_known_entity_mentions"):
-                known_entity_mentions = _load_manifest_known_entity_mentions(
-                    graph_run_manifest_path
+            with timed_stage("load_manifest_backed_snapshot") as snapshot_extras:
+                snapshot, reusable = _load_manifest_backed_projection_snapshot(
+                    graph_run_manifest_path, session_id=session_id
                 )
-            with timed_stage("load_persisted_projection") as persisted_extras:
-                persisted = _load_projection_payload_from_manifest(graph_run_manifest_path)
-                persisted_extras["hit"] = persisted is not None
-            # Never return a pre-repair chipless projection when the sidecar contract exists.
-            if persisted is not None and (
-                known_entity_mentions is None
-                or persisted.get("known_entity_mentions_contract") is True
-            ):
-                source = "persisted_manifest"
+                snapshot_extras["reusable_hit"] = reusable is not None
+            if reusable is not None:
+                source = "verified_snapshot_reusable"
                 trace.set_meta(source=source)
-                with timed_stage("validate_persisted_projection"):
-                    return RecapGraphProjection.model_validate(persisted)
-            source = "graph_run_manifest"
-            with timed_stage("load_preview_union_from_manifest"):
-                store = load_preview_union_store_from_graph_run_manifest(
-                    graph_run_manifest_path
+                with timed_stage("validate_reusable_projection"):
+                    return RecapGraphProjection.model_validate(reusable)
+            if snapshot.preview_union_store is None:
+                raise ValueError("projection-ready snapshot is missing preview_union_store")
+            source = "verified_snapshot"
+            store = snapshot.preview_union_store
+            known_entity_mentions = snapshot.known_entity_mentions
+            source_spans = _source_spans_from_snapshot(snapshot)
+            paragraph_text_by_span_id = snapshot.paragraph_text_by_span_id()
+            markdown = snapshot.normalized_recap_text or ""
+            trace.set_meta(source=source)
+            with timed_stage("build_recap_projection") as build_extras:
+                projection = build_recap_graph_projection(
+                    store,
+                    session_id=session_id,
+                    markdown=markdown,
+                    source_spans=source_spans,
+                    paragraph_text_by_span_id=paragraph_text_by_span_id,
+                    known_entity_mentions=known_entity_mentions,
                 )
+                build_extras["node_view_count"] = len(projection.node_views or {})
+                build_extras["mention_count"] = len(projection.mentions or [])
+            trace.bump("node_views", len(projection.node_views or {}))
+            return projection
         elif store_path is not None:
             source = "store_path"
             with timed_stage("load_union_store_path"):
@@ -116,17 +129,6 @@ def build_plan_union_supergraph_projection(
                     campaign_id=getattr(store, "campaign_id", None) or "longmont-c2",
                     session_id=session_id,
                 )
-        with timed_stage("load_source_spans"):
-            source_spans = (
-                _load_manifest_source_spans(graph_run_manifest_path)
-                if graph_run_manifest_path is not None
-                else []
-            )
-            paragraph_text_by_span_id = (
-                _load_manifest_source_span_full_text_index(graph_run_manifest_path)
-                if graph_run_manifest_path is not None
-                else {}
-            )
         with timed_stage("build_recap_projection") as build_extras:
             projection = build_recap_graph_projection(
                 store,
@@ -142,58 +144,268 @@ def build_plan_union_supergraph_projection(
         return projection
 
 
-def _load_projection_payload_from_manifest(graph_run_manifest_path: Path) -> dict[str, Any] | None:
+def _load_manifest_backed_projection_snapshot(
+    graph_run_manifest_path: Path,
+    *,
+    session_id: str,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+):
+    from dataclasses import replace
+
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        load_authored_overlay_bundle,
+    )
+    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
+        load_reusable_projection_from_snapshot,
+        load_verified_projection_ready_snapshot,
+    )
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    peek = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(peek, dict):
+        raise ValueError("graph-ingest manifest payload must be an object")
+    campaign_id = str(peek.get("campaign_id") or "").strip()
+    overlay = None
+    overlay_summary = None
+    overlay_identity = "absent"
+    if campaign_id:
+        overlay, overlay_summary, overlay_identity = load_authored_overlay_bundle(
+            campaign_id=campaign_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+    snapshot = load_verified_projection_ready_snapshot(
+        root,
+        manifest_path,
+        session_id=session_id,
+        authored_overlay_identity=overlay_identity,
+    )
+    # Always attach the bundle result (including missing-overlay summary) so
+    # enrichment never re-reads disk on the manifest-backed path.
+    if campaign_id:
+        snapshot = replace(
+            snapshot,
+            authored_overlay=overlay,
+            authored_overlay_summary=overlay_summary,
+        )
+    reusable = load_reusable_projection_from_snapshot(snapshot, root)
+    return snapshot, reusable
+
+
+def _source_spans_from_snapshot(snapshot) -> list[RecapProjectionSourceSpan]:
+    lines = snapshot.normalized_recap_text.splitlines() if snapshot.normalized_recap_text else []
+    spans: list[RecapProjectionSourceSpan] = []
+    for ordinal, span in enumerate(snapshot.span_rows()):
+        span_id = span.get("source_span_id") or span.get("span_id") or span.get("source_span_ref_id")
+        if not isinstance(span_id, str):
+            continue
+        line_start = span.get("start_line") if isinstance(span.get("start_line"), int) else None
+        line_end = span.get("end_line") if isinstance(span.get("end_line"), int) else None
+        excerpt = ""
+        if lines and isinstance(line_start, int) and isinstance(line_end, int):
+            if line_start >= 1 and line_end >= line_start:
+                excerpt = "\n".join(lines[line_start - 1 : line_end])
+        spans.append(
+            RecapProjectionSourceSpan(
+                span_id=span_id,
+                kind="paragraph",
+                ordinal=ordinal,
+                text_excerpt=excerpt or None,
+                line_start=line_start,
+                line_end=line_end,
+            )
+        )
+    return spans
+
+
+def _assert_manifest_backed_projection_evidence(graph_run_manifest_path: Path) -> None:
+    from graph_memory.ingestion.graph_ingest_validate import (
+        assert_manifest_backed_projection_evidence,
+    )
+
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    artifacts = payload.get("artifacts")
-    if not isinstance(artifacts, dict):
-        return None
-    artifact = artifacts.get(GraphIngestArtifactKind.PROJECTION_PAYLOAD.value)
-    if not isinstance(artifact, dict):
-        return None
-    uri = artifact.get("uri")
-    if not isinstance(uri, str) or not uri.strip():
-        return None
-    projection_path = _resolve_repo_contained_path(Path(uri), root)
-    projection_payload = json.loads(projection_path.read_text(encoding="utf-8"))
-    if not isinstance(projection_payload, dict):
-        return None
-    return projection_payload
+    if not isinstance(payload, dict):
+        raise ValueError("graph-ingest manifest payload must be an object")
+    assert_manifest_backed_projection_evidence(root, payload)
 
+
+def _assert_requested_session_matches_manifest(
+    graph_run_manifest_path: Path, *, session_id: str
+) -> None:
+    from graph_memory.ingestion.graph_ingest_validate import (
+        assert_requested_session_matches_manifest,
+    )
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("graph-ingest manifest payload must be an object")
+    assert_requested_session_matches_manifest(payload, session_id=session_id)
+
+
+def _load_verified_source_span_rows(
+    graph_run_manifest_path: Path,
+) -> list[dict[str, Any]]:
+    """Return canonical SourceSpanIndex span dicts after linkage validation."""
+    from dataclasses import asdict
+
+    from graph_memory.ingestion.graph_ingest_validate import load_verified_source_span_index
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("graph-ingest manifest payload must be an object")
+    index = load_verified_source_span_index(root, payload)
+    return [asdict(span) for span in index.spans]
+
+
+def current_authored_overlay_identity(
+    *,
+    campaign_id: str,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+) -> str:
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        load_authored_overlay_bundle,
+    )
+
+    _overlay, _summary, identity = load_authored_overlay_bundle(
+        campaign_id=campaign_id,
+        campaign_rel=campaign_rel,
+        corpus_root=corpus_root,
+    )
+    return identity
+
+
+def _load_projection_payload_from_manifest(
+    graph_run_manifest_path: Path,
+    *,
+    session_id: str | None = None,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+) -> dict[str, Any] | None:
+    from graph_memory.ingestion.graph_ingest_verified_snapshot import (
+        load_reusable_projection_from_snapshot,
+        load_verified_projection_ready_snapshot,
+    )
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return None
+    if session_id is None:
+        session_id = str(payload.get("session_id") or "").strip() or None
+    if not session_id:
+        return None
+    campaign_id = str(payload.get("campaign_id") or "").strip()
+    overlay_identity = "absent"
+    if campaign_id:
+        overlay_identity = current_authored_overlay_identity(
+            campaign_id=campaign_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+    snapshot = load_verified_projection_ready_snapshot(
+        root,
+        manifest_path,
+        session_id=session_id,
+        authored_overlay_identity=overlay_identity,
+    )
+    return load_reusable_projection_from_snapshot(snapshot, root)
+
+
+def _load_verified_manifest_recap_text(graph_run_manifest_path: Path) -> str:
+    """Load packaged recap text from the digest-verified normalized_recap_path.
+
+    Prefer ``source.normalized_recap_path`` over the undigested bundle copy. When
+    ``recap_full_text.md`` exists, require byte equality with that verified source.
+    """
+    import hashlib
+
+    from graph_memory.ingestion.extraction_run import normalize_content_digest
+
+    root = repo_root().resolve()
+    manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    source = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+    normalized_path = source.get("normalized_recap_path")
+    if not isinstance(normalized_path, str) or not normalized_path.strip():
+        raise ValueError(
+            "source.normalized_recap_path is required for projection excerpts"
+        )
+    recap_path = _resolve_repo_contained_path(Path(normalized_path), root)
+    if not recap_path.is_file():
+        raise ValueError("source.normalized_recap_path file is missing")
+    recap_bytes = recap_path.read_bytes()
+    claimed = normalize_content_digest(source.get("normalized_recap_sha256"))
+    actual = hashlib.sha256(recap_bytes).hexdigest().lower()
+    if claimed and claimed != actual:
+        raise ValueError(
+            "packaged recap bytes do not match source.normalized_recap_sha256"
+        )
+
+    bundle_uri = source.get("source_span_bundle_uri")
+    if isinstance(bundle_uri, str) and bundle_uri.strip():
+        full_text_path = _resolve_repo_contained_path(
+            Path(bundle_uri) / "recap_full_text.md", root
+        )
+        if full_text_path.is_file() and full_text_path.read_bytes() != recap_bytes:
+            raise ValueError(
+                "source_span_bundle recap_full_text.md does not match "
+                "verified normalized recap"
+            )
+    return recap_bytes.decode("utf-8")
 
 
 def _load_source_span_index(graph_run_manifest_path: Path) -> list[dict[str, Any]] | None:
-    root = repo_root().resolve()
-    payload = json.loads(_resolve_repo_contained_path(graph_run_manifest_path, root).read_text(encoding="utf-8"))
-    uri = ((payload.get("source") or {}).get("source_span_index_uri"))
-    if not isinstance(uri, str) or not uri:
-        return None
-    index_path = _resolve_repo_contained_path(root / uri, root)
-    if not index_path.is_file():
-        return None
-    index = json.loads(index_path.read_text(encoding="utf-8"))
-    spans = index.get("spans", [])
-    return [span for span in spans if isinstance(span, dict)]
+    return _load_verified_source_span_rows(graph_run_manifest_path)
 
 
 def _load_manifest_source_spans(graph_run_manifest_path: Path) -> list[RecapProjectionSourceSpan]:
-    raw_spans = _load_source_span_index(graph_run_manifest_path)
-    if raw_spans is None:
-        return []
+    raw_spans = _load_verified_source_span_rows(graph_run_manifest_path)
+    recap_text = _load_verified_manifest_recap_text(graph_run_manifest_path)
+    lines = recap_text.splitlines() if recap_text else []
+
     spans: list[RecapProjectionSourceSpan] = []
     for span in raw_spans:
-        span_id = span.get("span_id") or span.get("source_span_ref_id")
+        span_id = span.get("source_span_id") or span.get("span_id") or span.get("source_span_ref_id")
         if not isinstance(span_id, str):
             continue
+        line_start = (
+            span.get("start_line")
+            if isinstance(span.get("start_line"), int)
+            else span.get("line_start")
+            if isinstance(span.get("line_start"), int)
+            else None
+        )
+        line_end = (
+            span.get("end_line")
+            if isinstance(span.get("end_line"), int)
+            else span.get("line_end")
+            if isinstance(span.get("line_end"), int)
+            else None
+        )
+        # Never trust optional text/text_excerpt from the index file; reconstruct
+        # excerpts only from the digest-verified normalized recap.
+        excerpt = ""
+        if lines and isinstance(line_start, int) and isinstance(line_end, int):
+            if line_start >= 1 and line_end >= line_start:
+                excerpt = "\n".join(lines[line_start - 1 : line_end])
         spans.append(
             RecapProjectionSourceSpan(
                 span_id=span_id,
                 kind=str(span.get("kind") or "span"),
                 ordinal=span.get("ordinal") if isinstance(span.get("ordinal"), int) else None,
-                text_excerpt=str(span.get("text_excerpt") or span.get("text") or "")[:240] or None,
-                line_start=span.get("line_start") if isinstance(span.get("line_start"), int) else None,
-                line_end=span.get("line_end") if isinstance(span.get("line_end"), int) else None,
+                text_excerpt=excerpt[:240] or None,
+                line_start=line_start,
+                line_end=line_end,
             )
         )
     return spans
@@ -207,16 +419,22 @@ def _load_manifest_source_span_full_text_index(
     Distinct from ``_load_manifest_source_spans``, whose ``text_excerpt`` is
     capped at 240 chars for the paragraph-jump source-span list; relationship
     excerpts need the complete paragraph.
+
+    Canonical v1 SourceSpanIndex entries do not embed text. Reconstruct from the
+    digest-verified ``source.normalized_recap_path`` using line bounds.
     """
-    raw_spans = _load_source_span_index(graph_run_manifest_path)
-    if raw_spans is None:
-        return {}
+    raw_spans = _load_verified_source_span_rows(graph_run_manifest_path)
+    recap_text = _load_verified_manifest_recap_text(graph_run_manifest_path)
+    lines = recap_text.splitlines() if recap_text else []
+
     full_text_by_span_id: dict[str, str] = {}
     for span in raw_spans:
-        if span.get("kind") != "paragraph":
-            continue
-        span_id = span.get("span_id") or span.get("source_span_ref_id")
-        text = span.get("text") or span.get("text_excerpt")
+        span_id = span.get("source_span_id") or span.get("span_id") or span.get("source_span_ref_id")
+        start = span.get("start_line") if isinstance(span.get("start_line"), int) else span.get("line_start")
+        end = span.get("end_line") if isinstance(span.get("end_line"), int) else span.get("line_end")
+        text = None
+        if lines and isinstance(start, int) and isinstance(end, int) and start >= 1 and end >= start:
+            text = "\n".join(lines[start - 1 : end])
         if isinstance(span_id, str) and isinstance(text, str) and text.strip():
             full_text_by_span_id[span_id] = text
     return full_text_by_span_id
@@ -225,30 +443,27 @@ def _load_manifest_source_span_full_text_index(
 def _load_manifest_known_entity_mentions(
     graph_run_manifest_path: Path,
 ) -> dict[str, Any] | None:
-    """Load the known-entity mention sidecar from a graph-ingest run manifest."""
+    """Load known-entity mentions only after digest/schema validation succeeds."""
+    from graph_memory.ingestion.graph_ingest_validate import (
+        load_verified_known_entity_mentions,
+    )
+
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    artifacts = payload.get("artifacts")
-    if not isinstance(artifacts, dict):
+    if not isinstance(payload, dict):
         return None
-    artifact = artifacts.get(GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS.value)
-    if not isinstance(artifact, dict):
-        return None
-    uri = artifact.get("uri")
-    if not isinstance(uri, str) or not uri.strip():
-        return None
-    sidecar_path = _resolve_repo_contained_path(Path(uri), root)
-    if not sidecar_path.is_file():
-        return None
-    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
-    return sidecar if isinstance(sidecar, dict) else None
+    return load_verified_known_entity_mentions(root, payload)
 
 
 def load_preview_union_store_from_graph_run_manifest(
     graph_run_manifest_path: Path,
 ) -> Any:
     """Load a preview-only union-supergraph store referenced by a graph-ingest manifest."""
+
+    from graph_memory.ingestion.graph_ingest_validate import (
+        validate_manifest_preview_union_store,
+    )
 
     root = repo_root().resolve()
     manifest_path = _resolve_repo_contained_path(graph_run_manifest_path, root)
@@ -273,6 +488,12 @@ def load_preview_union_store_from_graph_run_manifest(
     _reject_forbidden_lifecycle_flags(
         manifest.diagnostics.model_dump(mode="json"), "manifest diagnostics"
     )
+
+    store_errors = validate_manifest_preview_union_store(root, manifest_payload)
+    if store_errors:
+        raise ValueError(
+            "preview union store evidence is unusable: " + "; ".join(store_errors)
+        )
 
     artifact = manifest.artifacts.get(GraphIngestArtifactKind.PREVIEW_UNION_STORE.value)
     if artifact is None:
@@ -417,6 +638,22 @@ def build_plan_union_supergraph_projection_payload(
 ) -> dict[str, Any]:
     """Build a JSON-safe projection payload for future API route integration."""
 
+    if graph_run_manifest_path is not None:
+        snapshot, reusable = _load_manifest_backed_projection_snapshot(
+            graph_run_manifest_path,
+            session_id=session_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+        if reusable is not None:
+            return reusable
+        return build_projection_payload_from_verified_snapshot(
+            snapshot,
+            session_id=session_id,
+            campaign_rel=campaign_rel,
+            corpus_root=corpus_root,
+        )
+
     from apps.live_control_server.services.graph_authoring_overlay_projection import (
         enrich_projection_payload_with_authored_overlay,
     )
@@ -424,6 +661,9 @@ def build_plan_union_supergraph_projection_payload(
     with projection_load_trace(
         "union_supergraph_projection_payload",
         session_id=session_id,
+        store_path=store_path,
+        preview_source=preview_source,
+        preview_union_store_path=preview_union_store_path,
     ):
         with timed_stage("build_union_projection"):
             projection = build_plan_union_supergraph_projection(
@@ -448,6 +688,45 @@ def build_plan_union_supergraph_projection_payload(
                 campaign_rel=campaign_rel,
                 corpus_root=corpus_root,
             )
+
+
+def build_projection_payload_from_verified_snapshot(
+    snapshot: Any,
+    *,
+    session_id: str,
+    campaign_rel: str | None = None,
+    corpus_root: Path | None = None,
+) -> dict[str, Any]:
+    """Build a projection payload from an already-verified snapshot (no artifact reopen)."""
+
+    from apps.live_control_server.services.graph_authoring_overlay_projection import (
+        enrich_projection_payload_with_authored_overlay,
+    )
+
+    if snapshot.preview_union_store is None:
+        raise ValueError("projection-ready snapshot is missing preview_union_store")
+    projection = build_recap_graph_projection(
+        snapshot.preview_union_store,
+        session_id=session_id,
+        markdown=snapshot.normalized_recap_text or "",
+        source_spans=_source_spans_from_snapshot(snapshot),
+        paragraph_text_by_span_id=snapshot.paragraph_text_by_span_id(),
+        known_entity_mentions=snapshot.known_entity_mentions,
+    )
+    payload = projection.model_dump(mode="json")
+    if snapshot.known_entity_mentions_sha256:
+        payload["known_entity_mentions_contract"] = True
+        payload["known_entity_mentions_sha256"] = (
+            f"sha256:{snapshot.known_entity_mentions_sha256}"
+        )
+    return enrich_projection_payload_with_authored_overlay(
+        payload,
+        campaign_id=projection.campaign_id,
+        campaign_rel=campaign_rel,
+        corpus_root=corpus_root,
+        overlay=snapshot.authored_overlay,
+        summary=snapshot.authored_overlay_summary,
+    )
 
 
 def build_recap_only_projection_payload(

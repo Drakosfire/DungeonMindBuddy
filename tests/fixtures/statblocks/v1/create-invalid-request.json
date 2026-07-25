@@ -1,0 +1,24 @@
+{
+  "error": {
+    "code": "invalid_request",
+    "details": {
+      "fields": [
+        {
+          "input": {
+            "candidate": {
+              "accepted_definition_changed": false,
+              "candidate_id": "cand_forged"
+            }
+          },
+          "loc": [
+            "body",
+            "provenance"
+          ],
+          "msg": "Extra inputs are not permitted",
+          "type": "extra_forbidden"
+        }
+      ]
+    },
+    "message": "Request validation failed"
+  }
+}

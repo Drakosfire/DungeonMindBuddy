@@ -119,12 +119,16 @@ def test_merge_party_collective_noop_without_members():
 def test_run_category_pipeline_injects_party_anchors_for_session_22():
     """Party registry injects anchors at consolidate; promote IR drops empty-evidence ones."""
     spref = "session-22:recap:paragraph:001"
+    artifact = "artifact:recap:longmont-c2:session-22:testfixture"
     span_index = {
+        "source_artifact_id": artifact,
+        "source_ref_id": f"{artifact}:text",
         "spans": [
             {
                 "kind": "paragraph",
                 "span_id": spref,
                 "source_span_ref_id": spref,
+                "source_artifact_id": artifact,
                 "line_start": 1,
                 "line_end": 3,
                 "text": "Bonogo scouts the Mireward road.",
@@ -138,6 +142,8 @@ def test_run_category_pipeline_injects_party_anchors_for_session_22():
             session_id="session-22",
             session_number=22,
             source_span_index=span_index,
+            source_artifact_id=artifact,
+            source_ref_id=f"{artifact}:text",
             model_id="gpt-5.4-mini",
         ),
     )

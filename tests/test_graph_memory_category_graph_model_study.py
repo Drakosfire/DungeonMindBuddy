@@ -13,12 +13,14 @@ from evals.graph_memory_layer.category_graph_model_study import (
     ensure_s22_run_bundle,
     parse_json_object,
     render_category_pass_prompts,
-    repair_edge_evidence_refs,
     sanitize_parts,
     s22_run_bundle_dir,
     verified_s22_source,
 )
 from evals.graph_memory_layer.reconcile_live_candidate import validate_live_candidate_output
+from src.graph_memory.extraction.category_candidate_graph_extractor import (
+    repair_edge_evidence_refs,
+)
 from src.graph_memory.party_context import build_party_context
 
 
@@ -312,4 +314,37 @@ def test_repair_edge_evidence_inherits_from_endpoint():
     }
     diag = repair_edge_evidence_refs(parts, allowed)
     assert diag["repaired_edge_evidence_refs"] == 1
+    assert diag["edge_evidence_inheritance"] is True
     assert parts["edges"][0]["evidence_refs"] == [{"source_span_ref_id": "spref:session-22:p001"}]
+
+
+def test_repair_edge_evidence_skips_inheritance_when_disabled():
+    allowed = {"spref:session-22:p001"}
+    parts = {
+        "nodes": [
+            {
+                "node_id": "npc:a",
+                "label": "A",
+                "evidence_refs": [{"source_span_ref_id": "session-22:p001"}],
+            },
+            {
+                "node_id": "npc:b",
+                "label": "B",
+                "evidence_refs": [{"source_span_ref_id": "session-22:p001"}],
+            },
+        ],
+        "edges": [
+            {
+                "edge_id": "e:1",
+                "from_node_id": "npc:a",
+                "to_node_id": "npc:b",
+                "label": "commands",
+                "relationship_type": "commands",
+                "evidence_refs": [],
+            }
+        ],
+    }
+    diag = repair_edge_evidence_refs(parts, allowed, inherit_from_endpoints=False)
+    assert diag["repaired_edge_evidence_refs"] == 0
+    assert diag["edge_evidence_inheritance"] is False
+    assert parts["edges"][0]["evidence_refs"] == []

@@ -321,7 +321,7 @@ def test_runner_allow_llm_blocked_writes_calm_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class BrokenClient:
-        def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str) -> dict[str, Any]:
+        def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str, pass_spec=None) -> dict[str, Any]:
             raise RuntimeError("model unavailable")
 
     monkeypatch.chdir(tmp_path)
@@ -353,7 +353,7 @@ def test_runner_invalid_llm_json_preserves_raw_response_artifact(
     )
 
     class InvalidJsonClient:
-        def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str) -> dict[str, Any]:
+        def run_pass(self, pass_name: str, *, model_id: str, instructions: str, user_content: str, pass_spec=None) -> dict[str, Any]:
             raise CategoryGraphExtractionError(
                 "actor_pass returned invalid JSON: Expecting value",
                 pass_name=pass_name,

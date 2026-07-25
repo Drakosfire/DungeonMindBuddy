@@ -34,6 +34,23 @@ Sort newest → oldest within each status.
 **Surfaces when:** Recap View chips, Graph Review authoring, object cards, Edge/Mireward/PC cross-session history, `/ingest` Open Recap View, `getUnionSupergraphProjection` / `useLatestGraphIngest`, PR007A/PR008 world-graph projection migration, graph object authoring dogfood
 **Refs:** `apps/live_control_server/services/world_graph_recap_projection.py`, `apps/live_control_server/routes/world_graph_projection.py`, `apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.tsx`, `UnionSupergraphRecapProjection.tsx`, `tests/test_world_graph_recap_projection.py`
 
+## [DONE] Map WorldGraphNotFoundError on extract-promote prepare to world_not_initialized — captured 2026-07-24, done 2026-07-24
+**Priority:** high — blocks Build exact-run merge dogfood; opaque 500.
+**Context:** Mireward Reach exact-run "Review & merge" returned `The extract-promote prepare operation failed unexpectedly.` Local reproduce: `WorldGraphNotFoundError: no world graph head for world_id='eldyrwild'`.
+**Insight:** Uninitialized World Graph is an expected operator state, not an internal error. Unexpected 500s must log full traceback server-side and never echo raw `str(exc)` to HTTP clients.
+**Action completed:** Catch `WorldGraphNotFoundError` → `world_not_initialized` 409; safe public 500 boundary with correlation id; `test_prepare_maps_missing_world_graph_head_to_world_not_initialized` on PR #393.
+**Surfaces when:** extract-promote prepare unexpected, World Graph not initialized, empty head.json, Build promote dogfood in a fresh worktree
+**Refs:** `apps/live_control_server/routes/extract_promote.py`; `apps/live_control_server/services/extract_promote.py`; transcript `db5e8b9a-b889-4cf3-ae3d-c0d944d10a01`
+
+---
+
+## [DONE] SBW03 operation-authority durability model — captured 2026-07-22, done 2026-07-23
+**Context:** PR 388 review loop (SBW03 generate-candidate); layered pending/abandoned/completed patches hit permanent-backpressure architecture
+**Insight:** Bounded storage via refusing new work while never deleting unresolved evidence is a correct *constraint*, but insufficient as a *model*. Without explicit terminality + proof-based compaction, abandoned slots never free, “safe” completed eviction breaks draft-advance replay, and known candidates can remain classified abandoned under partial persistence. Terminality must use Server durable generate-operation codes (`operation_terminal`), not HTTP/auth categories.
+**Action completed:** Shipped and merged in PR `#388` (`889acf96`); ladder integrated to `main` via PR `#381` (`b8dbe68c`). Operation-authority journal with proof-based tombstones and Server PR23 allowlisted terminal codes.
+**Surfaces when:** editing `statblock_generation_reconciliation.py`, SBW03/04 handoffs, candidate generation recovery/compaction, ThreatDraft generate idempotency
+**Refs:** PR 388, PR 381, `apps/live_control_server/services/statblock_generation_reconciliation.py`, `Docs/Plans/HANDOFF-sbw03-generate-candidate-from-draft.md`
+
 ---
 
 ## [DONE] Party-collective via standing_context promote seam — captured 2026-07-18, done 2026-07-19

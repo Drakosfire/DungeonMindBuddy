@@ -289,10 +289,16 @@ export function useGraphReviewLiveReviewState({
       if (!trimmedRevision) {
         throw new Error("Committed revision id is required to reload World Graph projection.");
       }
+      const trimmedCampaign = (campaignId ?? "").trim();
+      if (!trimmedCampaign) {
+        throw new Error(
+          "Committed revision preserved; campaignless exact runs cannot be reloaded through a campaign projection lens (degraded read).",
+        );
+      }
       const request = {
         ...buildPlanWorldGraphProjectionRequest({
           worldId,
-          campaignId,
+          campaignId: trimmedCampaign,
           focus: sessionId
             ? { kind: "session" as const, sessionId }
             : { kind: "none" as const, sessionId: null },

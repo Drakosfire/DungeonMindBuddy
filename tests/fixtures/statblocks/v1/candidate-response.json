@@ -1,0 +1,184 @@
+{
+  "asset_brief": {
+    "prompt": "A brutal enforcer.",
+    "recommended_roles": [
+      "portrait",
+      "token"
+    ]
+  },
+  "asset_warnings": [],
+  "assets": [],
+  "candidate_id": "cand_fixture1",
+  "contract": "dungeonmind.dungeonbuddy-statblocks",
+  "contract_version": "1.0.0",
+  "created_at": "2026-01-01T00:00:00Z",
+  "definition": {
+    "abilities": {
+      "charisma": 8,
+      "constitution": 16,
+      "dexterity": 10,
+      "intelligence": 6,
+      "strength": 18,
+      "wisdom": 10
+    },
+    "challenge": {
+      "proficiency_bonus": 2,
+      "rating": "3",
+      "xp_override": null
+    },
+    "communication": {
+      "languages": [],
+      "special_modes": [],
+      "telepathy_range": null
+    },
+    "defenses": {
+      "armor_classes": [
+        {
+          "condition": null,
+          "default": true,
+          "key": "natural_armor",
+          "label": "natural armor",
+          "value": 15
+        }
+      ],
+      "condition_immunities": [],
+      "damage_interactions": []
+    },
+    "flavor_text": {
+      "description": null,
+      "summary": "A brutal enforcer."
+    },
+    "identity": {
+      "alignment": "unaligned",
+      "creature_type": "giant",
+      "name": "Ironhide Brute",
+      "size": "Large",
+      "subtypes": []
+    },
+    "lair": null,
+    "movement": {
+      "modes": [
+        {
+          "distance": {
+            "unit": "feet",
+            "value": 30
+          },
+          "key": "walk",
+          "mode": "walk",
+          "qualifiers": []
+        }
+      ]
+    },
+    "phases": [],
+    "proficiencies": {
+      "saving_throws": [],
+      "skills": []
+    },
+    "resources": [],
+    "rule_elements": [
+      {
+        "activation": {
+          "kind": "action",
+          "timing_text": null,
+          "trigger": null
+        },
+        "automation_support": "full",
+        "costs": [],
+        "key": "greatclub",
+        "mechanic": {
+          "attack_bonus": 6,
+          "attack_type": "melee_weapon",
+          "hit_effects": [
+            {
+              "damage": {
+                "count": 2,
+                "die": 8,
+                "modifier": 4
+              },
+              "damage_type": "bludgeoning",
+              "duration": null,
+              "kind": "damage"
+            }
+          ],
+          "kind": "attack",
+          "miss_effects": [],
+          "range": null,
+          "reach": {
+            "unit": "feet",
+            "value": 10
+          },
+          "target": {
+            "area": null,
+            "count": 1,
+            "kind": "creature",
+            "qualifiers": [],
+            "range": null
+          }
+        },
+        "name": "Greatclub",
+        "rules_text": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.",
+        "section": "action",
+        "summary": null,
+        "tags": [],
+        "usage": {
+          "kind": "at_will",
+          "recharge_range": null,
+          "refresh_text": null,
+          "resource_key": null,
+          "uses": null
+        }
+      }
+    ],
+    "ruleset": {
+      "edition": "2024",
+      "house_ruleset_id": null,
+      "system": "dnd5e"
+    },
+    "senses": {
+      "passive_perception": 10,
+      "senses": []
+    },
+    "vitality": {
+      "hit_points": {
+        "displayed_average": 68,
+        "fixed_value": null,
+        "formula": {
+          "count": 8,
+          "die": 10,
+          "modifier": 24
+        },
+        "method": "formula"
+      }
+    }
+  },
+  "expires_at": "2026-01-02T00:00:00Z",
+  "generation_receipt": {
+    "actor": null,
+    "caller_scope": "dungeonbuddy",
+    "generated_at": "2026-01-01T00:00:00Z",
+    "input_tokens": null,
+    "latency_ms": 0,
+    "model": "fixture-model",
+    "output_tokens": null,
+    "prompt_version": "statblock-generation-prompt-v1",
+    "provider": "fake",
+    "provider_request_id": null,
+    "provider_response_id": null,
+    "request_id": "fixture-generate-1",
+    "schema_fingerprint": "sha256:3f692b9ed6a521c485e137e3d5c42526f17efdfce9280a9ab5b038a6c4424ef4",
+    "schema_version": "statblock-openai-strict-compiler-v1",
+    "source_definition_digest": null,
+    "source_description_digest": "sha256:37c5cfbbd55eda7d3df9c946f7d1a2165b73b9cd9443fd314bd50c0e77ace1c4",
+    "source_locator": null
+  },
+  "source_locator": null,
+  "validation_receipt": {
+    "canonicalizer_version": "statblock-canonicalizer-v1",
+    "definition_digest": "sha256:265da39c72a5275bfb81315034b972ddae4aca261a683fa9ecc70a4839e91c44",
+    "issues": [],
+    "mode": "generation_candidate",
+    "status": "valid",
+    "validated_at": "2026-01-01T00:00:00Z",
+    "validator_version": "statblock-validator-v1.1"
+  }
+}

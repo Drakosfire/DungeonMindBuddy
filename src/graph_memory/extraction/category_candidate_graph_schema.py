@@ -194,7 +194,30 @@ def category_edge_pass_json_schema() -> dict[str, Any]:
     }
 
 
+def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
+    """Derive structured-output schema from ExtractionPassSpec.kind (+ policy fields)."""
+    kind = str(getattr(pass_spec, "kind", "node") or "node")
+    include_dispositions = bool(getattr(pass_spec, "include_dispositions", False))
+    allowed = getattr(pass_spec, "allowed_node_types", None)
+    if kind == "beat":
+        return category_beat_pass_json_schema()
+    if kind == "edge":
+        return category_edge_pass_json_schema()
+    if kind == "encounter_job":
+        return category_node_pass_json_schema(
+            include_dispositions=False,
+            allowed_node_types=tuple(allowed) if allowed else ("combat_encounter", "quest"),
+        )
+    if kind == "node":
+        return category_node_pass_json_schema(
+            include_dispositions=include_dispositions,
+            allowed_node_types=tuple(allowed) if allowed else None,
+        )
+    raise ValueError(f"unknown extraction pass kind: {kind}")
+
+
 def schema_for_pass(pass_name: str) -> dict[str, Any]:
+    """Legacy name-based dispatcher kept for eval harnesses and older callers."""
     if pass_name == "thread_pass":
         return category_node_pass_json_schema(include_dispositions=True)
     if pass_name == "beat_pass":
@@ -209,6 +232,18 @@ def schema_for_pass(pass_name: str) -> dict[str, Any]:
     if pass_name in {"actor_pass", "location_pass", "collective_pass", "object_pass"}:
         return category_node_pass_json_schema(include_dispositions=False)
     raise ValueError(f"unknown category pass: {pass_name}")
+
+
+def category_pass_text_format_for_spec(pass_spec: Any, *, strict: bool = True) -> dict[str, Any]:
+    pass_id = str(getattr(pass_spec, "pass_id", "pass") or "pass")
+    return {
+        "format": {
+            "type": "json_schema",
+            "name": f"category_graph_{pass_id}",
+            "strict": strict,
+            "schema": schema_for_pass_spec(pass_spec),
+        }
+    }
 
 
 def category_pass_text_format(pass_name: str, *, strict: bool = True) -> dict[str, Any]:

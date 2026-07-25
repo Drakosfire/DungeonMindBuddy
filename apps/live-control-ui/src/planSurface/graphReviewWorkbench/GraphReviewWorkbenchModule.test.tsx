@@ -215,12 +215,14 @@ function mockWorkbenchApis() {
 describe("GraphReviewWorkbenchModule", () => {
   beforeEach(() => {
     mockWorkbenchApis();
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
     clearProjectionRequestCache();
     vi.restoreAllMocks();
     document.body.classList.remove("plan-toolbox-open");
+    window.sessionStorage.clear();
   });
 
   it("starts empty on a fresh visit without a session query param", async () => {
@@ -308,6 +310,35 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
+    expect(window.location.search).toContain("session=session-23");
+    expect(window.location.search).toContain("campaign=longmont-c2");
+    expect(window.location.search).toContain("run=artifacts%2Frun-a%2Fmanifest.json");
+  });
+
+  it("keeps the loaded graph after a remount that simulates browser refresh", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, "", "/ingest");
+    const first = render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Load recap" }));
+    await user.click(screen.getByRole("button", { name: "Load" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+
+    const restoredUrl = `${window.location.pathname}${window.location.search}`;
+    first.unmount();
+    window.history.replaceState({}, "", restoredUrl);
+    render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Session 23 · longmont-c2")).toBeInTheDocument();
+    expect(window.location.search).toContain("run=artifacts%2Frun-a%2Fmanifest.json");
   });
 
   it("opens toolbox with Ingest Recap and Diagnostics tools", async () => {

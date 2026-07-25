@@ -8,7 +8,7 @@ import shutil
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
@@ -87,6 +87,10 @@ class GraphPreviewRunnerOptions:
     context_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
     enable_edge_vocabulary_packet: bool = False
+    # When set, GraphIngest packaging reuses the production controller's immutable
+    # SourceSpanIndex identities instead of regenerating legacy paragraph IDs.
+    source_span_index: Mapping[str, Any] | None = None
+    source_artifact_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -131,7 +135,14 @@ def category_options_for_graph_extraction_profile(
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
 ) -> tuple[CategoryGraphExtractionOptions, dict[str, Any]]:
+    from src.graph_memory.extraction.recap_extraction_profile import (
+        resolve_legacy_graph_extraction_profile,
+    )
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+
     profile_options = graph_extraction_profile_options(profile)
+    profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
+    extraction_profile = get_extraction_profile(profile_id, profile_version)
     # Independent of the profile's own `enable_dynamic_node_vocabulary_packet` flag
     # (a separate, session-graph-derived vocabulary feature): this is the static,
     # corpus/registry-derived context vocabulary packet used by the vocabulary
@@ -144,7 +155,10 @@ def category_options_for_graph_extraction_profile(
             session_id=session_id,
             session_number=session_number,
             source_span_index=source_span_index,
+            source_artifact_id=str(source_span_index.get("source_artifact_id") or "") or None,
+            source_ref_id=str(source_span_index.get("source_ref_id") or "") or None,
             model_id=model_id,
+            profile=extraction_profile,
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             node_vocabulary_packet=context_vocabulary_packet if enable_node_vocabulary_packet else None,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
@@ -251,6 +265,118 @@ def _split_recap_paragraph_spans(recap_text: str) -> list[dict[str, Any]]:
         )
     return spans
 
+def _span_identity(span: Mapping[str, Any]) -> str | None:
+    for key in ("source_span_id", "source_span_ref_id", "span_id"):
+        value = span.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _is_paragraph_span_id(span_id: str) -> bool:
+    return ":recap:paragraph:" in span_id or ":span:" in span_id
+
+
+def _is_full_text_span_id(span_id: str) -> bool:
+    return span_id.endswith(":recap:full_text") or span_id.endswith(":full_text")
+
+
+def _write_canonical_source_span_bundle(
+    *,
+    recap_text: str,
+    output_dir: Path,
+    campaign_id: str,
+    session_id: str,
+    source_uri: str,
+    source_sha256: str,
+    canonical_index: Mapping[str, Any],
+    source_artifact_id: str | None = None,
+) -> tuple[Path, Path, Path, int]:
+    """Package the production v1 SourceSpanIndex without inventing span IDs.
+
+    Full-text material lives in the source-span *bundle* (``recap_full_text.md``
+    plus optional paragraph excerpts). The index document itself must remain a
+    valid ``dmb_source_span_index_v1`` payload loadable by
+    ``source_span_index_from_dict``.
+
+    ``recap_text`` must be the exact immutable SourceArtifact bytes: its digest
+    must equal ``SourceSpanIndex.content_sha256``.
+    """
+    from src.graph_memory.source_span import (
+        SOURCE_SPAN_INDEX_SCHEMA,
+        source_span_index_from_dict,
+        source_span_index_to_dict,
+    )
+
+    payload = dict(canonical_index)
+    if source_artifact_id and str(source_artifact_id).strip():
+        payload["source_artifact_id"] = str(source_artifact_id).strip()
+    # Drop non-v1 packaging hints before canonical validation.
+    for key in ("campaign_id", "session_id", "source_sha256", "paragraph_span_count"):
+        payload.pop(key, None)
+    validated = source_span_index_from_dict(payload)
+    if (
+        source_artifact_id
+        and str(source_artifact_id).strip()
+        and validated.source_artifact_id != str(source_artifact_id).strip()
+    ):
+        raise ValueError(
+            "canonical SourceSpanIndex source_artifact_id does not match options.source_artifact_id"
+        )
+    recap_digest = hashlib.sha256(recap_text.encode("utf-8")).hexdigest()
+    if recap_digest != validated.content_sha256:
+        raise ValueError(
+            "packaged recap bytes do not match SourceSpanIndex.content_sha256: "
+            f"{recap_digest} != {validated.content_sha256}"
+        )
+    source_digest = source_sha256.removeprefix("sha256:").strip().lower()
+    if source_digest and source_digest != validated.content_sha256:
+        raise ValueError(
+            "packaged source_sha256 does not match SourceSpanIndex.content_sha256: "
+            f"{source_digest} != {validated.content_sha256}"
+        )
+    source_span_index = source_span_index_to_dict(validated)
+    artifact_id = validated.source_artifact_id
+
+    source_spans_dir = output_dir / "source_spans"
+    source_spans_dir.mkdir(parents=True, exist_ok=True)
+    source_span_path = source_spans_dir / "recap_full_text.md"
+    source_span_path.write_text(recap_text)
+    lines = recap_text.splitlines()
+    for ordinal, span in enumerate(validated.spans, start=1):
+        paragraph_text = "\n".join(lines[span.start_line - 1 : span.end_line])
+        paragraph_path = source_spans_dir / f"recap_paragraph_{ordinal:03d}.md"
+        paragraph_path.write_text(paragraph_text)
+
+    source_span_index_path = output_dir / "source_span_index.json"
+    write_json(source_span_index_path, source_span_index)
+    # Guardrail: packaged bytes must round-trip through the canonical v1 loader.
+    source_span_index_from_dict(json.loads(source_span_index_path.read_text()))
+    if source_span_index.get("schema") != SOURCE_SPAN_INDEX_SCHEMA:
+        raise ValueError(
+            f"packaged SourceSpanIndex schema must be {SOURCE_SPAN_INDEX_SCHEMA}, "
+            f"got {source_span_index.get('schema')!r}"
+        )
+
+    provenance_index = {
+        "schema": "dmb_source_provenance_index_v0",
+        "version": "0.1",
+        "campaign_id": campaign_id,
+        "session_id": session_id,
+        "source_artifacts": [
+            {
+                "artifact_id": artifact_id,
+                "uri": source_uri,
+                "sha256": f"sha256:{validated.content_sha256}",
+                "preview_only": True,
+            }
+        ],
+    }
+    provenance_index_path = output_dir / "provenance_index.json"
+    write_json(provenance_index_path, provenance_index)
+    return source_spans_dir, source_span_index_path, provenance_index_path, len(validated.spans)
+
+
 def _write_source_span_bundle(
     *,
     recap_text: str,
@@ -259,18 +385,36 @@ def _write_source_span_bundle(
     session_id: str,
     source_uri: str,
     source_sha256: str,
+    canonical_index: Mapping[str, Any] | None = None,
+    source_artifact_id: str | None = None,
 ) -> tuple[Path, Path, Path, int]:
+    if canonical_index is not None:
+        return _write_canonical_source_span_bundle(
+            recap_text=recap_text,
+            output_dir=output_dir,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            source_uri=source_uri,
+            source_sha256=source_sha256,
+            canonical_index=canonical_index,
+            source_artifact_id=source_artifact_id,
+        )
+
     source_spans_dir = output_dir / "source_spans"
     source_spans_dir.mkdir(parents=True, exist_ok=True)
     source_span_path = source_spans_dir / "recap_full_text.md"
     source_span_path.write_text(recap_text)
-    source_artifact_id = f"artifact:recap:{campaign_id}:{session_id}"
+    resolved_artifact_id = (
+        source_artifact_id.strip()
+        if isinstance(source_artifact_id, str) and source_artifact_id.strip()
+        else f"artifact:recap:{campaign_id}:{session_id}"
+    )
 
     spans: list[dict[str, Any]] = [
         {
             "span_id": f"{session_id}:recap:full_text",
             "source_span_ref_id": f"{session_id}:recap:full_text",
-            "source_artifact_id": source_artifact_id,
+            "source_artifact_id": resolved_artifact_id,
             "kind": "full_text",
             "ordinal": 0,
             "source_uri": source_uri,
@@ -290,7 +434,7 @@ def _write_source_span_bundle(
             {
                 "span_id": f"{session_id}:recap:paragraph:{paragraph['ordinal']:03d}",
                 "source_span_ref_id": f"{session_id}:recap:paragraph:{paragraph['ordinal']:03d}",
-                "source_artifact_id": source_artifact_id,
+                "source_artifact_id": resolved_artifact_id,
                 "kind": "paragraph",
                 "ordinal": paragraph["ordinal"],
                 "source_uri": source_uri,
@@ -310,6 +454,8 @@ def _write_source_span_bundle(
         "version": "0.1",
         "campaign_id": campaign_id,
         "session_id": session_id,
+        "source_artifact_id": resolved_artifact_id,
+        "source_ref_id": f"{resolved_artifact_id}:text",
         "source_sha256": source_sha256,
         "paragraph_span_count": len(spans) - 1,
         "spans": spans,
@@ -324,7 +470,7 @@ def _write_source_span_bundle(
         "session_id": session_id,
         "source_artifacts": [
             {
-                "artifact_id": source_artifact_id,
+                "artifact_id": resolved_artifact_id,
                 "uri": source_uri,
                 "sha256": source_sha256,
                 "preview_only": True,
@@ -380,9 +526,9 @@ def _candidate_counts(
                     continue
                 if isinstance(span_id, str) and (known_span_ids is None or span_id in known_span_ids):
                     resolvable_count += 1
-                if isinstance(span_id, str) and ":recap:paragraph:" in span_id:
+                if isinstance(span_id, str) and _is_paragraph_span_id(span_id):
                     paragraph_evidence_ref_count += 1
-                if isinstance(span_id, str) and span_id.endswith(":recap:full_text"):
+                if isinstance(span_id, str) and _is_full_text_span_id(span_id):
                     full_text_fallback_ref_count += 1
     top_refs = candidate_graph.get("evidence_refs", [])
     if isinstance(top_refs, list):
@@ -393,9 +539,9 @@ def _candidate_counts(
             span_id = ref.get("span_id") or ref.get("source_span_ref_id")
             if isinstance(span_id, str) and (known_span_ids is None or span_id in known_span_ids):
                 resolvable_count += 1
-            if isinstance(span_id, str) and ":recap:paragraph:" in span_id:
+            if isinstance(span_id, str) and _is_paragraph_span_id(span_id):
                 paragraph_evidence_ref_count += 1
-            if isinstance(span_id, str) and span_id.endswith(":recap:full_text"):
+            if isinstance(span_id, str) and _is_full_text_span_id(span_id):
                 full_text_fallback_ref_count += 1
     return GraphIngestHealth(
         candidate_graph_valid=True,
@@ -450,9 +596,11 @@ def _write_validation_report(
     if source_span_index_path is not None and source_span_index_path.exists():
         span_index = json.loads(source_span_index_path.read_text())
         known_span_ids = {
-            str(span.get("span_id") or span.get("source_span_ref_id"))
+            span_id
             for span in span_index.get("spans", [])
-            if isinstance(span, dict) and (span.get("span_id") or span.get("source_span_ref_id"))
+            if isinstance(span, dict)
+            for span_id in [_span_identity(span)]
+            if span_id is not None
         }
     known_evidence_ids = set()
     for ref in candidate_graph.get("evidence_refs", []) if isinstance(candidate_graph.get("evidence_refs"), list) else []:
@@ -484,7 +632,12 @@ def _write_validation_report(
                         spref = ref.get("span_id") or ref.get("source_span_ref_id")
                         if known_span_ids and isinstance(spref, str) and spref not in known_span_ids:
                             warnings.append(f"unresolved evidence ref span_id: {spref}")
-                        if spref and ":recap:paragraph:" not in str(spref):
+                        if (
+                            isinstance(spref, str)
+                            and spref
+                            and not _is_paragraph_span_id(spref)
+                            and not _is_full_text_span_id(spref)
+                        ):
                             warnings.append(f"candidate {field} {obj_id} has no paragraph-level evidence")
     diagnostics = candidate_graph.get("diagnostics", {})
     for flag in (
@@ -511,6 +664,7 @@ def _write_validation_report(
         "campaign_id": campaign_id,
         "session_id": session_id,
         "candidate_graph_path": safe_relative_artifact_uri(candidate_graph_path),
+        "candidate_graph_sha256": compute_sha256(candidate_graph_path),
         "valid": not errors,
         "errors": errors,
         "warnings": warnings,
@@ -552,6 +706,142 @@ def _artifact(
     )
 
 
+def _resolve_packaged_source_artifact_id(
+    *,
+    campaign_id: str,
+    session_id: str,
+    options: GraphPreviewRunnerOptions,
+    packaged_span_index: Mapping[str, Any] | None = None,
+) -> str:
+    for candidate in (
+        options.source_artifact_id,
+        (options.source_span_index or {}).get("source_artifact_id")
+        if isinstance(options.source_span_index, Mapping)
+        else None,
+        (packaged_span_index or {}).get("source_artifact_id")
+        if isinstance(packaged_span_index, Mapping)
+        else None,
+    ):
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+    return f"artifact:recap:{campaign_id}:{session_id}"
+
+
+def _require_candidate_graph_identity(
+    candidate_graph: Mapping[str, Any],
+    *,
+    campaign_id: str,
+    session_id: str,
+    source_artifact_id: str,
+) -> dict[str, Any]:
+    """Validate candidate identity without rewriting submitted fields."""
+    graph = dict(candidate_graph)
+
+    candidate_campaign = graph.get("campaign_id")
+    if not candidate_campaign or not str(candidate_campaign).strip():
+        raise ValueError("candidate_graph.campaign_id is required")
+    if str(candidate_campaign).strip() != campaign_id:
+        raise ValueError(
+            f"candidate_graph.campaign_id {candidate_campaign!r} != packaging {campaign_id!r}"
+        )
+
+    candidate_session = graph.get("session_id")
+    if not candidate_session or not str(candidate_session).strip():
+        raise ValueError("candidate_graph.session_id is required")
+    if str(candidate_session).strip() != session_id:
+        raise ValueError(
+            f"candidate_graph.session_id {candidate_session!r} != packaging {session_id!r}"
+        )
+
+    expected = source_artifact_id.strip()
+    if not expected:
+        raise ValueError("source_artifact_id is required for candidate identity")
+
+    bound_ids = graph.get("source_artifact_ids")
+    if not isinstance(bound_ids, list) or not bound_ids:
+        raise ValueError("candidate_graph.source_artifact_ids is required")
+    normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
+    if not normalized:
+        raise ValueError("candidate_graph.source_artifact_ids is required")
+    expected_set = {expected}
+    if normalized != expected_set:
+        raise ValueError(
+            f"candidate_graph source_artifact_ids {sorted(normalized)!r} "
+            f"must equal exactly {sorted(expected_set)!r}"
+        )
+    return graph
+
+
+def _with_candidate_graph_identity(
+    candidate_graph: Mapping[str, Any],
+    *,
+    campaign_id: str,
+    session_id: str,
+    source_artifact_id: str,
+) -> dict[str, Any]:
+    """Test/helper-only: construct a fixture candidate with explicit identity."""
+    graph = dict(candidate_graph)
+    graph["campaign_id"] = campaign_id
+    graph["session_id"] = session_id
+    expected = source_artifact_id.strip()
+    graph["source_artifact_ids"] = [expected] if expected else []
+    return graph
+
+
+def _assert_packaged_source_artifact_identity(
+    *,
+    source_artifact_id: str,
+    provenance_index: Mapping[str, Any],
+    source_span_index: Mapping[str, Any],
+    candidate_graph: Mapping[str, Any] | None = None,
+) -> None:
+    """Fail closed when packaged GraphIngest artifacts disagree on SourceArtifact ID."""
+    expected = source_artifact_id.strip()
+    if not expected:
+        raise ValueError("source_artifact_id is required for packaged GraphIngest identity")
+
+    span_id = str(source_span_index.get("source_artifact_id") or "").strip()
+    if span_id != expected:
+        raise ValueError(
+            f"source_span_index source_artifact_id {span_id!r} != packaged {expected!r}"
+        )
+
+    artifacts = provenance_index.get("source_artifacts") or []
+    if not isinstance(artifacts, list) or not artifacts:
+        raise ValueError("provenance_index must declare source_artifacts")
+    for row in artifacts:
+        if not isinstance(row, Mapping):
+            raise ValueError("provenance_index source_artifacts entries must be objects")
+        row_id = str(row.get("artifact_id") or "").strip()
+        if row_id != expected:
+            raise ValueError(
+                f"provenance_index artifact_id {row_id!r} != packaged {expected!r}"
+            )
+
+    if candidate_graph is None:
+        return
+    bound_ids = candidate_graph.get("source_artifact_ids")
+    if isinstance(bound_ids, list):
+        normalized = {str(item).strip() for item in bound_ids if str(item).strip()}
+        if normalized != {expected}:
+            raise ValueError(
+                f"candidate_graph source_artifact_ids {sorted(normalized)!r} "
+                f"must equal exactly {[expected]!r}"
+            )
+        return
+    legacy_artifacts = candidate_graph.get("source_artifacts")
+    if isinstance(legacy_artifacts, list) and legacy_artifacts:
+        legacy_ids = {
+            str(row.get("artifact_id") or "").strip()
+            for row in legacy_artifacts
+            if isinstance(row, Mapping)
+        }
+        if expected not in legacy_ids:
+            raise ValueError(
+                f"candidate_graph source_artifacts {sorted(legacy_ids)!r} missing packaged {expected!r}"
+            )
+
+
 def run_graph_preview_extraction(
     options: GraphPreviewRunnerOptions,
 ) -> GraphPreviewRunnerResult:
@@ -590,7 +880,20 @@ def run_graph_preview_extraction(
             session_id=session_id,
             source_uri=source_uri,
             source_sha256=recap_sha256,
+            canonical_index=options.source_span_index,
+            source_artifact_id=options.source_artifact_id,
         )
+    )
+    packaged_span_index = json.loads(source_span_index_path.read_text())
+    packaged_provenance_index = json.loads(provenance_index_path.read_text())
+    packaged_source_artifact_id = _resolve_packaged_source_artifact_id(
+        campaign_id=campaign_id,
+        session_id=session_id,
+        options=options,
+        packaged_span_index=packaged_span_index,
+    )
+    span_index_schema = str(
+        packaged_span_index.get("schema") or "dmb_source_span_index_v0"
     )
 
     artifacts: dict[str, GraphIngestArtifactRef] = {
@@ -608,7 +911,8 @@ def run_graph_preview_extraction(
         "source_span_index": _artifact(
             GraphIngestArtifactKind.SOURCE_SPAN_INDEX,
             source_span_index_path,
-            "dmb_source_span_index_v0",
+            span_index_schema,
+            compute_sha256(source_span_index_path),
         ),
         "provenance_index": _artifact(
             GraphIngestArtifactKind.PROVENANCE_INDEX,
@@ -634,9 +938,17 @@ def run_graph_preview_extraction(
             raise FileNotFoundError(
                 f"candidate graph does not exist: {options.candidate_graph_path}"
             )
-        candidate_graph = json.loads(options.candidate_graph_path.read_text())
         candidate_graph_path = output_dir / "candidate_graph.json"
-        write_json(candidate_graph_path, candidate_graph)
+        # Preserve exact production bytes so packaged digests match ExtractionRun components.
+        if options.candidate_graph_path.resolve() != candidate_graph_path.resolve():
+            shutil.copy2(options.candidate_graph_path, candidate_graph_path)
+        candidate_graph = json.loads(candidate_graph_path.read_text())
+        candidate_graph = _require_candidate_graph_identity(
+            candidate_graph,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            source_artifact_id=packaged_source_artifact_id,
+        )
         validation = _write_validation_report(
             output_dir=output_dir,
             campaign_id=campaign_id,
@@ -650,13 +962,21 @@ def run_graph_preview_extraction(
             GraphIngestArtifactKind.CANDIDATE_GRAPH,
             candidate_graph_path,
             "dmb_candidate_graph_preview_ir_v0",
+            compute_sha256(candidate_graph_path),
         )
         artifacts["candidate_validation_report"] = _artifact(
             GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT,
             validation_report_path,
             "dmb_candidate_graph_validation_report_v0",
+            compute_sha256(validation_report_path),
         )
-        known_span_ids = {str(sp.get("span_id") or sp.get("source_span_ref_id")) for sp in json.loads(source_span_index_path.read_text()).get("spans", []) if isinstance(sp, dict)}
+        known_span_ids = {
+            span_id
+            for sp in json.loads(source_span_index_path.read_text()).get("spans", [])
+            if isinstance(sp, dict)
+            for span_id in [_span_identity(sp)]
+            if span_id is not None
+        }
         health = _candidate_counts(candidate_graph, known_span_ids=known_span_ids, paragraph_span_count=paragraph_span_count)
         candidate_extraction = True
         extraction_mode = "fixture"
@@ -679,6 +999,7 @@ def run_graph_preview_extraction(
             GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
             known_entity_path,
             "dmb_known_entity_mention_sidecar_v0",
+            compute_sha256(known_entity_path),
         )
         if validation.valid:
             status = GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
@@ -788,7 +1109,12 @@ def run_graph_preview_extraction(
                 client=category_client,
                 progress_callback=_progress,
             )
-            candidate_graph = extraction.candidate_graph
+            candidate_graph = _require_candidate_graph_identity(
+                extraction.candidate_graph,
+                campaign_id=campaign_id,
+                session_id=session_id,
+                source_artifact_id=packaged_source_artifact_id,
+            )
             candidate_graph_path = output_dir / "candidate_graph.json"
             write_json(candidate_graph_path, candidate_graph)
             if extraction.registry_context_graph:
@@ -799,15 +1125,26 @@ def run_graph_preview_extraction(
                     registry_context_path,
                     "dmb_candidate_graph_preview_v0",
                 )
-            if extraction.known_entity_mentions:
-                known_entity_path = output_dir / "known_entity_mentions.json"
-                write_json(known_entity_path, extraction.known_entity_mentions)
-                artifacts["known_entity_mentions"] = _artifact(
-                    GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
-                    known_entity_path,
-                    extraction.known_entity_mentions.get("schema")
-                    or "dmb_known_entity_mention_sidecar_v0",
-                )
+            # Always emit the known-entity contract artifact (possibly empty)
+            # so live materialization can reuse candidate-ready runs.
+            known_entity_payload = extraction.known_entity_mentions or {
+                "schema": "dmb_known_entity_mention_sidecar_v0",
+                "version": "0.1",
+                "campaign_id": campaign_id,
+                "session_id": session_id,
+                "mentions": [],
+                "ambiguous_surfaces": [],
+                "diagnostics": {"mention_count": 0, "empty_contract": True},
+            }
+            known_entity_path = output_dir / "known_entity_mentions.json"
+            write_json(known_entity_path, known_entity_payload)
+            artifacts["known_entity_mentions"] = _artifact(
+                GraphIngestArtifactKind.KNOWN_ENTITY_MENTIONS,
+                known_entity_path,
+                known_entity_payload.get("schema")
+                or "dmb_known_entity_mention_sidecar_v0",
+                compute_sha256(known_entity_path),
+            )
             pass_outputs_path = output_dir / "pass_outputs.json"
             write_json(pass_outputs_path, extraction.pass_outputs)
             pass_telemetry_path = output_dir / "pass_telemetry.json"
@@ -827,11 +1164,13 @@ def run_graph_preview_extraction(
                 GraphIngestArtifactKind.CANDIDATE_GRAPH,
                 candidate_graph_path,
                 "dmb_candidate_graph_preview_v0",
+                compute_sha256(candidate_graph_path),
             )
             artifacts["candidate_validation_report"] = _artifact(
                 GraphIngestArtifactKind.CANDIDATE_VALIDATION_REPORT,
                 validation_report_path,
                 "dmb_candidate_graph_validation_report_v0",
+                compute_sha256(validation_report_path),
             )
             artifacts["pass_outputs"] = _artifact(
                 GraphIngestArtifactKind.PASS_TELEMETRY,
@@ -849,9 +1188,11 @@ def run_graph_preview_extraction(
                 "dmb_category_graph_consolidation_diagnostics_v0",
             )
             known_span_ids = {
-                str(sp.get("span_id") or sp.get("source_span_ref_id"))
+                span_id
                 for sp in span_index.get("spans", [])
-                if isinstance(sp, dict) and (sp.get("span_id") or sp.get("source_span_ref_id"))
+                if isinstance(sp, dict)
+                for span_id in [_span_identity(sp)]
+                if span_id is not None
             }
             health = _candidate_counts(
                 candidate_graph,
@@ -1009,7 +1350,7 @@ def run_graph_preview_extraction(
         created_at=now,
         updated_at=now,
         source=GraphIngestSource(
-            source_artifact_id=f"artifact:recap:{campaign_id}:{session_id}",
+            source_artifact_id=packaged_source_artifact_id,
             source_domain=options.source_domain,
             input_path_record=options.input_path_record,
             normalized_recap_path=source_uri,
@@ -1038,6 +1379,15 @@ def run_graph_preview_extraction(
         ],
         errors=manifest_errors,
         next_actions=next_actions,
+    )
+    packaged_candidate_graph: dict[str, Any] | None = None
+    if candidate_graph_path is not None and candidate_graph_path.is_file():
+        packaged_candidate_graph = json.loads(candidate_graph_path.read_text())
+    _assert_packaged_source_artifact_identity(
+        source_artifact_id=packaged_source_artifact_id,
+        provenance_index=packaged_provenance_index,
+        source_span_index=packaged_span_index,
+        candidate_graph=packaged_candidate_graph,
     )
     manifest_path = output_dir / "graph_ingest_run_manifest.json"
     write_json(manifest_path, manifest.model_dump(mode="json", by_alias=True))

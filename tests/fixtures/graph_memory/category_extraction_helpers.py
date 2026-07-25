@@ -64,12 +64,16 @@ def canonical_candidate_graph_from_passes(
         run_category_pipeline,
     )
 
+    artifact = "artifact:recap:longmont-c2:session-24:testfixture"
     span_index = {
+        "source_artifact_id": artifact,
+        "source_ref_id": f"{artifact}:text",
         "spans": [
             {
                 "kind": "paragraph",
                 "span_id": spref,
                 "source_span_ref_id": spref,
+                "source_artifact_id": artifact,
                 "line_start": 1,
                 "line_end": 3,
                 "text": "Bonogo scouts the Mireward road and regroups at dusk.",
@@ -83,6 +87,8 @@ def canonical_candidate_graph_from_passes(
             session_id="session-24",
             session_number=24,
             source_span_index=span_index,
+            source_artifact_id=artifact,
+            source_ref_id=f"{artifact}:text",
             model_id="gpt-5.4-mini",
         ),
     )

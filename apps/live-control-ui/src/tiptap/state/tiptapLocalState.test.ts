@@ -43,6 +43,8 @@ describe("Workspace document local state", () => {
       kind: "runbook",
       targetSession: northGateDescriptor.session,
       surface: "runbook",
+      baseRevision: 1,
+      baseContentSha256: "",
       starterContent: northGateDescriptor.starterContent,
       now,
     });
@@ -71,6 +73,8 @@ describe("Workspace document local state", () => {
       kind: "runbook",
       targetSession: northGateDescriptor.session,
       surface: "runbook",
+      baseRevision: 1,
+      baseContentSha256: "",
       starterContent: northGateDescriptor.starterContent,
       now: "2026-06-18T12:00:00.000Z",
     });
@@ -88,6 +92,8 @@ describe("Workspace document local state", () => {
       kind: "runbook",
       targetSession: northGateDescriptor.session,
       surface: "runbook",
+      baseRevision: 1,
+      baseContentSha256: "",
       starterContent: northGateDescriptor.starterContent,
     });
 
@@ -107,6 +113,8 @@ describe("Workspace document local state", () => {
       kind: "runbook",
       targetSession: northGateDescriptor.session,
       surface: "runbook",
+      baseRevision: 1,
+      baseContentSha256: "",
       starterContent: northGateDescriptor.starterContent,
       now: "2026-06-18T12:00:00.000Z",
     });
@@ -117,6 +125,8 @@ describe("Workspace document local state", () => {
       kind: "runbook",
       targetSession: otherDescriptor.session,
       surface: "runbook",
+      baseRevision: 1,
+      baseContentSha256: "",
       starterContent: otherDescriptor.starterContent,
       now: "2026-06-18T12:00:00.000Z",
     });
@@ -134,5 +144,27 @@ describe("Workspace document local state", () => {
     const removeItem = vi.fn();
     clearWorkspaceDocumentLocalState({ removeItem }, FIXTURE_DOC_ID);
     expect(removeItem).toHaveBeenCalledWith(workspaceDocumentStorageKey(FIXTURE_DOC_ID));
+  });
+
+  it("migrates v2 local state on read", () => {
+    const v2 = {
+      schema_version: "dmb_workspace_document_local_state_v2",
+      document_id: FIXTURE_DOC_ID,
+      title: "Legacy",
+      campaign_id: "longmont-c2",
+      kind: "runbook",
+      target_session: 23,
+      surface: "runbook",
+      tiptap_json: { type: "doc", content: [] },
+      exported_markdown: "# Legacy\n",
+      dirty: false,
+      created_at: "2026-06-18T12:00:00.000Z",
+      updated_at: "2026-06-18T12:00:00.000Z",
+      last_local_save_at: "2026-06-18T12:00:00.000Z",
+    };
+    const migrated = readWorkspaceDocumentLocalState({ getItem: () => JSON.stringify(v2) }, FIXTURE_DOC_ID);
+    expect(migrated?.schema_version).toBe(WORKSPACE_DOCUMENT_LOCAL_STATE_SCHEMA);
+    expect(migrated?.base_revision).toBe(0);
+    expect(migrated?.base_content_sha256).toBe("");
   });
 });

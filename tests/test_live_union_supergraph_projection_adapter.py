@@ -188,7 +188,6 @@ def test_adapter_prefers_persisted_projection_payload(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     result = _preview_union_ready_run(tmp_path, monkeypatch)
-    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     projection_payload = {
         "campaign_id": "longmont-c2",
         "session_id": "session-24",
@@ -199,16 +198,7 @@ def test_adapter_prefers_persisted_projection_payload(
         "mentions": [],
         "source_spans": [],
     }
-    projection_path = result.manifest_path.parent / "projection_payload.json"
-    projection_path.write_text(json.dumps(projection_payload), encoding="utf-8")
-    manifest["artifacts"]["projection_payload"] = {
-        "kind": "projection_payload",
-        "uri": projection_path.relative_to(tmp_path).as_posix(),
-        "schema": "dmb_recap_graph_projection_v0",
-        "exists": True,
-        "preview_only": True,
-    }
-    result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    _stamp_reusable_projection_payload(tmp_path, result, projection_payload)
 
     projection = build_plan_union_supergraph_projection(
         session_id="session-24",
@@ -223,7 +213,6 @@ def test_adapter_prefers_preview_union_store_over_persisted_manifest_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     result = _preview_union_ready_run(tmp_path, monkeypatch)
-    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     projection_payload = {
         "campaign_id": "longmont-c2",
         "session_id": "session-24",
@@ -239,16 +228,7 @@ def test_adapter_prefers_preview_union_store_over_persisted_manifest_snapshot(
         "mentions": [],
         "source_spans": [],
     }
-    projection_path = result.manifest_path.parent / "projection_payload.json"
-    projection_path.write_text(json.dumps(projection_payload), encoding="utf-8")
-    manifest["artifacts"]["projection_payload"] = {
-        "kind": "projection_payload",
-        "uri": projection_path.relative_to(tmp_path).as_posix(),
-        "schema": "dmb_recap_graph_projection_v0",
-        "exists": True,
-        "preview_only": True,
-    }
-    result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    _stamp_reusable_projection_payload(tmp_path, result, projection_payload)
 
     projection = build_plan_union_supergraph_projection(
         session_id="session-24",
@@ -266,7 +246,9 @@ def test_adapter_rejects_manifest_not_preview_union_store_ready(
 ) -> None:
     manifest_path = _candidate_ready_manifest(tmp_path, monkeypatch)
 
-    with pytest.raises(ValueError, match="preview_union_store_ready"):
+    with pytest.raises(
+        ValueError, match="preview_union_store_ready|preview_union_store"
+    ):
         build_plan_union_supergraph_projection(
             session_id="session-24",
             graph_run_manifest_path=manifest_path,
@@ -323,6 +305,7 @@ def test_adapter_rejects_store_with_recap_path_outside_repo(
         result.preview_union_store_path,
         recap_path=str(_existing_path_outside_root(tmp_path)),
     )
+    _restamp_preview_union_store_digest(tmp_path, result)
 
     with pytest.raises(ValueError, match="path is outside repo root"):
         build_plan_union_supergraph_projection(
@@ -351,6 +334,7 @@ def test_adapter_rejects_store_with_ingest_input_path_outside_repo(
         recap_path=None,
         ingest_run_bundle_uri=bundle_path.relative_to(tmp_path).as_posix(),
     )
+    _restamp_preview_union_store_digest(tmp_path, result)
 
     with pytest.raises(ValueError, match="path is outside repo root"):
         build_plan_union_supergraph_projection(
@@ -367,6 +351,12 @@ def _preview_union_ready_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def _candidate_ready_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from src.graph_memory.source_span import source_span_index_to_dict
+
     monkeypatch.chdir(tmp_path)
     _patch_adapter_repo_root(monkeypatch, tmp_path)
     source = tmp_path / "session_24_normalized_recap.md"
@@ -377,6 +367,27 @@ def _candidate_ready_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     candidate.write_text(
         CATEGORY_CANDIDATE_PATH.read_text(encoding="utf-8"), encoding="utf-8"
     )
+    artifact = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        recap_path=source,
+    )
+    span_payload = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    graph = json.loads(candidate.read_text(encoding="utf-8"))
+    from evals.graph_memory_layer.graph_preview_runner import (
+        _with_candidate_graph_identity,
+    )
+
+    graph = _with_candidate_graph_identity(
+        graph,
+        campaign_id="longmont-c2",
+        session_id="session-24",
+        source_artifact_id=artifact.source_artifact_id,
+    )
+    candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     result = run_graph_preview_extraction(
         GraphPreviewRunnerOptions(
             campaign_id="longmont-c2",
@@ -384,10 +395,73 @@ def _candidate_ready_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
             normalized_recap_path=source,
             output_dir=Path("runs/candidate_ready"),
             candidate_graph_path=candidate,
+            source_span_index=span_payload,
+            source_artifact_id=artifact.source_artifact_id,
         )
     )
     assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
     return result.manifest_path
+
+
+def _stamp_reusable_projection_payload(
+    tmp_path: Path,
+    result,
+    projection_payload: dict[str, Any],
+) -> None:
+    import hashlib
+
+    from graph_memory.ingestion.graph_ingest_validate import projection_build_dependencies
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    known = manifest["artifacts"]["known_entity_mentions"]
+    depends_on = projection_build_dependencies(tmp_path, manifest)
+    projection_payload = {
+        **projection_payload,
+        "known_entity_mentions_contract": True,
+        "known_entity_mentions_sha256": known["sha256"],
+        "projection_depends_on": depends_on,
+        "session_id": projection_payload.get("session_id") or manifest["session_id"],
+        "campaign_id": projection_payload.get("campaign_id") or manifest["campaign_id"],
+    }
+    projection_path = result.manifest_path.parent / "projection_payload.json"
+    projection_path.write_text(
+        json.dumps(projection_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    digest = f"sha256:{hashlib.sha256(projection_path.read_bytes()).hexdigest()}"
+    manifest["artifacts"]["projection_payload"] = {
+        "kind": "projection_payload",
+        "uri": projection_path.relative_to(tmp_path).as_posix(),
+        "schema": "dmb_recap_graph_projection_v0",
+        "exists": True,
+        "preview_only": True,
+        "sha256": digest,
+        "depends_on": depends_on,
+    }
+    result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def _restamp_preview_union_store_digest(tmp_path: Path, result) -> None:
+    import hashlib
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    store_uri = manifest["artifacts"]["preview_union_store"]["uri"]
+    store_path = tmp_path / store_uri
+    store_digest = f"sha256:{hashlib.sha256(store_path.read_bytes()).hexdigest()}"
+    manifest["artifacts"]["preview_union_store"]["sha256"] = store_digest
+    report_uri = manifest["artifacts"]["preview_union_validation_report"]["uri"]
+    report_path = tmp_path / report_uri
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["preview_union_store_sha256"] = store_digest
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest["artifacts"]["preview_union_validation_report"]["sha256"] = (
+        f"sha256:{hashlib.sha256(report_path.read_bytes()).hexdigest()}"
+    )
+    result.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def _mutate_preview_store_recap_artifact(

@@ -11,6 +11,8 @@ from typing import Any, Mapping, Sequence
 
 KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA = "dmb_known_entity_mention_sidecar_v0"
 KNOWN_ENTITY_MENTION_SIDECAR_VERSION = "0.1"
+KNOWN_ENTITY_ALLOWED_KINDS = frozenset({"pc", "companion"})
+KNOWN_ENTITY_ALLOWED_MATCH_METHODS = frozenset({"canonical", "alias"})
 
 
 @dataclass(frozen=True)
@@ -31,16 +33,48 @@ class KnownEntityMention:
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> KnownEntityMention:
+        source_span_ref_id = str(raw["source_span_ref_id"]).strip()
+        if not source_span_ref_id:
+            raise ValueError("source_span_ref_id is required")
+        start_offset = int(raw["start_offset"])
+        end_offset = int(raw["end_offset"])
+        if start_offset < 0 or end_offset < 0:
+            raise ValueError("mention offsets must be nonnegative")
+        if start_offset >= end_offset:
+            raise ValueError("start_offset must be less than end_offset")
+        surface_text = str(raw["surface_text"])
+        if not surface_text:
+            raise ValueError("surface_text is required")
+        canonical_entity_id = str(raw["canonical_entity_id"]).strip()
+        entity_slug = str(raw["entity_slug"]).strip()
+        if not canonical_entity_id:
+            raise ValueError("canonical_entity_id is required")
+        if not entity_slug:
+            raise ValueError("entity_slug is required")
+        entity_kind = str(raw["entity_kind"]).strip()
+        match_method = str(raw["match_method"]).strip()
+        if entity_kind not in KNOWN_ENTITY_ALLOWED_KINDS:
+            raise ValueError(
+                f"entity_kind must be one of {sorted(KNOWN_ENTITY_ALLOWED_KINDS)}"
+            )
+        if match_method not in KNOWN_ENTITY_ALLOWED_MATCH_METHODS:
+            raise ValueError(
+                "match_method must be one of "
+                f"{sorted(KNOWN_ENTITY_ALLOWED_MATCH_METHODS)}"
+            )
+        display_name = str(raw.get("display_name") or entity_slug).strip()
+        if not display_name:
+            raise ValueError("display_name is required")
         return cls(
-            source_span_ref_id=str(raw["source_span_ref_id"]),
-            start_offset=int(raw["start_offset"]),
-            end_offset=int(raw["end_offset"]),
-            surface_text=str(raw["surface_text"]),
-            canonical_entity_id=str(raw["canonical_entity_id"]),
-            entity_slug=str(raw["entity_slug"]),
-            entity_kind=str(raw["entity_kind"]),
-            match_method=str(raw["match_method"]),
-            display_name=str(raw.get("display_name") or raw["entity_slug"]),
+            source_span_ref_id=source_span_ref_id,
+            start_offset=start_offset,
+            end_offset=end_offset,
+            surface_text=surface_text,
+            canonical_entity_id=canonical_entity_id,
+            entity_slug=entity_slug,
+            entity_kind=entity_kind,
+            match_method=match_method,
+            display_name=display_name,
             registry_version=str(
                 raw.get("registry_version") or KNOWN_ENTITY_MENTION_SIDECAR_VERSION
             ),
@@ -76,14 +110,23 @@ class KnownEntityMentionSidecar:
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> KnownEntityMentionSidecar:
-        mentions = tuple(
-            KnownEntityMention.from_mapping(item)
-            for item in (raw.get("mentions") or [])
-            if isinstance(item, Mapping)
-        )
-        ambiguous = tuple(
-            str(s) for s in (raw.get("ambiguous_surfaces") or []) if str(s).strip()
-        )
+        mentions_raw = raw.get("mentions") or []
+        if not isinstance(mentions_raw, list):
+            raise ValueError("mentions must be a list")
+        mentions: list[KnownEntityMention] = []
+        for index, item in enumerate(mentions_raw):
+            if not isinstance(item, Mapping):
+                raise ValueError(f"mentions[{index}] must be an object")
+            mentions.append(KnownEntityMention.from_mapping(item))
+        ambiguous_raw = raw.get("ambiguous_surfaces") or []
+        if not isinstance(ambiguous_raw, list):
+            raise ValueError("ambiguous_surfaces must be a list")
+        ambiguous: list[str] = []
+        for index, surface in enumerate(ambiguous_raw):
+            if not isinstance(surface, str):
+                raise ValueError(f"ambiguous_surfaces[{index}] must be a string")
+            if surface.strip():
+                ambiguous.append(surface)
         return cls(
             schema=str(raw.get("schema") or KNOWN_ENTITY_MENTION_SIDECAR_SCHEMA),
             version=str(raw.get("version") or KNOWN_ENTITY_MENTION_SIDECAR_VERSION),
@@ -100,8 +143,8 @@ class KnownEntityMentionSidecar:
                 else None
             ),
             roster_carry_forward=bool(raw.get("roster_carry_forward")),
-            mentions=mentions,
-            ambiguous_surfaces=ambiguous,
+            mentions=tuple(mentions),
+            ambiguous_surfaces=tuple(ambiguous),
             diagnostics=dict(raw.get("diagnostics") or {}),
         )
 

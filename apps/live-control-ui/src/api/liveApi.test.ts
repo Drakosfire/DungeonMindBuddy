@@ -7,6 +7,7 @@ import {
   applyCombatHpDelta,
   commitStatblockCorpusWrite,
   commitTiptapMarkdownWrite,
+  createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
   getCapabilities,
@@ -15,6 +16,7 @@ import {
   getLatestGraphIngestRun,
   getUnionSupergraphProjection,
   LiveApiError,
+  listWorkspaceDocuments,
   postLiveQuery,
   postWorldGraphProjection,
   postWorldGraphRecapProjection,
@@ -23,6 +25,9 @@ import {
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
   getStatblockWorkbenchSample,
+  getStatblockCandidate,
+  generateThreatDraftCandidate,
+  validateStatblockDefinition,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
   patchCombatEntity,
@@ -37,7 +42,14 @@ import {
   storeStatblockWorkbenchDraft,
   verifyStatblockRetrieval,
 } from "./liveApi";
-import type { ProjectionCommand, ProjectionWriteResult, StoreStatblockDraftRequest } from "./types";
+import type {
+  CreateWorkspaceDocumentRequest,
+  ProjectionCommand,
+  ProjectionWriteResult,
+  StoreStatblockDraftRequest,
+  TiptapMarkdownWritePrepareResponse,
+  WorkspaceDocumentRecord,
+} from "./types";
 import { clearProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
 
 function mockJsonResponse(payload: unknown): Response {
@@ -290,6 +302,78 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/workbench/sample");
+  });
+
+  it("generateThreatDraftCandidate posts to exact draft generate route", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: "draft-1",
+        generated_from_draft_version: 1,
+        request_id: "req-1",
+        outcome: "success",
+        candidate_ref: {
+          candidate_id: "cand-1",
+          generated_from_draft_version: 1,
+          request_id: "req-1",
+          created_at: "2026-01-01T00:00:00Z",
+          status: "active",
+        },
+        candidate: { candidate_id: "cand-1" },
+        cache_status: "stored",
+      }),
+    );
+
+    await generateThreatDraftCandidate("draft-1", { expected_draft_version: 1 });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/threat-drafts/draft-1/candidates:generate");
+    expect(init?.method).toBe("POST");
+  });
+
+  it("getStatblockCandidate reads exact candidate id", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_statblock_candidate_read_v1",
+        candidate_id: "cand-1",
+        status: "active",
+        candidate: { candidate_id: "cand-1" },
+      }),
+    );
+
+    await getStatblockCandidate("cand-1");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblock-candidates/cand-1");
+  });
+
+  it("validateStatblockDefinition posts exact working-copy definition", async () => {
+    const definition = { identity: { name: "Test" } };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_statblock_definition_validation_v1",
+        outcome: "success",
+        definition_digest: "sha256:abc",
+        validation_receipt: {
+          status: "valid",
+          mode: "editor_preview",
+          validator_version: "1",
+          canonicalizer_version: "1",
+          definition_digest: "sha256:abc",
+          issues: [],
+        },
+      }),
+    );
+
+    await validateStatblockDefinition({ definition: definition as never });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/statblock-definitions:validate");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({ definition });
   });
 
   it("postStatblockWorkbenchCommand posts command body to Workbench command endpoint", async () => {
@@ -882,5 +966,119 @@ describe("liveApi citation source helper", () => {
     const body = JSON.parse(String(init?.body));
     expect(body).toEqual({ path: "corpus/locations/north_reach_gate.md" });
     expect(response).toEqual(expected);
+  });
+});
+
+function worldbuildingRecord(overrides: Partial<WorkspaceDocumentRecord> = {}): WorkspaceDocumentRecord {
+  const documentId = overrides.document_id ?? "11111111-1111-4111-8111-111111111111";
+  return {
+    schema_version: "dmb_workspace_document_record_v1",
+    document_id: documentId,
+    title: "World Lore",
+    campaign_id: "eldyrwild",
+    target_session: null,
+    kind: "worldbuilding_source",
+    target_relpath: `out/workspace/worldbuilding/${documentId}.md`,
+    status: "active",
+    content_status: "draft",
+    revision: 1,
+    created_at: "2026-07-22T00:00:00Z",
+    updated_at: "2026-07-22T00:00:00Z",
+    source_domain: "worldbuilding",
+    document_class: "lore",
+    authority_state: "draft",
+    visibility_state: "internal",
+    ...overrides,
+  };
+}
+
+describe("liveApi workspace worldbuilding contracts", () => {
+  it("posts worldbuilding create payloads and returns registry-owned targets", async () => {
+    const record = worldbuildingRecord();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(record));
+
+    const request: CreateWorkspaceDocumentRequest = {
+      title: "World Lore",
+      campaign_id: "eldyrwild",
+      kind: "worldbuilding_source",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    };
+    const created = await createWorkspaceDocument(request);
+
+    expect(created.target_relpath).toBe(`out/workspace/worldbuilding/${record.document_id}.md`);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/live/workspace-documents"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(request),
+      }),
+    );
+  });
+
+  it("lists worldbuilding_source documents by kind", async () => {
+    const record = worldbuildingRecord();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [record],
+      }),
+    );
+
+    const listed = await listWorkspaceDocuments({ kind: "worldbuilding_source" });
+    expect(listed.records).toHaveLength(1);
+    expect(listed.records[0]?.kind).toBe("worldbuilding_source");
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain("kind=worldbuilding_source");
+  });
+
+  it("surfaces prepare diagnostics when writer_ok is false", async () => {
+    const prepare = {
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: "11111111-1111-4111-8111-111111111111",
+      title: "World Lore",
+      target_relpath: "out/workspace/worldbuilding/11111111-1111-4111-8111-111111111111.md",
+      target_display_path: "out/workspace/worldbuilding/11111111-1111-4111-8111-111111111111.md",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: false,
+      writer_phase: "prepare",
+      writer_confirm_token: null,
+      writer_diff: "",
+      warnings: ["Commit blocked: unsupported Markdown would be lossy."],
+      diagnostics: ["line 2: unsupported Markdown block would be lossy on commit"],
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(prepare));
+
+    const response = await prepareTiptapMarkdownWrite({
+      document_id: prepare.document_id,
+      markdown: "| a | b |\n",
+      expected_revision: 1,
+    });
+    expect(response.writer_ok).toBe(false);
+    expect(response.writer_confirm_token).toBeNull();
+    expect(response.diagnostics.some((item) => item.includes("lossy"))).toBe(true);
+  });
+
+  it("fetches workspace document snapshots", async () => {
+    const record = worldbuildingRecord({ revision: 2, content_status: "committed" });
+    const snapshotPayload = {
+      schema_version: "dmb_workspace_document_snapshot_v1",
+      record,
+      markdown: "# Committed\n",
+      content_sha256: "sha-committed",
+      file_fingerprint: "present",
+      file_exists: true,
+      loaded_revision: 2,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(snapshotPayload));
+
+    const { getWorkspaceDocumentSnapshot } = await import("./liveApi");
+    const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+
+    expect(snapshot.markdown).toBe("# Committed\n");
+    expect(snapshot.loaded_revision).toBe(2);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain(`/workspace-documents/${record.document_id}/snapshot`);
   });
 });

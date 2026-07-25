@@ -1,3 +1,9 @@
+import type {
+  GeneratedStatblockCandidateV1,
+  StatblockDefinitionV1_Input,
+  ValidationReceiptV1,
+} from "../contracts/dungeonbuddy-statblocks-v1/client";
+
 export type SurfaceSlot = "main" | "sidebar" | "bottom" | "overlay";
 
 export interface SurfaceModuleDefinition {
@@ -1365,9 +1371,11 @@ export interface StatblockCorpusWriteCommitResponse {
   available_actions: StatblockWorkbenchAction[];
 }
 
-export type WorkspaceDocumentKind = "plan" | "runbook";
+export type WorkspaceDocumentKind = "plan" | "runbook" | "worldbuilding_source";
 export type WorkspaceDocumentStatus = "active" | "discarded";
 export type WorkspaceDocumentContentStatus = "draft" | "committed";
+export type WorldbuildingAuthorityState = "draft" | "reviewed" | "canonical";
+export type WorldbuildingVisibilityState = "internal" | "player_safe";
 
 export interface WorkspaceDocumentRecord {
   schema_version: "dmb_workspace_document_record_v1";
@@ -1382,6 +1390,10 @@ export interface WorkspaceDocumentRecord {
   revision: number;
   created_at: string;
   updated_at: string;
+  source_domain?: "worldbuilding" | null;
+  document_class?: string | null;
+  authority_state?: WorldbuildingAuthorityState | null;
+  visibility_state?: WorldbuildingVisibilityState | null;
 }
 
 export interface WorkspaceDocumentsListResponse {
@@ -1395,6 +1407,10 @@ export interface CreateWorkspaceDocumentRequest {
   kind: WorkspaceDocumentKind;
   target_session?: number | null;
   target_relpath?: string | null;
+  source_domain?: "worldbuilding" | null;
+  document_class?: string | null;
+  authority_state?: WorldbuildingAuthorityState | null;
+  visibility_state?: WorldbuildingVisibilityState | null;
 }
 
 export interface UpdateWorkspaceDocumentMetadataRequest {
@@ -1402,10 +1418,23 @@ export interface UpdateWorkspaceDocumentMetadataRequest {
   target_session?: number | null;
   target_relpath?: string | null;
   expected_revision?: number | null;
+  document_class?: string | null;
+  authority_state?: WorldbuildingAuthorityState | null;
+  visibility_state?: WorldbuildingVisibilityState | null;
 }
 
 export interface WorkspaceDocumentRevisionRequest {
   expected_revision?: number | null;
+}
+
+export interface WorkspaceDocumentSnapshot {
+  schema_version: "dmb_workspace_document_snapshot_v1";
+  record: WorkspaceDocumentRecord;
+  markdown: string;
+  content_sha256: string;
+  file_fingerprint: string;
+  file_exists: boolean;
+  loaded_revision: number;
 }
 
 export interface TiptapMarkdownWritePrepareRequest {
@@ -1446,12 +1475,95 @@ export interface TiptapMarkdownWriteCommitResponse {
   target_relpath: string;
   target_display_path: string;
   registry_revision: number;
+  committed_revision: number;
+  committed_record: WorkspaceDocumentRecord;
+  normalized_content_sha256: string;
   writer_ok: boolean;
   writer_phase?: string | null;
   bytes_written?: number | null;
   file_fingerprint?: string | null;
   backup_relpath?: string | null;
   diagnostics: string[];
+}
+
+export type ExtractionRunLifecycleStatus =
+  | "draft"
+  | "prepared"
+  | "extracted"
+  | "validated"
+  | "reviewable"
+  | "promoted"
+  | "rejected"
+  | "incomplete"
+  | "failed"
+  | "superseded";
+
+export interface ExtractionRunComponentRef {
+  kind: string;
+  uri: string;
+  sha256?: string | null;
+  exists?: boolean;
+}
+
+export interface ExtractionRunRecord {
+  schema_version: "dmb_extraction_run_v1";
+  version: string;
+  run_id: string;
+  source_artifact_id: string;
+  source_domain: string;
+  status: ExtractionRunLifecycleStatus;
+  campaign_id?: string | null;
+  session_id?: string | null;
+  profile_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  components?: Record<string, ExtractionRunComponentRef>;
+  diagnostics?: {
+    messages?: string[];
+    incomplete_components?: string[];
+    errors?: string[];
+  };
+  lineage?: Record<string, unknown>;
+  superseded_by_run_id?: string | null;
+  supersedes_run_id?: string | null;
+}
+
+export interface GraphReviewHandoffPayload {
+  href: string;
+  extraction_run_id: string;
+  source_artifact_id: string;
+  document_id: string;
+  document_revision: number;
+}
+
+export interface ExtractionRunLaunchRequest {
+  document_id: string;
+  expected_revision: number;
+  expected_content_sha256: string;
+  profile_id?: string;
+  profile_version?: string;
+}
+
+export interface ExtractionRunLaunchResponse {
+  schema_version: "dmb_extraction_run_launch_v1";
+  run: ExtractionRunRecord;
+  source_artifact_id: string;
+  document_id: string;
+  document_revision: number;
+  source_content_sha256: string;
+  failure_kind?: string | null;
+  diagnostics: string[];
+  graph_review_handoff: GraphReviewHandoffPayload;
+}
+
+export interface ExtractionRunStatusResponse {
+  schema_version: "dmb_extraction_run_status_v1";
+  run: ExtractionRunRecord;
+  source_artifact_id: string;
+  document_id: string;
+  document_revision: number;
+  source_content_sha256: string;
+  graph_review_handoff: GraphReviewHandoffPayload;
 }
 
 export interface StatblockRetrievalActivationResponse {
@@ -2984,6 +3096,39 @@ export interface ExtractPromoteStatusResponse {
   diagnostics: string[];
 }
 
+export interface ExactRunReviewEvidence {
+  sourceArtifactId: string;
+  sourceSpanRefId: string;
+  paragraphText: string;
+  anchorQuotes: string[];
+  startLine?: number | null;
+  endLine?: number | null;
+}
+
+export interface ExactRunReviewAssertion {
+  assertionId: string;
+  kind: "object" | "relationship";
+  label: string;
+  summary: string;
+  evidence: ExactRunReviewEvidence[];
+}
+
+export interface ExactRunReviewPackage {
+  schema: "dmb_extract_promote_exact_run_review_v1";
+  runId: string;
+  sourceDomain: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  campaignId?: string | null;
+  sessionId?: string | null;
+  sourceProse: string;
+  assertions: ExactRunReviewAssertion[];
+  diagnostics: string[];
+  /** False for worldbuilding_draft inspect-only runs (BLD-07 narrowed). */
+  promotable?: boolean;
+  promotableReason?: string | null;
+}
+
 export interface ExtractPromotePrepareRequest {
   schema: "dmb_extract_promote_prepare_request_v2";
   runId: string;
@@ -3037,4 +3182,78 @@ export interface ExtractPromoteErrorBody {
   statusCode?: number;
   diagnostics?: Array<{ code: string; message: string; severity?: string }>;
   failureResult?: Record<string, unknown> | null;
+}
+
+export interface ThreatDraftCandidateRefV1 {
+  candidate_id: string;
+  generated_from_draft_version: number;
+  request_id: string;
+  created_at: string;
+  expires_at?: string | null;
+  status: "active" | "superseded" | "rejected" | "expired" | "accepted_source";
+}
+
+export interface GenerateThreatDraftCandidateRequestV1 {
+  expected_draft_version: number;
+  client_request_id?: string | null;
+}
+
+export interface GenerateThreatDraftCandidateResponseV1 {
+  schema: "dmb_generate_threat_draft_candidate_response_v1";
+  draft_id: string;
+  generated_from_draft_version: number;
+  request_id: string;
+  outcome: "success" | "failure";
+  candidate_ref?: ThreatDraftCandidateRefV1 | null;
+  candidate?: GeneratedStatblockCandidateV1 | null;
+  failure_category?: string | null;
+  failure_message?: string | null;
+  cache_status?:
+    | "stored"
+    | "missing"
+    | "partial_cache"
+    | "partial_ref"
+    | "partial_reconciliation"
+    | "partial_both"
+    | "reconciled"
+    | null;
+  persistence_failures?: Array<{
+    component: "cache" | "candidate_ref" | "reconciliation";
+    category: string;
+    message: string;
+  }>;
+}
+
+export interface ReadStatblockCandidateResponseV1 {
+  schema: "dmb_statblock_candidate_read_v1";
+  candidate_id: string;
+  status: "active" | "expired" | "unavailable" | "missing";
+  candidate?: GeneratedStatblockCandidateV1 | null;
+  failure_category?: string | null;
+  failure_message?: string | null;
+}
+
+/** Buddy envelope for SBW05a `/statblock-definitions:validate` (browser → Buddy). */
+export interface ValidateDefinitionBuddyRequestV1 {
+  definition: StatblockDefinitionV1_Input;
+}
+
+export interface ValidateDefinitionBuddyResponseV1 {
+  schema: "dmb_statblock_definition_validation_v1";
+  outcome: "success" | "failure";
+  definition_digest?: string | null;
+  validation_receipt?: ValidationReceiptV1 | null;
+  failure_category?: string | null;
+  failure_message?: string | null;
+}
+
+export interface StatblockIntegrationReadinessV1 {
+  schema: "dmb_statblock_integration_readiness_v1";
+  configured: boolean;
+  available: boolean;
+  downstream_status: string;
+  contract?: string | null;
+  contract_version?: string | null;
+  capabilities: string[];
+  diagnostics: string[];
 }

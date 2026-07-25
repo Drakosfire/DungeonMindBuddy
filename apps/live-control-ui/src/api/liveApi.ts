@@ -53,8 +53,13 @@ import type {
   TiptapMarkdownWriteCommitResponse,
   TiptapMarkdownWritePrepareRequest,
   TiptapMarkdownWritePrepareResponse,
+  ExtractionRunLaunchRequest,
+  ExtractionRunLaunchResponse,
+  ExtractionRunRecord,
+  ExtractionRunStatusResponse,
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
+  WorkspaceDocumentSnapshot,
   CreateWorkspaceDocumentRequest,
   UpdateWorkspaceDocumentMetadataRequest,
   WorkspaceDocumentRevisionRequest,
@@ -98,6 +103,12 @@ import type {
   PartyRegistrySessionRosterWriteCommitResponse,
   PartyRegistrySessionRosterWritePrepareRequest,
   PartyRegistrySessionRosterWritePrepareResponse,
+  GenerateThreatDraftCandidateRequestV1,
+  GenerateThreatDraftCandidateResponseV1,
+  ReadStatblockCandidateResponseV1,
+  ValidateDefinitionBuddyRequestV1,
+  ValidateDefinitionBuddyResponseV1,
+  StatblockIntegrationReadinessV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
 import { withProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
@@ -752,6 +763,45 @@ export async function getStatblockWorkbenchSample(): Promise<StatblockWorkbenchS
   );
 }
 
+export async function getStatblockIntegrationReadiness(): Promise<StatblockIntegrationReadinessV1> {
+  return apiFetch<StatblockIntegrationReadinessV1>("/api/live/statblocks/v1/readiness");
+}
+
+export async function generateThreatDraftCandidate(
+  draftId: string,
+  request: GenerateThreatDraftCandidateRequestV1,
+): Promise<GenerateThreatDraftCandidateResponseV1> {
+  return apiFetch<GenerateThreatDraftCandidateResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/candidates:generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function getStatblockCandidate(
+  candidateId: string,
+): Promise<ReadStatblockCandidateResponseV1> {
+  return apiFetch<ReadStatblockCandidateResponseV1>(
+    `/api/live/statblock-candidates/${encodeURIComponent(candidateId)}`,
+  );
+}
+
+export async function validateStatblockDefinition(
+  request: ValidateDefinitionBuddyRequestV1,
+): Promise<ValidateDefinitionBuddyResponseV1> {
+  return apiFetch<ValidateDefinitionBuddyResponseV1>(
+    "/api/live/statblock-definitions:validate",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
 export async function postStatblockWorkbenchCommand(
   request: StatblockWorkbenchCommandRequest,
 ): Promise<StatblockWorkbenchCommandResponse> {
@@ -868,7 +918,7 @@ export async function commitStatblockCorpusWrite(
 
 export async function listWorkspaceDocuments(args: {
   campaign_id?: string;
-  kind?: "plan" | "runbook";
+  kind?: "plan" | "runbook" | "worldbuilding_source";
   status?: "active" | "discarded";
 } = {}): Promise<WorkspaceDocumentsListResponse> {
   const params = new URLSearchParams();
@@ -884,6 +934,12 @@ export async function listWorkspaceDocuments(args: {
 export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {
   return apiFetch<WorkspaceDocumentRecord>(
     `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
+  );
+}
+
+export async function getWorkspaceDocumentSnapshot(documentId: string): Promise<WorkspaceDocumentSnapshot> {
+  return apiFetch<WorkspaceDocumentSnapshot>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot`,
   );
 }
 
@@ -941,6 +997,29 @@ export async function commitTiptapMarkdownWrite(
   return apiFetch<TiptapMarkdownWriteCommitResponse>(
     "/api/live/tiptap/markdown-write/commit",
     { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function launchExtractionRun(
+  request: ExtractionRunLaunchRequest,
+): Promise<ExtractionRunLaunchResponse> {
+  return apiFetch<ExtractionRunLaunchResponse>(
+    "/api/live/graph-preview/extraction-runs",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+/** Generic exact ExtractionRun reload (recap + worldbuilding). Never substitutes latest. */
+export async function getExtractionRun(runId: string): Promise<ExtractionRunRecord> {
+  return apiFetch<ExtractionRunRecord>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}`,
+  );
+}
+
+/** Build-only workspace lineage envelope for an exact extraction run. */
+export async function getExtractionRunStatus(runId: string): Promise<ExtractionRunStatusResponse> {
+  return apiFetch<ExtractionRunStatusResponse>(
+    `/api/live/graph-preview/extraction-runs/${encodeURIComponent(runId)}/build-context`,
   );
 }
 
