@@ -44,13 +44,13 @@ describe("sessionCampaignContext", () => {
     });
   });
 
-  it("defaults lens to active plan campaign when URL is empty", () => {
+  it("defaults lens to world-union when URL is empty", () => {
     expect(resolvePlanGraphLens("longmont-c2", "")).toEqual({
-      selectedCampaignIds: ["longmont-c2"],
+      selectedCampaignIds: ["longmont-c1", "longmont-c2"],
       focus: null,
     });
     expect(resolvePlanGraphLens("longmont-c1", "")).toEqual({
-      selectedCampaignIds: ["longmont-c1"],
+      selectedCampaignIds: ["longmont-c1", "longmont-c2"],
       focus: null,
     });
   });

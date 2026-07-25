@@ -83,7 +83,7 @@ describe("PlanGraphLoadPanel", () => {
 
     expect(screen.getByTestId("plan-graph-load-panel")).toBeInTheDocument();
     expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
-      /C2 only · no session focus · 45 nodes · ready/i,
+      /Union · C1\+C2 · no session focus · 45 nodes · ready/i,
     );
   });
 
@@ -96,7 +96,7 @@ describe("PlanGraphLoadPanel", () => {
     expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(/Loading/i);
   });
 
-  it("toggles a campaign into the lens", async () => {
+  it("toggles a campaign out of the lens", async () => {
     const user = userEvent.setup();
     render(
       <PlanGraphLoadPanel projectionState="ready" nodeCount={45} />,
@@ -104,10 +104,10 @@ describe("PlanGraphLoadPanel", () => {
     );
 
     const c1 = screen.getByRole("checkbox", { name: /Longmont C1/i });
-    expect(c1).not.toBeChecked();
-    await user.click(c1);
     expect(c1).toBeChecked();
-    expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(/Union · C1\+C2/i);
+    await user.click(c1);
+    expect(c1).not.toBeChecked();
+    expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(/C2 only/i);
   });
 
   it("offers Focus session options from ingest bundles only", async () => {
@@ -127,9 +127,10 @@ describe("PlanGraphLoadPanel", () => {
     });
     expect(screen.getByRole("option", { name: "C2 · Session 22" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "C2 · Session 1" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "C1 · Session 3" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "C2 · Session 40" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "C1 · Session 3" })).not.toBeInTheDocument();
     expect(loadBundle).toHaveBeenCalledWith("campaign-ingested", "longmont-c2");
+    expect(loadBundle).toHaveBeenCalledWith("campaign-ingested", "longmont-c1");
   });
 
   it("applies Focus session and updates the status line", async () => {
@@ -147,7 +148,7 @@ describe("PlanGraphLoadPanel", () => {
 
     await user.selectOptions(screen.getByLabelText("Focus session"), "longmont-c2:24");
     expect(screen.getByTestId("plan-graph-load-status")).toHaveTextContent(
-      /C2 only · C2 · Session 24 · 45 nodes · ready/i,
+      /Union · C1\+C2 · C2 · Session 24 · 45 nodes · ready/i,
     );
   });
 

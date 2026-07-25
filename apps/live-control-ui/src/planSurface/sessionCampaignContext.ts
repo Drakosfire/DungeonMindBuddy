@@ -140,7 +140,8 @@ export function requestedLensFocusFromLocation(
 
 /**
  * Resolve Plan graph lens from URL + plan campaign.
- * Default with no URL: active plan campaign only (safer than whole-world union).
+ * Default with no URL: world-union (all review campaigns). Narrow via
+ * `?campaigns=` / Focus, or legacy `?campaign=` + `?scopeMode=campaign`.
  * Back-compat: single `?campaign=` + `?scopeMode=` map into a selected set.
  */
 export function resolvePlanGraphLens(
@@ -161,9 +162,7 @@ export function resolvePlanGraphLens(
   } else if (isReviewCampaignId(singleCampaign)) {
     selectedCampaignIds = [...REVIEW_CAMPAIGN_IDS];
   } else {
-    selectedCampaignIds = isReviewCampaignId(planCampaignId)
-      ? [planCampaignId]
-      : [...REVIEW_CAMPAIGN_IDS];
+    selectedCampaignIds = [...REVIEW_CAMPAIGN_IDS];
   }
 
   const focusFallback =

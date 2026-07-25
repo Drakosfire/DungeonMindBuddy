@@ -83,7 +83,7 @@ describe("usePlanGraphReferenceResolver", () => {
       schema: "dmb_world_graph_projection_request_v1",
       worldId: "eldyrwild",
       campaignId: "longmont-c2",
-      scopeMode: "campaign",
+      scopeMode: "world",
       focus: {
         kind: "session",
         sessionId: "session-21",
@@ -122,7 +122,7 @@ describe("usePlanGraphReferenceResolver", () => {
       "[dmb] world-graph projection",
       expect.objectContaining({
         campaignId: "longmont-c2",
-        scopeMode: "campaign",
+        scopeMode: "world",
         focusSessionId: "session-21",
         outcome: "ready",
         durationMs: 42,

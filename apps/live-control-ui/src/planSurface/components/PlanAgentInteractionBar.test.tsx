@@ -139,15 +139,15 @@ describe("PlanAgentInteractionBar graph lens", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    const c2 = screen.getByRole("checkbox", { name: /Longmont C2/i });
-    await user.click(c2);
+    await user.click(screen.getByRole("checkbox", { name: /Longmont C1/i }));
+    await user.click(screen.getByRole("checkbox", { name: /Longmont C2/i }));
 
     expect(screen.getByText("Select at least one campaign.")).toBeInTheDocument();
     expect(screen.getByText("Select at least one campaign on Plan Board.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeDisabled();
   });
 
-  it("shows active-campaign disclosure label by default (not world union)", async () => {
+  it("shows world-union disclosure label by default", async () => {
     const user = userEvent.setup();
     render(
       createElement(PlanAgentInteractionBar, {
@@ -160,7 +160,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Open drawer" }));
-    expect(screen.getByText(/C2 only · no session focus/)).toBeInTheDocument();
-    expect(screen.queryByText(/Union · C1\+C2/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Union · C1\+C2 · no session focus/)).toBeInTheDocument();
+    expect(screen.queryByText(/C2 only · no session focus/)).not.toBeInTheDocument();
   });
 });
