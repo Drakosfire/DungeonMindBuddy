@@ -329,28 +329,48 @@ def _normalize_reference_label(label: str) -> str:
     return re.sub(r"\s+", " ", label.strip()).casefold()
 
 
+# CommonMark link reference definition: label, `:`, optional blanks (spaces/tabs
+# and at most one line ending), then destination. Shared by label discovery and
+# protected-range consumption so the two cannot drift.
+_REFERENCE_DEFINITION_RE = re.compile(
+    r"(?m)^[ \t]{0,3}\[((?:[^\]\\]|\\.)+)\]:"
+    r"[ \t]*(?:\n[ \t]*)?"
+    r"\S+[^\n]*"
+)
+
+# CommonMark absolute URI scheme: ASCII letter + 1–31 of [A-Za-z0-9+.-], then `:`.
+_URI_AUTOLINK_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]{1,31}:")
+
+
 def _reference_definition_labels(markdown: str) -> set[str]:
-    """Labels defined by ``[label]: destination`` lines (CommonMark-style)."""
-    labels: set[str] = set()
-    for match in re.finditer(
-        r"(?m)^[ \t]{0,3}\[((?:[^\]\\]|\\.)+)\]:[ \t]+\S",
-        markdown,
-    ):
-        labels.add(_normalize_reference_label(match.group(1)))
-    return labels
+    """Labels defined by CommonMark ``[label]: destination`` definitions."""
+    return {
+        _normalize_reference_label(match.group(1))
+        for match in _REFERENCE_DEFINITION_RE.finditer(markdown)
+    }
+
+
+def _match_reference_definition_at(markdown: str, index: int) -> re.Match[str] | None:
+    if not _is_line_start(markdown, index):
+        return None
+    return _REFERENCE_DEFINITION_RE.match(markdown, index)
 
 
 def _skip_autolink(markdown: str, index: int) -> int | None:
-    """Advance past ``<https://...>`` / ``<mailto:...>`` / ``<user@host>``."""
+    """Advance past a CommonMark URI or email autolink ``<...>``."""
     if index >= len(markdown) or markdown[index] != "<":
         return None
     close = markdown.find(">", index + 1)
     if close < 0:
         return None
     inner = markdown[index + 1 : close]
-    if not inner or any(ch.isspace() for ch in inner):
+    if not inner:
         return None
-    if inner.startswith(("http://", "https://", "mailto:", "ftp://")):
+    for ch in inner:
+        # Spaces, ASCII controls, and nested angle brackets are not allowed.
+        if ch.isspace() or ch == "<" or ord(ch) < 32:
+            return None
+    if _URI_AUTOLINK_SCHEME_RE.match(inner):
         return close + 1
     if "@" in inner and "/" not in inner:
         return close + 1
@@ -358,17 +378,11 @@ def _skip_autolink(markdown: str, index: int) -> int | None:
 
 
 def _skip_reference_definition_line(markdown: str, index: int) -> int | None:
-    """Advance past a full ``[label]: destination`` definition line."""
-    if not _is_line_start(markdown, index):
+    """Advance past a full CommonMark link reference definition."""
+    match = _match_reference_definition_at(markdown, index)
+    if match is None:
         return None
-    match = re.match(
-        r"[ \t]{0,3}\[(?:[^\]\\]|\\.)+\]:[ \t]+\S[^\n]*",
-        markdown[index:],
-    )
-    if not match:
-        return None
-    return index + match.end()
-
+    return match.end()
 
 def _protected_ranges(markdown: str) -> list[tuple[int, int]]:
     """Ranges that must not receive mention rewrites: fences, code, links."""

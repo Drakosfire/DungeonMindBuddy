@@ -206,8 +206,12 @@ def test_protected_markdown_and_code_ranges_untouched() -> None:
         "Prior [chip](dmb-node:pc:other) stays.",
         # Adversarial CommonMark forms (fail-closed > chip):
         "[The Caelynn Story]\n\n[The Caelynn Story]: /url",
+        "[The Caelynn Story]\n\n[The Caelynn Story]:/url",
+        "[The Caelynn Story]\n\n[The Caelynn Story]:\n  /url",
         "[The [old] Caelynn Story](https://example.test)",
         "<https://example.test/Caelynn>",
+        "<HTTPS://example.test/Caelynn>",
+        "<xmpp:Caelynn@example.test>",
         "`before\nCaelynn\nafter`",
     ]
     for markdown in cases:
