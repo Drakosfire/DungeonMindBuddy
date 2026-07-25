@@ -1,11 +1,11 @@
 # Roadmap — Threat + Statblock Authoring and Projection
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP
-**Date:** 2026-07-24
-**PR base / repository tip:** `51661055` on `main` (`#406` merge tip; may include unrelated work)
-**Logical SBW predecessor:** `#406` / `51661055` — `SBW07a` create/read adapter
-**This PR:** `SBW07b` — acceptance journal + §12 orchestration
-**Next dispatch after this PR merges:** `SBW07c` (Accept UI + corpus-promotion demolition)
+**Date:** 2026-07-25
+**PR base / repository tip:** `742415e7` on `main` (includes `#409` SBW07c merge; may include unrelated work)
+**Logical SBW predecessor:** `#409` / `455daf49` — `SBW07` COMPLETE (Accept UI + corpus demolition)
+**This PR:** `SBW06-contract` — revise journal + lineage/status transition table (docs only)
+**Next dispatch after this PR merges:** `SBW06a` (blocked on HANDOFF-sbw06 §12.11 Server revise recovery gate)
 
 
 **Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
@@ -66,8 +66,8 @@ Workstream IDs are stable design identifiers. GitHub PR numbers are assigned whe
 | `SBW03` | MERGED `#388` (`889acf96`, 2026-07-23) | One exact draft version generates one typed candidate; failure preserves the draft. Operation-authority durability journal with Server durable-code terminality. |
 | `SBW04` | MERGED `#397` (`40ea5234`, 2026-07-23) | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. **Verification debt:** real-candidate live proof from the SBW04 handoff remains unchecked. |
 | `SBW05` | MERGED — `SBW05a` `#398`; `SBW05b` `#402`; `SBW05c` `#404` / `427a357b` | Complete-definition typed editing and editor-preview validation. |
-| `SBW06` | PRE-DESIGNED — bites `SBW06-contract` + `SBW06a–d`; **after SBW07** | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
-| `SBW07` | IN PROGRESS — `SBW07a` (this PR) → `SBW07b–c`; contract `#405` frozen; **before SBW06** | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |
+| `SBW06` | IN PROGRESS — `SBW06-contract` (this PR) → `SBW06a–d`; **after SBW07** | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
+| `SBW07` | COMPLETE — `07-contract` `#405`; `07a` `#406`; `07b` `#407`; `07c` `#409` / `455daf49` | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |
 | `SBW08` | PRE-DESIGNED / PARALLEL | Typed external-resource node + `ThreatStatblockBinding` edge state in Kernel/projection contracts; no product write yet. |
 | `SBW09` | PRE-DESIGNED | Preview/confirm Threat + exact binding publication with recoverable partial completion. |
 | `SBW10` | PRE-DESIGNED | Exact-revision Threat Sheet/full statblock read projection opened from graph/Plan. |
@@ -191,10 +191,10 @@ SBW04 (Milestone A gate)
 | `SBW05c` | Workbench hosts proven editor; calls SBW05a route; rejects stale; preserves edits on dependency failure | Live edit→validate→edit→stale; no accept/save path | MERGED `#404` / `427a357b` |
 | `SBW07-contract` | Approve-or-reject frozen HANDOFF-sbw07 §12 table (docs only; do not rewrite unless review rejects a closed decision) | Reviewer can approve/reject the closed schema + transition table alone; no optional pending field | MERGED `#405` / `36582f8b` — §12 APPROVED / FROZEN |
 | `SBW07a` | Create/read Server client + fixtures | Exact IDs/digest parse; no draft mutation | MERGED `#406` / `51661055` |
-| `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Post-commit local failure never deletes Server revision; recovery converges | **THIS PR** |
-| `SBW07c` | Accept UI + corpus-promotion demolition | “Saved ≠ published”; demolition ledger complete | After `SBW07b` |
-| `SBW06-contract` | Revise journal choice + lineage/status transition table (docs only) | Reviewer can approve/reject the table alone | After `SBW07` |
-| `SBW06a` | Revise from edited `source_definition` | New `candidate_id`; source unchanged; failure retains edits/instructions | After contract |
+| `SBW07b` | Acceptance orchestration + atomic ref / pending reconcile | Post-commit local failure never deletes Server revision; recovery converges | MERGED `#407` / `00464e2a` |
+| `SBW07c` | Accept UI + corpus-promotion demolition | “Saved ≠ published”; demolition ledger complete | MERGED `#409` / `455daf49` — SBW07 COMPLETE |
+| `SBW06-contract` | Revise journal choice + lineage/status transition table (docs only) | Reviewer can approve/reject the table alone | **THIS PR** |
+| `SBW06a` | Revise from edited `source_definition` | New `candidate_id`; source unchanged; failure retains edits/instructions; §12.11 gate closed | After contract + gate |
 | `SBW06b` | Candidate-ref status + lineage persistence | Explicit transitions; no in-place candidate mutation | After `SBW06a` |
 | `SBW06c` | Revise UI | New candidate + inspect prior; timeout retains instructions | After `SBW06b` |
 | `SBW06d` | Revise from accepted `source_locator` | Exact IDs/digest; no latest fallback | After `SBW06c` |
