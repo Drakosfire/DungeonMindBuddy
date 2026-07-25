@@ -900,7 +900,6 @@ def prepare(
             repo_root=repo_root(),
             disclose_source_digest=False,
             registry_context_graph=registry_payload,
-            source_domain=resolved.source_domain,
         )
     except CandidateGraphMappingError as exc:
         raise _public_mapping_error(exc) from exc

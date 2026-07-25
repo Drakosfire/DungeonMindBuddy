@@ -6,28 +6,23 @@
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld07-graph-review-generic-run-handoff.md`
 - **Suggested branch:** `agent/bld07-graph-review-generic-run-handoff`
 
-## Stop-condition disclosure (§5 boundary reached)
+## Stop-condition disposition (closed)
 
-`src/graph_memory/extract_promote_ops.py` is listed in §5 as out of scope, with
-the caveat that touching it is a **stop condition requiring architecture review,
-not silent scope expansion**. The implementation reached that boundary:
+`src/graph_memory/extract_promote_ops.py` was briefly given a speculative
+`source_domain` parameter so a future promote-eligible non-recap domain could
+seal truthfully. BLD-07 then narrowed worldbuilding to **inspect-only**: product
+prepare rejects worldbuilding with `not_promote_eligible` before Kernel prepare,
+so every request that reaches `prepare_extract_promote` is recap-authority
+publication.
 
-- **Why the existing sealed inputs are insufficient:** `prepare_extract_promote`
-  is the only seam that stamps an evidence domain onto the sealed contribution,
-  and it hardcoded `source_domain="recap"`. A future promote-eligible non-recap
-  domain would otherwise seal as recap evidence. No caller-visible input could
-  express the run's real domain.
-- **What changed:** one additive keyword-only parameter, `source_domain: str = "recap"`,
-  passed through to the existing identity gate. Contribution identity, candidate
-  mapping, identity resolution, merge/retraction rules, and graph-head commit
-  behavior are untouched, and the default preserves every existing caller.
-- **Capability narrowing (REQUEST CHANGES):** worldbuilding ExtractionRuns are
-  inspect-only in this slice (`promotable=false`, prepare `not_promote_eligible`).
-  They do **not** exercise prepare/confirm publication. Recap prepare still seals
-  `recap` (`test_recap_prepare_still_seals_recap_source_domain`).
-- **Requires:** explicit operator/architecture sign-off on this one parameter
-  before merge (or waive now that worldbuilding publication is out of scope).
-  It is disclosed here and in the PR body rather than absorbed.
+**REMOVE NOW cleanup:** the parameter is removed. Kernel prepare always passes
+`source_domain="recap"` to the identity gate for source-extraction contributions.
+Standing-context siblings continue to seal `party_registry` independently.
+Recap prepare still seals recap (`test_recap_prepare_still_seals_recap_source_domain`).
+Worldbuilding remains inspect-only without head advancement.
+
+Do not reintroduce a generalized domain abstraction until an approved
+authority-elevation contract exists.
 
 ## Bounded discovery report (§4)
 

@@ -126,13 +126,12 @@ external_pull_requests:
     plan_phase_label: >-
       Bind exact recap/worldbuilding ExtractionRuns to the existing Graph Review
       prepare/confirm publication path without inventing session scope.
-    review_status: ready_for_final_review
+    review_status: merged
     review_status_meaning: >-
-      Rebased onto the BLD-06 merge bf28e46c and hardened after an editorial
-      pre-external review. Blocked on one disclosed §5 stop condition
-      (Kernel source_domain parameter) and the minimal live proof.
+      Merged as PR #393. Worldbuilding narrowed to inspect-only; speculative
+      Kernel source_domain parameter removed in a follow-up cleanup PR.
     judgment_record:
-      verdict: pending
+      verdict: merged_with_followup_cleanup
       evaluated_at: null
       evaluator: null
       base_sha: bf28e46c7e9eab8fc228df2b0c066238817e6442
@@ -141,11 +140,9 @@ external_pull_requests:
         the same 36 pre-existing errors, none in a BLD-07 path (verified by
         diffing full tsc -b --force output on both revisions).
       stop_condition_disclosed: >-
-        src/graph_memory/extract_promote_ops.py is §5 out-of-scope. One additive
-        keyword-only source_domain parameter (default "recap") was required
-        because that seam hardcoded recap and would otherwise seal worldbuilding
-        assertions as recap evidence. Kernel identity, candidate mapping, merge,
-        and head-commit semantics unchanged. Requires explicit operator sign-off.
+        Speculative prepare_extract_promote(source_domain=...) was introduced
+        then removed (REMOVE NOW): worldbuilding never reaches Kernel prepare,
+        so source-extraction contributions always seal recap.
       notes: >-
         Editorial pre-review found and fixed: five of the PR's own backend tests
         failing on the rebased head (stale ExtractionRun fixture vs. the
@@ -160,7 +157,7 @@ external_pull_requests:
       - "Exact-run resolution delegates evidence integrity to the owning registry resolver; it never re-derives digests or paths."
       - "Source bytes that disagree with the sealed digest block promotion instead of becoming evidence."
       - "Sealing registry-owned source bytes is content-addressed and idempotent; the ExtractionRun artifact directory is never mutated."
-      - "A worldbuilding run seals source_domain=worldbuilding and recap runs still seal recap."
+      - "Worldbuilding exact runs are inspect-only (promotable=false); recap prepare still seals recap."
       - "A sessionless run rejects a candidate that invents a session or omits the run's campaign."
       - "URL-claimed document identity is displayed only after the server confirms it; unverifiable or mismatched lineage fails closed."
       - "Handoff params reject duplicate, empty, malformed, non-positive, partial, and latest values before any run API call."

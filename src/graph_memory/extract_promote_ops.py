@@ -263,13 +263,16 @@ def prepare_extract_promote(
     repo_root: Path,
     disclose_source_digest: bool = True,
     registry_context_graph: Mapping[str, Any] | None = None,
-    source_domain: str = "recap",
 ) -> ExtractPromotePrepareResult:
     """Gate + seal a typed candidate graph against the pinned world head.
 
     When standing-context objects are present (sibling registry graph or
     promote-time partition), seals a v3 multi-contribution package: standing
     first, then recap source_extraction.
+
+    Source-extraction contributions always seal as ``source_domain="recap"``.
+    Worldbuilding product runs are inspect-only and never reach this Kernel
+    prepare path; do not reintroduce a speculative domain parameter here.
     """
     payload = dict(candidate_graph)
     standing_payload: dict[str, Any] | None = None
@@ -308,7 +311,7 @@ def prepare_extract_promote(
         extraction_profile=extraction_profile,
         source_uri=source_uri,
         source_kind="source_extraction",
-        source_domain=(source_domain or "recap").strip() or "recap",
+        source_domain="recap",
         node_ids=tuple(node_ids) if node_ids is not None else None,
         include_edges=include_edges,
     )
