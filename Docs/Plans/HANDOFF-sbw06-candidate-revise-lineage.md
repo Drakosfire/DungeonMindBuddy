@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | `SBW06-contract` | **this PR** | Doc-only: freeze §12 revise authority tables | Docs only; no implementation | All code |
 | `SBW06a` | after contract + §12.11 gate | Exact edited `source_definition` adapter + revise journal | Client + revision service + tests | Status UI, accepted-revision source, ThreatDraft lineage attach as ordinary success |
-| `SBW06b` | after `SBW06a` | Durable candidate ref, lineage, status transitions | Draft store/ref transitions + tests | UI, accepted-revision revise |
+| `SBW06b` | after `SBW06a` | Durable candidate ref with embedded `CandidateLineageV1`, status transitions | Draft store/ref transitions + tests implementing frozen §12.8 | UI, accepted-revision revise |
 | `SBW06c` | after `SBW06b` | Workbench revise UX | Workbench + liveApi | Accepted-revision source, compare, append |
 | `SBW06d` | after `SBW06c` | Exact accepted `source_locator` revise | Service/route/UI using SBW07 locators | Graph, SBW13 append, compare, media |
 
@@ -71,16 +71,17 @@ Success response: `GeneratedStatblockCandidateV1` (new `candidate_id`). Error en
 
 Do not invent a third Server request variant because Buddy has three lineage origins.
 
-| Buddy lineage origin | Server transport | Lineage must record |
+| Buddy lineage origin | Server transport | Lineage must record (required fields) |
 |---|---|---|
-| `edited_working_copy` | `source_definition` | `draft_id`, expected draft version, editor `stateRevision` / working-copy revision identity, canonical **revise-source** definition digest of submitted body |
-| `candidate` | `source_definition` (payload read from exact `candidate_id`) | All edited_working_copy fields **plus** exact `source_candidate_id` and that candidate’s definition/payload digest when available |
-| `accepted_revision` | `source_locator` (`statblock_id` + `revision_id` only) | Full SBW07 six-field locator in Buddy lineage: `provider`, `statblock_id`, `revision_id`, `contract`, `contract_version`, `definition_digest` |
+| `edited_working_copy` | `source_definition` | `draft_id`; expected draft version; editor `stateRevision` / working-copy revision identity; canonical **revise-source** definition digest of the submitted body |
+| `candidate` | `source_definition` (payload read from exact `candidate_id`) | Exact `source_candidate_id`; that candidate’s generating `request_id`; `draft_id` + `generated_from_draft_version` from the source candidate ref; canonical **revise-source** definition digest of the exact payload/body used to build `source_definition` (**required** — not optional / not “when available”). Does **not** require editor `stateRevision`. |
+| `accepted_revision` | `source_locator` (`statblock_id` + `revision_id` only) | Full SBW07 six-field locator: `provider`, `statblock_id`, `revision_id`, `contract`, `contract_version`, `definition_digest` |
 
 Buddy must:
 
 - validate the full accepted locator before mapping down to Server `ExactRevisionLocatorV1`;
 - perform exact revision reads where required and reject digest disagreement;
+- refuse `candidate` origin when the exact payload cannot be read or its revise-source digest cannot be computed;
 - never fall back to latest / display-name / slug / corpus-path.
 
 ### 12.3 Canonical source identity and digest rules
@@ -147,61 +148,81 @@ The revise journal retains the exact bounded request body needed for same-key re
 
 ### 12.6 Closed revise operation transition table
 
-Journal owns operation authority. ThreatDraft owns reconciled candidate refs + lineage only after materialization succeeds.
+Journal owns operation authority. ThreatDraft owns reconciled candidate refs + embedded lineage only after materialization succeeds.
+
+**Active-slot rule (closed):** at most **one unresolved revise operation per draft**. An unresolved revise is any journal row for that `draft_id` whose status is not `reconciled` and not `terminal_failure`. A second distinct `request_id` that attempts to claim while one unresolved revise exists receives **`revise_busy`** and must not create a journal claim, must not dispatch, and must not reserve capacity.
 
 | State | Durable evidence required | `candidate_id` permitted? | Candidate payload permitted? | Cache mat. | Draft-ref mat. | Source-status mat. | Allowed retry | Same-key replay | New `request_id` allowed? | Terminal proof required | Client-visible result |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `claimed` | Journal row with exact body/digest; not yet dispatched | no | no | `missing` | `missing` | `none` | dispatch / resume | retain body | no | no | `revise_claimed` / in progress |
-| `dispatched_unknown` | Claim existed; transport/outcome uncertain; may have reached Server | only if later observed | only if later observed | `missing`/`failed` | `missing` | `none` | bounded lookup / reconcile; **no automatic re-POST** while §12.11 gate open | retain | no | no | `dispatched_unknown` |
-| `candidate_received` | Exact `candidate_id` (+ payload or exact-read handle) recorded on journal | yes | yes if stored | `missing`/`stored`/`failed` | `missing`/`failed` | `none`/`pending` | materialize cache/ref | return recorded candidate | no | no | partial; not ordinary product success |
-| `cache_stored_ref_pending` | Cache has payload; draft ref not attached | yes | yes | `stored` | `missing`/`failed` | `none`/`pending` | attach ref (+ optional status) | same | no | no | partial |
-| `ref_attached_status_pending` | New ref present; requested source-status transition not committed | yes | yes | `stored` | `attached` | `pending`/`failed` | complete status transition atomically with CAS retry of remaining work | same | no | no | partial (should be rare if CAS bundles both) |
-| `reconciled` | Candidate ref + lineage visible on ThreatDraft read path; requested source-status applied or proven `none` | yes | yes or honest unavailable | `stored` or honest miss after attach | `attached` | `applied`/`none` | read-only reload | return reconciled | yes (new proposal) | no | ordinary revise success |
-| `terminal_failure` | Owning boundary proves non-begin or terminal failure for **this** `request_id` | no (unless recorded then tombstoned — not used in SBW06) | no | `missing` | `missing` | `none` | start **new** `request_id` only after this proof | n/a | yes | **yes** | `terminal_failure` |
-| `revise_blocked` (pre-claim) | Validation / capacity / version / source identity failure **before** journal claim | no | no | n/a | n/a | n/a | correct inputs; new attempt may mint new id | n/a | yes | n/a (no claim) | ephemeral block |
-| `revise_busy` / `revise_history_full` / `revise_input_conflict` / `revise_draft_unavailable` | Typed gate evidence | no (conflict preserves prior authority) | no | prior unchanged | prior unchanged | prior unchanged | per label | conflict retains original | busy/history/conflict: no new while unresolved; see UI | no for conflict | typed labels |
+| `claimed` | Journal row with exact body/digest; holds active revise slot + capacity reservation; not yet dispatched | no | no | `missing` | `missing` | `none` | dispatch / resume | retain body | no | no | `revise_claimed` / in progress |
+| `dispatched_unknown` | Claim existed; transport/outcome uncertain; may have reached Server; slot+reservation retained | only if later observed | only if later observed | `missing`/`failed` | `missing` | `none` | bounded lookup / reconcile; **no automatic re-POST** while §12.11 gate open | retain | no | no | `dispatched_unknown` |
+| `candidate_received` | Exact `candidate_id` (+ payload or exact-read handle) recorded on journal; reservation retained until draft attach | yes | yes if stored | `missing`/`stored`/`failed` | `missing`/`failed` | `none` | materialize cache then one CAS attach | return recorded candidate | no | no | partial; not ordinary product success |
+| `cache_stored_ref_pending` | Cache has payload; draft ref not attached; reservation retained | yes | yes | `stored` | `missing`/`failed` | `none` | one ThreatDraft CAS: append ref+lineage and any requested source-status together | same | no | no | partial |
+| `reconciled` | Candidate ref + required embedded lineage visible on ThreatDraft read path; requested source-status applied in that same CAS or proven `none` was requested | yes | yes or honest unavailable | `stored` or honest miss after attach | `attached` | `applied`/`none` | read-only reload | return reconciled | yes (new proposal) | no | ordinary revise success |
+| `terminal_failure` | Owning boundary proves non-begin or terminal failure for **this** `request_id`; active slot and capacity reservation released | no | no | `missing` | `missing` | `none` | start **new** `request_id` only after this proof | n/a | yes | **yes** | `terminal_failure` |
+| `revise_blocked` (pre-claim) | Validation / version / source identity failure **before** journal claim; no slot taken | no | no | n/a | n/a | n/a | correct inputs; new attempt may mint new id | n/a | yes | n/a (no claim) | ephemeral block |
+| `revise_busy` | Another unresolved revise already occupies this draft’s active revise slot | no | no | prior unchanged | prior unchanged | prior unchanged | wait / resume the occupying `request_id` | n/a | **no** | no | `revise_busy` |
+| `revise_history_full` | Capacity admission failed under lock (§12.10); no claim | no | no | prior unchanged | prior unchanged | prior unchanged | free capacity then new attempt | n/a | yes (no claim held) | no | `revise_history_full` |
+| `revise_input_conflict` | Same `request_id` + changed body against existing journal authority | no new | no | prior unchanged | prior unchanged | prior unchanged | resume original body only | original retained | no | no | `revise_input_conflict` |
+| `revise_draft_unavailable` | Draft missing/unreadable for claim or reconcile | no | no | prior unchanged | prior unchanged | prior unchanged | restore draft then resume same `request_id` | retain if claimed | no while claim may exist | no | `revise_draft_unavailable` |
 
-There is **no** local “abandon revise” action. Local storage deletion is not backend closure. A replacement `request_id` is allowed only after backend-proven `terminal_failure` / non-begin for the prior operation (SBW07c lesson).
+**Removed state:** `ref_attached_status_pending` does not exist. Requested source-status transitions are not a separate post-attach journal product state.
+
+There is **no** local “abandon revise” action. Local storage deletion is not backend closure. A replacement `request_id` is allowed only after backend-proven `terminal_failure` / non-begin for the prior operation (SBW07c lesson), which also releases the active slot and reservation.
 
 ### 12.7 Closed materialization / recovery table
 
 | Window | Truthful behavior | Recovery key |
 |---|---|---|
-| Server candidate exists, response lost | Remain `dispatched_unknown` until candidate identity is known by an approved recovery path (§12.11); never claim ordinary success | same `request_id` |
+| Server candidate exists, response lost | Remain `dispatched_unknown` until candidate identity is known by an approved recovery path (§12.11); never claim ordinary success; slot+reservation retained | same `request_id` |
 | Server candidate returned, journal update fails | Retry journal write; do not delete Server candidate | same `request_id` |
 | Journal has candidate, cache write fails | `candidate_received` + cache `failed`; exact-read handle retained | same `request_id` |
-| Cache succeeds, draft-ref append fails | `cache_stored_ref_pending`; no ordinary success | same `request_id` |
-| New ref + requested source-status cannot both commit | Single CAS must apply both or neither for the requested transition; partial status is `pending`/`failed` and recoverable | same `request_id` + draft version CAS |
+| Cache succeeds, draft-ref append fails | `cache_stored_ref_pending`; no ordinary success; reservation retained | same `request_id` |
+| ThreatDraft CAS for ref+lineage(+requested status) fails | Leave journal at `cache_stored_ref_pending`; retry the **same** both-or-neither CAS; never attach ref without the requested status (or without lineage) | same `request_id` + draft version CAS |
+| ThreatDraft CAS succeeds; journal reconcile write fails | Reread draft; if ref+lineage(+requested status) already present for this `request_id`/`candidate_id`, mark journal `reconciled` and release reservation. This is **not** a product state with ref attached and status unapplied | same `request_id` |
 | Draft mutation commits, client response lost | Reload via journal + draft read converges to reconciled | same `request_id` |
 | Reload during any window | Restore journal pointer; classify; continue same operation | same `request_id` |
 
-**Ordinary product success** means: ThreatDraft read path shows the new candidate ref with required lineage, cache/payload availability is honest, and any explicitly requested source-status transition is applied. Downstream Server success alone is never ordinary product success.
+**Atomic draft-mutation invariant (closed):** one ThreatDraft CAS either (a) appends the new candidate ref **with required embedded lineage** and applies any explicitly requested source-status transition, or (b) applies none of those writes. There is no durable product state where the new ref is attached while a requested source-status transition remains unapplied.
+
+**Ordinary product success** means: ThreatDraft read path shows the new candidate ref with required embedded lineage, cache/payload availability is honest, and any explicitly requested source-status transition is applied. Downstream Server success alone is never ordinary product success.
 
 ### 12.8 Candidate lineage persistence
 
-Versioned lineage representation (schema name frozen in `SBW06b`, additive on candidate ref or sibling record readable from draft):
+**Durable ownership (closed):** Buddy lineage for a revise-created candidate is stored **on the ThreatDraft candidate ref itself** as a required nested object (`lineage`), not as a sibling draft record and not deferred to a later schema choice in `SBW06b`. `SBW06b` implements this frozen shape; it does not reopen ownership.
+
+Pre-SBW06 generate refs may have `lineage: null`. Every revise-created ref **must** include `lineage` or the CAS must fail closed (no append).
+
+**Frozen schema `CandidateLineageV1` (required fields by origin):**
 
 ```text
-lineage schema/version
-new candidate_id
-revise request_id
-source origin kind: edited_working_copy | candidate | accepted_revision
-source candidate_id (when applicable)
-source draft_id + draft version (when applicable)
-source-definition digest (when applicable)
-full accepted locator (when accepted_revision)
-instruction/options digest
-Server generation provenance/receipt kept distinct from Buddy lineage
+schema: dmb_candidate_lineage_v1
+revise_request_id
+source_origin_kind: edited_working_copy | candidate | accepted_revision
+instruction_options_digest
 created_at
+# edited_working_copy required:
+#   draft_id, expected_draft_version (or draft version at submit),
+#   editor_state_revision, source_definition_digest
+# candidate required:
+#   source_candidate_id, source_candidate_request_id,
+#   draft_id, source_generated_from_draft_version,
+#   source_definition_digest  # digest of exact payload used for Server source_definition
+# accepted_revision required:
+#   provider, statblock_id, revision_id, contract, contract_version, definition_digest
+# optional distinct field (never a substitute for Buddy lineage):
+#   server_generation_receipt_excerpt / provenance pointer
 ```
 
 Rules:
 
-- Lineage is additive; never rewrites the source candidate payload or identity.
+- Lineage is additive with the new ref; never rewrites the source candidate payload or identity.
 - Full working definition is not duplicated into ThreatDraft merely for lineage.
 - Exact replay material lives in the revise journal / cache boundary.
-- A “successful” candidate ref that cannot identify its exact source must not be appended.
-- New candidate ref + required lineage become visible atomically on the ThreatDraft read path (`SBW06b`).
+- A candidate ref that cannot identify its exact source must not be appended.
+- New candidate ref + required lineage (+ requested status) become visible atomically on the ThreatDraft read path via the single CAS in §12.7.
+- Dedupe keys for attach: `candidate_id` and `revise_request_id` (same-key recovery must not append a second ref).
+- Lifecycle status remains on the same `ThreatDraftCandidateRefV1` object as `lineage` (§12.9).
 
 ### 12.9 Closed candidate-status transition table + `accepted_source` decision
 
@@ -233,18 +254,42 @@ apply requested source-status transition
 
 must occur in **one atomic ThreatDraft CAS mutation** and one draft-version increment. If no source-status transition was requested, the source remains unchanged.
 
-### 12.10 Candidate-history capacity
+### 12.10 Candidate-history capacity and admission reservation
 
-Preferred current-scope rule (capacity = 64):
+Hard bound: `ThreatDraftV1.candidate_refs` `max_length = 64`.
+
+**Admission formula (evaluated under the draft-scoped lock at claim time):**
 
 ```text
-candidate history full
-→ reject before downstream revise dispatch
+attached = len(draft.candidate_refs)
+reserved = count of unresolved Buddy journal operations for this draft_id
+           that will append a candidate ref and have not yet attached one
+           (includes this draft’s unresolved revise ops, and any unresolved
+            SBW03 generation ops that will append a ref)
+admit revise claim only if attached + reserved < 64
+```
+
+The durable capacity reservation **is** the unresolved journal claim itself (no separate reservation file). Claiming a revise increments `reserved` until attach or terminal release.
+
+**Reservation release:**
+
+| Event | Reservation | Active revise slot |
+|---|---|---|
+| ThreatDraft CAS attaches this operation’s ref (`reconciled` path) | released (capacity now counted in `attached`) | released |
+| `terminal_failure` / proven non-begin | released without consuming an attached ref | released |
+| Local abandon / storage clear | **does not** release | **does not** release |
+
+**History-full behavior:**
+
+```text
+attached + reserved >= 64
+→ return revise_history_full before journal claim and before Server dispatch
 → create no Server candidate
 → delete no historical ref
 → preserve current draft and instructions
-→ return typed revise_history_full
 ```
+
+Combined with §12.6’s one-unresolved-revise rule, two distinct revise `request_id`s cannot both pass admission against the final open slot: the second receives `revise_busy` (if a revise is already unresolved) or `revise_history_full` (if reservation/attached already saturates capacity).
 
 Do not drop oldest refs, compact silently, reuse `candidate_id`, overwrite superseded/rejected refs, or call Server then discover no admission capacity. Archival model requires a separate design review (stop condition).
 
@@ -289,15 +334,22 @@ Truthful partial-completion invariants otherwise match SBW03/07:
 
 ```text
 1. Draft-scoped lock (prevent concurrent writers)
-2. Pre-claim gates (validate source, capacity, version) — no journal row yet on revise_blocked
-3. Journal claim / journal updates (single-record atomic replace)
-4. Release draft lock before long Server revise call when following SBW07b lock-release pattern
-5. On Server success: re-acquire → journal candidate_received → cache write → ThreatDraft CAS
-6. ThreatDraft CAS is the only product mutation boundary for ref+lineage(+optional status)
-7. Journal reconcile to reconciled after product read path is true
+2. Pre-claim gates under that lock:
+     - source/instruction/version validation → revise_blocked (no claim)
+     - active revise slot free → else revise_busy (no claim)
+     - capacity admission (attached + reserved < 64) → else revise_history_full (no claim)
+3. Journal claim (single-record atomic replace) acquires active revise slot + capacity reservation
+4. Release draft lock before long Server revise call (SBW07b lock-release pattern)
+5. On Server success: re-acquire → journal candidate_received → cache write
+6. ThreatDraft CAS is the only product mutation boundary:
+     append ref with required embedded lineage
+     AND apply any requested source-status transition
+     OR apply neither
+7. Journal reconcile to reconciled; release reservation + active slot
+8. On terminal/non-begin proof: journal terminal_failure; release reservation + active slot
 ```
 
-Journal and ThreatDraft are separate durable records; ordering is restart-recoverable, not multi-record transactional.
+Journal and ThreatDraft are separate durable records; ordering is restart-recoverable, not multi-record transactional. The active-slot and reservation rules exist specifically so lock release during Server I/O cannot overbook the final candidate-ref slot.
 
 ### 12.13 No-abandon / no-replacement-ID rule
 
@@ -327,7 +379,7 @@ Appending this proposal as a new immutable revision is not available until SBW13
 | Bite | Success claim | In allowlist | Out |
 |---|---|---|---|
 | `SBW06a` | Exact typed `source_definition` + instructions under one stable `request_id`; recover/classify downstream result without mutating ThreatDraft or source candidate; journal + adapter + fixtures | generated Server types; revise journal; mapper; focused service tests; captured revise transcripts | UI; accepted locator; candidate-ref status mutation; ordinary success claiming lineage attached |
-| `SBW06b` | One revise candidate becomes one durable ThreatDraft candidate ref with exact lineage; requested source-status transition validated and CAS-atomic | lineage model; draft CAS; capacity admission; status table; store/route tests | UI; accepted-revision source |
+| `SBW06b` | One revise candidate becomes one durable ThreatDraft candidate ref with required embedded `CandidateLineageV1`; requested source-status transition validated and CAS-atomic | implement frozen §12.8 lineage-on-ref; draft CAS; capacity reservation; status table; store/route tests | UI; accepted-revision source; sibling lineage store |
 | `SBW06c` | GM revises exact current working definition; new candidate; lineage + prior candidates inspectable; edits/instructions survive failure/reload | workbench + liveApi + tests | accepted-revision source; compare; append; graph |
 | `SBW06d` | GM revises from exact SBW07 accepted locator; no latest fallback; accepted revision unchanged; SBW13 boundary copy shown | locator mapping + UI disclosure + tests | SBW07 second-save; SBW13 append; compare; binding |
 
@@ -337,19 +389,23 @@ Bounded discovery exception (implementation bites only): ≤3 additional paths u
 
 | Question | Contract answer |
 |---|---|
-| Can one request identify one exact source without latest fallback? | **Yes** — XOR variants only |
-| Can a candidate-origin definition retain its `candidate_id` lineage? | **Yes** — origin `candidate` |
-| Is the source digest authority unambiguous? | **Yes** — §12.3 non-interchangeable digests |
-| Does same-key replay use the exact original body? | **Yes** — Buddy journal |
+| Can one request identify one exact source without latest fallback? | **Yes** |
+| Can a candidate-origin revise retain exact `source_candidate_id` plus required source-definition digest? | **Yes** |
+| Is the source digest authority unambiguous (non-interchangeable digests)? | **Yes** |
+| Does same-key replay use the exact original body? | **Yes** |
 | Can changed-body replay mutate original authority? | **No** |
-| Can a downstream-created candidate be recovered after every local failure window? | **Yes once `candidate_id` is known**; **No for unknown `dispatched_unknown` until §12.11 gate closes** |
-| Can cache/ref/status partial completion be represented truthfully? | **Yes** — §12.6–12.7 |
-| Can a new request ID appear while the old operation may still claim? | **No** |
-| Can candidate history fill before dispatch rather than after provider success? | **Yes** — §12.10 |
+| After `candidate_id` is journaled, can every later local failure window recover with the same `request_id`? | **Yes** |
+| Before `candidate_id` is known, can Buddy recover a Server-created revise candidate without closing §12.11? | **No** |
+| Can cache/ref partial completion be represented without inventing `ref_attached_status_pending`? | **Yes** |
+| Can a new revise `request_id` claim while another revise on the same draft is unresolved? | **No** |
+| Can two revise `request_id`s both dispatch against the final open candidate-ref slot? | **No** |
+| Does `revise_busy` mean “another unresolved revise occupies this draft’s active slot”? | **Yes** |
+| Can candidate history fill (admission fail) before Server dispatch? | **Yes** |
 | Can any status transition silently occur because a new candidate was generated? | **No** |
-| Can new-ref append and requested source transition commit atomically? | **Yes** — required |
+| Must new-ref append, required lineage, and requested source-status commit in one ThreatDraft CAS? | **Yes** |
 | Can a source candidate or accepted revision be overwritten? | **No** |
-| Can an accepted-source revise accidentally invoke SBW07 first-save again? | **No** — §12.14 |
+| Is revise lineage stored on the ThreatDraft candidate ref (not a deferred sibling record)? | **Yes** |
+| Can an accepted-source revise accidentally invoke SBW07 first-save again? | **No** |
 | Can the UI ever select latest or display-name source? | **No** |
 | Can the implementation fit within the named bites without absorbing SBW13? | **Yes** |
 
@@ -506,8 +562,8 @@ Trust boundary:
 
 ### Lineage decisions
 
-- `source_kind=edited_definition` records the submitted definition digest and originating candidate/draft version; it does not persist the full working copy as a new authority beyond existing candidate cache needs.
-- `source_kind=accepted_revision` requires exact `statblock_id` + `revision_id` + expected digest when available.
+- `source_kind=edited_working_copy` records the submitted definition digest, draft identity, and editor `stateRevision`; it does not persist the full working copy as a new authority beyond existing candidate cache needs. `source_kind=candidate` requires exact `source_candidate_id`, source request id, draft/ref version identity, and required source-definition digest (§12.2 / §12.8).
+- `source_kind=accepted_revision` requires the full SBW07 six-field locator including `definition_digest` (§12.2 / §12.8).
 - Source candidate status transitions follow §12.9; transitions are explicit and atomic. A new candidate does not automatically reject its source.
 - Lineage is review metadata and must remain distinct from Server generation provenance while preserving both.
 - Instructions are bounded user content; logs record digest/length, not full hidden prose.
