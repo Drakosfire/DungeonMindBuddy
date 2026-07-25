@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -9,17 +11,21 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+logger = logging.getLogger(__name__)
+
 from apps.live_control_server.models.extract_promote import (
     ExtractPromoteConfirmReceipt,
     ExtractPromoteConfirmRequest,
     ExtractPromoteDiagnostic,
     ExtractPromotePrepareRequest,
     ExtractPromotePrepareResponse,
+    ExactRunReviewPackage,
     ExtractPromoteStatusResponse,
 )
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     confirm,
+    get_exact_run_review_package,
     get_status,
     prepare,
 )
@@ -27,6 +33,18 @@ from apps.live_control_server.services.extract_promote import (
 
 def _error_response(exc: ExtractPromoteError) -> JSONResponse:
     body = exc.response().model_dump(mode="json", by_alias=True, exclude_none=True)
+    # Interim dogfood inspect until review-package returns inspectable 200s for
+    # binding failures (Backlog: false_anchor / run_not_promotable).
+    logger.warning(
+        "extract-promote error code=%s status=%s message=%s diagnostics=%s",
+        exc.code,
+        exc.status_code,
+        str(exc),
+        [
+            {"code": item.code, "message": item.message, "severity": item.severity}
+            for item in exc.diagnostics
+        ],
+    )
     return JSONResponse(status_code=exc.status_code, content=body)
 
 
@@ -108,6 +126,28 @@ def get_extract_promote_status(request: Request) -> dict[str, Any] | JSONRespons
     return response.model_dump(mode="json", by_alias=True)
 
 
+@router.get("/runs/{run_id}/review-package", response_model=ExactRunReviewPackage)
+def get_extract_promote_exact_run_review(
+    request: Request,
+    run_id: str,
+) -> dict[str, Any] | JSONResponse:
+    """Server-owned exact-run source/evidence projection (no sealed proposal)."""
+    try:
+        _reject_selector_query(request)
+        response = get_exact_run_review_package(run_id)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(
+            ExtractPromoteError(
+                "The exact-run review package operation failed unexpectedly.",
+                code="extract_promote_internal_error",
+                status_code=500,
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
 @router.post("/prepare", response_model=ExtractPromotePrepareResponse)
 def post_extract_promote_prepare(
     request_context: Request,
@@ -119,11 +159,24 @@ def post_extract_promote_prepare(
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
+        # Log the full traceback server-side; never echo exception text to clients.
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.exception(
+            "extract-promote prepare failed unexpectedly correlation_id=%s",
+            correlation_id,
+        )
         return _error_response(
             ExtractPromoteError(
                 "The extract-promote prepare operation failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
+                diagnostics=[
+                    ExtractPromoteDiagnostic(
+                        code="internal_error",
+                        message=f"Internal error. Reference: {correlation_id}",
+                        severity="error",
+                    )
+                ],
             )
         )
     return response.model_dump(mode="json", by_alias=True)
@@ -140,11 +193,23 @@ def post_extract_promote_confirm(
     except ExtractPromoteError as exc:
         return _error_response(exc)
     except Exception:
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.exception(
+            "extract-promote confirm failed unexpectedly correlation_id=%s",
+            correlation_id,
+        )
         return _error_response(
             ExtractPromoteError(
                 "The extract-promote confirm operation failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
+                diagnostics=[
+                    ExtractPromoteDiagnostic(
+                        code="internal_error",
+                        message=f"Internal error. Reference: {correlation_id}",
+                        severity="error",
+                    )
+                ],
             )
         )
     return response.model_dump(mode="json", by_alias=True)

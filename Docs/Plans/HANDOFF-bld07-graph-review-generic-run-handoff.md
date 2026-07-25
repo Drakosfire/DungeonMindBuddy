@@ -1,9 +1,44 @@
 # HANDOFF — BLD-07 generic Graph Review run binding
 
 - **Created:** 2026-07-22
-- **Status:** PREPARED / DRAFT — may be stacked against the BLD-06 head (and current extract-promote bridge); ACTIVE / MERGEABLE only after that predecessor merge, rebase, and immutable merge-SHA re-anchor.
+- **Status:** ACTIVE / MERGEABLE — BLD-06 merged as `bf28e46c` (PR #392); this slice is rebased onto that immutable merge SHA and re-anchored. Open PR: [#393](https://github.com/Drakosfire/DungeonMindBuddy/pull/393).
+- **Base revision (re-anchored):** `bf28e46c7e9eab8fc228df2b0c066238817e6442`
 - **Canonical handoff path:** `Docs/Plans/HANDOFF-bld07-graph-review-generic-run-handoff.md`
 - **Suggested branch:** `agent/bld07-graph-review-generic-run-handoff`
+
+## Stop-condition disclosure (§5 boundary reached)
+
+`src/graph_memory/extract_promote_ops.py` is listed in §5 as out of scope, with
+the caveat that touching it is a **stop condition requiring architecture review,
+not silent scope expansion**. The implementation reached that boundary:
+
+- **Why the existing sealed inputs are insufficient:** `prepare_extract_promote`
+  is the only seam that stamps an evidence domain onto the sealed contribution,
+  and it hardcoded `source_domain="recap"`. A future promote-eligible non-recap
+  domain would otherwise seal as recap evidence. No caller-visible input could
+  express the run's real domain.
+- **What changed:** one additive keyword-only parameter, `source_domain: str = "recap"`,
+  passed through to the existing identity gate. Contribution identity, candidate
+  mapping, identity resolution, merge/retraction rules, and graph-head commit
+  behavior are untouched, and the default preserves every existing caller.
+- **Capability narrowing (REQUEST CHANGES):** worldbuilding ExtractionRuns are
+  inspect-only in this slice (`promotable=false`, prepare `not_promote_eligible`).
+  They do **not** exercise prepare/confirm publication. Recap prepare still seals
+  `recap` (`test_recap_prepare_still_seals_recap_source_domain`).
+- **Requires:** explicit operator/architecture sign-off on this one parameter
+  before merge (or waive now that worldbuilding publication is out of scope).
+  It is disclosed here and in the PR body rather than absorbed.
+
+## Bounded discovery report (§4)
+
+§4 named `GraphReviewWorkbenchHeaderWithActivity.tsx`. The actual header rendered
+by `GraphReviewWorkbenchModule` is **`GraphReviewWorkbenchHeader.tsx`**; the
+`WithActivity` variant is not on the exact-run path. The header is where source
+domain, authority, run, and optional scope must appear, so the discovery
+substitution proves the same invariant at the same boundary. One path used of
+the two allowed; `liveApi.ts` and `models/extract_promote.py` were allowlisted
+but needed no change (the generic and Build-context endpoints already exist from
+BLD-06, and no new public response field was required).
 
 ## §0 Capability decomposition decision
 
@@ -15,19 +50,24 @@
 | Add a second promotion service or protocol | No — prohibited duplicate authority | Yes | Reject |
 | Add Hermes writes | Yes | Yes | Successor |
 
-**Selected capability:** Graph Review can bind an exact source-domain-neutral run
-to the existing governed prepare/confirm flow without changing Kernel semantics.
+**Selected capability:** Graph Review can bind an exact ExtractionRun for
+inspectable source/evidence review. Recap (promote-eligible) runs may use the
+existing prepare/confirm publication path. Worldbuilding runs stamped
+`worldbuilding_draft` are inspect-only until an approved authority-elevation
+contract (BLD-08+) lands — this slice does not claim worldbuilding publication.
 
 ## §1 Mission
 
-Graph Review can load an exact recap or worldbuilding ExtractionRun, display its
-source/evidence context without a fabricated session lens, and use the existing
-revision-bound prepare/confirm publication path to commit selected assertions to
-the World Supergraph.
+Graph Review can load an exact recap or worldbuilding ExtractionRun and display
+its source/evidence context without a fabricated session lens. Promote-eligible
+recap runs may use the existing revision-bound prepare/confirm path to commit
+selected assertions to the World Supergraph. Worldbuilding ExtractionRuns are
+reviewable for inspection but project `promotable=false` and reject prepare with
+`not_promote_eligible` — they do not advance the graph head in this slice.
 
 **Invariant:** the browser selects an exact server-resolved run and assertions;
 only the existing Graph Review confirmation boundary and shared Kernel ops may
-advance the graph head.
+advance the graph head; worldbuilding_draft never silently becomes played_canon.
 
 ## §2 Context, authority, and boundaries
 
@@ -128,6 +168,26 @@ Allowed path kinds: existing review projection/toolbar test or type files
 Decision rule: only when the current Graph Review owning component differs from the named files
 Required report: actual owner and why the additional path proves the same invariant
 ```
+
+Discovery used on this branch:
+
+1. `GraphReviewExactRunProjection.tsx` — exact-run source/evidence projection
+   (canonical prose + assertion↔span navigation). Named allowlist only had the
+   module shell; this is the owning projection surface for the evidence invariant.
+2. `GraphReviewWorkbenchHeader.tsx` — actual header owner (allowlist named
+   `GraphReviewWorkbenchHeaderWithActivity.tsx`, which does not exist).
+
+Beyond the bounded-discovery directory (requires explicit operator approval):
+
+- `apps/live-control-ui/src/api/extractPromoteApi.ts` — owning extract-promote
+  product client (allowlist named `liveApi.ts`; prepare/confirm already lived here).
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewExtractPromoteSheet.tsx`
+  — campaignless degraded-read gate after confirm (preserve receipt; never
+  substitute a campaign projection).
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewLiveReviewState.ts`
+  — belt-and-suspenders: empty campaignId fails closed on committed-revision reload.
+
+Operator test-plan handoff parameter: `extractionRunId` (not `runId`).
 
 ## §5 Explicitly out of scope
 
@@ -258,11 +318,19 @@ git diff --name-only "$(git merge-base HEAD origin/main)"...HEAD
 
 ```text
 Existing surface: Graph Review
-Scenario: open one exact sessionless worldbuilding run, inspect source evidence,
+Scenario A (recap publication — unchanged): open one exact promote-eligible
+recap run (graph-ingest or exact recap ExtractionRun), inspect source evidence,
 select one assertion, prepare, confirm, reload exact committed revision, then
 exercise stale proposal and already-applied receipt paths.
 Expected: existing Kernel path is reused; only selected assertions commit; no
 session/latest-run is invented; commit and reload truth are distinct.
+
+Scenario B (worldbuilding inspect-only — BLD-07 narrowed): open one exact
+sessionless worldbuilding ExtractionRun stamped worldbuilding_draft, inspect
+source evidence / assertions, confirm the UI shows a clear non-promotable
+state with no Review & merge action, and confirm prepare rejects with
+not_promote_eligible without advancing the head.
+Expected: no worldbuilding → played_canon publication in this slice.
 ```
 
 ## §8 Required handback
@@ -281,6 +349,11 @@ semantics and ownership were unchanged.
 - [ ] Selection/evidence/proposal/revision identities remain exact and distinct.
 - [ ] Stale/rejected/invalid proposals cannot advance the head.
 - [ ] Post-commit reload truthfully distinguishes commit success from read degradation.
+- [ ] Worldbuilding ExtractionRuns are inspect-only: review-package projects
+      `promotable=false`, UI hides merge, prepare returns `not_promote_eligible`.
+- [ ] Fixtures stamp real worldbuilding_draft semantics (not synthetic played_canon).
+- [ ] Evidence validation loads the run-pinned `source_span_index` component path.
+- [ ] Unexpected 500 responses never echo raw exception text to HTTP clients.
 - [ ] No second promotion service/protocol or Build commit action exists.
 - [ ] Only §4 and approved discovery paths changed.
 

@@ -360,6 +360,23 @@ def _selectable_assertion_ids(prepared: dict) -> list[str]:
     ]
 
 
+def _sealed_source_domains(payload: object) -> set[str]:
+    """Every source_domain / source_domains value sealed anywhere in a response."""
+    found: set[str] = set()
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key == "source_domain" and isinstance(value, str) and value.strip():
+                found.add(value.strip())
+            elif key == "source_domains" and isinstance(value, list):
+                found.update(str(item).strip() for item in value if str(item).strip())
+            else:
+                found |= _sealed_source_domains(value)
+    elif isinstance(payload, list):
+        for item in payload:
+            found |= _sealed_source_domains(item)
+    return found
+
+
 def _confirm_body(package: dict, assertion_ids: list[str]) -> dict:
     return {
         "schema": "dmb_extract_promote_confirm_request_v2",
@@ -1115,3 +1132,441 @@ def test_path_contract_still_rejects_world_store_sources(world_client) -> None:
         promote_svc.resolve_promote_source_uri(str(planted))
     assert exc.value.code == "invalid_source_uri"
     assert "world graph store" in str(exc.value) or "ingest-run" in str(exc.value)
+
+
+def test_campaignless_worldbuilding_run_is_inspect_only(world_client) -> None:
+    """Campaignless worldbuilding loads for review but cannot prepare/confirm."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, campaign_id=None, candidate_campaign_id=None
+    )
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    body = review.json()
+    assert body.get("campaignId") in (None, "")
+    assert body.get("sessionId") in (None, "")
+    assert body["promotable"] is False
+    assert "inspect-only" in (body.get("promotableReason") or "").lower()
+
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial", "mystery_puddles"]),
+    )
+    assert prepare.status_code == 422, prepare.text
+    assert prepare.json()["code"] == "not_promote_eligible"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == head_before
+
+
+def test_prepare_rejects_worldbuilding_draft_extraction_run(world_client) -> None:
+    """Real worldbuilding-profile semantics are inspect-only — not publishable."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+
+    # Fixture stamps the profile's worldbuilding_draft semantic, not played_canon.
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    candidate = json.loads(resolved.candidate_graph_path.read_text(encoding="utf-8"))
+    assert candidate["nodes"][0]["semantic_state"]["canon_state"] == "worldbuilding_draft"
+
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 200, review.text
+    assert review.json()["promotable"] is False
+
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial", "mystery_puddles"]),
+    )
+    assert prepare.status_code == 422, prepare.text
+    body = prepare.json()
+    assert body["code"] == "not_promote_eligible"
+    assert "worldbuilding" in body["message"].lower()
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == head_before
+
+
+def test_exact_recap_confirm_replay_is_a_truthful_no_op(world_client) -> None:
+    """Response-loss retry reuses the existing receipt; the head advances once."""
+    client, world_root, _repo, run_id, *_rest = world_client
+    prepare = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert prepare.status_code == 200, prepare.text
+    prepared = prepare.json()
+    body = _confirm_body(prepared["reviewPackage"], _selectable_assertion_ids(prepared))
+
+    first = client.post(CONFIRM_URL, json=body)
+    assert first.status_code == 200, first.text
+    assert first.json()["outcome"] == "committed"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+
+    replay = client.post(CONFIRM_URL, json=body)
+    assert replay.status_code == 200, replay.text
+    replayed = replay.json()
+    assert replayed["outcome"] == "already_applied"
+    assert replayed["headAdvanced"] is False
+    assert replayed["committedRevisionId"] == head_after
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == head_after
+    )
+
+
+def test_exact_recap_confirm_rejects_tampered_package(world_client) -> None:
+    """Sealed-proposal protection remains for the recap publication path."""
+    client, world_root, _repo, run_id, *_rest = world_client
+    prepare = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert prepare.status_code == 200, prepare.text
+    prepared = prepare.json()
+    package = prepared["reviewPackage"]
+    package["effect"]["contribution_meta"]["authored_by"] = "attacker"
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+
+    confirm = client.post(
+        CONFIRM_URL, json=_confirm_body(package, _selectable_assertion_ids(prepared))
+    )
+    assert confirm.status_code == 409
+    assert confirm.json()["code"] == "proposal_verification_failed"
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == head_before
+    )
+
+
+def test_recap_prepare_still_seals_recap_source_domain(world_client) -> None:
+    """The generic source_domain seam must not relabel existing recap runs."""
+    client, _world, _repo, run_id, *_rest = world_client
+    prepare = client.post(
+        PREPARE_URL,
+        json=_prepare_body(run_id, node_ids=["obj_session22_vial"]),
+    )
+    assert prepare.status_code == 200, prepare.text
+    domains = _sealed_source_domains(prepare.json()["reviewPackage"])
+    assert "recap" in domains
+    assert "worldbuilding" not in domains
+
+
+def test_prepare_rejects_non_reviewable_extraction_run(world_client) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo, status="prepared")
+    head_before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_not_promotable"
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == head_before
+
+
+def test_exact_run_review_package_includes_source_prose_and_evidence(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, source = _write_reviewable_extraction_run(repo, campaign_id=None)
+    response = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["schema"] == "dmb_extract_promote_exact_run_review_v1"
+    assert body["runId"] == run_id
+    assert body["sourceDomain"] == "worldbuilding"
+    assert body.get("campaignId") in (None, "")
+    assert body.get("sessionId") in (None, "")
+    assert body["promotable"] is False
+    assert body.get("promotableReason")
+    assert "Worldbuilding source for promote." in body["sourceProse"]
+    assert body["sourceProse"] == source.read_text(encoding="utf-8")
+    assert body["assertions"]
+    vial = next(item for item in body["assertions"] if item["assertionId"] == "obj_session22_vial")
+    assert vial["evidence"]
+    evidence = vial["evidence"][0]
+    assert evidence["paragraphText"] == "Worldbuilding source for promote."
+    assert "Worldbuilding source for promote." in evidence["anchorQuotes"]
+    assert evidence["sourceSpanRefId"]
+    assert evidence["startLine"] is not None
+
+
+def _mutate_extraction_candidate(repo, run_id: str, mutator) -> None:
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+    from apps.live_control_server.services.promotable_ingest_run import (
+        _resolve_extraction_component_path,
+    )
+
+    run = get_extraction_run(repo, run_id)
+    candidate_path = _resolve_extraction_component_path(
+        repo, run.components["candidate_graph"].uri, label="candidate_graph"
+    )
+    payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+    mutator(payload)
+    candidate_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    # Digest must match the component seal or reviewable evidence fails before
+    # our span checks. Re-seal the component digest on the registry record.
+    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    from apps.live_control_server.services.graph_run_registry import (
+        extraction_runs_path,
+    )
+    from src.live_play.live_store import load_json, write_json
+
+    path = extraction_runs_path(repo)
+    document = load_json(path)
+    for record in document["records"]:
+        if record["run_id"] == run_id:
+            record["components"]["candidate_graph"]["sha256"] = digest
+            break
+    write_json(path, document)
+
+
+def test_review_and_prepare_reject_unknown_span_ref(world_client) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+
+    def mutate(payload: dict) -> None:
+        for holder in (*(payload.get("nodes") or []), *(payload.get("edges") or [])):
+            for ref in holder.get("evidence_refs") or []:
+                ref["source_span_ref_id"] = "span:does-not-exist"
+
+    _mutate_extraction_candidate(repo, run_id, mutate)
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 422, review.text
+    assert review.json()["code"] == "run_not_promotable"
+    assert "unknown" in review.json()["message"].lower() or any(
+        "unknown_span_ref" in (d.get("code") or "")
+        for d in review.json().get("diagnostics") or []
+    )
+    prepare = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert prepare.status_code == 422, prepare.text
+    assert prepare.json()["code"] == "run_not_promotable"
+
+
+def test_review_and_prepare_reject_wrong_source_artifact_on_evidence(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+
+    def mutate(payload: dict) -> None:
+        for holder in (*(payload.get("nodes") or []), *(payload.get("edges") or [])):
+            for ref in holder.get("evidence_refs") or []:
+                ref["source_artifact_id"] = "artifact:worldbuilding:other"
+
+    _mutate_extraction_candidate(repo, run_id, mutate)
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 422
+    prepare = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert prepare.status_code == 422
+
+
+def test_review_and_prepare_reject_missing_evidence_refs(world_client) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+
+    def mutate(payload: dict) -> None:
+        for node in payload.get("nodes") or []:
+            if node.get("node_id") == "obj_session22_vial":
+                node["evidence_refs"] = []
+
+    _mutate_extraction_candidate(repo, run_id, mutate)
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 422
+    prepare = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert prepare.status_code == 422
+
+
+def test_review_and_prepare_reject_false_anchor_quotes(world_client) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+
+    def mutate(payload: dict) -> None:
+        for holder in (*(payload.get("nodes") or []), *(payload.get("edges") or [])):
+            for ref in holder.get("evidence_refs") or []:
+                ref["anchor_quotes"] = ["this quote is not in the source paragraph"]
+
+    _mutate_extraction_candidate(repo, run_id, mutate)
+    review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert review.status_code == 422, review.text
+    assert any(
+        "false_anchor_quote" in (d.get("code") or "")
+        for d in review.json().get("diagnostics") or []
+    ) or "anchor quote" in review.json()["message"].lower()
+    prepare = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert prepare.status_code == 422
+
+
+def test_prepare_rejects_session_invention_for_sessionless_extraction_run(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, invent_session_in_candidate=True
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_rejects_campaign_invention_for_campaignless_extraction_run(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo,
+        campaign_id=None,
+        candidate_campaign_id=CAMPAIGN_ID,
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "run_scope_mismatch"
+    assert "invents a campaign" in body["message"]
+
+
+def test_prepare_rejects_both_campaignless_worldbuilding_extraction_run(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo,
+        campaign_id=None,
+        candidate_campaign_id=None,
+    )
+    response = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "not_promote_eligible"
+
+
+def test_prepare_rejects_campaign_bound_worldbuilding_extraction_run(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    response = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "not_promote_eligible"
+
+
+def test_prepare_rejects_campaign_bound_run_with_missing_candidate_campaign(
+    world_client,
+) -> None:
+    """A campaign-bound run still requires the candidate to carry the run's campaign."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, candidate_campaign_id=None
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_rejects_campaign_bound_run_with_different_candidate_campaign(
+    world_client,
+) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, candidate_campaign_id="other-campaign"
+    )
+    response = client.post(PREPARE_URL, json=_prepare_body(run_id))
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_scope_mismatch"
+
+
+def test_prepare_maps_missing_world_graph_head_to_world_not_initialized(
+    world_client,
+) -> None:
+    """Missing head is a diagnosable 409, not an opaque 500."""
+    client, world_root, _repo, run_id, *_rest = world_client
+    head = world_root / "graph_memory" / "worlds" / WORLD_ID / "head.json"
+    assert head.is_file()
+    head.unlink()
+
+    response = client.post(
+        PREPARE_URL, json=_prepare_body(run_id, node_ids=["obj_session22_vial"])
+    )
+    assert response.status_code == 409, response.text
+    body = response.json()
+    assert body["code"] == "world_not_initialized"
+    assert "not initialized" in body["message"].lower()
+    # Public diagnostics must stay non-sensitive (no traceback / absolute paths).
+    for item in body.get("diagnostics") or []:
+        message = str(item.get("message") or "")
+        assert "Traceback" not in message
+        assert "/tmp/" not in message
+
+
+def test_review_package_uses_run_pinned_span_index_component(world_client) -> None:
+    """Evidence validation must follow the run-pinned span-index URI, not the registry canonical path."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, _world, repo, *_rest = world_client
+    run_id, _source = _write_reviewable_extraction_run(
+        repo, pin_noncanonical_span_index=True
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        source_span_index_path,
+    )
+
+    resolved = resolve_promotable_ingest_run(run_id, root=repo)
+    assert resolved.source_span_index_path is not None
+    assert resolved.source_span_index_path.name == "alt_source_span_index.json"
+    pinned_span_id = json.loads(
+        resolved.source_span_index_path.read_text(encoding="utf-8")
+    )["spans"][0]["source_span_id"]
+    canonical_ids = {
+        span["source_span_id"]
+        for span in json.loads(
+            source_span_index_path(repo, resolved.source_artifact_id).read_text(
+                encoding="utf-8"
+            )
+        )["spans"]
+    }
+    assert pinned_span_id not in canonical_ids
+
+    response = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["assertions"]
+    evidence_span_ids = {
+        item["evidence"][0]["sourceSpanRefId"]
+        for item in body["assertions"]
+        if item.get("evidence")
+    }
+    assert pinned_span_id in evidence_span_ids

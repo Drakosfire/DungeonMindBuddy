@@ -20,6 +20,9 @@ from apps.live_control_server.models.extract_promote import (
     SERVER_PREPARED_BY,
     ConfirmAuditStatus,
     ConfirmOutcome,
+    ExactRunReviewAssertion,
+    ExactRunReviewEvidence,
+    ExactRunReviewPackage,
     ExtractPromoteConfirmReceipt,
     ExtractPromoteConfirmRequest,
     ExtractPromoteDiagnostic,
@@ -51,6 +54,7 @@ from graph_memory.extract_promote_ops import (
     resolve_merged_contribution_from_package,
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
+from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 
 # Narrow server-owned roots for non-run promote source evidence (confirm of
 # legacy/CLI seals, dedicated fixture roots). Product prepare never uses these
@@ -278,6 +282,56 @@ def _assert_candidate_scope_matches_run(
 ) -> None:
     cand_campaign = str(payload.get("campaign_id") or "").strip()
     cand_session = str(payload.get("session_id") or "").strip()
+    run_campaign = (campaign_id or "").strip()
+    run_session = (session_id or "").strip()
+
+    # Sessionless / campaignless runs: never invent scope the exact run omitted.
+    if not run_session:
+        if cand_session:
+            raise ExtractPromoteError(
+                "candidate graph invents a session for a sessionless run",
+                code="run_scope_mismatch",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "run_scope_mismatch",
+                        "candidate graph invents a session for a sessionless run",
+                    ),
+                    _diagnostic("candidate_session", cand_session),
+                    _diagnostic("manifest_session", "<null>"),
+                ],
+            )
+        if run_campaign:
+            if cand_campaign != run_campaign:
+                raise ExtractPromoteError(
+                    "candidate graph campaign does not match the run",
+                    code="run_scope_mismatch",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic(
+                            "run_scope_mismatch",
+                            "candidate graph campaign does not match the run",
+                        ),
+                        _diagnostic("candidate_campaign", cand_campaign or "<missing>"),
+                        _diagnostic("manifest_campaign", run_campaign),
+                    ],
+                )
+        elif cand_campaign:
+            raise ExtractPromoteError(
+                "candidate graph invents a campaign for a campaignless run",
+                code="run_scope_mismatch",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic(
+                        "run_scope_mismatch",
+                        "candidate graph invents a campaign for a campaignless run",
+                    ),
+                    _diagnostic("candidate_campaign", cand_campaign),
+                    _diagnostic("manifest_campaign", "<null>"),
+                ],
+            )
+        return
+
     if not cand_campaign or not cand_session:
         raise ExtractPromoteError(
             "candidate graph is missing campaign_id or session_id",
@@ -290,11 +344,11 @@ def _assert_candidate_scope_matches_run(
                 ),
                 _diagnostic("candidate_campaign", cand_campaign or "<missing>"),
                 _diagnostic("candidate_session", cand_session or "<missing>"),
-                _diagnostic("manifest_campaign", campaign_id),
-                _diagnostic("manifest_session", session_id),
+                _diagnostic("manifest_campaign", run_campaign),
+                _diagnostic("manifest_session", run_session),
             ],
         )
-    if cand_campaign != campaign_id or cand_session != session_id:
+    if cand_campaign != run_campaign or cand_session != run_session:
         raise ExtractPromoteError(
             "candidate graph campaign/session does not match the run manifest",
             code="run_scope_mismatch",
@@ -306,8 +360,8 @@ def _assert_candidate_scope_matches_run(
                 ),
                 _diagnostic("candidate_campaign", cand_campaign),
                 _diagnostic("candidate_session", cand_session),
-                _diagnostic("manifest_campaign", campaign_id),
-                _diagnostic("manifest_session", session_id),
+                _diagnostic("manifest_campaign", run_campaign),
+                _diagnostic("manifest_session", run_session),
             ],
         )
 
@@ -323,6 +377,352 @@ def get_status(*, world_id: str = DEFAULT_WORLD_ID) -> ExtractPromoteStatusRespo
         world_state=result.world_state,  # type: ignore[arg-type]
         head_revision_id=result.head_revision_id,
         diagnostics=list(result.diagnostics),
+    )
+
+
+def _paragraph_for_span(source_lines: list[str], *, start_line: int, end_line: int) -> str:
+    if start_line < 1 or end_line < start_line or end_line > len(source_lines):
+        return ""
+    return "\n".join(source_lines[start_line - 1 : end_line])
+
+
+def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
+    """Load the SourceSpanIndex pinned by the resolved ExtractionRun component.
+
+    Uses the run's frozen ``source_span_index`` component path carried on
+    ``PromotableIngestRun``. Never re-derives the registry's canonical index
+    path from ``source_artifact_id`` alone — a run may pin a different
+    repo-contained, digest-valid index for the same artifact.
+    """
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        get_source_artifact,
+    )
+    from graph_memory.source_span import (
+        source_span_index_from_dict,
+        validate_source_span_index,
+    )
+    from src.live_play.live_store import load_json
+
+    span_path = getattr(resolved, "source_span_index_path", None)
+    if span_path is None:
+        raise ExtractPromoteError(
+            "exact-run source span index is unavailable",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "source_span_index_unavailable",
+                    "resolved run does not carry a pinned source_span_index path",
+                )
+            ],
+        )
+
+    try:
+        payload = load_json(span_path)
+        index = source_span_index_from_dict(payload)
+        artifact = get_source_artifact(repo_root(), resolved.source_artifact_id)
+        validate_source_span_index(
+            index,
+            source_artifact_id=artifact.source_artifact_id,
+            content_sha256=artifact.content_sha256 or "",
+        )
+    except SourceArtifactRegistryError as exc:
+        raise ExtractPromoteError(
+            "exact-run source span index is unavailable",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("source_span_index_unavailable", str(exc))],
+        ) from exc
+    except (OSError, TypeError, ValueError, KeyError) as exc:
+        raise ExtractPromoteError(
+            "exact-run source span index is unavailable",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("source_span_index_unavailable", str(exc))],
+        ) from exc
+    return index
+
+
+_WORLDBUILDING_INSPECT_ONLY_REASON = (
+    "Worldbuilding ExtractionRuns are inspect-only in this slice. "
+    "Assertions stamped worldbuilding_draft are not eligible for World Graph "
+    "prepare/confirm until an approved authority-elevation contract lands."
+)
+
+
+def _worldbuilding_inspect_only_error() -> ExtractPromoteError:
+    return ExtractPromoteError(
+        _WORLDBUILDING_INSPECT_ONLY_REASON,
+        code="not_promote_eligible",
+        status_code=422,
+        diagnostics=[
+            _diagnostic("worldbuilding_draft_not_promotable", _WORLDBUILDING_INSPECT_ONLY_REASON)
+        ],
+    )
+
+
+def _is_worldbuilding_inspect_only(resolved: Any) -> bool:
+    return (getattr(resolved, "source_domain", None) or "").strip() == "worldbuilding"
+
+
+def _assert_and_project_candidate_evidence(
+    *,
+    candidate_payload: dict[str, Any],
+    source_prose: str,
+    source_artifact_id: str,
+    span_index: Any,
+) -> list[ExactRunReviewAssertion]:
+    """Fail closed when candidate evidence is not bound to frozen span content.
+
+    Uses the typed candidate validator, requires every promotable node/edge
+    evidence ref to resolve against the span index + SourceArtifact, and verifies
+    anchor quotes against canonical source paragraph bytes.
+    """
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+    from graph_memory.candidate_graph_to_contribution import (
+        CandidateGraphMappingError,
+        load_typed_candidate_graph,
+    )
+
+    try:
+        typed = load_typed_candidate_graph(candidate_payload)
+    except CandidateGraphMappingError as exc:
+        raise ExtractPromoteError(
+            f"candidate graph failed typed validation: {exc}",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("candidate_invalid", str(exc))],
+        ) from exc
+
+    span_by_id = {span.source_span_id: span for span in span_index.spans}
+    source_lines = source_prose.splitlines()
+    expected_artifact = (source_artifact_id or "").strip()
+    assertions: list[ExactRunReviewAssertion] = []
+
+    def _project_holder(
+        *,
+        assertion_id: str,
+        kind: str,
+        label: str,
+        summary: str,
+        evidence_refs: Any,
+    ) -> ExactRunReviewAssertion:
+        if not evidence_refs:
+            raise ExtractPromoteError(
+                f"assertion {assertion_id!r} is missing evidence_refs",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("missing_evidence", f"assertion={assertion_id}"),
+                ],
+            )
+        projected: list[ExactRunReviewEvidence] = []
+        for index, ref in enumerate(evidence_refs):
+            span_id = str(getattr(ref, "source_span_ref_id", "") or "").strip()
+            artifact_id = str(getattr(ref, "source_artifact_id", "") or "").strip()
+            if not span_id:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] missing source_span_ref_id",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic(
+                            "missing_span_ref",
+                            f"assertion={assertion_id} evidence_index={index}",
+                        )
+                    ],
+                )
+            if artifact_id != expected_artifact:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] source_artifact_id "
+                    f"does not match the run SourceArtifact",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("source_artifact_mismatch", artifact_id or "<missing>"),
+                        _diagnostic("run_source_artifact", expected_artifact),
+                    ],
+                )
+            span = span_by_id.get(span_id)
+            if span is None:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] references unknown "
+                    f"source_span_ref_id {span_id!r}",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("unknown_span_ref", span_id),
+                        _diagnostic("assertion", assertion_id),
+                    ],
+                )
+            paragraph = _paragraph_for_span(
+                source_lines,
+                start_line=int(span.start_line),
+                end_line=int(span.end_line),
+            ).strip()
+            if not paragraph:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] span resolves to "
+                    "empty source content",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("empty_span_content", span_id),
+                    ],
+                )
+            raw_quotes = [
+                str(item).strip()
+                for item in (getattr(ref, "anchor_quotes", None) or [])
+                if str(item).strip()
+            ]
+            if not raw_quotes:
+                raise ExtractPromoteError(
+                    f"assertion {assertion_id!r} evidence[{index}] is missing anchor_quotes",
+                    code="run_not_promotable",
+                    status_code=422,
+                    diagnostics=[
+                        _diagnostic("missing_anchor_quotes", span_id),
+                    ],
+                )
+            verified_quotes: list[str] = []
+            for quote in raw_quotes:
+                if not find_anchor_quote_matches(paragraph, [quote]):
+                    raise ExtractPromoteError(
+                        f"assertion {assertion_id!r} evidence[{index}] anchor quote "
+                        "does not occur in the canonical span paragraph",
+                        code="run_not_promotable",
+                        status_code=422,
+                        diagnostics=[
+                            _diagnostic("false_anchor_quote", quote[:120]),
+                            _diagnostic("span_ref", span_id),
+                        ],
+                    )
+                verified_quotes.append(quote)
+            projected.append(
+                ExactRunReviewEvidence(
+                    source_artifact_id=artifact_id,
+                    source_span_ref_id=span_id,
+                    paragraph_text=paragraph,
+                    anchor_quotes=verified_quotes,
+                    start_line=int(span.start_line),
+                    end_line=int(span.end_line),
+                )
+            )
+        return ExactRunReviewAssertion(
+            assertion_id=assertion_id,
+            kind=kind,  # type: ignore[arg-type]
+            label=label,
+            summary=summary,
+            evidence=projected,
+        )
+
+    for node in typed.nodes:
+        node_id = str(node.node_id or "").strip()
+        if not node_id:
+            continue
+        assertions.append(
+            _project_holder(
+                assertion_id=node_id,
+                kind="object",
+                label=str(node.label or node_id).strip() or node_id,
+                summary=str(getattr(node, "description", "") or "").strip(),
+                evidence_refs=node.evidence_refs,
+            )
+        )
+    for edge in typed.edges:
+        edge_id = str(edge.edge_id or "").strip()
+        if not edge_id:
+            continue
+        assertions.append(
+            _project_holder(
+                assertion_id=edge_id,
+                kind="relationship",
+                label=str(getattr(edge, "label", None) or edge_id).strip() or edge_id,
+                summary=(
+                    f"{getattr(edge, 'from_node_id', None) or '?'} → "
+                    f"{getattr(edge, 'to_node_id', None) or '?'}"
+                ),
+                evidence_refs=edge.evidence_refs,
+            )
+        )
+    return assertions
+
+
+def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
+    """Build a source/evidence review projection for one exact ExtractionRun.
+
+    Resolves the run through the same server-owned promotable seam as prepare,
+    then projects canonical source prose and per-assertion span evidence without
+    sealing a proposal or inventing campaign/session scope.
+    """
+    try:
+        resolved = resolve_promotable_ingest_run(run_id, root=repo_root())
+    except PromotableIngestRunError as exc:
+        raise ExtractPromoteError(
+            str(exc),
+            code=exc.code,
+            status_code=exc.status_code,
+            diagnostics=[
+                _diagnostic(exc.code, item) for item in (exc.diagnostics or [str(exc)])
+            ],
+        ) from exc
+
+    try:
+        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ExtractPromoteError(
+            "exact-run source prose could not be read",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("source_unreadable", str(exc))],
+        ) from exc
+
+    try:
+        candidate_payload = json.loads(
+            resolved.candidate_graph_path.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ExtractPromoteError(
+            "exact-run candidate graph could not be read",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("candidate_unreadable", str(exc))],
+        ) from exc
+    if not isinstance(candidate_payload, dict):
+        raise ExtractPromoteError(
+            "exact-run candidate graph root must be a JSON object",
+            code="run_not_promotable",
+            status_code=422,
+        )
+
+    _assert_candidate_scope_matches_run(
+        candidate_payload,
+        campaign_id=resolved.campaign_id,
+        session_id=resolved.session_id,
+    )
+
+    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    assertions = _assert_and_project_candidate_evidence(
+        candidate_payload=candidate_payload,
+        source_prose=source_prose,
+        source_artifact_id=resolved.source_artifact_id,
+        span_index=span_index,
+    )
+
+    inspect_only = _is_worldbuilding_inspect_only(resolved)
+    return ExactRunReviewPackage(
+        run_id=resolved.run_id,
+        source_domain=resolved.source_domain,
+        source_artifact_id=resolved.source_artifact_id,
+        source_revision_id=resolved.source_revision_id,
+        campaign_id=resolved.campaign_id or None,
+        session_id=resolved.session_id or None,
+        source_prose=source_prose,
+        assertions=assertions,
+        diagnostics=list(resolved.diagnostics),
+        promotable=not inspect_only,
+        promotable_reason=_WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None,
     )
 
 
@@ -364,6 +764,34 @@ def prepare(
         campaign_id=resolved.campaign_id,
         session_id=resolved.session_id,
     )
+
+    # ExtractionRun-backed prepare: every evidence ref must bind to the frozen
+    # span index and verify against canonical source bytes before sealing.
+    if any(
+        "resolved via canonical ExtractionRun registry" in item
+        for item in resolved.diagnostics
+    ):
+        try:
+            source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ExtractPromoteError(
+                "exact-run source prose could not be read",
+                code="run_not_promotable",
+                status_code=422,
+                diagnostics=[_diagnostic("source_unreadable", str(exc))],
+            ) from exc
+        span_index = _load_frozen_span_index_for_resolved_run(resolved)
+        _assert_and_project_candidate_evidence(
+            candidate_payload=payload,
+            source_prose=source_prose,
+            source_artifact_id=resolved.source_artifact_id,
+            span_index=span_index,
+        )
+
+    # BLD-07 narrowed: worldbuilding is inspect-only. Fail after evidence
+    # validation so binding errors remain visible; never seal draft canon.
+    if _is_worldbuilding_inspect_only(resolved):
+        raise _worldbuilding_inspect_only_error()
 
     extraction_profile = resolved.extraction_profile or "current_default"
 
@@ -472,6 +900,7 @@ def prepare(
             repo_root=repo_root(),
             disclose_source_digest=False,
             registry_context_graph=registry_payload,
+            source_domain=resolved.source_domain,
         )
     except CandidateGraphMappingError as exc:
         raise _public_mapping_error(exc) from exc
@@ -488,6 +917,21 @@ def prepare(
             code="world_not_initialized",
             status_code=409,
             diagnostics=[_diagnostic("world_not_initialized", str(exc))],
+        ) from exc
+    except WorldGraphNotFoundError as exc:
+        # Identity gate opens the head before wrapping; missing head is an
+        # expected operator state, not extract_promote_internal_error.
+        raise ExtractPromoteError(
+            "The World Graph is not initialized. Bootstrap or restore an "
+            "eldyrwild head under the configured world root before merging.",
+            code="world_not_initialized",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "world_not_initialized",
+                    "no world graph head for world_id='eldyrwild'",
+                )
+            ],
         ) from exc
 
     return ExtractPromotePrepareResponse(
@@ -507,8 +951,8 @@ def prepare(
             result.review_summary or {}
         ),
         run_id=resolved.run_id,
-        campaign_id=resolved.campaign_id,
-        session_id=resolved.session_id,
+        campaign_id=resolved.campaign_id or None,
+        session_id=resolved.session_id or None,
     )
 
 
