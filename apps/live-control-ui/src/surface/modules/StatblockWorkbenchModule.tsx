@@ -2,11 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import {
+  acceptThreatDraftMechanics,
   generateThreatDraftCandidate,
   getStatblockCandidate,
+  reconcileAcceptanceOperation,
   validateStatblockDefinition,
 } from "../../api/liveApi";
 import type {
+  AcceptThreatDraftMechanicsResponseV1,
   GenerateThreatDraftCandidateResponseV1,
   ReadStatblockCandidateResponseV1,
   ValidateDefinitionBuddyResponseV1,
@@ -65,6 +68,32 @@ type ValidationFailure = {
   stateRevision: number;
   message: string;
 };
+
+function previewIsCurrent(
+  preview: PreviewValidation | null,
+  editorState: StatblockEditorState | null,
+  editorEpoch: number,
+): boolean {
+  if (preview == null || editorState == null) return false;
+  const uiStatus = getUiStatus(editorState);
+  return (
+    preview.editorEpoch === editorEpoch &&
+    editorState.validatedRevision === preview.associatedRevision &&
+    editorState.stateRevision === preview.associatedRevision &&
+    (uiStatus === "validated" ||
+      uiStatus === "validated_with_warnings" ||
+      uiStatus === "validated_with_errors")
+  );
+}
+
+function acceptPreviewEligible(
+  preview: PreviewValidation | null,
+  editorState: StatblockEditorState | null,
+  editorEpoch: number,
+): boolean {
+  if (!previewIsCurrent(preview, editorState, editorEpoch) || preview == null) return false;
+  return preview.receipt.status === "valid" || preview.receipt.status === "warnings";
+}
 
 function readCandidateIdFromLocation(): string {
   if (typeof window === "undefined") return "";
@@ -204,22 +233,13 @@ function PreviewValidationPanel({
   validationFailure: ValidationFailure | null;
   workingCopy: StatblockDefinitionV1_Input | null;
 }) {
-  const uiStatus = editorState ? getUiStatus(editorState) : null;
   const failureCurrent =
     validationFailure != null &&
     editorState != null &&
     validationFailure.editorEpoch === editorEpoch &&
     validationFailure.stateRevision === editorState.stateRevision;
 
-  const previewCurrent =
-    preview != null &&
-    editorState != null &&
-    preview.editorEpoch === editorEpoch &&
-    editorState.validatedRevision === preview.associatedRevision &&
-    editorState.stateRevision === preview.associatedRevision &&
-    (uiStatus === "validated" ||
-      uiStatus === "validated_with_warnings" ||
-      uiStatus === "validated_with_errors");
+  const previewCurrent = previewIsCurrent(preview, editorState, editorEpoch);
 
   if (failureCurrent) {
     return (
@@ -340,6 +360,248 @@ function PreviewValidationPanel({
         ))}
       </div>
     </section>
+  );
+}
+
+function AcceptMechanicsFlow({
+  preview,
+  editorState,
+  editorEpoch,
+  draftIdInput,
+  draftVersionInput,
+  sourceCandidateId,
+  workingCopy,
+}: {
+  preview: PreviewValidation | null;
+  editorState: StatblockEditorState;
+  editorEpoch: number;
+  draftIdInput: string;
+  draftVersionInput: string;
+  sourceCandidateId: string;
+  workingCopy: StatblockDefinitionV1_Input;
+}) {
+  const eligible = acceptPreviewEligible(preview, editorState, editorEpoch);
+  const previewCurrent = previewIsCurrent(preview, editorState, editorEpoch);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [acceptPending, setAcceptPending] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [acceptResult, setAcceptResult] = useState<AcceptThreatDraftMechanicsResponseV1 | null>(
+    null,
+  );
+  const acceptOperationIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!eligible) {
+      setConfirmOpen(false);
+      setAcceptPending(false);
+      setAcceptError(null);
+      setAcceptResult(null);
+      acceptOperationIdRef.current = null;
+    }
+  }, [eligible, preview?.definitionDigest, editorState.stateRevision, editorEpoch]);
+
+  const ensureOperationId = (): string => {
+    if (!acceptOperationIdRef.current) {
+      acceptOperationIdRef.current = crypto.randomUUID();
+    }
+    return acceptOperationIdRef.current;
+  };
+
+  const resetAcceptSession = () => {
+    setConfirmOpen(false);
+    setAcceptPending(false);
+    setAcceptError(null);
+    acceptOperationIdRef.current = null;
+  };
+
+  const runAccept = async () => {
+    if (!preview || !eligible) return;
+
+    const draftId = draftIdInput.trim();
+    const expectedVersion = Number(draftVersionInput);
+    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      setAcceptError("Provide a draft ID and expected draft version ≥ 1 before accepting.");
+      return;
+    }
+
+    const operationId = ensureOperationId();
+    setAcceptPending(true);
+    setAcceptError(null);
+
+    try {
+      const response = await acceptThreatDraftMechanics(draftId, {
+        operation_id: operationId,
+        expected_draft_version: expectedVersion,
+        definition: workingCopy,
+        validation_receipt: preview.receipt,
+        validation_definition_digest: preview.definitionDigest,
+        source_candidate_id: sourceCandidateId,
+        change_summary: "Accepted via Statblock Workbench",
+      });
+      setAcceptResult(response);
+      setConfirmOpen(false);
+    } catch (error) {
+      setAcceptError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAcceptPending(false);
+    }
+  };
+
+  const onReconcile = async () => {
+    const draftId = draftIdInput.trim();
+    const operationId = acceptOperationIdRef.current;
+    if (!draftId || !operationId) return;
+
+    setAcceptPending(true);
+    setAcceptError(null);
+    try {
+      const response = await reconcileAcceptanceOperation(draftId, operationId);
+      setAcceptResult(response);
+    } catch (error) {
+      setAcceptError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAcceptPending(false);
+    }
+  };
+
+  if (!previewCurrent && !acceptResult) {
+    return (
+      <p className="module-muted">
+        {preview
+          ? "Preview validation is stale — revalidate before accept/save."
+          : "Validate the working copy to preview acceptance eligibility. Mechanics accept/save does not publish to the World Graph."}
+      </p>
+    );
+  }
+
+  if (previewCurrent && preview?.receipt.status === "invalid") {
+    return (
+      <p className="module-muted" role="status">
+        Fix validation errors before accept/save. Invalid preview receipts cannot be accepted.
+      </p>
+    );
+  }
+
+  const resultLabel = acceptResult?.result_label;
+
+  return (
+    <div data-testid="accept-mechanics-flow">
+      {eligible && !acceptResult ? (
+        <div className="statblock-command-row">
+          {!confirmOpen ? (
+            <button
+              type="button"
+              onClick={() => {
+                ensureOperationId();
+                setConfirmOpen(true);
+                setAcceptError(null);
+              }}
+            >
+              Accept/Save mechanics
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {confirmOpen && eligible && preview ? (
+        <section
+          className="statblock-section"
+          data-testid="accept-mechanics-panel"
+          aria-label="Accept mechanics confirmation"
+        >
+          <h4>Accept / save mechanics</h4>
+          <p className="module-muted">
+            Mechanics only — not published to the World Graph. Accepting saves immutable mechanics
+            to the ThreatDraft; it does not create or update World Graph entities.
+          </p>
+          <p>
+            Definition digest: <code>{preview.definitionDigest}</code>
+          </p>
+          <p>
+            Validation status: <code>{preview.receipt.status}</code>
+          </p>
+          <div className="statblock-command-row">
+            <button
+              type="button"
+              onClick={() => void runAccept()}
+              data-testid="accept-mechanics-confirm"
+            >
+              {acceptPending ? "Accepting…" : "Confirm accept/save"}
+            </button>
+            <button
+              type="button"
+              disabled={acceptPending}
+              onClick={() => resetAcceptSession()}
+            >
+              Cancel
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {acceptError ? (
+        <p className="statblock-command-error" role="alert">
+          {acceptError}
+        </p>
+      ) : null}
+
+      {acceptResult ? (
+        <section className="statblock-section" role="status" data-accept-result={resultLabel ?? ""}>
+          {resultLabel === "mechanics_saved" ? (
+            <>
+              <p>
+                <strong>Mechanics saved; not published</strong> to the World Graph.
+              </p>
+              {acceptResult.locator ? (
+                <p className="module-muted">
+                  Locator: statblock <code>{acceptResult.locator.statblock_id}</code>, revision{" "}
+                  <code>{acceptResult.locator.revision_id}</code>, digest{" "}
+                  <code>{acceptResult.locator.definition_digest}</code>
+                </p>
+              ) : null}
+            </>
+          ) : null}
+
+          {resultLabel === "server_committed_reference_pending" ||
+          acceptResult.authority_state === "server_committed" ? (
+            <>
+              <p className="module-muted">
+                Server committed mechanics; draft reference reconciliation is pending. Mechanics
+                saved; not published to the World Graph until reconciliation completes.
+              </p>
+              <button type="button" disabled={acceptPending} onClick={() => void onReconcile()}>
+                {acceptPending ? "Reconciling…" : "Reconcile acceptance"}
+              </button>
+            </>
+          ) : null}
+
+          {resultLabel === "dispatched_unknown" ? (
+            <>
+              <p className="module-muted">
+                Accept outcome unknown — the server may still be processing. Retry accept with the
+                same operation id, or reconcile later if mechanics appear saved.
+              </p>
+              <button type="button" disabled={acceptPending} onClick={() => void runAccept()}>
+                {acceptPending ? "Retrying…" : "Retry accept"}
+              </button>
+            </>
+          ) : null}
+
+          {resultLabel === "acceptance_blocked" ||
+          resultLabel === "acceptance_busy" ||
+          resultLabel === "acceptance_history_full" ||
+          resultLabel === "acceptance_input_conflict" ||
+          resultLabel === "acceptance_draft_unavailable" ||
+          resultLabel === "accepted_ref_conflict" ||
+          resultLabel === "terminal_failure" ? (
+            <p className="statblock-command-error" role="alert">
+              Accept blocked: {acceptResult.message ?? resultLabel}
+              {acceptResult.failure_category ? ` (${acceptResult.failure_category})` : ""}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+    </div>
   );
 }
 
@@ -630,14 +892,15 @@ export function StatblockWorkbenchModule() {
     <div className="module-panel statblock-workbench" data-module-id="statblock_workbench">
       <header className="statblock-workbench-header">
         <div>
-          <p className="eyebrow">Typed candidate review and preview validation</p>
+          <p className="eyebrow">Typed candidate review, preview validation, and mechanics accept</p>
           <h2 className="module-title">Statblock Workbench</h2>
           <p className="module-muted">
             Displays mechanics from a structured DungeonMind candidate. Edit mode holds a session-only
-            working copy; preview validation does not accept or save mechanics.
+            working copy; preview validation checks the copy; accept/save persists mechanics to the
+            ThreatDraft without publishing to the World Graph.
           </p>
         </div>
-        <span className="badge">sbw05c-preview</span>
+        <span className="badge">sbw07c-accept</span>
       </header>
 
       <section className="statblock-section">
@@ -760,10 +1023,16 @@ export function StatblockWorkbenchModule() {
                     ? "Validating…"
                     : "Validate working copy"}
                 </button>
-                <p className="module-muted">
-                  Preview validation only — session-only and unsaved. No accept or save path.
-                </p>
               </div>
+              <AcceptMechanicsFlow
+                preview={previewValidation}
+                editorState={editorState}
+                editorEpoch={editorEpoch}
+                draftIdInput={draftIdInput}
+                draftVersionInput={draftVersionInput}
+                sourceCandidateId={activeCandidate.candidate_id}
+                workingCopy={editorState.workingCopy}
+              />
               <PreviewValidationPanel
                 preview={previewValidation}
                 editorState={editorState}

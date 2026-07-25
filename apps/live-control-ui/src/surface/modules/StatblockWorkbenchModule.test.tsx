@@ -24,6 +24,8 @@ const activeResponse: ReadStatblockCandidateResponseV1 = {
   candidate,
 };
 
+const PREVIEW_DIGEST = `sha256:${"a".repeat(64)}`;
+
 function receipt(
   status: ValidationReceiptV1["status"],
   issues: ValidationReceiptV1["issues"] = [],
@@ -33,7 +35,7 @@ function receipt(
     mode: "editor_preview",
     validator_version: "1",
     canonicalizer_version: "1",
-    definition_digest: "sha256:preview-digest",
+    definition_digest: PREVIEW_DIGEST,
     issues,
   };
 }
@@ -61,6 +63,13 @@ async function loadId(id: string) {
   await user.type(screen.getByPlaceholderText("cand_…"), id);
   await user.click(screen.getByRole("button", { name: "Load candidate" }));
   return user;
+}
+
+async function validateWorkingCopy(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Validate working copy" }));
+  await waitFor(() => {
+    expect(document.querySelector('[data-preview-state="current"]')).toBeTruthy();
+  });
 }
 
 describe("presentCandidateStatus", () => {
@@ -1035,5 +1044,134 @@ describe("StatblockWorkbenchModule", () => {
 
     expect(globalPanel.textContent).toMatch(/global informational note/);
     expect(globalPanel.querySelector('[data-issue-severity="info"]')).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Accept\/Save mechanics/i })).toBeNull();
+  });
+
+  describe("accept/save mechanics (SBW07c)", () => {
+    it("shows Accept/Save after valid preview and confirms with stable operation_id", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockImplementation(
+        () =>
+          new Promise(() => {
+            /* hang for double-click */
+          }),
+      );
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("11111111-2222-4333-8444-555555555555");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await user.type(screen.getByPlaceholderText("td_…"), "td_accept1");
+      await validateWorkingCopy(user);
+
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeTruthy();
+
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      const panel = screen.getByTestId("accept-mechanics-panel");
+      expect(panel.textContent).toMatch(PREVIEW_DIGEST);
+      expect(panel.textContent).toMatch(/not published to the World Graph/i);
+      expect(panel.textContent).toMatch(/valid/);
+
+      const confirm = screen.getByTestId("accept-mechanics-confirm");
+      await user.click(confirm);
+      await user.click(confirm);
+
+      await waitFor(() => {
+        expect(acceptSpy).toHaveBeenCalledTimes(2);
+      });
+      expect(acceptSpy.mock.calls[0][1].operation_id).toBe(
+        "11111111-2222-4333-8444-555555555555",
+      );
+      expect(acceptSpy.mock.calls[1][1].operation_id).toBe(
+        "11111111-2222-4333-8444-555555555555",
+      );
+      expect(acceptSpy.mock.calls[0][0]).toBe("td_accept1");
+      expect(acceptSpy.mock.calls[0][1].expected_draft_version).toBe(1);
+      expect(acceptSpy.mock.calls[0][1].validation_definition_digest).toBe(PREVIEW_DIGEST);
+      expect(acceptSpy.mock.calls[0][1].source_candidate_id).toBe("cand_fixture1");
+    });
+
+    it("shows mechanics_saved locator and not-published wording", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_saved",
+        operation_id: "op_saved",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_1",
+          revision_id: "rev_1",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await user.type(screen.getByPlaceholderText("td_…"), "td_saved");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
+      });
+      expect(screen.getByText(/sb_1/)).toBeTruthy();
+      expect(screen.getByText(/rev_1/)).toBeTruthy();
+      expect(screen.queryByText("Preview corpus promotion")).toBeNull();
+    });
+
+    it("offers reconcile when reference is pending", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("warnings"));
+      vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_pending",
+        operation_id: "op_pending",
+        result_label: "server_committed_reference_pending",
+        authority_state: "server_committed",
+      });
+      const reconcileSpy = vi.spyOn(liveApi, "reconcileAcceptanceOperation").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: "td_pending",
+        operation_id: "op_pending",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_reconciled",
+          revision_id: "rev_reconciled",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+      vi.spyOn(crypto, "randomUUID").mockReturnValue("op_pending");
+
+      const user = await loadId("cand_fixture1");
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await user.type(screen.getByPlaceholderText("td_…"), "td_pending");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await user.click(screen.getByTestId("accept-mechanics-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Reconcile acceptance" })).toBeTruthy();
+      });
+      await user.click(screen.getByRole("button", { name: "Reconcile acceptance" }));
+
+      await waitFor(() => {
+        expect(reconcileSpy).toHaveBeenCalledWith("td_pending", "op_pending");
+      });
+      expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
+    });
   });
 });

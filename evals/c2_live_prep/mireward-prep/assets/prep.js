@@ -2172,7 +2172,7 @@
       '<div class="statblock-dogfood-actions">' +
       '<button type="button" id="statblock-dogfood-generate" class="primary">Generate reinforcement</button>' +
       '<button type="button" id="statblock-dogfood-accept">Accept to combat tracker</button>' +
-      '<button type="button" id="statblock-dogfood-promote" class="statblock-dogfood-promote" title="Two-phase corpus write to campaign Statblocks/generated/">Promote to corpus</button>' +
+      '<button type="button" id="statblock-dogfood-promote" class="statblock-dogfood-promote" title="Dogfood only: two-phase markdown corpus write. Not ThreatDraft mechanics accept (SBW07).">Write markdown to corpus</button>' +
       "</div>" +
       '<div id="statblock-dogfood-toast" class="statblock-dogfood-toast" hidden role="status" aria-live="polite"></div>' +
       '<span id="statblock-dogfood-status" class="statblock-dogfood-status muted">Ready. Provider is chosen server-side; no corpus write until promoted.</span>' +
@@ -2736,11 +2736,11 @@
       const corpusPath = artifactCorpusDisplayPath(currentArtifact);
       promoteButton.disabled =
         !!isBusy || !currentArtifact || promoted;
-      promoteButton.textContent = promoted ? "In corpus" : "Promote to corpus";
+      promoteButton.textContent = promoted ? "In corpus" : "Write markdown to corpus";
       promoteButton.classList.toggle("is-promoted", promoted);
       promoteButton.title = promoted
         ? "Already saved to corpus" + (corpusPath ? ": " + corpusPath : "")
-        : "Two-phase corpus write to campaign Statblocks/generated/";
+        : "Dogfood only: two-phase markdown corpus write. Not ThreatDraft mechanics accept (SBW07).";
     }
 
     function setBusy(isBusy) {

@@ -46,13 +46,13 @@ def test_statblock_workbench_sample_endpoint_returns_mock_artifact() -> None:
     actions = body["available_actions"]
     assert {action["action_id"] for action in actions} == {
         "store_draft",
-        "preview_corpus_promotion",
-        "promote_to_corpus",
         "ingest_to_semantic_layer",
         "add_to_combat",
     }
     assert all(action["enabled"] is False for action in actions)
     assert all(action["disabled_reason"] for action in actions)
+    assert "preview_corpus_promotion" not in {action["action_id"] for action in actions}
+    assert "promote_to_corpus" not in {action["action_id"] for action in actions}
 
 
 def test_statblock_workbench_sample_endpoint_does_not_expose_internal_key(
