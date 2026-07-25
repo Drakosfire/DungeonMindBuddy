@@ -1,6 +1,8 @@
 """SBW07b: acceptance operation models and API contracts (§12)."""
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from typing import Any, Literal
 from uuid import UUID
@@ -8,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+    CreateStatblockRequestV1,
     StatblockDefinitionV1Input,
     ValidationReceiptV1,
 )
@@ -27,6 +30,13 @@ _OPERATION_ID_ACCOP_RE = re.compile(r"^accop_[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+
+def create_request_digest_for_body(body: dict[str, Any]) -> str:
+    """Buddy-local canonical SHA-256 digest over a create-request JSON body."""
+    canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 AuthorityState = Literal[
     "dispatched_unknown",
     "server_committed",
@@ -38,6 +48,8 @@ AcceptanceResultLabel = Literal[
     "acceptance_blocked",
     "acceptance_busy",
     "acceptance_history_full",
+    "acceptance_input_conflict",
+    "acceptance_draft_unavailable",
     "dispatched_unknown",
     "server_committed_reference_pending",
     "mechanics_saved",
@@ -145,6 +157,32 @@ class AcceptanceOperationV1(StrictModel):
 
     @model_validator(mode="after")
     def _authority_invariants(self) -> AcceptanceOperationV1:
+        # Replay authority: typed create body + digest + idempotency/provenance bind.
+        try:
+            typed_body = CreateStatblockRequestV1.model_validate(self.request_body)
+        except Exception as exc:
+            raise ValueError(
+                "request_body must validate as CreateStatblockRequestV1"
+            ) from exc
+
+        recomputed = create_request_digest_for_body(self.request_body)
+        if recomputed != self.create_request_digest:
+            raise ValueError("create_request_digest does not match request_body")
+
+        expected_key = idempotency_key_for_operation(self.operation_id)
+        if self.idempotency_key != expected_key:
+            raise ValueError("idempotency_key must equal operation_id key")
+        if typed_body.idempotency_key != self.idempotency_key:
+            raise ValueError("request_body.idempotency_key must equal record key")
+
+        body_candidate = (
+            str(typed_body.candidate_id) if typed_body.candidate_id is not None else None
+        )
+        if body_candidate != self.source_candidate_id:
+            raise ValueError(
+                "source_candidate_id must match request_body.candidate_id"
+            )
+
         state = self.authority_state
         has_terminal = (
             self.terminal_code is not None

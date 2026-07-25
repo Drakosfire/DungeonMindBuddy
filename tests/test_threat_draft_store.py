@@ -555,3 +555,91 @@ def test_attach_accepted_mechanics_ref_cas_and_conflict(tmp_path: Path) -> None:
     assert idempotent.version == 2
     assert idempotent.accepted_mechanics_ref is not None
     assert idempotent.accepted_mechanics_ref.accepted_at == "2020-01-01T00:00:00Z"
+
+
+def test_threat_draft_rejects_contradictory_accepted_ref_workflow(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.models.threat_draft import ThreatDraftV1
+
+    created = create_threat_draft(tmp_path, _create_request())
+    ref = AcceptedMechanicsRefV1.from_locator(
+        MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_a",
+            revision_id="rev_one",
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "a" * 64,
+        ),
+        accepted_from_draft_version=1,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    payload = created.model_dump(mode="json", by_alias=True)
+    payload["accepted_mechanics_ref"] = ref.model_dump(mode="json")
+    payload["workflow_state"] = "candidate_ready"
+    with pytest.raises(ValidationError):
+        ThreatDraftV1.model_validate(payload)
+
+    payload["workflow_state"] = "mechanics_saved"
+    payload["accepted_mechanics_ref"] = None
+    with pytest.raises(ValidationError):
+        ThreatDraftV1.model_validate(payload)
+
+
+def test_append_candidate_ref_does_not_regress_mechanics_saved(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.models.threat_draft import ThreatDraftCandidateRefV1
+    from apps.live_control_server.services.threat_draft_store import (
+        append_candidate_ref,
+        attach_accepted_mechanics_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    ref = AcceptedMechanicsRefV1.from_locator(
+        MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_a",
+            revision_id="rev_one",
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "a" * 64,
+        ),
+        accepted_from_draft_version=1,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    saved = attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=1,
+        locator=ref,
+    )
+    assert saved.workflow_state == "mechanics_saved"
+
+    candidate = ThreatDraftCandidateRefV1(
+        candidate_id="cand_recovery01",
+        generated_from_draft_version=saved.version,
+        request_id="req_recovery01",
+        created_at="2020-01-02T00:00:00Z",
+    )
+    after = append_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=saved.version,
+        candidate_ref=candidate,
+        workflow_state="candidate_ready",
+    )
+    assert after.workflow_state == "mechanics_saved"
+    assert after.accepted_mechanics_ref is not None
+    assert len(after.candidate_refs) == 1

@@ -354,6 +354,7 @@ def test_same_operation_changed_body_preserves_original(
         request=changed,
         client=client,  # type: ignore[arg-type]
     )
+    assert second.result_label == "acceptance_input_conflict"
     assert "different request body" in (second.message or "")
     reloaded = get_acceptance_operation(
         tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id
@@ -482,3 +483,213 @@ def test_response_loss_before_locator_write_stays_unknown(mock_validate, tmp_pat
         )
     assert retry.result_label == "mechanics_saved"
     assert len(client.create_calls) == 2
+
+
+@patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
+def test_same_operation_replay_after_draft_version_advance(mock_validate, tmp_path: Path) -> None:
+    from apps.live_control_server.models.threat_draft import UpdateThreatDraftRequest
+
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    client = FakeStatblockClient(result=_create_result())
+    first = begin_or_resume_acceptance(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=request,
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.result_label == "mechanics_saved"
+    draft_saved = get_threat_draft(tmp_path, draft.draft_id)
+    update_threat_draft = __import__(
+        "apps.live_control_server.services.threat_draft_store", fromlist=["update_threat_draft"]
+    ).update_threat_draft
+    advanced = update_threat_draft(
+        tmp_path,
+        draft.draft_id,
+        UpdateThreatDraftRequest(
+            expected_version=draft_saved.version,
+            name=draft_saved.name,
+            description="unrelated authoring",
+            threat_kind=draft_saved.threat_kind,
+            generation_intent=draft_saved.generation_intent,
+            encounter_context=draft_saved.encounter_context,
+            graph_context_snapshot=draft_saved.graph_context_snapshot,
+            focus=draft_saved.focus,
+            slug_hint=draft_saved.slug_hint,
+            intended_roles=list(draft_saved.intended_roles),
+            tags=list(draft_saved.tags),
+        ),
+    )
+    assert advanced.version > draft_saved.version
+    # Replay with original expected_draft_version (stale) must still resume.
+    replay = begin_or_resume_acceptance(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=request,
+        client=client,  # type: ignore[arg-type]
+    )
+    assert replay.result_label == "mechanics_saved"
+    assert len(client.create_calls) == 1
+
+
+def test_server_committed_recovery_without_server_client(tmp_path: Path) -> None:
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    body = acceptance._build_create_body(request)
+    digest = create_request_digest_for_body(body)
+    claim_outcome, op = claim_acceptance_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_draft_version=draft.version,
+        operation_id=request.operation_id,
+        create_request_digest=digest,
+        request_body=body,
+        validation_receipt_digest=request.validation_definition_digest,
+        source_candidate_id=None,
+    )
+    assert claim_outcome == "claimed"
+    assert op is not None
+    locator = _create_result().locator
+    record_server_committed(
+        tmp_path,
+        draft_id=draft.draft_id,
+        operation_id=request.operation_id,
+        create_request_digest=digest,
+        locator=locator,
+    )
+    repaired = recover_acceptance_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        operation_id=request.operation_id,
+        client=None,
+    )
+    assert repaired.result_label == "mechanics_saved"
+    op2 = get_acceptance_operation(
+        tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id
+    )
+    assert op2 is not None
+    assert op2.authority_state == "reconciled"
+
+
+def test_reconciled_without_draft_is_not_mechanics_saved(tmp_path: Path) -> None:
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    body = acceptance._build_create_body(request)
+    digest = create_request_digest_for_body(body)
+    claim_acceptance_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_draft_version=draft.version,
+        operation_id=request.operation_id,
+        create_request_digest=digest,
+        request_body=body,
+        validation_receipt_digest=request.validation_definition_digest,
+        source_candidate_id=None,
+    )
+    locator = _create_result().locator
+    record_server_committed(
+        tmp_path,
+        draft_id=draft.draft_id,
+        operation_id=request.operation_id,
+        create_request_digest=digest,
+        locator=locator,
+    )
+    ref = AcceptedMechanicsRefV1.from_locator(
+        locator,
+        accepted_from_draft_version=1,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_version=draft.version,
+        locator=ref,
+    )
+    repaired = recover_acceptance_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        operation_id=request.operation_id,
+        client=None,
+    )
+    assert repaired.result_label == "mechanics_saved"
+
+    # Delete draft file while leaving journal intact.
+    draft_path = tmp_path / "out" / "threat_drafts" / f"{draft.draft_id}.json"
+    draft_path.unlink()
+    read_back = acceptance.read_acceptance_operation(
+        tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id
+    )
+    assert read_back.result_label == "acceptance_draft_unavailable"
+    assert read_back.operation is not None
+    assert read_back.operation.authority_state == "reconciled"
+
+
+@patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
+@pytest.mark.parametrize("authority", ["dispatched_unknown", "server_committed", "reconciled"])
+def test_changed_body_conflict_for_each_authority(
+    mock_validate, tmp_path: Path, authority: str
+) -> None:
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    client = FakeStatblockClient(result=_create_result())
+    first = begin_or_resume_acceptance(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=request,
+        client=client,  # type: ignore[arg-type]
+    )
+    assert first.result_label == "mechanics_saved"
+    op = get_acceptance_operation(
+        tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id
+    )
+    assert op is not None
+    assert op.authority_state == "reconciled"
+
+    if authority != "reconciled":
+        # Force journal authority back for conflict coverage while preserving body.
+        from apps.live_control_server.services.statblock_acceptance_reconciliation import (
+            _draft_acceptance_lock,
+            _read_operation_unlocked,
+            _write_operation_unlocked,
+        )
+        from apps.live_control_server.models.statblock_mechanics_acceptance import (
+            AcceptanceMaterializationV1,
+        )
+
+        with _draft_acceptance_lock(tmp_path, draft.draft_id):
+            existing = _read_operation_unlocked(
+                tmp_path, draft_id=draft.draft_id, operation_id=request.operation_id
+            )
+            assert existing is not None
+            if authority == "dispatched_unknown":
+                forced = existing.model_copy(
+                    update={
+                        "authority_state": "dispatched_unknown",
+                        "locator": None,
+                        "materialization": AcceptanceMaterializationV1(draft_ref="missing"),
+                    }
+                )
+            else:
+                forced = existing.model_copy(
+                    update={
+                        "authority_state": "server_committed",
+                        "materialization": AcceptanceMaterializationV1(draft_ref="missing"),
+                    }
+                )
+            _write_operation_unlocked(tmp_path, forced)
+
+    draft_after = get_threat_draft(tmp_path, draft.draft_id)
+    changed = request.model_copy(
+        update={
+            "change_summary": f"Conflict against {authority}",
+            "expected_draft_version": draft_after.version,
+        }
+    )
+    second = begin_or_resume_acceptance(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=changed,
+        client=client,  # type: ignore[arg-type]
+    )
+    assert second.result_label == "acceptance_input_conflict"
+    assert second.authority_state == authority

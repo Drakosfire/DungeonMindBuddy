@@ -138,18 +138,29 @@ def _result_label_for_operation(
 ) -> AcceptanceResultLabel:
     if op.authority_state == "terminal_failure":
         return "terminal_failure"
+    product_saved = (
+        draft_workflow == "mechanics_saved"
+        and draft_ref is not None
+        and op.locator is not None
+        and same_mechanics_locator(draft_ref.to_mechanics_locator(), op.locator)
+    )
     if op.authority_state == "reconciled":
-        return "mechanics_saved"
+        if product_saved:
+            return "mechanics_saved"
+        if draft_workflow is None and draft_ref is None:
+            return "acceptance_draft_unavailable"
+        if draft_ref is not None and op.locator is not None and not same_mechanics_locator(
+            draft_ref.to_mechanics_locator(), op.locator
+        ):
+            return "accepted_ref_conflict"
+        return "acceptance_draft_unavailable"
     if op.authority_state == "server_committed":
         if op.materialization.draft_ref == "conflicted":
             return "accepted_ref_conflict"
-        if (
-            draft_workflow == "mechanics_saved"
-            and draft_ref is not None
-            and op.locator is not None
-            and same_mechanics_locator(draft_ref.to_mechanics_locator(), op.locator)
-        ):
+        if product_saved:
             return "mechanics_saved"
+        if draft_workflow is None and draft_ref is None:
+            return "acceptance_draft_unavailable"
         return "server_committed_reference_pending"
     return "dispatched_unknown"
 
@@ -161,8 +172,9 @@ def _response_from_operation(
     draft_workflow: str | None = None,
     draft_accepted: AcceptedMechanicsRefV1 | None = None,
     message: str | None = None,
+    result_label: AcceptanceResultLabel | None = None,
 ) -> AcceptThreatDraftMechanicsResponseV1:
-    label = _result_label_for_operation(
+    label = result_label or _result_label_for_operation(
         op,
         draft_workflow=draft_workflow,
         draft_ref=draft_accepted,
@@ -390,13 +402,6 @@ def begin_or_resume_acceptance(
             message=str(exc),
         )
 
-    if request.expected_draft_version != draft.version:
-        return _blocked(
-            draft_id=draft_id,
-            operation_id=request.operation_id,
-            message="expected draft version mismatch",
-        )
-
     if request.source_candidate_id is not None:
         if not any(
             ref.candidate_id == request.source_candidate_id
@@ -440,33 +445,54 @@ def begin_or_resume_acceptance(
         return _blocked(
             draft_id=draft_id,
             operation_id=request.operation_id,
-            message="draft version changed during claim",
+            message="expected draft version mismatch",
         )
     if outcome == "input_conflict":
         assert op is not None
+        draft_workflow = None
+        draft_accepted = None
+        try:
+            draft_now = get_threat_draft(root, draft_id)
+            draft_workflow = draft_now.workflow_state
+            draft_accepted = draft_now.accepted_mechanics_ref
+        except ThreatDraftStoreError:
+            pass
         return _response_from_operation(
             draft_id=draft_id,
             op=op,
+            draft_workflow=draft_workflow,
+            draft_accepted=draft_accepted,
+            result_label="acceptance_input_conflict",
             message="operation_id reused with different request body",
         )
     assert op is not None
 
-    owns_client = False
-    active = client
-    if active is None:
-        active = DungeonMindStatblockV1Client()
-        owns_client = True
-    try:
-        if op.authority_state == "dispatched_unknown":
+    if op.authority_state == "dispatched_unknown":
+        owns_client = False
+        active = client
+        if active is None:
+            active = DungeonMindStatblockV1Client()
+            owns_client = True
+        try:
             op = _dispatch_create_if_needed(
                 root, draft_id=draft_id, op=op, client=active
             )
-        op = _drive_phases(root, draft_id=draft_id, op=op)
-    finally:
-        if owns_client and hasattr(active, "close"):
-            active.close()
+        finally:
+            if owns_client and hasattr(active, "close"):
+                active.close()
 
-    draft_after = get_threat_draft(root, draft_id)
+    op = _drive_phases(root, draft_id=draft_id, op=op)
+
+    try:
+        draft_after = get_threat_draft(root, draft_id)
+    except ThreatDraftStoreError:
+        return _response_from_operation(
+            draft_id=draft_id,
+            op=op,
+            draft_workflow=None,
+            draft_accepted=None,
+            message="threat draft unavailable; journal authority retained",
+        )
     return _response_from_operation(
         draft_id=draft_id,
         op=op,
@@ -482,7 +508,15 @@ def recover_acceptance_operation(
     operation_id: str,
     client: StatblockV1Client | None = None,
 ) -> AcceptThreatDraftMechanicsResponseV1:
-    op = get_acceptance_operation(root, draft_id=draft_id, operation_id=operation_id)
+    try:
+        op = get_acceptance_operation(root, draft_id=draft_id, operation_id=operation_id)
+    except AcceptanceReconciliationError as exc:
+        return AcceptThreatDraftMechanicsResponseV1(
+            draft_id=draft_id,
+            operation_id=operation_id,
+            result_label="acceptance_blocked",
+            message=str(exc),
+        )
     if op is None:
         return AcceptThreatDraftMechanicsResponseV1(
             draft_id=draft_id,
@@ -491,22 +525,32 @@ def recover_acceptance_operation(
             message="acceptance operation not found",
         )
 
-    owns_client = False
-    active = client
-    if active is None:
-        active = DungeonMindStatblockV1Client()
-        owns_client = True
-    try:
-        if op.authority_state == "dispatched_unknown":
+    if op.authority_state == "dispatched_unknown":
+        owns_client = False
+        active = client
+        if active is None:
+            active = DungeonMindStatblockV1Client()
+            owns_client = True
+        try:
             op = _dispatch_create_if_needed(
                 root, draft_id=draft_id, op=op, client=active
             )
-        op = _drive_phases(root, draft_id=draft_id, op=op)
-    finally:
-        if owns_client and hasattr(active, "close"):
-            active.close()
+        finally:
+            if owns_client and hasattr(active, "close"):
+                active.close()
 
-    draft_after = get_threat_draft(root, draft_id)
+    op = _drive_phases(root, draft_id=draft_id, op=op)
+
+    try:
+        draft_after = get_threat_draft(root, draft_id)
+    except ThreatDraftStoreError:
+        return _response_from_operation(
+            draft_id=draft_id,
+            op=op,
+            draft_workflow=None,
+            draft_accepted=None,
+            message="threat draft unavailable; journal authority retained",
+        )
     return _response_from_operation(
         draft_id=draft_id,
         op=op,

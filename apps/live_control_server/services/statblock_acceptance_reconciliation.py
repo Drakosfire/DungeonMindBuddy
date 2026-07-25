@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import fcntl
-import hashlib
-import json
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,14 +14,14 @@ from apps.live_control_server.models.statblock_mechanics_acceptance import (
     ACCEPTANCE_OPERATION_SCHEMA,
     AcceptanceMaterializationV1,
     AcceptanceOperationV1,
+    create_request_digest_for_body,
     idempotency_key_for_operation,
     validate_operation_id,
 )
 from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
-    _load_draft_unlocked,
-    _require_committed_draft_id,
+    read_committed_draft_version,
 )
 from src.live_play.live_store import load_json, write_json
 
@@ -56,13 +54,26 @@ def acceptance_root(repo_root: Path) -> Path:
     return repo_root / DEFAULT_ACCEPTANCE_REL
 
 
-def create_request_digest_for_body(body: dict[str, Any]) -> str:
-    canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
 def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+# Re-export for callers that historically imported the digest helper from this module.
+__all__ = (
+    "MAX_ACCEPTANCE_OPERATION_RECORDS_PER_DRAFT",
+    "AcceptanceReconciliationError",
+    "ClaimAcceptanceOutcome",
+    "acceptance_root",
+    "claim_acceptance_operation",
+    "create_request_digest_for_body",
+    "get_acceptance_operation",
+    "list_acceptance_operations_for_draft",
+    "reconcile_acceptance_operation",
+    "record_draft_ref_conflicted",
+    "record_draft_ref_failed",
+    "record_server_committed",
+    "record_terminal_failure",
+)
 
 
 def _storage_unavailable() -> AcceptanceReconciliationError:
@@ -152,12 +163,25 @@ def _read_operation_unlocked(
             status_code=500,
         )
     try:
-        return AcceptanceOperationV1.model_validate(payload)
+        record = AcceptanceOperationV1.model_validate(payload)
     except Exception as exc:
         raise AcceptanceReconciliationError(
             "corrupt acceptance operation record",
             status_code=500,
         ) from exc
+    safe_draft = require_draft_id(draft_id)
+    safe_op = validate_operation_id(operation_id)
+    if record.source_draft_id != safe_draft:
+        raise AcceptanceReconciliationError(
+            "corrupt acceptance operation record",
+            status_code=500,
+        )
+    if record.operation_id != safe_op:
+        raise AcceptanceReconciliationError(
+            "corrupt acceptance operation record",
+            status_code=500,
+        )
+    return record
 
 
 def _list_operations_unlocked(root: Path, *, draft_id: str) -> list[AcceptanceOperationV1]:
@@ -187,15 +211,6 @@ def _has_active_slot(records: list[AcceptanceOperationV1]) -> bool:
     return any(r.authority_state in _ACTIVE_AUTHORITY for r in records)
 
 
-def _read_draft_version_under_claim(root: Path, draft_id: str) -> int:
-    try:
-        _require_committed_draft_id(root, draft_id)
-    except ThreatDraftStoreError as exc:
-        raise AcceptanceReconciliationError(str(exc), status_code=exc.status_code) from exc
-    draft = _load_draft_unlocked(root, draft_id)
-    return draft.version
-
-
 def claim_acceptance_operation(
     root: Path,
     *,
@@ -207,7 +222,12 @@ def claim_acceptance_operation(
     validation_receipt_digest: str,
     source_candidate_id: str | None,
 ) -> tuple[ClaimAcceptanceOutcome, AcceptanceOperationV1 | None]:
-    """Atomic singular-slot claim before any Server create (lock released on return)."""
+    """Atomic singular-slot claim before any Server create (lock released on return).
+
+    Lock order: acceptance journal lock → ThreatDraft store lock.
+    Existing-operation resume/conflict is resolved before the current draft-version
+    gate so durable operations remain recoverable after unrelated draft edits.
+    """
     body_digest = create_request_digest_for_body(request_body)
     if body_digest != create_request_digest:
         raise AcceptanceReconciliationError(
@@ -219,10 +239,6 @@ def claim_acceptance_operation(
     safe_op = validate_operation_id(operation_id)
 
     with _draft_acceptance_lock(root, safe_draft):
-        current_version = _read_draft_version_under_claim(root, safe_draft)
-        if current_version != expected_draft_version:
-            return "version_mismatch", None
-
         existing = _read_operation_unlocked(root, draft_id=safe_draft, operation_id=safe_op)
         if existing is not None:
             if (
@@ -231,6 +247,15 @@ def claim_acceptance_operation(
             ):
                 return "input_conflict", existing
             return "resume", existing
+
+        try:
+            current_version = read_committed_draft_version(root, safe_draft)
+        except ThreatDraftStoreError as exc:
+            raise AcceptanceReconciliationError(
+                str(exc), status_code=exc.status_code
+            ) from exc
+        if current_version != expected_draft_version:
+            return "version_mismatch", None
 
         records = _list_operations_unlocked(root, draft_id=safe_draft)
         if len(records) >= MAX_ACCEPTANCE_OPERATION_RECORDS_PER_DRAFT:

@@ -250,6 +250,17 @@ def get_threat_draft(root: Path, draft_id: str) -> ThreatDraftV1:
         return _load_draft_unlocked(root, committed_id)
 
 
+def read_committed_draft_version(root: Path, draft_id: str) -> int:
+    """Read a committed draft's version under the ThreatDraft store lock.
+
+    Callers that already hold the acceptance journal lock may nest this call
+    (documented lock order: acceptance journal → ThreatDraft store).
+    """
+    with _store_lock(root):
+        committed_id = _require_committed_draft_id(root, draft_id)
+        return _load_draft_unlocked(root, committed_id).version
+
+
 def list_threat_drafts(
     root: Path,
     *,
@@ -388,7 +399,11 @@ def append_candidate_ref(
             "candidate_refs": refs,
             "updated_at": _utc_now_iso(),
         }
-        if workflow_state is not None:
+        # Saved mechanics are monotonic in SBW07: never regress workflow_state
+        # from mechanics_saved back to candidate_ready/drafting.
+        if current.workflow_state == "mechanics_saved":
+            updates["workflow_state"] = "mechanics_saved"
+        elif workflow_state is not None:
             updates["workflow_state"] = workflow_state
         # Validate the full record before write so an over-limit or invalid
         # payload cannot be persisted and fail on reload.
