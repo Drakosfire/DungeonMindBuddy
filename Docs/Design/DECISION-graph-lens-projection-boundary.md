@@ -71,12 +71,13 @@ A projection is: **exact snapshot identity + node/edge views + focus overlay + t
 
 | Slice (content slug) | Content | Status |
 |---|---|---|
-| `hoist-graph-mention-linker` | Hoist the linker to `markdown_mentions.py`, parameterized by bindings, byte-for-byte identical output | open as **GitHub PR #414** — `HANDOFF-pr413-hoist-graph-mention-linker.md` |
-| `derive-recap-views-normalize-direction` | Derive recap views from generic views; normalize `direction` at the kernel boundary | named successor, not dispatched |
+| `hoist-graph-mention-linker` | Hoist the linker to `markdown_mentions.py`, parameterized by bindings, byte-for-byte identical output | **merged** as GitHub PR #414 (`5c19d433`) — `HANDOFF-pr413-hoist-graph-mention-linker.md` |
+| `derive-recap-views-normalize-direction` | Derive recap views from generic views; normalize `direction` at the kernel boundary | **dispatched** — `HANDOFF-derive-recap-views-normalize-direction.md` |
 | `migrate-union-mention-path` | Migrate `recap_projection._project_markdown_mentions` onto the hoisted linker, closing the unprotected second implementation | named successor, not dispatched |
-| PR380B | Recap/Ingest UI migration; consumes the hoisted module rather than a recap-private one | blocked on `hoist-graph-mention-linker` |
+| `normalize-union-direction-vocabulary` | Decide and normalize the separate `UnionSupergraphProjectionResponse` family | named successor (split from derive-views so World Graph and union contracts stay separate) |
+| PR380B | Recap/Ingest UI migration; consumes the hoisted module rather than a recap-private one | blocked on `derive-recap-views-normalize-direction` |
 
-The hoist is deliberately a pure move with a characterization-test invariant, carrying no behavior change, so that `derive-recap-views-normalize-direction`'s genuine contract changes are reviewable against a stable base.
+The hoist was deliberately a pure move with a characterization-test invariant. `derive-recap-views-normalize-direction` is the genuine contract change: direct generic-model reuse for recap nested views plus closed `outgoing`/`incoming`/`related` vocabulary at the World Graph boundary.
 
 ## Consequences
 
