@@ -330,12 +330,20 @@ def _normalize_reference_label(label: str) -> str:
 
 
 # CommonMark link reference definition: label, `:`, optional blanks (spaces/tabs
-# and at most one line ending), then destination. Shared by label discovery and
-# protected-range consumption so the two cannot drift.
+# and at most one line ending), destination, then optional title. A title may
+# follow on the next indented line as "...", '...', or (...). Shared by label
+# discovery and protected-range consumption so the two cannot drift.
 _REFERENCE_DEFINITION_RE = re.compile(
     r"(?m)^[ \t]{0,3}\[((?:[^\]\\]|\\.)+)\]:"
     r"[ \t]*(?:\n[ \t]*)?"
     r"\S+[^\n]*"
+    r"(?:\n[ \t]+(?:"
+    r'"(?:[^"\\]|\\.)*"'
+    r"|"
+    r"'(?:[^'\\]|\\.)*'"
+    r"|"
+    r"\((?:[^)\\]|\\.)*\)"
+    r")[ \t]*)?"
 )
 
 # CommonMark absolute URI scheme: ASCII letter + 1–31 of [A-Za-z0-9+.-], then `:`.

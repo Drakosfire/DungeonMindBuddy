@@ -208,6 +208,7 @@ def test_protected_markdown_and_code_ranges_untouched() -> None:
         "[The Caelynn Story]\n\n[The Caelynn Story]: /url",
         "[The Caelynn Story]\n\n[The Caelynn Story]:/url",
         "[The Caelynn Story]\n\n[The Caelynn Story]:\n  /url",
+        '[story]\n\n[story]: /url\n  "Caelynn"',
         "[The [old] Caelynn Story](https://example.test)",
         "<https://example.test/Caelynn>",
         "<HTTPS://example.test/Caelynn>",
