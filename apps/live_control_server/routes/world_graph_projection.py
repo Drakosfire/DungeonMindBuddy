@@ -1,4 +1,4 @@
-"""Revision-pinned World Graph projection route (PR007A)."""
+"""Revision-pinned World Graph projection routes (PR007A + PR380A recap)."""
 
 from __future__ import annotations
 
@@ -13,11 +13,15 @@ from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
     project_world_graph,
 )
+from apps.live_control_server.services.world_graph_recap_projection import (
+    build_world_graph_recap_projection_payload,
+)
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
     WorldGraphProjectionDiagnostic,
     WorldGraphProjectionRequest,
 )
+from graph_memory.projection.world_recap_projection import WorldGraphRecapProjection
 
 
 def _request_validation_error_response(exc: RequestValidationError) -> JSONResponse:
@@ -104,6 +108,27 @@ def post_world_graph_projection(
             )
         )
     return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/recap-projection", response_model=WorldGraphRecapProjection)
+def post_world_graph_recap_projection(
+    request_context: Request,
+    request: WorldGraphProjectionRequest,
+) -> dict[str, Any] | JSONResponse:
+    """Exact World Graph snapshot + canonical recap → versioned recap projection."""
+    try:
+        _reject_query_params(request_context)
+        return build_world_graph_recap_projection_payload(request)
+    except WorldGraphProjectionServiceError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(
+            WorldGraphProjectionServiceError(
+                "World graph recap projection failed unexpectedly.",
+                code="projection_internal_error",
+                status_code=500,
+            )
+        )
 
 
 __all__ = ["router"]

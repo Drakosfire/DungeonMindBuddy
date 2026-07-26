@@ -21,6 +21,11 @@ from graph_memory.projection.recap_projection import (
     build_node_view,
     build_recap_graph_projection,
 )
+from graph_memory.projection.world_recap_projection import (
+    WorldGraphRecapProjection,
+    adapt_world_node_to_recap_view,
+    project_world_markdown_mentions,
+)
 
 __all__ = [
     "GraphFocusOverlay",
@@ -31,9 +36,12 @@ __all__ = [
     "GraphProjectionTextHighlightSpan",
     "RecapGraphProjection",
     "RecapProjectionMention",
+    "WorldGraphRecapProjection",
+    "adapt_world_node_to_recap_view",
     "build_focus_overlay",
     "build_node_view",
     "build_recap_graph_projection",
+    "project_world_markdown_mentions",
     "WorldGraphProjection",
     "WorldGraphProjectionErrorResponse",
     "WorldGraphProjectionRequest",
