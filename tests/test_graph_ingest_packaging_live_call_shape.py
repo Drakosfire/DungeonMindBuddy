@@ -11,27 +11,27 @@ implementation can be relocated out of ``evals/graph_memory_layer/graph_preview_
 into a production-owned module without silently changing manifest status,
 artifact keys/kinds, candidate digests, or validation-report presence.
 
-Import note: this file intentionally imports the packaging API through the public
-``evals.graph_memory_layer.graph_preview_runner`` entry point (pre-move: the real
-implementation; post-move: a thin re-export shim). Identical assertions passing
-before and after the move is the parity proof. See
-``test_graph_ingest_packaging_live_call_shape_production_module`` below for a
-direct import from the new production-owned module (added once it exists).
+Import note: the suite runs the same live call shape twice —
+
+1. through ``evals.graph_memory_layer.graph_preview_runner`` (compatibility shim /
+   pre-move entry point), and
+2. through ``src.graph_memory.extraction.graph_ingest_packaging`` (production-owned
+   module the live service imports).
+
+Identical assertions on both paths prove the production implementation executes
+successfully, not merely that the service AST-names it.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, Protocol
 
 import pytest
 
-from evals.graph_memory_layer.graph_preview_runner import (
-    GraphPreviewRunnerOptions,
-    _with_candidate_graph_identity,
-    run_graph_preview_extraction,
-)
 from graph_memory.ingestion import (
     GraphIngestArtifactKind,
     GraphIngestRunStatus,
@@ -54,11 +54,42 @@ _EXPECTED_ARTIFACT_KINDS = {
 }
 
 
+class _PackagingApi(Protocol):
+    GraphPreviewRunnerOptions: type[Any]
+    run_graph_preview_extraction: Callable[..., Any]
+    _with_candidate_graph_identity: Callable[..., dict[str, Any]]
+
+
 def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _run_live_call_shape(tmp_path: Path) -> tuple[dict, Path]:
+def _evals_shim_api() -> _PackagingApi:
+    from evals.graph_memory_layer import graph_preview_runner as api
+
+    return api
+
+
+def _production_api() -> _PackagingApi:
+    from src.graph_memory.extraction import graph_ingest_packaging as api
+
+    return api
+
+
+@pytest.fixture(params=["evals_shim", "production_module"], ids=["evals_shim", "production_module"])
+def packaging_api(request: pytest.FixtureRequest) -> _PackagingApi:
+    if request.param == "evals_shim":
+        return _evals_shim_api()
+    return _production_api()
+
+
+def _run_live_call_shape(
+    tmp_path: Path,
+    packaging: _PackagingApi,
+    *,
+    output_dir: Path,
+    category_client: object | None = None,
+) -> tuple[dict, Path]:
     """Reproduce the exact call shape recap_graph_preview_ingest.py uses in production.
 
     ``allow_llm=False`` with a supplied ``candidate_graph_path`` plus the immutable
@@ -84,7 +115,7 @@ def _run_live_call_shape(tmp_path: Path) -> tuple[dict, Path]:
     span_payload = source_span_index_to_dict(
         load_source_span_index(tmp_path, artifact.source_artifact_id)
     )
-    graph = _with_candidate_graph_identity(
+    graph = packaging._with_candidate_graph_identity(
         json.loads(candidate.read_text(encoding="utf-8")),
         campaign_id="longmont-c2",
         session_id="session-24",
@@ -92,17 +123,21 @@ def _run_live_call_shape(tmp_path: Path) -> tuple[dict, Path]:
     )
     candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-    result = run_graph_preview_extraction(
-        GraphPreviewRunnerOptions(
-            campaign_id="longmont-c2",
-            session_id="session-24",
-            normalized_recap_path=source,
-            output_dir=Path("runs/live_call_shape"),
-            allow_llm=False,
-            candidate_graph_path=candidate,
-            source_span_index=span_payload,
-            source_artifact_id=artifact.source_artifact_id,
-        )
+    options_kwargs: dict[str, Any] = {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-24",
+        "normalized_recap_path": source,
+        "output_dir": output_dir,
+        "allow_llm": False,
+        "candidate_graph_path": candidate,
+        "source_span_index": span_payload,
+        "source_artifact_id": artifact.source_artifact_id,
+    }
+    if category_client is not None:
+        options_kwargs["category_client"] = category_client
+
+    result = packaging.run_graph_preview_extraction(
+        packaging.GraphPreviewRunnerOptions(**options_kwargs)
     )
     assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
@@ -110,10 +145,12 @@ def _run_live_call_shape(tmp_path: Path) -> tuple[dict, Path]:
 
 
 def test_live_call_shape_manifest_status_and_schema(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, packaging_api: _PackagingApi
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    manifest, _run_dir = _run_live_call_shape(tmp_path)
+    manifest, _run_dir = _run_live_call_shape(
+        tmp_path, packaging_api, output_dir=Path("runs/live_call_shape")
+    )
 
     assert manifest["status"] == "candidate_validation_ready"
     report = validate_graph_ingest_run_manifest(manifest)
@@ -122,10 +159,12 @@ def test_live_call_shape_manifest_status_and_schema(
 
 
 def test_live_call_shape_artifact_keys_and_kinds(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, packaging_api: _PackagingApi
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    manifest, _run_dir = _run_live_call_shape(tmp_path)
+    manifest, _run_dir = _run_live_call_shape(
+        tmp_path, packaging_api, output_dir=Path("runs/live_call_shape")
+    )
 
     artifacts = manifest["artifacts"]
     assert set(_EXPECTED_ARTIFACT_KINDS) <= set(artifacts)
@@ -134,10 +173,12 @@ def test_live_call_shape_artifact_keys_and_kinds(
 
 
 def test_live_call_shape_candidate_digest_matches_packaged_bytes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, packaging_api: _PackagingApi
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    manifest, run_dir = _run_live_call_shape(tmp_path)
+    manifest, run_dir = _run_live_call_shape(
+        tmp_path, packaging_api, output_dir=Path("runs/live_call_shape")
+    )
 
     candidate_ref = manifest["artifacts"]["candidate_graph"]
     candidate_path = (run_dir / "candidate_graph.json").resolve()
@@ -151,10 +192,12 @@ def test_live_call_shape_candidate_digest_matches_packaged_bytes(
 
 
 def test_live_call_shape_validation_report_present_and_valid(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, packaging_api: _PackagingApi
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    manifest, run_dir = _run_live_call_shape(tmp_path)
+    manifest, run_dir = _run_live_call_shape(
+        tmp_path, packaging_api, output_dir=Path("runs/live_call_shape")
+    )
 
     report_ref = manifest["artifacts"]["candidate_validation_report"]
     report_path = (run_dir / "candidate_validation_report.json").resolve()
@@ -166,11 +209,13 @@ def test_live_call_shape_validation_report_present_and_valid(
 
 
 def test_live_call_shape_threads_immutable_source_artifact_identity(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, packaging_api: _PackagingApi
 ) -> None:
     """The packaged manifest must carry the production SourceArtifact id, never a legacy id."""
     monkeypatch.chdir(tmp_path)
-    manifest, _run_dir = _run_live_call_shape(tmp_path)
+    manifest, _run_dir = _run_live_call_shape(
+        tmp_path, packaging_api, output_dir=Path("runs/live_call_shape")
+    )
 
     source_artifact_id = manifest["source"]["source_artifact_id"]
     assert source_artifact_id != "artifact:recap:longmont-c2:session-24"
@@ -179,7 +224,7 @@ def test_live_call_shape_threads_immutable_source_artifact_identity(
 
 
 def test_live_call_shape_allow_llm_stays_false_no_second_model_call(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, packaging_api: _PackagingApi
 ) -> None:
     """Guard: supplying a candidate_graph_path must never trigger LLM extraction."""
 
@@ -187,45 +232,42 @@ def test_live_call_shape_allow_llm_stays_false_no_second_model_call(
         def run_pass(self, *args: object, **kwargs: object) -> dict:
             raise AssertionError("packaging must not call the category graph pass client")
 
-    from apps.live_control_server.services.source_artifact_registry import (
-        create_recap_source_artifact,
-        load_source_span_index,
-    )
-    from src.graph_memory.source_span import source_span_index_to_dict
-
     monkeypatch.chdir(tmp_path)
-    source = tmp_path / "session_24_normalized_recap.md"
-    candidate = tmp_path / "candidate_graph_fixture.json"
-    source.write_text(RECAP_PATH.read_text())
-    candidate.write_text(CANDIDATE_PATH.read_text())
-    artifact = create_recap_source_artifact(
+    result_manifest, _run_dir = _run_live_call_shape(
         tmp_path,
-        campaign_id="longmont-c2",
-        session_id="session-24",
-        recap_path=source,
+        packaging_api,
+        output_dir=Path("runs/live_call_shape_no_llm"),
+        category_client=ExplodingClient(),
     )
-    span_payload = source_span_index_to_dict(
-        load_source_span_index(tmp_path, artifact.source_artifact_id)
-    )
-    graph = _with_candidate_graph_identity(
-        json.loads(candidate.read_text(encoding="utf-8")),
-        campaign_id="longmont-c2",
-        session_id="session-24",
-        source_artifact_id=artifact.source_artifact_id,
-    )
-    candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    assert result_manifest["status"] == "candidate_validation_ready"
 
-    result = run_graph_preview_extraction(
-        GraphPreviewRunnerOptions(
-            campaign_id="longmont-c2",
-            session_id="session-24",
-            normalized_recap_path=source,
-            output_dir=Path("runs/live_call_shape_no_llm"),
-            allow_llm=False,
-            candidate_graph_path=candidate,
-            source_span_index=span_payload,
-            source_artifact_id=artifact.source_artifact_id,
-            category_client=ExplodingClient(),
-        )
+
+def test_graph_ingest_packaging_live_call_shape_production_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Explicit named proof: production module executes the live packaging path.
+
+    Complements the parametrized suite so a grep for the promised test name finds
+    a real direct-import exercise of ``graph_ingest_packaging``.
+    """
+    production = _production_api()
+    monkeypatch.chdir(tmp_path)
+    manifest, run_dir = _run_live_call_shape(
+        tmp_path, production, output_dir=Path("runs/live_call_shape_production")
     )
-    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+
+    assert production.run_graph_preview_extraction.__module__ == (
+        "src.graph_memory.extraction.graph_ingest_packaging"
+    )
+    assert production.GraphPreviewRunnerOptions.__module__ == (
+        "src.graph_memory.extraction.graph_ingest_packaging"
+    )
+    assert manifest["status"] == "candidate_validation_ready"
+    report = validate_graph_ingest_run_manifest(manifest)
+    assert report["valid"] is True
+    assert report["errors"] == []
+    candidate_path = (run_dir / "candidate_graph.json").resolve()
+    assert candidate_path.is_file()
+    assert manifest["artifacts"]["candidate_graph"]["sha256"] == (
+        f"sha256:{_sha256_file(candidate_path)}"
+    )
