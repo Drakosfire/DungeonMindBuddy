@@ -38,53 +38,31 @@ function MirewardIndex() {
   return (
     <main className="launcher-root">
       <header className="launcher-header">
-        <h1>Mireward local tools</h1>
-        <p>C2 Session 23 launcher. Choose the surface you actually want to use.</p>
+        <h1>Command Board</h1>
+        <p>Core surfaces for prep, memory review, worldbuilding, and live control.</p>
       </header>
 
       <section className="launcher-grid" aria-label="Main surfaces">
         <a className="launcher-card primary" href="/plan">
           <span className="launcher-kicker">Plan</span>
           <strong>Prep surface</strong>
-          <span>Intentional planning canvas with session prep, statblock tools, and reference-chip navigation.</span>
+          <span>Session prep canvas with reference chips and planning tools.</span>
+        </a>
+        <a className="launcher-card" href="/ingest">
+          <span className="launcher-kicker">Ingest</span>
+          <strong>Memory review</strong>
+          <span>Graph Review workbench for reviewing and committing campaign memory.</span>
         </a>
         <a className="launcher-card" href="/build">
           <span className="launcher-kicker">Build</span>
           <strong>Worldbuilding source</strong>
-          <span>Create and edit worldbuilding workspace documents with explicit metadata and save lifecycle.</span>
-        </a>
-        <a className="launcher-card" href="/ingest">
-          <span className="launcher-kicker">Ingest</span>
-          <strong>Memory Ingest</strong>
-          <span>Convert source artifacts into reviewed campaign memory.</span>
-        </a>
-        <a className="launcher-card" href="/evals/c2_live_prep/mireward-prep/live-play.html">
-          <span className="launcher-kicker">Live Play</span>
-          <strong>Command board</strong>
-          <span>At-table launch surface for combat, notes, statblocks, roll tables, and bridge proof links.</span>
-        </a>
-        <a className="launcher-card" href="/evals/c2_live_prep/mireward-prep/retrieval.html">
-          <span className="launcher-kicker">Retrieval</span>
-          <strong>Dogfood surface</strong>
-          <span>Source links, authority labels, planning packets, and retrieval context checks.</span>
+          <span>Create and edit worldbuilding workspace documents.</span>
         </a>
         <a className="launcher-card" href="/surface">
           <span className="launcher-kicker">Live Control</span>
           <strong>React surface</strong>
-          <span>The configurable live-control UI with combat roster, statblock workbench, chat, and record modules.</span>
+          <span>Configurable live-control UI for at-table modules.</span>
         </a>
-        <a className="launcher-card" href="/tiptap-callout-spike">
-          <span className="launcher-kicker">Developer Spike</span>
-          <strong>Tiptap callout bridge</strong>
-          <span>Editable semantic callouts, live editor JSON, and Markdown export without canon writes.</span>
-        </a>
-      </section>
-
-      <section className="launcher-note">
-        <p>
-          This Vite app serves all UI on <code>5173</code>. The FastAPI backend remains API-only on{" "}
-          <code>8000</code>, and the React live-control surface lives at <code>/surface</code>.
-        </p>
       </section>
     </main>
   );

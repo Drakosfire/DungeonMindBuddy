@@ -51,7 +51,9 @@ Terminal 2:
 cd apps/live-control-ui && npm run dev
 ```
 
-Submit in Chat:
+**Always start at the launcher:** open [http://127.0.0.1:5173/](http://127.0.0.1:5173/) — not a deep-linked `/ingest?…` or `/plan?…` URL. The index is the product entry; pick Plan, Ingest, Build, or Live Control from the cards (or the site nav). Eval HTML prep pages and `/tiptap-callout-spike` remain URL-reachable but are not primary nav.
+
+For Live Control Chat smoke: from `/` open **Live Control** (`/surface`), then submit:
 
 ```text
 Weather 7. Caelynn Nature 19.
