@@ -59,6 +59,7 @@ ORDERED_CONTRIBUTION_IDS = [
 
 STATUS_URL = "/api/live/extract-promote/status"
 PREPARE_URL = "/api/live/extract-promote/prepare"
+WORLD_BUILDING_PREPARE_URL = "/api/live/extract-promote/worldbuilding/prepare"
 CONFIRM_URL = "/api/live/extract-promote/confirm"
 RUN_ID = "graph-ingest:longmont-c2:session-22:fixture-promote"
 
@@ -340,6 +341,59 @@ def _write_promotable_run(
     manifest_path = run_dir / "graph_ingest_run_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return run_id, digest, source
+
+
+def _write_bld08_reviewable_run(
+    repo: Path,
+    *,
+    campaign_id: str | None = CAMPAIGN_ID,
+    profile_id: str = "worldbuilding_shepherds_flock_v0@0.1",
+    session_id: str | None = None,
+) -> tuple[str, Path]:
+    """Adapt the canonical run fixture to the checked-in BLD-08 profile."""
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    from apps.live_control_server.services.graph_run_registry import (
+        extraction_runs_path,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.promotable_ingest_run import (
+        _resolve_extraction_component_path,
+    )
+    from src.live_play.live_store import load_json, write_json
+    from src.graph_memory.extraction.worldbuilding_extraction_profile import (
+        DEFAULT_SEMANTIC_STATE,
+    )
+
+    resolved_id, source = _write_reviewable_extraction_run(
+        repo,
+        campaign_id=campaign_id,
+    )
+    run = get_extraction_run(repo, resolved_id)
+    candidate_path = _resolve_extraction_component_path(
+        repo,
+        run.components["candidate_graph"].uri,
+        label="candidate_graph",
+    )
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    candidate["session_id"] = session_id
+    for index, node in enumerate(candidate.get("nodes") or []):
+        node["node_type"] = "character" if index == 0 else "location"
+        node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+    for edge in candidate.get("edges") or []:
+        edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+    candidate_path.write_text(json.dumps(candidate, indent=2) + "\n", encoding="utf-8")
+    digest = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+
+    registry_path = extraction_runs_path(repo)
+    registry = load_json(registry_path)
+    for record in registry["records"]:
+        if record["run_id"] == resolved_id:
+            record["profile_id"] = profile_id
+            record["components"]["candidate_graph"]["sha256"] = digest
+            break
+    write_json(registry_path, registry)
+    return resolved_id, source
 
 
 def _prepare_body(run_id: str, *, node_ids: list[str] | None = None) -> dict:
@@ -1570,3 +1624,310 @@ def test_review_package_uses_run_pinned_span_index_component(world_client) -> No
         if item.get("evidence")
     }
     assert pinned_span_id in evidence_span_ids
+
+
+def _worldbuilding_prepare_body(
+    run_id: str,
+    parent_revision_id: str,
+    *,
+    dispositions: list[dict[str, str]],
+) -> dict:
+    return {
+        "schema": "dmb_worldbuilding_write_plan_prepare_request_v1",
+        "runId": run_id,
+        "expectedParentRevisionId": parent_revision_id,
+        "dispositions": dispositions,
+    }
+
+
+def test_worldbuilding_prepare_returns_deterministic_inert_plan(world_client) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    before_world = {
+        path.relative_to(world_root).as_posix(): path.read_bytes()
+        for path in world_root.rglob("*")
+        if path.is_file()
+    }
+    dispositions = [
+        {"assertionId": "obj_session22_vial", "decision": "create_new"},
+        {"assertionId": "mystery_puddles", "decision": "create_new"},
+        {"assertionId": "e33", "decision": "accept"},
+    ]
+    first = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id, parent, dispositions=dispositions
+        ),
+    )
+    assert first.status_code == 200, first.text
+    first_payload = first.json()
+    assert first_payload["schema"] == "dmb_worldbuilding_write_plan_v1"
+    assert first_payload["version"] == 1
+    assert first_payload["confirmable"] is False
+    assert first_payload["sourceDomain"] == "worldbuilding"
+    assert first_payload["extractionProfile"] == "worldbuilding_shepherds_flock_v0@0.1"
+    assert first_payload["effect"]["contributionMeta"]["authoredBy"] == (
+        "live_control:worldbuilding_write_plan"
+    )
+    assert first_payload["effect"]["contributionMeta"]["sourceKind"] == (
+        "source_extraction"
+    )
+    assert first_payload["effect"]["nodeIdMap"] == {
+        "mystery_puddles": "mystery_puddles",
+        "obj_session22_vial": "obj_session22_vial",
+    }
+    assert first_payload["summary"]["acceptedEdgeCount"] == 1
+    assert first_payload["effect"]["acceptedProposals"]
+    assert all(
+        item["value"]["source_domains"] == ["worldbuilding"]
+        for item in first_payload["effect"]["acceptedProposals"]
+    )
+
+    second = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=list(reversed(dispositions)),
+        ),
+    )
+    assert second.status_code == 200, second.text
+    second_payload = second.json()
+    for key in (
+        "planId",
+        "planDigest",
+        "decisionDigest",
+        "parentRevisionId",
+        "runId",
+        "sourceArtifactId",
+        "sourceRevisionId",
+        "candidatePreviewId",
+        "effect",
+        "summary",
+    ):
+        assert second_payload[key] == first_payload[key]
+    after_world = {
+        path.relative_to(world_root).as_posix(): path.read_bytes()
+        for path in world_root.rglob("*")
+        if path.is_file()
+    }
+    assert after_world == before_world
+    assert kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id == parent
+
+
+def test_worldbuilding_prepare_rejects_incomplete_and_invalid_dispositions(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+
+    incomplete = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+            ],
+        ),
+    )
+    assert incomplete.status_code == 422
+    assert incomplete.json()["code"] == "invalid_disposition_set"
+
+    duplicate = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+                {"assertionId": "obj_session22_vial", "decision": "reject"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "e33", "decision": "defer"},
+            ],
+        ),
+    )
+    assert duplicate.status_code == 422
+    assert duplicate.json()["code"] == "invalid_disposition_set"
+
+    kind_mismatch = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "accept"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "e33", "decision": "defer"},
+            ],
+        ),
+    )
+    assert kind_mismatch.status_code == 422
+    assert kind_mismatch.json()["code"] == "invalid_disposition"
+
+
+def test_worldbuilding_prepare_rejects_stale_parent_without_mutation(world_client) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    response = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            "rev:" + ("0" * 32),
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "e33", "decision": "accept"},
+            ],
+        ),
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "stale_parent_revision"
+    assert kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id == before
+
+
+def test_worldbuilding_prepare_concurrent_head_advancement_returns_409(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    real_verify = promote_svc.verify_worldbuilding_write_plan
+
+    def _advance_head_then_verify(*args, **kwargs):
+        head, _revision, store = kernel.open_current_world_graph(world_root, WORLD_ID)
+        advanced = kernel.publish_world_graph_revision(
+            world_root,
+            WORLD_ID,
+            store,
+            operation_ids=["op:worldbuilding-prepare-concurrent-head"],
+            expected_parent_revision_id=head.head_revision_id,
+        )
+        assert advanced.revision.revision_id != parent
+        return real_verify(*args, **kwargs)
+
+    monkeypatch.setattr(
+        promote_svc,
+        "verify_worldbuilding_write_plan",
+        _advance_head_then_verify,
+    )
+    response = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "e33", "decision": "accept"},
+            ],
+        ),
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == "stale_parent_revision"
+
+
+def test_worldbuilding_prepare_confirm_rejects_plan_without_mutation(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepared = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "reject"},
+                {"assertionId": "mystery_puddles", "decision": "defer"},
+                {"assertionId": "e33", "decision": "defer"},
+            ],
+        ),
+    )
+    assert prepared.status_code == 200, prepared.text
+    package = prepared.json()
+    before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    confirm = client.post(
+        CONFIRM_URL,
+        json=_confirm_body(package, ["assertion:never-used"]),
+    )
+    assert confirm.status_code == 422
+    assert confirm.json()["code"] == "invalid_request"
+    assert kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id == before
+
+
+def test_worldbuilding_prepare_rejects_wrong_profile_and_recap_run(world_client) -> None:
+    from tests.test_promotable_ingest_run import _write_reviewable_extraction_run
+
+    client, world_root, repo, *_rest = world_client
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    wrong_profile_id, _source = _write_reviewable_extraction_run(
+        repo,
+    )
+    wrong = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            wrong_profile_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "e33", "decision": "accept"},
+            ],
+        ),
+    )
+    assert wrong.status_code == 422
+    assert wrong.json()["code"] == "unsupported_worldbuilding_profile"
+
+    recap_id, *_rest = _write_promotable_run(
+        repo,
+        run_id="graph-ingest:longmont-c2:session-22:worldbuilding-route-recap",
+    )
+    recap = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            recap_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "e33", "decision": "accept"},
+            ],
+        ),
+    )
+    assert recap.status_code == 422
+    assert recap.json()["code"] == "worldbuilding_run_required"
+
+
+def test_worldbuilding_prepare_has_safe_internal_error_boundary(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("private implementation detail")
+
+    monkeypatch.setattr(promote_svc, "build_worldbuilding_write_plan", _boom)
+    response = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "reject"},
+                {"assertionId": "mystery_puddles", "decision": "defer"},
+                {"assertionId": "e33", "decision": "defer"},
+            ],
+        ),
+    )
+    assert response.status_code == 500
+    body = response.json()
+    assert body["code"] == "extract_promote_internal_error"
+    assert "private implementation detail" not in response.text
+    assert "Reference:" in body["diagnostics"][0]["message"]

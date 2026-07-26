@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, Mapping, Sequence
 
 from graph_memory.candidate_graph_preview import (
@@ -59,6 +60,9 @@ _NODE_TYPE_TO_KIND: dict[str, str] = {
 
 class CandidateGraphMappingError(ValueError):
     """Raised when a candidate graph cannot be mapped fail-closed."""
+
+
+SemanticMapper = Callable[..., Any]
 
 
 def kernel_kind_for_node_type(node_type: str | None) -> str:
@@ -327,9 +331,10 @@ def map_candidate_node_to_assertion(
     identity_resolution_outcome: str | None = "unresolved",
     kind_override: str | None = None,
     subject_node_id_override: str | None = None,
+    semantic_mapper: SemanticMapper = map_candidate_semantics_to_kernel,
 ) -> GraphContributionAssertion:
     try:
-        mapping = map_candidate_semantics_to_kernel(
+        mapping = semantic_mapper(
             object_id=node.node_id,
             semantic=node.semantic_state,
             proposed_action=node.proposed_action,
@@ -401,6 +406,7 @@ def map_connect_existing_support_assertions(
     identity_resolution_outcome: str | None = "resolved_existing",
     predicate: str = "session_observation",
     alias_owners: Mapping[str, str] | None = None,
+    kind_override: str | None = None,
 ) -> tuple[list[GraphContributionAssertion], tuple[str, ...]]:
     """Support-only assertions for identity resolutions that connect to an
     already-durable node (``resolved_existing`` / ``human_override``).
@@ -431,7 +437,7 @@ def map_connect_existing_support_assertions(
     summary = (node.description or "").strip() or None
 
     observation_value: dict[str, Any] = {
-        "kind": kernel_kind_for_node_type(node.node_type),
+        "kind": kind_override or kernel_kind_for_node_type(node.node_type),
         "extract_node_id": node_id,
         "source_domains": [source_domain],
         "evidence": embedded_evidence,
@@ -504,9 +510,10 @@ def map_candidate_edge_to_assertion(
     subject_node_id_override: str | None = None,
     target_node_id_override: str | None = None,
     node_id_map: Mapping[str, str] | None = None,
+    semantic_mapper: SemanticMapper = map_candidate_semantics_to_kernel,
 ) -> GraphContributionAssertion:
     try:
-        mapping = map_candidate_semantics_to_kernel(
+        mapping = semantic_mapper(
             object_id=edge.edge_id,
             semantic=edge.semantic_state,
             proposed_action=edge.proposed_action,

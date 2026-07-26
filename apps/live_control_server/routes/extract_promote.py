@@ -11,8 +11,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
-logger = logging.getLogger(__name__)
-
 from apps.live_control_server.models.extract_promote import (
     ExtractPromoteConfirmReceipt,
     ExtractPromoteConfirmRequest,
@@ -21,6 +19,8 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromotePrepareResponse,
     ExactRunReviewPackage,
     ExtractPromoteStatusResponse,
+    WorldbuildingWritePlanPrepareRequest,
+    WorldbuildingWritePlanResponse,
 )
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
@@ -28,7 +28,10 @@ from apps.live_control_server.services.extract_promote import (
     get_exact_run_review_package,
     get_status,
     prepare,
+    prepare_worldbuilding,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _error_response(exc: ExtractPromoteError) -> JSONResponse:
@@ -168,6 +171,42 @@ def post_extract_promote_prepare(
         return _error_response(
             ExtractPromoteError(
                 "The extract-promote prepare operation failed unexpectedly.",
+                code="extract_promote_internal_error",
+                status_code=500,
+                diagnostics=[
+                    ExtractPromoteDiagnostic(
+                        code="internal_error",
+                        message=f"Internal error. Reference: {correlation_id}",
+                        severity="error",
+                    )
+                ],
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post(
+    "/worldbuilding/prepare",
+    response_model=WorldbuildingWritePlanResponse,
+)
+def post_worldbuilding_write_plan_prepare(
+    request_context: Request,
+    request: WorldbuildingWritePlanPrepareRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_selector_query(request_context)
+        response = prepare_worldbuilding(request)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.exception(
+            "worldbuilding write-plan prepare failed unexpectedly correlation_id=%s",
+            correlation_id,
+        )
+        return _error_response(
+            ExtractPromoteError(
+                "The worldbuilding write-plan prepare operation failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
                 diagnostics=[

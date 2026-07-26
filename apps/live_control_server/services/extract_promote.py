@@ -32,6 +32,8 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromoteReviewSummary,
     ExtractPromotionReviewItem,
     ExtractPromoteStatusResponse,
+    WorldbuildingWritePlanPrepareRequest,
+    WorldbuildingWritePlanResponse,
 )
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
@@ -54,6 +56,13 @@ from graph_memory.extract_promote_ops import (
     resolve_merged_contribution_from_package,
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
+from graph_memory.worldbuilding_write_plan import (
+    WorldbuildingDispositionInput,
+    WorldbuildingWritePlanError,
+    WorldbuildingWritePlanVerificationContext,
+    build_worldbuilding_write_plan,
+    verify_worldbuilding_write_plan,
+)
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
 
 # Narrow server-owned roots for non-run promote source evidence (confirm of
@@ -955,6 +964,226 @@ def prepare(
     )
 
 
+def prepare_worldbuilding(
+    request: WorldbuildingWritePlanPrepareRequest,
+) -> WorldbuildingWritePlanResponse:
+    """Prepare one exact BLD-08 worldbuilding run into an inert write plan."""
+    try:
+        resolved = resolve_promotable_ingest_run(request.run_id, root=repo_root())
+    except PromotableIngestRunError as exc:
+        raise _promotable_run_error(exc) from exc
+
+    if resolved.source_domain != "worldbuilding":
+        raise ExtractPromoteError(
+            "worldbuilding prepare requires a worldbuilding ExtractionRun",
+            code="worldbuilding_run_required",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "worldbuilding_run_required",
+                    "resolved ExtractionRun source_domain must be worldbuilding",
+                )
+            ],
+        )
+    from graph_memory.extraction.worldbuilding_extraction_profile import (
+        WORLDBUILDING_PROFILE_ID,
+        WORLDBUILDING_PROFILE_VERSION,
+    )
+
+    expected_profile = f"{WORLDBUILDING_PROFILE_ID}@{WORLDBUILDING_PROFILE_VERSION}"
+    if resolved.extraction_profile != expected_profile:
+        raise ExtractPromoteError(
+            "worldbuilding prepare requires the exact BLD-08 extraction profile",
+            code="unsupported_worldbuilding_profile",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "unsupported_worldbuilding_profile",
+                    f"expected {expected_profile}",
+                )
+            ],
+        )
+    if resolved.session_id:
+        raise ExtractPromoteError(
+            "worldbuilding ExtractionRuns must have a null session",
+            code="run_scope_mismatch",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "run_scope_mismatch",
+                    "worldbuilding ExtractionRuns must have a null session",
+                )
+            ],
+        )
+
+    assert_sealed_source_uri_allowed(resolved.sealed_source_uri)
+    try:
+        candidate_payload = json.loads(
+            resolved.candidate_graph_path.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ExtractPromoteError(
+            "exact-run candidate graph could not be read",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("candidate_unreadable", str(exc))],
+        ) from exc
+    if not isinstance(candidate_payload, dict):
+        raise ExtractPromoteError(
+            "exact-run candidate graph root must be a JSON object",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "candidate_unreadable",
+                    "exact-run candidate graph root must be a JSON object",
+                )
+            ],
+        )
+
+    _assert_candidate_scope_matches_run(
+        candidate_payload,
+        campaign_id=resolved.campaign_id,
+        session_id=resolved.session_id,
+    )
+    try:
+        typed_preview = load_typed_candidate_graph(candidate_payload)
+    except CandidateGraphMappingError as exc:
+        raise ExtractPromoteError(
+            f"candidate graph failed typed validation: {exc}",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("candidate_invalid", str(exc))],
+        ) from exc
+
+    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
+
+    try:
+        profile = get_extraction_profile(
+            WORLDBUILDING_PROFILE_ID,
+            WORLDBUILDING_PROFILE_VERSION,
+        )
+        profile_errors = [
+            str(item)
+            for item in (
+                profile.post_extraction_validator(candidate_payload)
+                if profile.post_extraction_validator is not None
+                else ()
+            )
+            if str(item).strip()
+        ]
+    except Exception as exc:  # noqa: BLE001 — profile admission fails closed
+        raise ExtractPromoteError(
+            "worldbuilding profile validation failed",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("profile_validation_failed", str(exc))],
+        ) from exc
+    if profile_errors:
+        message = "; ".join(profile_errors)
+        raise ExtractPromoteError(
+            "worldbuilding candidate failed its BLD-08 profile validator",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("profile_validation_failed", message)],
+        )
+
+    try:
+        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ExtractPromoteError(
+            "exact-run source prose could not be read",
+            code="run_not_promotable",
+            status_code=422,
+            diagnostics=[_diagnostic("source_unreadable", str(exc))],
+        ) from exc
+    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    _assert_and_project_candidate_evidence(
+        candidate_payload=candidate_payload,
+        source_prose=source_prose,
+        source_artifact_id=resolved.source_artifact_id,
+        span_index=span_index,
+    )
+
+    try:
+        plan = build_worldbuilding_write_plan(
+            preview=typed_preview,
+            world_root=world_graph_root(),
+            world_id=DEFAULT_WORLD_ID,
+            expected_parent_revision_id=request.expected_parent_revision_id,
+            run_id=resolved.run_id,
+            source_artifact_id=resolved.source_artifact_id,
+            source_revision_id=resolved.source_revision_id,
+            source_uri=resolved.sealed_source_uri,
+            extraction_profile=expected_profile,
+            campaign_scope=resolved.campaign_id or None,
+            dispositions=[
+                WorldbuildingDispositionInput(
+                    assertion_id=item.assertion_id,
+                    decision=item.decision,
+                    target_node_id=item.target_node_id,
+                )
+                for item in request.dispositions
+            ],
+        )
+    except WorldbuildingWritePlanError as exc:
+        raise ExtractPromoteError(
+            str(exc),
+            code=exc.code,
+            status_code=exc.status_code,
+            diagnostics=[_diagnostic(exc.code, str(exc))],
+        ) from exc
+
+    response = WorldbuildingWritePlanResponse(
+        plan_id=plan.plan_id,
+        plan_digest=plan.plan_digest,
+        decision_digest=plan.decision_digest,
+        world_id=plan.world_id,
+        parent_revision_id=plan.parent_revision_id,
+        run_id=plan.run_id,
+        source_artifact_id=plan.source_artifact_id,
+        source_revision_id=plan.source_revision_id,
+        extraction_profile=plan.extraction_profile,  # type: ignore[arg-type]
+        candidate_preview_id=plan.candidate_preview_id,
+        candidate_schema=plan.candidate_schema,
+        candidate_version=plan.candidate_version,
+        effect=plan.effect,
+        summary=plan.summary,
+        diagnostics=plan.diagnostics,
+    )
+    try:
+        verify_worldbuilding_write_plan(
+            response.model_dump(mode="json", by_alias=True),
+            preview=typed_preview,
+            world_root=world_graph_root(),
+            context=WorldbuildingWritePlanVerificationContext(
+                world_id=DEFAULT_WORLD_ID,
+                parent_revision_id=request.expected_parent_revision_id,
+                run_id=resolved.run_id,
+                source_artifact_id=resolved.source_artifact_id,
+                source_revision_id=resolved.source_revision_id,
+                source_uri=resolved.sealed_source_uri,
+                extraction_profile=expected_profile,
+                campaign_scope=resolved.campaign_id or None,
+            ),
+        )
+    except WorldbuildingWritePlanError as exc:
+        if exc.code == "stale_parent_revision":
+            raise ExtractPromoteError(
+                str(exc),
+                code=exc.code,
+                status_code=exc.status_code,
+                diagnostics=[_diagnostic(exc.code, str(exc))],
+            ) from exc
+        raise ExtractPromoteError(
+            "worldbuilding write plan failed self-verification",
+            code="plan_verification_failed",
+            status_code=500,
+            diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
+        ) from exc
+    return response
+
+
 def _project_assertion_fields(
     review_package: dict[str, Any],
     normalized_assertion_ids: tuple[str, ...],
@@ -1153,6 +1382,21 @@ def _try_already_applied_after_stale_parent(
 def confirm(
     request: ExtractPromoteConfirmRequest,
 ) -> ExtractPromoteConfirmReceipt:
+    if (
+        str((request.review_package or {}).get("schema") or "").strip()
+        == "dmb_worldbuilding_write_plan_v1"
+    ):
+        raise ExtractPromoteError(
+            "worldbuilding write plans are inert and are not confirmable",
+            code="invalid_request",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(
+                    "invalid_request",
+                    "worldbuilding write plans are not accepted by /confirm",
+                )
+            ],
+        )
     if not request.assertion_ids:
         raise ExtractPromoteError(
             "explicit empty assertion selection refuses to publish",
@@ -1257,6 +1501,7 @@ __all__ = [
     "assert_sealed_source_uri_allowed",
     "confirm",
     "get_status",
+    "prepare_worldbuilding",
     "prepare",
     "resolve_promote_source_uri",
 ]
