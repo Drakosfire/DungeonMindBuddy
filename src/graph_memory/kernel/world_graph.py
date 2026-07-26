@@ -30,6 +30,9 @@ from graph_memory.world_supergraph import (
     publish_world_graph_revision as _publish_world_graph_revision_storage,
     rollback_world_graph_head,
 )
+from graph_memory.world_supergraph.storage import (
+    load_world_graph_revision_manifest,
+)
 from graph_memory.world_supergraph.identity_decision_store import (
     sync_identity_decisions_from_store,
 )
@@ -49,6 +52,7 @@ __all__ = [
     "build_world_integrity_report",
     "load_current_world_graph",
     "load_world_graph_revision",
+    "load_world_graph_revision_manifest",
     "open_current_world_graph",
     "open_world_graph_head",
     "publish_world_graph_revision",

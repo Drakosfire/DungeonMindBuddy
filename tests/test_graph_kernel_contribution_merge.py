@@ -1536,6 +1536,124 @@ def _race_merge_contribution(
     return results, errors
 
 
+def _assert_post_race_contribution_index_and_digest(
+    root: Path,
+    *,
+    winner_id: str,
+    loser_id: str | None = None,
+    same_plan: bool = False,
+) -> None:
+    import json
+
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        load_contribution_record,
+        list_contribution_records,
+    )
+
+    index = load_contribution_index(root, WORLD_ID)
+    assert winner_id in index.active_contribution_ids
+    assert winner_id in index.all_contribution_ids
+    discovered = {record.contribution_id for record in list_contribution_records(root, WORLD_ID)}
+    assert winner_id in discovered
+
+    if loser_id is not None and not same_plan:
+        assert loser_id not in index.active_contribution_ids
+        assert loser_id in index.all_contribution_ids
+        assert loser_id in index.failed_contribution_ids
+        loser_path = (
+            root
+            / "graph_memory"
+            / "worlds"
+            / WORLD_ID
+            / "contributions"
+            / f"{loser_id.replace(':', '__')}.json"
+        )
+        loser_record = json.loads(loser_path.read_text(encoding="utf-8"))
+        assert loser_record["status"] == "failed"
+
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    winner_obj = load_contribution_record(root, WORLD_ID, winner_id)
+    source_digest = kernel.compute_contribution_source_payload_sha256(winner_obj)
+    assert store.contribution_source_payload_sha256.get(winner_id) == source_digest
+
+
+def _rmw_test_contribution(*, suffix: str, status: str):
+    assertion = _node_assertion(
+        node_id=f"npc_index_rmw_{suffix}",
+        label=f"IndexRMW{suffix}",
+        source_artifact_id=f"artifact:index-rmw-{suffix}",
+    )
+    digest_byte = {"a": "c1", "b": "c2"}[suffix]
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id=f"artifact:index-rmw-{suffix}",
+        source_revision_id=f"src-rev-rmw-{suffix}",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest="sha256:" + (digest_byte * 32),
+    )
+    return contribution.model_copy(update={"status": status})
+
+
+def test_contribution_index_rmw_winner_save_then_loser_preserves_winner(
+    seeded_root,
+) -> None:
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        upsert_and_save_contribution_index,
+        write_contribution_record,
+    )
+
+    root, _parent = seeded_root
+    active = _rmw_test_contribution(suffix="a", status="active")
+    failed = _rmw_test_contribution(suffix="b", status="failed")
+    write_contribution_record(root, WORLD_ID, active)
+    write_contribution_record(root, WORLD_ID, failed)
+
+    upsert_and_save_contribution_index(root, WORLD_ID, active)
+    upsert_and_save_contribution_index(root, WORLD_ID, failed)
+
+    index = load_contribution_index(root, WORLD_ID)
+    assert active.contribution_id in index.active_contribution_ids
+    assert failed.contribution_id in index.failed_contribution_ids
+    assert failed.contribution_id not in index.active_contribution_ids
+    assert set(index.all_contribution_ids) == {
+        active.contribution_id,
+        failed.contribution_id,
+    }
+
+
+def test_contribution_index_rmw_loser_save_then_winner_preserves_winner(
+    seeded_root,
+) -> None:
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        upsert_and_save_contribution_index,
+        write_contribution_record,
+    )
+
+    root, _parent = seeded_root
+    active = _rmw_test_contribution(suffix="a", status="active")
+    failed = _rmw_test_contribution(suffix="b", status="failed")
+    write_contribution_record(root, WORLD_ID, active)
+    write_contribution_record(root, WORLD_ID, failed)
+
+    upsert_and_save_contribution_index(root, WORLD_ID, failed)
+    upsert_and_save_contribution_index(root, WORLD_ID, active)
+
+    index = load_contribution_index(root, WORLD_ID)
+    assert active.contribution_id in index.active_contribution_ids
+    assert failed.contribution_id in index.failed_contribution_ids
+    assert failed.contribution_id not in index.active_contribution_ids
+    assert set(index.all_contribution_ids) == {
+        active.contribution_id,
+        failed.contribution_id,
+    }
+
+
 def test_concurrent_same_plan_race_one_publish_winner_stays_active(
     seeded_root, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1584,6 +1702,11 @@ def test_concurrent_same_plan_race_one_publish_winner_stays_active(
     assert record["status"] == "active"
     head_after, _, _ = kernel.open_current_world_graph(root, WORLD_ID)
     assert head_after.head_revision_id != parent
+    _assert_post_race_contribution_index_and_digest(
+        root,
+        winner_id=contribution.contribution_id,
+        same_plan=True,
+    )
 
 
 def test_concurrent_different_plan_race_one_publish_winner_stays_active(
@@ -1677,3 +1800,14 @@ def test_concurrent_different_plan_race_one_publish_winner_stays_active(
     )
     winner_record = json.loads(winner_path.read_text(encoding="utf-8"))
     assert winner_record["status"] == "active"
+    loser_label = errors[0][0]
+    loser_id = (
+        contrib_a.contribution_id
+        if loser_label == "a"
+        else contrib_b.contribution_id
+    )
+    _assert_post_race_contribution_index_and_digest(
+        root,
+        winner_id=winner_id,
+        loser_id=loser_id,
+    )

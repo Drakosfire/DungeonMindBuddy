@@ -40,11 +40,9 @@ from graph_memory.union_supergraph.model import (
     UnionSupergraphStore,
 )
 from graph_memory.world_supergraph.contribution_store import (
-    ContributionIndex,
     load_contribution_index,
     load_contribution_record,
-    save_contribution_index,
-    upsert_contribution_in_index,
+    upsert_and_save_contribution_index,
     write_contribution_record,
 )
 
@@ -1151,11 +1149,10 @@ def _mark_merge_contribution_failed(
     *,
     root: Path,
     world_id: str,
-    index: ContributionIndex,
     to_store: GraphContribution,
     diagnostics: list[str],
     reason: str,
-) -> tuple[ContributionIndex, list[str]]:
+) -> list[str]:
     failed = to_store.model_copy(
         update={
             "status": "failed",
@@ -1163,10 +1160,8 @@ def _mark_merge_contribution_failed(
         }
     )
     write_contribution_record(root, world_id, failed)
-    index = upsert_contribution_in_index(index, failed)
-    save_contribution_index(root, world_id, index)
-    diagnostics = [*diagnostics, reason]
-    return index, diagnostics
+    upsert_and_save_contribution_index(root, world_id, failed)
+    return [*diagnostics, reason]
 
 
 def _stale_parent_value_error(
@@ -1444,7 +1439,6 @@ def merge_contribution_to_revision(
             _mark_merge_contribution_failed(
                 root=root,
                 world_id=world_id,
-                index=index,
                 to_store=to_store,
                 diagnostics=diagnostics,
                 reason=f"merge_failed:{exc}",
@@ -1459,7 +1453,6 @@ def merge_contribution_to_revision(
                 _mark_merge_contribution_failed(
                     root=root,
                     world_id=world_id,
-                    index=index,
                     to_store=to_store,
                     diagnostics=diagnostics,
                     reason=f"merge_failed:{exc}",
@@ -1469,10 +1462,9 @@ def merge_contribution_to_revision(
         # the winning active ledger record as failed.
         if _contribution_active_and_applied_on_head(root, world_id, to_store):
             raise
-        index, diagnostics = _mark_merge_contribution_failed(
+        diagnostics = _mark_merge_contribution_failed(
             root=root,
             world_id=world_id,
-            index=index,
             to_store=to_store,
             diagnostics=diagnostics,
             reason=f"merge_failed:{exc}",
@@ -1488,8 +1480,12 @@ def merge_contribution_to_revision(
             published=False,
         )
 
-    index = upsert_contribution_in_index(index, to_store)
-    save_contribution_index(root, world_id, index)
+    upsert_and_save_contribution_index(
+        root,
+        world_id,
+        to_store,
+        baseline_revision_id=parent_revision_id,
+    )
 
     return ContributionMergeResult(
         world_id=world_id,
@@ -1587,7 +1583,6 @@ def supersede_graph_contribution(
     # Persist the new contribution attempt, but do NOT mark the old contribution
     # superseded (or update the index) until publish succeeds. Otherwise a failed
     # publish leaves the ledger disagreeing with the still-active graph head.
-    index = load_contribution_index(root, world_id)
     pending_new = new_contribution.model_copy(update={"status": "active"})
     write_contribution_record(root, world_id, pending_new)
 
@@ -1619,8 +1614,7 @@ def supersede_graph_contribution(
             update={"status": "failed", "diagnostics": [f"supersede_failed:{exc}"]}
         )
         write_contribution_record(root, world_id, failed)
-        index = upsert_contribution_in_index(index, failed)
-        save_contribution_index(root, world_id, index)
+        upsert_and_save_contribution_index(root, world_id, failed)
         return ContributionMergeResult(
             world_id=world_id,
             parent_revision_id=parent_revision_id,
@@ -1636,9 +1630,7 @@ def supersede_graph_contribution(
     write_contribution_record(root, world_id, superseded)
     active_new = new_contribution.model_copy(update={"status": "active"})
     write_contribution_record(root, world_id, active_new)
-    index = upsert_contribution_in_index(index, superseded)
-    index = upsert_contribution_in_index(index, active_new)
-    save_contribution_index(root, world_id, index)
+    upsert_and_save_contribution_index(root, world_id, superseded, active_new)
 
     return ContributionMergeResult(
         world_id=world_id,
@@ -1727,9 +1719,7 @@ def retract_graph_contribution(
         }
     )
     write_contribution_record(root, world_id, retracted)
-    index = load_contribution_index(root, world_id)
-    index = upsert_contribution_in_index(index, retracted)
-    save_contribution_index(root, world_id, index)
+    upsert_and_save_contribution_index(root, world_id, retracted)
 
     return ContributionMergeResult(
         world_id=world_id,

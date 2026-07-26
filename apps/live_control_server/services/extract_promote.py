@@ -1203,9 +1203,11 @@ def _worldbuilding_publication_audit(
     parent_revision_id: str,
     contribution: Any,
 ) -> tuple[str | None, list[str]]:
-    """Prove whether this plan's contribution published; return revision + warnings.
+    """Prove whether this plan's contribution published; return its revision + warnings.
 
-    Returns ``(None, warnings)`` when publication is not proven.
+    Returns ``(None, warnings)`` when publication is not proven. When proven,
+    ``committed_revision_id`` is the immutable revision that introduced the
+    contribution — not a later head that merely still carries it.
     """
     import graph_memory.kernel as kernel
     from graph_memory.world_supergraph.contribution_store import (
@@ -1226,27 +1228,52 @@ def _worldbuilding_publication_audit(
         return None, warnings
 
     try:
-        head, revision, store = kernel.open_current_world_graph(world_root, world_id)
+        head, _head_revision, head_store = kernel.open_current_world_graph(
+            world_root, world_id
+        )
     except Exception as exc:  # noqa: BLE001
         warnings.append(f"world_graph_unreadable:{exc.__class__.__name__}")
         return None, warnings
 
-    digests = store.contribution_source_payload_sha256 or {}
     expected_digest = kernel.compute_contribution_source_payload_sha256(contribution)
-    actual_digest = digests.get(contribution_id)
-    if actual_digest != expected_digest:
+    head_digest = (head_store.contribution_source_payload_sha256 or {}).get(
+        contribution_id
+    )
+    if head_digest != expected_digest:
         warnings.append("contribution_source_digest_mismatch_or_missing")
         return None, warnings
 
-    committed = head.head_revision_id
-    if revision.parent_revision_id == parent_revision_id:
-        return committed, warnings
-    if contribution_id in (revision.operation_ids or []):
-        return committed, warnings
-    # Head may have advanced further after this plan published; still truthful
-    # that the contribution is active on the current graph authority.
-    warnings.append("committed_revision_inferred_from_head_authority")
-    return committed, warnings
+    current_id: str | None = head.head_revision_id
+    seen: set[str] = set()
+    while current_id and current_id not in seen:
+        seen.add(current_id)
+        try:
+            manifest = kernel.load_world_graph_revision_manifest(
+                world_root, world_id, current_id
+            )
+            store = kernel.load_world_graph_revision(world_root, world_id, current_id)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(
+                f"revision_unreadable:{current_id}:{exc.__class__.__name__}"
+            )
+            return None, warnings
+
+        digests = store.contribution_source_payload_sha256 or {}
+        if digests.get(contribution_id) != expected_digest:
+            current_id = manifest.parent_revision_id
+            continue
+
+        operations = list(manifest.operation_ids or [])
+        introduced_by_ops = contribution_id in operations
+        introduced_from_parent = manifest.parent_revision_id == parent_revision_id
+        if introduced_by_ops or introduced_from_parent:
+            if current_id != head.head_revision_id:
+                warnings.append("committed_revision_resolved_via_ancestry_walk")
+            return current_id, warnings
+        current_id = manifest.parent_revision_id
+
+    warnings.append("contribution_introducing_revision_not_found")
+    return None, warnings
 
 
 def _worldbuilding_confirm_receipt(

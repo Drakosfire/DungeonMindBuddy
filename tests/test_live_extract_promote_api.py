@@ -1919,6 +1919,12 @@ def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_stale_pare
     def _target_id(item: dict) -> str | None:
         return item.get("targetNodeId") or item.get("target_node_id")
 
+    def _assertion_id(item: dict) -> str | None:
+        return item.get("assertionId") or item.get("assertion_id")
+
+    def _predicate(item: dict) -> str | None:
+        return item.get("predicate") or (item.get("value") or {}).get("predicate")
+
     created_ids = {
         _subject_id(item)
         for item in plan["effect"]["acceptedProposals"]
@@ -1933,8 +1939,22 @@ def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_stale_pare
     ]
     assert edge_assertions
     for edge in edge_assertions:
-        assert _subject_id(edge) in committed_store.nodes
-        assert _target_id(edge) in committed_store.nodes
+        subject = _subject_id(edge)
+        target = _target_id(edge)
+        predicate = _predicate(edge)
+        assert subject in committed_store.nodes
+        assert target in committed_store.nodes
+        value = edge.get("value") or {}
+        edge_id = value.get("edge_id") or f"edge:{subject}:{predicate}:{target}"
+        assert edge_id in committed_store.edges
+        stored_edge = committed_store.edges[edge_id]
+        assert stored_edge.source_node_id == subject
+        assert stored_edge.target_node_id == target
+        assert stored_edge.predicate == predicate
+        assertion_id = _assertion_id(edge)
+        assert assertion_id is not None
+        support = committed_store.assertion_support[assertion_id]
+        assert support["graph_object_id"] == edge_id
 
     contribution_id = first_body["contributionId"]
     record_path = (
@@ -1969,6 +1989,11 @@ def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_stale_pare
     assert contribution_id in replay_ids or contribution_id in (
         committed_store.contribution_source_payload_sha256 or {}
     )
+    for edge in edge_assertions:
+        assertion_id = _assertion_id(edge)
+        assert assertion_id is not None
+        support = committed_store.assertion_support[assertion_id]
+        assert contribution_id in support["active_contribution_ids"]
 
     rejected_in_plan = plan["effect"].get("rejectedAssertions") or []
     if rejected_in_plan:
@@ -2011,13 +2036,14 @@ def test_worldbuilding_confirm_published_audit_degraded_when_index_save_fails(
 
     from graph_memory.kernel import contribution_merge as contribution_merge_mod
 
-    real_save = contribution_merge_mod.save_contribution_index
+    real_upsert = contribution_merge_mod.upsert_and_save_contribution_index
 
     def _fail_index_save(*args, **kwargs):
         raise RuntimeError("simulated index persistence failure")
 
     monkeypatch.setattr(
-        "graph_memory.kernel.contribution_merge.save_contribution_index",
+        contribution_merge_mod,
+        "upsert_and_save_contribution_index",
         _fail_index_save,
     )
 
@@ -2036,9 +2062,71 @@ def test_worldbuilding_confirm_published_audit_degraded_when_index_save_fails(
 
     monkeypatch.setattr(
         contribution_merge_mod,
-        "save_contribution_index",
-        real_save,
+        "upsert_and_save_contribution_index",
+        real_upsert,
     )
+
+
+def test_worldbuilding_confirm_published_audit_degraded_uses_plan_revision_not_later_head(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepared = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=_default_worldbuilding_dispositions(),
+        ),
+    )
+    assert prepared.status_code == 200, prepared.text
+    plan = prepared.json()
+
+    real_merge = kernel.merge_contribution_to_revision
+    plan_merge_revision_id: list[str] = []
+    unrelated_head_revision_id: list[str] = []
+
+    def _merge_publish_unrelated_then_fail(*args, **kwargs):
+        result = real_merge(*args, **kwargs)
+        if result.published:
+            assert result.revision_id is not None
+            plan_merge_revision_id.append(result.revision_id)
+            head, _revision, store = kernel.open_current_world_graph(
+                world_root, WORLD_ID
+            )
+            unrelated = kernel.publish_world_graph_revision(
+                world_root,
+                WORLD_ID,
+                store,
+                operation_ids=["op:unrelated-after-plan"],
+                expected_parent_revision_id=head.head_revision_id,
+            )
+            unrelated_head_revision_id.append(unrelated.revision.revision_id)
+            raise RuntimeError("post-publication receipt failure")
+        return result
+
+    monkeypatch.setattr(
+        kernel,
+        "merge_contribution_to_revision",
+        _merge_publish_unrelated_then_fail,
+    )
+
+    response = client.post(
+        WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan)
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["outcome"] == "published_audit_degraded"
+    assert body["auditStatus"] == "degraded"
+    assert plan_merge_revision_id
+    assert unrelated_head_revision_id
+    assert body["committedRevisionId"] == plan_merge_revision_id[0]
+    assert body["committedRevisionId"] != unrelated_head_revision_id[0]
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == unrelated_head_revision_id[0]
+    assert head_after != body["committedRevisionId"]
 
 
 def test_worldbuilding_confirm_rejects_stale_parent_without_mutation(
