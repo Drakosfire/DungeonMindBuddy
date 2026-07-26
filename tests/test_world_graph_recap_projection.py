@@ -339,6 +339,86 @@ def test_recap_node_json_equals_generic_node_json_exactly() -> None:
     ]
 
 
+
+COMPAT_BASELINE_PATH = Path(
+    "tests/fixtures/graph_memory/recap_compat_baseline_v1.json"
+)
+ADDITIVE_RECAP_NODE_FIELDS = ("evidenceRefIds", "sourceArtifactIds")
+
+
+def _strip_additive_recap_node_fields(node_payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in node_payload.items()
+        if key not in ADDITIVE_RECAP_NODE_FIELDS
+    }
+
+
+def test_recap_compatibility_replays_prechange_baseline() -> None:
+    """Replay the committed pre-change recap expectation.
+
+    Proves preservation of every prior nested/envelope field against the
+    base-captured fixture (not head-vs-head equality), with directions already
+    normalized and additive generic fields asserted separately.
+    """
+    baseline = json.loads(COMPAT_BASELINE_PATH.read_text(encoding="utf-8"))
+    before_node = baseline["recap_node_before"]
+    before_envelope = baseline["recap_envelope_before"]
+    generic_node = baseline["generic_node"]
+    assert baseline["additive_fields_omitted_by_recap_fork"] == list(
+        ADDITIVE_RECAP_NODE_FIELDS
+    )
+    assert "evidenceRefIds" not in before_node
+    assert "sourceArtifactIds" not in before_node
+    assert [row["direction"] for row in before_node["adjacency"]] == [
+        "outgoing",
+        "incoming",
+        "related",
+    ]
+
+    head_node_payload = {
+        **before_node,
+        "evidenceRefIds": generic_node["evidenceRefIds"],
+        "sourceArtifactIds": generic_node["sourceArtifactIds"],
+    }
+    head_node = WorldGraphProjectionNodeView.model_validate(head_node_payload)
+    node_views = {head_node.node_id: head_node}
+
+    head_envelope = WorldGraphRecapProjection.model_validate(
+        {
+            **{key: value for key, value in before_envelope.items() if key != "nodeViews"},
+            "nodeViews": {
+                node_id: node.model_dump(mode="json", by_alias=True)
+                for node_id, node in node_views.items()
+            },
+        }
+    )
+    head_dump = head_envelope.model_dump(mode="json", by_alias=True)
+    head_node_dump = head_dump["nodeViews"][head_node.node_id]
+
+    # Pre-existing nested fields (excluding declared additive inheritance).
+    assert _strip_additive_recap_node_fields(head_node_dump) == before_node
+    # Directions remain the closed vocabulary recorded in the baseline.
+    assert [row["direction"] for row in head_node_dump["adjacency"]] == [
+        "outgoing",
+        "incoming",
+        "related",
+    ]
+    assert head_node_dump["suggestedExpansions"][0]["direction"] == "outgoing"
+    # Additive inherited fields come verbatim from the generic source node.
+    assert head_node_dump["evidenceRefIds"] == generic_node["evidenceRefIds"]
+    assert head_node_dump["sourceArtifactIds"] == generic_node["sourceArtifactIds"]
+    # Mentions remain navigation-only (empty evidenceRefIds) in the baseline envelope.
+    assert head_dump["mentions"][0]["evidenceRefIds"] == []
+
+    for key, value in before_envelope.items():
+        if key == "nodeViews":
+            continue
+        assert head_dump[key] == value, f"envelope field drifted: {key}"
+
+    for node_id, prior in before_envelope["nodeViews"].items():
+        assert _strip_additive_recap_node_fields(head_dump["nodeViews"][node_id]) == prior
+
 def test_deleted_recap_adapters_are_absent() -> None:
     import graph_memory.projection.world_recap_projection as recap_mod
     import graph_memory.projection as projection_pkg

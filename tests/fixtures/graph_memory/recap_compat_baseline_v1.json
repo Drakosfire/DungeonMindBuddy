@@ -1,0 +1,452 @@
+{
+  "additive_fields_omitted_by_recap_fork": [
+    "evidenceRefIds",
+    "sourceArtifactIds"
+  ],
+  "base_sha": "cf59b330e4cec9cf8d4f02b454ecb6e4e0eeba31",
+  "generic_node": {
+    "adjacency": [
+      {
+        "anchoredToFocusSession": true,
+        "campaignScope": "longmont-c2",
+        "direction": "outbound",
+        "edgeId": "e:out",
+        "edgeLabel": "allied with",
+        "evidenceRefIds": [
+          "ev:1"
+        ],
+        "kind": "npc",
+        "label": "Other",
+        "nodeId": "npc:other",
+        "predicate": "allied_with",
+        "relatedSummary": "Allies",
+        "sessionIds": [
+          "session-23"
+        ],
+        "sourceDomains": [
+          "recap"
+        ],
+        "sourceExcerpt": "Fixture Hero allied with Other at the ford.",
+        "sourceExcerptHighlightSpans": [
+          {
+            "end": 12,
+            "start": 0
+          }
+        ],
+        "sourceExcerptIsFullParagraph": true
+      },
+      {
+        "anchoredToFocusSession": false,
+        "campaignScope": null,
+        "direction": "inbound",
+        "edgeId": "e:in",
+        "edgeLabel": null,
+        "evidenceRefIds": [],
+        "kind": "location",
+        "label": "Ford",
+        "nodeId": "location:ford",
+        "predicate": "visited",
+        "relatedSummary": null,
+        "sessionIds": [
+          "session-23"
+        ],
+        "sourceDomains": [],
+        "sourceExcerpt": "They met at the ford.",
+        "sourceExcerptHighlightSpans": [],
+        "sourceExcerptIsFullParagraph": false
+      },
+      {
+        "anchoredToFocusSession": false,
+        "campaignScope": null,
+        "direction": "",
+        "edgeId": "e:empty",
+        "edgeLabel": null,
+        "evidenceRefIds": [],
+        "kind": "faction",
+        "label": "X",
+        "nodeId": "faction:x",
+        "predicate": "related_to",
+        "relatedSummary": null,
+        "sessionIds": [],
+        "sourceDomains": [],
+        "sourceExcerpt": null,
+        "sourceExcerptHighlightSpans": [],
+        "sourceExcerptIsFullParagraph": false
+      }
+    ],
+    "aliases": [
+      "Hero"
+    ],
+    "anchoredToFocusSession": true,
+    "campaignScope": "longmont-c2",
+    "evidenceBadges": [
+      {
+        "canHighlightSpan": true,
+        "canOpenSource": true,
+        "evidenceRefId": "ev:1",
+        "evidenceRole": "mention",
+        "isFocusSessionEvidence": true,
+        "label": "badge",
+        "sessionId": "session-23",
+        "sourceArtifactId": "art:1",
+        "sourceDomain": "recap",
+        "sourceSpanRefId": "span:1"
+      }
+    ],
+    "evidenceRefIds": [
+      "ev:1",
+      "ev:2"
+    ],
+    "kind": "pc",
+    "label": "Fixture Hero",
+    "nodeId": "pc:fixture",
+    "role": "character",
+    "sourceArtifactIds": [
+      "art:1",
+      "art:2"
+    ],
+    "sourceDomains": [
+      "recap"
+    ],
+    "suggestedExpansions": [
+      {
+        "anchoredToFocusSession": false,
+        "campaignScope": null,
+        "direction": "outbound",
+        "edgeId": "e:out",
+        "edgeLabel": null,
+        "evidenceRefIds": [],
+        "kind": "npc",
+        "label": "Other",
+        "nodeId": "npc:other",
+        "predicate": "allied_with",
+        "rank": 1,
+        "rankReason": "connected thread",
+        "relatedSummary": null,
+        "sessionIds": [],
+        "sourceDomains": [],
+        "sourceExcerpt": "Fixture Hero allied with Other at the ford.",
+        "sourceExcerptHighlightSpans": [
+          {
+            "end": 12,
+            "start": 0
+          }
+        ],
+        "sourceExcerptIsFullParagraph": true
+      }
+    ],
+    "summary": "A fixture hero."
+  },
+  "recap_envelope_before": {
+    "campaignId": "longmont-c2",
+    "diagnostics": [
+      {
+        "code": "fixture",
+        "message": "compat baseline",
+        "severity": "info"
+      }
+    ],
+    "focus": {
+      "focusSessionId": "session-23",
+      "focusedEdgeIds": [
+        "e:out"
+      ],
+      "focusedEvidenceRefIds": [
+        "ev:1"
+      ],
+      "focusedNodeIds": [
+        "pc:fixture"
+      ]
+    },
+    "graphId": "rev:fixture",
+    "markdown": "Fixture Hero allied with Other at the ford.",
+    "mentions": [
+      {
+        "endOffset": 12,
+        "evidenceRefIds": [],
+        "label": "Fixture Hero",
+        "mentionId": "m:1",
+        "nodeId": "pc:fixture",
+        "startOffset": 0
+      }
+    ],
+    "nodeViews": {
+      "pc:fixture": {
+        "adjacency": [
+          {
+            "anchoredToFocusSession": true,
+            "campaignScope": "longmont-c2",
+            "direction": "outgoing",
+            "edgeId": "e:out",
+            "edgeLabel": "allied with",
+            "evidenceRefIds": [
+              "ev:1"
+            ],
+            "kind": "npc",
+            "label": "Other",
+            "nodeId": "npc:other",
+            "predicate": "allied_with",
+            "relatedSummary": "Allies",
+            "sessionIds": [
+              "session-23"
+            ],
+            "sourceDomains": [
+              "recap"
+            ],
+            "sourceExcerpt": "Fixture Hero allied with Other at the ford.",
+            "sourceExcerptHighlightSpans": [
+              {
+                "end": 12,
+                "start": 0
+              }
+            ],
+            "sourceExcerptIsFullParagraph": true
+          },
+          {
+            "anchoredToFocusSession": false,
+            "campaignScope": null,
+            "direction": "incoming",
+            "edgeId": "e:in",
+            "edgeLabel": null,
+            "evidenceRefIds": [],
+            "kind": "location",
+            "label": "Ford",
+            "nodeId": "location:ford",
+            "predicate": "visited",
+            "relatedSummary": null,
+            "sessionIds": [
+              "session-23"
+            ],
+            "sourceDomains": [],
+            "sourceExcerpt": "They met at the ford.",
+            "sourceExcerptHighlightSpans": [],
+            "sourceExcerptIsFullParagraph": false
+          },
+          {
+            "anchoredToFocusSession": false,
+            "campaignScope": null,
+            "direction": "related",
+            "edgeId": "e:empty",
+            "edgeLabel": null,
+            "evidenceRefIds": [],
+            "kind": "faction",
+            "label": "X",
+            "nodeId": "faction:x",
+            "predicate": "related_to",
+            "relatedSummary": null,
+            "sessionIds": [],
+            "sourceDomains": [],
+            "sourceExcerpt": null,
+            "sourceExcerptHighlightSpans": [],
+            "sourceExcerptIsFullParagraph": false
+          }
+        ],
+        "aliases": [
+          "Hero"
+        ],
+        "anchoredToFocusSession": true,
+        "campaignScope": "longmont-c2",
+        "evidenceBadges": [
+          {
+            "canHighlightSpan": true,
+            "canOpenSource": true,
+            "evidenceRefId": "ev:1",
+            "evidenceRole": "mention",
+            "isFocusSessionEvidence": true,
+            "label": "badge",
+            "sessionId": "session-23",
+            "sourceArtifactId": "art:1",
+            "sourceDomain": "recap",
+            "sourceSpanRefId": "span:1"
+          }
+        ],
+        "kind": "pc",
+        "label": "Fixture Hero",
+        "nodeId": "pc:fixture",
+        "role": "character",
+        "sourceDomains": [
+          "recap"
+        ],
+        "suggestedExpansions": [
+          {
+            "anchoredToFocusSession": false,
+            "campaignScope": null,
+            "direction": "outgoing",
+            "edgeId": "e:out",
+            "edgeLabel": null,
+            "evidenceRefIds": [],
+            "kind": "npc",
+            "label": "Other",
+            "nodeId": "npc:other",
+            "predicate": "allied_with",
+            "rank": 1,
+            "rankReason": "connected thread",
+            "relatedSummary": null,
+            "sessionIds": [],
+            "sourceDomains": [],
+            "sourceExcerpt": "Fixture Hero allied with Other at the ford.",
+            "sourceExcerptHighlightSpans": [
+              {
+                "end": 12,
+                "start": 0
+              }
+            ],
+            "sourceExcerptIsFullParagraph": true
+          }
+        ],
+        "summary": "A fixture hero."
+      }
+    },
+    "schema": "dmb_world_graph_recap_projection_v1",
+    "sessionId": "session-23",
+    "snapshot": {
+      "admissibility": "approved_only",
+      "campaignId": "longmont-c2",
+      "focus": {
+        "campaignId": "longmont-c2",
+        "kind": "session",
+        "sessionId": "session-23"
+      },
+      "headRevisionId": "rev:fixture",
+      "isHead": true,
+      "revisionId": "rev:fixture",
+      "scopeMode": "campaign",
+      "worldId": "eldyrwild"
+    },
+    "sourceSpans": [],
+    "trustBoundary": {
+      "canTrust": [
+        "approved graph facts"
+      ],
+      "cannotTrust": [
+        "mention spans are evidence bindings"
+      ]
+    }
+  },
+  "recap_node_before": {
+    "adjacency": [
+      {
+        "anchoredToFocusSession": true,
+        "campaignScope": "longmont-c2",
+        "direction": "outgoing",
+        "edgeId": "e:out",
+        "edgeLabel": "allied with",
+        "evidenceRefIds": [
+          "ev:1"
+        ],
+        "kind": "npc",
+        "label": "Other",
+        "nodeId": "npc:other",
+        "predicate": "allied_with",
+        "relatedSummary": "Allies",
+        "sessionIds": [
+          "session-23"
+        ],
+        "sourceDomains": [
+          "recap"
+        ],
+        "sourceExcerpt": "Fixture Hero allied with Other at the ford.",
+        "sourceExcerptHighlightSpans": [
+          {
+            "end": 12,
+            "start": 0
+          }
+        ],
+        "sourceExcerptIsFullParagraph": true
+      },
+      {
+        "anchoredToFocusSession": false,
+        "campaignScope": null,
+        "direction": "incoming",
+        "edgeId": "e:in",
+        "edgeLabel": null,
+        "evidenceRefIds": [],
+        "kind": "location",
+        "label": "Ford",
+        "nodeId": "location:ford",
+        "predicate": "visited",
+        "relatedSummary": null,
+        "sessionIds": [
+          "session-23"
+        ],
+        "sourceDomains": [],
+        "sourceExcerpt": "They met at the ford.",
+        "sourceExcerptHighlightSpans": [],
+        "sourceExcerptIsFullParagraph": false
+      },
+      {
+        "anchoredToFocusSession": false,
+        "campaignScope": null,
+        "direction": "related",
+        "edgeId": "e:empty",
+        "edgeLabel": null,
+        "evidenceRefIds": [],
+        "kind": "faction",
+        "label": "X",
+        "nodeId": "faction:x",
+        "predicate": "related_to",
+        "relatedSummary": null,
+        "sessionIds": [],
+        "sourceDomains": [],
+        "sourceExcerpt": null,
+        "sourceExcerptHighlightSpans": [],
+        "sourceExcerptIsFullParagraph": false
+      }
+    ],
+    "aliases": [
+      "Hero"
+    ],
+    "anchoredToFocusSession": true,
+    "campaignScope": "longmont-c2",
+    "evidenceBadges": [
+      {
+        "canHighlightSpan": true,
+        "canOpenSource": true,
+        "evidenceRefId": "ev:1",
+        "evidenceRole": "mention",
+        "isFocusSessionEvidence": true,
+        "label": "badge",
+        "sessionId": "session-23",
+        "sourceArtifactId": "art:1",
+        "sourceDomain": "recap",
+        "sourceSpanRefId": "span:1"
+      }
+    ],
+    "kind": "pc",
+    "label": "Fixture Hero",
+    "nodeId": "pc:fixture",
+    "role": "character",
+    "sourceDomains": [
+      "recap"
+    ],
+    "suggestedExpansions": [
+      {
+        "anchoredToFocusSession": false,
+        "campaignScope": null,
+        "direction": "outgoing",
+        "edgeId": "e:out",
+        "edgeLabel": null,
+        "evidenceRefIds": [],
+        "kind": "npc",
+        "label": "Other",
+        "nodeId": "npc:other",
+        "predicate": "allied_with",
+        "rank": 1,
+        "rankReason": "connected thread",
+        "relatedSummary": null,
+        "sessionIds": [],
+        "sourceDomains": [],
+        "sourceExcerpt": "Fixture Hero allied with Other at the ford.",
+        "sourceExcerptHighlightSpans": [
+          {
+            "end": 12,
+            "start": 0
+          }
+        ],
+        "sourceExcerptIsFullParagraph": true
+      }
+    ],
+    "summary": "A fixture hero."
+  },
+  "schema_note": "pre-change recap compatibility baseline captured on base cf59b330 via adapt_world_node_to_recap_view"
+}

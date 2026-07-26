@@ -2316,6 +2316,23 @@ export interface WorldGraphProjectionEvidenceBadge {
 
 export type WorldGraphRelationshipDirection = "outgoing" | "incoming" | "related";
 
+/** Compile-time proof: closed World Graph direction rejects legacy aliases. */
+type _ExpectTrue<T extends true> = T;
+type _WorldGraphDirectionRejectsOutbound = _ExpectTrue<
+  "outbound" extends WorldGraphRelationshipDirection ? false : true
+>;
+type _WorldGraphDirectionRejectsInbound = _ExpectTrue<
+  "inbound" extends WorldGraphRelationshipDirection ? false : true
+>;
+type _WorldGraphDirectionAcceptsClosed = _ExpectTrue<
+  "outgoing" | "incoming" | "related" extends WorldGraphRelationshipDirection ? true : false
+>;
+export type WorldGraphDirectionContractProof = [
+  _WorldGraphDirectionRejectsOutbound,
+  _WorldGraphDirectionRejectsInbound,
+  _WorldGraphDirectionAcceptsClosed,
+];
+
 export interface WorldGraphProjectionAdjacencyCandidate {
   edgeId: string;
   nodeId: string;
