@@ -242,13 +242,12 @@ def normalize_revision_instructions(raw: list[str]) -> list[str]:
 
 
 def source_definition_digest_from_body(source_definition: dict[str, Any]) -> str:
-    canonical = json.dumps(
-        source_definition,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
+    """Server-compatible definition digest (parse → canonicalize → sha256)."""
+    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+        source_definition_digest_from_body as _server_compatible_digest,
     )
-    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    return _server_compatible_digest(source_definition)
 
 
 def instruction_options_digest(
@@ -266,7 +265,11 @@ def instruction_options_digest(
 
 
 def revise_request_digest_for_server_body(body: dict[str, Any]) -> str:
-    """Buddy-owned request digest inputs (§12.4); not Server private digest."""
+    """Buddy-owned request digest inputs (§12.4); not Server private digest.
+
+    Includes ``actor`` (nullable) so journal integrity matches Server revise
+    request identity, which always digests caller actor.
+    """
     if body.get("source_locator") is not None and body.get("source_definition") is not None:
         raise ValueError("ambiguous revise source")
     if body.get("source_definition") is None:
@@ -280,6 +283,7 @@ def revise_request_digest_for_server_body(body: dict[str, Any]) -> str:
         "revision_instructions": normalized,
         "preserve_element_keys": body.get("preserve_element_keys", True),
         "ruleset": body["ruleset"],
+        "actor": body.get("actor"),
     }
     for key in ("intent", "context", "asset_options", "source"):
         value = body.get(key)

@@ -42,6 +42,7 @@ from apps.live_control_server.services.statblock_revise_reconciliation import (
     write_ahead_dispatched_unknown,
 )
 from apps.live_control_server.services.threat_draft_store import (
+    ThreatDraftStoreError,
     create_threat_draft,
     get_threat_draft,
 )
@@ -383,16 +384,50 @@ def test_cache_failure_leaves_candidate_received_without_draft_mutation(
     assert after.candidate_refs == before.candidate_refs
 
 
-def test_history_full_when_generation_reservations_saturate(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    draft = _create_draft(tmp_path)
-    req = _service_request(draft)
-
-    monkeypatch.setattr(
-        "apps.live_control_server.services.statblock_revise_reconciliation.count_generation_capacity_usage",
-        lambda *_args, **_kwargs: 64,
+def test_history_full_when_generation_reservations_saturate(tmp_path: Path) -> None:
+    from apps.live_control_server.models.threat_draft import (
+        MAX_CANDIDATE_REFS,
+        ThreatDraftCandidateRefV1,
     )
+    from apps.live_control_server.services.statblock_candidate_generation import (
+        map_draft_to_generate_request,
+    )
+    from apps.live_control_server.services.statblock_generation_reconciliation import (
+        claim_generation_request,
+        request_digest_for_body,
+    )
+    from apps.live_control_server.services.threat_draft_store import append_candidate_ref
+
+    draft = _create_draft(tmp_path)
+    version = draft.version
+    for index in range(MAX_CANDIDATE_REFS - 1):
+        draft = append_candidate_ref(
+            tmp_path,
+            draft_id=draft.draft_id,
+            expected_version=version,
+            candidate_ref=ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{index}",
+                generated_from_draft_version=1,
+                request_id=f"req-{index}",
+                created_at="2026-01-01T00:00:00Z",
+            ),
+        )
+        version = draft.version
+
+    gen_body = map_draft_to_generate_request(draft, request_id="gen-saturate")
+    gen_digest = request_digest_for_body(gen_body)
+    ref_ids = {ref.candidate_id for ref in draft.candidate_refs}
+    claim_generation_request(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=draft.version,
+        request_id="gen-saturate",
+        request_digest=gen_digest,
+        request_body=gen_body,
+        ref_candidate_ids=ref_ids,
+        ref_entries=[],
+    )
+    req = _service_request(draft)
     result = revise_candidate_from_edited_definition(
         tmp_path,
         draft_id=draft.draft_id,
@@ -405,3 +440,265 @@ def test_history_full_when_generation_reservations_saturate(
         get_revise_operation(tmp_path, draft_id=draft.draft_id, request_id=req.request_id)
         is None
     )
+
+
+def test_generation_blocked_when_revise_holds_final_slot(tmp_path: Path) -> None:
+    from apps.live_control_server.models.threat_draft import (
+        MAX_CANDIDATE_REFS,
+        ThreatDraftCandidateRefV1,
+    )
+    from apps.live_control_server.services.statblock_candidate_generation import (
+        map_draft_to_generate_request,
+    )
+    from apps.live_control_server.services.statblock_generation_reconciliation import (
+        GenerationReconciliationError,
+        claim_generation_request,
+        request_digest_for_body,
+    )
+    from apps.live_control_server.services.threat_draft_store import append_candidate_ref
+
+    draft = _create_draft(tmp_path)
+    version = draft.version
+    for index in range(MAX_CANDIDATE_REFS - 1):
+        draft = append_candidate_ref(
+            tmp_path,
+            draft_id=draft.draft_id,
+            expected_version=version,
+            candidate_ref=ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{index}",
+                generated_from_draft_version=1,
+                request_id=f"req-{index}",
+                created_at="2026-01-01T00:00:00Z",
+            ),
+        )
+        version = draft.version
+
+    req = _service_request(draft)
+    body, digest, src_digest, instr_digest = _body_and_digests(req)
+    ref_ids = {ref.candidate_id for ref in draft.candidate_refs}
+    outcome, _ = claim_revise_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_draft_version=draft.version,
+        request_id=req.request_id,
+        request_digest=digest,
+        request_body=body,
+        editor_state_revision=req.editor_state_revision,
+        source_definition_digest=src_digest,
+        instruction_options_digest=instr_digest,
+        ref_candidate_ids=ref_ids,
+    )
+    assert outcome == "claimed"
+
+    gen_body = map_draft_to_generate_request(draft, request_id="gen-after-revise")
+    gen_digest = request_digest_for_body(gen_body)
+    with pytest.raises(GenerationReconciliationError, match="candidate_refs limit"):
+        claim_generation_request(
+            tmp_path,
+            draft_id=draft.draft_id,
+            draft_version=draft.version,
+            request_id="gen-after-revise",
+            request_digest=gen_digest,
+            request_body=gen_body,
+            ref_candidate_ids=ref_ids,
+            ref_entries=[],
+        )
+
+
+def test_concurrent_final_slot_admits_exactly_one(tmp_path: Path) -> None:
+    import threading
+
+    from apps.live_control_server.models.threat_draft import (
+        MAX_CANDIDATE_REFS,
+        ThreatDraftCandidateRefV1,
+    )
+    from apps.live_control_server.services.statblock_candidate_generation import (
+        map_draft_to_generate_request,
+    )
+    from apps.live_control_server.services.statblock_generation_reconciliation import (
+        GenerationReconciliationError,
+        claim_generation_request,
+        request_digest_for_body,
+    )
+    from apps.live_control_server.services.threat_draft_store import append_candidate_ref
+
+    draft = _create_draft(tmp_path)
+    version = draft.version
+    for index in range(MAX_CANDIDATE_REFS - 1):
+        draft = append_candidate_ref(
+            tmp_path,
+            draft_id=draft.draft_id,
+            expected_version=version,
+            candidate_ref=ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{index}",
+                generated_from_draft_version=1,
+                request_id=f"req-{index}",
+                created_at="2026-01-01T00:00:00Z",
+            ),
+        )
+        version = draft.version
+
+    ref_ids = {ref.candidate_id for ref in draft.candidate_refs}
+    req = _service_request(draft, request_id="revise-final-slot")
+    body, digest, src_digest, instr_digest = _body_and_digests(req)
+    gen_body = map_draft_to_generate_request(draft, request_id="gen-final-slot")
+    gen_digest = request_digest_for_body(gen_body)
+    barrier = threading.Barrier(2)
+    results: dict[str, str] = {}
+
+    def claim_revise() -> None:
+        barrier.wait(timeout=5)
+        try:
+            outcome, _ = claim_revise_operation(
+                tmp_path,
+                draft_id=draft.draft_id,
+                expected_draft_version=draft.version,
+                request_id=req.request_id,
+                request_digest=digest,
+                request_body=body,
+                editor_state_revision=req.editor_state_revision,
+                source_definition_digest=src_digest,
+                instruction_options_digest=instr_digest,
+                ref_candidate_ids=ref_ids,
+            )
+            results["revise"] = outcome
+        except Exception as exc:  # noqa: BLE001 — surface in assertion
+            results["revise"] = f"error:{type(exc).__name__}:{exc}"
+
+    def claim_generation() -> None:
+        barrier.wait(timeout=5)
+        try:
+            claim_generation_request(
+                tmp_path,
+                draft_id=draft.draft_id,
+                draft_version=draft.version,
+                request_id="gen-final-slot",
+                request_digest=gen_digest,
+                request_body=gen_body,
+                ref_candidate_ids=ref_ids,
+                ref_entries=[],
+            )
+            results["generation"] = "claimed"
+        except GenerationReconciliationError as exc:
+            results["generation"] = f"rejected:{exc}"
+        except Exception as exc:  # noqa: BLE001
+            results["generation"] = f"error:{type(exc).__name__}:{exc}"
+
+    threads = [
+        threading.Thread(target=claim_revise),
+        threading.Thread(target=claim_generation),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    successes = 0
+    if results.get("revise") == "claimed":
+        successes += 1
+    if results.get("generation") == "claimed":
+        successes += 1
+    assert successes == 1, results
+    assert results.get("revise") in {"claimed", "revise_history_full"}, results
+    assert results.get("generation") == "claimed" or (
+        isinstance(results.get("generation"), str)
+        and "candidate_refs limit exceeded" in results["generation"]
+    ), results
+
+
+def test_actor_included_in_revise_request_digest() -> None:
+    draft_req = _revise_request()
+    assert draft_req.source_definition is not None
+    base = ReviseCandidateFromEditedDefinitionRequestV1(
+        request_id="actor-digest-1",
+        expected_draft_version=1,
+        editor_state_revision="editor-rev-1",
+        source_definition=draft_req.source_definition,
+        revision_instructions=list(draft_req.revision_instructions),
+        preserve_element_keys=draft_req.preserve_element_keys,
+        ruleset=draft_req.ruleset,
+        actor="alice",
+    )
+    body_a = map_edited_definition_to_revise_server_body(base)
+    body_b = dict(body_a)
+    body_b["actor"] = "bob"
+    assert revise_request_digest_for_server_body(body_a) != revise_request_digest_for_server_body(
+        body_b
+    )
+
+
+def test_existing_authority_replay_skips_client_and_missing_draft(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    first = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert first.result == "cache_stored_ref_pending"
+
+    def boom_client() -> None:
+        raise AssertionError("client must not be constructed for cache-complete replay")
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_revision.build_statblock_v1_client",
+        boom_client,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_revision.get_threat_draft",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            ThreatDraftStoreError("draft missing", status_code=404)
+        ),
+    )
+    replay = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=None,
+    )
+    assert replay.result == "cache_stored_ref_pending"
+    assert replay.candidate_id == response_fixture.candidate_id
+
+
+def test_changed_body_conflict_without_draft(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    body, digest, src_digest, instr_digest = _body_and_digests(req)
+    claim_revise_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_draft_version=draft.version,
+        request_id=req.request_id,
+        request_digest=digest,
+        request_body=body,
+        editor_state_revision=req.editor_state_revision,
+        source_definition_digest=src_digest,
+        instruction_options_digest=instr_digest,
+        ref_candidate_ids=set(),
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_revision.get_threat_draft",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            ThreatDraftStoreError("draft missing", status_code=404)
+        ),
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.statblock_candidate_revision.build_statblock_v1_client",
+        lambda: (_ for _ in ()).throw(AssertionError("no client")),
+    )
+    mutated = req.model_copy(update={"revision_instructions": ["Changed instruction."]})
+    result = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=mutated,
+        client=None,
+    )
+    assert result.result == "revise_input_conflict"

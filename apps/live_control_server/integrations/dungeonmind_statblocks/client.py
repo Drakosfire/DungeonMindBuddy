@@ -1,7 +1,6 @@
 """Server-owned DungeonMind statblock v1 HTTP client."""
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import Any, Protocol, TypeVar
 
@@ -60,13 +59,11 @@ ModelT = TypeVar("ModelT", bound=StrictModel)
 
 
 def _source_definition_digest(source_definition: dict[str, Any]) -> str:
-    canonical = json.dumps(
-        source_definition,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
+    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+        source_definition_digest_from_body,
     )
-    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    return source_definition_digest_from_body(source_definition)
 
 
 class StatblockV1Client(Protocol):
@@ -231,16 +228,19 @@ class DungeonMindStatblockV1Client:
                 raise downstream_unexpected("revise source_definition must be an object")
             expected = _source_definition_digest(source_definition)
             receipt_digest = candidate.generation_receipt.source_definition_digest
-            if receipt_digest is not None:
-                observed = (
-                    receipt_digest.root
-                    if hasattr(receipt_digest, "root")
-                    else str(receipt_digest)
+            if receipt_digest is None:
+                raise downstream_unexpected(
+                    "candidate generation_receipt missing source_definition_digest"
                 )
-                if observed != expected:
-                    raise downstream_unexpected(
-                        "candidate source_definition_digest does not match request body"
-                    )
+            observed = (
+                receipt_digest.root
+                if hasattr(receipt_digest, "root")
+                else str(receipt_digest)
+            )
+            if observed != expected:
+                raise downstream_unexpected(
+                    "candidate source_definition_digest does not match request body"
+                )
         return candidate
 
     def get_candidate(self, candidate_id: str) -> GeneratedStatblockCandidateV1:

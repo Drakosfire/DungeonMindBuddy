@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Callable, Literal
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import (
     DungeonMindStatblockV1Client,
@@ -31,7 +31,6 @@ from apps.live_control_server.services.statblock_candidate_cache import (
     store_candidate_payload,
 )
 from apps.live_control_server.services.statblock_revise_reconciliation import (
-    ReviseReconciliationError,
     claim_revise_operation,
     get_revise_operation,
     mark_cache_stored_ref_pending,
@@ -101,19 +100,6 @@ def _ensure_write_ahead(
     return operation
 
 
-def _fetch_candidate_if_known(
-    root: Path,
-    operation: ReviseOperationV1,
-    client: StatblockV1Client,
-) -> GeneratedStatblockCandidateV1 | None:
-    if operation.candidate_id is None:
-        return None
-    cached = read_candidate_payload_or_none(root, operation.candidate_id)
-    if cached is not None:
-        return cached
-    return client.get_candidate(operation.candidate_id)
-
-
 def _dispatch_revise_post(
     client: StatblockV1Client,
     body: dict,
@@ -126,26 +112,7 @@ def _materialize_through_cache(
     operation: ReviseOperationV1,
     candidate: GeneratedStatblockCandidateV1,
 ) -> ReviseOperationV1:
-    op = record_candidate_received(
-        root,
-        draft_id=operation.draft_id,
-        request_id=operation.request_id,
-        request_digest=operation.request_digest,
-        candidate_id=candidate.candidate_id,
-        cache_state="missing",
-    )
-    try:
-        store_candidate_payload(root, candidate)
-    except CandidateCacheError:
-        op = record_candidate_received(
-            root,
-            draft_id=operation.draft_id,
-            request_id=operation.request_id,
-            request_digest=operation.request_digest,
-            candidate_id=candidate.candidate_id,
-            cache_state="failed",
-        )
-        raise
+    store_candidate_payload(root, candidate)
     return mark_cache_stored_ref_pending(
         root,
         draft_id=operation.draft_id,
@@ -155,6 +122,87 @@ def _materialize_through_cache(
     )
 
 
+def _client_factory(
+    client: StatblockV1Client | None,
+) -> tuple[Callable[[], StatblockV1Client], list[DungeonMindStatblockV1Client]]:
+    """Lazy client construction; only builds when POST/GET is required."""
+    owned: list[DungeonMindStatblockV1Client] = []
+
+    def resolve() -> StatblockV1Client:
+        if client is not None:
+            return client
+        built = build_statblock_v1_client()
+        if isinstance(built, DungeonMindStatblockV1Client):
+            owned.append(built)
+        return built
+
+    return resolve, owned
+
+
+def _advance_after_claim(
+    root: Path,
+    *,
+    draft_id: str,
+    operation: ReviseOperationV1,
+    resolve_client: Callable[[], StatblockV1Client],
+) -> ReviseCandidateFromEditedDefinitionResponseV1:
+    if operation.status == "cache_stored_ref_pending":
+        return _response_from_operation(operation, result="cache_stored_ref_pending")
+
+    operation = _ensure_write_ahead(root, operation)
+
+    candidate: GeneratedStatblockCandidateV1 | None = None
+    if operation.candidate_id is not None:
+        cached = read_candidate_payload_or_none(root, operation.candidate_id)
+        if cached is not None:
+            candidate = cached
+        else:
+            candidate = resolve_client().get_candidate(operation.candidate_id)
+    elif operation.status == "dispatched_unknown":
+        try:
+            candidate = _dispatch_revise_post(
+                resolve_client(), operation.request_body
+            )
+        except StatblockIntegrationError:
+            refreshed = get_revise_operation(
+                root,
+                draft_id=draft_id,
+                request_id=operation.request_id,
+            )
+            if refreshed is not None:
+                return _response_from_operation(
+                    refreshed, result="dispatched_unknown"
+                )
+            raise
+        operation = record_candidate_received(
+            root,
+            draft_id=operation.draft_id,
+            request_id=operation.request_id,
+            request_digest=operation.request_digest,
+            candidate_id=candidate.candidate_id,
+        )
+
+    if candidate is not None:
+        try:
+            operation = _materialize_through_cache(root, operation, candidate)
+        except CandidateCacheError:
+            refreshed = get_revise_operation(
+                root,
+                draft_id=draft_id,
+                request_id=operation.request_id,
+            )
+            if refreshed is not None and refreshed.candidate_id is not None:
+                return _response_from_operation(
+                    refreshed, result="candidate_received"
+                )
+            raise
+        return _response_from_operation(
+            operation, result="cache_stored_ref_pending"
+        )
+
+    return _response_from_operation(operation, result="dispatched_unknown")
+
+
 def revise_candidate_from_edited_definition(
     root: Path,
     *,
@@ -162,9 +210,13 @@ def revise_candidate_from_edited_definition(
     request: ReviseCandidateFromEditedDefinitionRequestV1,
     client: StatblockV1Client | None = None,
 ) -> ReviseCandidateFromEditedDefinitionResponseV1:
-    """Exact edited definition revise adapter; ends at cache_stored_ref_pending."""
-    owns_client = client is None
-    active_client = client or build_statblock_v1_client()
+    """Exact edited definition revise adapter; ends at cache_stored_ref_pending.
+
+    Existing journal authority is classified before draft/version/capacity
+    checks and before Server client construction. The client is built lazily
+    only when a revise POST or candidate GET is required.
+    """
+    resolve_client, owned_clients = _client_factory(client)
 
     try:
         try:
@@ -179,6 +231,28 @@ def revise_candidate_from_edited_definition(
             normalized, request.preserve_element_keys
         )
 
+        # Durable journal authority before draft I/O or client construction.
+        existing = get_revise_operation(
+            root,
+            draft_id=draft_id,
+            request_id=request.request_id,
+        )
+        if existing is not None:
+            if (
+                existing.request_digest != request_digest
+                or existing.request_body != body
+            ):
+                return _response_from_operation(
+                    existing, result="revise_input_conflict"
+                )
+            return _advance_after_claim(
+                root,
+                draft_id=draft_id,
+                operation=existing,
+                resolve_client=resolve_client,
+            )
+
+        # New operation: draft membership/refs required for capacity admission.
         ref_ids = _load_draft_ref_ids(root, draft_id)
         claim_outcome, operation = claim_revise_operation(
             root,
@@ -223,58 +297,12 @@ def revise_candidate_from_edited_definition(
             return _response_from_operation(operation, result="revise_input_conflict")
 
         assert operation is not None
-
-        if operation.status == "cache_stored_ref_pending":
-            return _response_from_operation(
-                operation, result="cache_stored_ref_pending"
-            )
-
-        operation = _ensure_write_ahead(root, operation)
-
-        candidate: GeneratedStatblockCandidateV1 | None = None
-        if operation.candidate_id is not None:
-            candidate = _fetch_candidate_if_known(root, operation, active_client)
-        elif operation.status == "dispatched_unknown":
-            try:
-                candidate = _dispatch_revise_post(active_client, operation.request_body)
-            except StatblockIntegrationError:
-                refreshed = get_revise_operation(
-                    root,
-                    draft_id=draft_id,
-                    request_id=operation.request_id,
-                )
-                if refreshed is not None:
-                    return _response_from_operation(
-                        refreshed, result="dispatched_unknown"
-                    )
-                raise
-            operation = record_candidate_received(
-                root,
-                draft_id=operation.draft_id,
-                request_id=operation.request_id,
-                request_digest=operation.request_digest,
-                candidate_id=candidate.candidate_id,
-            )
-
-        if candidate is not None:
-            try:
-                operation = _materialize_through_cache(root, operation, candidate)
-            except CandidateCacheError:
-                refreshed = get_revise_operation(
-                    root,
-                    draft_id=draft_id,
-                    request_id=operation.request_id,
-                )
-                if refreshed is not None and refreshed.candidate_id is not None:
-                    return _response_from_operation(
-                        refreshed, result="candidate_received"
-                    )
-                raise
-            return _response_from_operation(
-                operation, result="cache_stored_ref_pending"
-            )
-
-        return _response_from_operation(operation, result="dispatched_unknown")
+        return _advance_after_claim(
+            root,
+            draft_id=draft_id,
+            operation=operation,
+            resolve_client=resolve_client,
+        )
     finally:
-        if owns_client and isinstance(active_client, DungeonMindStatblockV1Client):
-            active_client.close()
+        for owned in owned_clients:
+            owned.close()

@@ -211,8 +211,10 @@ def _reconciliation_lock(root: Path) -> Iterator[None]:
     """Exclusive lock for generation journal mutations.
 
     Lock order when ThreatDraft admission is required for a *new* generation
-    claim: acquire the ThreatDraft store lock first, then this lock
-    (``threat_draft_store._store_lock`` → ``_reconciliation_lock``).
+    claim: acquire the ThreatDraft store lock first, then the shared candidate
+    capacity lock, then this lock
+    (``threat_draft_store._store_lock`` → ``draft_candidate_capacity_lock`` →
+    ``_reconciliation_lock``).
 
     Do not acquire the ThreatDraft store lock while holding this lock (avoids
     deadlock with new-generation admission). Acceptance journal locking is
@@ -973,7 +975,18 @@ def _claim_generation_request_unlocked(
             return "dispatched_retry", refreshed
 
     usage = _capacity_usage(entries, ref_candidate_ids=ref_candidate_ids)
-    if usage >= MAX_CANDIDATE_REFS:
+    # Symmetric with revise admission: count unbound revise reservations too.
+    # Caller must hold draft_candidate_capacity_lock for atomic shared capacity.
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        count_revise_capacity_reservations,
+    )
+
+    revise_reserved = count_revise_capacity_reservations(
+        root,
+        draft_id=draft_id,
+        ref_candidate_ids=ref_candidate_ids,
+    )
+    if usage + revise_reserved >= MAX_CANDIDATE_REFS:
         raise GenerationReconciliationError(
             "candidate_refs limit exceeded",
             status_code=422,
@@ -1031,18 +1044,25 @@ def claim_generation_request(
     For brand-new generation against a ThreatDraft that may race acceptance
     Phase 1, prefer ``statblock_candidate_generation``'s store-locked admission
     path so workflow/version checks and this claim share one admission boundary.
+
+    Lock order: ``draft_candidate_capacity_lock`` → ``_reconciliation_lock``.
     """
-    with _reconciliation_lock(root):
-        return _claim_generation_request_unlocked(
-            root,
-            draft_id=draft_id,
-            draft_version=draft_version,
-            request_id=request_id,
-            request_digest=request_digest,
-            request_body=request_body,
-            ref_candidate_ids=ref_candidate_ids,
-            ref_entries=ref_entries,
-        )
+    from apps.live_control_server.services.statblock_candidate_capacity import (
+        draft_candidate_capacity_lock,
+    )
+
+    with draft_candidate_capacity_lock(root, draft_id):
+        with _reconciliation_lock(root):
+            return _claim_generation_request_unlocked(
+                root,
+                draft_id=draft_id,
+                draft_version=draft_version,
+                request_id=request_id,
+                request_digest=request_digest,
+                request_body=request_body,
+                ref_candidate_ids=ref_candidate_ids,
+                ref_entries=ref_entries,
+            )
 
 
 def record_candidate_received(

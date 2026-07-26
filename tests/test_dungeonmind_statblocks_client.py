@@ -1007,6 +1007,77 @@ def test_revise_candidate_posts_and_binds_receipt() -> None:
     assert candidate.generation_receipt.request_id == request.request_id
 
 
+def test_mapper_body_round_trip_binds_server_canonical_digest() -> None:
+    """Buddy exclude_none mapper body must still bind Server receipt digest."""
+    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+        source_definition_digest_from_body,
+    )
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        ReviseCandidateRequestV1,
+    )
+    from apps.live_control_server.models.statblock_candidate_revision import (
+        ReviseCandidateFromEditedDefinitionRequestV1,
+        map_edited_definition_to_revise_server_body,
+    )
+
+    typed = ReviseCandidateRequestV1.model_validate(
+        _fixture("server_revise_transcripts/revise-request.json")
+    )
+    assert typed.source_definition is not None
+    buddy_request = ReviseCandidateFromEditedDefinitionRequestV1(
+        request_id=typed.request_id,
+        expected_draft_version=1,
+        editor_state_revision="editor-rev-1",
+        source_definition=typed.source_definition,
+        revision_instructions=list(typed.revision_instructions),
+        preserve_element_keys=typed.preserve_element_keys,
+        ruleset=typed.ruleset,
+        actor=typed.actor,
+    )
+    mapped_body = map_edited_definition_to_revise_server_body(buddy_request)
+    full_body = json.loads(
+        typed.model_dump_json(by_alias=True, exclude_none=False)
+    )
+    # Mapper strips nulls — raw JSON hash would diverge from Server canonical.
+    assert mapped_body["source_definition"] != full_body["source_definition"]
+    expected = source_definition_digest_from_body(mapped_body["source_definition"])
+    receipt = _fixture("server_revise_transcripts/revise-replay-response.json")[
+        "generation_receipt"
+    ]["source_definition_digest"]
+    assert expected == receipt
+
+    captured: dict[str, object] = {}
+
+    def handler(request_http: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request_http.content.decode("utf-8"))
+        return httpx.Response(
+            200, json=_fixture("server_revise_transcripts/revise-replay-response.json")
+        )
+
+    candidate = _client(httpx.MockTransport(handler)).revise_candidate(mapped_body)
+    assert captured["body"] == mapped_body
+    assert candidate.generation_receipt is not None
+    assert candidate.generation_receipt.source_definition_digest is not None
+    observed = candidate.generation_receipt.source_definition_digest
+    observed_s = observed.root if hasattr(observed, "root") else str(observed)
+    assert observed_s == expected
+
+
+def test_revise_candidate_requires_receipt_source_definition_digest() -> None:
+    body = _fixture("server_revise_transcripts/revise-request.json")
+    payload = _fixture("server_revise_transcripts/revise-replay-response.json")
+    payload = json.loads(json.dumps(payload))
+    payload["generation_receipt"]["source_definition_digest"] = None
+
+    def handler(request_http: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        _client(httpx.MockTransport(handler)).revise_candidate(body)
+    assert exc_info.value.category == "downstream_unexpected"
+    assert "source_definition_digest" in str(exc_info.value)
+
+
 def test_revise_candidate_maps_409_and_410() -> None:
     body = _fixture("server_revise_transcripts/revise-request.json")
 

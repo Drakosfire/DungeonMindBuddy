@@ -1,5 +1,7 @@
 {
   "schema": "sbw06a_server_revise_transcript_manifest_v1",
+  "provenance": "copied_reviewed_server_fixtures",
+  "provenance_note": "Copied from DungeonMindServer PR #24 Docs/Design/fixtures/dungeonbuddy-statblock-v1-api/ at the merge commit below; reviewed for StrictModel validity and request/response coherence. Not live-captured by Buddy.",
   "dungeonmind_server": {
     "commit": "2c7d2566baa744f2b1a4667761775c1dec87a2d4",
     "reviewed_head": "1ad8de2baf0431c7ddb401cdd72389afc730519a",

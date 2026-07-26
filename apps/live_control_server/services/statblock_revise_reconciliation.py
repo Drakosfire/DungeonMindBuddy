@@ -15,9 +15,13 @@ from apps.live_control_server.models.statblock_candidate_revision import (
     revise_request_digest_for_server_body,
 )
 from apps.live_control_server.models.threat_draft import MAX_CANDIDATE_REFS, require_draft_id
+from apps.live_control_server.services.statblock_candidate_capacity import (
+    CandidateCapacityError,
+    draft_candidate_capacity_lock,
+    total_candidate_capacity_usage,
+)
 from apps.live_control_server.services.statblock_generation_reconciliation import (
     GenerationReconciliationError,
-    count_generation_capacity_usage,
     validate_request_id,
 )
 from apps.live_control_server.services.threat_draft_store import (
@@ -191,6 +195,24 @@ def _revise_reservation_count(
     return count
 
 
+def count_revise_capacity_reservations(
+    root: Path,
+    *,
+    draft_id: str,
+    ref_candidate_ids: set[str],
+) -> int:
+    """Unbound revise reservations (excludes candidates already on the draft).
+
+    Safe under ``draft_candidate_capacity_lock`` without nesting the revise lock:
+    new revise claims also require the capacity lock, so concurrent admission
+    cannot race this read. Callers that already hold the revise lock may also
+    use this helper.
+    """
+    safe_draft = require_draft_id(draft_id)
+    records = _list_operations_unlocked(root, draft_id=safe_draft)
+    return _revise_reservation_count(records, ref_candidate_ids=ref_candidate_ids)
+
+
 def claim_revise_operation(
     root: Path,
     *,
@@ -214,6 +236,7 @@ def claim_revise_operation(
     safe_draft = require_draft_id(draft_id)
     safe_request = validate_request_id(request_id)
 
+    # Existing-operation authority before draft version / capacity gates.
     with _draft_revise_lock(root, safe_draft):
         existing = _read_operation_unlocked(
             root, draft_id=safe_draft, request_id=safe_request
@@ -226,50 +249,71 @@ def claim_revise_operation(
                 return "revise_input_conflict", existing
             return "resume", existing
 
-        try:
-            current_version = read_committed_draft_version(root, safe_draft)
-        except ThreatDraftStoreError as exc:
-            raise ReviseReconciliationError(str(exc), status_code=exc.status_code) from exc
-        if current_version != expected_draft_version:
-            return "version_mismatch", None
+    # New claim: shared capacity boundary then revise journal write.
+    try:
+        with draft_candidate_capacity_lock(root, safe_draft):
+            with _draft_revise_lock(root, safe_draft):
+                existing = _read_operation_unlocked(
+                    root, draft_id=safe_draft, request_id=safe_request
+                )
+                if existing is not None:
+                    if (
+                        existing.request_digest != request_digest
+                        or existing.request_body != request_body
+                    ):
+                        return "revise_input_conflict", existing
+                    return "resume", existing
 
-        records = _list_operations_unlocked(root, draft_id=safe_draft)
-        if _has_unresolved_revise(records):
-            return "revise_busy", None
+                try:
+                    current_version = read_committed_draft_version(root, safe_draft)
+                except ThreatDraftStoreError as exc:
+                    raise ReviseReconciliationError(
+                        str(exc), status_code=exc.status_code
+                    ) from exc
+                if current_version != expected_draft_version:
+                    return "version_mismatch", None
 
-        try:
-            gen_usage = count_generation_capacity_usage(
-                root,
-                draft_id=safe_draft,
-                ref_candidate_ids=ref_candidate_ids,
-            )
-        except GenerationReconciliationError as exc:
-            raise ReviseReconciliationError(str(exc), status_code=exc.status_code) from exc
+                records = _list_operations_unlocked(root, draft_id=safe_draft)
+                if _has_unresolved_revise(records):
+                    return "revise_busy", None
 
-        revise_reserved = _revise_reservation_count(
-            records, ref_candidate_ids=ref_candidate_ids
-        )
-        if gen_usage + revise_reserved + 1 > MAX_CANDIDATE_REFS:
-            return "revise_history_full", None
+                try:
+                    usage = total_candidate_capacity_usage(
+                        root,
+                        draft_id=safe_draft,
+                        ref_candidate_ids=ref_candidate_ids,
+                    )
+                except (CandidateCapacityError, GenerationReconciliationError) as exc:
+                    status = getattr(exc, "status_code", 500)
+                    raise ReviseReconciliationError(
+                        str(exc), status_code=status
+                    ) from exc
 
-        now = _utc_now_iso()
-        record = ReviseOperationV1(
-            request_id=safe_request,
-            request_digest=request_digest,
-            request_body=request_body,
-            draft_id=safe_draft,
-            source_draft_version=expected_draft_version,
-            editor_state_revision=editor_state_revision,
-            source_definition_digest=source_definition_digest,
-            instruction_options_digest=instruction_options_digest,
-            status="claimed",
-            candidate_id=None,
-            materialization=ReviseMaterializationV1(cache="missing", draft_ref="missing"),
-            created_at=now,
-            updated_at=now,
-        )
-        _write_operation_unlocked(root, record)
-        return "claimed", record
+                if usage + 1 > MAX_CANDIDATE_REFS:
+                    return "revise_history_full", None
+
+                now = _utc_now_iso()
+                record = ReviseOperationV1(
+                    request_id=safe_request,
+                    request_digest=request_digest,
+                    request_body=request_body,
+                    draft_id=safe_draft,
+                    source_draft_version=expected_draft_version,
+                    editor_state_revision=editor_state_revision,
+                    source_definition_digest=source_definition_digest,
+                    instruction_options_digest=instruction_options_digest,
+                    status="claimed",
+                    candidate_id=None,
+                    materialization=ReviseMaterializationV1(
+                        cache="missing", draft_ref="missing"
+                    ),
+                    created_at=now,
+                    updated_at=now,
+                )
+                _write_operation_unlocked(root, record)
+                return "claimed", record
+    except CandidateCapacityError as exc:
+        raise ReviseReconciliationError(str(exc), status_code=exc.status_code) from exc
 
 
 def write_ahead_dispatched_unknown(

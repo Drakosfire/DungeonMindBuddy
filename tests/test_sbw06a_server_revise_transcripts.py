@@ -29,6 +29,7 @@ def _load(name: str) -> dict:
 def test_manifest_cites_server_commit_fingerprint_and_fixture_hashes() -> None:
     manifest = json.loads((TRANSCRIPT_DIR / "MANIFEST.json").read_text(encoding="utf-8"))
     assert manifest["schema"] == "sbw06a_server_revise_transcript_manifest_v1"
+    assert manifest["provenance"] == "copied_reviewed_server_fixtures"
     server = manifest["dungeonmind_server"]
     assert server["commit"] == "2c7d2566baa744f2b1a4667761775c1dec87a2d4"
     assert server["reviewed_head"] == "1ad8de2baf0431c7ddb401cdd72389afc730519a"
@@ -38,8 +39,8 @@ def test_manifest_cites_server_commit_fingerprint_and_fixture_hashes() -> None:
     for key, digest in manifest["transcripts"].items():
         path = TRANSCRIPT_DIR / f"{key}.json"
         assert path.is_file()
-        computed = f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
-        assert computed == digest
+        observed = "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+        assert observed == digest
 
 
 def test_revise_request_replay_and_digest_coherence() -> None:
