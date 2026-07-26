@@ -145,6 +145,9 @@ def _response_package(plan) -> dict[str, object]:
         "summary": copy.deepcopy(plan.summary),
         "diagnostics": list(plan.diagnostics),
         "confirmable": False,
+        "confirmableReason": (
+            "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
+        ),
     }
 
 
@@ -285,6 +288,12 @@ def test_verify_worldbuilding_write_plan_accepts_unmodified_response_package(
     verified = _verify(_response_package(plan), inputs, preview)
     assert verified["plan_id"] == plan.plan_id
     assert verified["plan_digest"] == plan.plan_digest
+    assert verified["summary"] == plan.summary
+    assert verified["diagnostics"] == plan.diagnostics
+    assert verified["confirmable"] is False
+    assert verified["confirmable_reason"] == (
+        "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1495,3 +1504,75 @@ def test_verify_rejects_parent_revision_context_mismatch(tmp_path: Path) -> None
         _verify(package, inputs, preview)
     assert exc.value.code == "plan_verification_failed"
     assert "parent_revision_id" in str(exc.value)
+
+
+def test_verify_rejects_summary_count_rewrite_without_effect_mutation(
+    tmp_path: Path,
+) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    package["summary"] = {
+        **package["summary"],  # type: ignore[dict-item]
+        "accepted_assertion_count": 0,
+        "rejected_candidate_count": 500,
+    }
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "summary" in str(exc.value)
+
+
+def test_verify_rejects_inserted_diagnostics_without_effect_mutation(
+    tmp_path: Path,
+) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    package["diagnostics"] = list(package["diagnostics"]) + ["everything is unsafe"]  # type: ignore[operator]
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "diagnostics" in str(exc.value)
+
+
+def test_verify_rejects_omitted_confirmable_without_effect_mutation(
+    tmp_path: Path,
+) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    del package["confirmable"]
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "confirmable" in str(exc.value)
+
+
+def test_verify_rejects_rewritten_confirmable_reason_without_effect_mutation(
+    tmp_path: Path,
+) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    package["confirmableReason"] = "ready to commit"
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "confirmable_reason" in str(exc.value)
+
+
+def test_verify_propagates_stale_parent_revision_from_rebuild(
+    tmp_path: Path,
+) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    world_root = inputs["world_root"]
+    head, _revision, store = kernel.open_current_world_graph(world_root, WORLD_ID)
+    kernel.publish_world_graph_revision(
+        world_root,  # type: ignore[arg-type]
+        WORLD_ID,
+        store,
+        operation_ids=["op:worldbuilding-write-plan-stale-parent-test"],
+        expected_parent_revision_id=head.head_revision_id,
+    )
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "stale_parent_revision"
+    assert exc.value.status_code == 409

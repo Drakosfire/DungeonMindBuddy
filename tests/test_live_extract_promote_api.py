@@ -1789,6 +1789,47 @@ def test_worldbuilding_prepare_rejects_stale_parent_without_mutation(world_clien
     assert kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id == before
 
 
+def test_worldbuilding_prepare_concurrent_head_advancement_returns_409(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    real_verify = promote_svc.verify_worldbuilding_write_plan
+
+    def _advance_head_then_verify(*args, **kwargs):
+        head, _revision, store = kernel.open_current_world_graph(world_root, WORLD_ID)
+        advanced = kernel.publish_world_graph_revision(
+            world_root,
+            WORLD_ID,
+            store,
+            operation_ids=["op:worldbuilding-prepare-concurrent-head"],
+            expected_parent_revision_id=head.head_revision_id,
+        )
+        assert advanced.revision.revision_id != parent
+        return real_verify(*args, **kwargs)
+
+    monkeypatch.setattr(
+        promote_svc,
+        "verify_worldbuilding_write_plan",
+        _advance_head_then_verify,
+    )
+    response = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=[
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "e33", "decision": "accept"},
+            ],
+        ),
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == "stale_parent_revision"
+
+
 def test_worldbuilding_prepare_confirm_rejects_plan_without_mutation(
     world_client,
 ) -> None:

@@ -1168,6 +1168,13 @@ def prepare_worldbuilding(
             ),
         )
     except WorldbuildingWritePlanError as exc:
+        if exc.code == "stale_parent_revision":
+            raise ExtractPromoteError(
+                str(exc),
+                code=exc.code,
+                status_code=exc.status_code,
+                diagnostics=[_diagnostic(exc.code, str(exc))],
+            ) from exc
         raise ExtractPromoteError(
             "worldbuilding write plan failed self-verification",
             code="plan_verification_failed",

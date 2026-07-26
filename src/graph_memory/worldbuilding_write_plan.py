@@ -271,6 +271,29 @@ def _canonical_string_list(value: Any, *, field: str) -> list[str]:
     return list(value)
 
 
+_SUMMARY_COUNT_KEYS = (
+    "create_new_node_count",
+    "bind_existing_node_count",
+    "accepted_edge_count",
+    "rejected_candidate_count",
+    "deferred_candidate_count",
+    "accepted_assertion_count",
+)
+
+
+def _canonical_summary(value: Any) -> dict[str, int]:
+    fields = _canonical_fields(value, _SUMMARY_COUNT_KEYS, context="summary")
+    result: dict[str, int] = {}
+    for name, item in fields.items():
+        if type(item) is not int:
+            raise WorldbuildingWritePlanError(
+                f"summary.{name} must be an int",
+                code="plan_verification_failed",
+            )
+        result[name] = item
+    return result
+
+
 def _canonical_string_map(value: Any, *, field: str) -> dict[str, str]:
     if not isinstance(value, Mapping):
         raise WorldbuildingWritePlanError(
@@ -1226,12 +1249,26 @@ def verify_worldbuilding_write_plan(
                 f"unsupported plan version: {version!r}",
                 code="plan_verification_failed",
             )
-        confirmable = _field(plan, "confirmable", optional=True)
-        if confirmable is not _MISSING and confirmable is not False:
+        confirmable = _field(plan, "confirmable")
+        if confirmable is not False:
             raise WorldbuildingWritePlanError(
                 "worldbuilding write plan must not be confirmable",
                 code="plan_verification_failed",
             )
+        confirmable_reason = _require_string(
+            _field(plan, "confirmable_reason"),
+            field="confirmable_reason",
+        )
+        if confirmable_reason != _WORLDBUILDING_CONFIRMABLE_REASON:
+            raise WorldbuildingWritePlanError(
+                "plan confirmable_reason is not the BLD-10a inert-state contract",
+                code="plan_verification_failed",
+            )
+        carried_summary = _canonical_summary(_field(plan, "summary"))
+        carried_diagnostics = _canonical_string_list(
+            _field(plan, "diagnostics"),
+            field="diagnostics",
+        )
         top_fields = {
             name: _require_string(_field(plan, name), field=name)
             for name in (
@@ -1366,6 +1403,8 @@ def verify_worldbuilding_write_plan(
                 self_verify=False,
             )
         except WorldbuildingWritePlanError as exc:
+            if exc.code == "stale_parent_revision":
+                raise
             raise WorldbuildingWritePlanError(
                 f"plan does not rebuild from pinned inputs: {exc}",
                 code="plan_verification_failed",
@@ -1381,14 +1420,28 @@ def verify_worldbuilding_write_plan(
                 "response-carried plan does not match rebuilt authority effect",
                 code="plan_verification_failed",
             )
+        if carried_summary != expected.summary:
+            raise WorldbuildingWritePlanError(
+                "response-carried summary does not match rebuilt plan summary",
+                code="plan_verification_failed",
+            )
+        if carried_diagnostics != list(expected.diagnostics):
+            raise WorldbuildingWritePlanError(
+                "response-carried diagnostics do not match rebuilt plan diagnostics",
+                code="plan_verification_failed",
+            )
         return {
             **top_fields,
             "schema": schema,
             "version": version,
             "effect": effect,
+            "summary": carried_summary,
+            "diagnostics": carried_diagnostics,
+            "confirmable": False,
+            "confirmable_reason": confirmable_reason,
         }
     except WorldbuildingWritePlanError as exc:
-        if exc.code == "plan_verification_failed":
+        if exc.code in {"plan_verification_failed", "stale_parent_revision"}:
             raise
         raise WorldbuildingWritePlanError(
             str(exc),
