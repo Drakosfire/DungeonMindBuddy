@@ -46,9 +46,16 @@ pr_body_template: |
 
 # HANDOFF — Derive recap views and normalize World Graph direction
 
+> **COMPLETED — 2026-07-26.** Shipped via [PR #416](https://github.com/Drakosfire/DungeonMindBuddy/pull/416)
+> (`main` merge commit `6410e04763846b1752336e9725a00e360ba8579f`, merged_at `2026-07-26T19:09:02Z`).
+> Recap nested views reuse `WorldGraphProjectionNodeView`; World Graph directions are
+> closed `outgoing`/`incoming`/`related`. Typecheck remained red on base; operator
+> accepted exact base/head diagnostic equivalence (37→36, only_head=0).
+> Archived as `HANDOFF-pr416-…`. Named successors remain open (see DECISION next gate).
+
 **Created:** 2026-07-26, America/Denver.
-**Status:** ACTIVE — dispatch exactly one contract-hygiene capability.
-**Canonical handoff path:** `Docs/Plans/HANDOFF-derive-recap-views-normalize-direction.md`
+**Status:** DONE — merged as GitHub **PR #416** (`6410e04763846b1752336e9725a00e360ba8579f`).
+**Canonical handoff path:** `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/HANDOFF-pr416-derive-recap-views-normalize-direction.md`
 **Implementation base:** `5c19d433c9e103573ea6bd72ae1f34483862569f` — merge of PR #414.
 **Suggested branch:** `agent/derive-recap-views-normalize-direction`
 **Content slug:** `derive-recap-views-normalize-direction`

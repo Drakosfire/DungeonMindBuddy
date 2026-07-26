@@ -36,9 +36,14 @@ pr_body_template: |
 
 # HANDOFF — Hoist the graph mention linker to a surface-neutral module
 
+> **COMPLETED — 2026-07-26.** Shipped via [PR #414](https://github.com/Drakosfire/DungeonMindBuddy/pull/414)
+> (`main` merge commit `5c19d433c9e103573ea6bd72ae1f34483862569f`).
+> Archived and renamed from `HANDOFF-pr413-…` to `HANDOFF-pr414-…` per `AGENTS.md`.
+> Successor `derive-recap-views-normalize-direction` shipped as PR #416.
+
 **Created:** 2026-07-25.
-**Status:** ACTIVE — implementation open as GitHub **PR #414** (planned filename number #413 was already taken by an unrelated PR).
-**Canonical handoff path:** `Docs/Plans/HANDOFF-pr413-hoist-graph-mention-linker.md` (rename to `HANDOFF-pr414-…` at archive time per `AGENTS.md`).
+**Status:** DONE — merged as GitHub **PR #414** (`5c19d433c9e103573ea6bd72ae1f34483862569f`).
+**Canonical handoff path:** `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/HANDOFF-pr414-hoist-graph-mention-linker.md`
 
 > **Numbering:** Successors below use **content slugs**, not guessed GitHub PR numbers. The old handoff vocabulary "PR #414" / "PR #415" meant those successor slices, not this PR.
 

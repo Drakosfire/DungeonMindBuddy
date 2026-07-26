@@ -3,9 +3,11 @@
 **Created:** 2026-07-25
 **Status:** ACCEPTED — governs projection layering from the mention-linker hoist forward.
 **Supersedes:** nothing. **Superseded by:** nothing.
-**Authority for:** `Docs/Plans/HANDOFF-pr413-hoist-graph-mention-linker.md` (opened as GitHub **PR #414** — planned number #413 was already taken), PR380B (Recap/Ingest UI migration), and any future surface that renders prose beside World Graph nodes.
+**Authority for:** completed graph-lens hygiene slices (PR #414 / PR #416 handoffs under `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/`), PR380B (Recap/Ingest UI migration), and any future surface that renders prose beside World Graph nodes.
 
-> **Numbering lesson (2026-07-25):** Do not name successor slices by guessed GitHub PR numbers in authority docs. Use content slugs. Planned `#413` collided with an unrelated open PR; the hoist landed as `#414`. Rename the handoff to `HANDOFF-pr414-…` at archive time per `AGENTS.md`.
+> **Numbering lesson (2026-07-25):** Do not name successor slices by guessed GitHub PR numbers in authority docs. Use content slugs. Planned `#413` collided with an unrelated open PR; the hoist landed as `#414`. Archive rename to `HANDOFF-pr414-…` completed 2026-07-26.
+>
+> **Doc-sync (2026-07-26):** PR #416 merged (`6410e047`). Sequencing table and archived handoffs updated in the same batch so re-anchors do not still say “dispatched.”
 
 ## Context
 
@@ -71,13 +73,23 @@ A projection is: **exact snapshot identity + node/edge views + focus overlay + t
 
 | Slice (content slug) | Content | Status |
 |---|---|---|
-| `hoist-graph-mention-linker` | Hoist the linker to `markdown_mentions.py`, parameterized by bindings, byte-for-byte identical output | **merged** as GitHub PR #414 (`5c19d433`) — `HANDOFF-pr413-hoist-graph-mention-linker.md` |
-| `derive-recap-views-normalize-direction` | Derive recap views from generic views; normalize `direction` at the kernel boundary | **dispatched** — `HANDOFF-derive-recap-views-normalize-direction.md` |
+| `hoist-graph-mention-linker` | Hoist the linker to `markdown_mentions.py`, parameterized by bindings, byte-for-byte identical output | **merged** as GitHub PR #414 (`5c19d433`) — archived `HANDOFF-pr414-hoist-graph-mention-linker.md` |
+| `derive-recap-views-normalize-direction` | Derive recap views from generic views; normalize `direction` at the kernel boundary | **merged** as GitHub PR #416 (`6410e047`) — archived `HANDOFF-pr416-derive-recap-views-normalize-direction.md` |
 | `migrate-union-mention-path` | Migrate `recap_projection._project_markdown_mentions` onto the hoisted linker, closing the unprotected second implementation | named successor, not dispatched |
 | `normalize-union-direction-vocabulary` | Decide and normalize the separate `UnionSupergraphProjectionResponse` family | named successor (split from derive-views so World Graph and union contracts stay separate) |
-| PR380B | Recap/Ingest UI migration; consumes the hoisted module rather than a recap-private one | blocked on `derive-recap-views-normalize-direction` |
+| PR380B | Recap/Ingest UI migration; consumes the World Graph recap route + hoisted linker | **unblocked** — World Graph contract hygiene complete; product migration not started |
 
-The hoist was deliberately a pure move with a characterization-test invariant. `derive-recap-views-normalize-direction` is the genuine contract change: direct generic-model reuse for recap nested views plus closed `outgoing`/`incoming`/`related` vocabulary at the World Graph boundary.
+The hoist was deliberately a pure move with a characterization-test invariant. `derive-recap-views-normalize-direction` was the genuine contract change: direct generic-model reuse for recap nested views plus closed `outgoing`/`incoming`/`related` vocabulary at the World Graph boundary. Both are now on `main`.
+
+### Next gate (operator choice — fork before or into product migration)
+
+World Graph presentation hygiene is done. Three independent next moves remain; pick **one** before authoring the next HANDOFF:
+
+1. **`migrate-union-mention-path`** — put the unprotected union-supergraph mention path on the hoisted CommonMark linker (behavior change under the existing union preview endpoint; closes the dual-implementation landmine).
+2. **`normalize-union-direction-vocabulary`** — decide and normalize the separate `UnionSupergraphProjectionResponse` direction family (closes the other wire-contract dual vocabulary).
+3. **PR380B** — migrate Recap/Ingest UI (and shared object navigation) onto the World Graph recap route now that nested views and directions are stable.
+
+(1) and (2) reduce dual-contract risk before UI cutover; (3) is the dogfood payoff and may proceed immediately if the operator accepts living with union legacy contracts until later. Do not combine these into one slice.
 
 ## Consequences
 
@@ -103,6 +115,8 @@ The hoist was deliberately a pure move with a characterization-test invariant. `
 ## Related
 
 - `Docs/Plans/HANDOFF-pr412-world-graph-recap-projection-contract.md` — the slice whose review rounds produced this record.
+- `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/` — completed PR #414 / #416 handoffs.
 - `Docs/Design/CONTRACT-graph-kernel-boundary.md` — where decision 3's normalization lands.
 - `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` — sibling concern for surface vocabulary.
+- `Backlog.md` `[READY] Recap View / ingest must project world graph (not session preview union)` — product intent that PR380B satisfies.
 - `Backlog.md` `[READY] Hoist the Build authoring lifecycle into a shared document-bound Markdown canvas` — the same "hoist the hardened thing, migrate the first consumer without behavior change" pattern at the frontend authoring layer. Independent scope; worth reading together for the shared anti-goal discipline.
