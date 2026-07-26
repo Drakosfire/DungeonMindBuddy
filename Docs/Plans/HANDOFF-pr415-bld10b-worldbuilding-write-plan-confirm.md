@@ -23,7 +23,7 @@ pr_body_template: |
   | Rebuild-as-verify before any write | service | adversarial reseal tests | {{TODO}} |
   | Presentation tamper does not change write | service | summary/diagnostics/confirmable reseal | {{TODO}} |
   | Stale parent → 409, no mutation | HTTP | concurrent-head / wrong-parent tests | {{TODO}} |
-  | Exact retry → already_applied, no second revision | HTTP | retry after commit | {{TODO}} |
+  | Exact retry → 409 stale_parent_revision, no second revision | HTTP | retry after commit | {{TODO}} |
   | Recap `/confirm` still rejects plan schema | HTTP | regression | {{TODO}} |
   | Recap prepare/confirm unchanged | regression suite | owning suite | {{TODO}} |
 
@@ -107,8 +107,8 @@ become durable without repeating identity inference.
 | Question | Answer |
 |---|---|
 | Can one invariant govern every claimed observable path? | Yes — every path is “verify sealed plan against trusted context + parent head, then one Kernel merge or refuse.” |
-| What adversarial sequence is most likely to falsify it? | Prepare succeeds → client rewrites summary/diagnostics/confirmableReason and/or effect fields with resealed digests → confirm must refuse, or if effect is authentic but head advanced → 409 stale_parent without a second contribution. Exact retry after success must return `already_applied` without a second revision. |
-| Would the proposed §7 evidence actually detect that failure? | Yes — HTTP owning-boundary tests for happy path, presentation-only reseal, effect reseal, stale parent, exact retry; plus unit tests that confirm materializes from rebuilt authority, not raw client assertions. |
+| What adversarial sequence is most likely to falsify it? | Prepare succeeds → client rewrites summary/diagnostics/confirmableReason and/or effect fields with resealed digests → confirm must refuse, or if effect is authentic but head advanced → 409 stale_parent without a second contribution. Exact retry after success must return `409 stale_parent_revision` (plan parent no longer matches head); no second revision. |
+| Would the proposed §7 evidence actually detect that failure? | Yes — HTTP owning-boundary tests for happy path, presentation-only reseal, effect reseal, stale parent, exact retry; Kernel CAS race tests; plus unit tests that confirm materializes from rebuilt authority with `proposal_digest=planDigest`, not raw client assertions. |
 | Which owning boundary is easiest to under-test? | Service confirm path that trusts client `effect.accepted_proposals` after a digest check that omitted presentation/rebuild equality. |
 | What fact would force this slice to stop or split? | Discovering that Kernel merge requires recap-only gates (`played_canon`, session scope, assertion_ids subset) that cannot admit the sealed worldbuilding contribution without redesigning Kernel promote; or that exact retry needs a new durable plan registry rather than contribution-ledger identity. |
 
@@ -155,7 +155,7 @@ If the base moved, an authority conflicts, the predecessor shape differs, or the
 | Confirm with rewritten presentation only (summary/diagnostics/confirmable*) | N/A | 422/409 verification failure; no mutation | Yes | service verify |
 | Confirm with resealed effect tamper | N/A | verification failure; no mutation | Yes | service verify |
 | Confirm when parent head advanced | N/A | `409 stale_parent_revision`; no mutation | Yes | service |
-| Exact retry of same verified plan after successful commit | N/A | `already_applied`; head unchanged on retry | Yes | service + Kernel ledger |
+| Exact retry of same verified plan after successful commit | N/A | `409 stale_parent_revision`; head unchanged on retry | Yes | service + Kernel CAS |
 | Existing `/confirm` with worldbuilding plan schema | `422 invalid_request` | unchanged rejection | Yes | service `confirm` |
 | Recap prepare→confirm | works | unchanged | Yes | regression |
 | Missing/unknown run or non-reviewable run at confirm | N/A | stable fail-closed (422/404 as prepare family); no mutation | Yes | service |
@@ -163,7 +163,7 @@ If the base moved, an authority conflicts, the predecessor shape differs, or the
 
 | Sequence | Required safe outcome | Owning proof |
 |---|---|---|
-| prepare → confirm success → confirm identical package again | second call `already_applied`; one contribution; one head advance total | §7 retry test |
+| prepare → confirm success → confirm identical package again | second call `409 stale_parent_revision`; one contribution; one head advance total | §7 retry test |
 | prepare → concurrent head advance → confirm | `409 stale_parent_revision`; world store unchanged by confirm | §7 stale-parent test |
 | prepare → mutate summary counts / insert diagnostics / omit confirmable / rewrite confirmableReason → confirm | refuse; no mutation | §7 presentation adversarial |
 | prepare → rewrite accepted assertion body + reseal digests → confirm | refuse; no mutation | §7 effect adversarial |
@@ -174,12 +174,13 @@ If the base moved, an authority conflicts, the predecessor shape differs, or the
 | Action | Path | Purpose: how this establishes or proves §1 |
 |---|---|---|
 | Modify | `src/graph_memory/worldbuilding_write_plan.py` | Add materialize-from-verified-plan helper (contribution from rebuild authority); keep verify as sole trust gate |
+| Modify | `src/graph_memory/kernel/contribution_merge.py` | Kernel CAS on publish: stale-parent losers must not demote an identical peer-published contribution; index save ordering |
 | Modify | `apps/live_control_server/models/extract_promote.py` | Confirm request/receipt models for worldbuilding plan |
-| Modify | `apps/live_control_server/services/extract_promote.py` | `confirm_worldbuilding` service: resolve run, trusted context, verify, merge, stale/already_applied |
+| Modify | `apps/live_control_server/services/extract_promote.py` | `confirm_worldbuilding` service: resolve run, trusted context, verify, merge, stale parent, published_audit_degraded |
 | Modify | `apps/live_control_server/routes/extract_promote.py` | `POST /worldbuilding/confirm` route |
 | Modify | `tests/test_worldbuilding_write_plan.py` | Unit/contract proofs for materialize + verify-before-write helpers |
 | Modify | `tests/test_live_extract_promote_api.py` | HTTP owning-boundary: commit, stale, retry, presentation/effect refuse, recap `/confirm` rejection |
-| Modify | `tests/test_extract_promote_ops_atomic.py` | Only if Kernel merge wiring needs an ops-level atomic proof for worldbuilding; otherwise leave untouched |
+| Modify | `tests/test_graph_kernel_contribution_merge.py` | Concurrent same-plan / different-plan CAS race proofs |
 
 **Bounded discovery exception:**
 
@@ -216,14 +217,17 @@ Input:
 
 Output:
   worldbuilding confirm receipt:
-    outcome: committed | already_applied
+    outcome: committed | published_audit_degraded
     world_id, plan_id, plan_digest, decision_digest
     parent_revision_id, committed_revision_id
     head_advanced: bool
     contribution_id
     applied_assertion_count (from verified accepted assertions)
+    audit_status: ok | degraded
+    warnings (non-empty when audit degraded)
   On success committed: World Graph head == committed_revision_id
-  On already_applied: head unchanged by this call; contribution already active
+  On published_audit_degraded: head may have advanced; committed_revision_id is audit-proven; audit_status degraded
+  On stale retry after commit: 409 stale_parent_revision; head unchanged by retry
 
 Invariant:
   same as §1
@@ -237,9 +241,10 @@ Failure behavior:
   merge refused → 409 merge_did_not_publish (or Kernel-mapped code); no silent success
 
 Replay / idempotency:
-  same verified plan after successful commit → already_applied (contribution ledger)
-  changed plan / different digests → not already_applied; verify or merge as a distinct contribution
+  same verified plan after successful commit → 409 stale_parent_revision on exact retry (parent pinned in plan ≠ current head)
+  changed plan / different digests → distinct contribution identity via proposal_digest=planDigest
   retry after stale parent when contribution not applied → 409 stale_parent_revision
+  Kernel concurrent merge with same parent → CAS: exactly one publish; stale loser must not overwrite winner as failed when same contribution_id
 
 Trust boundary:
   Verifies:
@@ -266,7 +271,7 @@ Before commit:
      preferred order: require head == plan.parent_revision_id first, then verify)
   verify_worldbuilding_write_plan(plan, preview=typed_preview, world_root, context)
   materialize GraphContribution from rebuilt verified effect/meta
-    (accepted/rejected/unresolved from rebuilt plan, proposal_digest=decision_digest,
+    (accepted/rejected/unresolved from rebuilt plan, proposal_digest=planDigest,
      authored_by and source_kind from worldbuilding constants)
 
 After commit:
@@ -281,7 +286,7 @@ Truthful result after a post-commit audit failure:
 
 | Observable path | Loading | Exact success | Ordinary miss | Dependency unavailable | Integrity failure | Stale | Retry |
 |---|---|---|---|---|---|---|---|
-| worldbuilding confirm | N/A | committed + head advanced | unknown run → not-found family | world missing → 409 | plan_verification_failed | stale_parent 409 | exact → already_applied |
+| worldbuilding confirm | N/A | committed + head advanced | unknown run → not-found family | world missing → 409 | plan_verification_failed | stale_parent 409 | exact retry → stale_parent 409 |
 | recap confirm | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged | unchanged |
 
 ### B. Identity matrix
@@ -296,7 +301,7 @@ Truthful result after a post-commit audit failure:
 
 | Operation | Durable representation | Round-trip guarantee | Duplicate / replay | Compatibility | Rollback |
 |---|---|---|---|---|---|
-| confirm commit | Kernel contribution record + world revision + head | contribution_id deterministic from sealed contribution identity | already_applied when active | consume `dmb_worldbuilding_write_plan_v1` only | no automatic rollback; head advance is the commit |
+| confirm commit | Kernel contribution record + world revision + head | contribution_id deterministic from sealed contribution identity (proposal_digest=planDigest) | exact retry after commit → stale_parent (not silent double commit) | consume `dmb_worldbuilding_write_plan_v1` only | no automatic rollback; head advance is the commit |
 | prepare | still response-carried only | unchanged from BLD-10a | rebuild same plan | v1 | N/A |
 
 ### D. Predecessor-to-consumer mapping
@@ -322,7 +327,9 @@ Truthful result after a post-commit audit failure:
 | Presentation-only tamper refuses without mutation | HTTP/service | adversarial | mutate summary/diagnostics/confirmable*/reason | non-2xx; world bytes unchanged | any accept |
 | Effect reseal refuses without mutation | HTTP/service | adversarial | rewrite accepted assertion + reseal digests | verification failure; no mutation | accept |
 | Stale parent → 409 | HTTP | adversarial | advance head between prepare and confirm | `409 stale_parent_revision` | 500 or silent write |
-| Exact retry → already_applied | HTTP | adversarial | confirm twice | second `already_applied`; one revision | second revision |
+| Exact retry → 409 stale_parent_revision | HTTP | adversarial | confirm twice after head advanced | second `409 stale_parent_revision`; one revision | second revision |
+| Kernel CAS same-plan race | Kernel | adversarial | threaded merge with barrier on publish | one publish; winner active; loser stale | loser marks winner failed |
+| published_audit_degraded after index failure | HTTP/Kernel | adversarial | fail save_contribution_index post-publish | degraded receipt + real revision id | 500 or silent rollback |
 | Recap `/confirm` rejects worldbuilding schema | HTTP | regression | post plan to `/confirm` | `422 invalid_request` | accept |
 | Recap prepare/confirm still green | regression | regression | owning suite | no new failures vs base waiver set | new recap failures |
 | Kernel boundary tests | regression | regression | `test_graph_kernel_boundaries` | no new violations; baseline waiver explicit | new violations on head |

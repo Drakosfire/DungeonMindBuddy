@@ -1876,7 +1876,7 @@ def _default_worldbuilding_dispositions() -> list[dict[str, str]]:
     ]
 
 
-def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_already_applied(
+def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_stale_parent(
     world_client,
 ) -> None:
     client, world_root, repo, *_rest = world_client
@@ -1898,9 +1898,11 @@ def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_already_ap
     first_body = first.json()
     assert first_body["schema"] == "dmb_worldbuilding_write_plan_confirm_v1"
     assert first_body["outcome"] == "committed"
+    assert first_body["auditStatus"] == "ok"
     assert first_body["headAdvanced"] is True
     assert first_body["parentRevisionId"] == parent
     assert first_body["committedRevisionId"] != parent
+    assert first_body["planDigest"] == plan["planDigest"]
     assert first_body["appliedAssertionCount"] == plan["summary"]["acceptedAssertionCount"]
     head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
     assert head_after == first_body["committedRevisionId"]
@@ -1908,23 +1910,134 @@ def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_already_ap
     committed_store = kernel.load_world_graph_revision(
         world_root, WORLD_ID, first_body["committedRevisionId"]
     )
+    def _kind(item: dict) -> str | None:
+        return item.get("assertionKind") or item.get("assertion_kind")
+
+    def _subject_id(item: dict) -> str | None:
+        return item.get("subjectNodeId") or item.get("subject_node_id")
+
+    def _target_id(item: dict) -> str | None:
+        return item.get("targetNodeId") or item.get("target_node_id")
+
     created_ids = {
-        item["subjectNodeId"]
+        _subject_id(item)
         for item in plan["effect"]["acceptedProposals"]
-        if item.get("assertionKind") == "object"
+        if _kind(item) == "node"
     }
     for node_id in created_ids:
         assert node_id in committed_store.nodes
+    edge_assertions = [
+        item
+        for item in plan["effect"]["acceptedProposals"]
+        if _kind(item) == "edge"
+    ]
+    assert edge_assertions
+    for edge in edge_assertions:
+        assert _subject_id(edge) in committed_store.nodes
+        assert _target_id(edge) in committed_store.nodes
+
+    contribution_id = first_body["contributionId"]
+    record_path = (
+        world_root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{contribution_id.replace(':', '__')}.json"
+    )
+    assert record_path.is_file()
+    contrib_record = json.loads(record_path.read_text(encoding="utf-8"))
+    assert contrib_record["status"] == "active"
+    index_path = (
+        world_root / "graph_memory" / "worlds" / WORLD_ID / "contribution_index.json"
+    )
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    assert contribution_id in index["active_contribution_ids"]
+
+    from graph_memory.world_supergraph.contribution_store import load_contribution_record
+
+    contrib_obj = load_contribution_record(world_root, WORLD_ID, contribution_id)
+    source_digest = kernel.compute_contribution_source_payload_sha256(contrib_obj)
+    assert (
+        committed_store.contribution_source_payload_sha256.get(contribution_id)
+        == source_digest
+    )
+    replay_ids = {
+        entry.contribution_id
+        for entry in (committed_store.contribution_replay_manifest or [])
+    }
+    assert contribution_id in replay_ids or contribution_id in (
+        committed_store.contribution_source_payload_sha256 or {}
+    )
+
+    rejected_in_plan = plan["effect"].get("rejectedAssertions") or []
+    if rejected_in_plan:
+        assert first_body["rejectedAssertionIds"]
+        for assertion_id in first_body["rejectedAssertionIds"]:
+            assert any(
+                item["assertionId"] == assertion_id for item in rejected_in_plan
+            )
+    deferred = plan["effect"].get("deferredCandidateIds") or []
+    mentions = plan["effect"].get("unresolvedMentions") or []
+    if deferred or mentions:
+        assert first_body["unresolvedMentionIds"] or mentions
 
     second = client.post(WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan))
-    assert second.status_code == 200, second.text
+    assert second.status_code == 409, second.text
     second_body = second.json()
-    assert second_body["outcome"] == "already_applied"
-    assert second_body["headAdvanced"] is False
-    assert second_body["contributionId"] == first_body["contributionId"]
+    assert second_body["code"] == "stale_parent_revision"
     assert (
         kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
         == head_after
+    )
+
+
+def test_worldbuilding_confirm_published_audit_degraded_when_index_save_fails(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepared = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=_default_worldbuilding_dispositions(),
+        ),
+    )
+    assert prepared.status_code == 200, prepared.text
+    plan = prepared.json()
+
+    from graph_memory.kernel import contribution_merge as contribution_merge_mod
+
+    real_save = contribution_merge_mod.save_contribution_index
+
+    def _fail_index_save(*args, **kwargs):
+        raise RuntimeError("simulated index persistence failure")
+
+    monkeypatch.setattr(
+        "graph_memory.kernel.contribution_merge.save_contribution_index",
+        _fail_index_save,
+    )
+
+    response = client.post(
+        WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan)
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["outcome"] == "published_audit_degraded"
+    assert body["auditStatus"] == "degraded"
+    assert body["committedRevisionId"]
+    assert body["committedRevisionId"] != parent
+    assert body["headAdvanced"] is True
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == body["committedRevisionId"]
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "save_contribution_index",
+        real_save,
     )
 
 

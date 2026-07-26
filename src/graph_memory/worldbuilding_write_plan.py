@@ -851,12 +851,14 @@ def _load_pinned_parent(
 def materialize_worldbuilding_contribution(
     *,
     world_id: str,
-    decision_digest: str,
+    plan_digest: str,
     effect: Mapping[str, Any],
 ) -> GraphContribution:
     """Build a GraphContribution from a rebuild-verified plan effect.
 
     Call only after ``verify_worldbuilding_write_plan`` has proved the effect.
+    Contribution identity binds ``plan_digest`` (parent + effect + decisions),
+    not the disposition-only ``decision_digest``.
     """
     canonical = _canonical_effect(effect)
     meta = canonical["contribution_meta"]
@@ -893,7 +895,7 @@ def materialize_worldbuilding_contribution(
         rejected_assertions=rejected,
         unresolved_mentions=unresolved,
         authored_by=WORLD_BUILDING_WRITE_PLAN_AUTHORED_BY,
-        proposal_digest=_nonblank(decision_digest, field="decision_digest"),
+        proposal_digest=_nonblank(plan_digest, field="plan_digest"),
         produced_at=_FIXED_PRODUCED_AT,
         diagnostics=[],
     )

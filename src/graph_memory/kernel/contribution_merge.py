@@ -24,6 +24,7 @@ from graph_memory.kernel.contributions import (
 )
 from graph_memory.kernel.world_graph import (
     WorldGraphNotFoundError,
+    WorldGraphStaleParentError,
     WorldGraphValidationError,
     load_current_world_graph,
     open_world_graph_head,
@@ -39,7 +40,7 @@ from graph_memory.union_supergraph.model import (
     UnionSupergraphStore,
 )
 from graph_memory.world_supergraph.contribution_store import (
-
+    ContributionIndex,
     load_contribution_index,
     load_contribution_record,
     save_contribution_index,
@@ -1122,6 +1123,63 @@ def _contribution_already_applied(
     return True
 
 
+def _contribution_active_and_applied_on_head(
+    root: Path,
+    world_id: str,
+    contribution: GraphContribution,
+) -> bool:
+    """True when this contribution is active in the ledger and applied on the head.
+
+    Used so a CAS loser cannot demote a peer-published identical contribution.
+    """
+    try:
+        existing = load_contribution_record(
+            root, world_id, contribution.contribution_id
+        )
+    except FileNotFoundError:
+        return False
+    if existing is None or existing.status != "active":
+        return False
+    try:
+        _head, _revision, store = load_current_world_graph(root, world_id)
+    except WorldGraphNotFoundError:
+        return False
+    return _contribution_already_applied(store, contribution)
+
+
+def _mark_merge_contribution_failed(
+    *,
+    root: Path,
+    world_id: str,
+    index: ContributionIndex,
+    to_store: GraphContribution,
+    diagnostics: list[str],
+    reason: str,
+) -> tuple[ContributionIndex, list[str]]:
+    failed = to_store.model_copy(
+        update={
+            "status": "failed",
+            "diagnostics": [*diagnostics, reason],
+        }
+    )
+    write_contribution_record(root, world_id, failed)
+    index = upsert_contribution_in_index(index, failed)
+    save_contribution_index(root, world_id, index)
+    diagnostics = [*diagnostics, reason]
+    return index, diagnostics
+
+
+def _stale_parent_value_error(
+    *,
+    expected_parent_revision_id: str | None,
+    exc: BaseException,
+) -> ValueError:
+    return ValueError(
+        f"stale parent: expected {expected_parent_revision_id!r}, "
+        f"head advanced during publish ({exc})"
+    )
+
+
 def _canonical_mutating_assertion_ids(
     contribution: GraphContribution,
 ) -> set[str]:
@@ -1380,17 +1438,45 @@ def merge_contribution_to_revision(
             operation_ids=[to_store.contribution_id],
             expected_parent_revision_id=parent_revision_id,
         )
+    except WorldGraphStaleParentError as exc:
+        # CAS loser: never demote a contribution that already published on head.
+        if not _contribution_active_and_applied_on_head(root, world_id, to_store):
+            _mark_merge_contribution_failed(
+                root=root,
+                world_id=world_id,
+                index=index,
+                to_store=to_store,
+                diagnostics=diagnostics,
+                reason=f"merge_failed:{exc}",
+            )
+        raise _stale_parent_value_error(
+            expected_parent_revision_id=parent_revision_id,
+            exc=exc,
+        ) from exc
     except (WorldGraphValidationError, ValueError, Exception) as exc:
-        failed = to_store.model_copy(
-            update={
-                "status": "failed",
-                "diagnostics": [*diagnostics, f"merge_failed:{exc}"],
-            }
+        if isinstance(exc, ValueError) and "stale parent" in str(exc).lower():
+            if not _contribution_active_and_applied_on_head(root, world_id, to_store):
+                _mark_merge_contribution_failed(
+                    root=root,
+                    world_id=world_id,
+                    index=index,
+                    to_store=to_store,
+                    diagnostics=diagnostics,
+                    reason=f"merge_failed:{exc}",
+                )
+            raise
+        # If a peer already published this exact contribution, do not overwrite
+        # the winning active ledger record as failed.
+        if _contribution_active_and_applied_on_head(root, world_id, to_store):
+            raise
+        index, diagnostics = _mark_merge_contribution_failed(
+            root=root,
+            world_id=world_id,
+            index=index,
+            to_store=to_store,
+            diagnostics=diagnostics,
+            reason=f"merge_failed:{exc}",
         )
-        write_contribution_record(root, world_id, failed)
-        index = upsert_contribution_in_index(index, failed)
-        save_contribution_index(root, world_id, index)
-        diagnostics.append(f"merge_failed:{exc}")
         return ContributionMergeResult(
             world_id=world_id,
             parent_revision_id=parent_revision_id,

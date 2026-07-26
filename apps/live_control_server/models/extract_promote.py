@@ -272,7 +272,8 @@ WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA = (
 WORLD_BUILDING_WRITE_PLAN_CONFIRM_RESPONSE_SCHEMA = (
     "dmb_worldbuilding_write_plan_confirm_v1"
 )
-WorldbuildingConfirmOutcome = Literal["committed", "already_applied"]
+ConfirmAuditStatus = Literal["ok", "degraded"]
+WorldbuildingConfirmOutcome = Literal["committed", "published_audit_degraded"]
 
 
 class WorldbuildingWritePlanConfirmRequest(_ExtractPromoteModel):
@@ -298,12 +299,14 @@ class WorldbuildingWritePlanConfirmReceipt(_ExtractPromoteModel):
     head_advanced: bool
     contribution_id: str
     applied_assertion_count: int
-    audit_status: ConfirmAuditStatus = "ok"
+    accepted_assertion_ids: list[str] = Field(default_factory=list)
+    rejected_assertion_ids: list[str] = Field(default_factory=list)
+    unresolved_mention_ids: list[str] = Field(default_factory=list)
+    audit_status: ConfirmAuditStatus
     warnings: list[str] = Field(default_factory=list)
 
 
 ConfirmOutcome = Literal["committed", "already_applied", "published_audit_degraded"]
-ConfirmAuditStatus = Literal["ok", "degraded"]
 
 
 class ExtractPromoteConfirmRequest(_ExtractPromoteModel):

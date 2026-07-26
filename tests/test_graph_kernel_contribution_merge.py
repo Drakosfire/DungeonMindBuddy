@@ -1487,3 +1487,193 @@ def test_party_registry_source_artifact_session_id_drift_allows_merge(seeded_roo
     assert second_result.published is True, second_result.diagnostics
     _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
     assert store.source_artifacts[artifact_id].session_id == "session-3"
+
+
+def _race_merge_contribution(
+    root: Path,
+    *,
+    contribution: object,
+    expected_parent: str,
+    monkeypatch: pytest.MonkeyPatch,
+    barrier: object,
+) -> tuple[list[object], list[BaseException]]:
+    import graph_memory.kernel.contribution_merge as contribution_merge_mod
+
+    real_publish = contribution_merge_mod.publish_world_graph_revision
+
+    def sync_publish(*args, **kwargs):
+        barrier.wait(timeout=5)
+        return real_publish(*args, **kwargs)
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "publish_world_graph_revision",
+        sync_publish,
+    )
+    results: list[object] = []
+    errors: list[BaseException] = []
+
+    def _run() -> None:
+        try:
+            results.append(
+                kernel.merge_contribution_to_revision(
+                    root,
+                    world_id=WORLD_ID,
+                    contribution=contribution,
+                    expected_parent_revision_id=expected_parent,
+                )
+            )
+        except BaseException as exc:
+            errors.append(exc)
+
+    import threading
+
+    threads = [threading.Thread(target=_run) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    return results, errors
+
+
+def test_concurrent_same_plan_race_one_publish_winner_stays_active(
+    seeded_root, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+    import threading
+
+    root, parent = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_same_plan_race",
+        label="SamePlanRace",
+        source_artifact_id="artifact:same-plan-race",
+    )
+    proposal_digest = "sha256:" + ("a1" * 32)
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:same-plan-race",
+        source_revision_id="src-rev-same-plan",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest=proposal_digest,
+    )
+    barrier = threading.Barrier(2)
+    results, errors = _race_merge_contribution(
+        root,
+        contribution=contribution,
+        expected_parent=parent,
+        monkeypatch=monkeypatch,
+        barrier=barrier,
+    )
+    published = [item for item in results if item.published]
+    assert len(published) == 1
+    assert len(errors) == 1
+    assert "stale parent" in str(errors[0]).lower()
+
+    record_path = (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{contribution.contribution_id.replace(':', '__')}.json"
+    )
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    assert record["status"] == "active"
+    head_after, _, _ = kernel.open_current_world_graph(root, WORLD_ID)
+    assert head_after.head_revision_id != parent
+
+
+def test_concurrent_different_plan_race_one_publish_winner_stays_active(
+    seeded_root, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+    import threading
+
+    root, parent = seeded_root
+    assertion_a = _node_assertion(
+        node_id="npc_diff_plan_race_a",
+        label="DiffPlanA",
+        source_artifact_id="artifact:diff-plan-race-a",
+    )
+    assertion_b = _node_assertion(
+        node_id="npc_diff_plan_race_b",
+        label="DiffPlanB",
+        source_artifact_id="artifact:diff-plan-race-b",
+    )
+    contrib_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:diff-plan-race-a",
+        source_revision_id="src-rev-a",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion_a],
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest="sha256:" + ("b1" * 32),
+    )
+    contrib_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:diff-plan-race-b",
+        source_revision_id="src-rev-b",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion_b],
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest="sha256:" + ("b2" * 32),
+    )
+    barrier = threading.Barrier(2)
+    import graph_memory.kernel.contribution_merge as contribution_merge_mod
+
+    real_publish = contribution_merge_mod.publish_world_graph_revision
+
+    def sync_publish(*args, **kwargs):
+        barrier.wait(timeout=5)
+        return real_publish(*args, **kwargs)
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "publish_world_graph_revision",
+        sync_publish,
+    )
+    results: list[tuple[str, object]] = []
+    errors: list[tuple[str, BaseException]] = []
+
+    def _run(label: str, contribution: object) -> None:
+        try:
+            merge_result = kernel.merge_contribution_to_revision(
+                root,
+                world_id=WORLD_ID,
+                contribution=contribution,
+                expected_parent_revision_id=parent,
+            )
+            results.append((label, merge_result))
+        except BaseException as exc:
+            errors.append((label, exc))
+
+    threads = [
+        threading.Thread(target=_run, args=("a", contrib_a)),
+        threading.Thread(target=_run, args=("b", contrib_b)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    published = [(label, item) for label, item in results if item.published]
+    assert len(published) == 1
+    assert len(errors) == 1
+    assert "stale parent" in str(errors[0][1]).lower()
+
+    winner_id = published[0][1].contribution_ids[0]
+    winner_path = (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{winner_id.replace(':', '__')}.json"
+    )
+    winner_record = json.loads(winner_path.read_text(encoding="utf-8"))
+    assert winner_record["status"] == "active"
