@@ -574,6 +574,7 @@ def test_oversized_response_body_rejected_before_parse() -> None:
 def test_client_exposes_candidate_operations_for_sbw03() -> None:
     assert hasattr(DungeonMindStatblockV1Client, "generate_candidate")
     assert hasattr(DungeonMindStatblockV1Client, "get_candidate")
+    assert hasattr(DungeonMindStatblockV1Client, "revise_candidate")
 
 
 def test_internal_key_absent_from_readiness_payload() -> None:
@@ -978,3 +979,58 @@ def test_create_terminal_inventory_does_not_infer_from_status_alone() -> None:
         for spec in CREATE_OUTCOME_INVENTORY
         if spec.terminal_non_begin == "yes"
     )
+
+
+def test_revise_candidate_posts_and_binds_receipt() -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        ReviseCandidateRequestV1,
+    )
+
+    request = ReviseCandidateRequestV1.model_validate(
+        _fixture("server_revise_transcripts/revise-request.json")
+    )
+    captured: dict[str, object] = {}
+
+    def handler(request_http: httpx.Request) -> httpx.Response:
+        captured["method"] = request_http.method
+        captured["path"] = request_http.url.path
+        captured["body"] = json.loads(request_http.content.decode("utf-8"))
+        return httpx.Response(
+            200, json=_fixture("server_revise_transcripts/revise-replay-response.json")
+        )
+
+    client = _client(httpx.MockTransport(handler))
+    candidate = client.revise_candidate(_fixture("server_revise_transcripts/revise-request.json"))
+    assert captured["method"] == "POST"
+    assert captured["path"] == "/api/internal/dungeonbuddy/v1/statblock-candidates:revise"
+    assert candidate.generation_receipt is not None
+    assert candidate.generation_receipt.request_id == request.request_id
+
+
+def test_revise_candidate_maps_409_and_410() -> None:
+    body = _fixture("server_revise_transcripts/revise-request.json")
+
+    def conflict_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            409, json=_fixture("server_revise_transcripts/revise-conflict-response.json")
+        )
+
+    with pytest.raises(StatblockIntegrationError) as exc_info:
+        _client(httpx.MockTransport(conflict_handler)).revise_candidate(body)
+    assert exc_info.value.category == "downstream_conflict"
+
+    def expired_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            410,
+            json={
+                "error": {
+                    "code": "candidate_expired",
+                    "message": "expired",
+                    "details": {},
+                }
+            },
+        )
+
+    with pytest.raises(StatblockIntegrationError) as exc_info2:
+        _client(httpx.MockTransport(expired_handler)).revise_candidate(body)
+    assert exc_info2.value.category == "downstream_expired"

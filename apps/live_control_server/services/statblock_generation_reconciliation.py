@@ -709,6 +709,22 @@ def _capacity_usage(
     return used
 
 
+def count_generation_capacity_usage(
+    root: Path,
+    *,
+    draft_id: str,
+    ref_candidate_ids: set[str],
+) -> int:
+    """Public helper: attached refs plus unbound SBW03 generation reservations."""
+    with _reconciliation_lock(root):
+        entries = _list_draft_entries_unlocked(
+            root,
+            draft_id=draft_id,
+            ref_candidate_ids=ref_candidate_ids,
+        )
+        return _capacity_usage(entries, ref_candidate_ids=ref_candidate_ids)
+
+
 def _draft_has_ref_lineage(
     *,
     ref_entries: list[tuple[str, str]] | None,

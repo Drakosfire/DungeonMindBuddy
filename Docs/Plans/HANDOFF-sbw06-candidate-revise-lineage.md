@@ -2,7 +2,7 @@
 
 **Created:** 2026-07-22
 **Updated:** 2026-07-25 — `SBW07` COMPLETE (`#409` / `455daf49`); `SBW06-contract` active (doc-only freeze)
-**Status:** `SBW06-contract` — DISPATCH READY FOR CONTRACT PR ONLY. Do not begin `SBW06a` until this §12 is approved.
+**Status:** `SBW06a` — IN PROGRESS (exact edited `source_definition` adapter + revise journal)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`
 **Workstream:** `SBW06`
 **Repository:** `Drakosfire/DungeonMindBuddy`
@@ -33,12 +33,12 @@ This section is the **approve-or-reject contract** for `SBW06-contract`. Impleme
 
 | Fact | Value |
 |---|---|
-| Buddy vendored OpenAPI fingerprint | `sha256:75bef3f4d3cffa30532e557fb822fe1d0cb3877a9a46d5b83ff637f3078cd748` |
+| Buddy vendored OpenAPI fingerprint | `sha256:770cb3ae5e72b0997b3b9a99462bc64f53a632a94aa2bc21dffa6bc7297662fe` |
 | Current DungeonMindServer OpenAPI fingerprint (on disk) | `sha256:d51883b9495f8f42db88abdcb7d5290ca3790519eaf63c6350dbe91c3122a09c` |
 | `ReviseCandidateRequestV1` / `ExactRevisionLocatorV1` equality across fingerprints | **Equal** (revise transport shapes match; full OpenAPI still lags — separate backlog vendor sync) |
 | Server revise route | `POST /api/internal/dungeonbuddy/v1/statblock-candidates:revise` (`revise_statblock_candidate_v1`) |
-| Server revise idempotency | **Non-idempotent** (router explicitly omits generate replay/409 codes; `GenerationServiceV1.revise` calls `_run` without generate-operation begin) |
-| Buddy revise fixtures / transcripts | **None yet** (SBW07a create transcripts only). Capture required in `SBW06a`. |
+| Server revise idempotency | **Same-key replay / changed-body conflict** (Server PR #24; §12.11 gate closed for `SBW06a`) |
+| Buddy revise fixtures / transcripts | Captured under `tests/fixtures/statblocks/v1/server_revise_transcripts/` (`SBW06a`) |
 | Design-only revise fixture (Server, non-v1 API shape) | `DungeonMindServer/Docs/Design/fixtures/statblockgenerator-command-board-contract/revise_existing.latch_harrow_weaker.json` — **not** a v1 transport fixture |
 | Candidate-ref capacity | `ThreatDraftV1.candidate_refs` `max_length=64` (`_MAX_LIST`) |
 

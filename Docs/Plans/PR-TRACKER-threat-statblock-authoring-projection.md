@@ -5,7 +5,7 @@
 **PR base / repository tip:** `742415e7` on `main` (includes `#409` SBW07c merge; may include unrelated work)
 **Logical SBW predecessor:** `#409` / `455daf49` — `SBW07` COMPLETE
 **This PR:** `SBW06-contract` — revise journal + lineage/status transition table (docs only)
-**Next dispatch after this PR merges:** `SBW06a` (blocked on HANDOFF-sbw06 §12.11 Server revise recovery gate)
+**Next dispatch after this PR merges:** `SBW06b` (ThreatDraft ref + lineage attach)
 **Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).
 
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
@@ -198,7 +198,7 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 | Bite | Status | Mission | Exclusions |
 |---|---|---|---|
 | `SBW06-contract` | **this PR** | Doc-only revise journal + lineage/status transition table (§12 freeze) | Implementation code |
-| `SBW06a` | after contract + §12.11 gate | Revise from edited `source_definition` | Status UI, accepted-revision source, lineage attach as ordinary success |
+| `SBW06a` | **IN PROGRESS** | Revise from edited `source_definition` + revise journal | Status UI, ThreatDraft attach as ordinary success |
 | `SBW06b` | after `SBW06a` | Candidate-ref status + lineage persistence | UI, accepted-revision revise |
 | `SBW06c` | after `SBW06b` | Revise UI | Accepted-revision source |
 | `SBW06d` | after `SBW06c` | Revise from accepted `source_locator` | Graph, compare, media |

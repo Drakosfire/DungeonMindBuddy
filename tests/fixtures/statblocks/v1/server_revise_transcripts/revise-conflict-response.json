@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "idempotency_conflict",
+    "message": "Idempotency key was reused with a different request",
+    "details": {
+      "idempotency_key": "fixture-revise-source-def-1"
+    }
+  }
+}

@@ -5,7 +5,7 @@
 **PR base / repository tip:** `742415e7` on `main` (includes `#409` SBW07c merge; may include unrelated work)
 **Logical SBW predecessor:** `#409` / `455daf49` — `SBW07` COMPLETE (Accept UI + corpus demolition)
 **This PR:** `SBW06-contract` — revise journal + lineage/status transition table (docs only)
-**Next dispatch after this PR merges:** `SBW06a` (blocked on HANDOFF-sbw06 §12.11 Server revise recovery gate)
+**Next dispatch after this PR merges:** `SBW06b` (ThreatDraft ref + embedded lineage)
 
 
 **Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
