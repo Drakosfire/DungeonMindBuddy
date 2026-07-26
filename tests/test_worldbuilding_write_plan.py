@@ -24,6 +24,7 @@ from graph_memory.worldbuilding_write_plan import (
     verify_worldbuilding_write_plan,
 )
 from graph_memory.contribution_bundles import load_contribution_bundle
+from graph_memory.union_supergraph.model import UnionIdentityRedirect
 from src.graph_memory.extraction.worldbuilding_extraction_profile import (
     DEFAULT_SEMANTIC_STATE,
 )
@@ -916,7 +917,36 @@ def test_plan_does_not_call_kernel_mutation_apis(tmp_path: Path, monkeypatch) ->
     assert plan.plan_id.startswith("worldbuilding-write-plan:")
 
 
-def _bind_fixture(tmp_path: Path, monkeypatch, *, target_id: str = "npc:exact-target"):
+def _preview_with_node_aliases(aliases: list[str]) -> object:
+    payload = _candidate_graph_payload(session_id=None)
+    payload["preview_id"] = "preview:worldbuilding-write-plan"
+    payload["source_artifact_ids"] = ["artifact:worldbuilding:test"]
+    payload["session_id"] = None
+    for index, node in enumerate(payload["nodes"]):
+        node["node_id"] = f"wb_node_{index}"
+        node["node_type"] = "character" if index == 0 else "location"
+        node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for ref in node["evidence_refs"]:
+            ref["source_artifact_id"] = "artifact:worldbuilding:test"
+        if index == 0:
+            node["aliases"] = list(aliases)
+    for edge in payload["edges"]:
+        edge["edge_id"] = "wb_edge_0"
+        edge["from_node_id"] = "wb_node_0"
+        edge["to_node_id"] = "wb_node_1"
+        edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for ref in edge["evidence_refs"]:
+            ref["source_artifact_id"] = "artifact:worldbuilding:test"
+    return candidate_graph_preview_from_dict(payload)
+
+
+def _bind_fixture(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    target_id: str = "npc:exact-target",
+    aliases: list[str] | None = None,
+):
     inputs = _inputs(tmp_path)
     current_store = kernel.open_current_world_graph(
         inputs["world_root"], WORLD_ID  # type: ignore[arg-type]
@@ -940,7 +970,11 @@ def _bind_fixture(tmp_path: Path, monkeypatch, *, target_id: str = "npc:exact-ta
         "load_world_graph_revision",
         lambda *_args, **_kwargs: pinned_store,
     )
-    preview = _preview()
+    preview = (
+        _preview_with_node_aliases(aliases)
+        if aliases is not None
+        else _preview()
+    )
     plan = _build_from_inputs(
         inputs,
         preview=preview,
@@ -955,6 +989,38 @@ def _bind_fixture(tmp_path: Path, monkeypatch, *, target_id: str = "npc:exact-ta
         ],
     )
     return plan, preview, inputs, pinned_store
+
+
+def _reseal_bind_to_target(
+    package: dict[str, object],
+    *,
+    target_node_id: str,
+) -> None:
+    effect = package["effect"]
+    for item in effect["decision_snapshot"]:  # type: ignore[index]
+        if item["assertion_id"] == "wb_node_0":
+            item["target_node_id"] = target_node_id
+    effect["node_id_map"]["wb_node_0"] = target_node_id  # type: ignore[index]
+    mapped_ids = list(effect["candidate_effect_map"]["wb_node_0"])  # type: ignore[index]
+    replacements: list[tuple[str, dict[str, object]]] = []
+    for old_id in mapped_ids:
+        assertion = copy.deepcopy(
+            next(
+                item
+                for item in effect["accepted_proposals"]  # type: ignore[index]
+                if item["assertion_id"] == old_id
+            )
+        )
+        assertion["subject_node_id"] = target_node_id
+        replacements.append((old_id, assertion))
+    for old_id, assertion in replacements:
+        _replace_assertion(
+            effect,  # type: ignore[arg-type]
+            old_id=old_id,
+            assertion=assertion,
+            candidate_id="wb_node_0",
+        )
+    _reseal_package(package)
 
 
 def test_verify_rejects_rejected_node_rewrite_after_digest_recompute(
@@ -1155,6 +1221,140 @@ def test_verify_rejects_resealed_alternate_same_family_bind_target(
         effect, old_id=old_id, assertion=support, candidate_id="wb_node_0"
     )
     _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+
+
+def test_verify_rejects_bind_alias_rewrite_after_digest_recompute(
+    tmp_path: Path, monkeypatch
+) -> None:
+    plan, preview, inputs, _store = _bind_fixture(
+        tmp_path, monkeypatch, aliases=["Reviewed Alias"]
+    )
+    package = _response_package(plan)
+    effect = package["effect"]
+    mapped_ids = list(effect["candidate_effect_map"]["wb_node_0"])
+    aliases = [
+        item
+        for item in effect["accepted_proposals"]
+        if item["assertion_id"] in mapped_ids and item["assertion_kind"] == "alias"
+    ]
+    assert aliases, "expected bind fixture with aliases to emit an alias assertion"
+    old_id = aliases[0]["assertion_id"]
+    alias = copy.deepcopy(aliases[0])
+    alias["label"] = "Rewritten Alias"
+    alias["value"]["alias"] = "Rewritten Alias"
+    _replace_assertion(
+        effect, old_id=old_id, assertion=alias, candidate_id="wb_node_0"
+    )
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+
+
+def test_verify_rejects_resealed_redirected_bind_target(
+    tmp_path: Path, monkeypatch
+) -> None:
+    plan, preview, inputs, pinned_store = _bind_fixture(tmp_path, monkeypatch)
+    redirect_source = next(iter(pinned_store.nodes.values())).model_copy(
+        update={
+            "node_id": "npc:redirect-source",
+            "kind": "npc",
+            "role": "npc",
+            "state": {
+                "memory_state": "merged_away",
+                "identity_canon_state": "merged_away",
+            },
+        }
+    )
+    redirect = UnionIdentityRedirect(
+        redirect_id="redirect:npc-redirect-source",
+        campaign_id=CAMPAIGN_ID,
+        from_node_id="npc:redirect-source",
+        to_node_id="npc:exact-target",
+        assertion_id="assertion:redirect-source",
+        created_at="2026-07-08T00:00:00Z",
+        status="active",
+        materialization_pass_id="pass:test",
+    )
+    monkeypatch.setattr(
+        kernel,
+        "load_world_graph_revision",
+        lambda *_args, **_kwargs: pinned_store.model_copy(
+            update={
+                "nodes": {
+                    **pinned_store.nodes,
+                    redirect_source.node_id: redirect_source,
+                },
+                "identity_redirects": [
+                    *pinned_store.identity_redirects,
+                    redirect,
+                ],
+            }
+        ),
+    )
+    package = _response_package(plan)
+    _reseal_bind_to_target(package, target_node_id="npc:redirect-source")
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+
+
+def test_verify_rejects_resealed_provisional_bind_target(
+    tmp_path: Path, monkeypatch
+) -> None:
+    plan, preview, inputs, pinned_store = _bind_fixture(tmp_path, monkeypatch)
+    provisional = next(iter(pinned_store.nodes.values())).model_copy(
+        update={
+            "node_id": "npc:provisional-target",
+            "kind": "npc",
+            "role": "npc",
+            "state": {
+                "memory_state": "graph_read_model",
+                "identity_canon_state": "noncanonical_provisional",
+            },
+        }
+    )
+    monkeypatch.setattr(
+        kernel,
+        "load_world_graph_revision",
+        lambda *_args, **_kwargs: pinned_store.model_copy(
+            update={"nodes": {**pinned_store.nodes, provisional.node_id: provisional}}
+        ),
+    )
+    package = _response_package(plan)
+    _reseal_bind_to_target(package, target_node_id="npc:provisional-target")
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+
+
+def test_verify_rejects_resealed_rejected_bind_target(
+    tmp_path: Path, monkeypatch
+) -> None:
+    plan, preview, inputs, pinned_store = _bind_fixture(tmp_path, monkeypatch)
+    rejected = next(iter(pinned_store.nodes.values())).model_copy(
+        update={
+            "node_id": "npc:rejected-target",
+            "kind": "npc",
+            "role": "npc",
+            "state": {
+                "memory_state": "rejected",
+                "identity_canon_state": "rejected",
+            },
+        }
+    )
+    monkeypatch.setattr(
+        kernel,
+        "load_world_graph_revision",
+        lambda *_args, **_kwargs: pinned_store.model_copy(
+            update={"nodes": {**pinned_store.nodes, rejected.node_id: rejected}}
+        ),
+    )
+    package = _response_package(plan)
+    _reseal_bind_to_target(package, target_node_id="npc:rejected-target")
     with pytest.raises(WorldbuildingWritePlanError) as exc:
         _verify(package, inputs, preview)
     assert exc.value.code == "plan_verification_failed"
