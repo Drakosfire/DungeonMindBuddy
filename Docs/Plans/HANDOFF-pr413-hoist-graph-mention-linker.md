@@ -87,7 +87,7 @@ This is a **pure move with a characterization-test invariant.** No behavior chan
 |---|---|
 | Parent authority | `Docs/Design/DECISION-graph-lens-projection-boundary.md` (decision 1 and its Sequencing table) |
 | Repository rules | `.cursor/rules/external-agent-pr-loop.mdc`, `AGENTS.md`, `.cursor/rules/dungeonbuddy-git-workflow.mdc`, `QUICK-REFERENCE-DungeonMind.mdc` (**all Python via `uv run`**) |
-| Base revision | `b3a1318e994dc0d32406a06c021c36d6b2a53311` (`origin/main`; docs-only commit on top of `7a22e6c8`, the PR #412 merge — the `src/` and `tests/` trees are byte-identical to `7a22e6c8`) |
+| Base revision | `origin/main` at dispatch = `3195251a543ef0ebe0a551e7ea8015aa0f1d64b2` (docs-only commit on top of `7a22e6c8`, the PR #412 merge — the `src/` and `tests/` trees are byte-identical to `7a22e6c8`). Branch from `origin/main`; all diff commands below use `$(git merge-base origin/main HEAD)` so a later docs-only commit on `main` does not invalidate them. |
 | Predecessor contract | PR #412 / PR380A — `world_recap_projection.project_world_markdown_mentions` and its five CommonMark protection fixes |
 | Exact input consumed | `markdown: str` plus `list[WorldGraphProjectionNodeView]`; produced by `apps/live_control_server/services/world_graph_recap_projection.py` |
 | Named successor | PR #414 (derive recap views from generic views; normalize `direction` at the kernel boundary); PR #415 (migrate `recap_projection._project_markdown_mentions` onto the hoisted linker) |
@@ -239,7 +239,7 @@ First-win matching across *different* nodes is prohibited — that is exactly wh
 
 ### D. Predecessor-to-consumer mapping
 
-**Grounding source:** `src/graph_memory/projection/world_recap_projection.py` at base `b3a1318e994dc0d32406a06c021c36d6b2a53311`, lines 610–728.
+**Grounding source:** `src/graph_memory/projection/world_recap_projection.py` at base `origin/main` (source identical to `7a22e6c8`), lines 610–728.
 
 | Predecessor field / outcome | Real shape and optionality | Consumer field / behavior | Transformation | Proof fixture/test |
 |---|---|---|---|---|
@@ -256,7 +256,7 @@ The binding-order row is the highest-risk mapping in this slice. Treat it as the
 | 1 | Byte-identical projection output vs. base | `markdown_mentions.project_markdown_mentions` | contract / characterization | `uv run pytest tests/test_markdown_mentions.py -q` replaying the base-generated fixture | Every case matches exactly: projected string, mention tuples in order, diagnostic strings in order | Any single byte differs |
 | 2 | Recap adapter and route output unchanged | `world_recap_projection` + route | regression | `uv run pytest tests/test_world_graph_recap_projection.py -q` | All pass, including revision-pin service and route tests | Any failure |
 | 3 | Neutral module imports no surface types | module import graph | contract | `uv run pytest tests/test_markdown_mentions.py -q -k no_surface_imports` | `markdown_mentions` imports nothing from `world_projection`, `world_recap_projection`, `recap_projection`, `node_view`, `focus_overlay` | Any surface import present |
-| 4 | Production caller untouched | service boundary | contract | `git diff --name-only b3a1318e994dc0d32406a06c021c36d6b2a53311...HEAD` | Output omits `apps/live_control_server/services/world_graph_recap_projection.py` | Caller appears in the diff |
+| 4 | Production caller untouched | service boundary | contract | `git diff --name-only $(git merge-base origin/main HEAD)...HEAD` | Output omits `apps/live_control_server/services/world_graph_recap_projection.py` | Caller appears in the diff |
 | 5 | Binding order preserved | `world_recap_projection` adapter | adversarial | `uv run pytest tests/test_markdown_mentions.py -q -k "binding_order or ambiguity"` | Ambiguity message quotes the first surface in node-iteration order with original casing; longest-surface tie-break unchanged | Casing or winner differs from base |
 | 6 | No import cycle introduced | package | contract | `uv run python -c "import graph_memory.projection as p; print(sorted(p.__all__))"` | Imports cleanly; `__all__` is a superset of base | ImportError or a removed export |
 | 7 | Package-wide regression | projection package | regression | `uv run pytest tests/ -q -k "projection or recap or mention"` | No new failures vs. base | Any new failure |
@@ -271,15 +271,15 @@ uv run pytest tests/ -q -k "projection or recap or mention"
 uv run ruff check src/graph_memory/projection tests/test_markdown_mentions.py tests/test_world_graph_recap_projection.py
 uv run python -c "import graph_memory.projection as p; print(sorted(p.__all__))"
 git diff --check
-git diff --stat b3a1318e994dc0d32406a06c021c36d6b2a53311...HEAD
-git diff --name-only b3a1318e994dc0d32406a06c021c36d6b2a53311...HEAD
+git diff --stat $(git merge-base origin/main HEAD)...HEAD
+git diff --name-only $(git merge-base origin/main HEAD)...HEAD
 ```
 
 ### Mandatory ordering: generate the characterization fixture FIRST
 
 This is not optional and not reorderable.
 
-1. Branch from `b3a1318e994dc0d32406a06c021c36d6b2a53311`. **Change no source yet.**
+1. Branch from `origin/main`. **Change no source yet.**
 2. Write a generator that calls the **unmodified** `project_world_markdown_mentions` over the corpus below and serializes, per case: the input Markdown, the input node label/alias structure, the projected Markdown, every mention as `(mention_id, node_id, label, start_offset, end_offset)` in order, and every diagnostic as `(code, message, severity)` in order.
 3. Commit the fixture as its own commit, before any refactoring, with a message naming the base SHA. The reviewer will verify the fixture predates the refactor in history.
 4. Only then perform the move.
@@ -309,7 +309,7 @@ The PR description must use the frontmatter skeleton and include:
 1. §1 Mission copied exactly.
 2. §1 merge-ready invariant copied exactly.
 3. The §7 evidence ledger: required evidence, produced result, and provenance.
-4. Base SHA `b3a1318e994dc0d32406a06c021c36d6b2a53311` and head SHA.
+4. Base SHA (output of `git merge-base origin/main HEAD`) and head SHA.
 5. Actual changed paths and focused diff stat limited to §4.
 6. Every §7 command and its exact result (exit code, pass/fail counts, failing test names).
 7. Provenance of each result: author-local, independently rerun local, CI, or manual.
