@@ -22,6 +22,7 @@ from graph_memory.worldbuilding_write_plan import (
     WorldbuildingWritePlanError,
     WorldbuildingWritePlanVerificationContext,
     build_worldbuilding_write_plan,
+    materialize_worldbuilding_contribution,
     verify_worldbuilding_write_plan,
 )
 from graph_memory.contribution_bundles import load_contribution_bundle
@@ -1576,3 +1577,103 @@ def test_verify_propagates_stale_parent_revision_from_rebuild(
         _verify(package, inputs, preview)
     assert exc.value.code == "stale_parent_revision"
     assert exc.value.status_code == 409
+
+
+def test_materialize_contribution_matches_verified_effect(tmp_path: Path) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    verified = _verify(_response_package(plan), inputs, preview)
+    contribution = materialize_worldbuilding_contribution(
+        world_id=verified["world_id"],
+        plan_digest=verified["plan_digest"],
+        effect=verified["effect"],
+    )
+    assert contribution.contribution_id == kernel.compute_contribution_id(
+        world_id=verified["world_id"],
+        source_kind="source_extraction",
+        source_artifact_id=plan.source_artifact_id,
+        source_revision_id=plan.source_revision_id,
+        extraction_profile=plan.extraction_profile,
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest=plan.plan_digest,
+    )
+    assert contribution.authored_by == "live_control:worldbuilding_write_plan"
+    assert contribution.source_kind == "source_extraction"
+    assert [item.assertion_id for item in contribution.accepted_assertions] == [
+        item["assertion_id"] for item in plan.effect["accepted_proposals"]
+    ]
+
+
+def test_same_plan_materialize_yields_stable_contribution_identity(
+    tmp_path: Path,
+) -> None:
+    plan, _preview, _inputs = _build(tmp_path)
+    contrib_a = materialize_worldbuilding_contribution(
+        world_id=plan.world_id,
+        plan_digest=plan.plan_digest,
+        effect=plan.effect,
+    )
+    contrib_b = materialize_worldbuilding_contribution(
+        world_id=plan.world_id,
+        plan_digest=plan.plan_digest,
+        effect=plan.effect,
+    )
+    assert contrib_a.contribution_id == contrib_b.contribution_id
+    assert kernel.compute_contribution_source_payload_sha256(
+        contrib_a
+    ) == kernel.compute_contribution_source_payload_sha256(contrib_b)
+
+
+def test_different_parent_yields_different_contribution_id(tmp_path: Path) -> None:
+    plan_first, _preview, inputs = _build(tmp_path)
+    world_root = inputs["world_root"]
+    head, _revision, store = kernel.open_current_world_graph(world_root, WORLD_ID)
+    kernel.publish_world_graph_revision(
+        world_root,  # type: ignore[arg-type]
+        WORLD_ID,
+        store,
+        operation_ids=["op:worldbuilding-write-plan-parent-advance"],
+        expected_parent_revision_id=head.head_revision_id,
+    )
+    inputs["parent"] = kernel.open_current_world_graph(world_root, WORLD_ID)[
+        0
+    ].head_revision_id
+    plan_second = _build_from_inputs(inputs)
+    assert plan_first.decision_digest == plan_second.decision_digest
+    assert plan_first.plan_digest != plan_second.plan_digest
+    first = materialize_worldbuilding_contribution(
+        world_id=plan_first.world_id,
+        plan_digest=plan_first.plan_digest,
+        effect=plan_first.effect,
+    )
+    second = materialize_worldbuilding_contribution(
+        world_id=plan_second.world_id,
+        plan_digest=plan_second.plan_digest,
+        effect=plan_second.effect,
+    )
+    assert first.contribution_id != second.contribution_id
+
+
+def test_different_rebuilt_effect_yields_different_contribution_id(
+    tmp_path: Path, monkeypatch
+) -> None:
+    alpha_root = tmp_path / "alpha"
+    beta_root = tmp_path / "beta"
+    plan_aliases_a, _, _, _ = _bind_fixture(
+        alpha_root, monkeypatch, aliases=["Alias Alpha"]
+    )
+    plan_aliases_b, _, _, _ = _bind_fixture(
+        beta_root, monkeypatch, aliases=["Alias Beta"]
+    )
+    assert plan_aliases_a.decision_digest == plan_aliases_b.decision_digest
+    assert plan_aliases_a.plan_digest != plan_aliases_b.plan_digest
+    contrib_a = materialize_worldbuilding_contribution(
+        world_id=plan_aliases_a.world_id,
+        plan_digest=plan_aliases_a.plan_digest,
+        effect=plan_aliases_a.effect,
+    )
+    contrib_b = materialize_worldbuilding_contribution(
+        world_id=plan_aliases_b.world_id,
+        plan_digest=plan_aliases_b.plan_digest,
+        effect=plan_aliases_b.effect,
+    )
+    assert contrib_a.contribution_id != contrib_b.contribution_id

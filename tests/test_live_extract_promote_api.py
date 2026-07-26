@@ -60,6 +60,7 @@ ORDERED_CONTRIBUTION_IDS = [
 STATUS_URL = "/api/live/extract-promote/status"
 PREPARE_URL = "/api/live/extract-promote/prepare"
 WORLD_BUILDING_PREPARE_URL = "/api/live/extract-promote/worldbuilding/prepare"
+WORLD_BUILDING_CONFIRM_URL = "/api/live/extract-promote/worldbuilding/confirm"
 CONFIRM_URL = "/api/live/extract-promote/confirm"
 RUN_ID = "graph-ingest:longmont-c2:session-22:fixture-promote"
 
@@ -1857,6 +1858,402 @@ def test_worldbuilding_prepare_confirm_rejects_plan_without_mutation(
     )
     assert confirm.status_code == 422
     assert confirm.json()["code"] == "invalid_request"
+    assert kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id == before
+
+
+def _worldbuilding_confirm_body(plan: dict) -> dict:
+    return {
+        "schema": "dmb_worldbuilding_write_plan_confirm_request_v1",
+        "plan": plan,
+    }
+
+
+def _default_worldbuilding_dispositions() -> list[dict[str, str]]:
+    return [
+        {"assertionId": "obj_session22_vial", "decision": "create_new"},
+        {"assertionId": "mystery_puddles", "decision": "create_new"},
+        {"assertionId": "e33", "decision": "accept"},
+    ]
+
+
+def test_worldbuilding_prepare_then_confirm_commits_once_and_retry_is_stale_parent(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepared = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=_default_worldbuilding_dispositions(),
+        ),
+    )
+    assert prepared.status_code == 200, prepared.text
+    plan = prepared.json()
+
+    first = client.post(WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan))
+    assert first.status_code == 200, first.text
+    first_body = first.json()
+    assert first_body["schema"] == "dmb_worldbuilding_write_plan_confirm_v1"
+    assert first_body["outcome"] == "committed"
+    assert first_body["auditStatus"] == "ok"
+    assert first_body["headAdvanced"] is True
+    assert first_body["parentRevisionId"] == parent
+    assert first_body["committedRevisionId"] != parent
+    assert first_body["planDigest"] == plan["planDigest"]
+    assert first_body["appliedAssertionCount"] == plan["summary"]["acceptedAssertionCount"]
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == first_body["committedRevisionId"]
+
+    committed_store = kernel.load_world_graph_revision(
+        world_root, WORLD_ID, first_body["committedRevisionId"]
+    )
+    def _kind(item: dict) -> str | None:
+        return item.get("assertionKind") or item.get("assertion_kind")
+
+    def _subject_id(item: dict) -> str | None:
+        return item.get("subjectNodeId") or item.get("subject_node_id")
+
+    def _target_id(item: dict) -> str | None:
+        return item.get("targetNodeId") or item.get("target_node_id")
+
+    def _assertion_id(item: dict) -> str | None:
+        return item.get("assertionId") or item.get("assertion_id")
+
+    def _predicate(item: dict) -> str | None:
+        return item.get("predicate") or (item.get("value") or {}).get("predicate")
+
+    created_ids = {
+        _subject_id(item)
+        for item in plan["effect"]["acceptedProposals"]
+        if _kind(item) == "node"
+    }
+    for node_id in created_ids:
+        assert node_id in committed_store.nodes
+    edge_assertions = [
+        item
+        for item in plan["effect"]["acceptedProposals"]
+        if _kind(item) == "edge"
+    ]
+    assert edge_assertions
+    for edge in edge_assertions:
+        subject = _subject_id(edge)
+        target = _target_id(edge)
+        predicate = _predicate(edge)
+        assert subject in committed_store.nodes
+        assert target in committed_store.nodes
+        value = edge.get("value") or {}
+        edge_id = value.get("edge_id") or f"edge:{subject}:{predicate}:{target}"
+        assert edge_id in committed_store.edges
+        stored_edge = committed_store.edges[edge_id]
+        assert stored_edge.source_node_id == subject
+        assert stored_edge.target_node_id == target
+        assert stored_edge.predicate == predicate
+        assertion_id = _assertion_id(edge)
+        assert assertion_id is not None
+        support = committed_store.assertion_support[assertion_id]
+        assert support["graph_object_id"] == edge_id
+
+    contribution_id = first_body["contributionId"]
+    record_path = (
+        world_root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{contribution_id.replace(':', '__')}.json"
+    )
+    assert record_path.is_file()
+    contrib_record = json.loads(record_path.read_text(encoding="utf-8"))
+    assert contrib_record["status"] == "active"
+    index_path = (
+        world_root / "graph_memory" / "worlds" / WORLD_ID / "contribution_index.json"
+    )
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    assert contribution_id in index["active_contribution_ids"]
+
+    from graph_memory.world_supergraph.contribution_store import load_contribution_record
+
+    contrib_obj = load_contribution_record(world_root, WORLD_ID, contribution_id)
+    source_digest = kernel.compute_contribution_source_payload_sha256(contrib_obj)
+    assert (
+        committed_store.contribution_source_payload_sha256.get(contribution_id)
+        == source_digest
+    )
+    replay_ids = {
+        entry.contribution_id
+        for entry in (committed_store.contribution_replay_manifest or [])
+    }
+    assert contribution_id in replay_ids or contribution_id in (
+        committed_store.contribution_source_payload_sha256 or {}
+    )
+    for edge in edge_assertions:
+        assertion_id = _assertion_id(edge)
+        assert assertion_id is not None
+        support = committed_store.assertion_support[assertion_id]
+        assert contribution_id in support["active_contribution_ids"]
+
+    rejected_in_plan = plan["effect"].get("rejectedAssertions") or []
+    if rejected_in_plan:
+        assert first_body["rejectedAssertionIds"]
+        for assertion_id in first_body["rejectedAssertionIds"]:
+            assert any(
+                item["assertionId"] == assertion_id for item in rejected_in_plan
+            )
+    deferred = plan["effect"].get("deferredCandidateIds") or []
+    mentions = plan["effect"].get("unresolvedMentions") or []
+    if deferred or mentions:
+        assert first_body["unresolvedMentionIds"] or mentions
+
+    second = client.post(WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan))
+    assert second.status_code == 409, second.text
+    second_body = second.json()
+    assert second_body["code"] == "stale_parent_revision"
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == head_after
+    )
+
+
+def test_worldbuilding_confirm_published_audit_degraded_when_index_save_fails(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepared = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=_default_worldbuilding_dispositions(),
+        ),
+    )
+    assert prepared.status_code == 200, prepared.text
+    plan = prepared.json()
+
+    from graph_memory.kernel import contribution_merge as contribution_merge_mod
+
+    real_upsert = contribution_merge_mod.upsert_and_save_contribution_index
+
+    def _fail_index_save(*args, **kwargs):
+        raise RuntimeError("simulated index persistence failure")
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "upsert_and_save_contribution_index",
+        _fail_index_save,
+    )
+
+    response = client.post(
+        WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan)
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["outcome"] == "published_audit_degraded"
+    assert body["auditStatus"] == "degraded"
+    assert body["committedRevisionId"]
+    assert body["committedRevisionId"] != parent
+    assert body["headAdvanced"] is True
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == body["committedRevisionId"]
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "upsert_and_save_contribution_index",
+        real_upsert,
+    )
+
+
+def test_worldbuilding_confirm_published_audit_degraded_uses_plan_revision_not_later_head(
+    world_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepared = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=_default_worldbuilding_dispositions(),
+        ),
+    )
+    assert prepared.status_code == 200, prepared.text
+    plan = prepared.json()
+
+    real_merge = kernel.merge_contribution_to_revision
+    plan_merge_revision_id: list[str] = []
+    unrelated_head_revision_id: list[str] = []
+
+    def _merge_publish_unrelated_then_fail(*args, **kwargs):
+        result = real_merge(*args, **kwargs)
+        if result.published:
+            assert result.revision_id is not None
+            plan_merge_revision_id.append(result.revision_id)
+            head, _revision, store = kernel.open_current_world_graph(
+                world_root, WORLD_ID
+            )
+            unrelated = kernel.publish_world_graph_revision(
+                world_root,
+                WORLD_ID,
+                store,
+                operation_ids=["op:unrelated-after-plan"],
+                expected_parent_revision_id=head.head_revision_id,
+            )
+            unrelated_head_revision_id.append(unrelated.revision.revision_id)
+            raise RuntimeError("post-publication receipt failure")
+        return result
+
+    monkeypatch.setattr(
+        kernel,
+        "merge_contribution_to_revision",
+        _merge_publish_unrelated_then_fail,
+    )
+
+    response = client.post(
+        WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan)
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["outcome"] == "published_audit_degraded"
+    assert body["auditStatus"] == "degraded"
+    assert plan_merge_revision_id
+    assert unrelated_head_revision_id
+    assert body["committedRevisionId"] == plan_merge_revision_id[0]
+    assert body["committedRevisionId"] != unrelated_head_revision_id[0]
+    head_after = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    assert head_after == unrelated_head_revision_id[0]
+    assert head_after != body["committedRevisionId"]
+
+
+def test_worldbuilding_confirm_rejects_stale_parent_without_mutation(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepared = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=_default_worldbuilding_dispositions(),
+        ),
+    )
+    assert prepared.status_code == 200, prepared.text
+    plan = prepared.json()
+    head, _revision, store = kernel.open_current_world_graph(world_root, WORLD_ID)
+    advanced = kernel.publish_world_graph_revision(
+        world_root,
+        WORLD_ID,
+        store,
+        operation_ids=["op:worldbuilding-confirm-stale-parent"],
+        expected_parent_revision_id=head.head_revision_id,
+    )
+    before_bytes = {
+        path.relative_to(world_root).as_posix(): path.read_bytes()
+        for path in world_root.rglob("*")
+        if path.is_file()
+    }
+    response = client.post(
+        WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(plan)
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["code"] == "stale_parent_revision"
+    assert (
+        kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+        == advanced.revision.revision_id
+    )
+    after_bytes = {
+        path.relative_to(world_root).as_posix(): path.read_bytes()
+        for path in world_root.rglob("*")
+        if path.is_file()
+    }
+    assert after_bytes == before_bytes
+
+
+def test_worldbuilding_confirm_rejects_presentation_and_effect_tamper(
+    world_client,
+) -> None:
+    client, world_root, repo, *_rest = world_client
+    run_id, _source = _write_bld08_reviewable_run(repo)
+    parent = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    prepared = client.post(
+        WORLD_BUILDING_PREPARE_URL,
+        json=_worldbuilding_prepare_body(
+            run_id,
+            parent,
+            dispositions=_default_worldbuilding_dispositions(),
+        ),
+    )
+    assert prepared.status_code == 200, prepared.text
+    base_plan = prepared.json()
+
+    summary_tamper = json.loads(json.dumps(base_plan))
+    summary_tamper["summary"]["acceptedAssertionCount"] = 0
+    summary_tamper["summary"]["rejectedCandidateCount"] = 500
+    summary_resp = client.post(
+        WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(summary_tamper)
+    )
+    assert summary_resp.status_code in {409, 422}, summary_resp.text
+    assert summary_resp.json()["code"] == "plan_verification_failed"
+
+    diagnostics_tamper = json.loads(json.dumps(base_plan))
+    diagnostics_tamper["diagnostics"] = list(diagnostics_tamper["diagnostics"]) + [
+        "everything is unsafe"
+    ]
+    diagnostics_resp = client.post(
+        WORLD_BUILDING_CONFIRM_URL,
+        json=_worldbuilding_confirm_body(diagnostics_tamper),
+    )
+    assert diagnostics_resp.status_code in {409, 422}, diagnostics_resp.text
+    assert diagnostics_resp.json()["code"] == "plan_verification_failed"
+
+    reason_tamper = json.loads(json.dumps(base_plan))
+    reason_tamper["confirmableReason"] = "ready to commit"
+    reason_resp = client.post(
+        WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(reason_tamper)
+    )
+    assert reason_resp.status_code in {409, 422, 422}, reason_resp.text
+    # Invalid literal may be request validation (422) or plan verification.
+    assert reason_resp.status_code == 422
+
+    effect_tamper = json.loads(json.dumps(base_plan))
+    effect_tamper["effect"]["acceptedProposals"][0]["label"] = "tampered-label"
+    from graph_memory.worldbuilding_write_plan import _canonical_effect, _digest
+
+    effect = _canonical_effect(effect_tamper["effect"])
+    effect_tamper["effect"] = effect
+    decision_digest = _digest(effect["decision_snapshot"])
+    plan_identity = {
+        "world_id": effect_tamper["worldId"],
+        "parent_revision_id": effect_tamper["parentRevisionId"],
+        "run_id": effect_tamper["runId"],
+        "source_domain": "worldbuilding",
+        "source_artifact_id": effect_tamper["sourceArtifactId"],
+        "source_revision_id": effect_tamper["sourceRevisionId"],
+        "extraction_profile": effect_tamper["extractionProfile"],
+        "candidate_preview_id": effect_tamper["candidatePreviewId"],
+        "candidate_schema": effect_tamper["candidateSchema"],
+        "candidate_version": effect_tamper["candidateVersion"],
+        "decision_snapshot": effect["decision_snapshot"],
+        "effect": effect,
+    }
+    plan_digest = _digest(plan_identity)
+    effect_tamper["decisionDigest"] = decision_digest
+    effect_tamper["planDigest"] = plan_digest
+    effect_tamper["planId"] = (
+        "worldbuilding-write-plan:" f"{plan_digest.removeprefix('sha256:')[:24]}"
+    )
+    before = kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id
+    effect_resp = client.post(
+        WORLD_BUILDING_CONFIRM_URL, json=_worldbuilding_confirm_body(effect_tamper)
+    )
+    assert effect_resp.status_code in {409, 422}, effect_resp.text
+    assert effect_resp.json()["code"] == "plan_verification_failed"
     assert kernel.open_current_world_graph(world_root, WORLD_ID)[0].head_revision_id == before
 
 

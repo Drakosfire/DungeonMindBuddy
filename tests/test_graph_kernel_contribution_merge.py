@@ -1487,3 +1487,327 @@ def test_party_registry_source_artifact_session_id_drift_allows_merge(seeded_roo
     assert second_result.published is True, second_result.diagnostics
     _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
     assert store.source_artifacts[artifact_id].session_id == "session-3"
+
+
+def _race_merge_contribution(
+    root: Path,
+    *,
+    contribution: object,
+    expected_parent: str,
+    monkeypatch: pytest.MonkeyPatch,
+    barrier: object,
+) -> tuple[list[object], list[BaseException]]:
+    import graph_memory.kernel.contribution_merge as contribution_merge_mod
+
+    real_publish = contribution_merge_mod.publish_world_graph_revision
+
+    def sync_publish(*args, **kwargs):
+        barrier.wait(timeout=5)
+        return real_publish(*args, **kwargs)
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "publish_world_graph_revision",
+        sync_publish,
+    )
+    results: list[object] = []
+    errors: list[BaseException] = []
+
+    def _run() -> None:
+        try:
+            results.append(
+                kernel.merge_contribution_to_revision(
+                    root,
+                    world_id=WORLD_ID,
+                    contribution=contribution,
+                    expected_parent_revision_id=expected_parent,
+                )
+            )
+        except BaseException as exc:
+            errors.append(exc)
+
+    import threading
+
+    threads = [threading.Thread(target=_run) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    return results, errors
+
+
+def _assert_post_race_contribution_index_and_digest(
+    root: Path,
+    *,
+    winner_id: str,
+    loser_id: str | None = None,
+    same_plan: bool = False,
+) -> None:
+    import json
+
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        load_contribution_record,
+        list_contribution_records,
+    )
+
+    index = load_contribution_index(root, WORLD_ID)
+    assert winner_id in index.active_contribution_ids
+    assert winner_id in index.all_contribution_ids
+    discovered = {record.contribution_id for record in list_contribution_records(root, WORLD_ID)}
+    assert winner_id in discovered
+
+    if loser_id is not None and not same_plan:
+        assert loser_id not in index.active_contribution_ids
+        assert loser_id in index.all_contribution_ids
+        assert loser_id in index.failed_contribution_ids
+        loser_path = (
+            root
+            / "graph_memory"
+            / "worlds"
+            / WORLD_ID
+            / "contributions"
+            / f"{loser_id.replace(':', '__')}.json"
+        )
+        loser_record = json.loads(loser_path.read_text(encoding="utf-8"))
+        assert loser_record["status"] == "failed"
+
+    _head, _revision, store = kernel.open_current_world_graph(root, WORLD_ID)
+    winner_obj = load_contribution_record(root, WORLD_ID, winner_id)
+    source_digest = kernel.compute_contribution_source_payload_sha256(winner_obj)
+    assert store.contribution_source_payload_sha256.get(winner_id) == source_digest
+
+
+def _rmw_test_contribution(*, suffix: str, status: str):
+    assertion = _node_assertion(
+        node_id=f"npc_index_rmw_{suffix}",
+        label=f"IndexRMW{suffix}",
+        source_artifact_id=f"artifact:index-rmw-{suffix}",
+    )
+    digest_byte = {"a": "c1", "b": "c2"}[suffix]
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id=f"artifact:index-rmw-{suffix}",
+        source_revision_id=f"src-rev-rmw-{suffix}",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest="sha256:" + (digest_byte * 32),
+    )
+    return contribution.model_copy(update={"status": status})
+
+
+def test_contribution_index_rmw_winner_save_then_loser_preserves_winner(
+    seeded_root,
+) -> None:
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        upsert_and_save_contribution_index,
+        write_contribution_record,
+    )
+
+    root, _parent = seeded_root
+    active = _rmw_test_contribution(suffix="a", status="active")
+    failed = _rmw_test_contribution(suffix="b", status="failed")
+    write_contribution_record(root, WORLD_ID, active)
+    write_contribution_record(root, WORLD_ID, failed)
+
+    upsert_and_save_contribution_index(root, WORLD_ID, active)
+    upsert_and_save_contribution_index(root, WORLD_ID, failed)
+
+    index = load_contribution_index(root, WORLD_ID)
+    assert active.contribution_id in index.active_contribution_ids
+    assert failed.contribution_id in index.failed_contribution_ids
+    assert failed.contribution_id not in index.active_contribution_ids
+    assert set(index.all_contribution_ids) == {
+        active.contribution_id,
+        failed.contribution_id,
+    }
+
+
+def test_contribution_index_rmw_loser_save_then_winner_preserves_winner(
+    seeded_root,
+) -> None:
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        upsert_and_save_contribution_index,
+        write_contribution_record,
+    )
+
+    root, _parent = seeded_root
+    active = _rmw_test_contribution(suffix="a", status="active")
+    failed = _rmw_test_contribution(suffix="b", status="failed")
+    write_contribution_record(root, WORLD_ID, active)
+    write_contribution_record(root, WORLD_ID, failed)
+
+    upsert_and_save_contribution_index(root, WORLD_ID, failed)
+    upsert_and_save_contribution_index(root, WORLD_ID, active)
+
+    index = load_contribution_index(root, WORLD_ID)
+    assert active.contribution_id in index.active_contribution_ids
+    assert failed.contribution_id in index.failed_contribution_ids
+    assert failed.contribution_id not in index.active_contribution_ids
+    assert set(index.all_contribution_ids) == {
+        active.contribution_id,
+        failed.contribution_id,
+    }
+
+
+def test_concurrent_same_plan_race_one_publish_winner_stays_active(
+    seeded_root, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+    import threading
+
+    root, parent = seeded_root
+    assertion = _node_assertion(
+        node_id="npc_same_plan_race",
+        label="SamePlanRace",
+        source_artifact_id="artifact:same-plan-race",
+    )
+    proposal_digest = "sha256:" + ("a1" * 32)
+    contribution = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:same-plan-race",
+        source_revision_id="src-rev-same-plan",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion],
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest=proposal_digest,
+    )
+    barrier = threading.Barrier(2)
+    results, errors = _race_merge_contribution(
+        root,
+        contribution=contribution,
+        expected_parent=parent,
+        monkeypatch=monkeypatch,
+        barrier=barrier,
+    )
+    published = [item for item in results if item.published]
+    assert len(published) == 1
+    assert len(errors) == 1
+    assert "stale parent" in str(errors[0]).lower()
+
+    record_path = (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{contribution.contribution_id.replace(':', '__')}.json"
+    )
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    assert record["status"] == "active"
+    head_after, _, _ = kernel.open_current_world_graph(root, WORLD_ID)
+    assert head_after.head_revision_id != parent
+    _assert_post_race_contribution_index_and_digest(
+        root,
+        winner_id=contribution.contribution_id,
+        same_plan=True,
+    )
+
+
+def test_concurrent_different_plan_race_one_publish_winner_stays_active(
+    seeded_root, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+    import threading
+
+    root, parent = seeded_root
+    assertion_a = _node_assertion(
+        node_id="npc_diff_plan_race_a",
+        label="DiffPlanA",
+        source_artifact_id="artifact:diff-plan-race-a",
+    )
+    assertion_b = _node_assertion(
+        node_id="npc_diff_plan_race_b",
+        label="DiffPlanB",
+        source_artifact_id="artifact:diff-plan-race-b",
+    )
+    contrib_a = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:diff-plan-race-a",
+        source_revision_id="src-rev-a",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion_a],
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest="sha256:" + ("b1" * 32),
+    )
+    contrib_b = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="source_extraction",
+        source_artifact_id="artifact:diff-plan-race-b",
+        source_revision_id="src-rev-b",
+        extraction_profile="test_profile",
+        accepted_assertions=[assertion_b],
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest="sha256:" + ("b2" * 32),
+    )
+    barrier = threading.Barrier(2)
+    import graph_memory.kernel.contribution_merge as contribution_merge_mod
+
+    real_publish = contribution_merge_mod.publish_world_graph_revision
+
+    def sync_publish(*args, **kwargs):
+        barrier.wait(timeout=5)
+        return real_publish(*args, **kwargs)
+
+    monkeypatch.setattr(
+        contribution_merge_mod,
+        "publish_world_graph_revision",
+        sync_publish,
+    )
+    results: list[tuple[str, object]] = []
+    errors: list[tuple[str, BaseException]] = []
+
+    def _run(label: str, contribution: object) -> None:
+        try:
+            merge_result = kernel.merge_contribution_to_revision(
+                root,
+                world_id=WORLD_ID,
+                contribution=contribution,
+                expected_parent_revision_id=parent,
+            )
+            results.append((label, merge_result))
+        except BaseException as exc:
+            errors.append((label, exc))
+
+    threads = [
+        threading.Thread(target=_run, args=("a", contrib_a)),
+        threading.Thread(target=_run, args=("b", contrib_b)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    published = [(label, item) for label, item in results if item.published]
+    assert len(published) == 1
+    assert len(errors) == 1
+    assert "stale parent" in str(errors[0][1]).lower()
+
+    winner_id = published[0][1].contribution_ids[0]
+    winner_path = (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{winner_id.replace(':', '__')}.json"
+    )
+    winner_record = json.loads(winner_path.read_text(encoding="utf-8"))
+    assert winner_record["status"] == "active"
+    loser_label = errors[0][0]
+    loser_id = (
+        contrib_a.contribution_id
+        if loser_label == "a"
+        else contrib_b.contribution_id
+    )
+    _assert_post_race_contribution_index_and_digest(
+        root,
+        winner_id=winner_id,
+        loser_id=loser_id,
+    )

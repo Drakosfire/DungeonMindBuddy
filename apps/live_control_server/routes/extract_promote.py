@@ -19,12 +19,15 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromotePrepareResponse,
     ExactRunReviewPackage,
     ExtractPromoteStatusResponse,
+    WorldbuildingWritePlanConfirmReceipt,
+    WorldbuildingWritePlanConfirmRequest,
     WorldbuildingWritePlanPrepareRequest,
     WorldbuildingWritePlanResponse,
 )
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
     confirm,
+    confirm_worldbuilding,
     get_exact_run_review_package,
     get_status,
     prepare,
@@ -207,6 +210,42 @@ def post_worldbuilding_write_plan_prepare(
         return _error_response(
             ExtractPromoteError(
                 "The worldbuilding write-plan prepare operation failed unexpectedly.",
+                code="extract_promote_internal_error",
+                status_code=500,
+                diagnostics=[
+                    ExtractPromoteDiagnostic(
+                        code="internal_error",
+                        message=f"Internal error. Reference: {correlation_id}",
+                        severity="error",
+                    )
+                ],
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post(
+    "/worldbuilding/confirm",
+    response_model=WorldbuildingWritePlanConfirmReceipt,
+)
+def post_worldbuilding_write_plan_confirm(
+    request_context: Request,
+    request: WorldbuildingWritePlanConfirmRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_selector_query(request_context)
+        response = confirm_worldbuilding(request)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.exception(
+            "worldbuilding write-plan confirm failed unexpectedly correlation_id=%s",
+            correlation_id,
+        )
+        return _error_response(
+            ExtractPromoteError(
+                "The worldbuilding write-plan confirm operation failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
                 diagnostics=[

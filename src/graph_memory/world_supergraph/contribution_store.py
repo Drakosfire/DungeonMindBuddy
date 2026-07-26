@@ -5,11 +5,13 @@ Apps must not import this module. Use ``graph_memory.kernel`` contribution APIs.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -45,6 +47,25 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
         except OSError:
             pass
         raise
+
+
+@contextmanager
+def _exclusive_contribution_index_lock(root: Path, world_id: str) -> Iterator[None]:
+    """Serialize contribution-index read-modify-write with world publish CAS.
+
+    Uses the same per-world write lock as ``publish_world_graph_revision`` so
+    concurrent merges cannot clobber each other's committed index entries via
+    stale in-memory snapshots.
+    """
+    world_paths.assert_safe_world_id(world_id)
+    world_paths.world_dir(root, world_id).mkdir(parents=True, exist_ok=True)
+    lock_path = world_paths.write_lock_path(root, world_id)
+    with open(lock_path, "a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def load_contribution_index(root: Path, world_id: str) -> ContributionIndex:
@@ -122,6 +143,31 @@ def upsert_contribution_in_index(
             "failed_contribution_ids": failed,
         }
     )
+
+
+def upsert_and_save_contribution_index(
+    root: Path,
+    world_id: str,
+    *contributions: GraphContribution,
+    baseline_revision_id: str | None = None,
+) -> ContributionIndex:
+    """Atomically reload, upsert one or more contributions, and persist the index.
+
+    Concurrent callers cannot replace the index with a stale snapshot: each
+    update reloads under the world write lock before merging its entries.
+    """
+    if not contributions and baseline_revision_id is None:
+        raise ValueError("upsert_and_save_contribution_index requires contributions")
+    with _exclusive_contribution_index_lock(root, world_id):
+        index = load_contribution_index(root, world_id)
+        if baseline_revision_id is not None and index.baseline_revision_id is None:
+            index = index.model_copy(
+                update={"baseline_revision_id": baseline_revision_id}
+            )
+        for contribution in contributions:
+            index = upsert_contribution_in_index(index, contribution)
+        save_contribution_index(root, world_id, index)
+        return index
 
 
 def write_rebuild_report(root: Path, world_id: str, report: dict[str, Any]) -> Path:
