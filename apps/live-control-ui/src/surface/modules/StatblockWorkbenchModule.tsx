@@ -3,9 +3,11 @@ import type { FormEvent } from "react";
 
 import {
   acceptThreatDraftMechanics,
+  createThreatDraft,
   generateThreatDraftCandidate,
   getAcceptanceOperation,
   getStatblockCandidate,
+  LiveApiError,
   reconcileAcceptanceOperation,
   validateStatblockDefinition,
 } from "../../api/liveApi";
@@ -13,6 +15,7 @@ import type {
   AcceptanceResultLabel,
   AcceptThreatDraftMechanicsRequestV1,
   AcceptThreatDraftMechanicsResponseV1,
+  CreateThreatDraftRequestV1,
   GenerateThreatDraftCandidateResponseV1,
   ReadAcceptanceOperationResponseV1,
   ReadStatblockCandidateResponseV1,
@@ -103,6 +106,197 @@ function readCandidateIdFromLocation(): string {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
   return params.get("candidateId")?.trim() ?? "";
+}
+
+/** Split comma/newline operator lists into bounded non-empty trimmed strings. */
+function parseBoundedStringList(raw: string): string[] {
+  return raw
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function parseOptionalPositiveInt(raw: string): number | null | "invalid" {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const value = Number(trimmed);
+  if (!Number.isInteger(value) || value < 1) return "invalid";
+  return value;
+}
+
+type CreatedDraftIdentity = {
+  draft_id: string;
+  version: number;
+  name: string;
+};
+
+type CreateFormFields = {
+  name: string;
+  description: string;
+  threatKind: string;
+  createdBy: string;
+  worldId: string;
+  campaignId: string;
+  graphRevisionId: string;
+  rulesetSystem: string;
+  rulesetEdition: string;
+  houseRulesetId: string;
+  focusSession: string;
+  prepLabel: string;
+  slugHint: string;
+  targetCr: string;
+  complexity: string;
+  mustInclude: string;
+  mustAvoid: string;
+  intendedRoles: string;
+  tags: string;
+  partyLevel: string;
+  partySize: string;
+  terrainNotes: string;
+  selectedNodeIds: string;
+  admittedSourceAnchorIds: string;
+};
+
+const DEFAULT_CREATE_FORM: CreateFormFields = {
+  name: "",
+  description: "",
+  threatKind: "creature",
+  createdBy: "",
+  worldId: "",
+  campaignId: "",
+  graphRevisionId: "",
+  // Visible established repository default; operator may change.
+  rulesetSystem: "dnd5e",
+  rulesetEdition: "2024",
+  houseRulesetId: "",
+  focusSession: "",
+  prepLabel: "",
+  slugHint: "",
+  targetCr: "",
+  complexity: "",
+  mustInclude: "",
+  mustAvoid: "",
+  intendedRoles: "",
+  tags: "",
+  partyLevel: "",
+  partySize: "",
+  terrainNotes: "",
+  selectedNodeIds: "",
+  admittedSourceAnchorIds: "",
+};
+
+function buildCreateThreatDraftRequest(
+  fields: CreateFormFields,
+): { ok: true; request: CreateThreatDraftRequestV1 } | { ok: false; message: string } {
+  const name = fields.name.trim();
+  const description = fields.description.trim();
+  const threatKind = fields.threatKind.trim();
+  const createdBy = fields.createdBy.trim();
+  const worldId = fields.worldId.trim();
+  const campaignId = fields.campaignId.trim();
+  const graphRevisionId = fields.graphRevisionId.trim();
+  const rulesetSystem = fields.rulesetSystem.trim();
+  const rulesetEdition = fields.rulesetEdition.trim();
+
+  if (!name) return { ok: false, message: "Provide a threat name." };
+  if (!description) return { ok: false, message: "Provide a threat description." };
+  if (!threatKind) return { ok: false, message: "Provide a threat kind." };
+  if (!createdBy) return { ok: false, message: "Provide created_by (actor)." };
+  if (!worldId) return { ok: false, message: "Provide an exact world_id." };
+  if (!campaignId) return { ok: false, message: "Provide an exact campaign_id." };
+  if (!graphRevisionId) {
+    return { ok: false, message: "Provide an exact graph_revision_id (no latest fallback)." };
+  }
+  if (!rulesetSystem || !rulesetEdition) {
+    return { ok: false, message: "Provide ruleset system and edition." };
+  }
+
+  let focusSessionValue: number | null = null;
+  const focusSessionRaw = fields.focusSession.trim();
+  if (focusSessionRaw) {
+    const parsed = Number(focusSessionRaw);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      return { ok: false, message: "Focus session must be an integer ≥ 0, or empty." };
+    }
+    focusSessionValue = parsed;
+  }
+
+  const partyLevel = parseOptionalPositiveInt(fields.partyLevel);
+  if (partyLevel === "invalid") {
+    return { ok: false, message: "Party level must be an integer ≥ 1, or empty." };
+  }
+  const partySize = parseOptionalPositiveInt(fields.partySize);
+  if (partySize === "invalid") {
+    return { ok: false, message: "Party size must be an integer ≥ 1, or empty." };
+  }
+
+  const prepLabel = fields.prepLabel.trim() || null;
+  const slugHint = fields.slugHint.trim() || null;
+  const houseRulesetId = fields.houseRulesetId.trim() || null;
+  const targetCr = fields.targetCr.trim() || null;
+  const complexity = fields.complexity.trim() || null;
+  const focus =
+    focusSessionValue != null || prepLabel != null
+      ? { session: focusSessionValue, prep_label: prepLabel }
+      : null;
+
+  return {
+    ok: true,
+    request: {
+      world_id: worldId,
+      campaign_id: campaignId,
+      focus,
+      name,
+      slug_hint: slugHint,
+      description,
+      threat_kind: threatKind,
+      intended_roles: parseBoundedStringList(fields.intendedRoles),
+      tags: parseBoundedStringList(fields.tags),
+      generation_intent: {
+        ruleset: {
+          system: rulesetSystem,
+          edition: rulesetEdition,
+          house_ruleset_id: houseRulesetId,
+        },
+        target_cr: targetCr,
+        complexity,
+        must_include: parseBoundedStringList(fields.mustInclude),
+        must_avoid: parseBoundedStringList(fields.mustAvoid),
+      },
+      encounter_context: {
+        party_level: partyLevel,
+        party_size: partySize,
+        terrain_notes: parseBoundedStringList(fields.terrainNotes),
+      },
+      graph_context_snapshot: {
+        graph_revision_id: graphRevisionId,
+        selected_node_ids: parseBoundedStringList(fields.selectedNodeIds),
+        admitted_source_anchor_ids: parseBoundedStringList(fields.admittedSourceAnchorIds),
+      },
+      created_by: createdBy,
+    },
+  };
+}
+
+function isCreateTransportUncertainty(error: unknown): boolean {
+  if (error instanceof LiveApiError) {
+    // HTTP status was observed — definite request outcome from the API layer.
+    return false;
+  }
+  return true;
+}
+
+function createdDraftFromResponse(draft: {
+  draft_id?: unknown;
+  version?: unknown;
+  name?: unknown;
+}): CreatedDraftIdentity | null {
+  if (typeof draft.draft_id !== "string" || !draft.draft_id.trim()) return null;
+  if (typeof draft.version !== "number" || !Number.isInteger(draft.version) || draft.version < 1) {
+    return null;
+  }
+  const name = typeof draft.name === "string" && draft.name.trim() ? draft.name.trim() : draft.draft_id;
+  return { draft_id: draft.draft_id.trim(), version: draft.version, name };
 }
 
 function isIntegrityFailureCategory(category: string | null | undefined): boolean {
@@ -1347,6 +1541,13 @@ export function StatblockWorkbenchModule() {
   const [candidateIdInput, setCandidateIdInput] = useState(readCandidateIdFromLocation);
   const [draftIdInput, setDraftIdInput] = useState("");
   const [draftVersionInput, setDraftVersionInput] = useState("1");
+  const [createForm, setCreateForm] = useState<CreateFormFields>(DEFAULT_CREATE_FORM);
+  const [createdDraft, setCreatedDraft] = useState<CreatedDraftIdentity | null>(null);
+  const [createPhase, setCreatePhase] = useState<
+    "idle" | "creating" | "create_failed" | "create_uncertain" | "draft_created" | "generating"
+  >("idle");
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<LoadState>({ kind: "idle" });
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -1362,6 +1563,8 @@ export function StatblockWorkbenchModule() {
   const editorEpochRef = useRef(0);
   /** Shared monotonic identity for manual load, retry, and draft generation. */
   const candidateOpIdRef = useRef(0);
+  /** Synchronous duplicate-submit guard for create-and-generate. */
+  const createAndGenerateInFlightRef = useRef(false);
   const editorStateRef = useRef<StatblockEditorState | null>(null);
   editorStateRef.current = editorState;
   editorEpochRef.current = editorEpoch;
@@ -1482,15 +1685,12 @@ export function StatblockWorkbenchModule() {
     void loadCandidate(candidateIdInput);
   };
 
-  const onGenerateFromDraft = async (event: FormEvent) => {
-    event.preventDefault();
-    const draftId = draftIdInput.trim();
-    const expectedVersion = Number(draftVersionInput);
-    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
-      setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
-      return;
-    }
-    const opId = beginCandidateOp();
+  const runGenerateFromDraft = async (
+    draftId: string,
+    expectedVersion: number,
+    options?: { opId?: number },
+  ) => {
+    const opId = options?.opId ?? beginCandidateOp();
     // Newer generation orphans prior load outcomes and prior generate UI.
     setPendingGenerate(true);
     setGenerateError(null);
@@ -1525,8 +1725,114 @@ export function StatblockWorkbenchModule() {
     } finally {
       if (isCurrentCandidateOp(opId)) {
         setPendingGenerate(false);
+        setCreatePhase((prev) => (prev === "generating" ? "draft_created" : prev));
       }
     }
+  };
+
+  const onGenerateFromDraft = async (event: FormEvent) => {
+    event.preventDefault();
+    const draftId = draftIdInput.trim();
+    const expectedVersion = Number(draftVersionInput);
+    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
+      return;
+    }
+    await runGenerateFromDraft(draftId, expectedVersion);
+  };
+
+  const onRetryGenerateCreatedDraft = async () => {
+    if (!createdDraft) return;
+    setCreatePhase("generating");
+    setCreateError(null);
+    setCreateMessage(
+      `Retrying generation for ThreatDraft ${createdDraft.draft_id} v${createdDraft.version}…`,
+    );
+    await runGenerateFromDraft(createdDraft.draft_id, createdDraft.version);
+  };
+
+  const onCreateAndGenerate = async (event: FormEvent) => {
+    event.preventDefault();
+    if (createAndGenerateInFlightRef.current || pendingGenerate || createPhase === "creating") {
+      return;
+    }
+
+    const built = buildCreateThreatDraftRequest(createForm);
+    if (!built.ok) {
+      setCreateError(built.message);
+      setCreatePhase("create_failed");
+      return;
+    }
+
+    createAndGenerateInFlightRef.current = true;
+    const opId = beginCandidateOp();
+    setCreatePhase("creating");
+    setCreateError(null);
+    setCreateMessage("Creating ThreatDraft…");
+    setGenerateError(null);
+    setGenerateMessage(null);
+    setPendingGenerate(false);
+    setLoadState((prev) => (prev.kind === "loading" ? { kind: "idle" } : prev));
+
+    try {
+      let created: CreatedDraftIdentity | null = null;
+      try {
+        const response = await createThreatDraft(built.request);
+        if (!isCurrentCandidateOp(opId)) return;
+        created = createdDraftFromResponse(response);
+        if (!created) {
+          setCreatePhase("create_failed");
+          setCreateError(
+            "Create response lacked an exact draft_id/version; generation was not started.",
+          );
+          setCreateMessage(null);
+          return;
+        }
+        setCreatedDraft(created);
+        setDraftIdInput(created.draft_id);
+        setDraftVersionInput(String(created.version));
+        setCreatePhase("generating");
+        setCreateMessage(
+          `Created ThreatDraft ${created.draft_id} v${created.version} (${created.name}). Generating…`,
+        );
+      } catch (error) {
+        if (!isCurrentCandidateOp(opId)) return;
+        if (isCreateTransportUncertainty(error)) {
+          setCreatePhase("create_uncertain");
+          setCreateError(error instanceof Error ? error.message : String(error));
+          setCreateMessage(
+            "Creation outcome is unknown. The form was preserved; do not assume no draft exists. Correct only if you confirm no draft was created, then submit again.",
+          );
+        } else {
+          setCreatePhase("create_failed");
+          setCreateError(error instanceof Error ? error.message : String(error));
+          setCreateMessage(null);
+        }
+        return;
+      }
+
+      if (!isCurrentCandidateOp(opId)) return;
+      await runGenerateFromDraft(created.draft_id, created.version, { opId });
+    } finally {
+      createAndGenerateInFlightRef.current = false;
+    }
+  };
+
+  const onStartAnotherThreat = () => {
+    beginCandidateOp();
+    createAndGenerateInFlightRef.current = false;
+    setCreateForm(DEFAULT_CREATE_FORM);
+    setCreatedDraft(null);
+    setCreatePhase("idle");
+    setCreateMessage(null);
+    setCreateError(null);
+    setGenerateMessage(null);
+    setGenerateError(null);
+    setPendingGenerate(false);
+  };
+
+  const updateCreateField = <K extends keyof CreateFormFields>(key: K, value: CreateFormFields[K]) => {
+    setCreateForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const onValidateWorkingCopy = async () => {
@@ -1640,6 +1946,290 @@ export function StatblockWorkbenchModule() {
         </div>
         <span className="badge">sbw07c-accept</span>
       </header>
+
+      <section className="statblock-section">
+        <h3>New threat — create and generate</h3>
+        <p className="module-muted">
+          Creates one durable ThreatDraft from exact context, then generates a candidate from the
+          returned draft ID and version. Browser refresh does not restore this form; keep the
+          displayed draft identity for the manual path below.
+        </p>
+        <form className="statblock-storage-section" onSubmit={onCreateAndGenerate}>
+          <div className="statblock-command-row">
+            <label>
+              Name
+              <input
+                value={createForm.name}
+                onChange={(event) => updateCreateField("name", event.target.value)}
+                placeholder="Mireward Latchling"
+                autoComplete="off"
+                data-testid="create-threat-name"
+              />
+            </label>
+            <label>
+              Threat kind
+              <input
+                value={createForm.threatKind}
+                onChange={(event) => updateCreateField("threatKind", event.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <label>
+              Created by
+              <input
+                value={createForm.createdBy}
+                onChange={(event) => updateCreateField("createdBy", event.target.value)}
+                placeholder="gm"
+                autoComplete="off"
+                data-testid="create-threat-created-by"
+              />
+            </label>
+          </div>
+          <label>
+            Description
+            <textarea
+              value={createForm.description}
+              onChange={(event) => updateCreateField("description", event.target.value)}
+              rows={4}
+              data-testid="create-threat-description"
+            />
+          </label>
+          <div className="statblock-command-row">
+            <label>
+              World ID
+              <input
+                value={createForm.worldId}
+                onChange={(event) => updateCreateField("worldId", event.target.value)}
+                placeholder="exact world_id"
+                autoComplete="off"
+                spellCheck={false}
+                data-testid="create-threat-world-id"
+              />
+            </label>
+            <label>
+              Campaign ID
+              <input
+                value={createForm.campaignId}
+                onChange={(event) => updateCreateField("campaignId", event.target.value)}
+                placeholder="exact campaign_id"
+                autoComplete="off"
+                spellCheck={false}
+                data-testid="create-threat-campaign-id"
+              />
+            </label>
+            <label>
+              Graph revision ID
+              <input
+                value={createForm.graphRevisionId}
+                onChange={(event) => updateCreateField("graphRevisionId", event.target.value)}
+                placeholder="exact graph_revision_id"
+                autoComplete="off"
+                spellCheck={false}
+                data-testid="create-threat-graph-revision-id"
+              />
+            </label>
+          </div>
+          <div className="statblock-command-row">
+            <label>
+              Ruleset system
+              <input
+                value={createForm.rulesetSystem}
+                onChange={(event) => updateCreateField("rulesetSystem", event.target.value)}
+                autoComplete="off"
+                data-testid="create-threat-ruleset-system"
+              />
+            </label>
+            <label>
+              Ruleset edition
+              <input
+                value={createForm.rulesetEdition}
+                onChange={(event) => updateCreateField("rulesetEdition", event.target.value)}
+                autoComplete="off"
+                data-testid="create-threat-ruleset-edition"
+              />
+            </label>
+            <label>
+              House ruleset ID
+              <input
+                value={createForm.houseRulesetId}
+                onChange={(event) => updateCreateField("houseRulesetId", event.target.value)}
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          <details>
+            <summary>Optional generation and focus controls</summary>
+            <div className="statblock-storage-section">
+              <div className="statblock-command-row">
+                <label>
+                  Focus session
+                  <input
+                    value={createForm.focusSession}
+                    onChange={(event) => updateCreateField("focusSession", event.target.value)}
+                    inputMode="numeric"
+                  />
+                </label>
+                <label>
+                  Prep label
+                  <input
+                    value={createForm.prepLabel}
+                    onChange={(event) => updateCreateField("prepLabel", event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <label>
+                  Slug hint
+                  <input
+                    value={createForm.slugHint}
+                    onChange={(event) => updateCreateField("slugHint", event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+              </div>
+              <div className="statblock-command-row">
+                <label>
+                  Target CR
+                  <input
+                    value={createForm.targetCr}
+                    onChange={(event) => updateCreateField("targetCr", event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <label>
+                  Complexity
+                  <input
+                    value={createForm.complexity}
+                    onChange={(event) => updateCreateField("complexity", event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <label>
+                  Party level
+                  <input
+                    value={createForm.partyLevel}
+                    onChange={(event) => updateCreateField("partyLevel", event.target.value)}
+                    inputMode="numeric"
+                  />
+                </label>
+                <label>
+                  Party size
+                  <input
+                    value={createForm.partySize}
+                    onChange={(event) => updateCreateField("partySize", event.target.value)}
+                    inputMode="numeric"
+                  />
+                </label>
+              </div>
+              <label>
+                Must include (comma or newline)
+                <textarea
+                  value={createForm.mustInclude}
+                  onChange={(event) => updateCreateField("mustInclude", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label>
+                Must avoid (comma or newline)
+                <textarea
+                  value={createForm.mustAvoid}
+                  onChange={(event) => updateCreateField("mustAvoid", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label>
+                Intended roles (comma or newline)
+                <textarea
+                  value={createForm.intendedRoles}
+                  onChange={(event) => updateCreateField("intendedRoles", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label>
+                Tags (comma or newline)
+                <textarea
+                  value={createForm.tags}
+                  onChange={(event) => updateCreateField("tags", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label>
+                Terrain notes (comma or newline)
+                <textarea
+                  value={createForm.terrainNotes}
+                  onChange={(event) => updateCreateField("terrainNotes", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label>
+                Selected node IDs (comma or newline)
+                <textarea
+                  value={createForm.selectedNodeIds}
+                  onChange={(event) => updateCreateField("selectedNodeIds", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label>
+                Admitted source anchor IDs (comma or newline)
+                <textarea
+                  value={createForm.admittedSourceAnchorIds}
+                  onChange={(event) =>
+                    updateCreateField("admittedSourceAnchorIds", event.target.value)
+                  }
+                  rows={2}
+                />
+              </label>
+            </div>
+          </details>
+          <div className="statblock-command-row">
+            <button
+              type="submit"
+              disabled={
+                pendingGenerate ||
+                createPhase === "creating" ||
+                createPhase === "generating"
+              }
+              data-testid="create-and-generate-submit"
+            >
+              {createPhase === "creating"
+                ? "Creating…"
+                : createPhase === "generating" || pendingGenerate
+                  ? "Generating…"
+                  : "Create & generate"}
+            </button>
+            <button type="button" onClick={onStartAnotherThreat} data-testid="start-another-threat">
+              Start another threat
+            </button>
+            {createdDraft && generateError ? (
+              <button
+                type="button"
+                onClick={() => void onRetryGenerateCreatedDraft()}
+                disabled={pendingGenerate}
+                data-testid="retry-generate-created-draft"
+              >
+                Retry generation (same draft)
+              </button>
+            ) : null}
+          </div>
+        </form>
+        {createdDraft ? (
+          <p className="statblock-command-status" data-testid="created-draft-identity" role="status">
+            Created draft identity: <code>{createdDraft.draft_id}</code> v{createdDraft.version} (
+            {createdDraft.name})
+          </p>
+        ) : null}
+        {createMessage ? (
+          <p className="statblock-command-status" role="status">
+            {createMessage}
+          </p>
+        ) : null}
+        {createError ? (
+          <p className="statblock-command-error" role="alert" data-testid="create-threat-error">
+            {createPhase === "create_uncertain"
+              ? `Create outcome unknown: ${createError}`
+              : `Unable to create ThreatDraft: ${createError}`}
+          </p>
+        ) : null}
+      </section>
 
       <section className="statblock-section">
         <h3>Load exact candidate</h3>

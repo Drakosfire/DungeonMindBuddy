@@ -2445,4 +2445,302 @@ describe("StatblockWorkbenchModule", () => {
       expect(crypto.randomUUID).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("create-and-generate", () => {
+    const DRAFT_ID = "11111111-1111-4111-8111-111111111111";
+
+    async function fillRequiredCreateFields(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(screen.getByTestId("create-threat-name"), "Mireward Latchling");
+      await user.type(
+        screen.getByTestId("create-threat-description"),
+        "A reed-choked latching scavenger from the Mireward verge.",
+      );
+      await user.type(screen.getByTestId("create-threat-created-by"), "gm");
+      await user.type(screen.getByTestId("create-threat-world-id"), "world_eldyrwild");
+      await user.type(screen.getByTestId("create-threat-campaign-id"), "campaign_longmont_c2");
+      await user.type(screen.getByTestId("create-threat-graph-revision-id"), "rev_exact_mireward_1");
+    }
+
+    function mockCreatedDraft(overrides?: Partial<{ draft_id: string; version: number; name: string }>) {
+      return {
+        schema: "dmb_threat_draft_v1" as const,
+        draft_id: overrides?.draft_id ?? DRAFT_ID,
+        version: overrides?.version ?? 1,
+        world_id: "world_eldyrwild",
+        campaign_id: "campaign_longmont_c2",
+        name: overrides?.name ?? "Mireward Latchling",
+        description: "A reed-choked latching scavenger from the Mireward verge.",
+        threat_kind: "creature",
+        workflow_state: "drafting" as const,
+        created_by: "gm",
+        created_at: "2026-07-26T00:00:00Z",
+        updated_at: "2026-07-26T00:00:00Z",
+      };
+    }
+
+    it("creates a draft then generates and loads using the returned identity", async () => {
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
+      const generateSpy = vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: DRAFT_ID,
+        generated_from_draft_version: 1,
+        request_id: "req_create_gen",
+        outcome: "success",
+        candidate,
+        cache_status: "stored",
+        persistence_failures: [],
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      const createBody = createSpy.mock.calls[0][0];
+      expect(createBody.world_id).toBe("world_eldyrwild");
+      expect(createBody.campaign_id).toBe("campaign_longmont_c2");
+      expect(createBody.graph_context_snapshot.graph_revision_id).toBe("rev_exact_mireward_1");
+      expect(createBody.generation_intent.ruleset).toEqual({
+        system: "dnd5e",
+        edition: "2024",
+        house_ruleset_id: null,
+      });
+      expect(createBody.intended_roles).toEqual([]);
+      expect(createBody.tags).toEqual([]);
+      expect(createBody.generation_intent.must_include).toEqual([]);
+      expect(createBody.generation_intent.must_avoid).toEqual([]);
+      expect(JSON.stringify(createBody)).not.toMatch(/rev_workbench_quick_create|demo|latest|"current"/i);
+      expect(generateSpy).toHaveBeenCalledWith(DRAFT_ID, { expected_draft_version: 1 });
+      expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
+      expect(screen.getByTestId("created-draft-identity").textContent).toContain(DRAFT_ID);
+      expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", DRAFT_ID);
+    });
+
+    it("does not generate after a definite create failure", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(liveApi, "createThreatDraft").mockRejectedValue(
+        new liveApi.LiveApiError("invalid world_id", 422),
+      );
+      const generateSpy = vi.spyOn(liveApi, "generateThreatDraftCandidate");
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("create-threat-error").textContent).toMatch(/Unable to create/i);
+      });
+      expect(generateSpy).not.toHaveBeenCalled();
+    });
+
+    it("retains created draft and retries generation without recreating", async () => {
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
+      const generateSpy = vi
+        .spyOn(liveApi, "generateThreatDraftCandidate")
+        .mockRejectedValueOnce(new Error("server timeout"))
+        .mockResolvedValueOnce({
+          schema: "dmb_generate_threat_draft_candidate_response_v1",
+          draft_id: DRAFT_ID,
+          generated_from_draft_version: 1,
+          request_id: "req_retry",
+          outcome: "success",
+          candidate,
+          cache_status: "stored",
+          persistence_failures: [],
+        });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("retry-generate-created-draft")).toBeTruthy();
+      });
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      expect(generateSpy).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByTestId("retry-generate-created-draft"));
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      expect(createSpy).toHaveBeenCalledTimes(1);
+      expect(generateSpy).toHaveBeenCalledTimes(2);
+      expect(generateSpy).toHaveBeenNthCalledWith(2, DRAFT_ID, { expected_draft_version: 1 });
+    });
+
+    it("guards duplicate submit so at most one create runs", async () => {
+      const user = userEvent.setup();
+      let resolveCreate: (value: ReturnType<typeof mockCreatedDraft>) => void = () => {};
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveCreate = resolve;
+          }),
+      );
+      vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: DRAFT_ID,
+        generated_from_draft_version: 1,
+        request_id: "req_dup",
+        outcome: "success",
+        candidate,
+        cache_status: "stored",
+        persistence_failures: [],
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      const submit = screen.getByTestId("create-and-generate-submit");
+      await user.click(submit);
+      await user.click(submit);
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalledTimes(1);
+      });
+      resolveCreate(mockCreatedDraft());
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      expect(createSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("ignores delayed create success after a newer manual load", async () => {
+      const user = userEvent.setup();
+      let resolveCreate: (value: ReturnType<typeof mockCreatedDraft>) => void = () => {};
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveCreate = resolve;
+          }),
+      );
+      const generateSpy = vi.spyOn(liveApi, "generateThreatDraftCandidate");
+      const candidateB: GeneratedStatblockCandidateV1 = {
+        ...candidate,
+        candidate_id: "cand_fixture2",
+        definition: {
+          ...candidate.definition,
+          identity: { ...candidate.definition.identity, name: "Manual Selection" },
+        },
+      };
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        schema: "dmb_statblock_candidate_read_v1",
+        candidate_id: candidateB.candidate_id,
+        status: "active",
+        candidate: candidateB,
+      });
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalled();
+      });
+
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture2");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Manual Selection")).toBeTruthy();
+      });
+
+      resolveCreate(mockCreatedDraft());
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Manual Selection")).toBeTruthy();
+      });
+      expect(generateSpy).not.toHaveBeenCalled();
+      expect(screen.queryByDisplayValue("Ironhide Brute")).toBeNull();
+    });
+
+    it("ignores delayed generation success after a newer manual load", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
+      let resolveGenerate: (value: GenerateThreatDraftCandidateResponseV1) => void = () => {};
+      vi.spyOn(liveApi, "generateThreatDraftCandidate").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveGenerate = resolve;
+          }),
+      );
+      const candidateB: GeneratedStatblockCandidateV1 = {
+        ...candidate,
+        candidate_id: "cand_fixture2",
+        definition: {
+          ...candidate.definition,
+          identity: { ...candidate.definition.identity, name: "Manual Selection" },
+        },
+      };
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        schema: "dmb_statblock_candidate_read_v1",
+        candidate_id: candidateB.candidate_id,
+        status: "active",
+        candidate: candidateB,
+      });
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(liveApi.generateThreatDraftCandidate).toHaveBeenCalled();
+      });
+
+      await user.clear(screen.getByPlaceholderText("cand_…"));
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture2");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Manual Selection")).toBeTruthy();
+      });
+
+      resolveGenerate({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: DRAFT_ID,
+        generated_from_draft_version: 1,
+        request_id: "req_stale_gen",
+        outcome: "success",
+        candidate,
+        cache_status: "stored",
+        persistence_failures: [],
+      });
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Manual Selection")).toBeTruthy();
+      });
+      expect(screen.queryByDisplayValue("Ironhide Brute")).toBeNull();
+    });
+
+    it("blocks submit when required exact context is missing", async () => {
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft");
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByTestId("create-threat-name"), "Incomplete");
+      await user.type(screen.getByTestId("create-threat-description"), "Missing context ids");
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(screen.getByTestId("create-threat-error").textContent).toMatch(/created_by|world_id/i);
+      });
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it("preserves form and reports uncertainty on create transport failure", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(liveApi, "createThreatDraft").mockRejectedValue(new TypeError("Failed to fetch"));
+      const generateSpy = vi.spyOn(liveApi, "generateThreatDraftCandidate");
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("create-threat-error").textContent).toMatch(/outcome unknown/i);
+      });
+      expect(generateSpy).not.toHaveBeenCalled();
+      expect(screen.getByTestId("create-threat-name")).toHaveProperty("value", "Mireward Latchling");
+      expect(screen.getByTestId("create-threat-world-id")).toHaveProperty("value", "world_eldyrwild");
+    });
+  });
 });

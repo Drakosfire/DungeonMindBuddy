@@ -70,14 +70,6 @@ Sort newest → oldest within each status; promote with `/promote`; archive with
 **Surfaces when:** Build Extract → Graph Review handoff, `false_anchor_quote`, `run_not_promotable` on review-package, `reviewable` but Open fails, exact-run evidence inspection, BLD-07 dogfood
 **Refs:** `apps/live_control_server/services/extract_promote.py` (`_assert_and_project_candidate_evidence`); `GraphReviewWorkbenchModule.tsx`; `GraphReviewExactRunProjection.tsx`; `useBuildExtraction.ts` (`canOpenGraphReview`); transcript `db5e8b9a-b889-4cf3-ae3d-c0d944d10a01`
 
-## [READY] Workbench ThreatDraft create-and-generate (context-aware, candidate-op owned) — captured 2026-07-24
-**Priority:** high — dogfood friction; pulled out of SBW05c/#404 after review.
-**Context:** Quick “Create & generate” landed in #404 dogfood commit `c7f9201a`, then reverted. Review: create did not claim candidate-op id before `createThreatDraft`; hard-coded world/campaign/fake graph provenance; outside SBW05c allowlist.
-**Insight:** Generate-for-dogfood is a real product surface, but it must be designed as one owned user operation bound to real Plan world/campaign/graph context — not a mid-slice bootstrap with placeholder ids.
-**Action:** Separate UX bite after #404: claim one candidate-operation id before create; thread it through create→generate→load; bind to active surface world/campaign + real graph snapshot (or explicitly unbound contract). Tests for create vs manual-load races. Do not reintroduce placeholder `rev_workbench_quick_create` / hard-coded campaign ids.
-**Surfaces when:** workbench generate, ThreatDraft create UI, SBW05c dogfood without scripts, candidate-operation ownership, fabricated graph provenance
-**Refs:** PR #404 review 4776946899; `StatblockWorkbenchModule.tsx`; reverted `buildQuickThreatDraftCreateRequest.ts`
-
 ## [READY] Browser-local editor draft persistence with honest receipt trust — captured 2026-07-24
 **Priority:** medium — useful for tab reopen; pulled out of #404.
 **Context:** `localStorage` draft store was added during SBW05c dogfood then reverted. Review: restoring receipt as authoritative from mutable storage violates exact-definition↔receipt trust.
