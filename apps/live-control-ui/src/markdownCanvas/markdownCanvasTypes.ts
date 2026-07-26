@@ -1,0 +1,110 @@
+import type { ReactNode } from "react";
+import type { Editor, JSONContent } from "@tiptap/react";
+
+import type {
+  TiptapMarkdownWriteCommitResponse,
+  WorkspaceDocumentRecord,
+  WorkspaceDocumentSnapshot,
+} from "../api/types";
+import type {
+  WorkspaceDocumentLocalKind,
+  WorkspaceDocumentLocalSurface,
+} from "../tiptap/state/tiptapLocalState";
+import type { WorkspaceDocumentAuthoringPhase } from "../workspaceDocument/workspaceDocumentAuthoringMachine";
+import type { ReconcileLocalDraftResult } from "../workspaceDocument/reconcileLocalDraft";
+
+/** Policies a tool may request against the current canvas document authority. */
+export type DocumentAdmissionPolicy = "loaded" | "editable" | "committed_clean";
+
+/**
+ * Immutable document authority admitted under a named policy.
+ * Intentionally excludes extract-run identity, SourceArtifact, profile, and handoff fields.
+ */
+export interface AdmittedDocumentEnvelope {
+  documentId: string;
+  revision: number;
+  contentSha256: string;
+  contentStatus: "draft" | "committed";
+  documentKind: WorkspaceDocumentLocalKind;
+  surfaceId: WorkspaceDocumentLocalSurface;
+}
+
+export interface CanvasDocumentState {
+  documentId: string;
+  phase: WorkspaceDocumentAuthoringPhase;
+  record: WorkspaceDocumentRecord | null;
+  snapshot: WorkspaceDocumentSnapshot | null;
+  dirty: boolean;
+  error: string | null;
+}
+
+export interface DocumentCommandSpec {
+  id: string;
+  conflictsWith: readonly string[];
+  admission: DocumentAdmissionPolicy | "none";
+  invalidateOnDocumentChange?: boolean;
+}
+
+export interface DocumentCommandExecuteContext {
+  envelope: AdmittedDocumentEnvelope | null;
+  signal: AbortSignal;
+  documentId: string;
+}
+
+export type DocumentCommandResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; reason: string; code: DocumentCommandFailureCode };
+
+export type DocumentCommandFailureCode =
+  | "duplicate_command"
+  | "conflict"
+  | "admission_failed"
+  | "invalidated"
+  | "aborted"
+  | "execute_failed";
+
+export interface ActiveDocumentCommand {
+  id: string;
+  documentId: string;
+  startedAt: number;
+}
+
+export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
+  statusLabel: string;
+  reconciliation: ReconcileLocalDraftResult | null;
+  editorContent: unknown;
+  documentKey: string;
+  saveDisabled: boolean;
+  lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
+  activeCommand: ActiveDocumentCommand | null;
+  setEditor: (editor: Editor | null) => void;
+  handleEditorUpdate: (
+    json: JSONContent,
+    editor: Editor,
+    meta: { programmatic: boolean },
+  ) => void;
+  markDirty: () => void;
+  saveMarkdown: () => Promise<void>;
+  reloadFromSnapshot: () => Promise<void>;
+  discardLocalDraft: () => Promise<void>;
+  getAdmittedDocument: (policy: DocumentAdmissionPolicy) => AdmittedDocumentEnvelope | null;
+  runDocumentCommand: <T>(
+    spec: DocumentCommandSpec,
+    execute: (ctx: DocumentCommandExecuteContext) => Promise<T>,
+  ) => Promise<DocumentCommandResult<T>>;
+}
+
+export interface MarkdownCanvasSessionProviderProps {
+  documentId: string;
+  surface: WorkspaceDocumentLocalSurface;
+  kind: WorkspaceDocumentLocalKind;
+  children: ReactNode;
+  storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
+  emptyMarkdownFallback?: unknown;
+  requireDirtyToSave?: boolean;
+  canSave?: () => boolean;
+}
+
+export const DOCUMENT_SAVE_COMMAND_ID = "document.save";
+export const BUILD_EXTRACT_COMMAND_ID = "build.extract";
+export const BUILD_REFRESH_RUN_COMMAND_ID = "build.refresh-run";

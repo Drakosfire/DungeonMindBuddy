@@ -11,6 +11,7 @@ import {
   workspaceDocumentStorageKey,
   writeWorkspaceDocumentLocalState,
 } from "../tiptap/state/tiptapLocalState";
+import { BuildCanvasTestProvider } from "./buildCanvasTestProvider";
 import { BUILD_AUTHORITY_REJECTION_AMBIENT, BuildSurfaceShell } from "./BuildSurfaceShell";
 
 let buildShellTestEditor: Editor | null = null;
@@ -97,7 +98,9 @@ function BuildDocumentHarness({ documentId }: { documentId: string }) {
   return (
     <AgentInteractionProvider>
       <ScopeProbe />
-      <BuildSurfaceShell key={documentId} documentId={documentId} />
+      <BuildCanvasTestProvider documentId={documentId}>
+        <BuildSurfaceShell />
+      </BuildCanvasTestProvider>
     </AgentInteractionProvider>
   );
 }
@@ -140,7 +143,7 @@ describe("BuildSurfaceShell", () => {
     render(
       <AgentInteractionProvider>
         <ScopeProbe />
-        <BuildSurfaceShell documentId={DOC_ID} />
+        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -185,7 +188,7 @@ describe("BuildSurfaceShell", () => {
     render(
       <AgentInteractionProvider>
         <ScopeProbe />
-        <BuildSurfaceShell documentId={DOC_ID} />
+        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -261,7 +264,7 @@ describe("BuildSurfaceShell", () => {
     const { rerender } = render(
       <AgentInteractionProvider>
         <ScopeProbe />
-        <BuildSurfaceShell documentId={DOC_ID} />
+        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -276,7 +279,7 @@ describe("BuildSurfaceShell", () => {
     rerender(
       <AgentInteractionProvider>
         <ScopeProbe />
-        <BuildSurfaceShell documentId={PLAN_DOC_ID} />
+        <BuildCanvasTestProvider documentId={PLAN_DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -335,7 +338,7 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildSurfaceShell documentId={DOC_ID} />
+        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -394,7 +397,7 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildSurfaceShell documentId={DOC_ID} />
+        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 
@@ -447,7 +450,7 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildSurfaceShell documentId={DOC_ID} />
+        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
       </AgentInteractionProvider>,
     );
 

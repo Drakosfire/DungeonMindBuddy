@@ -1,31 +1,29 @@
 import { useEffect, useRef } from "react";
 
-import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
-import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
+import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
+import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
+import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
-
-interface BuildSurfaceShellProps {
-  documentId: string;
-}
 
 /** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
 export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
 
-export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
+/**
+ * Build document chrome: Agent Interaction publication + shared MarkdownCanvas.
+ * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
+ */
+export function BuildSurfaceShell() {
+  const session = useMarkdownCanvasSession();
+  const slots = useBuildMarkdownCanvasSlots();
   const { rehydrateScope, publishSurfaceContext } = useAgentInteraction();
   const lastAcceptedCampaignRef = useRef<string>("build");
-  const authoring = useWorkspaceDocumentAuthoring({
-    documentId,
-    surface: "build",
-    kind: "worldbuilding_source",
-  });
 
   useEffect(() => {
-    if (authoring.record?.campaign_id) {
-      lastAcceptedCampaignRef.current = authoring.record.campaign_id;
+    if (session.record?.campaign_id) {
+      lastAcceptedCampaignRef.current = session.record.campaign_id;
     }
-  }, [authoring.record?.campaign_id]);
+  }, [session.record?.campaign_id]);
 
   useEffect(() => {
     const publishNeutral = (ambientSummary: string) => {
@@ -47,21 +45,21 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
       });
     };
 
-    if (authoring.phase === "unloaded" || authoring.phase === "loading") {
+    if (session.phase === "unloaded" || session.phase === "loading") {
       publishNeutral("Loading worldbuilding source…");
       return;
     }
 
-    if (authoring.phase === "load_error") {
+    if (session.phase === "load_error") {
       publishNeutral(BUILD_AUTHORITY_REJECTION_AMBIENT);
       return;
     }
 
     // No accepted record (including conflict after quarantined snapshot) must not
     // retain a prior UUID/path/hash in Agent Interaction.
-    if (!authoring.record) {
+    if (!session.record) {
       publishNeutral(
-        authoring.phase === "conflict"
+        session.phase === "conflict"
           ? "Document reconciliation required"
           : "Build surface idle",
       );
@@ -69,53 +67,53 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     }
 
     rehydrateScope({
-      campaignId: authoring.record.campaign_id,
+      campaignId: session.record.campaign_id,
       sessionNumber: null,
       surfaceId: "build",
-      documentId: authoring.record.document_id,
+      documentId: session.record.document_id,
     });
-    const contentStatus = authoring.record.content_status;
-    const loadedRevision = authoring.snapshot?.loaded_revision ?? authoring.record.revision;
-    const contentSha = authoring.snapshot?.content_sha256 ?? null;
+    const contentStatus = session.record.content_status;
+    const loadedRevision = session.snapshot?.loaded_revision ?? session.record.revision;
+    const contentSha = session.snapshot?.content_sha256 ?? null;
     publishSurfaceContext({
       surfaceId: "build",
-      label: `${BUILD_SURFACE_LABEL} · ${authoring.record.title}`,
-      campaignId: authoring.record.campaign_id,
-      documentId: authoring.record.document_id,
+      label: `${BUILD_SURFACE_LABEL} · ${session.record.title}`,
+      campaignId: session.record.campaign_id,
+      documentId: session.record.document_id,
       sessionNumber: null,
       ambientSummary: [
-        authoring.record.document_class ?? "worldbuilding source",
+        session.record.document_class ?? "worldbuilding source",
         `rev ${loadedRevision}`,
-        authoring.dirty ? "local dirty" : "local clean",
+        session.dirty ? "local dirty" : "local clean",
         contentStatus === "committed" ? "durable committed" : "durable draft",
-        `phase ${authoring.phase}`,
+        `phase ${session.phase}`,
       ].join(" · "),
       sourceEnvelope: {
         schema: "agent_interaction_source_envelope_v1",
         artifactRefs: [
-          { kind: "workspace_document", value: authoring.record.document_id },
-          ...(authoring.record.target_relpath
-            ? [{ kind: "path" as const, value: authoring.record.target_relpath }]
+          { kind: "workspace_document", value: session.record.document_id },
+          ...(session.record.target_relpath
+            ? [{ kind: "path" as const, value: session.record.target_relpath }]
             : []),
         ],
         provenanceSummary: [
           `revision=${loadedRevision}`,
           contentSha ? `content_sha256=${contentSha}` : null,
-          `dirty=${authoring.dirty ? "true" : "false"}`,
+          `dirty=${session.dirty ? "true" : "false"}`,
           `content_status=${contentStatus}`,
-          `phase=${authoring.phase}`,
+          `phase=${session.phase}`,
         ].filter(Boolean).join("; "),
-        warnings: authoring.error ? [authoring.error] : [],
+        warnings: session.error ? [session.error] : [],
       },
       updatedAt: new Date().toISOString(),
     });
   }, [
-    authoring.dirty,
-    authoring.error,
-    authoring.phase,
-    authoring.record,
-    authoring.snapshot?.content_sha256,
-    authoring.snapshot?.loaded_revision,
+    session.dirty,
+    session.error,
+    session.phase,
+    session.record,
+    session.snapshot?.content_sha256,
+    session.snapshot?.loaded_revision,
     publishSurfaceContext,
     rehydrateScope,
   ]);
@@ -142,72 +140,5 @@ export function BuildSurfaceShell({ documentId }: BuildSurfaceShellProps) {
     };
   }, [publishSurfaceContext, rehydrateScope]);
 
-  if (authoring.phase === "loading" || authoring.phase === "unloaded") {
-    return (
-      <main className="app-status" data-testid="build-surface-loading">
-        <p>Loading worldbuilding source…</p>
-      </main>
-    );
-  }
-
-  if (authoring.phase === "load_error") {
-    return (
-      <main className="app-status app-error" data-testid="build-surface-error">
-        <h1>{BUILD_SURFACE_LABEL}</h1>
-        <p data-testid="build-authority-error">{authoring.error ?? "Unable to load worldbuilding source."}</p>
-      </main>
-    );
-  }
-
-  if (authoring.phase === "conflict") {
-    return (
-      <main className="app-status app-error" data-testid="build-surface-conflict">
-        <h1>{BUILD_SURFACE_LABEL}</h1>
-        <p>{authoring.statusLabel}</p>
-        <button type="button" onClick={() => void authoring.reloadFromSnapshot()}>
-          Reload from server
-        </button>
-        <button type="button" onClick={() => void authoring.discardLocalDraft()}>
-          Discard local draft
-        </button>
-      </main>
-    );
-  }
-
-  return (
-    <main className="build-surface-shell" data-testid="build-surface-shell">
-      <header className="build-surface-header">
-        <h1>{authoring.record?.title ?? BUILD_SURFACE_LABEL}</h1>
-        <p data-testid="build-document-status">{authoring.statusLabel}</p>
-        <p data-testid="build-authoring-status">{authoring.statusLabel}</p>
-        {authoring.error ? (
-          <p role="alert" data-testid="build-save-error">{authoring.error}</p>
-        ) : null}
-        {authoring.record?.document_class ? (
-          <p data-testid="build-document-class">{authoring.record.document_class}</p>
-        ) : null}
-      </header>
-
-      <section className="build-surface-editor">
-        <MarkdownEditorCore
-          documentKey={authoring.documentKey}
-          content={authoring.editorContent}
-          onEditorChange={authoring.setEditor}
-          onUpdate={authoring.handleEditorUpdate}
-          dataTestId="build-markdown-editor"
-        />
-      </section>
-
-      <footer className="build-surface-actions">
-        <button
-          type="button"
-          data-testid="build-save-button"
-          disabled={authoring.saveDisabled}
-          onClick={() => void authoring.saveMarkdown()}
-        >
-          Save
-        </button>
-      </footer>
-    </main>
-  );
+  return <MarkdownCanvas slots={slots} />;
 }
