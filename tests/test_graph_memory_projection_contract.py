@@ -384,9 +384,11 @@ def test_union_mention_characterization_fixture_provenance() -> None:
 
 
 def test_existing_dmb_link_destination_protection_vs_redirect_diagnostics_is_stop_condition() -> None:
-    """Document the deferred stop condition: protection enables redirect diagnostics.
+    """Live-replay the deferred stop condition: protection enables redirect diagnostics.
 
     This case is intentionally outside the merge-ready characterization matrix.
+    Quarantining it does not defer the production behavior; this test proves head
+    still emits the recorded diagnostic delta so the operator decision is grounded.
     """
     fixture = _load_union_mention_fixture()
     deferred = next(
@@ -396,8 +398,11 @@ def test_existing_dmb_link_destination_protection_vs_redirect_diagnostics_is_sto
     )
     assert deferred["status"] == "stop_condition_needs_operator_decision"
     assert "union_identity_diagnostics" in deferred["diverging_non_mention_fields"]
+
+    head = _projection_from_union_case(deferred["inputs"]).model_dump(mode="json")
+    assert head == deferred["observed_head_projection"]
+
     base = deferred["base_projection"]
-    head = deferred["observed_head_projection"]
     assert base["union_identity_diagnostics"] != head["union_identity_diagnostics"]
     assert any(
         d.get("code") == "union_identity_mention_target_resolved"
