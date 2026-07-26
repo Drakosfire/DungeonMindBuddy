@@ -2627,5 +2627,3 @@ def test_world_projection_emits_only_closed_direction_vocabulary(
     search = kernel.search_world_graph_projection(projection, "tripod")
     for relationship in search.relationships:
         assert relationship.direction in _CLOSED_DIRECTIONS
-
-
