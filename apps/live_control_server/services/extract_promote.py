@@ -1154,6 +1154,8 @@ def prepare_worldbuilding(
         verify_worldbuilding_write_plan(
             response.model_dump(mode="json", by_alias=True),
             preview=typed_preview,
+            world_root=world_graph_root(),
+            source_uri=resolved.sealed_source_uri,
         )
     except WorldbuildingWritePlanError as exc:
         raise ExtractPromoteError(
