@@ -357,6 +357,13 @@ def _projection_from_union_case(case: dict) -> RecapGraphProjection:
     return build_recap_graph_projection(store, **kwargs)
 
 
+# Operator-authorized exception for destination protection enabling post-pass
+# rewrite diagnostics. Only this case may declare non-mention field deltas.
+_AUTHORIZED_NON_MENTION_DELTAS_BY_CASE = {
+    "alias_existing_dmb_link_plus_plain": frozenset({"union_identity_diagnostics"}),
+}
+
+
 def test_union_mention_characterization_fixture_provenance() -> None:
     fixture = _load_union_mention_fixture()
     assert fixture["schema"] == "dmb_union_mention_migration_characterization_v1"
@@ -371,10 +378,17 @@ def test_union_mention_characterization_fixture_provenance() -> None:
     assert sum(1 for case in fixture["cases"] if not case.get("known_entity_mentions")) >= 10
     assert sum(1 for case in fixture["cases"] if case["category"] == "protected_skip") >= 10
     assert any(case["case_id"] == "alias_equal_length_first_win" for case in fixture["cases"])
-    deferred = fixture.get("deferred_stop_conditions") or []
-    assert any(item.get("case_id") == "alias_existing_dmb_link_plus_plain" for item in deferred)
+    assert any(
+        case["case_id"] == "alias_existing_dmb_link_plus_plain" for case in fixture["cases"]
+    )
+    assert not (fixture.get("deferred_stop_conditions") or [])
     for case in fixture["cases"]:
-        assert "authorized_non_mention_field_deltas" not in case
+        allowed = set(case.get("authorized_non_mention_field_deltas") or [])
+        expected_allowed = set(_AUTHORIZED_NON_MENTION_DELTAS_BY_CASE.get(case["case_id"], ()))
+        assert allowed == expected_allowed, (
+            f"{case['case_id']} authorized_non_mention_field_deltas={allowed!r}; "
+            f"expected {expected_allowed!r}"
+        )
         assert isinstance(case["base_projection"], dict)
         assert "markdown" in case["base_projection"]
         assert "mentions" in case["base_projection"]
@@ -383,26 +397,24 @@ def test_union_mention_characterization_fixture_provenance() -> None:
         assert "union_identity_diagnostics" in case["base_projection"]
 
 
-def test_existing_dmb_link_destination_protection_vs_redirect_diagnostics_is_stop_condition() -> None:
-    """Live-replay the deferred stop condition: protection enables redirect diagnostics.
+def test_existing_dmb_link_destination_protection_authorizes_redirect_diagnostic() -> None:
+    """Operator option 1: destination protection may add mention_target_resolved.
 
-    This case is intentionally outside the merge-ready characterization matrix.
-    Quarantining it does not defer the production behavior; this test proves head
-    still emits the recorded diagnostic delta so the operator decision is grounded.
+    Live-replay proves production emits the authorized diagnostic delta; other
+    non-mention fields remain exact.
     """
     fixture = _load_union_mention_fixture()
-    deferred = next(
+    case = next(
         item
-        for item in fixture["deferred_stop_conditions"]
+        for item in fixture["cases"]
         if item["case_id"] == "alias_existing_dmb_link_plus_plain"
     )
-    assert deferred["status"] == "stop_condition_needs_operator_decision"
-    assert "union_identity_diagnostics" in deferred["diverging_non_mention_fields"]
+    assert case["authorized_non_mention_field_deltas"] == ["union_identity_diagnostics"]
 
-    head = _projection_from_union_case(deferred["inputs"]).model_dump(mode="json")
-    assert head == deferred["observed_head_projection"]
+    head = _projection_from_union_case(case).model_dump(mode="json")
+    assert head == case["expected_head"]
 
-    base = deferred["base_projection"]
+    base = case["base_projection"]
     assert base["union_identity_diagnostics"] != head["union_identity_diagnostics"]
     assert any(
         d.get("code") == "union_identity_mention_target_resolved"
@@ -412,6 +424,10 @@ def test_existing_dmb_link_destination_protection_vs_redirect_diagnostics_is_sto
         d.get("code") == "union_identity_mention_target_resolved"
         for d in base["union_identity_diagnostics"]
     )
+    for key, value in base.items():
+        if key in {"markdown", "mentions", "union_identity_diagnostics"}:
+            continue
+        assert head.get(key) == value, f"unauthorized non-mention field drifted: {key}"
 
 
 @pytest.mark.parametrize(
@@ -430,12 +446,18 @@ def test_union_mention_migration_characterization(case: dict) -> None:
     expected = case["expected_head"]
     assert head == expected
     allowed = set(case.get("authorized_non_mention_field_deltas") or [])
-    assert not allowed, (
-        f"{case['case_id']} must not self-authorize non-mention field deltas; "
-        "handoff permits only protected Markdown/mention suppression"
+    expected_allowed = set(_AUTHORIZED_NON_MENTION_DELTAS_BY_CASE.get(case["case_id"], ()))
+    assert allowed == expected_allowed, (
+        f"{case['case_id']} authorized_non_mention_field_deltas={allowed!r}; "
+        f"expected {expected_allowed!r}"
     )
     for key, value in base.items():
         if key in {"markdown", "mentions"}:
+            continue
+        if key in allowed:
+            assert head.get(key) != value, (
+                f"{case['case_id']} authorized delta {key!r} must actually differ from base"
+            )
             continue
         assert head.get(key) == value, f"non-mention field drifted: {key}"
 
