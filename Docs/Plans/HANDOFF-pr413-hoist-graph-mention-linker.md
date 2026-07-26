@@ -37,8 +37,10 @@ pr_body_template: |
 # HANDOFF — Hoist the graph mention linker to a surface-neutral module
 
 **Created:** 2026-07-25.
-**Status:** ACTIVE — dispatch exactly one implementation capability.
-**Canonical handoff path:** `Docs/Plans/HANDOFF-pr413-hoist-graph-mention-linker.md`
+**Status:** ACTIVE — implementation open as GitHub **PR #414** (planned filename number #413 was already taken by an unrelated PR).
+**Canonical handoff path:** `Docs/Plans/HANDOFF-pr413-hoist-graph-mention-linker.md` (rename to `HANDOFF-pr414-…` at archive time per `AGENTS.md`).
+
+> **Numbering:** Successors below use **content slugs**, not guessed GitHub PR numbers. The old handoff vocabulary "PR #414" / "PR #415" meant those successor slices, not this PR.
 
 > **Dispatch gate:** Dispatch is prohibited until capability decomposition is complete, one independently useful mission remains, the merge-ready invariant and required evidence survive critique, every expected path is known, required contract matrices are resolved, and every acceptance claim has an owning proof.
 >
@@ -90,7 +92,7 @@ This is a **pure move with a characterization-test invariant.** No behavior chan
 | Base revision | `origin/main` at dispatch = `3195251a543ef0ebe0a551e7ea8015aa0f1d64b2` (docs-only commit on top of `7a22e6c8`, the PR #412 merge — the `src/` and `tests/` trees are byte-identical to `7a22e6c8`). Branch from `origin/main`; all diff commands below use `$(git merge-base origin/main HEAD)` so a later docs-only commit on `main` does not invalidate them. |
 | Predecessor contract | PR #412 / PR380A — `world_recap_projection.project_world_markdown_mentions` and its five CommonMark protection fixes |
 | Exact input consumed | `markdown: str` plus `list[WorldGraphProjectionNodeView]`; produced by `apps/live_control_server/services/world_graph_recap_projection.py` |
-| Named successor | PR #414 (derive recap views from generic views; normalize `direction` at the kernel boundary); PR #415 (migrate `recap_projection._project_markdown_mentions` onto the hoisted linker) |
+| Named successor | `derive-recap-views-normalize-direction` (derive recap views from generic views; normalize `direction` at the kernel boundary); `migrate-union-mention-path` (migrate `recap_projection._project_markdown_mentions` onto the hoisted linker) |
 | What remains false | The union-supergraph mention path remains unprotected. The `WorldGraphRecap*` models remain hand-copied. `adapt_relationship_direction` still translates per-surface. No new surface consumes the hoisted module yet. |
 | Explicit non-goals | Any behavior change; any frontend change; any new CommonMark protection; any wire-schema change; any plugin/registry abstraction |
 
@@ -147,9 +149,9 @@ Unrestricted globs such as `src/**` are prohibited. If another path is needed ou
 | `apps/live_control_server/services/world_graph_recap_projection.py` | **Its absence from the diff is the proof** that the public signature was preserved. Touching it invalidates the invariant. |
 | `apps/live_control_server/services/graph_gold_review.py` | Imports `splice_node_link_spans` from `recap_projection`; the re-export keeps it unchanged. Updating its import is a successor cleanup. |
 | `apps/live_control_server/services/graph_authoring_overlay_projection.py` | Same as above. |
-| `recap_projection._project_markdown_mentions` and `_known_mention_spans_in_markdown` | The unprotected second implementation. Migrating it is PR #415 and carries a real behavior change. Do **not** "fix it while you're there." |
-| `WorldGraphRecap*` models, `_adapt_*`, `adapt_world_node_to_recap_view` | PR #414. Separate invariant (derivation, not identity). |
-| `adapt_relationship_direction` | PR #414 — normalization moves to the kernel boundary. |
+| `recap_projection._project_markdown_mentions` and `_known_mention_spans_in_markdown` | The unprotected second implementation. Migrating it is `migrate-union-mention-path` and carries a real behavior change. Do **not** "fix it while you're there." |
+| `WorldGraphRecap*` models, `_adapt_*`, `adapt_world_node_to_recap_view` | `derive-recap-views-normalize-direction`. Separate invariant (derivation, not identity). |
+| `adapt_relationship_direction` | `derive-recap-views-normalize-direction` — normalization moves to the kernel boundary. |
 | `_protected_ranges` behavior — adding, removing, or "improving" any CommonMark case | Five review rounds produced the current set. Any change breaks byte-identity and is a stop condition. |
 | `apps/live-control-ui/**` | `dmb-node:` consumers are already generic. No frontend change is in scope. |
 | `Docs/Design/DECISION-graph-lens-projection-boundary.md` | Authority document; the worker does not edit its own authority. |
@@ -318,7 +320,7 @@ The PR description must use the frontmatter skeleton and include:
 10. Paths outside §4; `none` or a stop report.
 11. Stop conditions encountered and resolution; `none` when none exist.
 12. The commit SHA of the characterization fixture, demonstrating it predates the refactor.
-13. Successor capabilities deferred and still false (PR #414, PR #415, PR380B).
+13. Successor capabilities deferred and still false (`derive-recap-views-normalize-direction`, `migrate-union-mention-path`, PR380B).
 14. Confirmation that this handoff was implemented without compressed or omitted constraints.
 
 A generic "Summary / Test plan" PR body does not satisfy this section.
@@ -335,7 +337,7 @@ A generic "Summary / Test plan" PR body does not satisfy this section.
 - [ ] No CommonMark protection case was added, removed, or altered — proved by §7 row 1 and diff inspection of `_protected_ranges` and its helpers.
 - [ ] No path outside §4 changed — proved by §7 row 4's `--name-only` output.
 - [ ] Baseline failures are reported truthfully and any required waiver is explicit.
-- [ ] The named successors (PR #414, PR #415) remain unimplemented and unclaimed — in particular `recap_projection._project_markdown_mentions` still lacks protection and this PR does not claim otherwise.
+- [ ] The named successors (`derive-recap-views-normalize-direction`, `migrate-union-mention-path`) remain unimplemented and unclaimed — in particular `recap_projection._project_markdown_mentions` still lacks protection and this PR does not claim otherwise.
 
 ## Stop conditions
 
@@ -344,7 +346,7 @@ Stop and report rather than expanding if implementation discovers:
 - that base behavior depends on unpinned iteration order, so byte-identity cannot be characterized deterministically;
 - that `splice_node_link_spans` cannot move without editing a §5 service file;
 - an import cycle requiring additional symbol moves;
-- a CommonMark case that appears wrong (report it as a PR #415 candidate; do not fix it);
+- a CommonMark case that appears wrong (report it as a `migrate-union-mention-path` candidate; do not fix it);
 - any second independently useful outcome;
 - a required path outside §4.
 

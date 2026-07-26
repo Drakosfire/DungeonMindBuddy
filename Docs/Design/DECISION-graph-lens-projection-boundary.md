@@ -1,9 +1,11 @@
 # DECISION — Graph lens projection boundary
 
 **Created:** 2026-07-25
-**Status:** ACCEPTED — governs projection layering from PR #413 forward.
+**Status:** ACCEPTED — governs projection layering from the mention-linker hoist forward.
 **Supersedes:** nothing. **Superseded by:** nothing.
-**Authority for:** `Docs/Plans/HANDOFF-pr413-hoist-graph-mention-linker.md`, PR380B (Recap/Ingest UI migration), and any future surface that renders prose beside World Graph nodes.
+**Authority for:** `Docs/Plans/HANDOFF-pr413-hoist-graph-mention-linker.md` (opened as GitHub **PR #414** — planned number #413 was already taken), PR380B (Recap/Ingest UI migration), and any future surface that renders prose beside World Graph nodes.
+
+> **Numbering lesson (2026-07-25):** Do not name successor slices by guessed GitHub PR numbers in authority docs. Use content slugs. Planned `#413` collided with an unrelated open PR; the hoist landed as `#414`. Rename the handoff to `HANDOFF-pr414-…` at archive time per `AGENTS.md`.
 
 ## Context
 
@@ -67,14 +69,14 @@ A projection is: **exact snapshot identity + node/edge views + focus overlay + t
 
 ## Sequencing
 
-| Slice | Content | Status |
+| Slice (content slug) | Content | Status |
 |---|---|---|
-| PR #413 | Hoist the linker to `markdown_mentions.py`, parameterized by bindings, byte-for-byte identical output | dispatched — `HANDOFF-pr413-hoist-graph-mention-linker.md` |
-| PR #414 | Derive recap views from generic views; normalize `direction` at the kernel boundary | named successor, not dispatched |
-| PR #415 | Migrate `recap_projection._project_markdown_mentions` onto the hoisted linker, closing the unprotected second implementation | named successor, not dispatched |
-| PR380B | Recap/Ingest UI migration; consumes the hoisted module rather than a recap-private one | blocked on #413 |
+| `hoist-graph-mention-linker` | Hoist the linker to `markdown_mentions.py`, parameterized by bindings, byte-for-byte identical output | open as **GitHub PR #414** — `HANDOFF-pr413-hoist-graph-mention-linker.md` |
+| `derive-recap-views-normalize-direction` | Derive recap views from generic views; normalize `direction` at the kernel boundary | named successor, not dispatched |
+| `migrate-union-mention-path` | Migrate `recap_projection._project_markdown_mentions` onto the hoisted linker, closing the unprotected second implementation | named successor, not dispatched |
+| PR380B | Recap/Ingest UI migration; consumes the hoisted module rather than a recap-private one | blocked on `hoist-graph-mention-linker` |
 
-PR #413 is deliberately a pure move with a characterization-test invariant, carrying no behavior change, so that #414's genuine contract changes are reviewable against a stable base.
+The hoist is deliberately a pure move with a characterization-test invariant, carrying no behavior change, so that `derive-recap-views-normalize-direction`'s genuine contract changes are reviewable against a stable base.
 
 ## Consequences
 
@@ -85,7 +87,7 @@ PR #413 is deliberately a pure move with a characterization-test invariant, carr
 ## Non-goals
 
 - Not collapsing `WorldGraphProjection`, `RecapGraphProjection`, and the union-supergraph projection into one runtime path.
-- Not changing what gets linked, what counts as ambiguous, or any projected output byte in PR #413.
+- Not changing what gets linked, what counts as ambiguous, or any projected output byte in the hoist slice (`hoist-graph-mention-linker` / PR #414).
 - Not introducing a plugin/registry abstraction for surfaces. Three named consumers do not justify a framework.
 - Not touching the frontend. `dmb-node:` consumers are already generic and stay as they are.
 
