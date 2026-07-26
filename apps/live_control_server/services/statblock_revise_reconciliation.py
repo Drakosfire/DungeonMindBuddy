@@ -391,6 +391,8 @@ def record_candidate_received(
                     cache=cache_state,
                     draft_ref=existing.materialization.draft_ref,
                 ),
+                "recovery_classification": None,
+                "recovery_details": None,
                 "updated_at": _utc_now_iso(),
             }
         )
@@ -429,6 +431,8 @@ def mark_cache_stored_ref_pending(
                     cache="stored",
                     draft_ref=existing.materialization.draft_ref,
                 ),
+                "recovery_classification": None,
+                "recovery_details": None,
                 "updated_at": _utc_now_iso(),
             }
         )
@@ -443,7 +447,12 @@ def mark_cache_failed(
     request_digest: str,
     candidate_id: str,
 ) -> ReviseOperationV1:
-    """Record durable cache=failed while remaining candidate_received (§12.7)."""
+    """Record durable cache=failed while remaining candidate_received (§12.7).
+
+    Also demotes an untruthful ``cache_stored_ref_pending`` (cache missing and
+    repair unsuccessful) back to ``candidate_received`` + ``cache=failed``
+    without releasing the reservation.
+    """
     with _draft_revise_lock(root, draft_id):
         existing = _read_operation_unlocked(
             root, draft_id=draft_id, request_id=request_id
@@ -463,8 +472,19 @@ def mark_cache_failed(
         ):
             return existing
         if existing.status == "cache_stored_ref_pending":
-            # Cache already materialized successfully; do not regress.
-            return existing
+            updated = existing.model_copy(
+                update={
+                    "status": "candidate_received",
+                    "materialization": ReviseMaterializationV1(
+                        cache="failed",
+                        draft_ref=existing.materialization.draft_ref,
+                    ),
+                    "recovery_classification": None,
+                    "recovery_details": None,
+                    "updated_at": _utc_now_iso(),
+                }
+            )
+            return _write_operation_unlocked(root, updated)
         if existing.status != "candidate_received":
             raise ReviseReconciliationError("revise operation conflict", status_code=409)
         updated = existing.model_copy(
@@ -473,6 +493,51 @@ def mark_cache_failed(
                     cache="failed",
                     draft_ref=existing.materialization.draft_ref,
                 ),
+                "updated_at": _utc_now_iso(),
+            }
+        )
+        return _write_operation_unlocked(root, updated)
+
+
+def mark_idempotency_authority_conflict(
+    root: Path,
+    *,
+    draft_id: str,
+    request_id: str,
+    request_digest: str,
+    details: dict[str, Any] | None = None,
+) -> ReviseOperationV1:
+    """Durably classify exact-body Server 409 without terminalizing.
+
+    Remains ``dispatched_unknown``, retains the active slot/reservation, and
+    never authorizes a changed body or replacement request_id.
+    """
+    with _draft_revise_lock(root, draft_id):
+        existing = _read_operation_unlocked(
+            root, draft_id=draft_id, request_id=request_id
+        )
+        if existing is None:
+            raise ReviseReconciliationError(
+                "missing revise operation claim",
+                status_code=500,
+            )
+        if existing.request_digest != request_digest:
+            raise ReviseReconciliationError("revise operation conflict", status_code=409)
+        if existing.status != "dispatched_unknown":
+            raise ReviseReconciliationError("revise operation conflict", status_code=409)
+        if (
+            existing.recovery_classification == "idempotency_authority_conflict"
+            and existing.candidate_id is None
+        ):
+            return existing
+        updated = existing.model_copy(
+            update={
+                "recovery_classification": "idempotency_authority_conflict",
+                "recovery_details": details
+                or {
+                    "server_error_code": "idempotency_conflict",
+                    "http_status": 409,
+                },
                 "updated_at": _utc_now_iso(),
             }
         )

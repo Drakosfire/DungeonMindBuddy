@@ -9,6 +9,9 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.client import 
     StatblockV1Client,
     build_statblock_v1_client,
 )
+from apps.live_control_server.integrations.dungeonmind_statblocks.create_terminal_inventory import (
+    is_changed_body_idempotency_conflict,
+)
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
 )
@@ -35,6 +38,7 @@ from apps.live_control_server.services.statblock_revise_reconciliation import (
     get_revise_operation,
     mark_cache_failed,
     mark_cache_stored_ref_pending,
+    mark_idempotency_authority_conflict,
     record_candidate_received,
     write_ahead_dispatched_unknown,
 )
@@ -59,6 +63,7 @@ def _response_from_operation(
         "revise_busy",
         "revise_history_full",
         "revise_input_conflict",
+        "revise_integrity_conflict",
         "revise_blocked",
         "revise_draft_unavailable",
         "terminal_failure",
@@ -73,6 +78,56 @@ def _response_from_operation(
         source_definition_digest=operation.source_definition_digest,
         instruction_options_digest=operation.instruction_options_digest,
     )
+
+
+def _receipt_digest_str(receipt_digest: object) -> str | None:
+    if receipt_digest is None:
+        return None
+    if hasattr(receipt_digest, "root"):
+        return str(receipt_digest.root)
+    return str(receipt_digest)
+
+
+def bind_candidate_to_revise_operation(
+    candidate: GeneratedStatblockCandidateV1,
+    operation: ReviseOperationV1,
+) -> None:
+    """Require candidate identity + Server receipt to match the revise journal.
+
+    Covers POST responses, cache reads, and exact GET responses before any
+    transition to ``cache_stored_ref_pending``.
+    """
+    if (
+        operation.candidate_id is not None
+        and candidate.candidate_id != operation.candidate_id
+    ):
+        raise ReviseCandidateRevisionError(
+            "candidate.candidate_id does not match revise operation",
+            status_code=409,
+        )
+    receipt = candidate.generation_receipt
+    if receipt is None:
+        raise ReviseCandidateRevisionError(
+            "candidate missing generation_receipt",
+            status_code=500,
+        )
+    if receipt.request_id != operation.request_id:
+        raise ReviseCandidateRevisionError(
+            "candidate generation_receipt.request_id does not match revise operation",
+            status_code=409,
+        )
+    observed = _receipt_digest_str(receipt.source_definition_digest)
+    if observed is None:
+        raise ReviseCandidateRevisionError(
+            "candidate generation_receipt missing source_definition_digest",
+            status_code=500,
+        )
+    if observed != operation.source_definition_digest:
+        raise ReviseCandidateRevisionError(
+            "candidate generation_receipt.source_definition_digest does not match "
+            "revise operation",
+            status_code=409,
+        )
 
 
 def _ensure_write_ahead(
@@ -101,6 +156,7 @@ def _materialize_through_cache(
     operation: ReviseOperationV1,
     candidate: GeneratedStatblockCandidateV1,
 ) -> ReviseOperationV1:
+    bind_candidate_to_revise_operation(candidate, operation)
     store_candidate_payload(root, candidate)
     return mark_cache_stored_ref_pending(
         root,
@@ -109,6 +165,86 @@ def _materialize_through_cache(
         request_digest=operation.request_digest,
         candidate_id=candidate.candidate_id,
     )
+
+
+def _demote_cache_failed(
+    root: Path,
+    operation: ReviseOperationV1,
+    *,
+    candidate_id: str,
+) -> ReviseOperationV1:
+    return mark_cache_failed(
+        root,
+        draft_id=operation.draft_id,
+        request_id=operation.request_id,
+        request_digest=operation.request_digest,
+        candidate_id=candidate_id,
+    )
+
+
+def _repair_or_demote_known_candidate(
+    root: Path,
+    *,
+    operation: ReviseOperationV1,
+    resolve_client: Callable[[], StatblockV1Client],
+) -> ReviseCandidateFromEditedDefinitionResponseV1:
+    """Verify/repair cache for a journal that already records candidate_id.
+
+    ``cache_stored_ref_pending`` is only returned when a bound payload is
+    present in cache (or successfully repaired into cache).
+    """
+    assert operation.candidate_id is not None
+
+    try:
+        cached = read_candidate_payload_or_none(root, operation.candidate_id)
+    except CandidateCacheError:
+        cached = None
+
+    if cached is not None:
+        try:
+            bind_candidate_to_revise_operation(cached, operation)
+        except ReviseCandidateRevisionError:
+            cached = None
+        else:
+            if operation.status != "cache_stored_ref_pending":
+                try:
+                    operation = _materialize_through_cache(root, operation, cached)
+                except CandidateCacheError:
+                    failed = _demote_cache_failed(
+                        root, operation, candidate_id=operation.candidate_id
+                    )
+                    return _response_from_operation(failed, result="candidate_received")
+            return _response_from_operation(
+                operation, result="cache_stored_ref_pending"
+            )
+
+    # Cache missing, corrupt, or unbound — exact GET repair.
+    try:
+        candidate = resolve_client().get_candidate(operation.candidate_id)
+        bind_candidate_to_revise_operation(candidate, operation)
+    except (StatblockIntegrationError, ReviseCandidateRevisionError):
+        failed = _demote_cache_failed(
+            root, operation, candidate_id=operation.candidate_id
+        )
+        return _response_from_operation(failed, result="candidate_received")
+
+    if operation.status == "dispatched_unknown":
+        operation = record_candidate_received(
+            root,
+            draft_id=operation.draft_id,
+            request_id=operation.request_id,
+            request_digest=operation.request_digest,
+            candidate_id=candidate.candidate_id,
+        )
+
+    try:
+        operation = _materialize_through_cache(root, operation, candidate)
+    except CandidateCacheError:
+        failed = _demote_cache_failed(
+            root, operation, candidate_id=candidate.candidate_id
+        )
+        return _response_from_operation(failed, result="candidate_received")
+    return _response_from_operation(operation, result="cache_stored_ref_pending")
 
 
 def _client_factory(
@@ -135,59 +271,74 @@ def _advance_after_claim(
     operation: ReviseOperationV1,
     resolve_client: Callable[[], StatblockV1Client],
 ) -> ReviseCandidateFromEditedDefinitionResponseV1:
-    if operation.status == "cache_stored_ref_pending":
-        return _response_from_operation(operation, result="cache_stored_ref_pending")
+    # Known candidate: always verify cache before claiming cache_stored_ref_pending.
+    if operation.candidate_id is not None:
+        return _repair_or_demote_known_candidate(
+            root,
+            operation=operation,
+            resolve_client=resolve_client,
+        )
+
+    if (
+        operation.status == "dispatched_unknown"
+        and operation.recovery_classification == "idempotency_authority_conflict"
+    ):
+        return _response_from_operation(operation, result="revise_integrity_conflict")
 
     operation = _ensure_write_ahead(root, operation)
 
-    candidate: GeneratedStatblockCandidateV1 | None = None
-    if operation.candidate_id is not None:
-        cached = read_candidate_payload_or_none(root, operation.candidate_id)
-        if cached is not None:
-            candidate = cached
-        else:
-            candidate = resolve_client().get_candidate(operation.candidate_id)
-    elif operation.status == "dispatched_unknown":
-        try:
-            candidate = _dispatch_revise_post(
-                resolve_client(), operation.request_body
-            )
-        except StatblockIntegrationError:
-            refreshed = get_revise_operation(
-                root,
-                draft_id=draft_id,
-                request_id=operation.request_id,
-            )
-            if refreshed is not None:
-                return _response_from_operation(
-                    refreshed, result="dispatched_unknown"
-                )
-            raise
-        operation = record_candidate_received(
-            root,
-            draft_id=operation.draft_id,
-            request_id=operation.request_id,
-            request_digest=operation.request_digest,
-            candidate_id=candidate.candidate_id,
-        )
+    if operation.status != "dispatched_unknown":
+        return _response_from_operation(operation, result="dispatched_unknown")
 
-    if candidate is not None:
-        try:
-            operation = _materialize_through_cache(root, operation, candidate)
-        except CandidateCacheError:
-            failed = mark_cache_failed(
+    try:
+        candidate = _dispatch_revise_post(resolve_client(), operation.request_body)
+    except StatblockIntegrationError as exc:
+        if is_changed_body_idempotency_conflict(exc):
+            marked = mark_idempotency_authority_conflict(
                 root,
                 draft_id=operation.draft_id,
                 request_id=operation.request_id,
                 request_digest=operation.request_digest,
-                candidate_id=candidate.candidate_id,
+                details={
+                    "server_error_code": exc.error_code,
+                    "http_status": exc.status_code,
+                    "message": exc.message,
+                },
             )
-            return _response_from_operation(failed, result="candidate_received")
-        return _response_from_operation(
-            operation, result="cache_stored_ref_pending"
+            return _response_from_operation(
+                marked, result="revise_integrity_conflict"
+            )
+        refreshed = get_revise_operation(
+            root,
+            draft_id=draft_id,
+            request_id=operation.request_id,
         )
+        if refreshed is not None:
+            if refreshed.recovery_classification == "idempotency_authority_conflict":
+                return _response_from_operation(
+                    refreshed, result="revise_integrity_conflict"
+                )
+            return _response_from_operation(
+                refreshed, result="dispatched_unknown"
+            )
+        raise
 
-    return _response_from_operation(operation, result="dispatched_unknown")
+    bind_candidate_to_revise_operation(candidate, operation)
+    operation = record_candidate_received(
+        root,
+        draft_id=operation.draft_id,
+        request_id=operation.request_id,
+        request_digest=operation.request_digest,
+        candidate_id=candidate.candidate_id,
+    )
+    try:
+        operation = _materialize_through_cache(root, operation, candidate)
+    except CandidateCacheError:
+        failed = _demote_cache_failed(
+            root, operation, candidate_id=candidate.candidate_id
+        )
+        return _response_from_operation(failed, result="candidate_received")
+    return _response_from_operation(operation, result="cache_stored_ref_pending")
 
 
 def revise_candidate_from_edited_definition(

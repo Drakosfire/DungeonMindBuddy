@@ -33,6 +33,7 @@ from apps.live_control_server.models.threat_draft import (
 )
 from apps.live_control_server.services.statblock_candidate_cache import CandidateCacheError
 from apps.live_control_server.services.statblock_candidate_revision import (
+    ReviseCandidateRevisionError,
     revise_candidate_from_edited_definition,
 )
 from apps.live_control_server.services.statblock_revise_reconciliation import (
@@ -769,3 +770,250 @@ def test_changed_body_conflict_without_draft(
         client=None,
     )
     assert result.result == "revise_input_conflict"
+
+
+def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.statblock_candidate_cache import (
+        candidate_cache_root,
+    )
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+
+    first = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert first.result == "cache_stored_ref_pending"
+
+    cache_path = (
+        candidate_cache_root(tmp_path) / f"{response_fixture.candidate_id}.json"
+    )
+    assert cache_path.is_file()
+    cache_path.unlink()
+    client.revise_candidate.reset_mock()
+    client.get_candidate.reset_mock()
+
+    repaired = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert repaired.result == "cache_stored_ref_pending"
+    client.revise_candidate.assert_not_called()
+    client.get_candidate.assert_called_once_with(response_fixture.candidate_id)
+    assert cache_path.is_file()
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.status == "cache_stored_ref_pending"
+    assert stored.materialization.cache == "stored"
+
+
+def test_cache_stored_ref_pending_demotes_when_get_repair_fails(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.statblock_candidate_cache import (
+        candidate_cache_root,
+    )
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+
+    first = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert first.result == "cache_stored_ref_pending"
+    cache_path = (
+        candidate_cache_root(tmp_path) / f"{response_fixture.candidate_id}.json"
+    )
+    cache_path.unlink()
+    client.get_candidate.side_effect = StatblockIntegrationError(
+        category="downstream_not_found",
+        message="candidate gone",
+        status_code=404,
+        retryable=False,
+    )
+
+    demoted = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert demoted.result == "candidate_received"
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.status == "candidate_received"
+    assert stored.materialization.cache == "failed"
+    assert stored.candidate_id == response_fixture.candidate_id
+    client.revise_candidate.assert_called_once()
+
+
+def test_unbound_get_candidate_does_not_reach_cache_stored(
+    tmp_path: Path,
+) -> None:
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    body, digest, src_digest, instr_digest = _body_and_digests(req)
+    claim_revise_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_draft_version=draft.version,
+        request_id=req.request_id,
+        request_digest=digest,
+        request_body=body,
+        editor_state_revision=req.editor_state_revision,
+        source_definition_digest=src_digest,
+        instruction_options_digest=instr_digest,
+    )
+    write_ahead_dispatched_unknown(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request_id=req.request_id,
+        request_digest=digest,
+    )
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        record_candidate_received,
+    )
+
+    record_candidate_received(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request_id=req.request_id,
+        request_digest=digest,
+        candidate_id=response_fixture.candidate_id,
+    )
+
+    unbound = response_fixture.model_copy(
+        deep=True,
+        update={
+            "generation_receipt": response_fixture.generation_receipt.model_copy(
+                update={"request_id": "other-request-id"}
+            )
+        },
+    )
+    client = MagicMock()
+    client.get_candidate.return_value = unbound
+
+    result = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert result.result == "candidate_received"
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.status == "candidate_received"
+    assert stored.materialization.cache == "failed"
+    client.revise_candidate.assert_not_called()
+
+
+def test_unbound_post_candidate_rejects_before_journal_candidate(
+    tmp_path: Path,
+) -> None:
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    unbound = response_fixture.model_copy(
+        deep=True,
+        update={
+            "generation_receipt": response_fixture.generation_receipt.model_copy(
+                update={
+                    "source_definition_digest": (
+                        "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+                    )
+                }
+            )
+        },
+    )
+    client = MagicMock()
+    client.revise_candidate.return_value = unbound
+
+    with pytest.raises(ReviseCandidateRevisionError, match="source_definition_digest"):
+        revise_candidate_from_edited_definition(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request=req,
+            client=client,
+        )
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.status == "dispatched_unknown"
+    assert stored.candidate_id is None
+
+
+def test_exact_body_idempotency_conflict_is_durable_integrity_classification(
+    tmp_path: Path,
+) -> None:
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    client = MagicMock()
+    client.revise_candidate.side_effect = StatblockIntegrationError(
+        category="downstream_conflict",
+        message="idempotency key conflict",
+        status_code=409,
+        retryable=False,
+        error_code="idempotency_conflict",
+    )
+
+    first = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert first.result == "revise_integrity_conflict"
+    assert first.operation_status == "dispatched_unknown"
+    assert first.candidate_id is None
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.status == "dispatched_unknown"
+    assert stored.recovery_classification == "idempotency_authority_conflict"
+    assert stored.candidate_id is None
+
+    client.revise_candidate.reset_mock()
+    second = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert second.result == "revise_integrity_conflict"
+    client.revise_candidate.assert_not_called()
+    # Changed body still cannot replace authority.
+    mutated = req.model_copy(update={"revision_instructions": ["Different instruction."]})
+    conflict = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=mutated,
+        client=client,
+    )
+    assert conflict.result == "revise_input_conflict"

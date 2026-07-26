@@ -62,6 +62,7 @@ ReviseResultLabel = Literal[
     "revise_busy",
     "revise_history_full",
     "revise_input_conflict",
+    "revise_integrity_conflict",
     "revise_blocked",
     "revise_draft_unavailable",
     "terminal_failure",
@@ -95,6 +96,10 @@ class ReviseOperationV1(StrictModel):
     failure_category: str | None = None
     http_status: int | None = None
     terminal_details: dict[str, Any] | None = None
+    # Non-terminal authority/recovery annotation (e.g. exact-body 409).
+    # Allowed on dispatched_unknown only; never releases the reservation.
+    recovery_classification: str | None = None
+    recovery_details: dict[str, Any] | None = None
     created_at: str
     updated_at: str
 
@@ -137,6 +142,10 @@ class ReviseOperationV1(StrictModel):
             or self.http_status is not None
             or self.terminal_details is not None
         )
+        has_recovery = (
+            self.recovery_classification is not None
+            or self.recovery_details is not None
+        )
         if state == "claimed":
             if self.candidate_id is not None:
                 raise ValueError("claimed forbids candidate_id")
@@ -146,11 +155,15 @@ class ReviseOperationV1(StrictModel):
                 raise ValueError("claimed requires draft_ref=missing")
             if has_terminal:
                 raise ValueError("claimed forbids terminal fields")
+            if has_recovery:
+                raise ValueError("claimed forbids recovery classification")
         elif state == "dispatched_unknown":
             if self.materialization.draft_ref != "missing":
                 raise ValueError("dispatched_unknown requires draft_ref=missing")
             if has_terminal:
                 raise ValueError("dispatched_unknown forbids terminal fields")
+            # recovery_classification may annotate exact-body Server 409 without
+            # terminalizing or releasing the reservation.
         elif state == "candidate_received":
             if not self.candidate_id:
                 raise ValueError("candidate_received requires candidate_id")
@@ -158,6 +171,8 @@ class ReviseOperationV1(StrictModel):
                 raise ValueError("candidate_received requires draft_ref=missing")
             if has_terminal:
                 raise ValueError("candidate_received forbids terminal fields")
+            if has_recovery:
+                raise ValueError("candidate_received forbids recovery classification")
         elif state == "cache_stored_ref_pending":
             if not self.candidate_id:
                 raise ValueError("cache_stored_ref_pending requires candidate_id")
@@ -169,6 +184,10 @@ class ReviseOperationV1(StrictModel):
                 )
             if has_terminal:
                 raise ValueError("cache_stored_ref_pending forbids terminal fields")
+            if has_recovery:
+                raise ValueError(
+                    "cache_stored_ref_pending forbids recovery classification"
+                )
         elif state == "terminal_failure":
             if self.candidate_id is not None:
                 raise ValueError("terminal_failure forbids candidate_id")
@@ -182,6 +201,8 @@ class ReviseOperationV1(StrictModel):
                 or self.http_status is None
             ):
                 raise ValueError("terminal_failure requires terminal fields")
+            if has_recovery:
+                raise ValueError("terminal_failure forbids recovery classification")
         return self
 
 
