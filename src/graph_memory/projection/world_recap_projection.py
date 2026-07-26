@@ -329,12 +329,11 @@ def _normalize_reference_label(label: str) -> str:
     return re.sub(r"\s+", " ", label.strip()).casefold()
 
 
-# Label + `:` + optional blanks (≤ one line ending) + destination.
-# Optional title is consumed by delimiter-aware scanning, not this regex.
-_REFERENCE_DEFINITION_HEAD_RE = re.compile(
+# Label + `:` + optional blanks (≤ one line ending). Destination and optional
+# title are consumed by scanners so `<...>` destinations with spaces work.
+_REFERENCE_DEFINITION_PREFIX_RE = re.compile(
     r"(?m)^[ \t]{0,3}\[((?:[^\]\\]|\\.)+)\]:"
     r"[ \t]*(?:\n[ \t]*)?"
-    r"\S+"
 )
 
 # CommonMark absolute URI scheme: ASCII letter + 1–31 of [A-Za-z0-9+.-], then `:`.
@@ -348,6 +347,37 @@ class _ReferenceDefinitionMatch:
         self.label = label
         self.start = start
         self.end = end
+
+
+def _skip_link_destination(markdown: str, index: int) -> int | None:
+    """Advance past a CommonMark link destination starting at ``index``.
+
+    Angle-bracket form ``<...>`` may contain spaces and is consumed through the
+    matching unescaped ``>``. Bare destinations remain a non-whitespace run.
+    """
+    if index >= len(markdown):
+        return None
+    if markdown[index] == "<":
+        i = index + 1
+        n = len(markdown)
+        while i < n:
+            ch = markdown[i]
+            if ch == "\\":
+                i += 2
+                continue
+            if ch in "\n<":
+                return None
+            if ch == ">":
+                return i + 1
+            i += 1
+        return None
+    if markdown[index].isspace() or ord(markdown[index]) < 32:
+        return None
+    i = index
+    n = len(markdown)
+    while i < n and not markdown[i].isspace() and ord(markdown[i]) >= 32:
+        i += 1
+    return i if i > index else None
 
 
 def _skip_link_title(markdown: str, index: int) -> int | None:
@@ -402,11 +432,14 @@ def _match_reference_definition_at(
     """
     if not _is_line_start(markdown, index):
         return None
-    head = _REFERENCE_DEFINITION_HEAD_RE.match(markdown, index)
-    if head is None:
+    prefix = _REFERENCE_DEFINITION_PREFIX_RE.match(markdown, index)
+    if prefix is None:
         return None
-    label = head.group(1)
-    pos = head.end()
+    label = prefix.group(1)
+    dest_end = _skip_link_destination(markdown, prefix.end())
+    if dest_end is None:
+        return None
+    pos = dest_end
     while pos < len(markdown) and markdown[pos] in " \t":
         pos += 1
 
@@ -425,7 +458,7 @@ def _match_reference_definition_at(
         if title_end is None:
             # Invalid title (e.g. blank line inside): definition ends at dest.
             return _ReferenceDefinitionMatch(
-                label=label, start=index, end=head.end()
+                label=label, start=index, end=dest_end
             )
         # No further non-whitespace may follow the title on its closing line.
         if title_end < len(markdown) and markdown[title_end] not in "\n":
@@ -435,7 +468,7 @@ def _match_reference_definition_at(
     # No title: destination line may end here (EOL/EOF only).
     if pos < len(markdown) and markdown[pos] not in "\n":
         return None
-    return _ReferenceDefinitionMatch(label=label, start=index, end=head.end())
+    return _ReferenceDefinitionMatch(label=label, start=index, end=dest_end)
 
 
 def _iter_reference_definitions(markdown: str):
@@ -486,6 +519,8 @@ def _skip_reference_definition_line(markdown: str, index: int) -> int | None:
     if match is None:
         return None
     return match.end
+
+
 def _protected_ranges(markdown: str) -> list[tuple[int, int]]:
     """Ranges that must not receive mention rewrites: fences, code, links."""
     ranges: list[tuple[int, int]] = []

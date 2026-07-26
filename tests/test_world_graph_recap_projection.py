@@ -213,6 +213,8 @@ def test_protected_markdown_and_code_ranges_untouched() -> None:
         "[story]\n\n[story]: /url '\nCaelynn\n'",
         '[story]\n\n[story]: /url "\nbefore\nCaelynn\nafter\n"',
         "[story]\n\n[story]: /url (\nbefore\nCaelynn\nafter\n)",
+        "[story]\n\n[story]: <https://example.test/Caelynn path>",
+        '[story]\n\n[story]: <https://example.test/Caelynn path>\n"title"',
         "[The [old] Caelynn Story](https://example.test)",
         "<https://example.test/Caelynn>",
         "<HTTPS://example.test/Caelynn>",
