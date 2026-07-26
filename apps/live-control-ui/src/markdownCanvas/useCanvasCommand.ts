@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
   ActiveDocumentCommand,
+  AdmissionLookupResult,
   AdmittedDocumentEnvelope,
   DocumentAdmissionPolicy,
   DocumentCommandExecuteContext,
@@ -9,9 +10,7 @@ import type {
   DocumentCommandSpec,
 } from "./markdownCanvasTypes";
 
-export type AdmissionLookup = (
-  policy: DocumentAdmissionPolicy,
-) => { ok: true; envelope: AdmittedDocumentEnvelope } | { ok: false; reason: string };
+export type AdmissionLookup = (policy: DocumentAdmissionPolicy) => AdmissionLookupResult;
 
 export interface CanvasCommandHostArgs {
   documentId: string;
@@ -95,16 +94,19 @@ export function useCanvasCommand(args: CanvasCommandHostArgs): CanvasCommandHost
         if (!admission.ok) {
           return {
             ok: false,
-            reason: admission.reason,
+            reason: admission.code,
             code: "admission_failed",
+            admissionCode: admission.code,
+            admissionDetail: admission.detail,
           };
         }
         envelope = admission.envelope;
         if (envelope.documentId !== selectedDocumentId) {
           return {
             ok: false,
-            reason: "Admitted envelope document does not match the selected document.",
+            reason: "document_identity_mismatch",
             code: "admission_failed",
+            admissionCode: "document_identity_mismatch",
           };
         }
       }

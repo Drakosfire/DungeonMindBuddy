@@ -14,11 +14,11 @@ last_updated_at: "2026-07-23"
 - **Status:** Proposed for adoption by PR 382; not implementation sequencing authority until the post-merge tracker sync is complete.
 - **Workstream:** Build / TipTap Markdown / heterogeneous source ingestion / World Supergraph
 - **Execution design:** [`PLAN-build-surface-worldbuilding-ingest-pr-slices.md`](PLAN-build-surface-worldbuilding-ingest-pr-slices.md)
-- **Architecture authority:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
-- **Surface authority:** [`../Design/ARCHITECTURE-plan-surface-toolbox.md`](../Design/ARCHITECTURE-plan-surface-toolbox.md)
-- **Workspace identity contract:** [`../Design/CONTRACT-workspace-document-identity-v1.md`](../Design/CONTRACT-workspace-document-identity-v1.md)
-- **Publication bridge:** [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
-- **PR merge contract:** [`../Design/DESIGN-merge-ready-invariant-evidence.md`](../Design/DESIGN-merge-ready-invariant-evidence.md)
+- **Architecture authority:** [`../../../../Design/ARCHITECTURE-campaign-supergraph.md`](../../../../Design/ARCHITECTURE-campaign-supergraph.md)
+- **Surface authority:** [`../../../../Design/ARCHITECTURE-plan-surface-toolbox.md`](../../../../Design/ARCHITECTURE-plan-surface-toolbox.md)
+- **Workspace identity contract:** [`../../../../Design/CONTRACT-workspace-document-identity-v1.md`](../../../../Design/CONTRACT-workspace-document-identity-v1.md)
+- **Publication bridge:** [`../../../../Design/DESIGN-extract-promote-graph-review-bridge.md`](../../../../Design/DESIGN-extract-promote-graph-review-bridge.md)
+- **PR merge contract:** [`../../../../Design/DESIGN-merge-ready-invariant-evidence.md`](../../../../Design/DESIGN-merge-ready-invariant-evidence.md)
 
 This roadmap proposes the path from the current Plan/Ingest/TipTap dogfood to a
 Build surface that authors Markdown source documents and launches reviewable

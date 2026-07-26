@@ -13,10 +13,11 @@ import type {
   WorkspaceDocumentSnapshot,
 } from "../api/types";
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { DOCUMENT_SAVE_COMMAND_ID } from "../markdownCanvas/markdownCanvasTypes";
+import { translateBuildDocumentCommandFailure } from "./buildAdmissionCopy";
 import {
   BUILD_EXTRACT_COMMAND_ID,
-  DOCUMENT_SAVE_COMMAND_ID,
-} from "../markdownCanvas/markdownCanvasTypes";
+} from "./buildDocumentCommands";
 
 const RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
 
@@ -358,7 +359,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
 
       if (!commandResult.ok) {
         if (commandResult.code === "duplicate_command") return;
-        setError(commandResult.reason);
+        setError(translateBuildDocumentCommandFailure(commandResult));
         return;
       }
 

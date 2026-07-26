@@ -13,6 +13,9 @@ const ENVELOPE: AdmittedDocumentEnvelope = {
   surfaceId: "build",
 };
 
+const SAVE_ID = "document.save";
+const PLUGIN_WORK_ID = "plugin.work";
+
 describe("useCanvasCommand", () => {
   it("refuses duplicate synchronous command entry", async () => {
     let release: (() => void) | undefined;
@@ -24,18 +27,18 @@ describe("useCanvasCommand", () => {
     let first!: Promise<unknown>;
     act(() => {
       first = result.current.runDocumentCommand(
-        { id: "document.save", conflictsWith: ["build.extract"], admission: "none" },
+        { id: SAVE_ID, conflictsWith: [PLUGIN_WORK_ID], admission: "none" },
         () => new Promise((resolve) => {
           release = () => resolve("saved");
         }),
       );
     });
-    await waitFor(() => expect(result.current.activeCommand?.id).toBe("document.save"));
+    await waitFor(() => expect(result.current.activeCommand?.id).toBe(SAVE_ID));
 
     let second!: Awaited<ReturnType<typeof result.current.runDocumentCommand>>;
     await act(async () => {
       second = await result.current.runDocumentCommand(
-        { id: "document.save", conflictsWith: ["build.extract"], admission: "none" },
+        { id: SAVE_ID, conflictsWith: [PLUGIN_WORK_ID], admission: "none" },
         async () => "nope",
       );
     });
@@ -48,7 +51,7 @@ describe("useCanvasCommand", () => {
     });
   });
 
-  it("refuses extract while save is active", async () => {
+  it("refuses plugin work while save is active", async () => {
     let release: (() => void) | undefined;
     const { result } = renderHook(() => useCanvasCommand({
       documentId: ENVELOPE.documentId,
@@ -58,23 +61,23 @@ describe("useCanvasCommand", () => {
     let savePromise!: Promise<unknown>;
     act(() => {
       savePromise = result.current.runDocumentCommand(
-        { id: "document.save", conflictsWith: ["build.extract"], admission: "none" },
+        { id: SAVE_ID, conflictsWith: [PLUGIN_WORK_ID], admission: "none" },
         () => new Promise((resolve) => {
           release = () => resolve("saved");
         }),
       );
     });
-    await waitFor(() => expect(result.current.activeCommand?.id).toBe("document.save"));
+    await waitFor(() => expect(result.current.activeCommand?.id).toBe(SAVE_ID));
 
-    let extract!: Awaited<ReturnType<typeof result.current.runDocumentCommand>>;
+    let work!: Awaited<ReturnType<typeof result.current.runDocumentCommand>>;
     await act(async () => {
-      extract = await result.current.runDocumentCommand(
-        { id: "build.extract", conflictsWith: ["document.save"], admission: "committed_clean" },
+      work = await result.current.runDocumentCommand(
+        { id: PLUGIN_WORK_ID, conflictsWith: [SAVE_ID], admission: "committed_clean" },
         async () => "launched",
       );
     });
-    expect(extract.ok).toBe(false);
-    if (!extract.ok) expect(extract.code).toBe("conflict");
+    expect(work.ok).toBe(false);
+    if (!work.ok) expect(work.code).toBe("conflict");
 
     await act(async () => {
       release?.();
@@ -98,7 +101,7 @@ describe("useCanvasCommand", () => {
     let commandPromise!: Promise<Awaited<ReturnType<typeof result.current.runDocumentCommand>>>;
     act(() => {
       commandPromise = result.current.runDocumentCommand(
-        { id: "build.extract", conflictsWith: ["document.save"], admission: "committed_clean" },
+        { id: PLUGIN_WORK_ID, conflictsWith: [SAVE_ID], admission: "committed_clean" },
         () => new Promise((resolve) => {
           release = resolve;
         }),
@@ -117,9 +120,9 @@ describe("useCanvasCommand", () => {
     if (!settled.ok) expect(["invalidated", "aborted"]).toContain(settled.code);
   });
 
-  it("passes admitted envelope into execute and refuses failed admission", async () => {
+  it("passes admitted envelope into execute and refuses failed admission with codes", async () => {
     const lookup = vi.fn()
-      .mockReturnValueOnce({ ok: false, reason: "Save and commit local changes before extraction." })
+      .mockReturnValueOnce({ ok: false, code: "document_dirty" })
       .mockReturnValue({ ok: true, envelope: ENVELOPE });
 
     const { result } = renderHook(() => useCanvasCommand({
@@ -130,21 +133,22 @@ describe("useCanvasCommand", () => {
     let denied!: Awaited<ReturnType<typeof result.current.runDocumentCommand>>;
     await act(async () => {
       denied = await result.current.runDocumentCommand(
-        { id: "build.extract", conflictsWith: ["document.save"], admission: "committed_clean" },
+        { id: PLUGIN_WORK_ID, conflictsWith: [SAVE_ID], admission: "committed_clean" },
         async () => "nope",
       );
     });
     expect(denied.ok).toBe(false);
     if (!denied.ok) {
       expect(denied.code).toBe("admission_failed");
-      expect(denied.reason).toMatch(/local changes/i);
+      expect(denied.admissionCode).toBe("document_dirty");
+      expect(denied.reason).toBe("document_dirty");
     }
 
     let seen: AdmittedDocumentEnvelope | null = null;
     let allowed!: Awaited<ReturnType<typeof result.current.runDocumentCommand>>;
     await act(async () => {
       allowed = await result.current.runDocumentCommand(
-        { id: "build.extract", conflictsWith: ["document.save"], admission: "committed_clean" },
+        { id: PLUGIN_WORK_ID, conflictsWith: [SAVE_ID], admission: "committed_clean" },
         async ({ envelope }) => {
           seen = envelope;
           return "ok";

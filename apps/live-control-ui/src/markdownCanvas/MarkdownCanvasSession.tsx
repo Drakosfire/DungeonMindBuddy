@@ -9,6 +9,7 @@ import {
 import { useWorkspaceDocumentAuthoring } from "../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { isEditorInteractive } from "../workspaceDocument/workspaceDocumentAuthoringMachine";
 import type {
+  AdmissionLookupResult,
   AdmittedDocumentEnvelope,
   DocumentAdmissionPolicy,
   MarkdownCanvasSessionProviderProps,
@@ -44,7 +45,7 @@ function admitDocument(args: {
   localBaseContentSha256: string | null;
   localSurface: string | null;
   localDocumentId: string | null;
-}): { ok: true; envelope: AdmittedDocumentEnvelope } | { ok: false; reason: string } {
+}): AdmissionLookupResult {
   const {
     documentId,
     surface,
@@ -61,10 +62,10 @@ function admitDocument(args: {
   } = args;
 
   if (!snapshot || !record) {
-    return { ok: false, reason: "Open and save this Build source before extraction." };
+    return { ok: false, code: "document_missing" };
   }
   if (record.document_id !== documentId) {
-    return { ok: false, reason: "Snapshot does not belong to the selected document." };
+    return { ok: false, code: "document_identity_mismatch" };
   }
 
   const baseEnvelope = {
@@ -78,48 +79,46 @@ function admitDocument(args: {
 
   if (policy === "loaded") {
     if (phase === "unloaded" || phase === "loading" || phase === "load_error") {
-      return { ok: false, reason: "Document is not loaded." };
+      return { ok: false, code: "document_not_loaded" };
     }
     return { ok: true, envelope: { ...baseEnvelope } };
   }
 
   if (policy === "editable") {
     if (!isEditorInteractive(phase)) {
-      return { ok: false, reason: "Document is not editable in the current phase." };
+      return { ok: false, code: "document_not_editable" };
     }
     return { ok: true, envelope: { ...baseEnvelope } };
   }
 
   // committed_clean
   if (localDocumentId == null) {
-    return { ok: false, reason: "Open and save this Build source before extraction." };
+    return { ok: false, code: "document_missing" };
   }
   if (localDocumentId !== documentId || localSurface !== surface) {
-    return { ok: false, reason: "Local draft does not belong to this Build document." };
+    return { ok: false, code: "authority_mismatch" };
   }
   if (dirty) {
-    return { ok: false, reason: "Save and commit local changes before extraction." };
+    return { ok: false, code: "document_dirty" };
   }
   if (record.content_status !== "committed") {
-    return { ok: false, reason: "Source must be committed before extraction." };
+    return { ok: false, code: "document_not_committed" };
   }
   if (localBaseRevision == null || localBaseContentSha256 == null) {
-    return { ok: false, reason: "Open and save this Build source before extraction." };
+    return { ok: false, code: "document_missing" };
   }
   if (localBaseRevision !== snapshot.loaded_revision) {
     return {
       ok: false,
-      reason: `Local base revision ${localBaseRevision} does not match snapshot revision ${snapshot.loaded_revision}.`,
+      code: "revision_mismatch",
+      detail: `${localBaseRevision}!=${snapshot.loaded_revision}`,
     };
   }
   if (localBaseContentSha256 !== snapshot.content_sha256) {
-    return {
-      ok: false,
-      reason: "Local base content hash does not match the authoritative snapshot digest.",
-    };
+    return { ok: false, code: "digest_mismatch" };
   }
   if (phase === "conflict" || phase === "load_error" || phase === "loading" || phase === "unloaded") {
-    return { ok: false, reason: "Document is not ready for extraction." };
+    return { ok: false, code: "document_not_ready" };
   }
 
   return {
@@ -145,7 +144,14 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
     emptyMarkdownFallback,
     requireDirtyToSave,
     canSave,
+    saveConflictsWith = [],
   } = props;
+
+  const saveConflicts = useMemo(
+    () => [...saveConflictsWith],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [saveConflictsWith.join("\0")],
+  );
 
   const authoring = useWorkspaceDocumentAuthoring({
     documentId,
@@ -158,7 +164,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
   });
 
   const lookupAdmission = useCallback(
-    (policy: DocumentAdmissionPolicy) => admitDocument({
+    (policy: DocumentAdmissionPolicy): AdmissionLookupResult => admitDocument({
       documentId,
       surface,
       kind,
@@ -201,7 +207,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
     const result = await runDocumentCommand(
       {
         id: DOCUMENT_SAVE_COMMAND_ID,
-        conflictsWith: ["build.extract"],
+        conflictsWith: saveConflicts,
         admission: "none",
         invalidateOnDocumentChange: true,
       },
@@ -214,7 +220,11 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       // Authoring already surfaces save errors on the session; conflict/duplicate are silent no-ops
       // matching prior disabled-button races. Other failures remain visible via authoring.error.
     }
-  }, [authoring, runDocumentCommand]);
+  }, [authoring, runDocumentCommand, saveConflicts]);
+
+  const saveBlockedByCommand = Boolean(
+    activeCommand && saveConflicts.includes(activeCommand.id),
+  );
 
   const value = useMemo<MarkdownCanvasSessionValue>(
     () => ({
@@ -228,7 +238,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       reconciliation: authoring.reconciliation,
       editorContent: authoring.editorContent,
       documentKey: authoring.documentKey,
-      saveDisabled: authoring.saveDisabled || activeCommand?.id === "build.extract",
+      saveDisabled: authoring.saveDisabled || saveBlockedByCommand,
       lastCommitReceipt: authoring.lastCommitReceipt,
       activeCommand,
       setEditor: authoring.setEditor,
@@ -238,6 +248,7 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       reloadFromSnapshot: authoring.reloadFromSnapshot,
       discardLocalDraft: authoring.discardLocalDraft,
       getAdmittedDocument,
+      lookupAdmission,
       runDocumentCommand,
     }),
     [
@@ -245,7 +256,9 @@ export function MarkdownCanvasSessionProvider(props: MarkdownCanvasSessionProvid
       authoring,
       documentId,
       getAdmittedDocument,
+      lookupAdmission,
       runDocumentCommand,
+      saveBlockedByCommand,
       saveMarkdown,
     ],
   );

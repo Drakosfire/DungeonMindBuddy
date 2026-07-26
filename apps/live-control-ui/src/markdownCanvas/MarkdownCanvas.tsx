@@ -38,8 +38,8 @@ export interface MarkdownCanvasProps {
 }
 
 /**
- * Rendered document work object. Consumes MarkdownCanvasSession; imports no Build
- * or extract-run product types.
+ * Rendered document work object. Consumes MarkdownCanvasSession; imports no surface
+ * plugin or extract-run product types.
  */
 export function MarkdownCanvas({ slots = {} }: MarkdownCanvasProps) {
   const session = useMarkdownCanvasSession();

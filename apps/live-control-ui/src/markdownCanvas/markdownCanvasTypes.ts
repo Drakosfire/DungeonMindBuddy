@@ -17,6 +17,22 @@ import type { ReconcileLocalDraftResult } from "../workspaceDocument/reconcileLo
 export type DocumentAdmissionPolicy = "loaded" | "editable" | "committed_clean";
 
 /**
+ * Neutral admission failure codes. Surface plugins map these to product copy.
+ * Intentionally excludes extract-run identity, SourceArtifact, profile, and handoff fields.
+ */
+export type DocumentAdmissionFailureCode =
+  | "document_missing"
+  | "document_identity_mismatch"
+  | "document_not_loaded"
+  | "document_not_editable"
+  | "authority_mismatch"
+  | "document_dirty"
+  | "document_not_committed"
+  | "revision_mismatch"
+  | "digest_mismatch"
+  | "document_not_ready";
+
+/**
  * Immutable document authority admitted under a named policy.
  * Intentionally excludes extract-run identity, SourceArtifact, profile, and handoff fields.
  */
@@ -51,10 +67,6 @@ export interface DocumentCommandExecuteContext {
   documentId: string;
 }
 
-export type DocumentCommandResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; reason: string; code: DocumentCommandFailureCode };
-
 export type DocumentCommandFailureCode =
   | "duplicate_command"
   | "conflict"
@@ -63,11 +75,32 @@ export type DocumentCommandFailureCode =
   | "aborted"
   | "execute_failed";
 
+export type DocumentCommandResult<T> =
+  | { ok: true; value: T }
+  | {
+    ok: false;
+    reason: string;
+    code: DocumentCommandFailureCode;
+    /** Present when code === admission_failed. Stable machine code for plugin translation. */
+    admissionCode?: DocumentAdmissionFailureCode;
+    /** Optional neutral detail accompanying admissionCode (e.g. revision inequality). */
+    admissionDetail?: string;
+  };
+
 export interface ActiveDocumentCommand {
   id: string;
   documentId: string;
   startedAt: number;
 }
+
+export type AdmissionLookupResult =
+  | { ok: true; envelope: AdmittedDocumentEnvelope }
+  | {
+    ok: false;
+    code: DocumentAdmissionFailureCode;
+    /** Optional neutral detail (e.g. revision numbers); never product/surface marketing copy. */
+    detail?: string;
+  };
 
 export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   statusLabel: string;
@@ -88,6 +121,7 @@ export interface MarkdownCanvasSessionValue extends CanvasDocumentState {
   reloadFromSnapshot: () => Promise<void>;
   discardLocalDraft: () => Promise<void>;
   getAdmittedDocument: (policy: DocumentAdmissionPolicy) => AdmittedDocumentEnvelope | null;
+  lookupAdmission: (policy: DocumentAdmissionPolicy) => AdmissionLookupResult;
   runDocumentCommand: <T>(
     spec: DocumentCommandSpec,
     execute: (ctx: DocumentCommandExecuteContext) => Promise<T>,
@@ -103,8 +137,12 @@ export interface MarkdownCanvasSessionProviderProps {
   emptyMarkdownFallback?: unknown;
   requireDirtyToSave?: boolean;
   canSave?: () => boolean;
+  /**
+   * Command IDs that mutually conflict with document.save.
+   * Declared by the consuming surface/plugin; the session never invents product command names.
+   */
+  saveConflictsWith?: readonly string[];
 }
 
+/** Generic document-save command id owned by the canvas session. */
 export const DOCUMENT_SAVE_COMMAND_ID = "document.save";
-export const BUILD_EXTRACT_COMMAND_ID = "build.extract";
-export const BUILD_REFRESH_RUN_COMMAND_ID = "build.refresh-run";

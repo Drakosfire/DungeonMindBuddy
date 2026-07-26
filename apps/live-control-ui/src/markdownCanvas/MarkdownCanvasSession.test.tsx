@@ -115,7 +115,7 @@ describe("MarkdownCanvasSession", () => {
       // Give save a tick to register as active when prepare is pending; if save
       // never reaches prepare (no editor), conflict may not apply — assert API exists.
       extract = await result.current.runDocumentCommand(
-        { id: "build.extract", conflictsWith: ["document.save"], admission: "committed_clean" },
+        { id: "plugin.work", conflictsWith: ["document.save"], admission: "committed_clean" },
         async ({ envelope }) => envelope,
       );
     });

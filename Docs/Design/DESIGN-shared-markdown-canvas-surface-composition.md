@@ -343,7 +343,8 @@ Before dispatch:
 | Build extraction can launch from dirty, conflicted, rejected, or wrong-revision state | fail |
 | `useBuildExtraction` still reads workspace local state or reloads a snapshot to prove launch readiness | fail |
 | Canvas imports ExtractionRun, Graph Review handoff, or worldbuilding-profile types | fail |
-| Build-specific labels or fields appear in the generic canvas | fail |
+| Build-specific labels, command ids, or product copy appear in the generic canvas | fail |
+| Generic canvas hardcodes a surface plugin command id (e.g. extract) into save arbitration | fail |
 | Plan behavior changes in MC-01 | fail |
 | A second adaptive projection registry/container is introduced | fail |
 | Node-authoring logic is copied into `buildSurface/` | fail |
@@ -369,6 +370,6 @@ The active execution authority is:
 
 - this design;
 - `Docs/Plans/PLAN-shared-markdown-canvas-build-first.md`;
-- `Docs/Plans/HANDOFF-pr425-build-first-markdown-canvas.md`.
+- `Docs/Plans/HANDOFF-pr426-build-first-markdown-canvas.md`.
 
 BLD-09 remains active and is not archived. BLD-10c remains undispatched.
