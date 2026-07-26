@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import type { Editor } from "@tiptap/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { DOCUMENT_SAVE_COMMAND_ID } from "../markdownCanvas/markdownCanvasTypes";
 import {
   buildInitialWorkspaceDocumentLocalState,
   writeWorkspaceDocumentLocalState,
@@ -18,6 +21,8 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     launchExtractionRun: vi.fn(),
     getExtractionRunStatus: vi.fn(),
+    prepareTiptapMarkdownWrite: vi.fn(),
+    commitTiptapMarkdownWrite: vi.fn(),
   };
 });
 
@@ -1053,5 +1058,179 @@ describe("useBuildExtraction", () => {
     expect(launchCalls).toBe(1);
     expect(result.current.run?.run_id).toBe(RUN_B);
     expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
+  });
+});
+
+function createEditor(initialText: string) {
+  let text = initialText;
+  return {
+    getJSON: vi.fn(() => ({
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+    })),
+    editTo(nextText: string) {
+      text = nextText;
+    },
+  } as unknown as Editor & { editTo: (nextText: string) => void };
+}
+
+function useBuildSessionAndExtraction(documentId: string) {
+  return {
+    session: useMarkdownCanvasSession(),
+    extraction: useBuildExtraction({ documentId }),
+  };
+}
+
+describe("Build save/extract command arbitration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+    writeCleanLocal(DOC_A, 2, "sha-a");
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFor(DOC_A, 2, "sha-a"),
+    );
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_A,
+      title: "Source",
+      target_relpath: `out/workspace/worldbuilding/${DOC_A}.md`,
+      target_display_path: `out/workspace/worldbuilding/${DOC_A}.md`,
+      registry_revision: 2,
+      file_exists: true,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token",
+      writer_diff: "+Source\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_A,
+      title: "Source",
+      target_relpath: `out/workspace/worldbuilding/${DOC_A}.md`,
+      target_display_path: `out/workspace/worldbuilding/${DOC_A}.md`,
+      registry_revision: 3,
+      committed_revision: 3,
+      committed_record: snapshotFor(DOC_A, 3, "sha-b").record,
+      normalized_content_sha256: "sha-b",
+      writer_ok: true,
+      bytes_written: 8,
+      file_fingerprint: "fp-b",
+      diagnostics: [],
+    });
+  });
+
+  it("refuses Extract while session.saveMarkdown holds document.save", async () => {
+    let releasePrepare: ((value: Awaited<ReturnType<typeof liveApi.prepareTiptapMarkdownWrite>>) => void) | undefined;
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockImplementation(
+      () => new Promise((resolve) => {
+        releasePrepare = resolve;
+      }),
+    );
+
+    const editor = createEditor("Source");
+    const { result } = renderHook(() => useBuildSessionAndExtraction(DOC_A), {
+      wrapper: extractionWrapper(DOC_A),
+    });
+    await waitFor(() => expect(result.current.session.phase).toBe("ready_clean"));
+    await waitFor(() => expect(result.current.extraction.canLaunch).toBe(true));
+
+    act(() => {
+      result.current.session.setEditor(editor);
+      result.current.session.markDirty();
+    });
+
+    let savePromise: Promise<void> | undefined;
+    act(() => {
+      savePromise = result.current.session.saveMarkdown();
+    });
+
+    await waitFor(() => {
+      expect(result.current.session.activeCommand?.id).toBe(DOCUMENT_SAVE_COMMAND_ID);
+    });
+    await waitFor(() => {
+      expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      await result.current.extraction.launch();
+    });
+
+    expect(liveApi.launchExtractionRun).not.toHaveBeenCalled();
+    expect(result.current.extraction.error).toMatch(/conflict|active document command/i);
+
+    await act(async () => {
+      releasePrepare?.({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_A,
+        title: "Source",
+        target_relpath: `out/workspace/worldbuilding/${DOC_A}.md`,
+        target_display_path: `out/workspace/worldbuilding/${DOC_A}.md`,
+        registry_revision: 2,
+        file_exists: true,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "+Source\n",
+        warnings: [],
+        diagnostics: [],
+      });
+      await savePromise;
+    });
+  });
+
+  it("does not begin prepare/commit while Extract holds the command host", async () => {
+    let releaseLaunch: ((value: ReturnType<typeof launchEnvelope>) => void) | undefined;
+    vi.mocked(liveApi.launchExtractionRun).mockImplementation(
+      () => new Promise((resolve) => {
+        releaseLaunch = resolve;
+      }),
+    );
+
+    const editor = createEditor("Source");
+    const { result } = renderHook(() => useBuildSessionAndExtraction(DOC_A), {
+      wrapper: extractionWrapper(DOC_A),
+    });
+    await waitFor(() => expect(result.current.session.phase).toBe("ready_clean"));
+    await waitFor(() => expect(result.current.extraction.canLaunch).toBe(true));
+
+    act(() => {
+      result.current.session.setEditor(editor);
+    });
+
+    let launchPromise: Promise<void> | undefined;
+    act(() => {
+      launchPromise = result.current.extraction.launch();
+    });
+    await waitFor(() => expect(result.current.extraction.launching).toBe(true));
+    await waitFor(() => {
+      expect(result.current.session.activeCommand?.id).toBe("build.extract");
+    });
+
+    act(() => {
+      result.current.session.markDirty();
+    });
+    expect(result.current.session.saveDisabled).toBe(true);
+
+    const prepareBefore = vi.mocked(liveApi.prepareTiptapMarkdownWrite).mock.calls.length;
+    await act(async () => {
+      await result.current.session.saveMarkdown();
+    });
+    expect(vi.mocked(liveApi.prepareTiptapMarkdownWrite).mock.calls.length).toBe(prepareBefore);
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+
+    await act(async () => {
+      releaseLaunch?.(launchEnvelope({
+        runId: RUN_A,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+        status: "reviewable",
+      }));
+      await launchPromise;
+    });
   });
 });

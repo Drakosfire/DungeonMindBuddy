@@ -158,4 +158,63 @@ describe("useCanvasCommand", () => {
     expect(allowed.ok).toBe(true);
     expect(seen).toEqual(ENVELOPE);
   });
+
+  it("never starts execute when the admitted envelope documentId mismatches selection", async () => {
+    const executeSpy = vi.fn(async () => "should-not-run");
+    const { result } = renderHook(() => useCanvasCommand({
+      documentId: ENVELOPE.documentId,
+      lookupAdmission: () => ({
+        ok: true,
+        envelope: {
+          ...ENVELOPE,
+          documentId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        },
+      }),
+    }));
+
+    let denied!: Awaited<ReturnType<typeof result.current.runDocumentCommand>>;
+    await act(async () => {
+      denied = await result.current.runDocumentCommand(
+        { id: PLUGIN_WORK_ID, conflictsWith: [SAVE_ID], admission: "committed_clean" },
+        executeSpy,
+      );
+    });
+
+    expect(denied.ok).toBe(false);
+    if (!denied.ok) {
+      expect(denied.code).toBe("admission_failed");
+      expect(denied.admissionCode).toBe("document_identity_mismatch");
+    }
+    expect(executeSpy).not.toHaveBeenCalled();
+    expect(result.current.activeCommand).toBeNull();
+  });
+
+  it("aborts a pending command on unmount and does not return ok", async () => {
+    let release: ((value: string) => void) | undefined;
+    const { result, unmount } = renderHook(() => useCanvasCommand({
+      documentId: ENVELOPE.documentId,
+      lookupAdmission: () => ({ ok: true, envelope: ENVELOPE }),
+    }));
+
+    let pending!: Promise<Awaited<ReturnType<typeof result.current.runDocumentCommand>>>;
+    act(() => {
+      pending = result.current.runDocumentCommand(
+        { id: PLUGIN_WORK_ID, conflictsWith: [SAVE_ID], admission: "none" },
+        () => new Promise((resolve) => {
+          release = resolve;
+        }),
+      );
+    });
+    await waitFor(() => expect(result.current.activeCommand?.id).toBe(PLUGIN_WORK_ID));
+
+    unmount();
+
+    let settled!: Awaited<typeof pending>;
+    await act(async () => {
+      release?.("late");
+      settled = await pending;
+    });
+    expect(settled.ok).toBe(false);
+    if (!settled.ok) expect(["invalidated", "aborted"]).toContain(settled.code);
+  });
 });
