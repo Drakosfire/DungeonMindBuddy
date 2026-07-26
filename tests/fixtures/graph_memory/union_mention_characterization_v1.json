@@ -1,0 +1,3027 @@
+{
+  "schema": "dmb_union_mention_migration_characterization_v1",
+  "base_sha": "ce714987fedef485d3753b78be11c1be63cbb339",
+  "generated_via": "graph_memory.projection.recap_projection.build_recap_graph_projection",
+  "cases": [
+    {
+      "case_id": "alias_plain_single",
+      "category": "unchanged",
+      "markdown": "Caelynn opened the door.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn](dmb-node:pc:caelynn) opened the door.",
+        "mentions": [
+          [
+            "mention:pc:caelynn:0",
+            "pc:caelynn",
+            "Caelynn",
+            0,
+            30,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "alias_repeated",
+      "category": "unchanged",
+      "markdown": "Caelynn met Caelynn again.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn](dmb-node:pc:caelynn) met [Caelynn](dmb-node:pc:caelynn) again.",
+        "mentions": [
+          [
+            "mention:pc:caelynn:0",
+            "pc:caelynn",
+            "Caelynn",
+            0,
+            30,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ],
+          [
+            "mention:pc:caelynn:12",
+            "pc:caelynn",
+            "Caelynn",
+            35,
+            65,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "alias_offsets_multi",
+      "category": "unchanged",
+      "markdown": "Caelynn looked toward Mirathorn. Then Caelynn walked with Mirathorn.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          },
+          "loc:mirathorn": {
+            "node_id": "loc:mirathorn",
+            "label": "Mirathorn",
+            "kind": "location",
+            "role": "location",
+            "aliases": [
+              "Mirathorn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:mirathorn"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn",
+          "Mirathorn": "loc:mirathorn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn](dmb-node:pc:caelynn) looked toward [Mirathorn](dmb-node:loc:mirathorn). Then [Caelynn](dmb-node:pc:caelynn) walked with [Mirathorn](dmb-node:loc:mirathorn).",
+        "mentions": [
+          [
+            "mention:pc:caelynn:0",
+            "pc:caelynn",
+            "Caelynn",
+            0,
+            30,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ],
+          [
+            "mention:loc:mirathorn:22",
+            "loc:mirathorn",
+            "Mirathorn",
+            45,
+            80,
+            [
+              "evidence:mirathorn"
+            ]
+          ],
+          [
+            "mention:pc:caelynn:38",
+            "pc:caelynn",
+            "Caelynn",
+            87,
+            117,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ],
+          [
+            "mention:loc:mirathorn:58",
+            "loc:mirathorn",
+            "Mirathorn",
+            130,
+            165,
+            [
+              "evidence:mirathorn"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "alias_case_insensitive",
+      "category": "unchanged",
+      "markdown": "caelynn and CAELYNN",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[caelynn](dmb-node:pc:caelynn) and [CAELYNN](dmb-node:pc:caelynn)",
+        "mentions": [
+          [
+            "mention:pc:caelynn:0",
+            "pc:caelynn",
+            "caelynn",
+            0,
+            30,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ],
+          [
+            "mention:pc:caelynn:12",
+            "pc:caelynn",
+            "CAELYNN",
+            35,
+            65,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "alias_punctuation_boundary",
+      "category": "unchanged",
+      "markdown": "Meet Caelynn, the scout.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Meet [Caelynn](dmb-node:pc:caelynn), the scout.",
+        "mentions": [
+          [
+            "mention:pc:caelynn:5",
+            "pc:caelynn",
+            "Caelynn",
+            5,
+            35,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "alias_longest_wins",
+      "category": "unchanged",
+      "markdown": "Caelynn Ironhand arrived before Caelynn.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          },
+          "npc:caelynn_ironhand": {
+            "node_id": "npc:caelynn_ironhand",
+            "label": "Caelynn Ironhand",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn Ironhand"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:ironhand"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn Ironhand": "npc:caelynn_ironhand",
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn Ironhand](dmb-node:npc:caelynn_ironhand) arrived before [Caelynn](dmb-node:pc:caelynn).",
+        "mentions": [
+          [
+            "mention:npc:caelynn_ironhand:0",
+            "npc:caelynn_ironhand",
+            "Caelynn Ironhand",
+            0,
+            49,
+            [
+              "evidence:ironhand"
+            ]
+          ],
+          [
+            "mention:pc:caelynn:32",
+            "pc:caelynn",
+            "Caelynn",
+            65,
+            95,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "alias_casefold_first_win",
+      "category": "unchanged",
+      "markdown": "Shared surface appears once.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "node:a": {
+            "node_id": "node:a",
+            "label": "Alpha",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Shared"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:a"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          },
+          "node:b": {
+            "node_id": "node:b",
+            "label": "Beta",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "shared"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:b"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Shared": "node:a",
+          "shared": "node:b"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Shared](dmb-node:node:a) surface appears once.",
+        "mentions": [
+          [
+            "mention:node:a:0",
+            "node:a",
+            "Shared",
+            0,
+            25,
+            [
+              "evidence:a"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "alias_evidence_refs",
+      "category": "unchanged",
+      "markdown": "Caelynn has evidence.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn](dmb-node:pc:caelynn) has evidence.",
+        "mentions": [
+          [
+            "mention:pc:caelynn:0",
+            "pc:caelynn",
+            "Caelynn",
+            0,
+            30,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "identity_redirect_alias",
+      "category": "unchanged",
+      "markdown": "Lysandra traveled onward.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "node:lysandra": {
+            "node_id": "node:lysandra",
+            "label": "Lysandra",
+            "kind": "character",
+            "role": "character",
+            "aliases": [
+              "Lysandra"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          },
+          "party:captain_lysandra_ironveil": {
+            "node_id": "party:captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "character",
+            "role": "character",
+            "aliases": [
+              "Lysandra"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Lysandra": "node:lysandra"
+        },
+        "identity_redirects": [
+          {
+            "redirect_id": "redirect:lysandra",
+            "campaign_id": "longmont-c2",
+            "from_node_id": "node:lysandra",
+            "to_node_id": "party:captain_lysandra_ironveil",
+            "assertion_id": "assertion:existing",
+            "event_id": null,
+            "merge_reason": null,
+            "created_at": "2026-07-08T00:00:00Z",
+            "status": "active",
+            "materialization_pass_id": "pass:existing"
+          }
+        ],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Lysandra](dmb-node:party:captain_lysandra_ironveil) traveled onward.",
+        "mentions": [
+          [
+            "mention:party:captain_lysandra_ironveil:0",
+            "party:captain_lysandra_ironveil",
+            "Lysandra",
+            0,
+            52,
+            [
+              "evidence:session-23:lysandra:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "alias_existing_dmb_link_plus_plain",
+      "category": "unchanged",
+      "markdown": "[Lysandra](dmb-node:node:lysandra) and Lysandra met.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "node:lysandra": {
+            "node_id": "node:lysandra",
+            "label": "Lysandra",
+            "kind": "character",
+            "role": "character",
+            "aliases": [
+              "Lysandra"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          },
+          "party:captain_lysandra_ironveil": {
+            "node_id": "party:captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "character",
+            "role": "character",
+            "aliases": [
+              "Lysandra"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Lysandra": "node:lysandra"
+        },
+        "identity_redirects": [
+          {
+            "redirect_id": "redirect:lysandra",
+            "campaign_id": "longmont-c2",
+            "from_node_id": "node:lysandra",
+            "to_node_id": "party:captain_lysandra_ironveil",
+            "assertion_id": "assertion:existing",
+            "event_id": null,
+            "merge_reason": null,
+            "created_at": "2026-07-08T00:00:00Z",
+            "status": "active",
+            "materialization_pass_id": "pass:existing"
+          }
+        ],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Lysandra](dmb-node:party:captain_lysandra_ironveil) and [Lysandra](dmb-node:party:captain_lysandra_ironveil) met.",
+        "mentions": [
+          [
+            "mention:party:captain_lysandra_ironveil:39",
+            "party:captain_lysandra_ironveil",
+            "Lysandra",
+            39,
+            91,
+            [
+              "evidence:session-23:lysandra:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null
+    },
+    {
+      "case_id": "sidecar_exact_offset",
+      "category": "unchanged",
+      "markdown": "Caelynn opened the door.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn](dmb-node:node:caelynn) opened the door.",
+        "mentions": [
+          [
+            "mention:node:caelynn:0",
+            "node:caelynn",
+            "Caelynn",
+            0,
+            32,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p1": "Caelynn opened the door."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 0,
+            "end_offset": 7,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_unique_in_paragraph_recovery",
+      "category": "unchanged",
+      "markdown": "Caelynn waited at the gate.\n\nLater, Caelynn opened the door.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Caelynn waited at the gate.\n\nLater, [Caelynn](dmb-node:node:caelynn) opened the door.",
+        "mentions": [
+          [
+            "mention:node:caelynn:36",
+            "node:caelynn",
+            "Caelynn",
+            36,
+            68,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p2": "Later, Caelynn opened the door."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p2",
+            "start_offset": 7,
+            "end_offset": 14,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_unresolved_no_global_find",
+      "category": "unchanged",
+      "markdown": "Caelynn waited at the gate.\n\nLater, Caelynn opened the door.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Caelynn waited at the gate.\n\nLater, Caelynn opened the door.",
+        "mentions": [],
+        "sidecar_diagnostics": [
+          [
+            "known_entity_mention_offset_unresolved",
+            "Skipped known-entity chip for 'Caelynn' (node:caelynn) reason=paragraph_remap_unavailable",
+            "warning"
+          ]
+        ]
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p2": "Someone else opened the door."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p2",
+            "start_offset": 7,
+            "end_offset": 14,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_wins_over_alias_overlap",
+      "category": "unchanged",
+      "markdown": "Caelynn opened the door.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn](dmb-node:node:caelynn) opened the door.",
+        "mentions": [
+          [
+            "mention:node:caelynn:0",
+            "node:caelynn",
+            "Caelynn",
+            0,
+            32,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p1": "Caelynn opened the door."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 0,
+            "end_offset": 7,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_two_nodes_plain",
+      "category": "unchanged",
+      "markdown": "Caelynn and Other traveled.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          },
+          "node:other": {
+            "node_id": "node:other",
+            "label": "Other",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Other"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn",
+          "Other": "node:other"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn](dmb-node:node:caelynn) and [Other](dmb-node:node:other) traveled.",
+        "mentions": [
+          [
+            "mention:node:caelynn:0",
+            "node:caelynn",
+            "Caelynn",
+            0,
+            32,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ],
+          [
+            "mention:node:other:12",
+            "node:other",
+            "Other",
+            37,
+            65,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p1": "Caelynn and Other traveled."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 0,
+            "end_offset": 7,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          },
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 12,
+            "end_offset": 17,
+            "surface_text": "Other",
+            "canonical_entity_id": "node:other",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Other"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_plain_variant_0",
+      "category": "unchanged",
+      "markdown": "Paragraph 0: Caelynn moved.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Paragraph 0: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          [
+            "mention:node:caelynn:13",
+            "node:caelynn",
+            "Caelynn",
+            13,
+            45,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p0": "Paragraph 0: Caelynn moved."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p0",
+            "start_offset": 14,
+            "end_offset": 21,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_plain_variant_1",
+      "category": "unchanged",
+      "markdown": "Paragraph 1: Caelynn moved.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Paragraph 1: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          [
+            "mention:node:caelynn:13",
+            "node:caelynn",
+            "Caelynn",
+            13,
+            45,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p1": "Paragraph 1: Caelynn moved."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 14,
+            "end_offset": 21,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_plain_variant_2",
+      "category": "unchanged",
+      "markdown": "Paragraph 2: Caelynn moved.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Paragraph 2: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          [
+            "mention:node:caelynn:13",
+            "node:caelynn",
+            "Caelynn",
+            13,
+            45,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p2": "Paragraph 2: Caelynn moved."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p2",
+            "start_offset": 14,
+            "end_offset": 21,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_plain_variant_3",
+      "category": "unchanged",
+      "markdown": "Paragraph 3: Caelynn moved.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Paragraph 3: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          [
+            "mention:node:caelynn:13",
+            "node:caelynn",
+            "Caelynn",
+            13,
+            45,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p3": "Paragraph 3: Caelynn moved."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p3",
+            "start_offset": 14,
+            "end_offset": 21,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "sidecar_plain_variant_4",
+      "category": "unchanged",
+      "markdown": "Paragraph 4: Caelynn moved.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Paragraph 4: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          [
+            "mention:node:caelynn:13",
+            "node:caelynn",
+            "Caelynn",
+            13,
+            45,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p4": "Paragraph 4: Caelynn moved."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p4",
+            "start_offset": 14,
+            "end_offset": 21,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "prot_alias_inline_code",
+      "category": "protected_skip",
+      "markdown": "`Caelynn` waited",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "`Caelynn` waited",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "`Caelynn` waited",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_fenced",
+      "category": "protected_skip",
+      "markdown": "```\nCaelynn\n```",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "```\nCaelynn\n```",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "```\nCaelynn\n```",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_autolink",
+      "category": "protected_skip",
+      "markdown": "<https://Caelynn.example>",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "<https://Caelynn.example>",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "<https://Caelynn.example>",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_ref_dest",
+      "category": "protected_skip",
+      "markdown": "[ref]: https://Caelynn.example/path",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[ref]: https://Caelynn.example/path",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "[ref]: https://Caelynn.example/path",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_inline_link_label",
+      "category": "protected_skip",
+      "markdown": "See [Caelynn](https://example.test) outside.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "See [Caelynn](https://example.test) outside.",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "See [Caelynn](https://example.test) outside.",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_reference_link",
+      "category": "protected_skip",
+      "markdown": "Reference [The Caelynn Story][ref] stays intact.\n\n[ref]: https://example.test",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "Reference [The Caelynn Story][ref] stays intact.\n\n[ref]: https://example.test",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "Reference [The Caelynn Story][ref] stays intact.\n\n[ref]: https://example.test",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_image",
+      "category": "protected_skip",
+      "markdown": "![Caelynn](https://example.test/img.png)",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "![Caelynn](https://example.test/img.png)",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "![Caelynn](https://example.test/img.png)",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_angle_dest",
+      "category": "protected_skip",
+      "markdown": "[Caelynn](<https://example.test/a b>)",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Caelynn](<https://example.test/a b>)",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "[Caelynn](<https://example.test/a b>)",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_email_autolink",
+      "category": "protected_skip",
+      "markdown": "<caelynn@example.test>",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "<caelynn@example.test>",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "<caelynn@example.test>",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_alias_nested_code_ticks",
+      "category": "protected_skip",
+      "markdown": "`` `Caelynn` ``",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "pc:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "`` `Caelynn` ``",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected Markdown suppresses alias splice",
+      "expected_head": {
+        "markdown": "`` `Caelynn` ``",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_sidecar_inline_code",
+      "category": "protected_skip",
+      "markdown": "`Caelynn` waited",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "`Caelynn` waited",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected sidecar span omitted; sidecar-only authority preserved",
+      "paragraph_text_by_span_id": {
+        "span:p1": "`Caelynn` waited"
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 1,
+            "end_offset": 8,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      },
+      "expected_head": {
+        "markdown": "`Caelynn` waited",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_sidecar_fenced",
+      "category": "protected_skip",
+      "markdown": "```\nCaelynn\n```",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "```\nCaelynn\n```",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected sidecar span omitted; sidecar-only authority preserved",
+      "paragraph_text_by_span_id": {
+        "span:p1": "```\nCaelynn\n```"
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 4,
+            "end_offset": 11,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      },
+      "expected_head": {
+        "markdown": "```\nCaelynn\n```",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_sidecar_inline_link",
+      "category": "protected_skip",
+      "markdown": "See [Caelynn](https://x.test) now.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "See [Caelynn](https://x.test) now.",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected sidecar span omitted; sidecar-only authority preserved",
+      "paragraph_text_by_span_id": {
+        "span:p1": "See [Caelynn](https://x.test) now."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 5,
+            "end_offset": 12,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      },
+      "expected_head": {
+        "markdown": "See [Caelynn](https://x.test) now.",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "prot_sidecar_protected_plus_plain_duplicate",
+      "category": "protected_skip",
+      "markdown": "`Caelynn` in code. Caelynn later.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "`Caelynn` in code. Caelynn later.",
+        "mentions": [],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": "protected sidecar span omitted; sidecar-only authority preserved",
+      "paragraph_text_by_span_id": {
+        "span:p1": "`Caelynn` in code. Caelynn later."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 1,
+            "end_offset": 8,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      },
+      "expected_head": {
+        "markdown": "`Caelynn` in code. Caelynn later.",
+        "mentions": []
+      }
+    },
+    {
+      "case_id": "sidecar_alias_alternating",
+      "category": "unchanged",
+      "markdown": "Other arrived. Caelynn followed.",
+      "session_id": "session-22",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-22",
+        "nodes": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          },
+          "node:other": {
+            "node_id": "node:other",
+            "label": "Other",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Other"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "Caelynn": "node:caelynn",
+          "Other": "node:other"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "base_projection": {
+        "markdown": "[Other](dmb-node:node:other) arrived. [Caelynn](dmb-node:node:caelynn) followed.",
+        "mentions": [
+          [
+            "mention:node:other:0",
+            "node:other",
+            "Other",
+            0,
+            28,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ],
+          [
+            "mention:node:caelynn:15",
+            "node:caelynn",
+            "Caelynn",
+            38,
+            70,
+            [
+              "evidence:session-23:caelynn:recap-mention"
+            ]
+          ]
+        ],
+        "sidecar_diagnostics": []
+      },
+      "authorized_difference": null,
+      "paragraph_text_by_span_id": {
+        "span:p1": "Other arrived. Caelynn followed."
+      },
+      "known_entity_mentions": {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+          {
+            "source_span_ref_id": "span:p1",
+            "start_offset": 15,
+            "end_offset": 22,
+            "surface_text": "Caelynn",
+            "canonical_entity_id": "node:caelynn",
+            "entity_slug": "caelynn",
+            "entity_kind": "pc",
+            "match_method": "canonical",
+            "display_name": "Caelynn"
+          }
+        ]
+      }
+    }
+  ]
+}
