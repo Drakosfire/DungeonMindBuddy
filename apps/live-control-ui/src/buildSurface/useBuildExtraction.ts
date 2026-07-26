@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   getExtractionRunStatus,
-  getWorkspaceDocumentSnapshot,
   launchExtractionRun,
 } from "../api/liveApi";
 import type {
@@ -13,7 +12,12 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentSnapshot,
 } from "../api/types";
-import { readWorkspaceDocumentLocalState } from "../tiptap/state/tiptapLocalState";
+import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { DOCUMENT_SAVE_COMMAND_ID } from "../markdownCanvas/markdownCanvasTypes";
+import { translateBuildDocumentCommandFailure } from "./buildAdmissionCopy";
+import {
+  BUILD_EXTRACT_COMMAND_ID,
+} from "./buildDocumentCommands";
 
 const RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
 
@@ -202,47 +206,13 @@ export interface BuildExtractionState {
   launch: () => Promise<void>;
 }
 
-function admitLaunchFromLocalAndSnapshot(args: {
-  documentId: string;
-  snapshot: WorkspaceDocumentSnapshot;
-}): { ok: true } | { ok: false; reason: string } {
-  const local = readWorkspaceDocumentLocalState(window.localStorage, args.documentId);
-  if (!local) {
-    return { ok: false, reason: "Open and save this Build source before extraction." };
-  }
-  if (local.document_id !== args.documentId || local.surface !== "build") {
-    return { ok: false, reason: "Local draft does not belong to this Build document." };
-  }
-  if (local.dirty) {
-    return { ok: false, reason: "Save and commit local changes before extraction." };
-  }
-  if (args.snapshot.record.content_status !== "committed") {
-    return { ok: false, reason: "Source must be committed before extraction." };
-  }
-  if (local.base_revision !== args.snapshot.loaded_revision) {
-    return {
-      ok: false,
-      reason: `Local base revision ${local.base_revision} does not match snapshot revision ${args.snapshot.loaded_revision}.`,
-    };
-  }
-  if (local.base_content_sha256 !== args.snapshot.content_sha256) {
-    return {
-      ok: false,
-      reason: "Local base content hash does not match the authoritative snapshot digest.",
-    };
-  }
-  return { ok: true };
-}
-
 export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractionState {
   const { documentId } = args;
-  const [document, setDocument] = useState<WorkspaceDocumentRecord | null>(null);
-  const [snapshot, setSnapshot] = useState<WorkspaceDocumentSnapshot | null>(null);
+  const canvas = useMarkdownCanvasSession();
   const [run, setRun] = useState<ExtractionRunRecord | null>(null);
   const [handoff, setHandoff] = useState<GraphReviewHandoffPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
-  const [localCleanMatch, setLocalCleanMatch] = useState(false);
 
   // Separate generations so Refresh cannot cancel an in-flight Extract adoption.
   const launchGenerationRef = useRef(0);
@@ -250,15 +220,19 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
   // Synchronous mirror of launching so refresh can no-op before any await.
   const launchingRef = useRef(false);
 
-  const clearAdoptedState = useCallback(() => {
-    setDocument(null);
-    setSnapshot(null);
+  const committedClean = canvas.documentId === documentId
+    ? canvas.getAdmittedDocument("committed_clean")
+    : null;
+  const document = canvas.documentId === documentId ? canvas.record : null;
+  const snapshot = canvas.documentId === documentId ? canvas.snapshot : null;
+  const localCleanMatch = committedClean != null;
+
+  const clearAdoptedRunState = useCallback(() => {
     setRun(null);
     setHandoff(null);
     setError(null);
     launchingRef.current = false;
     setLaunching(false);
-    setLocalCleanMatch(false);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -272,25 +246,16 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     setHandoff(null);
 
     if (!selectedDocumentId) {
-      clearAdoptedState();
+      clearAdoptedRunState();
       return;
     }
 
     const exactRunId = runIdFromLocation() ?? readStoredRunId(selectedDocumentId);
 
     try {
-      const nextSnapshot = await getWorkspaceDocumentSnapshot(selectedDocumentId);
       if (generation !== refreshGenerationRef.current) return;
       if (launchingRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;
-
-      setSnapshot(nextSnapshot);
-      setDocument(nextSnapshot.record);
-      const admission = admitLaunchFromLocalAndSnapshot({
-        documentId: selectedDocumentId,
-        snapshot: nextSnapshot,
-      });
-      setLocalCleanMatch(admission.ok);
 
       if (!exactRunId) {
         setRun(null);
@@ -328,13 +293,13 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         return exactRunId ? diagnosticRun(exactRunId) : null;
       });
     }
-  }, [clearAdoptedState, documentId]);
+  }, [clearAdoptedRunState, documentId]);
 
   useEffect(() => {
     // Invalidate any in-flight refresh/launch belonging to a prior selection.
     launchGenerationRef.current += 1;
     refreshGenerationRef.current += 1;
-    clearAdoptedState();
+    clearAdoptedRunState();
     void refresh();
     return () => {
       launchGenerationRef.current += 1;
@@ -360,38 +325,51 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     setHandoff(null);
 
     try {
-      const nextSnapshot = await getWorkspaceDocumentSnapshot(selectedDocumentId);
+      const commandResult = await canvas.runDocumentCommand(
+        {
+          id: BUILD_EXTRACT_COMMAND_ID,
+          conflictsWith: [DOCUMENT_SAVE_COMMAND_ID],
+          admission: "committed_clean",
+          invalidateOnDocumentChange: true,
+        },
+        async ({ envelope, signal, documentId: commandDocumentId }) => {
+          if (!envelope) {
+            throw new Error("Extraction requires a committed-clean document envelope.");
+          }
+          if (envelope.documentId !== selectedDocumentId || commandDocumentId !== selectedDocumentId) {
+            throw new Error("Admitted envelope does not match the selected Build document.");
+          }
+          // Plugins may not manufacture envelopes; use only the command-host capture.
+          const response: ExtractionRunLaunchResponse = await launchExtractionRun({
+            document_id: selectedDocumentId,
+            expected_revision: envelope.revision,
+            expected_content_sha256: envelope.contentSha256,
+            profile_id: BUILD_WORLDBUILDING_PROFILE_ID,
+            profile_version: BUILD_WORLDBUILDING_PROFILE_VERSION,
+          });
+          if (signal.aborted) {
+            throw new Error("Extraction launch aborted.");
+          }
+          return { response, envelope };
+        },
+      );
+
       if (generation !== launchGenerationRef.current) return;
       if (documentIdFromLocation() !== selectedDocumentId) return;
 
-      setSnapshot(nextSnapshot);
-      setDocument(nextSnapshot.record);
-      const admission = admitLaunchFromLocalAndSnapshot({
-        documentId: selectedDocumentId,
-        snapshot: nextSnapshot,
-      });
-      setLocalCleanMatch(admission.ok);
-      if (!admission.ok) {
-        setError(admission.reason);
+      if (!commandResult.ok) {
+        if (commandResult.code === "duplicate_command") return;
+        setError(translateBuildDocumentCommandFailure(commandResult));
         return;
       }
 
-      const response: ExtractionRunLaunchResponse = await launchExtractionRun({
-        document_id: selectedDocumentId,
-        expected_revision: nextSnapshot.loaded_revision,
-        expected_content_sha256: nextSnapshot.content_sha256,
-        profile_id: BUILD_WORLDBUILDING_PROFILE_ID,
-        profile_version: BUILD_WORLDBUILDING_PROFILE_VERSION,
-      });
-      if (generation !== launchGenerationRef.current) return;
-      if (documentIdFromLocation() !== selectedDocumentId) return;
-
+      const { response, envelope } = commandResult.value;
       const validation = validateExactRunIdentity({
         selectedDocumentId,
         requestedRunId: response.run.run_id,
         response,
-        expectedDocumentRevision: nextSnapshot.loaded_revision,
-        expectedContentSha256: nextSnapshot.content_sha256,
+        expectedDocumentRevision: envelope.revision,
+        expectedContentSha256: envelope.contentSha256,
       });
       if (!validation.ok) {
         setRun(response.run);
@@ -418,14 +396,9 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         setLaunching(false);
       }
     }
-  }, [documentId]);
+  }, [canvas, documentId]);
 
-  const canLaunch = Boolean(
-    snapshot
-    && snapshot.record.content_status === "committed"
-    && localCleanMatch
-    && !launching,
-  );
+  const canLaunch = Boolean(committedClean && !launching);
   const canRefresh = !launching;
   const canOpenGraphReview = Boolean(
     !launching

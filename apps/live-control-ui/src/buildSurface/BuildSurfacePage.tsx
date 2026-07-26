@@ -6,7 +6,10 @@ import type {
   WorldbuildingVisibilityState,
 } from "../api/types";
 import { AppChrome } from "../chrome/AppChrome";
+import { MarkdownCanvasSessionProvider } from "../markdownCanvas/MarkdownCanvasSession";
 import { useWorkspaceDocumentUrlSelection } from "../workspaceDocument/useWorkspaceDocumentUrlSelection";
+import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
+import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
 import { BUILD_NEW_SOURCE_HEADING, BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
@@ -140,8 +143,16 @@ export function BuildSurfacePage() {
 
   return (
     <AppChrome activeRoute="build">
-      <BuildIngestToolbar key={documentId} documentId={documentId} />
-      <BuildSurfaceShell key={documentId} documentId={documentId} />
+      <MarkdownCanvasSessionProvider
+        key={documentId}
+        documentId={documentId}
+        surface={BUILD_MARKDOWN_CANVAS.surface}
+        kind={BUILD_MARKDOWN_CANVAS.kind}
+        saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+      >
+        <BuildIngestToolbar documentId={documentId} />
+        <BuildSurfaceShell />
+      </MarkdownCanvasSessionProvider>
     </AppChrome>
   );
 }

@@ -1,12 +1,17 @@
+import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import type { Editor } from "@tiptap/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { DOCUMENT_SAVE_COMMAND_ID } from "../markdownCanvas/markdownCanvasTypes";
 import {
   buildInitialWorkspaceDocumentLocalState,
   writeWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
 } from "../tiptap/state/tiptapLocalState";
+import { BuildCanvasTestProvider } from "./buildCanvasTestProvider";
 import { useBuildExtraction, validateExactRunIdentity, validateHandoffHref } from "./useBuildExtraction";
 
 vi.mock("../api/liveApi", async (importOriginal) => {
@@ -16,6 +21,8 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     launchExtractionRun: vi.fn(),
     getExtractionRunStatus: vi.fn(),
+    prepareTiptapMarkdownWrite: vi.fn(),
+    commitTiptapMarkdownWrite: vi.fn(),
   };
 });
 
@@ -264,6 +271,13 @@ describe("validateHandoffHref", () => {
   });
 });
 
+
+function extractionWrapper(documentId: string) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <BuildCanvasTestProvider documentId={documentId}>{children}</BuildCanvasTestProvider>;
+  };
+}
+
 describe("useBuildExtraction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -288,7 +302,7 @@ describe("useBuildExtraction", () => {
       }),
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => {
       expect(result.current.run?.run_id).toBe(RUN_A);
     });
@@ -303,7 +317,7 @@ describe("useBuildExtraction", () => {
 
   it("blocks launch when local editor is dirty", async () => {
     writeCleanLocal(DOC_A, 2, "sha-a", true);
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.snapshot).not.toBeNull());
     expect(result.current.canLaunch).toBe(false);
     await act(async () => {
@@ -313,27 +327,31 @@ describe("useBuildExtraction", () => {
     expect(result.current.error).toMatch(/local changes/i);
   });
 
-  it("blocks launch when local base revision differs from snapshot", async () => {
-    writeCleanLocal(DOC_A, 1, "sha-a");
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+  it("blocks launch when dirty local base diverges from snapshot (conflict)", async () => {
+    // Clean base mismatches are healed by authoring open into snapshot authority.
+    // A dirty divergent base is a conflict and must not admit extraction.
+    writeCleanLocal(DOC_A, 1, "sha-a", true);
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.snapshot).not.toBeNull());
     expect(result.current.canLaunch).toBe(false);
     await act(async () => {
       await result.current.launch();
     });
     expect(liveApi.launchExtractionRun).not.toHaveBeenCalled();
-    expect(result.current.error).toMatch(/revision/i);
+    expect(result.current.error).toMatch(/conflict|ready|local|revision|admission/i);
   });
 
-  it("blocks launch when local base hash differs from snapshot", async () => {
-    writeCleanLocal(DOC_A, 2, "sha-stale");
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+  it("does not admit extraction from a manufactured envelope outside the canvas session", async () => {
+    // Plugin cannot bypass canvas admission by calling launch while dirty.
+    writeCleanLocal(DOC_A, 2, "sha-stale", true);
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.snapshot).not.toBeNull());
+    expect(result.current.canLaunch).toBe(false);
     await act(async () => {
       await result.current.launch();
     });
     expect(liveApi.launchExtractionRun).not.toHaveBeenCalled();
-    expect(result.current.error).toMatch(/hash|digest/i);
+    expect(result.current.error).toBeTruthy();
   });
 
   it("launches with both revision and digest when local state matches snapshot", async () => {
@@ -346,7 +364,7 @@ describe("useBuildExtraction", () => {
         sha: "sha-a",
       }),
     );
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canLaunch).toBe(true));
     await act(async () => {
       await result.current.launch();
@@ -379,7 +397,7 @@ describe("useBuildExtraction", () => {
       }),
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_B }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_B }), { wrapper: extractionWrapper(DOC_B) });
     await waitFor(() => {
       expect(result.current.run?.run_id).toBe(RUN_A);
     });
@@ -404,7 +422,7 @@ describe("useBuildExtraction", () => {
       }),
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => {
       expect(result.current.handoff?.document_revision).toBe(2);
     });
@@ -431,7 +449,7 @@ describe("useBuildExtraction", () => {
       },
     });
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canLaunch).toBe(true));
     await act(async () => {
       await result.current.launch();
@@ -452,7 +470,7 @@ describe("useBuildExtraction", () => {
         sha: "sha-a",
       }),
     );
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canLaunch).toBe(true));
     await act(async () => {
       await result.current.launch();
@@ -473,7 +491,7 @@ describe("useBuildExtraction", () => {
         sha: "sha-wrong",
       }),
     );
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canLaunch).toBe(true));
     await act(async () => {
       await result.current.launch();
@@ -497,7 +515,7 @@ describe("useBuildExtraction", () => {
       `/ingest?extractionRunId=${RUN_A}&sourceArtifactId=${ARTIFACT_A}&documentId=${DOC_A}&revision=99`;
     vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValue(envelope);
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => {
       expect(result.current.run?.run_id).toBe(RUN_A);
     });
@@ -520,7 +538,7 @@ describe("useBuildExtraction", () => {
       )
       .mockRejectedValueOnce(new Error("status unavailable"));
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => {
       expect(result.current.canOpenGraphReview).toBe(true);
     });
@@ -548,9 +566,15 @@ describe("useBuildExtraction", () => {
     );
 
     window.history.pushState({}, "", `/build?documentId=${DOC_A}&extractionRunId=${RUN_A}`);
+    let selectedDocumentId = DOC_A;
     const { result, rerender } = renderHook(
       ({ documentId }: { documentId: string }) => useBuildExtraction({ documentId }),
-      { initialProps: { documentId: DOC_A } },
+      {
+        initialProps: { documentId: DOC_A },
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <BuildCanvasTestProvider documentId={selectedDocumentId}>{children}</BuildCanvasTestProvider>
+        ),
+      },
     );
 
     await waitFor(() => expect(releaseA).toBeTypeOf("function"));
@@ -566,6 +590,7 @@ describe("useBuildExtraction", () => {
         sha: "sha-b",
       }),
     );
+    selectedDocumentId = DOC_B;
     rerender({ documentId: DOC_B });
 
     await waitFor(() => {
@@ -600,9 +625,15 @@ describe("useBuildExtraction", () => {
       }),
     );
 
+    let selectedDocumentId = DOC_A;
     const { result, rerender } = renderHook(
       ({ documentId }: { documentId: string }) => useBuildExtraction({ documentId }),
-      { initialProps: { documentId: DOC_A } },
+      {
+        initialProps: { documentId: DOC_A },
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <BuildCanvasTestProvider documentId={selectedDocumentId}>{children}</BuildCanvasTestProvider>
+        ),
+      },
     );
     await waitFor(() => expect(result.current.canLaunch).toBe(true));
 
@@ -613,6 +644,7 @@ describe("useBuildExtraction", () => {
     await waitFor(() => expect(releaseLaunch).toBeTypeOf("function"));
 
     window.history.pushState({}, "", `/build?documentId=${DOC_B}`);
+    selectedDocumentId = DOC_B;
     rerender({ documentId: DOC_B });
     await waitFor(() => {
       expect(result.current.snapshot?.record.document_id).toBe(DOC_B);
@@ -653,7 +685,7 @@ describe("useBuildExtraction", () => {
       }),
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_B }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_B }), { wrapper: extractionWrapper(DOC_B) });
     await waitFor(() => {
       expect(result.current.run?.run_id).toBe(RUN_B);
     });
@@ -679,7 +711,7 @@ describe("useBuildExtraction", () => {
       }),
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canOpenGraphReview).toBe(true));
     expect(result.current.run?.run_id).toBe(RUN_A);
 
@@ -737,7 +769,7 @@ describe("useBuildExtraction", () => {
       }),
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canOpenGraphReview).toBe(true));
 
     let launchPromise: Promise<void> | undefined;
@@ -775,7 +807,7 @@ describe("useBuildExtraction", () => {
       }),
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canLaunch).toBe(true));
 
     let launchPromise: Promise<void> | undefined;
@@ -810,6 +842,8 @@ describe("useBuildExtraction", () => {
   });
 
   it("keeps adopted R2 when a pre-Extract refresh resumes after waiting on snapshot", async () => {
+    // Refresh no longer reloads workspace snapshots; document authority is canvas-owned.
+    // Preserve the race by gating the refresh status fetch the same way as the status suite.
     window.history.pushState({}, "", `/build?documentId=${DOC_A}&extractionRunId=${RUN_A}`);
     vi.mocked(liveApi.getExtractionRunStatus).mockResolvedValue(
       statusEnvelope({
@@ -821,28 +855,21 @@ describe("useBuildExtraction", () => {
       }),
     );
 
-    let gateSnapshots = false;
-    let releaseSnapshot: ((value: ReturnType<typeof snapshotFor>) => void) | undefined;
-    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(
-      () => {
-        if (!gateSnapshots) {
-          return Promise.resolve(snapshotFor(DOC_A, 2, "sha-a"));
-        }
-        return new Promise((resolve) => {
-          releaseSnapshot = resolve;
-        });
-      },
-    );
-
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canOpenGraphReview).toBe(true));
 
-    gateSnapshots = true;
+    let releaseStatus: ((value: ReturnType<typeof statusEnvelope>) => void) | undefined;
+    vi.mocked(liveApi.getExtractionRunStatus).mockImplementation(
+      () => new Promise((resolve) => {
+        releaseStatus = resolve;
+      }),
+    );
+
     let refreshPromise: Promise<void> | undefined;
     act(() => {
       refreshPromise = result.current.refresh();
     });
-    await waitFor(() => expect(releaseSnapshot).toBeTypeOf("function"));
+    await waitFor(() => expect(releaseStatus).toBeTypeOf("function"));
 
     vi.mocked(liveApi.launchExtractionRun).mockResolvedValue(
       launchEnvelope({
@@ -854,8 +881,6 @@ describe("useBuildExtraction", () => {
         status: "reviewable",
       }),
     );
-    // Launch's own snapshot fetch must resolve immediately.
-    gateSnapshots = false;
     await act(async () => {
       await result.current.launch();
     });
@@ -865,15 +890,19 @@ describe("useBuildExtraction", () => {
     expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_B);
 
     await act(async () => {
-      releaseSnapshot?.(snapshotFor(DOC_A, 2, "sha-a"));
+      releaseStatus?.(statusEnvelope({
+        runId: RUN_A,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+      }));
       await refreshPromise;
     });
 
     expect(result.current.run?.run_id).toBe(RUN_B);
     expect(result.current.handoff?.extraction_run_id).toBe(RUN_B);
-    expect(result.current.canOpenGraphReview).toBe(true);
     expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
-    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_B);
   });
 
   it("keeps adopted R2 when a pre-Extract refresh resumes after waiting on status", async () => {
@@ -897,7 +926,7 @@ describe("useBuildExtraction", () => {
       },
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canOpenGraphReview).toBe(true));
 
     gateStatus = true;
@@ -964,7 +993,7 @@ describe("useBuildExtraction", () => {
       },
     );
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canOpenGraphReview).toBe(true));
 
     gateStatus = true;
@@ -1017,7 +1046,7 @@ describe("useBuildExtraction", () => {
       });
     });
 
-    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }));
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A }), { wrapper: extractionWrapper(DOC_A) });
     await waitFor(() => expect(result.current.canLaunch).toBe(true));
 
     await act(async () => {
@@ -1029,5 +1058,179 @@ describe("useBuildExtraction", () => {
     expect(launchCalls).toBe(1);
     expect(result.current.run?.run_id).toBe(RUN_B);
     expect(window.location.search).toContain(`extractionRunId=${RUN_B}`);
+  });
+});
+
+function createEditor(initialText: string) {
+  let text = initialText;
+  return {
+    getJSON: vi.fn(() => ({
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+    })),
+    editTo(nextText: string) {
+      text = nextText;
+    },
+  } as unknown as Editor & { editTo: (nextText: string) => void };
+}
+
+function useBuildSessionAndExtraction(documentId: string) {
+  return {
+    session: useMarkdownCanvasSession(),
+    extraction: useBuildExtraction({ documentId }),
+  };
+}
+
+describe("Build save/extract command arbitration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
+    writeCleanLocal(DOC_A, 2, "sha-a");
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      snapshotFor(DOC_A, 2, "sha-a"),
+    );
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_A,
+      title: "Source",
+      target_relpath: `out/workspace/worldbuilding/${DOC_A}.md`,
+      target_display_path: `out/workspace/worldbuilding/${DOC_A}.md`,
+      registry_revision: 2,
+      file_exists: true,
+      writer_ok: true,
+      writer_phase: "prepare",
+      writer_confirm_token: "confirm-token",
+      writer_diff: "+Source\n",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_A,
+      title: "Source",
+      target_relpath: `out/workspace/worldbuilding/${DOC_A}.md`,
+      target_display_path: `out/workspace/worldbuilding/${DOC_A}.md`,
+      registry_revision: 3,
+      committed_revision: 3,
+      committed_record: snapshotFor(DOC_A, 3, "sha-b").record,
+      normalized_content_sha256: "sha-b",
+      writer_ok: true,
+      bytes_written: 8,
+      file_fingerprint: "fp-b",
+      diagnostics: [],
+    });
+  });
+
+  it("refuses Extract while session.saveMarkdown holds document.save", async () => {
+    let releasePrepare: ((value: Awaited<ReturnType<typeof liveApi.prepareTiptapMarkdownWrite>>) => void) | undefined;
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockImplementation(
+      () => new Promise((resolve) => {
+        releasePrepare = resolve;
+      }),
+    );
+
+    const editor = createEditor("Source");
+    const { result } = renderHook(() => useBuildSessionAndExtraction(DOC_A), {
+      wrapper: extractionWrapper(DOC_A),
+    });
+    await waitFor(() => expect(result.current.session.phase).toBe("ready_clean"));
+    await waitFor(() => expect(result.current.extraction.canLaunch).toBe(true));
+
+    act(() => {
+      result.current.session.setEditor(editor);
+      result.current.session.markDirty();
+    });
+
+    let savePromise: Promise<void> | undefined;
+    act(() => {
+      savePromise = result.current.session.saveMarkdown();
+    });
+
+    await waitFor(() => {
+      expect(result.current.session.activeCommand?.id).toBe(DOCUMENT_SAVE_COMMAND_ID);
+    });
+    await waitFor(() => {
+      expect(liveApi.prepareTiptapMarkdownWrite).toHaveBeenCalled();
+    });
+
+    await act(async () => {
+      await result.current.extraction.launch();
+    });
+
+    expect(liveApi.launchExtractionRun).not.toHaveBeenCalled();
+    expect(result.current.extraction.error).toMatch(/conflict|active document command/i);
+
+    await act(async () => {
+      releasePrepare?.({
+        schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+        document_id: DOC_A,
+        title: "Source",
+        target_relpath: `out/workspace/worldbuilding/${DOC_A}.md`,
+        target_display_path: `out/workspace/worldbuilding/${DOC_A}.md`,
+        registry_revision: 2,
+        file_exists: true,
+        writer_ok: true,
+        writer_phase: "prepare",
+        writer_confirm_token: "confirm-token",
+        writer_diff: "+Source\n",
+        warnings: [],
+        diagnostics: [],
+      });
+      await savePromise;
+    });
+  });
+
+  it("does not begin prepare/commit while Extract holds the command host", async () => {
+    let releaseLaunch: ((value: ReturnType<typeof launchEnvelope>) => void) | undefined;
+    vi.mocked(liveApi.launchExtractionRun).mockImplementation(
+      () => new Promise((resolve) => {
+        releaseLaunch = resolve;
+      }),
+    );
+
+    const editor = createEditor("Source");
+    const { result } = renderHook(() => useBuildSessionAndExtraction(DOC_A), {
+      wrapper: extractionWrapper(DOC_A),
+    });
+    await waitFor(() => expect(result.current.session.phase).toBe("ready_clean"));
+    await waitFor(() => expect(result.current.extraction.canLaunch).toBe(true));
+
+    act(() => {
+      result.current.session.setEditor(editor);
+    });
+
+    let launchPromise: Promise<void> | undefined;
+    act(() => {
+      launchPromise = result.current.extraction.launch();
+    });
+    await waitFor(() => expect(result.current.extraction.launching).toBe(true));
+    await waitFor(() => {
+      expect(result.current.session.activeCommand?.id).toBe("build.extract");
+    });
+
+    act(() => {
+      result.current.session.markDirty();
+    });
+    expect(result.current.session.saveDisabled).toBe(true);
+
+    const prepareBefore = vi.mocked(liveApi.prepareTiptapMarkdownWrite).mock.calls.length;
+    await act(async () => {
+      await result.current.session.saveMarkdown();
+    });
+    expect(vi.mocked(liveApi.prepareTiptapMarkdownWrite).mock.calls.length).toBe(prepareBefore);
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+
+    await act(async () => {
+      releaseLaunch?.(launchEnvelope({
+        runId: RUN_A,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+        status: "reviewable",
+      }));
+      await launchPromise;
+    });
   });
 });

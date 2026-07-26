@@ -9,7 +9,8 @@ Current authority:
 
 - `Docs/Design/DESIGN-shared-markdown-canvas-surface-composition.md`
 - `Docs/Plans/PLAN-shared-markdown-canvas-build-first.md`
-- `Docs/Plans/HANDOFF-pr425-build-first-markdown-canvas.md`
+- `Docs/Plans/HANDOFF-pr426-build-first-markdown-canvas.md`
+  (a forwarding stub remains at the mistaken `HANDOFF-pr425-…` path)
 
 The parent Surface composition authority remains
 `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`.
@@ -42,3 +43,10 @@ The parent Surface composition authority remains
 
 Short forwarding files remain at the former root paths so historical links do not
 silently break.
+
+## Navigability repair
+
+Historical files were moved under this archive directory. Relative links that previously
+targeted `Docs/Design/` via `../Design/...` from `Docs/Plans/` were rewritten to
+`../../../../Design/...` so the archived copies remain navigable. Prefer navigability
+over byte-identical Markdown when relocating design archaeology.

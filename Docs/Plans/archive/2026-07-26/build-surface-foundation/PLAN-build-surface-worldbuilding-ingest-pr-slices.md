@@ -168,10 +168,10 @@ external_pull_requests:
 
 - **Status:** Proposed sequence; logical slice IDs only.
 - **Roadmap:** [`ROADMAP-build-surface-worldbuilding-ingest.md`](ROADMAP-build-surface-worldbuilding-ingest.md)
-- **Architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
-- **Surface architecture:** [`../Design/ARCHITECTURE-plan-surface-toolbox.md`](../Design/ARCHITECTURE-plan-surface-toolbox.md)
-- **Workspace identity:** [`../Design/CONTRACT-workspace-document-identity-v1.md`](../Design/CONTRACT-workspace-document-identity-v1.md)
-- **Publication boundary:** [`../Design/DESIGN-extract-promote-graph-review-bridge.md`](../Design/DESIGN-extract-promote-graph-review-bridge.md)
+- **Architecture:** [`../../../../Design/ARCHITECTURE-campaign-supergraph.md`](../../../../Design/ARCHITECTURE-campaign-supergraph.md)
+- **Surface architecture:** [`../../../../Design/ARCHITECTURE-plan-surface-toolbox.md`](../../../../Design/ARCHITECTURE-plan-surface-toolbox.md)
+- **Workspace identity:** [`../../../../Design/CONTRACT-workspace-document-identity-v1.md`](../../../../Design/CONTRACT-workspace-document-identity-v1.md)
+- **Publication boundary:** [`../../../../Design/DESIGN-extract-promote-graph-review-bridge.md`](../../../../Design/DESIGN-extract-promote-graph-review-bridge.md)
 
 `BLD-*` identifiers are stable sequencing labels, not GitHub PR numbers.
 

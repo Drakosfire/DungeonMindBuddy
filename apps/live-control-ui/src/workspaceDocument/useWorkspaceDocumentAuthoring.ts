@@ -50,6 +50,15 @@ export interface UseWorkspaceDocumentAuthoringArgs {
   canSave?: () => boolean;
 }
 
+export interface WorkspaceDocumentLocalAdmission {
+  documentId: string;
+  surface: WorkspaceDocumentLocalSurface;
+  kind: WorkspaceDocumentLocalKind;
+  dirty: boolean;
+  baseRevision: number;
+  baseContentSha256: string;
+}
+
 export interface WorkspaceDocumentAuthoringValue {
   status: WorkspaceDocumentAuthoringStatus;
   phase: WorkspaceDocumentAuthoringPhase;
@@ -60,6 +69,8 @@ export interface WorkspaceDocumentAuthoringValue {
   editorContent: unknown;
   documentKey: string;
   dirty: boolean;
+  /** In-memory local CAS fingerprint for canvas admission (not a second storage read). */
+  localAdmission: WorkspaceDocumentLocalAdmission | null;
   statusLabel: string;
   saveDisabled: boolean;
   lastCommitReceipt: TiptapMarkdownWriteCommitResponse | null;
@@ -464,6 +475,17 @@ export function useWorkspaceDocumentAuthoring(
   }, [dispatch, openFromSnapshot]);
 
   const dirty = localState?.dirty ?? false;
+  const localAdmission = useMemo<WorkspaceDocumentLocalAdmission | null>(() => {
+    if (!localState) return null;
+    return {
+      documentId: localState.document_id,
+      surface: localState.surface,
+      kind: localState.kind,
+      dirty: localState.dirty,
+      baseRevision: localState.base_revision,
+      baseContentSha256: localState.base_content_sha256,
+    };
+  }, [localState]);
   const phase = machine.phase;
   const statusLabel = useMemo(
     () => statusLabelForPhase({
@@ -501,6 +523,7 @@ export function useWorkspaceDocumentAuthoring(
     editorContent: localState?.tiptap_json ?? markdownToTiptapDoc(snapshot?.markdown ?? "").doc,
     documentKey,
     dirty,
+    localAdmission,
     statusLabel,
     saveDisabled: !editor
       || !isEditorInteractive(phase)

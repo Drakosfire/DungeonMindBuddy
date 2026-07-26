@@ -89,7 +89,7 @@ an ExtractionRun is.
 
 ### Handoff
 
-[`HANDOFF-pr425-build-first-markdown-canvas.md`](HANDOFF-pr425-build-first-markdown-canvas.md)
+[`HANDOFF-pr426-build-first-markdown-canvas.md`](HANDOFF-pr426-build-first-markdown-canvas.md)
 
 ### Acceptance summary
 
