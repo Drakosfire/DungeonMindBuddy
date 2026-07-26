@@ -594,6 +594,7 @@ def _project_markdown_mentions(
         markdown,
         alias_bindings,
         located_bindings=located_bindings,
+        equal_length_tie_break="binding_order",
     )
 
     mentions: list[RecapProjectionMention] = []

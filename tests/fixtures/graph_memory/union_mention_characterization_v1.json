@@ -1153,232 +1153,6 @@
       }
     },
     {
-      "case_id": "alias_existing_dmb_link_plus_plain",
-      "category": "protected_skip",
-      "markdown": "[Lysandra](dmb-node:node:lysandra) and Lysandra met.",
-      "session_id": "session-23",
-      "store": {
-        "schema": "dmb_union_supergraph_store_v0",
-        "version": "0.1",
-        "campaign_id": "longmont-c2",
-        "graph_id": null,
-        "graph_domains": [],
-        "source_domains": [],
-        "focus_session_id": "session-23",
-        "nodes": {
-          "node:lysandra": {
-            "node_id": "node:lysandra",
-            "label": "Lysandra",
-            "kind": "character",
-            "role": "character",
-            "aliases": [
-              "Lysandra"
-            ],
-            "source_domains": [
-              "recap"
-            ],
-            "evidence_ref_ids": [
-              "evidence:session-23:lysandra:recap-mention"
-            ],
-            "state": {
-              "memory_state": "graph_read_model"
-            }
-          },
-          "party:captain_lysandra_ironveil": {
-            "node_id": "party:captain_lysandra_ironveil",
-            "label": "Captain Lysandra Ironveil",
-            "kind": "character",
-            "role": "character",
-            "aliases": [
-              "Lysandra"
-            ],
-            "source_domains": [
-              "recap"
-            ],
-            "evidence_ref_ids": [
-              "evidence:session-23:lysandra:recap-mention"
-            ],
-            "state": {
-              "memory_state": "graph_read_model"
-            }
-          }
-        },
-        "edges": {},
-        "evidence": {},
-        "source_artifacts": {},
-        "aliases": {
-          "Lysandra": "node:lysandra"
-        },
-        "identity_redirects": [
-          {
-            "redirect_id": "redirect:lysandra",
-            "campaign_id": "longmont-c2",
-            "from_node_id": "node:lysandra",
-            "to_node_id": "party:captain_lysandra_ironveil",
-            "assertion_id": "assertion:existing",
-            "event_id": null,
-            "merge_reason": null,
-            "created_at": "2026-07-08T00:00:00Z",
-            "status": "active",
-            "materialization_pass_id": "pass:existing"
-          }
-        ],
-        "identity_merge_records": [],
-        "identity_decisions": [],
-        "assertion_support": {},
-        "contribution_source_payload_sha256": {},
-        "contribution_replay_manifest": [],
-        "initialization_contribution_ids": [],
-        "initialization_plan_digest": null,
-        "initialization_attestation_digest": null,
-        "adjacency": {},
-        "diagnostics": {
-          "canon_promotion": false,
-          "approved_memory_write": false,
-          "corpus_mutation": false,
-          "production_retrieval": false
-        }
-      },
-      "authorized_difference": "Alias match inside existing dmb-node destination is suppressed; outer link remains intact so redirect rewrite succeeds; plain Lysandra still links once",
-      "authorized_non_mention_field_deltas": [
-        "union_identity_diagnostics"
-      ],
-      "base_projection": {
-        "campaign_id": "longmont-c2",
-        "focus": {
-          "focus_session_id": "session-23",
-          "focused_edge_ids": [],
-          "focused_evidence_ref_ids": [],
-          "focused_node_ids": []
-        },
-        "graph_id": null,
-        "markdown": "[Lysandra](dmb-node:node:[lysandra](dmb-node:party:captain_lysandra_ironveil)) and [Lysandra](dmb-node:party:captain_lysandra_ironveil) met.",
-        "mentions": [
-          {
-            "end_offset": 77,
-            "evidence_ref_ids": [
-              "evidence:session-23:lysandra:recap-mention"
-            ],
-            "label": "lysandra",
-            "mention_id": "mention:party:captain_lysandra_ironveil:25",
-            "node_id": "party:captain_lysandra_ironveil",
-            "start_offset": 25
-          },
-          {
-            "end_offset": 135,
-            "evidence_ref_ids": [
-              "evidence:session-23:lysandra:recap-mention"
-            ],
-            "label": "Lysandra",
-            "mention_id": "mention:party:captain_lysandra_ironveil:39",
-            "node_id": "party:captain_lysandra_ironveil",
-            "start_offset": 83
-          }
-        ],
-        "node_views": {
-          "party:captain_lysandra_ironveil": {
-            "adjacency": [],
-            "aliases": [
-              "Lysandra"
-            ],
-            "anchored_to_focus_session": false,
-            "evidence_badges": [],
-            "kind": "character",
-            "label": "Captain Lysandra Ironveil",
-            "node_id": "party:captain_lysandra_ironveil",
-            "role": "character",
-            "source_domains": [
-              "recap"
-            ],
-            "suggested_expansions": [],
-            "summary": null
-          }
-        },
-        "session_id": "session-23",
-        "source_spans": [],
-        "union_identity_applied_assertion_ids": [],
-        "union_identity_diagnostics": [
-          {
-            "code": "union_identity_redirect_applied",
-            "count": 1,
-            "message": "Resolved union node ids through 1 active identity redirect(s)",
-            "severity": "info"
-          },
-          {
-            "code": "union_identity_merged_away_node_filtered",
-            "count": 1,
-            "message": "Filtered 1 merged-away node(s) from normal active projection output",
-            "severity": "info"
-          }
-        ]
-      },
-      "expected_head": {
-        "campaign_id": "longmont-c2",
-        "session_id": "session-23",
-        "graph_id": null,
-        "markdown": "[Lysandra](dmb-node:party:captain_lysandra_ironveil) and [Lysandra](dmb-node:party:captain_lysandra_ironveil) met.",
-        "focus": {
-          "focus_session_id": "session-23",
-          "focused_evidence_ref_ids": [],
-          "focused_edge_ids": [],
-          "focused_node_ids": []
-        },
-        "node_views": {
-          "party:captain_lysandra_ironveil": {
-            "node_id": "party:captain_lysandra_ironveil",
-            "label": "Captain Lysandra Ironveil",
-            "kind": "character",
-            "role": "character",
-            "aliases": [
-              "Lysandra"
-            ],
-            "source_domains": [
-              "recap"
-            ],
-            "evidence_badges": [],
-            "adjacency": [],
-            "suggested_expansions": [],
-            "anchored_to_focus_session": false,
-            "summary": null
-          }
-        },
-        "mentions": [
-          {
-            "mention_id": "mention:party:captain_lysandra_ironveil:39",
-            "node_id": "party:captain_lysandra_ironveil",
-            "label": "Lysandra",
-            "start_offset": 39,
-            "end_offset": 91,
-            "evidence_ref_ids": [
-              "evidence:session-23:lysandra:recap-mention"
-            ]
-          }
-        ],
-        "source_spans": [],
-        "union_identity_diagnostics": [
-          {
-            "code": "union_identity_redirect_applied",
-            "message": "Resolved union node ids through 1 active identity redirect(s)",
-            "count": 1,
-            "severity": "info"
-          },
-          {
-            "code": "union_identity_merged_away_node_filtered",
-            "message": "Filtered 1 merged-away node(s) from normal active projection output",
-            "count": 1,
-            "severity": "info"
-          },
-          {
-            "code": "union_identity_mention_target_resolved",
-            "message": "Resolved 1 mention target(s) through active identity redirects",
-            "count": 1,
-            "severity": "info"
-          }
-        ],
-        "union_identity_applied_assertion_ids": []
-      }
-    },
-    {
       "case_id": "sidecar_exact_offset",
       "category": "unchanged",
       "markdown": "Caelynn opened the door.",
@@ -4958,6 +4732,239 @@
         "union_identity_applied_assertion_ids": [],
         "union_identity_diagnostics": []
       }
+    }
+  ],
+  "deferred_stop_conditions": [
+    {
+      "case_id": "alias_existing_dmb_link_plus_plain",
+      "status": "stop_condition_needs_operator_decision",
+      "reason": "Protecting an alias match inside an existing dmb-node destination prevents base nested corruption and allows the post-pass markdown redirect rewriter to succeed, which adds union_identity_mention_target_resolved. The handoff authorizes only protected Markdown/mention suppression and explicitly defers redirect counter/diagnostic changes. Cannot keep both destination protection and byte-exact base diagnostics without an operator decision.",
+      "inputs": {
+        "case_id": "alias_existing_dmb_link_plus_plain",
+        "category": "protected_skip",
+        "markdown": "[Lysandra](dmb-node:node:lysandra) and Lysandra met.",
+        "session_id": "session-23",
+        "store": {
+          "schema": "dmb_union_supergraph_store_v0",
+          "version": "0.1",
+          "campaign_id": "longmont-c2",
+          "graph_id": null,
+          "graph_domains": [],
+          "source_domains": [],
+          "focus_session_id": "session-23",
+          "nodes": {
+            "node:lysandra": {
+              "node_id": "node:lysandra",
+              "label": "Lysandra",
+              "kind": "character",
+              "role": "character",
+              "aliases": [
+                "Lysandra"
+              ],
+              "source_domains": [
+                "recap"
+              ],
+              "evidence_ref_ids": [
+                "evidence:session-23:lysandra:recap-mention"
+              ],
+              "state": {
+                "memory_state": "graph_read_model"
+              }
+            },
+            "party:captain_lysandra_ironveil": {
+              "node_id": "party:captain_lysandra_ironveil",
+              "label": "Captain Lysandra Ironveil",
+              "kind": "character",
+              "role": "character",
+              "aliases": [
+                "Lysandra"
+              ],
+              "source_domains": [
+                "recap"
+              ],
+              "evidence_ref_ids": [
+                "evidence:session-23:lysandra:recap-mention"
+              ],
+              "state": {
+                "memory_state": "graph_read_model"
+              }
+            }
+          },
+          "edges": {},
+          "evidence": {},
+          "source_artifacts": {},
+          "aliases": {
+            "Lysandra": "node:lysandra"
+          },
+          "identity_redirects": [
+            {
+              "redirect_id": "redirect:lysandra",
+              "campaign_id": "longmont-c2",
+              "from_node_id": "node:lysandra",
+              "to_node_id": "party:captain_lysandra_ironveil",
+              "assertion_id": "assertion:existing",
+              "event_id": null,
+              "merge_reason": null,
+              "created_at": "2026-07-08T00:00:00Z",
+              "status": "active",
+              "materialization_pass_id": "pass:existing"
+            }
+          ],
+          "identity_merge_records": [],
+          "identity_decisions": [],
+          "assertion_support": {},
+          "contribution_source_payload_sha256": {},
+          "contribution_replay_manifest": [],
+          "initialization_contribution_ids": [],
+          "initialization_plan_digest": null,
+          "initialization_attestation_digest": null,
+          "adjacency": {},
+          "diagnostics": {
+            "canon_promotion": false,
+            "approved_memory_write": false,
+            "corpus_mutation": false,
+            "production_retrieval": false
+          }
+        },
+        "authorized_difference": "Alias match inside existing dmb-node destination is suppressed; outer link remains intact so redirect rewrite succeeds; plain Lysandra still links once"
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "[Lysandra](dmb-node:node:[lysandra](dmb-node:party:captain_lysandra_ironveil)) and [Lysandra](dmb-node:party:captain_lysandra_ironveil) met.",
+        "mentions": [
+          {
+            "end_offset": 77,
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ],
+            "label": "lysandra",
+            "mention_id": "mention:party:captain_lysandra_ironveil:25",
+            "node_id": "party:captain_lysandra_ironveil",
+            "start_offset": 25
+          },
+          {
+            "end_offset": 135,
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ],
+            "label": "Lysandra",
+            "mention_id": "mention:party:captain_lysandra_ironveil:39",
+            "node_id": "party:captain_lysandra_ironveil",
+            "start_offset": 83
+          }
+        ],
+        "node_views": {
+          "party:captain_lysandra_ironveil": {
+            "adjacency": [],
+            "aliases": [
+              "Lysandra"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "character",
+            "label": "Captain Lysandra Ironveil",
+            "node_id": "party:captain_lysandra_ironveil",
+            "role": "character",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": [
+          {
+            "code": "union_identity_redirect_applied",
+            "count": 1,
+            "message": "Resolved union node ids through 1 active identity redirect(s)",
+            "severity": "info"
+          },
+          {
+            "code": "union_identity_merged_away_node_filtered",
+            "count": 1,
+            "message": "Filtered 1 merged-away node(s) from normal active projection output",
+            "severity": "info"
+          }
+        ]
+      },
+      "observed_head_projection": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
+        "markdown": "[Lysandra](dmb-node:party:captain_lysandra_ironveil) and [Lysandra](dmb-node:party:captain_lysandra_ironveil) met.",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "party:captain_lysandra_ironveil": {
+            "node_id": "party:captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "character",
+            "role": "character",
+            "aliases": [
+              "Lysandra"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [
+          {
+            "mention_id": "mention:party:captain_lysandra_ironveil:39",
+            "node_id": "party:captain_lysandra_ironveil",
+            "label": "Lysandra",
+            "start_offset": 39,
+            "end_offset": 91,
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ]
+          }
+        ],
+        "source_spans": [],
+        "union_identity_diagnostics": [
+          {
+            "code": "union_identity_redirect_applied",
+            "message": "Resolved union node ids through 1 active identity redirect(s)",
+            "count": 1,
+            "severity": "info"
+          },
+          {
+            "code": "union_identity_merged_away_node_filtered",
+            "message": "Filtered 1 merged-away node(s) from normal active projection output",
+            "count": 1,
+            "severity": "info"
+          },
+          {
+            "code": "union_identity_mention_target_resolved",
+            "message": "Resolved 1 mention target(s) through active identity redirects",
+            "count": 1,
+            "severity": "info"
+          }
+        ],
+        "union_identity_applied_assertion_ids": []
+      },
+      "diverging_non_mention_fields": [
+        "union_identity_diagnostics"
+      ]
     }
   ]
 }

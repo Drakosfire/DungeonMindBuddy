@@ -12,10 +12,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from typing import Literal
 
 from pydantic import BaseModel
 
 AMBIGUOUS_MENTION_DIAGNOSTIC = "ambiguous_mention_surface"
+
+EqualLengthTieBreak = Literal["surface_node_id", "binding_order"]
 
 
 class MentionBinding(BaseModel):
@@ -444,9 +447,39 @@ def _surface_owners(
     return owners
 
 
+def _order_unique_surfaces(
+    unique_surfaces: list[tuple[str, str]],
+    *,
+    equal_length_tie_break: EqualLengthTieBreak,
+) -> list[tuple[str, str]]:
+    """Order free-text surfaces longest-first with an explicit equal-length policy.
+
+    ``surface_node_id`` (default / PR #414): ties break by casefolded surface, then
+    ``node_id``. ``binding_order``: ties keep caller binding-list order (stable
+    length-only sort) for union alias insertion-order compatibility.
+    """
+    if equal_length_tie_break == "binding_order":
+        unique_surfaces.sort(key=lambda item: -len(item[0]))
+    else:
+        unique_surfaces.sort(
+            key=lambda item: (-len(item[0]), item[0].casefold(), item[1])
+        )
+    seen_keys: set[str] = set()
+    ordered: list[tuple[str, str]] = []
+    for surface, node_id in unique_surfaces:
+        key = surface.casefold()
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        ordered.append((surface, node_id))
+    return ordered
+
+
 def _project_markdown_mentions_free_only(
     markdown: str,
     bindings: Sequence[MentionBinding],
+    *,
+    equal_length_tie_break: EqualLengthTieBreak = "surface_node_id",
 ) -> tuple[str, list[MarkdownMention], list[MarkdownMentionDiagnostic]]:
     owners = _surface_owners(bindings)
     protected = _protected_ranges(markdown)
@@ -466,16 +499,10 @@ def _project_markdown_mentions_free_only(
             continue
         unique_surfaces.append((surface, binding.node_id))
 
-    # Length-descending only; equal lengths keep binding-list order (stable sort).
-    unique_surfaces.sort(key=lambda item: -len(item[0]))
-    seen_keys: set[str] = set()
-    ordered: list[tuple[str, str]] = []
-    for surface, node_id in unique_surfaces:
-        key = surface.casefold()
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        ordered.append((surface, node_id))
+    ordered = _order_unique_surfaces(
+        unique_surfaces,
+        equal_length_tie_break=equal_length_tie_break,
+    )
 
     occupied: list[tuple[int, int]] = []
     matches: list[tuple[int, int, str, str]] = []
@@ -548,6 +575,7 @@ def project_markdown_mentions(
     bindings: Sequence[MentionBinding],
     *,
     located_bindings: Sequence[LocatedMentionBinding] = (),
+    equal_length_tie_break: EqualLengthTieBreak = "surface_node_id",
 ) -> tuple[str, list[MarkdownMention], list[MarkdownMentionDiagnostic]]:
     """Splice unique bound surfaces into ``dmb-node:`` links.
 
@@ -562,9 +590,18 @@ def project_markdown_mentions(
     ``located_bindings`` are processed first in caller order; invalid,
     protected, or overlapping located spans are skipped fail-closed without
     diagnostics.
+
+    ``equal_length_tie_break`` defaults to ``surface_node_id`` (PR #414:
+    length, then casefolded surface, then node id). Pass ``binding_order`` for
+    length-only stable ordering that preserves caller binding-list order on
+    ties (union alias insertion-order compatibility).
     """
     if not located_bindings:
-        return _project_markdown_mentions_free_only(markdown, bindings)
+        return _project_markdown_mentions_free_only(
+            markdown,
+            bindings,
+            equal_length_tie_break=equal_length_tie_break,
+        )
 
     protected = _protected_ranges(markdown)
     occupied: list[tuple[int, int]] = []
@@ -601,16 +638,10 @@ def project_markdown_mentions(
             continue
         unique_surfaces.append((surface, binding.node_id))
 
-    # Length-descending only; equal lengths keep binding-list order (stable sort).
-    unique_surfaces.sort(key=lambda item: -len(item[0]))
-    seen_keys: set[str] = set()
-    ordered: list[tuple[str, str]] = []
-    for surface, node_id in unique_surfaces:
-        key = surface.casefold()
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        ordered.append((surface, node_id))
+    ordered = _order_unique_surfaces(
+        unique_surfaces,
+        equal_length_tie_break=equal_length_tie_break,
+    )
 
     matches: list[tuple[int, int, str, str]] = list(located_matches)
     for surface, node_id in ordered:

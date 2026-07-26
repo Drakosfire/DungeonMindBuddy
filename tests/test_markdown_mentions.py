@@ -398,14 +398,29 @@ def test_projection_is_deterministic_across_repeated_calls() -> None:
         assert project_markdown_mentions(markdown, bindings) == first
 
 
-def test_free_text_equal_length_surfaces_preserve_binding_order() -> None:
-    """Equal-length free-text surfaces keep caller binding order (stable length sort)."""
+def test_free_text_equal_length_default_uses_surface_node_id_tie_break() -> None:
+    """PR #414 default: equal-length ties break by surface then node id, not binding order."""
     projected, mentions, diagnostics = project_markdown_mentions(
         "See A-B-C today.",
         [
             MentionBinding(surface="B-C", node_id="n_bc"),
             MentionBinding(surface="A-B", node_id="n_ab"),
         ],
+    )
+    assert projected == "See [A-B](dmb-node:n_ab)-C today."
+    assert [m.node_id for m in mentions] == ["n_ab"]
+    assert diagnostics == []
+
+
+def test_free_text_equal_length_binding_order_opt_in_preserves_caller_order() -> None:
+    """Additive binding_order tie-break keeps caller list order on equal lengths."""
+    projected, mentions, diagnostics = project_markdown_mentions(
+        "See A-B-C today.",
+        [
+            MentionBinding(surface="B-C", node_id="n_bc"),
+            MentionBinding(surface="A-B", node_id="n_ab"),
+        ],
+        equal_length_tie_break="binding_order",
     )
     assert projected == "See A-[B-C](dmb-node:n_bc) today."
     assert [m.node_id for m in mentions] == ["n_bc"]
