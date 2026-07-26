@@ -75,21 +75,22 @@ A projection is: **exact snapshot identity + node/edge views + focus overlay + t
 |---|---|---|
 | `hoist-graph-mention-linker` | Hoist the linker to `markdown_mentions.py`, parameterized by bindings, byte-for-byte identical output | **merged** as GitHub PR #414 (`5c19d433`) — archived `HANDOFF-pr414-hoist-graph-mention-linker.md` |
 | `derive-recap-views-normalize-direction` | Derive recap views from generic views; normalize `direction` at the kernel boundary | **merged** as GitHub PR #416 (`6410e047`) — archived `HANDOFF-pr416-derive-recap-views-normalize-direction.md` |
-| `migrate-union-mention-path` | Migrate `recap_projection._project_markdown_mentions` onto the hoisted linker, closing the unprotected second implementation | named successor, not dispatched |
+| `migrate-union-mention-path` | Migrate `recap_projection._project_markdown_mentions` onto the hoisted linker, closing the unprotected second implementation | **dispatched** — `Docs/Plans/HANDOFF-pr420-migrate-union-mention-path.md` (planned PR #420); implementation not merged |
 | `normalize-union-direction-vocabulary` | Decide and normalize the separate `UnionSupergraphProjectionResponse` family | named successor (split from derive-views so World Graph and union contracts stay separate) |
 | PR380B | Recap/Ingest UI migration; consumes the World Graph recap route + hoisted linker | **unblocked** — World Graph contract hygiene complete; product migration not started |
 
 The hoist was deliberately a pure move with a characterization-test invariant. `derive-recap-views-normalize-direction` was the genuine contract change: direct generic-model reuse for recap nested views plus closed `outgoing`/`incoming`/`related` vocabulary at the World Graph boundary. Both are now on `main`.
 
-### Next gate (operator choice — fork before or into product migration)
+### Next gate
 
-World Graph presentation hygiene is done. Three independent next moves remain; pick **one** before authoring the next HANDOFF:
+**In flight:** `migrate-union-mention-path` via `HANDOFF-pr420-migrate-union-mention-path.md` (planned PR #420). Do not start a sibling union/UI slice that overlaps its §4 allowlist until that PR merges or the handoff is withdrawn.
 
-1. **`migrate-union-mention-path`** — put the unprotected union-supergraph mention path on the hoisted CommonMark linker (behavior change under the existing union preview endpoint; closes the dual-implementation landmine).
-2. **`normalize-union-direction-vocabulary`** — decide and normalize the separate `UnionSupergraphProjectionResponse` direction family (closes the other wire-contract dual vocabulary).
-3. **PR380B** — migrate Recap/Ingest UI (and shared object navigation) onto the World Graph recap route now that nested views and directions are stable.
+Still independently available after #420 (or instead, if #420 is withdrawn):
 
-(1) and (2) reduce dual-contract risk before UI cutover; (3) is the dogfood payoff and may proceed immediately if the operator accepts living with union legacy contracts until later. Do not combine these into one slice.
+1. **`normalize-union-direction-vocabulary`** — decide and normalize the separate `UnionSupergraphProjectionResponse` direction family (closes the other wire-contract dual vocabulary). Independent of mention migration.
+2. **PR380B** — migrate Recap/Ingest UI (and shared object navigation) onto the World Graph recap route. May proceed if the operator accepts living with the unprotected union mention path and/or legacy union directions until later.
+
+Do not combine these with the in-flight mention migration into one slice.
 
 ## Consequences
 
