@@ -20,7 +20,7 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
 from apps.live_control_server.services.graph_preview_runner import (
     run_recap_production_extraction,
 )
-from evals.graph_memory_layer.graph_preview_runner import (
+from src.graph_memory.extraction.graph_ingest_packaging import (
     GraphPreviewRunnerOptions,
     normalize_graph_extraction_profile,
     run_graph_preview_extraction,
