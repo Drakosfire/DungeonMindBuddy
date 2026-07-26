@@ -7,6 +7,13 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Slim live-control-ui nav + root launcher — captured 2026-07-26, done 2026-07-26
+**Context:** Floating-chrome consolidation readiness inventory. Operator wanted a usable root and a non-overpopulated top nav.
+**Insight:** Nav and Index are already chrome — not a hoist. Overpopulation was `APP_NAV_ITEMS` mixing product routes with Mireward eval HTML + Tiptap spike.
+**Action completed:** Primary nav is Index · Plan · Ingest · Build · Live Control. Root launcher shows those four core surfaces only. Eval HTML and `/tiptap-callout-spike` remain URL-reachable. Tests + README updated.
+**Surfaces when:** editing `APP_NAV_ITEMS`, `MirewardIndex`, AppChrome site nav, landing on `/`, UI reinvention / chrome cleanup
+**Refs:** `apps/live-control-ui/src/chrome/appChromeConfig.ts`, `apps/live-control-ui/src/App.tsx`, `apps/live-control-ui/src/App.test.tsx`, `apps/live-control-ui/README.md`; sibling `[READY] Floating chrome consolidation — Agent Interaction path`
+
 ## [DONE] Map WorldGraphNotFoundError on extract-promote prepare to world_not_initialized — captured 2026-07-24, done 2026-07-24
 **Priority:** high — blocks Build exact-run merge dogfood; opaque 500.
 **Context:** Mireward Reach exact-run "Review & merge" returned `The extract-promote prepare operation failed unexpectedly.` Local reproduce: `WorldGraphNotFoundError: no world graph head for world_id='eldyrwild'`.

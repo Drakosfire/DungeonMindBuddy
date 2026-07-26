@@ -123,27 +123,37 @@ describe("App inspector integration", () => {
   it("renders the launcher at the root route", () => {
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /mireward local tools/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /command board/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
-    expect(screen.getByRole("link", { name: /ingest memory ingest/i })).toHaveAttribute("href", "/ingest");
-    expect(screen.getByRole("link", { name: /worldbuilding source/i })).toHaveAttribute("href", "/build");
-    expect(screen.getByRole("link", { name: /live play command board/i })).toHaveAttribute(
-      "href",
-      "/evals/c2_live_prep/mireward-prep/live-play.html",
-    );
-    expect(screen.getByRole("link", { name: /retrieval dogfood surface/i })).toHaveAttribute(
-      "href",
-      "/evals/c2_live_prep/mireward-prep/retrieval.html",
-    );
+    expect(screen.getByRole("link", { name: /ingest memory review/i })).toHaveAttribute("href", "/ingest");
+    expect(screen.getByRole("link", { name: /build worldbuilding source/i })).toHaveAttribute("href", "/build");
     expect(screen.getByRole("link", { name: /live control react surface/i })).toHaveAttribute(
       "href",
       "/surface",
     );
+    expect(screen.queryByRole("link", { name: /live play/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /retrieval/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /tiptap|developer spike/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
     expect(liveApi.getSurface).not.toHaveBeenCalled();
   });
 
+  it("keeps primary site nav to core product surfaces", () => {
+    render(<App />);
+
+    const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+    const links = within(nav).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/",
+      "/plan",
+      "/ingest",
+      "/build",
+      "/surface",
+    ]);
+    expect(within(nav).queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("link", { name: "Tiptap Spike" })).not.toBeInTheDocument();
+  });
   it("opens empty inspector from app chrome control", async () => {
     const user = userEvent.setup();
     window.history.pushState({}, "", "/surface");
@@ -219,10 +229,8 @@ describe("App inspector integration", () => {
     expect(screen.queryByText(/wrong document kind|Failed to load runbook/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Live play" })).toHaveAttribute(
-      "href",
-      "/evals/c2_live_prep/mireward-prep/live-play.html",
-    );
+    expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
+    expect(screen.queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
 
     const editToggle = await screen.findByRole("button", { name: "Edit" });
     expect(editToggle).toHaveAttribute("aria-expanded", "false");

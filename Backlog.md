@@ -7,6 +7,23 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [READY] Live UI dogfood always starts at `/` — captured 2026-07-26
+**Context:** PR #418 packaging dogfood brief handed the operator `http://127.0.0.1:5173/ingest?campaign=longmont-c2&session=session-23` as the start URL. Operator corrected: that deep-link start is way out of date; product entry is the root launcher.
+**Insight:** `App.tsx` `MirewardIndex` at `/` is the intended start. Deep links (`/ingest?…`, `/plan?dogfood=1&…`) are mid-flow or measurement scaffolds, not the dogfood door. Agents keep resurrecting deep-link starts from old ingest notes.
+**Action:** When directing live UI dogfood, open `http://127.0.0.1:5173/` first; operator picks Plan / Ingest / Build / Live Control from launcher cards or site nav. Keep query-param deep links only as optional mid-flow shortcuts after the launcher. `apps/live-control-ui/README.md` Manual smoke updated 2026-07-26; nav/root slimmed same day.
+**Surfaces when:** dogfood URLs, “open /ingest?”, live-control-ui smoke, PR packaging/recap verify, agent brief that skips the launcher
+**Refs:** `apps/live-control-ui/src/App.tsx` (`MirewardIndex`); `apps/live-control-ui/README.md`; `Backlog-DONE.md` `[DONE] Slim live-control-ui nav + root launcher`
+
+## [READY] Floating chrome consolidation — Agent Interaction path — captured 2026-07-26
+**Context:** Readiness inventory of floating UI (z>0): nav, Edit/Tools drawers, Plan/Ingest projection toolbox, Agent bar, graph load, Graph Review/Build toolbars. Authority: `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` (Agent Interaction owns one adaptive projection container in AppChrome).
+**Insight:** Provider is already app-baseline; bar + projection host are still surface-mounted. AppChrome “Tools” (`pageActions`) ≠ Plan/Ingest projection “Tools”. Do **not** hoist whole `PlanAgentInteractionBar` or `PlanGraphLoadPanel` — Plan policy leakage. Prefer terms: keep-as-chrome / share-provider / promote-shell-to-chrome / share-projection-host / leave surface-local.
+**Ready now:** AppChrome site nav; `AgentInteractionProvider`; AppChrome Edit shell (content surface-fed).
+**Belongs here, not extractable yet:** Agent bar **shell** (Ask stays Plan plugin); one `AdaptiveProjectionContainer` lifetime under Agent Interaction (R10 lift-then-replace; today N=2 under separate `ProjectionProvider`s); optional dumb `SideDrawerShell` (Edit/Tools/plan-toolbox/author-drawer CSS twin at z≈850/855/860).
+**Stay surface-local:** Plan Ask/Hermes body; PlanGraphLens + LoadPanel; GraphReviewSessionToolbar; BuildIngestToolbar; Live Control Inspector pageActions; Graph Review author drawer/modals. Orphan: unmounted `PlanEditBar.tsx`.
+**Action (ordered):** (1) slim nav/root — **done** (see `Backlog-DONE.md`); (2) optional `SideDrawerShell` if CSS drift hurts; (3) lift projection ownership into `AgentInteractionProvider`, keep right drawer first; (4) only then empty Agent bar chrome in AppChrome + Plan Ask as plugin. No composer-2 “hoist floating chrome” bite that moves Ask or graph load.
+**Surfaces when:** AppChrome / Agent Interaction redesign, promoting agent bar to every route, merging Tools drawers, AdaptiveProjectionContainer lifetime, R10, SideDrawerShell, “toolbar on every page”, floating chrome / z-index stack
+**Refs:** `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`; `apps/live-control-ui/src/chrome/AppChrome.tsx`; `apps/live-control-ui/src/agentInteraction/`; `PlanAgentInteractionBar.tsx`; `AdaptiveProjectionContainer.tsx`; `PlanGraphLensContext.tsx`; `PlanGraphLoadPanel.tsx`; `BuildSurfaceShell.tsx` (publishes context without bar); plan `floating_chrome_readiness_56b85eb3`; hoist agent `86a48c24-eff2-430e-be53-57215c87006b`
+
 ## [READY] Hoist the Build authoring lifecycle into a shared document-bound Markdown canvas — captured 2026-07-24
 **Priority:** high — named immediate successor to the BLD-06/BLD-07 review cycle; every additional Build/Plan/runbook fix loop until then re-derives the same machinery.
 **Context:** Operator conclusion after the BLD-05a → BLD-06 → BLD-07 review cycles (PRs #399, #401, #392, #393). Those cycles spent seven-plus REQUEST_CHANGES rounds on document-lifecycle concerns, not on extraction: document-switch isolation, stale async suppression, launch/refresh arbitration in both start orders, revision+digest agreement, dirty-vs-committed authority. Explicitly *not* to be folded into #392 — that PR is finally proving one bounded capability and moving its architectural center would make the evidence unreadable.
