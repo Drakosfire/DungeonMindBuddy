@@ -14,6 +14,9 @@ from graph_memory.projection.focus_overlay import (
 # Re-export: `splice_node_link_spans` now lives in the surface-neutral
 # `markdown_mentions` module. Existing importers of this module keep working.
 from graph_memory.projection.markdown_mentions import (
+    LocatedMentionBinding,
+    MentionBinding,
+    project_markdown_mentions,
     splice_node_link_spans as splice_node_link_spans,
 )
 from graph_memory.anchor_quotes import find_anchor_quote_matches
@@ -534,11 +537,14 @@ def _project_markdown_mentions(
         return markdown, [], 0
 
     context = identity_context or build_union_projection_identity_context(store)
-    matches: list[tuple[int, int, str, str]] = []
-    occupied: list[tuple[int, int]] = []
-
-    # Prefer deterministic known-entity mention spans (registry-backed).
     known_mention_diagnostics: list[dict[str, Any]] = []
+    known_chip_node_ids = {
+        resolve_projected_node_id(str(row.get("canonical_entity_id") or ""), context)
+        for row in _iter_known_entity_mention_rows(known_entity_mentions)
+        if str(row.get("canonical_entity_id") or "").strip()
+    }
+
+    located_bindings: list[LocatedMentionBinding] = []
     for start, end, label, node_id in _known_mention_spans_in_markdown(
         markdown,
         known_entity_mentions=known_entity_mentions,
@@ -547,10 +553,14 @@ def _project_markdown_mentions(
         store=store,
         diagnostics=known_mention_diagnostics,
     ):
-        if any(start < used_end and end > used_start for used_start, used_end in occupied):
-            continue
-        occupied.append((start, end))
-        matches.append((start, end, label, node_id))
+        located_bindings.append(
+            LocatedMentionBinding(
+                surface=label,
+                node_id=node_id,
+                start_offset=start,
+                end_offset=end,
+            )
+        )
     if diagnostics is not None and known_mention_diagnostics:
         for item in known_mention_diagnostics:
             diagnostics.append(
@@ -565,49 +575,43 @@ def _project_markdown_mentions(
                 )
             )
 
-    # Retain alias-store matching for novel / non-known entities.
-    known_chip_node_ids = {
-        resolve_projected_node_id(str(row.get("canonical_entity_id") or ""), context)
-        for row in _iter_known_entity_mention_rows(known_entity_mentions)
-        if str(row.get("canonical_entity_id") or "").strip()
-    }
-    aliases = sorted(store.aliases.items(), key=lambda item: len(item[0]), reverse=True)
-    for alias, node_id in aliases:
+    alias_bindings: list[MentionBinding] = []
+    seen_casefold: set[str] = set()
+    for alias, node_id in sorted(store.aliases.items(), key=lambda item: len(item[0]), reverse=True):
         resolved_node_id = resolve_projected_node_id(node_id, context)
         if resolved_node_id in known_chip_node_ids:
-            # Known entities are chip-sourced only from the mention sidecar.
             continue
         node = store.nodes.get(resolved_node_id)
         if node is None or not is_projectable_union_node(node, context):
             continue
-        pattern = re.compile(rf"(?<![\w\\[]){re.escape(alias)}(?![\w\\]])", re.IGNORECASE)
-        for match in pattern.finditer(markdown):
-            start, end = match.span()
-            if any(start < used_end and end > used_start for used_start, used_end in occupied):
-                continue
-            occupied.append((start, end))
-            matches.append((start, end, match.group(0), resolved_node_id))
+        key = alias.casefold()
+        if key in seen_casefold:
+            continue
+        seen_casefold.add(key)
+        alias_bindings.append(MentionBinding(surface=alias, node_id=resolved_node_id))
 
-    matches.sort(key=lambda item: item[0])
-    projected, offsets = splice_node_link_spans(markdown, matches)
+    projected, neutral_mentions, _neutral_diagnostics = project_markdown_mentions(
+        markdown,
+        alias_bindings,
+        located_bindings=located_bindings,
+        equal_length_tie_break="binding_order",
+    )
 
     mentions: list[RecapProjectionMention] = []
-    mention_targets_resolved = 0
-    for (start, end, label, node_id), offset in zip(matches, offsets):
-        if offset is None:
-            continue
-        node = store.nodes[node_id]
-        mention_kwargs: dict[str, object] = {
-            "mention_id": f"mention:{node_id}:{start}",
-            "node_id": node_id,
-            "label": label,
-            "start_offset": offset[0],
-            "end_offset": offset[1],
-            "evidence_ref_ids": list(node.evidence_ref_ids),
-        }
-        mentions.append(RecapProjectionMention(**mention_kwargs))
+    for neutral in neutral_mentions:
+        node = store.nodes[neutral.node_id]
+        mentions.append(
+            RecapProjectionMention(
+                mention_id=neutral.mention_id,
+                node_id=neutral.node_id,
+                label=neutral.label,
+                start_offset=neutral.start_offset,
+                end_offset=neutral.end_offset,
+                evidence_ref_ids=list(node.evidence_ref_ids),
+            )
+        )
 
-    return projected, mentions, mention_targets_resolved
+    return projected, mentions, 0
 
 
 def _build_node_adjacency(

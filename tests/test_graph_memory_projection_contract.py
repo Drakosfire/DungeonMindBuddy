@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import inspect
 import json
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from graph_memory.projection import (
     build_node_view,
     build_recap_graph_projection,
 )
+from graph_memory.projection import recap_projection as recap_projection_module
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_payload,
@@ -20,6 +23,10 @@ from graph_memory.union_supergraph.load import (
     parse_union_supergraph_store,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphStore
+
+UNION_MENTION_FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures" / "graph_memory" / "union_mention_characterization_v1.json"
+)
 
 
 @pytest.fixture
@@ -331,3 +338,209 @@ def test_projection_models_reject_invalid_basic_types() -> None:
                 "can_open_source": "true",
             }
         )
+
+
+def _load_union_mention_fixture() -> dict:
+    return json.loads(UNION_MENTION_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def _projection_from_union_case(case: dict) -> RecapGraphProjection:
+    store = UnionSupergraphStore.model_validate(case["store"])
+    kwargs: dict = {
+        "session_id": case.get("session_id", "session-23"),
+        "markdown": case["markdown"],
+    }
+    if case.get("paragraph_text_by_span_id"):
+        kwargs["paragraph_text_by_span_id"] = case["paragraph_text_by_span_id"]
+    if case.get("known_entity_mentions"):
+        kwargs["known_entity_mentions"] = case["known_entity_mentions"]
+    return build_recap_graph_projection(store, **kwargs)
+
+
+# Operator-authorized exception for destination protection enabling post-pass
+# rewrite diagnostics. Only this case may declare non-mention field deltas.
+_AUTHORIZED_NON_MENTION_DELTAS_BY_CASE = {
+    "alias_existing_dmb_link_plus_plain": frozenset({"union_identity_diagnostics"}),
+}
+
+
+def test_union_mention_characterization_fixture_provenance() -> None:
+    fixture = _load_union_mention_fixture()
+    assert fixture["schema"] == "dmb_union_mention_migration_characterization_v1"
+    # Generation base must be the pre-change parent of the fixture-only commit,
+    # not the fixture commit itself or any amended orphan.
+    expected_base = "da553bcf0bea902cccc32e6c8f1a9e8de4cff2a4"
+    assert fixture["base_sha"] == expected_base
+    assert fixture.get("fixture_parent_sha", expected_base) == expected_base
+    assert len(fixture["cases"]) >= 30
+    sidecar = sum(1 for case in fixture["cases"] if case.get("known_entity_mentions"))
+    assert sidecar >= 10
+    assert sum(1 for case in fixture["cases"] if not case.get("known_entity_mentions")) >= 10
+    assert sum(1 for case in fixture["cases"] if case["category"] == "protected_skip") >= 10
+    assert any(case["case_id"] == "alias_equal_length_first_win" for case in fixture["cases"])
+    assert any(
+        case["case_id"] == "alias_existing_dmb_link_plus_plain" for case in fixture["cases"]
+    )
+    assert not (fixture.get("deferred_stop_conditions") or [])
+    for case in fixture["cases"]:
+        allowed = set(case.get("authorized_non_mention_field_deltas") or [])
+        expected_allowed = set(_AUTHORIZED_NON_MENTION_DELTAS_BY_CASE.get(case["case_id"], ()))
+        assert allowed == expected_allowed, (
+            f"{case['case_id']} authorized_non_mention_field_deltas={allowed!r}; "
+            f"expected {expected_allowed!r}"
+        )
+        assert isinstance(case["base_projection"], dict)
+        assert "markdown" in case["base_projection"]
+        assert "mentions" in case["base_projection"]
+        assert "node_views" in case["base_projection"]
+        assert "focus" in case["base_projection"]
+        assert "union_identity_diagnostics" in case["base_projection"]
+
+
+def test_existing_dmb_link_destination_protection_authorizes_redirect_diagnostic() -> None:
+    """Operator option 1: destination protection may add mention_target_resolved.
+
+    Live-replay proves production emits the authorized diagnostic delta; other
+    non-mention fields remain exact.
+    """
+    fixture = _load_union_mention_fixture()
+    case = next(
+        item
+        for item in fixture["cases"]
+        if item["case_id"] == "alias_existing_dmb_link_plus_plain"
+    )
+    assert case["authorized_non_mention_field_deltas"] == ["union_identity_diagnostics"]
+
+    head = _projection_from_union_case(case).model_dump(mode="json")
+    assert head == case["expected_head"]
+
+    base = case["base_projection"]
+    assert base["union_identity_diagnostics"] != head["union_identity_diagnostics"]
+    assert any(
+        d.get("code") == "union_identity_mention_target_resolved"
+        for d in head["union_identity_diagnostics"]
+    )
+    assert not any(
+        d.get("code") == "union_identity_mention_target_resolved"
+        for d in base["union_identity_diagnostics"]
+    )
+    for key, value in base.items():
+        if key in {"markdown", "mentions", "union_identity_diagnostics"}:
+            continue
+        assert head.get(key) == value, f"unauthorized non-mention field drifted: {key}"
+
+
+@pytest.mark.parametrize(
+    "case",
+    _load_union_mention_fixture()["cases"],
+    ids=[case["case_id"] for case in _load_union_mention_fixture()["cases"]],
+)
+def test_union_mention_migration_characterization(case: dict) -> None:
+    projection = _projection_from_union_case(case)
+    head = projection.model_dump(mode="json")
+    base = case["base_projection"]
+    if case["category"] == "unchanged":
+        assert head == base
+        return
+
+    expected = case["expected_head"]
+    assert head == expected
+    allowed = set(case.get("authorized_non_mention_field_deltas") or [])
+    expected_allowed = set(_AUTHORIZED_NON_MENTION_DELTAS_BY_CASE.get(case["case_id"], ()))
+    assert allowed == expected_allowed, (
+        f"{case['case_id']} authorized_non_mention_field_deltas={allowed!r}; "
+        f"expected {expected_allowed!r}"
+    )
+    for key, value in base.items():
+        if key in {"markdown", "mentions"}:
+            continue
+        if key in allowed:
+            assert head.get(key) != value, (
+                f"{case['case_id']} authorized delta {key!r} must actually differ from base"
+            )
+            continue
+        assert head.get(key) == value, f"non-mention field drifted: {key}"
+
+
+def test_equal_length_overlapping_aliases_preserve_insertion_order_winner() -> None:
+    """Equal-length overlapping aliases must keep stable length-only first-win order.
+
+    Insertion order B-C then A-B over the surface A-B-C must link B-C, not A-B.
+    """
+    store_payload = {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": None,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+            "n_bc": {
+                "node_id": "n_bc",
+                "label": "BC",
+                "kind": "npc",
+                "role": "npc",
+                "aliases": ["B-C"],
+                "source_domains": ["recap"],
+                "evidence_ref_ids": ["evidence:equal:bc"],
+                "state": {"memory_state": "graph_read_model"},
+            },
+            "n_ab": {
+                "node_id": "n_ab",
+                "label": "AB",
+                "kind": "npc",
+                "role": "npc",
+                "aliases": ["A-B"],
+                "source_domains": ["recap"],
+                "evidence_ref_ids": ["evidence:equal:ab"],
+                "state": {"memory_state": "graph_read_model"},
+            },
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {"B-C": "n_bc", "A-B": "n_ab"},
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": None,
+        "initialization_attestation_digest": None,
+        "adjacency": {},
+        "diagnostics": {
+            "canon_promotion": False,
+            "approved_memory_write": False,
+            "corpus_mutation": False,
+            "production_retrieval": False,
+        },
+    }
+    store = UnionSupergraphStore.model_validate(store_payload)
+    assert list(store.aliases.items()) == [("B-C", "n_bc"), ("A-B", "n_ab")]
+    projection = build_recap_graph_projection(
+        store,
+        session_id="session-23",
+        markdown="See A-B-C today.",
+    )
+    assert projection.markdown == "See A-[B-C](dmb-node:n_bc) today."
+    assert [m.node_id for m in projection.mentions] == ["n_bc"]
+    assert [m.label for m in projection.mentions] == ["B-C"]
+
+
+def test_project_markdown_mentions_union_adapter_has_no_duplicate_matcher() -> None:
+    source = inspect.getsource(recap_projection_module._project_markdown_mentions)
+    tree = ast.parse(source)
+    assert "re.compile" not in source
+    assert ".finditer" not in source
+    assert "splice_node_link_spans(" not in source
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(getattr(node.func, "id", None), str)
+        and node.func.id == "project_markdown_mentions"
+    ]
+    assert len(calls) == 1
