@@ -19,6 +19,7 @@ import pytest
 from graph_memory.projection import markdown_mentions
 from graph_memory.projection.markdown_mentions import (
     AMBIGUOUS_MENTION_DIAGNOSTIC,
+    LocatedMentionBinding,
     MarkdownMention,
     MarkdownMentionDiagnostic,
     MentionBinding,
@@ -404,3 +405,92 @@ def test_splice_node_link_spans_is_importable_from_both_modules() -> None:
     )
 
     assert reexported is splice_node_link_spans
+
+
+def test_located_binding_links_plain_prose_with_exact_offsets() -> None:
+    projected, mentions, diagnostics = project_markdown_mentions(
+        "Caelynn opened the door.",
+        [],
+        located_bindings=[
+            LocatedMentionBinding(
+                surface="Caelynn",
+                node_id="pc:caelynn",
+                start_offset=0,
+                end_offset=7,
+            )
+        ],
+    )
+    assert projected == "[Caelynn](dmb-node:pc:caelynn) opened the door."
+    assert len(mentions) == 1
+    assert (mentions[0].start_offset, mentions[0].end_offset) == (0, 30)
+    assert diagnostics == []
+
+
+def test_located_binding_skips_protected_inline_code() -> None:
+    markdown = "`Caelynn` waited."
+    projected, mentions, diagnostics = project_markdown_mentions(
+        markdown,
+        [MentionBinding(surface="Caelynn", node_id="pc:caelynn")],
+        located_bindings=[
+            LocatedMentionBinding(
+                surface="Caelynn",
+                node_id="pc:caelynn",
+                start_offset=1,
+                end_offset=8,
+            )
+        ],
+    )
+    assert projected == markdown
+    assert mentions == []
+    assert diagnostics == []
+
+
+def test_located_binding_occupies_range_before_free_text_match() -> None:
+    """Free-text regex must not duplicate a span already claimed by a located binding."""
+    projected, mentions, _diagnostics = project_markdown_mentions(
+        "Caelynn and Caelynn again.",
+        [MentionBinding(surface="Caelynn", node_id="pc:caelynn")],
+        located_bindings=[
+            LocatedMentionBinding(
+                surface="Caelynn",
+                node_id="pc:caelynn",
+                start_offset=12,
+                end_offset=19,
+            )
+        ],
+    )
+    assert projected == (
+        "[Caelynn](dmb-node:pc:caelynn) and [Caelynn](dmb-node:pc:caelynn) again."
+    )
+    assert len(mentions) == 2
+    assert [m.mention_id for m in mentions] == [
+        "mention:pc:caelynn:0",
+        "mention:pc:caelynn:12",
+    ]
+
+
+def test_invalid_located_binding_fails_closed_without_diagnostic() -> None:
+    projected, mentions, diagnostics = project_markdown_mentions(
+        "Caelynn stood watch.",
+        [MentionBinding(surface="Caelynn", node_id="pc:caelynn")],
+        located_bindings=[
+            LocatedMentionBinding(
+                surface="Wrong",
+                node_id="pc:caelynn",
+                start_offset=0,
+                end_offset=7,
+            )
+        ],
+    )
+    assert projected == "[Caelynn](dmb-node:pc:caelynn) stood watch."
+    assert len(mentions) == 1
+    assert diagnostics == []
+
+
+def test_located_binding_public_shape_is_surface_neutral() -> None:
+    assert set(LocatedMentionBinding.model_fields) == {
+        "surface",
+        "node_id",
+        "start_offset",
+        "end_offset",
+    }

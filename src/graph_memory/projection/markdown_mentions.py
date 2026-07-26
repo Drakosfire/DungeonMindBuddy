@@ -25,6 +25,15 @@ class MentionBinding(BaseModel):
     node_id: str
 
 
+class LocatedMentionBinding(BaseModel):
+    """Exact source span for a mention, already resolved to a durable node."""
+
+    surface: str
+    node_id: str
+    start_offset: int
+    end_offset: int
+
+
 class MarkdownMention(BaseModel):
     mention_id: str
     node_id: str
@@ -435,20 +444,10 @@ def _surface_owners(
     return owners
 
 
-def project_markdown_mentions(
+def _project_markdown_mentions_free_only(
     markdown: str,
     bindings: Sequence[MentionBinding],
 ) -> tuple[str, list[MarkdownMention], list[MarkdownMentionDiagnostic]]:
-    """Splice unique bound surfaces into ``dmb-node:`` links.
-
-    Ambiguous surfaces (same case-insensitive text owned by multiple bound
-    node ids) are left unchanged and emit ``ambiguous_mention_surface``.
-    Protected Markdown/code ranges are never rewritten.
-
-    ``bindings`` is order-significant and duplicates are meaningful: the
-    ambiguity diagnostic quotes the first surface in this order with its
-    original casing.
-    """
     owners = _surface_owners(bindings)
     protected = _protected_ranges(markdown)
     diagnostics: list[MarkdownMentionDiagnostic] = []
@@ -543,8 +542,142 @@ def project_markdown_mentions(
     return projected, mentions, diagnostics
 
 
+def project_markdown_mentions(
+    markdown: str,
+    bindings: Sequence[MentionBinding],
+    *,
+    located_bindings: Sequence[LocatedMentionBinding] = (),
+) -> tuple[str, list[MarkdownMention], list[MarkdownMentionDiagnostic]]:
+    """Splice unique bound surfaces into ``dmb-node:`` links.
+
+    Ambiguous surfaces (same case-insensitive text owned by multiple bound
+    node ids) are left unchanged and emit ``ambiguous_mention_surface``.
+    Protected Markdown/code ranges are never rewritten.
+
+    ``bindings`` is order-significant and duplicates are meaningful: the
+    ambiguity diagnostic quotes the first surface in this order with its
+    original casing.
+
+    ``located_bindings`` are processed first in caller order; invalid,
+    protected, or overlapping located spans are skipped fail-closed without
+    diagnostics.
+    """
+    if not located_bindings:
+        return _project_markdown_mentions_free_only(markdown, bindings)
+
+    protected = _protected_ranges(markdown)
+    occupied: list[tuple[int, int]] = []
+    located_matches: list[tuple[int, int, str, str]] = []
+    for binding in located_bindings:
+        start = binding.start_offset
+        end = binding.end_offset
+        surface = binding.surface
+        if not (0 <= start < end <= len(markdown)):
+            continue
+        if markdown[start:end] != surface:
+            continue
+        if _overlaps_protected(start, end, protected):
+            continue
+        if any(start < used_end and end > used_start for used_start, used_end in occupied):
+            continue
+        occupied.append((start, end))
+        located_matches.append((start, end, surface, binding.node_id))
+
+    owners = _surface_owners(bindings)
+    diagnostics: list[MarkdownMentionDiagnostic] = []
+    ambiguous_reported: set[str] = set()
+
+    unique_surfaces: list[tuple[str, str]] = []
+    for binding in bindings:
+        surface = (binding.surface or "").strip()
+        if not surface:
+            continue
+        key = surface.casefold()
+        node_ids = owners.get(key, set())
+        if len(node_ids) != 1:
+            continue
+        if node_ids != {binding.node_id}:
+            continue
+        unique_surfaces.append((surface, binding.node_id))
+
+    unique_surfaces.sort(key=lambda item: (-len(item[0]), item[0].casefold(), item[1]))
+    seen_keys: set[str] = set()
+    ordered: list[tuple[str, str]] = []
+    for surface, node_id in unique_surfaces:
+        key = surface.casefold()
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        ordered.append((surface, node_id))
+
+    matches: list[tuple[int, int, str, str]] = list(located_matches)
+    for surface, node_id in ordered:
+        pattern = re.compile(
+            rf"(?<![\w\\[]){re.escape(surface)}(?![\w\\]])",
+            re.IGNORECASE,
+        )
+        for match in pattern.finditer(markdown):
+            start, end = match.span()
+            if _overlaps_protected(start, end, protected):
+                continue
+            if any(start < used_end and end > used_start for used_start, used_end in occupied):
+                continue
+            occupied.append((start, end))
+            matches.append((start, end, match.group(0), node_id))
+
+    for key, node_ids in owners.items():
+        if len(node_ids) < 2 or key in ambiguous_reported:
+            continue
+        sample = next(
+            (
+                (binding.surface or "").strip()
+                for binding in bindings
+                if (binding.surface or "").strip().casefold() == key
+            ),
+            key,
+        )
+        pattern = re.compile(
+            rf"(?<![\w\\[]){re.escape(sample)}(?![\w\\]])",
+            re.IGNORECASE,
+        )
+        for match in pattern.finditer(markdown):
+            start, end = match.span()
+            if _overlaps_protected(start, end, protected):
+                continue
+            ambiguous_reported.add(key)
+            diagnostics.append(
+                MarkdownMentionDiagnostic(
+                    code=AMBIGUOUS_MENTION_DIAGNOSTIC,
+                    message=(
+                        f"Mention surface {sample!r} matches multiple projected "
+                        f"nodes ({', '.join(sorted(node_ids))}); left unlinked."
+                    ),
+                    severity="warning",
+                )
+            )
+            break
+
+    matches.sort(key=lambda item: item[0])
+    projected, offsets = splice_node_link_spans(markdown, matches)
+    mentions: list[MarkdownMention] = []
+    for (start, _end, label, node_id), offset in zip(matches, offsets, strict=True):
+        if offset is None:
+            continue
+        mentions.append(
+            MarkdownMention(
+                mention_id=f"mention:{node_id}:{start}",
+                node_id=node_id,
+                label=label,
+                start_offset=offset[0],
+                end_offset=offset[1],
+            )
+        )
+    return projected, mentions, diagnostics
+
+
 __all__ = [
     "AMBIGUOUS_MENTION_DIAGNOSTIC",
+    "LocatedMentionBinding",
     "MarkdownMention",
     "MarkdownMentionDiagnostic",
     "MentionBinding",

@@ -604,12 +604,41 @@ def test_projection_unique_in_paragraph_surface_still_chips() -> None:
     assert first_chip > markdown.index("Later")
 
 
+def test_protected_sidecar_node_does_not_alias_link_later_plain_occurrence() -> None:
+    """Sidecar-owned nodes stay off alias fallback even when the sidecar span is protected."""
+    markdown = "`Caelynn` in code. Caelynn later."
+    sidecar = {
+        "schema": "dmb_known_entity_mention_sidecar_v0",
+        "mentions": [
+            {
+                "source_span_ref_id": "span:p1",
+                "start_offset": 1,
+                "end_offset": 8,
+                "surface_text": "Caelynn",
+                "canonical_entity_id": "node:caelynn",
+                "entity_slug": "caelynn",
+                "entity_kind": "pc",
+                "match_method": "canonical",
+                "display_name": "Caelynn",
+            }
+        ],
+    }
+    projection = build_recap_graph_projection(
+        _store_with_pc(),
+        session_id="session-22",
+        markdown=markdown,
+        paragraph_text_by_span_id={"span:p1": markdown},
+        known_entity_mentions=sidecar,
+    )
+    assert projection.markdown == markdown
+    assert projection.mentions == []
+
+
 def test_pipeline_artifact_roundtrip_feeds_live_projection() -> None:
     """Registry match → sidecar artifact → projection adapter path."""
     import hashlib
     import json
     import shutil
-    from pathlib import Path
 
     from apps.live_control_server.config import repo_root
     from apps.live_control_server.services.union_supergraph_projection_adapter import (

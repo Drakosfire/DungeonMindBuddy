@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import inspect
 import json
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from graph_memory.projection import (
     build_node_view,
     build_recap_graph_projection,
 )
+from graph_memory.projection import recap_projection as recap_projection_module
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
     load_union_supergraph_payload,
@@ -20,6 +23,10 @@ from graph_memory.union_supergraph.load import (
     parse_union_supergraph_store,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphStore
+
+UNION_MENTION_FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures" / "graph_memory" / "union_mention_characterization_v1.json"
+)
 
 
 @pytest.fixture
@@ -331,3 +338,83 @@ def test_projection_models_reject_invalid_basic_types() -> None:
                 "can_open_source": "true",
             }
         )
+
+
+def _load_union_mention_fixture() -> dict:
+    return json.loads(UNION_MENTION_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def _projection_from_union_case(case: dict) -> RecapGraphProjection:
+    store = UnionSupergraphStore.model_validate(case["store"])
+    kwargs: dict = {
+        "session_id": case.get("session_id", "session-23"),
+        "markdown": case["markdown"],
+    }
+    if case.get("paragraph_text_by_span_id"):
+        kwargs["paragraph_text_by_span_id"] = case["paragraph_text_by_span_id"]
+    if case.get("known_entity_mentions"):
+        kwargs["known_entity_mentions"] = case["known_entity_mentions"]
+    return build_recap_graph_projection(store, **kwargs)
+
+
+def test_union_mention_characterization_fixture_provenance() -> None:
+    fixture = _load_union_mention_fixture()
+    assert fixture["schema"] == "dmb_union_mention_migration_characterization_v1"
+    assert len(fixture["cases"]) >= 30
+    sidecar = sum(1 for case in fixture["cases"] if case.get("known_entity_mentions"))
+    assert sidecar >= 10
+    assert sum(1 for case in fixture["cases"] if not case.get("known_entity_mentions")) >= 10
+    assert sum(1 for case in fixture["cases"] if case["category"] == "protected_skip") >= 10
+
+
+@pytest.mark.parametrize(
+    "case",
+    _load_union_mention_fixture()["cases"],
+    ids=[case["case_id"] for case in _load_union_mention_fixture()["cases"]],
+)
+def test_union_mention_migration_characterization(case: dict) -> None:
+    projection = _projection_from_union_case(case)
+    if case["category"] == "unchanged":
+        assert projection.markdown == case["base_projection"]["markdown"]
+        assert [
+            [
+                m.mention_id,
+                m.node_id,
+                m.label,
+                m.start_offset,
+                m.end_offset,
+                list(m.evidence_ref_ids),
+            ]
+            for m in projection.mentions
+        ] == case["base_projection"]["mentions"]
+        return
+
+    expected = case["expected_head"]
+    assert projection.markdown == expected["markdown"]
+    assert [
+        [
+            m.mention_id,
+            m.node_id,
+            m.label,
+            m.start_offset,
+            m.end_offset,
+            list(m.evidence_ref_ids),
+        ]
+        for m in projection.mentions
+    ] == expected["mentions"]
+
+
+def test_project_markdown_mentions_union_adapter_has_no_duplicate_matcher() -> None:
+    source = inspect.getsource(recap_projection_module._project_markdown_mentions)
+    tree = ast.parse(source)
+    assert "re.compile" not in source
+    assert ".finditer" not in source
+    assert "splice_node_link_spans(" not in source
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(getattr(node.func, "id", None), str)
+        and node.func.id == "project_markdown_mentions"
+    ]
+    assert len(calls) == 1
