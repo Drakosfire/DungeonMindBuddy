@@ -329,39 +329,134 @@ def _normalize_reference_label(label: str) -> str:
     return re.sub(r"\s+", " ", label.strip()).casefold()
 
 
-# CommonMark link reference definition: label, `:`, optional blanks (spaces/tabs
-# and at most one line ending), destination, then optional title. A title may
-# follow on the next indented line as "...", '...', or (...). Shared by label
-# discovery and protected-range consumption so the two cannot drift.
-_REFERENCE_DEFINITION_RE = re.compile(
+# Label + `:` + optional blanks (≤ one line ending) + destination.
+# Optional title is consumed by delimiter-aware scanning, not this regex.
+_REFERENCE_DEFINITION_HEAD_RE = re.compile(
     r"(?m)^[ \t]{0,3}\[((?:[^\]\\]|\\.)+)\]:"
     r"[ \t]*(?:\n[ \t]*)?"
-    r"\S+[^\n]*"
-    r"(?:\n[ \t]+(?:"
-    r'"(?:[^"\\]|\\.)*"'
-    r"|"
-    r"'(?:[^'\\]|\\.)*'"
-    r"|"
-    r"\((?:[^)\\]|\\.)*\)"
-    r")[ \t]*)?"
+    r"\S+"
 )
 
 # CommonMark absolute URI scheme: ASCII letter + 1–31 of [A-Za-z0-9+.-], then `:`.
 _URI_AUTOLINK_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]{1,31}:")
 
 
+class _ReferenceDefinitionMatch:
+    __slots__ = ("label", "start", "end")
+
+    def __init__(self, *, label: str, start: int, end: int) -> None:
+        self.label = label
+        self.start = start
+        self.end = end
+
+
+def _skip_link_title(markdown: str, index: int) -> int | None:
+    """Advance past a CommonMark link title starting at a delimiter.
+
+    Supports ``"..."``, ``'...'``, and ``(...)``. Titles may span lines, but a
+    blank line before the matching unescaped closer rejects the title.
+    """
+    if index >= len(markdown):
+        return None
+    opener = markdown[index]
+    if opener == '"':
+        closer = '"'
+    elif opener == "'":
+        closer = "'"
+    elif opener == "(":
+        closer = ")"
+    else:
+        return None
+    i = index + 1
+    n = len(markdown)
+    while i < n:
+        ch = markdown[i]
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "\n":
+            j = i + 1
+            while j < n and markdown[j] in " \t":
+                j += 1
+            if j >= n or markdown[j] == "\n":
+                return None
+            i += 1
+            continue
+        if ch == closer:
+            end = i + 1
+            while end < n and markdown[end] in " \t":
+                end += 1
+            return end
+        i += 1
+    return None
+
+
+def _match_reference_definition_at(
+    markdown: str, index: int
+) -> _ReferenceDefinitionMatch | None:
+    """Parse one CommonMark link reference definition at a line start.
+
+    Shared by label discovery and protected-range consumption so the two
+    cannot drift. Optional titles may begin after zero or more spaces/tabs
+    following one line ending (no indent required) and may be multiline.
+    """
+    if not _is_line_start(markdown, index):
+        return None
+    head = _REFERENCE_DEFINITION_HEAD_RE.match(markdown, index)
+    if head is None:
+        return None
+    label = head.group(1)
+    pos = head.end()
+    while pos < len(markdown) and markdown[pos] in " \t":
+        pos += 1
+
+    title_at: int | None = None
+    if pos < len(markdown) and markdown[pos] in "\"'(":
+        title_at = pos
+    elif pos < len(markdown) and markdown[pos] == "\n":
+        after_nl = pos + 1
+        while after_nl < len(markdown) and markdown[after_nl] in " \t":
+            after_nl += 1
+        if after_nl < len(markdown) and markdown[after_nl] in "\"'(":
+            title_at = after_nl
+
+    if title_at is not None:
+        title_end = _skip_link_title(markdown, title_at)
+        if title_end is None:
+            # Invalid title (e.g. blank line inside): definition ends at dest.
+            return _ReferenceDefinitionMatch(
+                label=label, start=index, end=head.end()
+            )
+        # No further non-whitespace may follow the title on its closing line.
+        if title_end < len(markdown) and markdown[title_end] not in "\n":
+            return None
+        return _ReferenceDefinitionMatch(label=label, start=index, end=title_end)
+
+    # No title: destination line may end here (EOL/EOF only).
+    if pos < len(markdown) and markdown[pos] not in "\n":
+        return None
+    return _ReferenceDefinitionMatch(label=label, start=index, end=head.end())
+
+
+def _iter_reference_definitions(markdown: str):
+    i = 0
+    n = len(markdown)
+    while i < n:
+        if _is_line_start(markdown, i):
+            match = _match_reference_definition_at(markdown, i)
+            if match is not None:
+                yield match
+                i = match.end
+                continue
+        i += 1
+
+
 def _reference_definition_labels(markdown: str) -> set[str]:
     """Labels defined by CommonMark ``[label]: destination`` definitions."""
     return {
-        _normalize_reference_label(match.group(1))
-        for match in _REFERENCE_DEFINITION_RE.finditer(markdown)
+        _normalize_reference_label(match.label)
+        for match in _iter_reference_definitions(markdown)
     }
-
-
-def _match_reference_definition_at(markdown: str, index: int) -> re.Match[str] | None:
-    if not _is_line_start(markdown, index):
-        return None
-    return _REFERENCE_DEFINITION_RE.match(markdown, index)
 
 
 def _skip_autolink(markdown: str, index: int) -> int | None:
@@ -390,8 +485,7 @@ def _skip_reference_definition_line(markdown: str, index: int) -> int | None:
     match = _match_reference_definition_at(markdown, index)
     if match is None:
         return None
-    return match.end()
-
+    return match.end
 def _protected_ranges(markdown: str) -> list[tuple[int, int]]:
     """Ranges that must not receive mention rewrites: fences, code, links."""
     ranges: list[tuple[int, int]] = []
