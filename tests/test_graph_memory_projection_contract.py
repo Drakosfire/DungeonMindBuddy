@@ -360,11 +360,24 @@ def _projection_from_union_case(case: dict) -> RecapGraphProjection:
 def test_union_mention_characterization_fixture_provenance() -> None:
     fixture = _load_union_mention_fixture()
     assert fixture["schema"] == "dmb_union_mention_migration_characterization_v1"
+    # Generation base must be the pre-change parent of the fixture-only commit,
+    # not the fixture commit itself or any amended orphan.
+    expected_base = "da553bcf0bea902cccc32e6c8f1a9e8de4cff2a4"
+    assert fixture["base_sha"] == expected_base
+    assert fixture.get("fixture_parent_sha", expected_base) == expected_base
     assert len(fixture["cases"]) >= 30
     sidecar = sum(1 for case in fixture["cases"] if case.get("known_entity_mentions"))
     assert sidecar >= 10
     assert sum(1 for case in fixture["cases"] if not case.get("known_entity_mentions")) >= 10
     assert sum(1 for case in fixture["cases"] if case["category"] == "protected_skip") >= 10
+    assert any(case["case_id"] == "alias_equal_length_first_win" for case in fixture["cases"])
+    for case in fixture["cases"]:
+        assert isinstance(case["base_projection"], dict)
+        assert "markdown" in case["base_projection"]
+        assert "mentions" in case["base_projection"]
+        assert "node_views" in case["base_projection"]
+        assert "focus" in case["base_projection"]
+        assert "union_identity_diagnostics" in case["base_projection"]
 
 
 @pytest.mark.parametrize(
@@ -374,34 +387,87 @@ def test_union_mention_characterization_fixture_provenance() -> None:
 )
 def test_union_mention_migration_characterization(case: dict) -> None:
     projection = _projection_from_union_case(case)
+    head = projection.model_dump(mode="json")
+    base = case["base_projection"]
     if case["category"] == "unchanged":
-        assert projection.markdown == case["base_projection"]["markdown"]
-        assert [
-            [
-                m.mention_id,
-                m.node_id,
-                m.label,
-                m.start_offset,
-                m.end_offset,
-                list(m.evidence_ref_ids),
-            ]
-            for m in projection.mentions
-        ] == case["base_projection"]["mentions"]
+        assert head == base
         return
 
     expected = case["expected_head"]
-    assert projection.markdown == expected["markdown"]
-    assert [
-        [
-            m.mention_id,
-            m.node_id,
-            m.label,
-            m.start_offset,
-            m.end_offset,
-            list(m.evidence_ref_ids),
-        ]
-        for m in projection.mentions
-    ] == expected["mentions"]
+    assert head == expected
+    allowed = set(case.get("authorized_non_mention_field_deltas") or [])
+    for key, value in base.items():
+        if key in {"markdown", "mentions"} or key in allowed:
+            continue
+        assert head.get(key) == value, f"non-mention field drifted: {key}"
+
+
+def test_equal_length_overlapping_aliases_preserve_insertion_order_winner() -> None:
+    """Equal-length overlapping aliases must keep stable length-only first-win order.
+
+    Insertion order B-C then A-B over the surface A-B-C must link B-C, not A-B.
+    """
+    store_payload = {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": None,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+            "n_bc": {
+                "node_id": "n_bc",
+                "label": "BC",
+                "kind": "npc",
+                "role": "npc",
+                "aliases": ["B-C"],
+                "source_domains": ["recap"],
+                "evidence_ref_ids": ["evidence:equal:bc"],
+                "state": {"memory_state": "graph_read_model"},
+            },
+            "n_ab": {
+                "node_id": "n_ab",
+                "label": "AB",
+                "kind": "npc",
+                "role": "npc",
+                "aliases": ["A-B"],
+                "source_domains": ["recap"],
+                "evidence_ref_ids": ["evidence:equal:ab"],
+                "state": {"memory_state": "graph_read_model"},
+            },
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {"B-C": "n_bc", "A-B": "n_ab"},
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": None,
+        "initialization_attestation_digest": None,
+        "adjacency": {},
+        "diagnostics": {
+            "canon_promotion": False,
+            "approved_memory_write": False,
+            "corpus_mutation": False,
+            "production_retrieval": False,
+        },
+    }
+    store = UnionSupergraphStore.model_validate(store_payload)
+    assert list(store.aliases.items()) == [("B-C", "n_bc"), ("A-B", "n_ab")]
+    projection = build_recap_graph_projection(
+        store,
+        session_id="session-23",
+        markdown="See A-B-C today.",
+    )
+    assert projection.markdown == "See A-[B-C](dmb-node:n_bc) today."
+    assert [m.node_id for m in projection.mentions] == ["n_bc"]
+    assert [m.label for m in projection.mentions] == ["B-C"]
 
 
 def test_project_markdown_mentions_union_adapter_has_no_duplicate_matcher() -> None:

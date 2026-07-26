@@ -466,7 +466,8 @@ def _project_markdown_mentions_free_only(
             continue
         unique_surfaces.append((surface, binding.node_id))
 
-    unique_surfaces.sort(key=lambda item: (-len(item[0]), item[0].casefold(), item[1]))
+    # Length-descending only; equal lengths keep binding-list order (stable sort).
+    unique_surfaces.sort(key=lambda item: -len(item[0]))
     seen_keys: set[str] = set()
     ordered: list[tuple[str, str]] = []
     for surface, node_id in unique_surfaces:
@@ -600,7 +601,8 @@ def project_markdown_mentions(
             continue
         unique_surfaces.append((surface, binding.node_id))
 
-    unique_surfaces.sort(key=lambda item: (-len(item[0]), item[0].casefold(), item[1]))
+    # Length-descending only; equal lengths keep binding-list order (stable sort).
+    unique_surfaces.sort(key=lambda item: -len(item[0]))
     seen_keys: set[str] = set()
     ordered: list[tuple[str, str]] = []
     for surface, node_id in unique_surfaces:

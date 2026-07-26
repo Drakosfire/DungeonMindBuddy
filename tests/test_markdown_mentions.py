@@ -398,6 +398,20 @@ def test_projection_is_deterministic_across_repeated_calls() -> None:
         assert project_markdown_mentions(markdown, bindings) == first
 
 
+def test_free_text_equal_length_surfaces_preserve_binding_order() -> None:
+    """Equal-length free-text surfaces keep caller binding order (stable length sort)."""
+    projected, mentions, diagnostics = project_markdown_mentions(
+        "See A-B-C today.",
+        [
+            MentionBinding(surface="B-C", node_id="n_bc"),
+            MentionBinding(surface="A-B", node_id="n_ab"),
+        ],
+    )
+    assert projected == "See A-[B-C](dmb-node:n_bc) today."
+    assert [m.node_id for m in mentions] == ["n_bc"]
+    assert diagnostics == []
+
+
 def test_splice_node_link_spans_is_importable_from_both_modules() -> None:
     """The recap re-export shim keeps existing service importers unchanged."""
     from graph_memory.projection.recap_projection import (

@@ -1,6 +1,7 @@
 {
   "schema": "dmb_union_mention_migration_characterization_v1",
-  "base_sha": "ce714987fedef485d3753b78be11c1be63cbb339",
+  "base_sha": "da553bcf0bea902cccc32e6c8f1a9e8de4cff2a4",
+  "fixture_parent_sha": "da553bcf0bea902cccc32e6c8f1a9e8de4cff2a4",
   "generated_via": "graph_memory.projection.recap_projection.build_recap_graph_projection",
   "cases": [
     {
@@ -59,23 +60,53 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[Caelynn](dmb-node:pc:caelynn) opened the door.",
         "mentions": [
-          [
-            "mention:pc:caelynn:0",
-            "pc:caelynn",
-            "Caelynn",
-            0,
-            30,
-            [
+          {
+            "end_offset": 30,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:0",
+            "node_id": "pc:caelynn",
+            "start_offset": 0
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
     },
     {
       "case_id": "alias_repeated",
@@ -133,33 +164,63 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[Caelynn](dmb-node:pc:caelynn) met [Caelynn](dmb-node:pc:caelynn) again.",
         "mentions": [
-          [
-            "mention:pc:caelynn:0",
-            "pc:caelynn",
-            "Caelynn",
-            0,
-            30,
-            [
+          {
+            "end_offset": 30,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ],
-          [
-            "mention:pc:caelynn:12",
-            "pc:caelynn",
-            "Caelynn",
-            35,
-            65,
-            [
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:0",
+            "node_id": "pc:caelynn",
+            "start_offset": 0
+          },
+          {
+            "end_offset": 65,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:12",
+            "node_id": "pc:caelynn",
+            "start_offset": 35
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
     },
     {
       "case_id": "alias_offsets_multi",
@@ -236,53 +297,100 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[Caelynn](dmb-node:pc:caelynn) looked toward [Mirathorn](dmb-node:loc:mirathorn). Then [Caelynn](dmb-node:pc:caelynn) walked with [Mirathorn](dmb-node:loc:mirathorn).",
         "mentions": [
-          [
-            "mention:pc:caelynn:0",
-            "pc:caelynn",
-            "Caelynn",
-            0,
-            30,
-            [
+          {
+            "end_offset": 30,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ],
-          [
-            "mention:loc:mirathorn:22",
-            "loc:mirathorn",
-            "Mirathorn",
-            45,
-            80,
-            [
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:0",
+            "node_id": "pc:caelynn",
+            "start_offset": 0
+          },
+          {
+            "end_offset": 80,
+            "evidence_ref_ids": [
               "evidence:mirathorn"
-            ]
-          ],
-          [
-            "mention:pc:caelynn:38",
-            "pc:caelynn",
-            "Caelynn",
-            87,
-            117,
-            [
+            ],
+            "label": "Mirathorn",
+            "mention_id": "mention:loc:mirathorn:22",
+            "node_id": "loc:mirathorn",
+            "start_offset": 45
+          },
+          {
+            "end_offset": 117,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ],
-          [
-            "mention:loc:mirathorn:58",
-            "loc:mirathorn",
-            "Mirathorn",
-            130,
-            165,
-            [
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:38",
+            "node_id": "pc:caelynn",
+            "start_offset": 87
+          },
+          {
+            "end_offset": 165,
+            "evidence_ref_ids": [
               "evidence:mirathorn"
-            ]
-          ]
+            ],
+            "label": "Mirathorn",
+            "mention_id": "mention:loc:mirathorn:58",
+            "node_id": "loc:mirathorn",
+            "start_offset": 130
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "loc:mirathorn": {
+            "adjacency": [],
+            "aliases": [
+              "Mirathorn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "location",
+            "label": "Mirathorn",
+            "node_id": "loc:mirathorn",
+            "role": "location",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          },
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
     },
     {
       "case_id": "alias_case_insensitive",
@@ -340,33 +448,63 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[caelynn](dmb-node:pc:caelynn) and [CAELYNN](dmb-node:pc:caelynn)",
         "mentions": [
-          [
-            "mention:pc:caelynn:0",
-            "pc:caelynn",
-            "caelynn",
-            0,
-            30,
-            [
+          {
+            "end_offset": 30,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ],
-          [
-            "mention:pc:caelynn:12",
-            "pc:caelynn",
-            "CAELYNN",
-            35,
-            65,
-            [
+            ],
+            "label": "caelynn",
+            "mention_id": "mention:pc:caelynn:0",
+            "node_id": "pc:caelynn",
+            "start_offset": 0
+          },
+          {
+            "end_offset": 65,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
+            ],
+            "label": "CAELYNN",
+            "mention_id": "mention:pc:caelynn:12",
+            "node_id": "pc:caelynn",
+            "start_offset": 35
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
     },
     {
       "case_id": "alias_punctuation_boundary",
@@ -424,23 +562,53 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "Meet [Caelynn](dmb-node:pc:caelynn), the scout.",
         "mentions": [
-          [
-            "mention:pc:caelynn:5",
-            "pc:caelynn",
-            "Caelynn",
-            5,
-            35,
-            [
+          {
+            "end_offset": 35,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:5",
+            "node_id": "pc:caelynn",
+            "start_offset": 5
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
     },
     {
       "case_id": "alias_longest_wins",
@@ -517,33 +685,80 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[Caelynn Ironhand](dmb-node:npc:caelynn_ironhand) arrived before [Caelynn](dmb-node:pc:caelynn).",
         "mentions": [
-          [
-            "mention:npc:caelynn_ironhand:0",
-            "npc:caelynn_ironhand",
-            "Caelynn Ironhand",
-            0,
-            49,
-            [
+          {
+            "end_offset": 49,
+            "evidence_ref_ids": [
               "evidence:ironhand"
-            ]
-          ],
-          [
-            "mention:pc:caelynn:32",
-            "pc:caelynn",
-            "Caelynn",
-            65,
-            95,
-            [
+            ],
+            "label": "Caelynn Ironhand",
+            "mention_id": "mention:npc:caelynn_ironhand:0",
+            "node_id": "npc:caelynn_ironhand",
+            "start_offset": 0
+          },
+          {
+            "end_offset": 95,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:32",
+            "node_id": "pc:caelynn",
+            "start_offset": 65
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "npc:caelynn_ironhand": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn Ironhand"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn Ironhand",
+            "node_id": "npc:caelynn_ironhand",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          },
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
     },
     {
       "case_id": "alias_casefold_first_win",
@@ -620,23 +835,70 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[Shared](dmb-node:node:a) surface appears once.",
         "mentions": [
-          [
-            "mention:node:a:0",
-            "node:a",
-            "Shared",
-            0,
-            25,
-            [
+          {
+            "end_offset": 25,
+            "evidence_ref_ids": [
               "evidence:a"
-            ]
-          ]
+            ],
+            "label": "Shared",
+            "mention_id": "mention:node:a:0",
+            "node_id": "node:a",
+            "start_offset": 0
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "node:a": {
+            "adjacency": [],
+            "aliases": [
+              "Shared"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Alpha",
+            "node_id": "node:a",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          },
+          "node:b": {
+            "adjacency": [],
+            "aliases": [
+              "shared"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Beta",
+            "node_id": "node:b",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
     },
     {
       "case_id": "alias_evidence_refs",
@@ -694,23 +956,53 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[Caelynn](dmb-node:pc:caelynn) has evidence.",
         "mentions": [
-          [
-            "mention:pc:caelynn:0",
-            "pc:caelynn",
-            "Caelynn",
-            0,
-            30,
-            [
+          {
+            "end_offset": 30,
+            "evidence_ref_ids": [
               "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:0",
+            "node_id": "pc:caelynn",
+            "start_offset": 0
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
     },
     {
       "case_id": "identity_redirect_alias",
@@ -799,27 +1091,70 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": null,
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[Lysandra](dmb-node:party:captain_lysandra_ironveil) traveled onward.",
         "mentions": [
-          [
-            "mention:party:captain_lysandra_ironveil:0",
-            "party:captain_lysandra_ironveil",
-            "Lysandra",
-            0,
-            52,
-            [
+          {
+            "end_offset": 52,
+            "evidence_ref_ids": [
               "evidence:session-23:lysandra:recap-mention"
-            ]
-          ]
+            ],
+            "label": "Lysandra",
+            "mention_id": "mention:party:captain_lysandra_ironveil:0",
+            "node_id": "party:captain_lysandra_ironveil",
+            "start_offset": 0
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "node_views": {
+          "party:captain_lysandra_ironveil": {
+            "adjacency": [],
+            "aliases": [
+              "Lysandra"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "character",
+            "label": "Captain Lysandra Ironveil",
+            "node_id": "party:captain_lysandra_ironveil",
+            "role": "character",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": [
+          {
+            "code": "union_identity_redirect_applied",
+            "count": 1,
+            "message": "Resolved union node ids through 1 active identity redirect(s)",
+            "severity": "info"
+          },
+          {
+            "code": "union_identity_merged_away_node_filtered",
+            "count": 1,
+            "message": "Filtered 1 merged-away node(s) from normal active projection output",
+            "severity": "info"
+          }
+        ]
+      }
     },
     {
       "case_id": "alias_existing_dmb_link_plus_plain",
-      "category": "unchanged",
+      "category": "protected_skip",
       "markdown": "[Lysandra](dmb-node:node:lysandra) and Lysandra met.",
       "session_id": "session-23",
       "store": {
@@ -904,23 +1239,144 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": "Alias match inside existing dmb-node destination is suppressed; outer link remains intact so redirect rewrite succeeds; plain Lysandra still links once",
+      "authorized_non_mention_field_deltas": [
+        "union_identity_diagnostics"
+      ],
       "base_projection": {
-        "markdown": "[Lysandra](dmb-node:party:captain_lysandra_ironveil) and [Lysandra](dmb-node:party:captain_lysandra_ironveil) met.",
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "[Lysandra](dmb-node:node:[lysandra](dmb-node:party:captain_lysandra_ironveil)) and [Lysandra](dmb-node:party:captain_lysandra_ironveil) met.",
         "mentions": [
-          [
-            "mention:party:captain_lysandra_ironveil:39",
-            "party:captain_lysandra_ironveil",
-            "Lysandra",
-            39,
-            91,
-            [
+          {
+            "end_offset": 77,
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ],
+            "label": "lysandra",
+            "mention_id": "mention:party:captain_lysandra_ironveil:25",
+            "node_id": "party:captain_lysandra_ironveil",
+            "start_offset": 25
+          },
+          {
+            "end_offset": 135,
+            "evidence_ref_ids": [
+              "evidence:session-23:lysandra:recap-mention"
+            ],
+            "label": "Lysandra",
+            "mention_id": "mention:party:captain_lysandra_ironveil:39",
+            "node_id": "party:captain_lysandra_ironveil",
+            "start_offset": 83
+          }
+        ],
+        "node_views": {
+          "party:captain_lysandra_ironveil": {
+            "adjacency": [],
+            "aliases": [
+              "Lysandra"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "character",
+            "label": "Captain Lysandra Ironveil",
+            "node_id": "party:captain_lysandra_ironveil",
+            "role": "character",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": [
+          {
+            "code": "union_identity_redirect_applied",
+            "count": 1,
+            "message": "Resolved union node ids through 1 active identity redirect(s)",
+            "severity": "info"
+          },
+          {
+            "code": "union_identity_merged_away_node_filtered",
+            "count": 1,
+            "message": "Filtered 1 merged-away node(s) from normal active projection output",
+            "severity": "info"
+          }
+        ]
+      },
+      "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
+        "markdown": "[Lysandra](dmb-node:party:captain_lysandra_ironveil) and [Lysandra](dmb-node:party:captain_lysandra_ironveil) met.",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "party:captain_lysandra_ironveil": {
+            "node_id": "party:captain_lysandra_ironveil",
+            "label": "Captain Lysandra Ironveil",
+            "kind": "character",
+            "role": "character",
+            "aliases": [
+              "Lysandra"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [
+          {
+            "mention_id": "mention:party:captain_lysandra_ironveil:39",
+            "node_id": "party:captain_lysandra_ironveil",
+            "label": "Lysandra",
+            "start_offset": 39,
+            "end_offset": 91,
+            "evidence_ref_ids": [
               "evidence:session-23:lysandra:recap-mention"
             ]
-          ]
+          }
         ],
-        "sidecar_diagnostics": []
-      },
-      "authorized_difference": null
+        "source_spans": [],
+        "union_identity_diagnostics": [
+          {
+            "code": "union_identity_redirect_applied",
+            "message": "Resolved union node ids through 1 active identity redirect(s)",
+            "count": 1,
+            "severity": "info"
+          },
+          {
+            "code": "union_identity_merged_away_node_filtered",
+            "message": "Filtered 1 merged-away node(s) from normal active projection output",
+            "count": 1,
+            "severity": "info"
+          },
+          {
+            "code": "union_identity_mention_target_resolved",
+            "message": "Resolved 1 mention target(s) through active identity redirects",
+            "count": 1,
+            "severity": "info"
+          }
+        ],
+        "union_identity_applied_assertion_ids": []
+      }
     },
     {
       "case_id": "sidecar_exact_offset",
@@ -978,22 +1434,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "[Caelynn](dmb-node:node:caelynn) opened the door.",
-        "mentions": [
-          [
-            "mention:node:caelynn:0",
-            "node:caelynn",
-            "Caelynn",
-            0,
-            32,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p1": "Caelynn opened the door."
@@ -1013,6 +1453,52 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "[Caelynn](dmb-node:node:caelynn) opened the door.",
+        "mentions": [
+          {
+            "end_offset": 32,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:0",
+            "node_id": "node:caelynn",
+            "start_offset": 0
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1071,22 +1557,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "Caelynn waited at the gate.\n\nLater, [Caelynn](dmb-node:node:caelynn) opened the door.",
-        "mentions": [
-          [
-            "mention:node:caelynn:36",
-            "node:caelynn",
-            "Caelynn",
-            36,
-            68,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p2": "Later, Caelynn opened the door."
@@ -1106,6 +1576,52 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "Caelynn waited at the gate.\n\nLater, [Caelynn](dmb-node:node:caelynn) opened the door.",
+        "mentions": [
+          {
+            "end_offset": 68,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:36",
+            "node_id": "node:caelynn",
+            "start_offset": 36
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1164,17 +1680,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "Caelynn waited at the gate.\n\nLater, Caelynn opened the door.",
-        "mentions": [],
-        "sidecar_diagnostics": [
-          [
-            "known_entity_mention_offset_unresolved",
-            "Skipped known-entity chip for 'Caelynn' (node:caelynn) reason=paragraph_remap_unavailable",
-            "warning"
-          ]
-        ]
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p2": "Someone else opened the door."
@@ -1192,6 +1697,48 @@
             "entity_kind": "pc",
             "match_method": "canonical",
             "display_name": "Caelynn"
+          }
+        ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "Caelynn waited at the gate.\n\nLater, Caelynn opened the door.",
+        "mentions": [],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": [
+          {
+            "code": "known_entity_mention_offset_unresolved",
+            "count": null,
+            "message": "Skipped known-entity chip for 'Caelynn' (node:caelynn) reason=paragraph_remap_unavailable",
+            "severity": "warning"
           }
         ]
       }
@@ -1252,22 +1799,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "[Caelynn](dmb-node:node:caelynn) opened the door.",
-        "mentions": [
-          [
-            "mention:node:caelynn:0",
-            "node:caelynn",
-            "Caelynn",
-            0,
-            32,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p1": "Caelynn opened the door."
@@ -1287,6 +1818,52 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "[Caelynn](dmb-node:node:caelynn) opened the door.",
+        "mentions": [
+          {
+            "end_offset": 32,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:0",
+            "node_id": "node:caelynn",
+            "start_offset": 0
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1364,32 +1941,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "[Caelynn](dmb-node:node:caelynn) and [Other](dmb-node:node:other) traveled.",
-        "mentions": [
-          [
-            "mention:node:caelynn:0",
-            "node:caelynn",
-            "Caelynn",
-            0,
-            32,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ],
-          [
-            "mention:node:other:12",
-            "node:other",
-            "Other",
-            37,
-            65,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p1": "Caelynn and Other traveled."
@@ -1420,6 +1971,79 @@
             "display_name": "Other"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "[Caelynn](dmb-node:node:caelynn) and [Other](dmb-node:node:other) traveled.",
+        "mentions": [
+          {
+            "end_offset": 32,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:0",
+            "node_id": "node:caelynn",
+            "start_offset": 0
+          },
+          {
+            "end_offset": 65,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Other",
+            "mention_id": "mention:node:other:12",
+            "node_id": "node:other",
+            "start_offset": 37
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          },
+          "node:other": {
+            "adjacency": [],
+            "aliases": [
+              "Other"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Other",
+            "node_id": "node:other",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1478,22 +2102,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "Paragraph 0: [Caelynn](dmb-node:node:caelynn) moved.",
-        "mentions": [
-          [
-            "mention:node:caelynn:13",
-            "node:caelynn",
-            "Caelynn",
-            13,
-            45,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p0": "Paragraph 0: Caelynn moved."
@@ -1513,6 +2121,52 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "Paragraph 0: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          {
+            "end_offset": 45,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:13",
+            "node_id": "node:caelynn",
+            "start_offset": 13
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1571,22 +2225,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "Paragraph 1: [Caelynn](dmb-node:node:caelynn) moved.",
-        "mentions": [
-          [
-            "mention:node:caelynn:13",
-            "node:caelynn",
-            "Caelynn",
-            13,
-            45,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p1": "Paragraph 1: Caelynn moved."
@@ -1606,6 +2244,52 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "Paragraph 1: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          {
+            "end_offset": 45,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:13",
+            "node_id": "node:caelynn",
+            "start_offset": 13
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1664,22 +2348,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "Paragraph 2: [Caelynn](dmb-node:node:caelynn) moved.",
-        "mentions": [
-          [
-            "mention:node:caelynn:13",
-            "node:caelynn",
-            "Caelynn",
-            13,
-            45,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p2": "Paragraph 2: Caelynn moved."
@@ -1699,6 +2367,52 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "Paragraph 2: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          {
+            "end_offset": 45,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:13",
+            "node_id": "node:caelynn",
+            "start_offset": 13
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1757,22 +2471,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "Paragraph 3: [Caelynn](dmb-node:node:caelynn) moved.",
-        "mentions": [
-          [
-            "mention:node:caelynn:13",
-            "node:caelynn",
-            "Caelynn",
-            13,
-            45,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p3": "Paragraph 3: Caelynn moved."
@@ -1792,6 +2490,52 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "Paragraph 3: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          {
+            "end_offset": 45,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:13",
+            "node_id": "node:caelynn",
+            "start_offset": 13
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1850,22 +2594,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "Paragraph 4: [Caelynn](dmb-node:node:caelynn) moved.",
-        "mentions": [
-          [
-            "mention:node:caelynn:13",
-            "node:caelynn",
-            "Caelynn",
-            13,
-            45,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p4": "Paragraph 4: Caelynn moved."
@@ -1885,6 +2613,52 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "Paragraph 4: [Caelynn](dmb-node:node:caelynn) moved.",
+        "mentions": [
+          {
+            "end_offset": 45,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:13",
+            "node_id": "node:caelynn",
+            "start_offset": 13
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     },
     {
@@ -1943,15 +2717,87 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "`Caelynn` waited",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected Markdown suppresses alias splice",
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "`[Caelynn](dmb-node:pc:caelynn)` waited",
+        "mentions": [
+          {
+            "end_offset": 31,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:1",
+            "node_id": "pc:caelynn",
+            "start_offset": 1
+          }
+        ],
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "`Caelynn` waited",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2010,15 +2856,87 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "```\nCaelynn\n```",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected Markdown suppresses alias splice",
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "```\n[Caelynn](dmb-node:pc:caelynn)\n```",
+        "mentions": [
+          {
+            "end_offset": 34,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:4",
+            "node_id": "pc:caelynn",
+            "start_offset": 4
+          }
+        ],
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "```\nCaelynn\n```",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2077,15 +2995,87 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "<https://Caelynn.example>",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected Markdown suppresses alias splice",
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "<https://[Caelynn](dmb-node:pc:caelynn).example>",
+        "mentions": [
+          {
+            "end_offset": 39,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:9",
+            "node_id": "pc:caelynn",
+            "start_offset": 9
+          }
+        ],
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "<https://Caelynn.example>",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2144,15 +3134,87 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "[ref]: https://Caelynn.example/path",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected Markdown suppresses alias splice",
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "[ref]: https://[Caelynn](dmb-node:pc:caelynn).example/path",
+        "mentions": [
+          {
+            "end_offset": 45,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:15",
+            "node_id": "pc:caelynn",
+            "start_offset": 15
+          }
+        ],
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "[ref]: https://Caelynn.example/path",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2211,15 +3273,76 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": "protected Markdown suppresses alias splice",
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "See [Caelynn](https://example.test) outside.",
         "mentions": [],
-        "sidecar_diagnostics": []
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       },
-      "authorized_difference": "protected Markdown suppresses alias splice",
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "See [Caelynn](https://example.test) outside.",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2278,15 +3401,87 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "Reference [The Caelynn Story][ref] stays intact.\n\n[ref]: https://example.test",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected Markdown suppresses alias splice",
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "Reference [The [Caelynn](dmb-node:pc:caelynn) Story][ref] stays intact.\n\n[ref]: https://example.test",
+        "mentions": [
+          {
+            "end_offset": 45,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:15",
+            "node_id": "pc:caelynn",
+            "start_offset": 15
+          }
+        ],
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "Reference [The Caelynn Story][ref] stays intact.\n\n[ref]: https://example.test",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2345,15 +3540,76 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": "protected Markdown suppresses alias splice",
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "![Caelynn](https://example.test/img.png)",
         "mentions": [],
-        "sidecar_diagnostics": []
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       },
-      "authorized_difference": "protected Markdown suppresses alias splice",
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "![Caelynn](https://example.test/img.png)",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2412,15 +3668,76 @@
           "production_retrieval": false
         }
       },
+      "authorized_difference": "protected Markdown suppresses alias splice",
       "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
         "markdown": "[Caelynn](<https://example.test/a b>)",
         "mentions": [],
-        "sidecar_diagnostics": []
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       },
-      "authorized_difference": "protected Markdown suppresses alias splice",
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "[Caelynn](<https://example.test/a b>)",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2479,15 +3796,87 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "<caelynn@example.test>",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected Markdown suppresses alias splice",
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "<[caelynn](dmb-node:pc:caelynn)@example.test>",
+        "mentions": [
+          {
+            "end_offset": 31,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "caelynn",
+            "mention_id": "mention:pc:caelynn:1",
+            "node_id": "pc:caelynn",
+            "start_offset": 1
+          }
+        ],
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "<caelynn@example.test>",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2546,15 +3935,87 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "`` `Caelynn` ``",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected Markdown suppresses alias splice",
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "`` `[Caelynn](dmb-node:pc:caelynn)` ``",
+        "mentions": [
+          {
+            "end_offset": 34,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:pc:caelynn:4",
+            "node_id": "pc:caelynn",
+            "start_offset": 4
+          }
+        ],
+        "node_views": {
+          "pc:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "pc:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-23",
+        "graph_id": null,
         "markdown": "`` `Caelynn` ``",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "pc:caelynn": {
+            "node_id": "pc:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2613,11 +4074,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "`Caelynn` waited",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected sidecar span omitted; sidecar-only authority preserved",
       "paragraph_text_by_span_id": {
         "span:p1": "`Caelynn` waited"
@@ -2638,9 +4094,86 @@
           }
         ]
       },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "`[Caelynn](dmb-node:node:caelynn)` waited",
+        "mentions": [
+          {
+            "end_offset": 33,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:1",
+            "node_id": "node:caelynn",
+            "start_offset": 1
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-22",
+        "graph_id": null,
         "markdown": "`Caelynn` waited",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2699,11 +4232,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "```\nCaelynn\n```",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected sidecar span omitted; sidecar-only authority preserved",
       "paragraph_text_by_span_id": {
         "span:p1": "```\nCaelynn\n```"
@@ -2724,9 +4252,86 @@
           }
         ]
       },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "```\n[Caelynn](dmb-node:node:caelynn)\n```",
+        "mentions": [
+          {
+            "end_offset": 36,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:4",
+            "node_id": "node:caelynn",
+            "start_offset": 4
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-22",
+        "graph_id": null,
         "markdown": "```\nCaelynn\n```",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2785,11 +4390,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "See [Caelynn](https://x.test) now.",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected sidecar span omitted; sidecar-only authority preserved",
       "paragraph_text_by_span_id": {
         "span:p1": "See [Caelynn](https://x.test) now."
@@ -2810,9 +4410,86 @@
           }
         ]
       },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "See [[Caelynn](dmb-node:node:caelynn)](https://x.test) now.",
+        "mentions": [
+          {
+            "end_offset": 37,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:5",
+            "node_id": "node:caelynn",
+            "start_offset": 5
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-22",
+        "graph_id": null,
         "markdown": "See [Caelynn](https://x.test) now.",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2871,11 +4548,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "`Caelynn` in code. Caelynn later.",
-        "mentions": [],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": "protected sidecar span omitted; sidecar-only authority preserved",
       "paragraph_text_by_span_id": {
         "span:p1": "`Caelynn` in code. Caelynn later."
@@ -2896,9 +4568,86 @@
           }
         ]
       },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "`[Caelynn](dmb-node:node:caelynn)` in code. Caelynn later.",
+        "mentions": [
+          {
+            "end_offset": 33,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:1",
+            "node_id": "node:caelynn",
+            "start_offset": 1
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      },
       "expected_head": {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-22",
+        "graph_id": null,
         "markdown": "`Caelynn` in code. Caelynn later.",
-        "mentions": []
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_evidence_ref_ids": [],
+          "focused_edge_ids": [],
+          "focused_node_ids": []
+        },
+        "node_views": {
+          "node:caelynn": {
+            "node_id": "node:caelynn",
+            "label": "Caelynn",
+            "kind": "pc",
+            "role": "pc",
+            "aliases": [
+              "Caelynn"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_badges": [],
+            "adjacency": [],
+            "suggested_expansions": [],
+            "anchored_to_focus_session": false,
+            "summary": null
+          }
+        },
+        "mentions": [],
+        "source_spans": [],
+        "union_identity_diagnostics": [],
+        "union_identity_applied_assertion_ids": []
       }
     },
     {
@@ -2976,32 +4725,6 @@
           "production_retrieval": false
         }
       },
-      "base_projection": {
-        "markdown": "[Other](dmb-node:node:other) arrived. [Caelynn](dmb-node:node:caelynn) followed.",
-        "mentions": [
-          [
-            "mention:node:other:0",
-            "node:other",
-            "Other",
-            0,
-            28,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ],
-          [
-            "mention:node:caelynn:15",
-            "node:caelynn",
-            "Caelynn",
-            38,
-            70,
-            [
-              "evidence:session-23:caelynn:recap-mention"
-            ]
-          ]
-        ],
-        "sidecar_diagnostics": []
-      },
       "authorized_difference": null,
       "paragraph_text_by_span_id": {
         "span:p1": "Other arrived. Caelynn followed."
@@ -3021,6 +4744,219 @@
             "display_name": "Caelynn"
           }
         ]
+      },
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-22",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "[Other](dmb-node:node:other) arrived. [Caelynn](dmb-node:node:caelynn) followed.",
+        "mentions": [
+          {
+            "end_offset": 28,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Other",
+            "mention_id": "mention:node:other:0",
+            "node_id": "node:other",
+            "start_offset": 0
+          },
+          {
+            "end_offset": 70,
+            "evidence_ref_ids": [
+              "evidence:session-23:caelynn:recap-mention"
+            ],
+            "label": "Caelynn",
+            "mention_id": "mention:node:caelynn:15",
+            "node_id": "node:caelynn",
+            "start_offset": 38
+          }
+        ],
+        "node_views": {
+          "node:caelynn": {
+            "adjacency": [],
+            "aliases": [
+              "Caelynn"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Caelynn",
+            "node_id": "node:caelynn",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          },
+          "node:other": {
+            "adjacency": [],
+            "aliases": [
+              "Other"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "pc",
+            "label": "Other",
+            "node_id": "node:other",
+            "role": "pc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-22",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
+      }
+    },
+    {
+      "case_id": "alias_equal_length_first_win",
+      "category": "unchanged",
+      "markdown": "See A-B-C today.",
+      "session_id": "session-23",
+      "store": {
+        "schema": "dmb_union_supergraph_store_v0",
+        "version": "0.1",
+        "campaign_id": "longmont-c2",
+        "graph_id": null,
+        "graph_domains": [],
+        "source_domains": [],
+        "focus_session_id": "session-23",
+        "nodes": {
+          "n_bc": {
+            "node_id": "n_bc",
+            "label": "BC",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "B-C"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:equal:bc"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          },
+          "n_ab": {
+            "node_id": "n_ab",
+            "label": "AB",
+            "kind": "npc",
+            "role": "npc",
+            "aliases": [
+              "A-B"
+            ],
+            "source_domains": [
+              "recap"
+            ],
+            "evidence_ref_ids": [
+              "evidence:equal:ab"
+            ],
+            "state": {
+              "memory_state": "graph_read_model"
+            }
+          }
+        },
+        "edges": {},
+        "evidence": {},
+        "source_artifacts": {},
+        "aliases": {
+          "B-C": "n_bc",
+          "A-B": "n_ab"
+        },
+        "identity_redirects": [],
+        "identity_merge_records": [],
+        "identity_decisions": [],
+        "assertion_support": {},
+        "contribution_source_payload_sha256": {},
+        "contribution_replay_manifest": [],
+        "initialization_contribution_ids": [],
+        "initialization_plan_digest": null,
+        "initialization_attestation_digest": null,
+        "adjacency": {},
+        "diagnostics": {
+          "canon_promotion": false,
+          "approved_memory_write": false,
+          "corpus_mutation": false,
+          "production_retrieval": false
+        }
+      },
+      "authorized_difference": null,
+      "base_projection": {
+        "campaign_id": "longmont-c2",
+        "focus": {
+          "focus_session_id": "session-23",
+          "focused_edge_ids": [],
+          "focused_evidence_ref_ids": [],
+          "focused_node_ids": []
+        },
+        "graph_id": null,
+        "markdown": "See A-[B-C](dmb-node:n_bc) today.",
+        "mentions": [
+          {
+            "end_offset": 26,
+            "evidence_ref_ids": [
+              "evidence:equal:bc"
+            ],
+            "label": "B-C",
+            "mention_id": "mention:n_bc:6",
+            "node_id": "n_bc",
+            "start_offset": 6
+          }
+        ],
+        "node_views": {
+          "n_ab": {
+            "adjacency": [],
+            "aliases": [
+              "A-B"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "npc",
+            "label": "AB",
+            "node_id": "n_ab",
+            "role": "npc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          },
+          "n_bc": {
+            "adjacency": [],
+            "aliases": [
+              "B-C"
+            ],
+            "anchored_to_focus_session": false,
+            "evidence_badges": [],
+            "kind": "npc",
+            "label": "BC",
+            "node_id": "n_bc",
+            "role": "npc",
+            "source_domains": [
+              "recap"
+            ],
+            "suggested_expansions": [],
+            "summary": null
+          }
+        },
+        "session_id": "session-23",
+        "source_spans": [],
+        "union_identity_applied_assertion_ids": [],
+        "union_identity_diagnostics": []
       }
     }
   ]
