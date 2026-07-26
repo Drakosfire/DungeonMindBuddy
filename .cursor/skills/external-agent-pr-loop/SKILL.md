@@ -67,11 +67,13 @@ archive index can match handoff ↔ PR at a glance (see `AGENTS.md` §
    - what adversarial sequence is most likely to falsify it;
    - would the proposed §7 evidence actually detect that failure;
    - what fact forces a split or stop.
-4. Keep the YAML `pr_body_template` frontmatter. It is the mandatory PR-body
-   skeleton. The worker copies it into GitHub and keeps the invariant, required
-   evidence, produced results, provenance, gaps, waivers, and stop conditions
-   current. `review_external_pr.py` does not parse the body today, so reviewers
-   must compare it manually against §1 and §7.
+4. Keep the YAML frontmatter, both keys. `pr_body_template` is the mandatory
+   PR-body skeleton — the worker copies it into GitHub and keeps the invariant,
+   required evidence, produced results, provenance, gaps, waivers, and stop
+   conditions current. `review_external_pr.py` does not parse the body today, so
+   reviewers must compare it manually against §1 and §7. `template_version`
+   records the contract generation this handoff was authored against; carry it
+   over unchanged and bump it only in `templates/CHANGELOG.md`.
 5. Run the **collision-risk pre-flight** before sending:
 
    ```bash
