@@ -2314,13 +2314,15 @@ export interface WorldGraphProjectionEvidenceBadge {
   sourceSpanRefId?: string | null;
 }
 
+export type WorldGraphRelationshipDirection = "outgoing" | "incoming" | "related";
+
 export interface WorldGraphProjectionAdjacencyCandidate {
   edgeId: string;
   nodeId: string;
   label: string;
   kind: string;
   predicate: string;
-  direction: string;
+  direction: WorldGraphRelationshipDirection;
   anchoredToFocusSession: boolean;
   sourceDomains: string[];
   evidenceRefIds: string[];

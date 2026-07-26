@@ -20,7 +20,6 @@ from graph_memory.projection.world_projection import (
 from graph_memory.projection.world_recap_projection import (
     RECAP_PROJECTION_RESPONSE_SCHEMA,
     WorldGraphRecapProjection,
-    adapt_world_node_to_recap_view,
     focus_overlay_from_world,
     project_world_markdown_mentions,
     recap_projection_trust_boundary,
@@ -118,9 +117,7 @@ def build_world_graph_recap_projection(
         markdown,
         list(world.nodes),
     )
-    node_views = {
-        node.node_id: adapt_world_node_to_recap_view(node) for node in world.nodes
-    }
+    node_views = {node.node_id: node for node in world.nodes}
     snapshot = world.snapshot
 
     return WorldGraphRecapProjection(

@@ -561,7 +561,7 @@ def test_superseded_edge_contribution_shows_replacement_on_head_keeps_pin(
     )
     assert head_relationship.label == "replacement appeared label"
     assert head_relationship.session_ids == ["session-99"]
-    assert head_relationship.direction == "inbound"
+    assert head_relationship.direction == "incoming"
     assert head_relationship.visibility == "gm_only"
 
     pinned_projection = kernel.project_world_graph(
@@ -573,7 +573,7 @@ def test_superseded_edge_contribution_shows_replacement_on_head_keeps_pin(
     )
     assert pinned_relationship.label == "appeared in"
     assert pinned_relationship.session_ids != ["session-99"]
-    assert pinned_relationship.direction != "inbound"
+    assert pinned_relationship.direction != "incoming"
     assert pinned_relationship.visibility != "gm_only"
 
 
@@ -1984,8 +1984,8 @@ def test_node_card_direction_is_endpoint_relative_and_expansion_rank_is_preserve
     target_candidate = next(
         item for item in target_node.adjacency if item.edge_id == edge_id
     )
-    assert source_candidate.direction == "outbound"
-    assert target_candidate.direction == "inbound"
+    assert source_candidate.direction == "outgoing"
+    assert target_candidate.direction == "incoming"
     assert source_candidate.direction != target_candidate.direction
 
     projected_expansion = next(
@@ -2572,3 +2572,60 @@ def test_adjacency_source_excerpt_resolves_from_source_span_index(tmp_path: Path
     assert index == {
         "session-3:recap:paragraph:017": "Ready for some rest near Bubbles.",
     }
+
+
+_CLOSED_DIRECTIONS = frozenset({"outgoing", "incoming", "related"})
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("outbound", "outgoing"),
+        ("outgoing", "outgoing"),
+        ("inbound", "incoming"),
+        ("incoming", "incoming"),
+        ("related", "related"),
+        (None, "related"),
+        ("", "related"),
+        ("   ", "related"),
+    ],
+)
+def test_normalize_world_graph_relationship_direction_matrix(
+    raw: str | None, expected: str
+) -> None:
+    from graph_memory.projection.world_projection import (
+        normalize_world_graph_relationship_direction,
+    )
+
+    assert normalize_world_graph_relationship_direction(raw) == expected
+
+
+def test_normalize_world_graph_relationship_direction_rejects_unknown() -> None:
+    from graph_memory.projection.world_projection import (
+        WorldGraphDirectionError,
+        normalize_world_graph_relationship_direction,
+    )
+
+    with pytest.raises(WorldGraphDirectionError, match="Unsupported"):
+        normalize_world_graph_relationship_direction("sideways")
+
+
+def test_world_projection_emits_only_closed_direction_vocabulary(
+    tmp_path: Path, loaded_bundle
+) -> None:
+    _initialize(tmp_path, loaded_bundle)
+    projection = kernel.project_world_graph(tmp_path, _request())
+
+    for node in projection.nodes:
+        for candidate in node.adjacency:
+            assert candidate.direction in _CLOSED_DIRECTIONS
+        for expansion in node.suggested_expansions:
+            assert expansion.direction in _CLOSED_DIRECTIONS
+    for relationship in projection.relationships:
+        assert relationship.direction in _CLOSED_DIRECTIONS
+
+    search = kernel.search_world_graph_projection(projection, "tripod")
+    for relationship in search.relationships:
+        assert relationship.direction in _CLOSED_DIRECTIONS
+
+

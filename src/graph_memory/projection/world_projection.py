@@ -15,6 +15,44 @@ PROJECTION_ERROR_SCHEMA = "dmb_world_graph_projection_error_v1"
 FocusKind = Literal["none", "session"]
 ScopeMode = Literal["campaign", "world"]
 AdmissibilityPolicy = str
+WorldGraphRelationshipDirection = Literal["outgoing", "incoming", "related"]
+
+_WORLD_GRAPH_DIRECTION_ALIASES: dict[str, WorldGraphRelationshipDirection] = {
+    "outbound": "outgoing",
+    "outgoing": "outgoing",
+    "inbound": "incoming",
+    "incoming": "incoming",
+    "related": "related",
+}
+
+
+class WorldGraphDirectionError(ValueError):
+    """Raised when a raw direction cannot be mapped into the closed World vocabulary."""
+
+
+def normalize_world_graph_relationship_direction(
+    direction: str | None,
+) -> WorldGraphRelationshipDirection:
+    """Map raw/lower direction values onto the closed World Graph vocabulary.
+
+    Unknown non-empty values fail closed — they are never coerced to ``related``
+    and never passed through unchanged.
+    """
+    if direction is None:
+        return "related"
+    if not isinstance(direction, str):
+        raise WorldGraphDirectionError(
+            f"Unsupported World Graph relationship direction: {direction!r}"
+        )
+    stripped = direction.strip()
+    if stripped == "":
+        return "related"
+    mapped = _WORLD_GRAPH_DIRECTION_ALIASES.get(stripped)
+    if mapped is None:
+        raise WorldGraphDirectionError(
+            f"Unsupported World Graph relationship direction: {direction!r}"
+        )
+    return mapped
 
 SEARCH_MAX_NODES = 12
 SEARCH_MAX_RELATIONSHIPS = 24
@@ -134,7 +172,7 @@ class WorldGraphProjectionAdjacencyCandidate(_ProjectionModel):
     label: str
     kind: str
     predicate: str
-    direction: str
+    direction: WorldGraphRelationshipDirection
     anchored_to_focus_session: bool = False
     source_domains: list[str] = Field(default_factory=list)
     evidence_ref_ids: list[str] = Field(default_factory=list)
@@ -200,7 +238,7 @@ class WorldGraphProjectionRelationshipView(_ProjectionModel):
     target_node_id: str
     predicate: str
     label: str
-    direction: str | None = None
+    direction: WorldGraphRelationshipDirection
     session_ids: list[str] = Field(default_factory=list)
     source_domains: list[str] = Field(default_factory=list)
     visibility: str | None = None
@@ -481,6 +519,7 @@ __all__ = [
     "SEARCH_MAX_SOURCE_ARTIFACTS",
     "AdmissibilityPolicy",
     "FocusKind",
+    "WorldGraphDirectionError",
     "WorldGraphProjection",
     "WorldGraphProjectionAdjacencyCandidate",
     "WorldGraphProjectionAttributeView",
@@ -492,6 +531,7 @@ __all__ = [
     "WorldGraphProjectionNodeView",
     "WorldGraphProjectionRelationshipView",
     "WorldGraphProjectionRequest",
+    "WorldGraphRelationshipDirection",
     "WorldGraphProjectionSnapshot",
     "WorldGraphProjectionSourceArtifactView",
     "WorldGraphProjectionSuggestedExpansion",
@@ -500,5 +540,6 @@ __all__ = [
     "WorldGraphProjectionTrustBoundary",
     "WorldGraphQueryContext",
     "derive_attribute_text_value",
+    "normalize_world_graph_relationship_direction",
     "rank_search_node_matches",
 ]

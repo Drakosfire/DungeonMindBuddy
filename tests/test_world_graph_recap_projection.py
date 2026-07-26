@@ -36,7 +36,7 @@ from graph_memory.projection.world_recap_projection import (
     AMBIGUOUS_MENTION_DIAGNOSTIC,
     RECAP_PROJECTION_RESPONSE_SCHEMA,
     WorldGraphRecapMention,
-    adapt_world_node_to_recap_view,
+    WorldGraphRecapProjection,
     project_world_markdown_mentions,
 )
 
@@ -237,44 +237,127 @@ def test_recap_adapter_preserves_protection_at_the_surface_boundary() -> None:
     assert mentions == []
 
 
-def test_adapt_world_node_preserves_excerpt_highlight_contract() -> None:
+def test_recap_node_views_reuse_generic_world_node_models() -> None:
+    """Recap nested nodes are the generic model — not a parallel class tree."""
+    import typing
+
+    hints = typing.get_type_hints(WorldGraphRecapProjection)
+    node_views_type = hints["node_views"]
+    args = typing.get_args(node_views_type)
+    assert args[0] is str
+    assert args[1] is WorldGraphProjectionNodeView
+
+
+def test_recap_node_json_equals_generic_node_json_exactly() -> None:
     from graph_memory.projection.world_projection import (
         WorldGraphProjectionAdjacencyCandidate,
+        WorldGraphProjectionEvidenceBadge,
+        WorldGraphProjectionSuggestedExpansion,
         WorldGraphProjectionTextHighlightSpan,
     )
 
     node = WorldGraphProjectionNodeView(
-        node_id="pc:stafl",
-        label="Stafl",
+        node_id="pc:fixture",
+        label="Fixture Hero",
         kind="pc",
         role="character",
+        aliases=["Hero"],
+        source_domains=["recap"],
+        summary="A fixture hero.",
+        anchored_to_focus_session=True,
+        campaign_scope="longmont-c2",
+        evidence_badges=[
+            WorldGraphProjectionEvidenceBadge(
+                evidence_ref_id="ev:1",
+                source_artifact_id="art:1",
+                source_domain="recap",
+                evidence_role="mention",
+                is_focus_session_evidence=True,
+                can_open_source=True,
+                can_highlight_span=True,
+                label="badge",
+                session_id="session-23",
+                source_span_ref_id="span:1",
+            )
+        ],
         adjacency=[
             WorldGraphProjectionAdjacencyCandidate(
-                edge_id="e1",
-                node_id="node:heroes-party",
-                label="Heroes",
-                kind="party",
-                predicate="member_of",
-                direction="outbound",
+                edge_id="e:out",
+                node_id="npc:other",
+                label="Other",
+                kind="npc",
+                predicate="allied_with",
+                direction="outgoing",
+                anchored_to_focus_session=True,
+                source_domains=["recap"],
+                evidence_ref_ids=["ev:1"],
+                edge_label="allied with",
                 session_ids=["session-23"],
-                source_excerpt="Stafl joined the party at the ford.",
+                campaign_scope="longmont-c2",
+                related_summary="Allies",
+                source_excerpt="Fixture Hero allied with Other at the ford.",
                 source_excerpt_is_full_paragraph=True,
                 source_excerpt_highlight_spans=[
-                    WorldGraphProjectionTextHighlightSpan(start=0, end=5),
+                    WorldGraphProjectionTextHighlightSpan(start=0, end=12)
                 ],
             )
         ],
+        suggested_expansions=[
+            WorldGraphProjectionSuggestedExpansion(
+                edge_id="e:out",
+                node_id="npc:other",
+                label="Other",
+                kind="npc",
+                predicate="allied_with",
+                direction="outgoing",
+                rank=1,
+                rank_reason="connected thread",
+                source_excerpt="Fixture Hero allied with Other at the ford.",
+                source_excerpt_is_full_paragraph=True,
+                source_excerpt_highlight_spans=[
+                    WorldGraphProjectionTextHighlightSpan(start=0, end=12)
+                ],
+            )
+        ],
+        evidence_ref_ids=["ev:1", "ev:2"],
+        source_artifact_ids=["art:1", "art:2"],
     )
-    adapted = adapt_world_node_to_recap_view(node)
-    edge = adapted.adjacency[0]
-    assert edge.direction == "outgoing"
-    assert edge.session_ids == ["session-23"]
-    assert edge.source_excerpt == "Stafl joined the party at the ford."
-    assert edge.source_excerpt_is_full_paragraph is True
-    assert [(span.start, span.end) for span in edge.source_excerpt_highlight_spans] == [
-        (0, 5)
+    # Direct reuse: the recap map stores the same model instance/type.
+    node_views = {node.node_id: node}
+    recap_node = node_views[node.node_id]
+    assert type(recap_node) is WorldGraphProjectionNodeView
+    assert recap_node.model_dump(mode="json", by_alias=True) == node.model_dump(
+        mode="json", by_alias=True
+    )
+    # Additive inherited fields previously omitted by the recap fork.
+    payload = recap_node.model_dump(mode="json", by_alias=True)
+    assert payload["evidenceRefIds"] == ["ev:1", "ev:2"]
+    assert payload["sourceArtifactIds"] == ["art:1", "art:2"]
+    assert payload["adjacency"][0]["sourceExcerptIsFullParagraph"] is True
+    assert payload["adjacency"][0]["sourceExcerptHighlightSpans"] == [
+        {"start": 0, "end": 12}
     ]
-    assert adapted.node_id == "pc:stafl"
+
+
+def test_deleted_recap_adapters_are_absent() -> None:
+    import graph_memory.projection.world_recap_projection as recap_mod
+    import graph_memory.projection as projection_pkg
+
+    for name in (
+        "WorldGraphRecapNodeView",
+        "WorldGraphRecapEvidenceBadge",
+        "WorldGraphRecapTextHighlightSpan",
+        "WorldGraphRecapAdjacencyCandidate",
+        "WorldGraphRecapSuggestedExpansion",
+        "adapt_world_node_to_recap_view",
+        "adapt_relationship_direction",
+        "_adapt_evidence_badge",
+        "_adapt_highlight_spans",
+        "_adapt_adjacency",
+        "_adapt_suggested_expansion",
+    ):
+        assert not hasattr(recap_mod, name)
+    assert not hasattr(projection_pkg, "adapt_world_node_to_recap_view")
 
 
 def test_build_requires_session_focus(tmp_path: Path) -> None:
@@ -401,6 +484,23 @@ def test_build_splices_world_ids_into_injected_markdown(tmp_path: Path) -> None:
     assert projection.graph_id
     assert projection.node_views
     assert projection.snapshot.revision_id == projection.graph_id
+    # Exact generic↔recap node payload equality on the service boundary.
+    from apps.live_control_server.services.world_graph_projection import (
+        project_world_graph,
+    )
+
+    world = project_world_graph(_session_request(), root=tmp_path)
+    for node in world.nodes:
+        recap_node = projection.node_views[node.node_id]
+        assert type(recap_node) is WorldGraphProjectionNodeView
+        assert recap_node.model_dump(mode="json", by_alias=True) == node.model_dump(
+            mode="json", by_alias=True
+        )
+        assert recap_node.evidence_ref_ids == node.evidence_ref_ids
+        assert recap_node.source_artifact_ids == node.source_artifact_ids
+        for candidate in recap_node.adjacency:
+            assert candidate.direction in {"outgoing", "incoming", "related"}
+    assert all(m.evidence_ref_ids == [] for m in projection.mentions)
     payload = build_world_graph_recap_projection_payload(
         _session_request(),
         root=tmp_path,
@@ -410,6 +510,10 @@ def test_build_splices_world_ids_into_injected_markdown(tmp_path: Path) -> None:
     assert "graphId" in payload
     assert "nodeViews" in payload
     assert "session_id" not in payload
+    # Additive inherited fields appear on the wire.
+    sample_id = next(iter(payload["nodeViews"]))
+    assert "evidenceRefIds" in payload["nodeViews"][sample_id]
+    assert "sourceArtifactIds" in payload["nodeViews"][sample_id]
 
 
 def test_ambiguous_recap_source_fails_closed_across_padded_and_unpadded(
