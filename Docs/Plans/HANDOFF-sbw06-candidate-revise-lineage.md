@@ -140,7 +140,7 @@ The revise journal retains the exact bounded request body needed for same-key re
 
 **Decision: SEPARATE revise-operation journal**, sibling to the SBW03 generation journal and SBW07 acceptance journal under the draft state root. Distinct schema namespace (expected: `dmb_statblock_revise_operation_v1`).
 
-**Rationale:** Server revise is non-idempotent and has distinct source XOR rules, instruction digest inputs, lineage, and source-status materialization. Reusing the generation journal would conflate active-slot rules, terminal inventories (`terminal_expired` / tombstones / claim TTL), and recovery actions.
+**Rationale:** Revise has distinct source XOR rules, instruction digest inputs, lineage, and source-status materialization (historically Server revise was also non-idempotent before PR #24 — see §12.11). Reusing the generation journal would conflate active-slot rules, terminal inventories (`terminal_expired` / tombstones / claim TTL), and recovery actions.
 
 **Patterns that may be reused:** strict versioned models, path confinement, atomic file replacement, file locking, canonical request-body digest, same-key replay, changed-body conflict, failure injection, materialization-state tracking, reload validation, durable recovery pointer.
 

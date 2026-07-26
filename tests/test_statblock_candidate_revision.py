@@ -968,6 +968,96 @@ def test_unbound_post_candidate_rejects_before_journal_candidate(
     assert stored.candidate_id is None
 
 
+def test_demote_preserves_draft_ref_failed_and_reloads(
+    tmp_path: Path,
+) -> None:
+    """SBW06b CAS-fail → cache loss → GET fail must stay model-valid on reload."""
+    from apps.live_control_server.models.statblock_candidate_revision import (
+        ReviseMaterializationV1,
+        ReviseOperationV1,
+    )
+    from apps.live_control_server.services.statblock_candidate_cache import (
+        candidate_cache_root,
+    )
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        _write_operation_unlocked,
+        mark_cache_failed,
+    )
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+
+    first = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert first.result == "cache_stored_ref_pending"
+
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    # Simulate SBW06b ThreatDraft CAS failure leaving draft_ref=failed.
+    pending_with_failed_ref = stored.model_copy(
+        update={
+            "materialization": ReviseMaterializationV1(
+                cache="stored",
+                draft_ref="failed",
+            )
+        }
+    )
+    _write_operation_unlocked(tmp_path, pending_with_failed_ref)
+
+    cache_path = (
+        candidate_cache_root(tmp_path) / f"{response_fixture.candidate_id}.json"
+    )
+    assert cache_path.is_file()
+    cache_path.unlink()
+    client.get_candidate.side_effect = StatblockIntegrationError(
+        category="downstream_not_found",
+        message="candidate gone",
+        status_code=404,
+        retryable=False,
+    )
+
+    demoted = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert demoted.result == "candidate_received"
+
+    after = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert after is not None
+    assert after.status == "candidate_received"
+    assert after.materialization.cache == "failed"
+    assert after.materialization.draft_ref == "failed"
+    # Reload validation must accept the successor (not classify as corrupt).
+    reloaded = ReviseOperationV1.model_validate(
+        after.model_dump(mode="json", by_alias=True)
+    )
+    assert reloaded.materialization.draft_ref == "failed"
+    # Direct demotion helper preserves the same successor.
+    again = mark_cache_failed(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request_id=req.request_id,
+        request_digest=after.request_digest,
+        candidate_id=response_fixture.candidate_id,
+    )
+    assert again.status == "candidate_received"
+    assert again.materialization == after.materialization
+
+
 def test_exact_body_idempotency_conflict_is_durable_integrity_classification(
     tmp_path: Path,
 ) -> None:

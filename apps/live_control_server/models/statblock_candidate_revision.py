@@ -167,8 +167,10 @@ class ReviseOperationV1(StrictModel):
         elif state == "candidate_received":
             if not self.candidate_id:
                 raise ValueError("candidate_received requires candidate_id")
-            if self.materialization.draft_ref != "missing":
-                raise ValueError("candidate_received requires draft_ref=missing")
+            if self.materialization.draft_ref not in {"missing", "failed"}:
+                raise ValueError(
+                    "candidate_received requires draft_ref missing|failed"
+                )
             if has_terminal:
                 raise ValueError("candidate_received forbids terminal fields")
             if has_recovery:
