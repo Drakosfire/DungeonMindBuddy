@@ -58,6 +58,14 @@ MAX_RESPONSE_BODY_BYTES = 1_048_576
 ModelT = TypeVar("ModelT", bound=StrictModel)
 
 
+def _source_definition_digest(source_definition: dict[str, Any]) -> str:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import (
+        source_definition_digest_from_body,
+    )
+
+    return source_definition_digest_from_body(source_definition)
+
+
 class StatblockV1Client(Protocol):
     def get_health(self) -> HealthResponseV1: ...
 
@@ -68,6 +76,8 @@ class StatblockV1Client(Protocol):
     ) -> ExactRevisionResourceV1: ...
 
     def generate_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1: ...
+
+    def revise_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1: ...
 
     def get_candidate(self, candidate_id: str) -> GeneratedStatblockCandidateV1: ...
 
@@ -193,6 +203,44 @@ class DungeonMindStatblockV1Client:
             raise downstream_unexpected(
                 "candidate generation_receipt.request_id does not match request"
             )
+        return candidate
+
+    def revise_candidate(self, body: dict[str, Any]) -> GeneratedStatblockCandidateV1:
+        """SBW06a: POST candidate revise; bind receipt and optional source digest."""
+        payload = self._request_json(
+            "POST",
+            f"{API_PREFIX}/statblock-candidates:revise",
+            json_body=body,
+        )
+        candidate = self._parse_model(GeneratedStatblockCandidateV1, payload)
+        request_id = body.get("request_id")
+        if not isinstance(request_id, str) or not request_id.strip():
+            raise downstream_unexpected("revise request missing request_id")
+        if candidate.generation_receipt is None:
+            raise downstream_unexpected("candidate missing generation_receipt")
+        if candidate.generation_receipt.request_id != request_id:
+            raise downstream_unexpected(
+                "candidate generation_receipt.request_id does not match request"
+            )
+        source_definition = body.get("source_definition")
+        if source_definition is not None:
+            if not isinstance(source_definition, dict):
+                raise downstream_unexpected("revise source_definition must be an object")
+            expected = _source_definition_digest(source_definition)
+            receipt_digest = candidate.generation_receipt.source_definition_digest
+            if receipt_digest is None:
+                raise downstream_unexpected(
+                    "candidate generation_receipt missing source_definition_digest"
+                )
+            observed = (
+                receipt_digest.root
+                if hasattr(receipt_digest, "root")
+                else str(receipt_digest)
+            )
+            if observed != expected:
+                raise downstream_unexpected(
+                    "candidate source_definition_digest does not match request body"
+                )
         return candidate
 
     def get_candidate(self, candidate_id: str) -> GeneratedStatblockCandidateV1:

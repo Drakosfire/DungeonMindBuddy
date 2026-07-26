@@ -1,0 +1,170 @@
+{
+  "request_id": "fixture-revise-source-def-1",
+  "ruleset": {
+    "system": "dnd5e",
+    "edition": "2024",
+    "house_ruleset_id": null
+  },
+  "revision_instructions": [
+    "Tighten melee damage for table pace."
+  ],
+  "source_definition": {
+    "ruleset": {
+      "system": "dnd5e",
+      "edition": "2024",
+      "house_ruleset_id": null
+    },
+    "identity": {
+      "name": "Ironhide Brute",
+      "size": "Large",
+      "creature_type": "giant",
+      "subtypes": [],
+      "alignment": "unaligned"
+    },
+    "defenses": {
+      "armor_classes": [
+        {
+          "key": "natural_armor",
+          "value": 15,
+          "label": "natural armor",
+          "condition": null,
+          "default": true
+        }
+      ],
+      "damage_interactions": [],
+      "condition_immunities": []
+    },
+    "vitality": {
+      "hit_points": {
+        "method": "formula",
+        "formula": {
+          "count": 8,
+          "die": 10,
+          "modifier": 24
+        },
+        "fixed_value": null,
+        "displayed_average": 68
+      }
+    },
+    "movement": {
+      "modes": [
+        {
+          "key": "walk",
+          "mode": "walk",
+          "distance": {
+            "value": 30,
+            "unit": "feet"
+          },
+          "qualifiers": []
+        }
+      ]
+    },
+    "abilities": {
+      "strength": 18,
+      "dexterity": 10,
+      "constitution": 16,
+      "intelligence": 6,
+      "wisdom": 10,
+      "charisma": 8
+    },
+    "proficiencies": {
+      "saving_throws": [],
+      "skills": []
+    },
+    "senses": {
+      "senses": [],
+      "passive_perception": 10
+    },
+    "communication": {
+      "languages": [],
+      "telepathy_range": null,
+      "special_modes": []
+    },
+    "challenge": {
+      "rating": "3",
+      "proficiency_bonus": 2,
+      "xp_override": null
+    },
+    "resources": [],
+    "rule_elements": [
+      {
+        "key": "greatclub",
+        "name": "Greatclub",
+        "section": "action",
+        "summary": null,
+        "rules_text": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.",
+        "activation": {
+          "kind": "action",
+          "trigger": null,
+          "timing_text": null
+        },
+        "usage": {
+          "kind": "at_will",
+          "recharge_range": null,
+          "uses": null,
+          "resource_key": null,
+          "refresh_text": null
+        },
+        "costs": [],
+        "mechanic": {
+          "kind": "attack",
+          "attack_type": "melee_weapon",
+          "attack_bonus": 6,
+          "reach": {
+            "value": 10,
+            "unit": "feet"
+          },
+          "range": null,
+          "target": {
+            "kind": "creature",
+            "count": 1,
+            "range": null,
+            "area": null,
+            "qualifiers": []
+          },
+          "hit_effects": [
+            {
+              "kind": "damage",
+              "damage": {
+                "count": 2,
+                "die": 8,
+                "modifier": 4
+              },
+              "damage_type": "bludgeoning",
+              "duration": null
+            }
+          ],
+          "miss_effects": []
+        },
+        "tags": [],
+        "automation_support": "full"
+      }
+    ],
+    "phases": [],
+    "lair": null,
+    "flavor_text": {
+      "summary": "A brutal enforcer.",
+      "description": null
+    }
+  },
+  "source_locator": null,
+  "source": null,
+  "intent": {
+    "target_cr": null,
+    "roles": [],
+    "complexity": null,
+    "must_include": [],
+    "must_avoid": []
+  },
+  "context": {
+    "party_level": null,
+    "party_size": null,
+    "terrain_notes": []
+  },
+  "asset_options": {
+    "include_generation_brief": true,
+    "generate_images": false
+  },
+  "preserve_element_keys": true,
+  "actor": "fixture"
+}

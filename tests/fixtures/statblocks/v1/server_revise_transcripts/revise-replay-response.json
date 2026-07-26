@@ -1,0 +1,179 @@
+{
+  "candidate_id": "cand_fix00000001",
+  "contract": "dungeonmind.dungeonbuddy-statblocks",
+  "contract_version": "1.0.0",
+  "definition": {
+    "ruleset": {
+      "system": "dnd5e",
+      "edition": "2024",
+      "house_ruleset_id": null
+    },
+    "identity": {
+      "name": "Ironhide Brute",
+      "size": "Large",
+      "creature_type": "giant",
+      "subtypes": [],
+      "alignment": "unaligned"
+    },
+    "defenses": {
+      "armor_classes": [
+        {
+          "key": "natural_armor",
+          "value": 15,
+          "label": "natural armor",
+          "condition": null,
+          "default": true
+        }
+      ],
+      "damage_interactions": [],
+      "condition_immunities": []
+    },
+    "vitality": {
+      "hit_points": {
+        "method": "formula",
+        "formula": {
+          "count": 8,
+          "die": 10,
+          "modifier": 24
+        },
+        "fixed_value": null,
+        "displayed_average": 68
+      }
+    },
+    "movement": {
+      "modes": [
+        {
+          "key": "walk",
+          "mode": "walk",
+          "distance": {
+            "value": 30,
+            "unit": "feet"
+          },
+          "qualifiers": []
+        }
+      ]
+    },
+    "abilities": {
+      "strength": 18,
+      "dexterity": 10,
+      "constitution": 16,
+      "intelligence": 6,
+      "wisdom": 10,
+      "charisma": 8
+    },
+    "proficiencies": {
+      "saving_throws": [],
+      "skills": []
+    },
+    "senses": {
+      "senses": [],
+      "passive_perception": 10
+    },
+    "communication": {
+      "languages": [],
+      "telepathy_range": null,
+      "special_modes": []
+    },
+    "challenge": {
+      "rating": "3",
+      "proficiency_bonus": 2,
+      "xp_override": null
+    },
+    "resources": [],
+    "rule_elements": [
+      {
+        "key": "greatclub",
+        "name": "Greatclub",
+        "section": "action",
+        "summary": null,
+        "rules_text": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 13 (2d8 + 4) bludgeoning damage.",
+        "activation": {
+          "kind": "action",
+          "trigger": null,
+          "timing_text": null
+        },
+        "usage": {
+          "kind": "at_will",
+          "recharge_range": null,
+          "uses": null,
+          "resource_key": null,
+          "refresh_text": null
+        },
+        "costs": [],
+        "mechanic": {
+          "kind": "attack",
+          "attack_type": "melee_weapon",
+          "attack_bonus": 6,
+          "reach": {
+            "value": 10,
+            "unit": "feet"
+          },
+          "range": null,
+          "target": {
+            "kind": "creature",
+            "count": 1,
+            "range": null,
+            "area": null,
+            "qualifiers": []
+          },
+          "hit_effects": [
+            {
+              "kind": "damage",
+              "damage": {
+                "count": 2,
+                "die": 8,
+                "modifier": 4
+              },
+              "damage_type": "bludgeoning",
+              "duration": null
+            }
+          ],
+          "miss_effects": []
+        },
+        "tags": [],
+        "automation_support": "full"
+      }
+    ],
+    "phases": [],
+    "lair": null,
+    "flavor_text": {
+      "summary": "A brutal enforcer.",
+      "description": null
+    }
+  },
+  "validation_receipt": {
+    "status": "valid",
+    "mode": "generation_candidate",
+    "validator_version": "statblock-validator-v1.1+statblock-key-preservation-v1",
+    "canonicalizer_version": "statblock-canonicalizer-v1",
+    "issues": [],
+    "definition_digest": "sha256:265da39c72a5275bfb81315034b972ddae4aca261a683fa9ecc70a4839e91c44",
+    "validated_at": "2026-01-01T12:00:00Z"
+  },
+  "generation_receipt": {
+    "request_id": "fixture-revise-source-def-1",
+    "provider": "fake",
+    "model": "test-model",
+    "prompt_version": "statblock-generation-prompt-v1",
+    "schema_version": "statblock-openai-strict-compiler-v1",
+    "schema_fingerprint": "sha256:3714727d9c1966d77ed39a95ede9789e180305689be72bc7f63a5114d6bab37b",
+    "generated_at": "2026-01-01T12:00:00Z",
+    "caller_scope": "dungeonbuddy",
+    "request_digest": "sha256:5092b1efd0a13aece7711bb470eefa36b2e1b8bebb06c8d583e0f30b8823128e",
+    "actor": "fixture",
+    "source_description_digest": null,
+    "source_definition_digest": "sha256:265da39c72a5275bfb81315034b972ddae4aca261a683fa9ecc70a4839e91c44",
+    "source_locator": null,
+    "provider_request_id": null,
+    "provider_response_id": null,
+    "latency_ms": 0,
+    "input_tokens": null,
+    "output_tokens": null
+  },
+  "asset_brief": null,
+  "assets": [],
+  "asset_warnings": [],
+  "created_at": "2026-01-01T12:00:00Z",
+  "expires_at": "2026-01-01T12:01:00Z",
+  "source_locator": null
+}

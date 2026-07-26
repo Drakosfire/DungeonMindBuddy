@@ -79,7 +79,7 @@ def _admit_and_claim_new_generation(
 ]:
     """Admit a brand-new generation under the ThreatDraft store lock.
 
-    Lock order: ThreatDraft store → generation reconciliation.
+    Lock order: ThreatDraft store → candidate capacity → generation reconciliation.
     Existing-operation / tombstone recovery must run before this path, but a
     same-key peer may claim between the optimistic journal read and this
     boundary. Under both locks, re-read the exact operation key *before*
@@ -95,75 +95,80 @@ def _admit_and_claim_new_generation(
     if hook is not None:
         hook()
 
+    from apps.live_control_server.services.statblock_candidate_capacity import (
+        draft_candidate_capacity_lock,
+    )
+
     with _store_lock(root):
         committed_id = _require_committed_draft_id(root, draft_id)
         draft = _load_draft_unlocked(root, committed_id)
         ref_candidate_ids = {ref.candidate_id for ref in draft.candidate_refs}
         ref_entries = [(ref.candidate_id, ref.request_id) for ref in draft.candidate_refs]
 
-        with _reconciliation_lock(root):
-            existing = _read_entry_unlocked(
-                root,
-                draft_id=committed_id,
-                draft_version=expected_draft_version,
-                request_id=request_id,
-                ref_candidate_ids=ref_candidate_ids,
-                persist_upgrade=True,
-            )
-            if existing is not None:
-                # Same-key peer claimed after optimistic miss — replay stored authority.
-                if isinstance(existing, GenerationTombstoneV1):
-                    if existing.outcome == "reconciled":
-                        status: ClaimOutcome = "tombstone_reconciled"
-                    elif existing.outcome == "terminal_failure":
-                        status = "tombstone_terminal_failure"
-                    else:
-                        status = "tombstone_terminal_expired"
-                    return draft, {}, existing.request_digest, status, existing
-
-                stored_body = existing.request_body
-                if stored_body is None:
-                    raise GenerationReconciliationError(
-                        "generation request body missing from reconciliation record",
-                        status_code=500,
-                    )
-                claim_status, claim = _claim_generation_request_unlocked(
+        with draft_candidate_capacity_lock(root, committed_id):
+            with _reconciliation_lock(root):
+                existing = _read_entry_unlocked(
                     root,
                     draft_id=committed_id,
                     draft_version=expected_draft_version,
                     request_id=request_id,
-                    request_digest=existing.request_digest,
-                    request_body=stored_body,
+                    ref_candidate_ids=ref_candidate_ids,
+                    persist_upgrade=True,
+                )
+                if existing is not None:
+                    # Same-key peer claimed after optimistic miss — replay stored authority.
+                    if isinstance(existing, GenerationTombstoneV1):
+                        if existing.outcome == "reconciled":
+                            status: ClaimOutcome = "tombstone_reconciled"
+                        elif existing.outcome == "terminal_failure":
+                            status = "tombstone_terminal_failure"
+                        else:
+                            status = "tombstone_terminal_expired"
+                        return draft, {}, existing.request_digest, status, existing
+
+                    stored_body = existing.request_body
+                    if stored_body is None:
+                        raise GenerationReconciliationError(
+                            "generation request body missing from reconciliation record",
+                            status_code=500,
+                        )
+                    claim_status, claim = _claim_generation_request_unlocked(
+                        root,
+                        draft_id=committed_id,
+                        draft_version=expected_draft_version,
+                        request_id=request_id,
+                        request_digest=existing.request_digest,
+                        request_body=stored_body,
+                        ref_candidate_ids=ref_candidate_ids,
+                        ref_entries=ref_entries,
+                    )
+                    return draft, stored_body, existing.request_digest, claim_status, claim
+
+                # Journal still empty under the admission boundary — new generation.
+                if draft.workflow_state == "mechanics_saved":
+                    raise ThreatDraftStoreError(
+                        "new candidate generation rejected: draft mechanics already saved",
+                        status_code=409,
+                    )
+                if draft.version != expected_draft_version:
+                    raise ThreatDraftStoreError(
+                        "expected_version mismatch",
+                        status_code=409,
+                    )
+
+                body = map_draft_to_generate_request(draft, request_id=request_id)
+                request_digest = request_digest_for_body(body)
+                claim_status, claim = _claim_generation_request_unlocked(
+                    root,
+                    draft_id=draft.draft_id,
+                    draft_version=expected_draft_version,
+                    request_id=request_id,
+                    request_digest=request_digest,
+                    request_body=body,
                     ref_candidate_ids=ref_candidate_ids,
                     ref_entries=ref_entries,
                 )
-                return draft, stored_body, existing.request_digest, claim_status, claim
-
-            # Journal still empty under the admission boundary — new generation.
-            if draft.workflow_state == "mechanics_saved":
-                raise ThreatDraftStoreError(
-                    "new candidate generation rejected: draft mechanics already saved",
-                    status_code=409,
-                )
-            if draft.version != expected_draft_version:
-                raise ThreatDraftStoreError(
-                    "expected_version mismatch",
-                    status_code=409,
-                )
-
-            body = map_draft_to_generate_request(draft, request_id=request_id)
-            request_digest = request_digest_for_body(body)
-            claim_status, claim = _claim_generation_request_unlocked(
-                root,
-                draft_id=draft.draft_id,
-                draft_version=expected_draft_version,
-                request_id=request_id,
-                request_digest=request_digest,
-                request_body=body,
-                ref_candidate_ids=ref_candidate_ids,
-                ref_entries=ref_entries,
-            )
-            return draft, body, request_digest, claim_status, claim
+                return draft, body, request_digest, claim_status, claim
 
 
 def _utc_now() -> datetime:

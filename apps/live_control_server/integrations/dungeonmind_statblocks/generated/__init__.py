@@ -9,6 +9,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.generated.mode
     CreateStatblockResponseV1,
     GeneratedStatblockCandidateV1,
     GenerationReceiptV1,
+    ReviseCandidateRequestV1,
     StatblockDefinitionV1Input,
     ValidateDefinitionRequestV1,
     ValidationReceiptV1,
@@ -16,7 +17,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.generated.mode
 )
 
 OPENAPI_FINGERPRINT = (
-    "sha256:75bef3f4d3cffa30532e557fb822fe1d0cb3877a9a46d5b83ff637f3078cd748"
+    "sha256:770cb3ae5e72b0997b3b9a99462bc64f53a632a94aa2bc21dffa6bc7297662fe"
 )
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "CreateStatblockResponseV1",
     "GeneratedStatblockCandidateV1",
     "GenerationReceiptV1",
+    "ReviseCandidateRequestV1",
     "StatblockDefinitionV1Input",
     "ValidateDefinitionRequestV1",
     "ValidationReceiptV1",

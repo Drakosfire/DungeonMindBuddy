@@ -1,0 +1,26 @@
+{
+  "schema": "sbw06a_server_revise_transcript_manifest_v1",
+  "provenance": "copied_reviewed_server_fixtures",
+  "provenance_note": "Copied from DungeonMindServer PR #24 Docs/Design/fixtures/dungeonbuddy-statblock-v1-api/ at the merge commit below; reviewed for StrictModel validity and request/response coherence. Not live-captured by Buddy.",
+  "dungeonmind_server": {
+    "commit": "2c7d2566baa744f2b1a4667761775c1dec87a2d4",
+    "reviewed_head": "1ad8de2baf0431c7ddb401cdd72389afc730519a",
+    "worktree_clean": true,
+    "openapi_fingerprint": "sha256:770cb3ae5e72b0997b3b9a99462bc64f53a632a94aa2bc21dffa6bc7297662fe"
+  },
+  "buddy_vendored_openapi_fingerprint": "sha256:770cb3ae5e72b0997b3b9a99462bc64f53a632a94aa2bc21dffa6bc7297662fe",
+  "openapi_fingerprint_match": true,
+  "transcripts": {
+    "revise-request": "sha256:b555c11620464ad15599f5068b412b87b7d79e05190e1f5a9851b8ada78a5d1b",
+    "revise-replay-response": "sha256:cfcd5af94072175dc1a7bc779ae2c5ce7ff7ea139574e52d6b1ce0c182af0828",
+    "revise-conflict-response": "sha256:e885ad3c38a5ccb3ef9a99a6602511f7cc6cb3baaecc90e1416712b91c609ab2"
+  },
+  "server_owned_tests": [
+    {
+      "module": "statblocks_v1 tests (revise same-key replay)",
+      "names": [
+        "test_revise_same_key_replay_and_changed_body_conflict"
+      ]
+    }
+  ]
+}
