@@ -1,0 +1,1439 @@
+{
+  "schema": "dmb_markdown_mention_characterization_v1",
+  "base_sha": "4b40e68aad166b9dc59e797df851e2549bd6e354",
+  "generated_by": "graph_memory.projection.world_recap_projection.project_world_markdown_mentions at base_sha, unmodified",
+  "notes": "Adversarial cases with origin tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched were read out of that test with ast.literal_eval, not retyped. Mentions are [mention_id, node_id, label, start_offset, end_offset]; diagnostics are [code, message, severity]. Both lists are order-significant.",
+  "cases": [
+    {
+      "case_id": "recap_protected_00",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "See [Caelynn](https://example.test) outside.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "See [Caelynn](https://example.test) outside.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_01",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "Reference [The Caelynn Story][ref] stays intact.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Reference [The Caelynn Story][ref] stays intact.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_02",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "Nested dest [Caelynn](https://example.test/path_(x)) stays.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Nested dest [Caelynn](https://example.test/path_(x)) stays.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_03",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "Inline `Caelynn` stays.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Inline `Caelynn` stays.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_04",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "Closed fence:\n```\nCaelynn\n```\nafter.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Closed fence:\n```\nCaelynn\n```\nafter.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_05",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "Unclosed fence:\n```\nCaelynn still protected",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Unclosed fence:\n```\nCaelynn still protected",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_06",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "Prior [chip](dmb-node:pc:other) stays.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Prior [chip](dmb-node:pc:other) stays.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_07",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[The Caelynn Story]\n\n[The Caelynn Story]: /url",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[The Caelynn Story]\n\n[The Caelynn Story]: /url",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_08",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[The Caelynn Story]\n\n[The Caelynn Story]:/url",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[The Caelynn Story]\n\n[The Caelynn Story]:/url",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_09",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[The Caelynn Story]\n\n[The Caelynn Story]:\n  /url",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[The Caelynn Story]\n\n[The Caelynn Story]:\n  /url",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_10",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[story]\n\n[story]: /url\n  \"Caelynn\"",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[story]\n\n[story]: /url\n  \"Caelynn\"",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_11",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[story]\n\n[story]: /url\n\"Caelynn\"",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[story]\n\n[story]: /url\n\"Caelynn\"",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_12",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[story]\n\n[story]: /url '\nCaelynn\n'",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[story]\n\n[story]: /url '\nCaelynn\n'",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_13",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[story]\n\n[story]: /url \"\nbefore\nCaelynn\nafter\n\"",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[story]\n\n[story]: /url \"\nbefore\nCaelynn\nafter\n\"",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_14",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[story]\n\n[story]: /url (\nbefore\nCaelynn\nafter\n)",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[story]\n\n[story]: /url (\nbefore\nCaelynn\nafter\n)",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_15",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[story]\n\n[story]: <https://example.test/Caelynn path>",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[story]\n\n[story]: <https://example.test/Caelynn path>",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_16",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[story]\n\n[story]: <https://example.test/Caelynn path>\n\"title\"",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[story]\n\n[story]: <https://example.test/Caelynn path>\n\"title\"",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_17",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "[The [old] Caelynn Story](https://example.test)",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[The [old] Caelynn Story](https://example.test)",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_18",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "<https://example.test/Caelynn>",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "<https://example.test/Caelynn>",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_19",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "<HTTPS://example.test/Caelynn>",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "<HTTPS://example.test/Caelynn>",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_20",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "<xmpp:Caelynn@example.test>",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "<xmpp:Caelynn@example.test>",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "recap_protected_21",
+      "origin": "tests/test_world_graph_recap_projection.py::test_protected_markdown_and_code_ranges_untouched",
+      "markdown": "`before\nCaelynn\nafter`",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "`before\nCaelynn\nafter`",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "plain_unique_surface",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn reached Mireward before nightfall.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn Leafwhisper"
+          ]
+        },
+        {
+          "node_id": "location:mireward",
+          "label": "Mireward Reach",
+          "aliases": [
+            "Mireward"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn) reached [Mireward](dmb-node:location:mireward) before nightfall.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ],
+        [
+          "mention:location:mireward:16",
+          "location:mireward",
+          "Mireward",
+          39,
+          77
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "repeated_unique_surface",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn spoke. Later Caelynn left.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn) spoke. Later [Caelynn](dmb-node:pc:caelynn) left.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ],
+        [
+          "mention:pc:caelynn:21",
+          "pc:caelynn",
+          "Caelynn",
+          44,
+          74
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "surface_at_string_start",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn walked on.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn) walked on.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "surface_at_string_end",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "The last to leave was Caelynn",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "The last to leave was [Caelynn](dmb-node:pc:caelynn)",
+      "mentions": [
+        [
+          "mention:pc:caelynn:22",
+          "pc:caelynn",
+          "Caelynn",
+          22,
+          52
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "surface_is_entire_string",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn)",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "ambiguous_casing_prose_third_casing",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "CAELYNN arrived.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": []
+        },
+        {
+          "node_id": "npc:caelynn-double",
+          "label": "caelynn",
+          "aliases": []
+        }
+      ],
+      "projected_markdown": "CAELYNN arrived.",
+      "mentions": [],
+      "diagnostics": [
+        [
+          "ambiguous_mention_surface",
+          "Mention surface 'Caelynn' matches multiple projected nodes (npc:caelynn-double, pc:caelynn); left unlinked.",
+          "warning"
+        ]
+      ]
+    },
+    {
+      "case_id": "ambiguous_casing_reversed_node_order",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "CAELYNN arrived.",
+      "nodes": [
+        {
+          "node_id": "npc:caelynn-double",
+          "label": "caelynn",
+          "aliases": []
+        },
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": []
+        }
+      ],
+      "projected_markdown": "CAELYNN arrived.",
+      "mentions": [],
+      "diagnostics": [
+        [
+          "ambiguous_mention_surface",
+          "Mention surface 'caelynn' matches multiple projected nodes (npc:caelynn-double, pc:caelynn); left unlinked.",
+          "warning"
+        ]
+      ]
+    },
+    {
+      "case_id": "ambiguous_alias_casing_first_wins_sample",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Then CAELYNN spoke, and CAELYNN left.",
+      "nodes": [
+        {
+          "node_id": "npc:first",
+          "label": "cAeLyNn",
+          "aliases": [
+            "CaElYnN"
+          ]
+        },
+        {
+          "node_id": "npc:second",
+          "label": "CAELYNN",
+          "aliases": [
+            "caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Then CAELYNN spoke, and CAELYNN left.",
+      "mentions": [],
+      "diagnostics": [
+        [
+          "ambiguous_mention_surface",
+          "Mention surface 'cAeLyNn' matches multiple projected nodes (npc:first, npc:second); left unlinked.",
+          "warning"
+        ]
+      ]
+    },
+    {
+      "case_id": "ambiguous_surface_only_inside_protected_range",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Inline `Caelynn` only.",
+      "nodes": [
+        {
+          "node_id": "npc:first",
+          "label": "Caelynn",
+          "aliases": []
+        },
+        {
+          "node_id": "npc:second",
+          "label": "caelynn",
+          "aliases": []
+        }
+      ],
+      "projected_markdown": "Inline `Caelynn` only.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "ambiguous_and_unique_surfaces_together",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "River flooded and Caelynn watched.",
+      "nodes": [
+        {
+          "node_id": "npc:river-guide",
+          "label": "River",
+          "aliases": [
+            "River"
+          ]
+        },
+        {
+          "node_id": "location:river",
+          "label": "River",
+          "aliases": [
+            "River"
+          ]
+        },
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": []
+        }
+      ],
+      "projected_markdown": "River flooded and [Caelynn](dmb-node:pc:caelynn) watched.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:18",
+          "pc:caelynn",
+          "Caelynn",
+          18,
+          48
+        ]
+      ],
+      "diagnostics": [
+        [
+          "ambiguous_mention_surface",
+          "Mention surface 'River' matches multiple projected nodes (location:river, npc:river-guide); left unlinked.",
+          "warning"
+        ]
+      ]
+    },
+    {
+      "case_id": "overlap_longer_surface_other_node",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "They entered Mireward Reach at dusk.",
+      "nodes": [
+        {
+          "node_id": "location:mireward",
+          "label": "Mireward",
+          "aliases": []
+        },
+        {
+          "node_id": "location:mireward-reach",
+          "label": "Mireward Reach",
+          "aliases": []
+        }
+      ],
+      "projected_markdown": "They entered [Mireward Reach](dmb-node:location:mireward-reach) at dusk.",
+      "mentions": [
+        [
+          "mention:location:mireward-reach:13",
+          "location:mireward-reach",
+          "Mireward Reach",
+          13,
+          63
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "overlap_longer_surface_other_node_reversed",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "They entered Mireward Reach at dusk.",
+      "nodes": [
+        {
+          "node_id": "location:mireward-reach",
+          "label": "Mireward Reach",
+          "aliases": []
+        },
+        {
+          "node_id": "location:mireward",
+          "label": "Mireward",
+          "aliases": []
+        }
+      ],
+      "projected_markdown": "They entered [Mireward Reach](dmb-node:location:mireward-reach) at dusk.",
+      "mentions": [
+        [
+          "mention:location:mireward-reach:13",
+          "location:mireward-reach",
+          "Mireward Reach",
+          13,
+          63
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "overlap_same_length_tie_break_by_node_id",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "The Ford Gate held.",
+      "nodes": [
+        {
+          "node_id": "location:zzz-ford",
+          "label": "Ford Gate",
+          "aliases": []
+        },
+        {
+          "node_id": "location:aaa-gate",
+          "label": "ford gate",
+          "aliases": []
+        }
+      ],
+      "projected_markdown": "The Ford Gate held.",
+      "mentions": [],
+      "diagnostics": [
+        [
+          "ambiguous_mention_surface",
+          "Mention surface 'Ford Gate' matches multiple projected nodes (location:aaa-gate, location:zzz-ford); left unlinked.",
+          "warning"
+        ]
+      ]
+    },
+    {
+      "case_id": "longest_unique_surface_wins_single_node",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "They entered Mireward Reach at dusk.",
+      "nodes": [
+        {
+          "node_id": "location:mireward-reach",
+          "label": "Mireward Reach",
+          "aliases": [
+            "Mireward"
+          ]
+        }
+      ],
+      "projected_markdown": "They entered [Mireward Reach](dmb-node:location:mireward-reach) at dusk.",
+      "mentions": [
+        [
+          "mention:location:mireward-reach:13",
+          "location:mireward-reach",
+          "Mireward Reach",
+          13,
+          63
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "empty_label_with_valid_alias",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn stood watch.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn) stood watch.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "whitespace_only_alias",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn stood watch.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "   ",
+            "\t\n"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn) stood watch.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "untrimmed_surface_is_stripped",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn stood watch.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "  Caelynn  ",
+          "aliases": []
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn) stood watch.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "all_surfaces_blank",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn stood watch.",
+      "nodes": [
+        {
+          "node_id": "pc:blank",
+          "label": "  ",
+          "aliases": [
+            "",
+            "\t"
+          ]
+        }
+      ],
+      "projected_markdown": "Caelynn stood watch.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "surface_adjacent_to_punctuation",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn, then Caelynn!",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn), then [Caelynn](dmb-node:pc:caelynn)!",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ],
+        [
+          "mention:pc:caelynn:14",
+          "pc:caelynn",
+          "Caelynn",
+          37,
+          67
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "surface_in_parentheses",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "(Caelynn) waited.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "([Caelynn](dmb-node:pc:caelynn)) waited.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:1",
+          "pc:caelynn",
+          "Caelynn",
+          1,
+          31
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "surface_embedded_in_longer_word",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynnium ore and preCaelynn era.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn)ium ore and preCaelynn era.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "surface_followed_by_hyphen",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn-touched relic.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn)-touched relic.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "surface_case_insensitive_match",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "caelynn and CAELYNN and CaElYnN.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[caelynn](dmb-node:pc:caelynn) and [CAELYNN](dmb-node:pc:caelynn) and [CaElYnN](dmb-node:pc:caelynn).",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "caelynn",
+          0,
+          30
+        ],
+        [
+          "mention:pc:caelynn:12",
+          "pc:caelynn",
+          "CAELYNN",
+          35,
+          65
+        ],
+        [
+          "mention:pc:caelynn:24",
+          "pc:caelynn",
+          "CaElYnN",
+          70,
+          100
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "inline_code_span",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Inline `Caelynn` stays.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Inline `Caelynn` stays.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "multiline_code_span",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "`before\nCaelynn\nafter`",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "`before\nCaelynn\nafter`",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "fenced_block",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Closed fence:\n```\nCaelynn\n```\nafter Caelynn.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Closed fence:\n```\nCaelynn\n```\nafter [Caelynn](dmb-node:pc:caelynn).",
+      "mentions": [
+        [
+          "mention:pc:caelynn:36",
+          "pc:caelynn",
+          "Caelynn",
+          36,
+          66
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "tilde_fenced_block",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "~~~\nCaelynn\n~~~\nafter Caelynn.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "~~~\nCaelynn\n~~~\nafter [Caelynn](dmb-node:pc:caelynn).",
+      "mentions": [
+        [
+          "mention:pc:caelynn:22",
+          "pc:caelynn",
+          "Caelynn",
+          22,
+          52
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "existing_inline_link_label",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "See [Caelynn](https://example.test) outside.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "See [Caelynn](https://example.test) outside.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "existing_link_destination",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "See [here](https://example.test/Caelynn) outside.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "See [here](https://example.test/Caelynn) outside.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "shortcut_reference_link",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "[Caelynn]\n\n[Caelynn]: /url",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn]\n\n[Caelynn]: /url",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "nested_link_label",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "[The [old] Caelynn Story](https://example.test)",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[The [old] Caelynn Story](https://example.test)",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "uri_autolink_lower",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "<https://example.test/Caelynn>",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "<https://example.test/Caelynn>",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "uri_autolink_upper",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "<HTTPS://example.test/Caelynn>",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "<HTTPS://example.test/Caelynn>",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "email_autolink",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "<Caelynn@example.test>",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "<Caelynn@example.test>",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "reference_definition_zero_whitespace",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "[s]\n\n[s]:/url/Caelynn",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[s]\n\n[s]:/url/Caelynn",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "reference_definition_next_line_destination",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "[s]\n\n[s]:\n  /url/Caelynn",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[s]\n\n[s]:\n  /url/Caelynn",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "reference_definition_unindented_title",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "[s]\n\n[s]: /url\n\"Caelynn\"",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[s]\n\n[s]: /url\n\"Caelynn\"",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "reference_definition_multiline_title",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "[s]\n\n[s]: /url \"\nbefore\nCaelynn\nafter\n\"",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[s]\n\n[s]: /url \"\nbefore\nCaelynn\nafter\n\"",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "reference_definition_angle_destination_with_spaces",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "[s]\n\n[s]: <https://example.test/Caelynn path>",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[s]\n\n[s]: <https://example.test/Caelynn path>",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "prose_and_protected_same_surface",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn spoke.\n\n```\nCaelynn\n```\n\nThen Caelynn left.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "[Caelynn](dmb-node:pc:caelynn) spoke.\n\n```\nCaelynn\n```\n\nThen [Caelynn](dmb-node:pc:caelynn) left.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:0",
+          "pc:caelynn",
+          "Caelynn",
+          0,
+          30
+        ],
+        [
+          "mention:pc:caelynn:38",
+          "pc:caelynn",
+          "Caelynn",
+          61,
+          91
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "prior_chip_stays",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Prior [Caelynn](dmb-node:pc:caelynn) stays and Caelynn follows.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "Prior [Caelynn](dmb-node:pc:caelynn) stays and [Caelynn](dmb-node:pc:caelynn) follows.",
+      "mentions": [
+        [
+          "mention:pc:caelynn:47",
+          "pc:caelynn",
+          "Caelynn",
+          47,
+          77
+        ]
+      ],
+      "diagnostics": []
+    },
+    {
+      "case_id": "image_label",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "![Caelynn](https://example.test/x.png) after.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "![Caelynn](https://example.test/x.png) after.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "empty_markdown",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "projected_markdown": "",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "empty_bindings",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Caelynn stood watch.",
+      "nodes": [],
+      "projected_markdown": "Caelynn stood watch.",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "empty_markdown_and_bindings",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "",
+      "nodes": [],
+      "projected_markdown": "",
+      "mentions": [],
+      "diagnostics": []
+    },
+    {
+      "case_id": "no_matches",
+      "origin": "HANDOFF-pr413 §7 fixture corpus",
+      "markdown": "Nobody of note appeared.",
+      "nodes": [
+        {
+          "node_id": "pc:caelynn",
+          "label": "Caelynn",
+          "aliases": [
+            "Caelynn Leafwhisper"
+          ]
+        },
+        {
+          "node_id": "location:mireward",
+          "label": "Mireward Reach",
+          "aliases": [
+            "Mireward"
+          ]
+        }
+      ],
+      "projected_markdown": "Nobody of note appeared.",
+      "mentions": [],
+      "diagnostics": []
+    }
+  ]
+}
