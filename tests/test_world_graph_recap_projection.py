@@ -28,12 +28,14 @@ from graph_memory.kernel.world_initialization_models import (
     WorldInitializationPlan,
 )
 from graph_memory.projection.world_projection import (
+    WorldGraphProjectionDiagnostic,
     WorldGraphProjectionNodeView,
     WorldGraphProjectionRequest,
 )
 from graph_memory.projection.world_recap_projection import (
     AMBIGUOUS_MENTION_DIAGNOSTIC,
     RECAP_PROJECTION_RESPONSE_SCHEMA,
+    WorldGraphRecapMention,
     adapt_world_node_to_recap_view,
     project_world_markdown_mentions,
 )
@@ -116,7 +118,14 @@ def _session_request(
     return WorldGraphProjectionRequest.model_validate(payload)
 
 
-def test_project_world_markdown_mentions_uses_durable_node_ids() -> None:
+# Linker coverage moved: the CommonMark scanner and mention splicer now live in
+# src/graph_memory/projection/markdown_mentions.py, and their owning tests plus
+# the base-generated characterization fixture live in tests/test_markdown_mentions.py.
+# What remains here is adapter-level — the recap types this module returns and
+# the binding order it constructs.
+
+
+def test_recap_adapter_returns_recap_mention_and_diagnostic_types() -> None:
     nodes = [
         WorldGraphProjectionNodeView(
             node_id="pc:caelynn",
@@ -141,11 +150,13 @@ def test_project_world_markdown_mentions_uses_durable_node_ids() -> None:
     assert "[Caelynn](dmb-node:pc:caelynn)" in projected
     assert "[Mireward](dmb-node:location:mireward)" in projected
     assert {m.node_id for m in mentions} == {"pc:caelynn", "location:mireward"}
+    assert all(isinstance(m, WorldGraphRecapMention) for m in mentions)
+    # Node evidence is never copied onto a navigation-only mention.
     assert all(m.evidence_ref_ids == [] for m in mentions)
     assert diagnostics == []
 
 
-def test_ambiguous_alias_does_not_first_win() -> None:
+def test_recap_adapter_maps_diagnostics_to_world_projection_type() -> None:
     nodes = [
         WorldGraphProjectionNodeView(
             node_id="npc:river-guide",
@@ -166,27 +177,49 @@ def test_ambiguous_alias_does_not_first_win() -> None:
     projected, mentions, diagnostics = project_world_markdown_mentions(markdown, nodes)
     assert projected == markdown
     assert mentions == []
-    assert any(d.code == AMBIGUOUS_MENTION_DIAGNOSTIC for d in diagnostics)
+    assert len(diagnostics) == 1
+    assert isinstance(diagnostics[0], WorldGraphProjectionDiagnostic)
+    assert diagnostics[0].code == AMBIGUOUS_MENTION_DIAGNOSTIC
+    assert diagnostics[0].severity == "warning"
 
 
-def test_longest_unique_surface_wins() -> None:
+def test_recap_adapter_binding_order_is_node_order_label_first() -> None:
+    """Node-iteration order, label before aliases, duplicates preserved.
+
+    The ambiguity diagnostic quotes the first bound surface with its original
+    casing, so this ordering is observable behavior, not an implementation
+    detail. Reversing the node list must reverse which casing is quoted.
+    """
     nodes = [
         WorldGraphProjectionNodeView(
-            node_id="location:mireward-reach",
-            label="Mireward Reach",
-            kind="location",
-            role="place",
-            aliases=["Mireward"],
+            node_id="npc:first",
+            label="cAeLyNn",
+            kind="npc",
+            role="character",
+            aliases=["CaElYnN"],
+        ),
+        WorldGraphProjectionNodeView(
+            node_id="npc:second",
+            label="CAELYNN",
+            kind="npc",
+            role="character",
+            aliases=["caelynn"],
         ),
     ]
-    markdown = "They entered Mireward Reach at dusk."
-    projected, mentions, _diagnostics = project_world_markdown_mentions(markdown, nodes)
-    assert "[Mireward Reach](dmb-node:location:mireward-reach)" in projected
-    assert "[Mireward](dmb-node:" not in projected
-    assert len(mentions) == 1
+    _projected, _mentions, diagnostics = project_world_markdown_mentions(
+        "Then CAELYNN spoke.", nodes
+    )
+    assert "'cAeLyNn'" in diagnostics[0].message
+
+    _projected, _mentions, reversed_diagnostics = project_world_markdown_mentions(
+        "Then CAELYNN spoke.", list(reversed(nodes))
+    )
+    assert "'CAELYNN'" in reversed_diagnostics[0].message
 
 
-def test_protected_markdown_and_code_ranges_untouched() -> None:
+def test_recap_adapter_preserves_protection_at_the_surface_boundary() -> None:
+    """Smoke: the adapter still runs protection. Full corpus lives in the
+    neutral module's characterization fixture."""
     nodes = [
         WorldGraphProjectionNodeView(
             node_id="pc:caelynn",
@@ -196,37 +229,12 @@ def test_protected_markdown_and_code_ranges_untouched() -> None:
             aliases=["Caelynn"],
         ),
     ]
-    cases = [
-        "See [Caelynn](https://example.test) outside.",
-        "Reference [The Caelynn Story][ref] stays intact.",
-        "Nested dest [Caelynn](https://example.test/path_(x)) stays.",
-        "Inline `Caelynn` stays.",
-        "Closed fence:\n```\nCaelynn\n```\nafter.",
-        "Unclosed fence:\n```\nCaelynn still protected",
-        "Prior [chip](dmb-node:pc:other) stays.",
-        # Adversarial CommonMark forms (fail-closed > chip):
-        "[The Caelynn Story]\n\n[The Caelynn Story]: /url",
-        "[The Caelynn Story]\n\n[The Caelynn Story]:/url",
-        "[The Caelynn Story]\n\n[The Caelynn Story]:\n  /url",
-        '[story]\n\n[story]: /url\n  "Caelynn"',
-        '[story]\n\n[story]: /url\n"Caelynn"',
-        "[story]\n\n[story]: /url '\nCaelynn\n'",
-        '[story]\n\n[story]: /url "\nbefore\nCaelynn\nafter\n"',
-        "[story]\n\n[story]: /url (\nbefore\nCaelynn\nafter\n)",
-        "[story]\n\n[story]: <https://example.test/Caelynn path>",
-        '[story]\n\n[story]: <https://example.test/Caelynn path>\n"title"',
-        "[The [old] Caelynn Story](https://example.test)",
-        "<https://example.test/Caelynn>",
-        "<HTTPS://example.test/Caelynn>",
-        "<xmpp:Caelynn@example.test>",
-        "`before\nCaelynn\nafter`",
-    ]
-    for markdown in cases:
-        projected, mentions, _diagnostics = project_world_markdown_mentions(
-            markdown, nodes
-        )
-        assert projected == markdown, markdown
-        assert mentions == []
+    markdown = "Inline `Caelynn` stays.\n\n```\nCaelynn\n```\n"
+    projected, mentions, _diagnostics = project_world_markdown_mentions(
+        markdown, nodes
+    )
+    assert projected == markdown
+    assert mentions == []
 
 
 def test_adapt_world_node_preserves_excerpt_highlight_contract() -> None:

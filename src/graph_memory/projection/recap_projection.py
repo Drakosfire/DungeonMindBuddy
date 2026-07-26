@@ -10,6 +10,12 @@ from graph_memory.projection.focus_overlay import (
     GraphFocusOverlay,
     GraphProjectionEvidenceBadge,
 )
+
+# Re-export: `splice_node_link_spans` now lives in the surface-neutral
+# `markdown_mentions` module. Existing importers of this module keep working.
+from graph_memory.projection.markdown_mentions import (
+    splice_node_link_spans as splice_node_link_spans,
+)
 from graph_memory.anchor_quotes import find_anchor_quote_matches
 from graph_memory.projection.node_view import (
     GraphProjectionAdjacencyCandidate,
@@ -367,53 +373,6 @@ def build_recap_graph_projection(
         union_identity_diagnostics=diagnostics,
         union_identity_applied_assertion_ids=sorted(identity_context.applied_assertion_ids),
     )
-
-
-def splice_node_link_spans(
-    markdown: str,
-    spans: list[tuple[int, int, str, str]],
-) -> tuple[str, list[tuple[int, int] | None]]:
-    """Splice `[label](dmb-node:node_id)` at each ``(start, end, label, node_id)``
-    span (offsets given in the *original* ``markdown`` coordinates) and return the
-    resulting markdown plus, for each input span (by original list position), its
-    ``(start, end)`` offset in the *projected* string it was actually spliced into
-    (or ``None`` if the span was dropped for overlapping an earlier one).
-
-    This is the single place that turns a located mention span into the literal
-    markdown link text the frontend renders as a pill. Every consumer (live
-    auto-linking, gold anchor lookup) must go through this so mention offsets are
-    always computed against the text they actually describe — offsets computed
-    against pre-splice text drift out of alignment with every earlier span spliced
-    in ahead of them, since each replacement is longer than the span it replaces.
-    """
-    occupied: list[tuple[int, int]] = []
-    accepted: list[tuple[int, int, str, str, int]] = []
-    for index, (start, end, label, node_id) in enumerate(spans):
-        if any(start < used_end and end > used_start for used_start, used_end in occupied):
-            continue
-        occupied.append((start, end))
-        accepted.append((start, end, label, node_id, index))
-
-    accepted.sort(key=lambda item: item[0])
-
-    pieces: list[str] = []
-    projected_offsets: list[tuple[int, int] | None] = [None] * len(spans)
-    cursor = 0
-    projected_length = 0
-    for start, end, label, node_id, index in accepted:
-        prefix = markdown[cursor:start]
-        pieces.append(prefix)
-        projected_length += len(prefix)
-
-        replacement = f"[{label}](dmb-node:{node_id})"
-        mention_start = projected_length
-        pieces.append(replacement)
-        projected_length += len(replacement)
-        projected_offsets[index] = (mention_start, projected_length)
-        cursor = end
-
-    pieces.append(markdown[cursor:])
-    return "".join(pieces), projected_offsets
 
 
 def _iter_known_entity_mention_rows(
