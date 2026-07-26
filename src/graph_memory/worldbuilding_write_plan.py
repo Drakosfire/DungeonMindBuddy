@@ -91,6 +91,24 @@ class WorldbuildingDispositionInput:
 
 
 @dataclass(frozen=True)
+class WorldbuildingWritePlanVerificationContext:
+    """Server-resolved identity inputs for rebuild verification.
+
+    Response-carried envelope fields are compared to this context; they must
+    never be fed back as rebuild authority.
+    """
+
+    world_id: str
+    parent_revision_id: str
+    run_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    source_uri: str
+    extraction_profile: str
+    campaign_scope: str | None
+
+
+@dataclass(frozen=True)
 class WorldbuildingWritePlan:
     """The authority fields of one response-carried inert plan."""
 
@@ -1116,7 +1134,16 @@ def build_worldbuilding_write_plan(
             _plan_mapping(plan),
             preview=preview,
             world_root=world_root,
-            source_uri=uri,
+            context=WorldbuildingWritePlanVerificationContext(
+                world_id=world,
+                parent_revision_id=parent,
+                run_id=run,
+                source_artifact_id=artifact,
+                source_revision_id=revision,
+                source_uri=uri,
+                extraction_profile=profile,
+                campaign_scope=campaign_scope,
+            ),
         )
     return plan
 
@@ -1146,21 +1173,30 @@ def _plan_mapping(plan: WorldbuildingWritePlan) -> dict[str, Any]:
     }
 
 
+def _normalize_optional_campaign(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise WorldbuildingWritePlanError(
+            "campaign_scope must be null or a string",
+            code="plan_verification_failed",
+        )
+    text = value.strip()
+    return text or None
+
 
 def verify_worldbuilding_write_plan(
     plan: Mapping[str, Any],
     *,
     preview: CandidateGraphPreview,
     world_root: Path,
-    source_uri: str,
+    context: WorldbuildingWritePlanVerificationContext,
 ) -> dict[str, Any]:
-    """Verify a response-carried plan by rebuilding the exact authority effect.
+    """Verify a response-carried plan by rebuilding from trusted context.
 
-    Hand-checking selected mapper fields is intentionally not the trust
-    boundary. The builder is the single mapping contract: convert the sealed
-    decision snapshot back into dispositions, re-run prepare against the exact
-    pinned preview/parent/source inputs, and require byte-for-byte authority
-    equality on digests and effect.
+    Envelope identity is compared to the server-resolved context first. The
+    builder is then re-run only from that context plus the sealed dispositions
+    and exact candidate preview.
     """
     try:
         if not isinstance(plan, Mapping):
@@ -1171,6 +1207,11 @@ def verify_worldbuilding_write_plan(
         if not isinstance(preview, CandidateGraphPreview):
             raise WorldbuildingWritePlanError(
                 "worldbuilding write plan verification requires the exact candidate preview",
+                code="plan_verification_failed",
+            )
+        if not isinstance(context, WorldbuildingWritePlanVerificationContext):
+            raise WorldbuildingWritePlanError(
+                "worldbuilding write plan verification requires a trusted context",
                 code="plan_verification_failed",
             )
         schema = _field(plan, "schema")
@@ -1219,6 +1260,41 @@ def verify_worldbuilding_write_plan(
                 "plan extraction_profile is not the BLD-08 profile",
                 code="plan_verification_failed",
             )
+        if context.extraction_profile != WORLDBUILDING_EXTRACTION_PROFILE:
+            raise WorldbuildingWritePlanError(
+                "verification context extraction_profile is not the BLD-08 profile",
+                code="plan_verification_failed",
+            )
+        identity_pairs = (
+            ("world_id", top_fields["world_id"], context.world_id),
+            (
+                "parent_revision_id",
+                top_fields["parent_revision_id"],
+                context.parent_revision_id,
+            ),
+            ("run_id", top_fields["run_id"], context.run_id),
+            (
+                "source_artifact_id",
+                top_fields["source_artifact_id"],
+                context.source_artifact_id,
+            ),
+            (
+                "source_revision_id",
+                top_fields["source_revision_id"],
+                context.source_revision_id,
+            ),
+            (
+                "extraction_profile",
+                top_fields["extraction_profile"],
+                context.extraction_profile,
+            ),
+        )
+        for field_name, carried, trusted in identity_pairs:
+            if carried != trusted:
+                raise WorldbuildingWritePlanError(
+                    f"plan {field_name} disagrees with trusted verification context",
+                    code="plan_verification_failed",
+                )
         if (
             preview.preview_id != top_fields["candidate_preview_id"]
             or preview.schema != top_fields["candidate_schema"]
@@ -1228,21 +1304,42 @@ def verify_worldbuilding_write_plan(
                 "candidate preview identity disagrees with plan envelope",
                 code="plan_verification_failed",
             )
+        preview_campaign = _normalize_optional_campaign(preview.campaign_id)
+        if preview_campaign != context.campaign_scope:
+            raise WorldbuildingWritePlanError(
+                "candidate preview campaign_id disagrees with trusted context",
+                code="plan_verification_failed",
+            )
+        preview_artifacts = {
+            str(item).strip()
+            for item in (preview.source_artifact_ids or ())
+            if str(item).strip()
+        }
+        if preview_artifacts != {context.source_artifact_id}:
+            raise WorldbuildingWritePlanError(
+                "candidate preview source_artifact_ids disagree with trusted context",
+                code="plan_verification_failed",
+            )
         effect = _canonical_effect(_field(plan, "effect"))
         meta = effect["contribution_meta"]
-        if meta["extraction_profile"] != top_fields["extraction_profile"]:
+        if meta["extraction_profile"] != context.extraction_profile:
             raise WorldbuildingWritePlanError(
-                "effect extraction_profile disagrees with envelope",
+                "effect extraction_profile disagrees with trusted context",
                 code="plan_verification_failed",
             )
-        if meta["source_artifact_id"] != top_fields["source_artifact_id"]:
+        if meta["source_artifact_id"] != context.source_artifact_id:
             raise WorldbuildingWritePlanError(
-                "effect contribution source_artifact_id disagrees with envelope",
+                "effect contribution source_artifact_id disagrees with trusted context",
                 code="plan_verification_failed",
             )
-        if meta["source_revision_id"] != top_fields["source_revision_id"]:
+        if meta["source_revision_id"] != context.source_revision_id:
             raise WorldbuildingWritePlanError(
-                "effect contribution source_revision_id disagrees with envelope",
+                "effect contribution source_revision_id disagrees with trusted context",
+                code="plan_verification_failed",
+            )
+        if meta["campaign_scope"] != context.campaign_scope:
+            raise WorldbuildingWritePlanError(
+                "effect contribution campaign_scope disagrees with trusted context",
                 code="plan_verification_failed",
             )
         dispositions = [
@@ -1257,14 +1354,14 @@ def verify_worldbuilding_write_plan(
             expected = build_worldbuilding_write_plan(
                 preview=preview,
                 world_root=world_root,
-                world_id=top_fields["world_id"],
-                expected_parent_revision_id=top_fields["parent_revision_id"],
-                run_id=top_fields["run_id"],
-                source_artifact_id=top_fields["source_artifact_id"],
-                source_revision_id=top_fields["source_revision_id"],
-                source_uri=source_uri,
-                extraction_profile=top_fields["extraction_profile"],
-                campaign_scope=meta["campaign_scope"],
+                world_id=context.world_id,
+                expected_parent_revision_id=context.parent_revision_id,
+                run_id=context.run_id,
+                source_artifact_id=context.source_artifact_id,
+                source_revision_id=context.source_revision_id,
+                source_uri=context.source_uri,
+                extraction_profile=context.extraction_profile,
+                campaign_scope=context.campaign_scope,
                 dispositions=dispositions,
                 self_verify=False,
             )
@@ -1304,7 +1401,6 @@ def verify_worldbuilding_write_plan(
         ) from exc
 
 
-
 __all__ = [
     "WORLD_BUILDING_WRITE_PLAN_AUTHORED_BY",
     "WORLD_BUILDING_WRITE_PLAN_SCHEMA",
@@ -1315,6 +1411,7 @@ __all__ = [
     "WorldbuildingDispositionInput",
     "WorldbuildingWritePlan",
     "WorldbuildingWritePlanError",
+    "WorldbuildingWritePlanVerificationContext",
     "build_worldbuilding_write_plan",
     "verify_worldbuilding_write_plan",
 ]

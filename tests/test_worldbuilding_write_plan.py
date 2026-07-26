@@ -20,6 +20,7 @@ from graph_memory.worldbuilding_write_plan import (
     WORLD_BUILDING_WRITE_PLAN_VERSION,
     WORLDBUILDING_BIND_SUPPORT_PREDICATE,
     WorldbuildingWritePlanError,
+    WorldbuildingWritePlanVerificationContext,
     build_worldbuilding_write_plan,
     verify_worldbuilding_write_plan,
 )
@@ -178,12 +179,30 @@ def _reseal_package(package: dict[str, object]) -> dict[str, object]:
     return package
 
 
-def _verify(package: dict[str, object], inputs: dict[str, object], preview=None):
+def _verify(
+    package: dict[str, object],
+    inputs: dict[str, object],
+    preview=None,
+    *,
+    campaign_scope: str | None = CAMPAIGN_ID,
+    context: WorldbuildingWritePlanVerificationContext | None = None,
+):
+    used_preview = preview if preview is not None else _preview()
+    used_context = context or WorldbuildingWritePlanVerificationContext(
+        world_id=WORLD_ID,
+        parent_revision_id=str(inputs["parent"]),
+        run_id="extraction-run:worldbuilding-test",
+        source_artifact_id="artifact:worldbuilding:test",
+        source_revision_id=str(inputs["source_revision"]),
+        source_uri=str(inputs["source_uri"]),
+        extraction_profile="worldbuilding_shepherds_flock_v0@0.1",
+        campaign_scope=campaign_scope,
+    )
     return verify_worldbuilding_write_plan(
         package,
-        preview=preview if preview is not None else _preview(),
+        preview=used_preview,
         world_root=inputs["world_root"],  # type: ignore[arg-type]
-        source_uri=inputs["source_uri"],  # type: ignore[arg-type]
+        context=used_context,
     )
 
 
@@ -606,8 +625,27 @@ def test_campaign_lineage_is_embedded_only_for_campaign_scoped_plans(
 
     unscoped_root = tmp_path / "unscoped"
     unscoped_root.mkdir()
+    unscoped_preview_payload = _candidate_graph_payload(session_id=None)
+    unscoped_preview_payload["preview_id"] = "preview:worldbuilding-unscoped"
+    unscoped_preview_payload["campaign_id"] = None
+    unscoped_preview_payload["source_artifact_ids"] = ["artifact:worldbuilding:test"]
+    unscoped_preview_payload["session_id"] = None
+    for index, node in enumerate(unscoped_preview_payload["nodes"]):
+        node["node_id"] = f"wb_node_{index}"
+        node["node_type"] = "character" if index == 0 else "location"
+        node["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for ref in node["evidence_refs"]:
+            ref["source_artifact_id"] = "artifact:worldbuilding:test"
+    for edge in unscoped_preview_payload["edges"]:
+        edge["edge_id"] = "wb_edge_0"
+        edge["from_node_id"] = "wb_node_0"
+        edge["to_node_id"] = "wb_node_1"
+        edge["semantic_state"] = dict(DEFAULT_SEMANTIC_STATE)
+        for ref in edge["evidence_refs"]:
+            ref["source_artifact_id"] = "artifact:worldbuilding:test"
     unscoped = _build_from_inputs(
         _inputs(unscoped_root),
+        preview=candidate_graph_preview_from_dict(unscoped_preview_payload),
         campaign_scope=None,
     )
     unscoped_artifacts = [
@@ -1358,3 +1396,102 @@ def test_verify_rejects_resealed_rejected_bind_target(
     with pytest.raises(WorldbuildingWritePlanError) as exc:
         _verify(package, inputs, preview)
     assert exc.value.code == "plan_verification_failed"
+
+
+def test_verify_rejects_resealed_run_id_rewrite(tmp_path: Path) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    package["runId"] = "extraction-run:forged"
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "run_id" in str(exc.value)
+
+
+def test_verify_rejects_fully_resealed_source_revision_rewrite(
+    tmp_path: Path,
+) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    forged_revision = "sha256:" + ("a" * 64)
+    forged_digest = forged_revision.removeprefix("sha256:")
+    package["sourceRevisionId"] = forged_revision
+    effect = package["effect"]
+    effect["contribution_meta"]["source_revision_id"] = forged_revision
+    for bucket in ("accepted_proposals", "rejected_assertions"):
+        for assertion in effect[bucket]:
+            old_id = assertion["assertion_id"]
+            assertion["source_revision_id"] = forged_revision
+            for artifact in assertion["value"].get("source_artifacts") or []:
+                artifact["content_sha256"] = forged_digest
+            candidate_id = next(
+                candidate
+                for candidate, ids in effect["candidate_effect_map"].items()
+                if old_id in ids
+            )
+            _replace_assertion(
+                effect,
+                old_id=old_id,
+                assertion=assertion,
+                candidate_id=candidate_id,
+            )
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "source_revision_id" in str(exc.value)
+
+
+def test_verify_rejects_fully_resealed_campaign_scope_rewrite(
+    tmp_path: Path,
+) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    forged_campaign = "campaign:forged-scope"
+    effect = package["effect"]
+    effect["contribution_meta"]["campaign_scope"] = forged_campaign
+    for bucket in ("accepted_proposals", "rejected_assertions"):
+        for assertion in effect[bucket]:
+            old_id = assertion["assertion_id"]
+            assertion["campaign_scope"] = forged_campaign
+            for artifact in assertion["value"].get("source_artifacts") or []:
+                artifact["campaign_id"] = forged_campaign
+            candidate_id = next(
+                candidate
+                for candidate, ids in effect["candidate_effect_map"].items()
+                if old_id in ids
+            )
+            _replace_assertion(
+                effect,
+                old_id=old_id,
+                assertion=assertion,
+                candidate_id=candidate_id,
+            )
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "campaign_scope" in str(exc.value)
+
+
+def test_verify_rejects_world_id_context_mismatch(tmp_path: Path) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    package["worldId"] = "world:forged"
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "world_id" in str(exc.value)
+
+
+def test_verify_rejects_parent_revision_context_mismatch(tmp_path: Path) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    package["parentRevisionId"] = "revision:forged-parent"
+    _reseal_package(package)
+    with pytest.raises(WorldbuildingWritePlanError) as exc:
+        _verify(package, inputs, preview)
+    assert exc.value.code == "plan_verification_failed"
+    assert "parent_revision_id" in str(exc.value)

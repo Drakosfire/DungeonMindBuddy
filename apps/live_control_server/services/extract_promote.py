@@ -59,6 +59,7 @@ from graph_memory.extract_promote_proposal import PromoteProposalError
 from graph_memory.worldbuilding_write_plan import (
     WorldbuildingDispositionInput,
     WorldbuildingWritePlanError,
+    WorldbuildingWritePlanVerificationContext,
     build_worldbuilding_write_plan,
     verify_worldbuilding_write_plan,
 )
@@ -1155,7 +1156,16 @@ def prepare_worldbuilding(
             response.model_dump(mode="json", by_alias=True),
             preview=typed_preview,
             world_root=world_graph_root(),
-            source_uri=resolved.sealed_source_uri,
+            context=WorldbuildingWritePlanVerificationContext(
+                world_id=DEFAULT_WORLD_ID,
+                parent_revision_id=request.expected_parent_revision_id,
+                run_id=resolved.run_id,
+                source_artifact_id=resolved.source_artifact_id,
+                source_revision_id=resolved.source_revision_id,
+                source_uri=resolved.sealed_source_uri,
+                extraction_profile=expected_profile,
+                campaign_scope=resolved.campaign_id or None,
+            ),
         )
     except WorldbuildingWritePlanError as exc:
         raise ExtractPromoteError(
