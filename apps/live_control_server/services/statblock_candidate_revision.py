@@ -33,13 +33,10 @@ from apps.live_control_server.services.statblock_candidate_cache import (
 from apps.live_control_server.services.statblock_revise_reconciliation import (
     claim_revise_operation,
     get_revise_operation,
+    mark_cache_failed,
     mark_cache_stored_ref_pending,
     record_candidate_received,
     write_ahead_dispatched_unknown,
-)
-from apps.live_control_server.services.threat_draft_store import (
-    ThreatDraftStoreError,
-    get_threat_draft,
 )
 
 
@@ -76,14 +73,6 @@ def _response_from_operation(
         source_definition_digest=operation.source_definition_digest,
         instruction_options_digest=operation.instruction_options_digest,
     )
-
-
-def _load_draft_ref_ids(root: Path, draft_id: str) -> set[str]:
-    try:
-        draft = get_threat_draft(root, draft_id)
-    except ThreatDraftStoreError as exc:
-        raise ReviseCandidateRevisionError(str(exc), status_code=exc.status_code) from exc
-    return {ref.candidate_id for ref in draft.candidate_refs}
 
 
 def _ensure_write_ahead(
@@ -186,16 +175,14 @@ def _advance_after_claim(
         try:
             operation = _materialize_through_cache(root, operation, candidate)
         except CandidateCacheError:
-            refreshed = get_revise_operation(
+            failed = mark_cache_failed(
                 root,
-                draft_id=draft_id,
+                draft_id=operation.draft_id,
                 request_id=operation.request_id,
+                request_digest=operation.request_digest,
+                candidate_id=candidate.candidate_id,
             )
-            if refreshed is not None and refreshed.candidate_id is not None:
-                return _response_from_operation(
-                    refreshed, result="candidate_received"
-                )
-            raise
+            return _response_from_operation(failed, result="candidate_received")
         return _response_from_operation(
             operation, result="cache_stored_ref_pending"
         )
@@ -215,6 +202,10 @@ def revise_candidate_from_edited_definition(
     Existing journal authority is classified before draft/version/capacity
     checks and before Server client construction. The client is built lazily
     only when a revise POST or candidate GET is required.
+
+    New claims read draft membership, version, and candidate refs under the
+    ThreatDraft store lock through the shared capacity decision (store →
+    capacity → revise journal).
     """
     resolve_client, owned_clients = _client_factory(client)
 
@@ -252,8 +243,6 @@ def revise_candidate_from_edited_definition(
                 resolve_client=resolve_client,
             )
 
-        # New operation: draft membership/refs required for capacity admission.
-        ref_ids = _load_draft_ref_ids(root, draft_id)
         claim_outcome, operation = claim_revise_operation(
             root,
             draft_id=draft_id,
@@ -264,7 +253,6 @@ def revise_candidate_from_edited_definition(
             editor_state_revision=request.editor_state_revision,
             source_definition_digest=src_digest,
             instruction_options_digest=instr_digest,
-            ref_candidate_ids=ref_ids,
         )
 
         if claim_outcome == "version_mismatch":

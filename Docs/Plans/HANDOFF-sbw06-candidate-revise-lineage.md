@@ -334,7 +334,7 @@ Combined with §12.6’s one-unresolved-revise rule, two distinct revise `reques
 
 Do not drop oldest refs, compact silently, reuse `candidate_id`, overwrite superseded/rejected refs, or call Server then discover no admission capacity. Archival model requires a separate design review (stop condition).
 
-### 12.11 Partial completion, Server non-idempotency, and SBW06a gate
+### 12.11 Partial completion, Server revise recovery, and SBW06a gate
 
 Expected orchestration:
 
@@ -342,7 +342,7 @@ Expected orchestration:
 1. Validate exact source + local admission capacity + instruction bounds + draft version.
 2. Durably claim revise request_id with exact request body/digest (status=claimed).
 3. Durably write claimed → dispatched_unknown (write-ahead).
-4. Only after step 3 succeeds: HTTP revise dispatch (or Buddy same-key local replay of an already-recorded candidate — never a second POST while gate open).
+4. Only after step 3 succeeds: HTTP revise dispatch (or Buddy same-key local replay of an already-recorded candidate).
 5. Durably record returned candidate identity/payload or exact-read handle.
 6. Store/read candidate through Buddy cache boundary.
 7. Atomically append new candidate ref + lineage and any explicitly requested source-status transition.
@@ -350,20 +350,19 @@ Expected orchestration:
 9. Return ordinary success only when the promised product read path is available.
 ```
 
-**Server fact:** revise is currently **non-idempotent**. Blind re-POST of the same `request_id` after any Server-reaching attempt can create orphan Server candidates.
+**Historical (pre–Server PR #24):** revise was **non-idempotent**. Blind re-POST of the same `request_id` after any Server-reaching attempt could create orphan Server candidates. That fact drove the write-ahead + no-re-POST gate below.
+
+**Active Server mechanism (PR #24; §12.11 gate closed for `SBW06a`):** revise supports **same-key replay / changed-body conflict** comparable to generate. Buddy may re-POST the exact stored body under `dispatched_unknown` when `candidate_id` is unknown; Server returns the prior candidate or conflicts on digest mismatch.
 
 **Closed recovery rule for SBW06:**
 
 1. Buddy journal provides same-key / changed-body authority locally.
 2. Recovery that sees `claimed` performs write-ahead to `dispatched_unknown` only; it does **not** POST from `claimed`.
-3. When `candidate_id` is already recorded, recovery uses exact `GET /statblock-candidates/{candidate_id}` (or cache) — never a speculative re-revise.
-4. While `dispatched_unknown` and `candidate_id` is unknown, retain `request_id`; UI may retry lookup/reconcile only.
-5. **Automatic re-POST of revise is forbidden** from `dispatched_unknown` (and therefore also after write-ahead from a recovered `claimed`) until one of the following gates is proven and recorded in the `SBW06a` PR evidence:
-   - Server ships revise same-key replay / changed-body conflict comparable to generate; **or**
-   - Server exposes an exact `request_id` → candidate index Buddy can read without creating a new candidate; **or**
-   - a reviewed, evidence-backed recovery protocol that cannot orphan-duplicate (design review required).
+3. When `candidate_id` is already recorded, recovery uses exact `GET /statblock-candidates/{candidate_id}` (or cache) — never a speculative re-revise with a new body.
+4. While `dispatched_unknown` and `candidate_id` is unknown, retain `request_id`; recovery may same-key re-POST the stored body (Server PR #24) or retry lookup/reconcile.
+5. ~~**Automatic re-POST of revise is forbidden** until Server same-key replay ships~~ **Closed by Server PR #24** — same-key replay / changed-body conflict is the active recovery path; evidence is recorded in the `SBW06a` PR (vendored OpenAPI + fixtures).
 
-**`SBW06a` implementation gate:** do not merge `SBW06a` while gate (5) is unmet. The contract PR may still be approved with this gate explicit.
+**`SBW06a` implementation gate:** closed — Server PR #24 merged; Buddy vendors matching OpenAPI/fixtures.
 
 Truthful partial-completion invariants otherwise match SBW03/07:
 
@@ -376,26 +375,27 @@ Truthful partial-completion invariants otherwise match SBW03/07:
 ### 12.12 Lock ordering and atomic draft-mutation boundary
 
 ```text
-1. Draft-scoped lock (prevent concurrent writers)
-2. Pre-claim gates under that lock:
+1. ThreatDraft store lock
+2. Shared candidate capacity lock
+3. Revise journal lock — pre-claim gates under store+capacity+journal:
      - source/instruction/version validation → revise_blocked (no claim)
      - active revise slot free → else revise_busy (no claim)
-     - capacity admission (attached + reserved < 64) → else revise_history_full (no claim)
-3. Journal claim (single-record atomic replace) acquires active revise slot + capacity reservation (status=claimed)
-4. Durably write claimed → dispatched_unknown (still under lock or as the next atomic journal replace)
-5. Release draft lock only after step 4 succeeds
-6. Begin Server HTTP revise (or local same-key replay of recorded candidate)
-7. On Server success: re-acquire → journal candidate_received → cache write
-8. ThreatDraft CAS is the only product mutation boundary:
+     - capacity admission (attached + reserved < 64; refs read under store lock) → else revise_history_full (no claim)
+4. Journal claim (single-record atomic replace) acquires active revise slot + capacity reservation (status=claimed)
+5. Durably write claimed → dispatched_unknown (still under journal lock or as the next atomic journal replace)
+6. Release locks only after step 5 succeeds
+7. Begin Server HTTP revise (or local same-key replay of recorded candidate)
+8. On Server success: re-acquire → journal candidate_received → cache write
+9. ThreatDraft CAS is the only product mutation boundary:
      append ref with required embedded lineage
      AND apply any requested source-status transition
      OR apply neither
      (candidate_ref.request_id == lineage.revise_request_id == journal/Server request_id)
-9. Journal reconcile to reconciled; release reservation + active slot
-10. On terminal/non-begin proof: journal terminal_failure; release reservation + active slot
+10. Journal reconcile to reconciled; release reservation + active slot
+11. On terminal/non-begin proof: journal terminal_failure; release reservation + active slot
 ```
 
-Journal and ThreatDraft are separate durable records; ordering is restart-recoverable, not multi-record transactional. The active-slot and reservation rules exist specifically so lock release during Server I/O cannot overbook the final candidate-ref slot.
+Lock order matches generation admission: **store → capacity → journal**. Do not acquire the ThreatDraft store lock while holding capacity or the revise journal lock.
 
 ### 12.13 No-abandon / no-replacement-ID rule
 

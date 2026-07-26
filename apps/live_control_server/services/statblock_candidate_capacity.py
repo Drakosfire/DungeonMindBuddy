@@ -13,7 +13,7 @@ as one atomic boundary so the two claim paths cannot overbook.
 Lock order (new claims):
 - Generation (with ThreatDraft gates): store → capacity → reconciliation
 - Generation (journal-only claim helper): capacity → reconciliation
-- Revise (new claim): capacity → revise
+- Revise (new claim): store → capacity → revise
 """
 from __future__ import annotations
 

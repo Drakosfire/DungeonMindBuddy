@@ -4,6 +4,11 @@ Mirrors DungeonMindServer ``statblocks_v1.domain.canonicalization`` /
 ``digests.compute_definition_digest`` so Buddy can bind
 ``generation_receipt.source_definition_digest`` against the same bytes the
 Server hashes after parse + contract-shape restore.
+
+OpenAPI-generated ``StatblockDefinitionV1Input`` treats many list fields as
+nullable with default ``None``. Server domain models use
+``Field(default_factory=list)`` for those fields. Before hashing we restore
+those Server list defaults so omitted / null lists digest as ``[]``.
 """
 from __future__ import annotations
 
@@ -34,6 +39,50 @@ _SET_LIKE_FIELD_NAMES = frozenset(
     }
 )
 
+# Field names where Server StatblockDefinitionV1 uses default_factory=list.
+# OpenAPI Input DTOs often expose these as list | None = None.
+_SERVER_DEFAULT_EMPTY_LIST_FIELDS = frozenset(
+    {
+        "adjudication_tags",
+        "bypasses",
+        "condition_immunities",
+        "costs",
+        "damage_interactions",
+        "disabled_element_keys",
+        "effects",
+        "enabled_element_keys",
+        "failure_effects",
+        "hit_effects",
+        "languages",
+        "miss_effects",
+        "phases",
+        "qualifiers",
+        "resources",
+        "saving_throws",
+        "senses",
+        "skills",
+        "special_modes",
+        "subtypes",
+        "success_effects",
+        "tags",
+    }
+)
+
+
+def _restore_server_list_defaults(value: Any) -> Any:
+    """Replace null Server-defaulted lists with [] (recursive)."""
+    if isinstance(value, Mapping):
+        restored: dict[str, Any] = {}
+        for key, item in value.items():
+            if key in _SERVER_DEFAULT_EMPTY_LIST_FIELDS and item is None:
+                restored[str(key)] = []
+            else:
+                restored[str(key)] = _restore_server_list_defaults(item)
+        return restored
+    if isinstance(value, list):
+        return [_restore_server_list_defaults(item) for item in value]
+    return value
+
 
 def _normalize_value(value: Any, field_name: str | None = None) -> Any:
     if isinstance(value, str):
@@ -51,9 +100,31 @@ def _normalize_value(value: Any, field_name: str | None = None) -> Any:
     return value
 
 
+def canonicalize_definition_dict(source_definition: dict[str, Any]) -> str:
+    """Canonical JSON text for a wire definition dict (Server-shaped defaults)."""
+    if not isinstance(source_definition, dict):
+        raise TypeError("source_definition must be an object")
+    # Validate against the transport DTO, then restore Server domain list defaults
+    # before hashing so omitted subtypes/languages/etc. match Server [].
+    parsed = StatblockDefinitionV1Input.model_validate(source_definition)
+    payload = _restore_server_list_defaults(
+        parsed.model_dump(mode="json", exclude_none=False)
+    )
+    normalized = _normalize_value(payload)
+    return json.dumps(
+        normalized,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
 def canonicalize_definition_payload(definition: StatblockDefinitionV1Input) -> str:
     """Return version-1 canonical JSON text for a parsed definition."""
-    payload = definition.model_dump(mode="json", exclude_none=False)
+    payload = _restore_server_list_defaults(
+        definition.model_dump(mode="json", exclude_none=False)
+    )
     normalized = _normalize_value(payload)
     return json.dumps(
         normalized,
@@ -77,15 +148,14 @@ def compute_definition_digest(definition: StatblockDefinitionV1Input) -> str:
 
 def source_definition_digest_from_body(source_definition: dict[str, Any]) -> str:
     """Parse a wire/Buddy source_definition object and digest like Server."""
-    if not isinstance(source_definition, dict):
-        raise TypeError("source_definition must be an object")
-    parsed = StatblockDefinitionV1Input.model_validate(source_definition)
-    return compute_definition_digest(parsed)
+    text = canonicalize_definition_dict(source_definition)
+    return f"{DIGEST_ALGORITHM}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
 
 __all__ = [
     "CANONICALIZER_VERSION",
     "DIGEST_ALGORITHM",
+    "canonicalize_definition_dict",
     "canonicalize_definition_payload",
     "compute_definition_digest",
     "source_definition_digest_from_body",

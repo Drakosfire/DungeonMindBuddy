@@ -42,7 +42,6 @@ from apps.live_control_server.services.statblock_revise_reconciliation import (
     write_ahead_dispatched_unknown,
 )
 from apps.live_control_server.services.threat_draft_store import (
-    ThreatDraftStoreError,
     create_threat_draft,
     get_threat_draft,
 )
@@ -125,7 +124,6 @@ def test_write_ahead_before_dispatch_from_claimed(tmp_path: Path) -> None:
         editor_state_revision=req.editor_state_revision,
         source_definition_digest=src_digest,
         instruction_options_digest=instr_digest,
-        ref_candidate_ids=set(),
     )
     assert outcome == "claimed"
     assert op is not None and op.status == "claimed"
@@ -152,7 +150,6 @@ def test_same_key_input_conflict_zero_mutation(tmp_path: Path) -> None:
         editor_state_revision=req.editor_state_revision,
         source_definition_digest=src_digest,
         instruction_options_digest=instr_digest,
-        ref_candidate_ids=set(),
     )
     mutated = dict(body)
     mutated["revision_instructions"] = ["Different instruction."]
@@ -167,7 +164,6 @@ def test_same_key_input_conflict_zero_mutation(tmp_path: Path) -> None:
         editor_state_revision=req.editor_state_revision,
         source_definition_digest=src_digest,
         instruction_options_digest=instr_digest,
-        ref_candidate_ids=set(),
     )
     assert outcome == "revise_input_conflict"
     assert existing is not None
@@ -188,7 +184,6 @@ def test_revise_busy_blocks_second_request_id(tmp_path: Path) -> None:
         editor_state_revision=req.editor_state_revision,
         source_definition_digest=src_digest,
         instruction_options_digest=instr_digest,
-        ref_candidate_ids=set(),
     )
     req2 = _service_request(draft, request_id="revise-b")
     body2, digest2, src2, instr2 = _body_and_digests(req2)
@@ -202,7 +197,6 @@ def test_revise_busy_blocks_second_request_id(tmp_path: Path) -> None:
         editor_state_revision=req2.editor_state_revision,
         source_definition_digest=src2,
         instruction_options_digest=instr2,
-        ref_candidate_ids=set(),
     )
     assert outcome == "revise_busy"
 
@@ -285,7 +279,6 @@ def test_write_ahead_failure_makes_zero_server_posts(
         editor_state_revision=req.editor_state_revision,
         source_definition_digest=src_digest,
         instruction_options_digest=instr_digest,
-        ref_candidate_ids=set(),
     )
 
     def _boom(*_args, **_kwargs):
@@ -380,6 +373,7 @@ def test_cache_failure_leaves_candidate_received_without_draft_mutation(
     )
     assert stored is not None
     assert stored.status == "candidate_received"
+    assert stored.materialization.cache == "failed"
     after = get_threat_draft(tmp_path, draft.draft_id)
     assert after.candidate_refs == before.candidate_refs
 
@@ -486,7 +480,6 @@ def test_generation_blocked_when_revise_holds_final_slot(tmp_path: Path) -> None
         editor_state_revision=req.editor_state_revision,
         source_definition_digest=src_digest,
         instruction_options_digest=instr_digest,
-        ref_candidate_ids=ref_ids,
     )
     assert outcome == "claimed"
 
@@ -506,21 +499,25 @@ def test_generation_blocked_when_revise_holds_final_slot(tmp_path: Path) -> None
 
 
 def test_concurrent_final_slot_admits_exactly_one(tmp_path: Path) -> None:
+    """Race production revise claim vs production generation admission.
+
+    Both paths must take ThreatDraft store → capacity → journal so they cannot
+    deadlock or overbook the final slot.
+    """
     import threading
 
     from apps.live_control_server.models.threat_draft import (
         MAX_CANDIDATE_REFS,
         ThreatDraftCandidateRefV1,
     )
-    from apps.live_control_server.services.statblock_candidate_generation import (
-        map_draft_to_generate_request,
-    )
+    from apps.live_control_server.services import statblock_candidate_generation as gen_svc
     from apps.live_control_server.services.statblock_generation_reconciliation import (
         GenerationReconciliationError,
-        claim_generation_request,
-        request_digest_for_body,
     )
-    from apps.live_control_server.services.threat_draft_store import append_candidate_ref
+    from apps.live_control_server.services.threat_draft_store import (
+        ThreatDraftStoreError,
+        append_candidate_ref,
+    )
 
     draft = _create_draft(tmp_path)
     version = draft.version
@@ -538,11 +535,8 @@ def test_concurrent_final_slot_admits_exactly_one(tmp_path: Path) -> None:
         )
         version = draft.version
 
-    ref_ids = {ref.candidate_id for ref in draft.candidate_refs}
     req = _service_request(draft, request_id="revise-final-slot")
     body, digest, src_digest, instr_digest = _body_and_digests(req)
-    gen_body = map_draft_to_generate_request(draft, request_id="gen-final-slot")
-    gen_digest = request_digest_for_body(gen_body)
     barrier = threading.Barrier(2)
     results: dict[str, str] = {}
 
@@ -559,7 +553,6 @@ def test_concurrent_final_slot_admits_exactly_one(tmp_path: Path) -> None:
                 editor_state_revision=req.editor_state_revision,
                 source_definition_digest=src_digest,
                 instruction_options_digest=instr_digest,
-                ref_candidate_ids=ref_ids,
             )
             results["revise"] = outcome
         except Exception as exc:  # noqa: BLE001 — surface in assertion
@@ -568,18 +561,16 @@ def test_concurrent_final_slot_admits_exactly_one(tmp_path: Path) -> None:
     def claim_generation() -> None:
         barrier.wait(timeout=5)
         try:
-            claim_generation_request(
+            gen_svc._admit_and_claim_new_generation(
                 tmp_path,
                 draft_id=draft.draft_id,
-                draft_version=draft.version,
+                expected_draft_version=draft.version,
                 request_id="gen-final-slot",
-                request_digest=gen_digest,
-                request_body=gen_body,
-                ref_candidate_ids=ref_ids,
-                ref_entries=[],
             )
             results["generation"] = "claimed"
         except GenerationReconciliationError as exc:
+            results["generation"] = f"rejected:{exc}"
+        except ThreatDraftStoreError as exc:
             results["generation"] = f"rejected:{exc}"
         except Exception as exc:  # noqa: BLE001
             results["generation"] = f"error:{type(exc).__name__}:{exc}"
@@ -604,6 +595,82 @@ def test_concurrent_final_slot_admits_exactly_one(tmp_path: Path) -> None:
         isinstance(results.get("generation"), str)
         and "candidate_refs limit exceeded" in results["generation"]
     ), results
+
+
+def test_revise_admission_sees_ref_appended_under_store_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Candidate refs observed for capacity must be read under the store lock.
+
+    Simulate a ref becoming durable before revise's in-boundary draft load so
+    admission cannot decide against a stale pre-claim snapshot.
+    """
+    from apps.live_control_server.models.threat_draft import (
+        MAX_CANDIDATE_REFS,
+        ThreatDraftCandidateRefV1,
+    )
+    from apps.live_control_server.services import statblock_revise_reconciliation as revise_mod
+    from apps.live_control_server.services import threat_draft_store as store_mod
+    from apps.live_control_server.services.threat_draft_store import append_candidate_ref
+
+    draft = _create_draft(tmp_path)
+    version = draft.version
+    for index in range(MAX_CANDIDATE_REFS - 1):
+        draft = append_candidate_ref(
+            tmp_path,
+            draft_id=draft.draft_id,
+            expected_version=version,
+            candidate_ref=ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{index}",
+                generated_from_draft_version=1,
+                request_id=f"req-{index}",
+                created_at="2026-01-01T00:00:00Z",
+            ),
+        )
+        version = draft.version
+
+    original_load = store_mod._load_draft_unlocked
+    injected = {"done": False}
+
+    def load_and_inject(root: Path, draft_id: str):
+        draft_obj = original_load(root, draft_id)
+        if injected["done"] or len(draft_obj.candidate_refs) >= MAX_CANDIDATE_REFS:
+            return draft_obj
+        refs = list(draft_obj.candidate_refs)
+        refs.append(
+            ThreatDraftCandidateRefV1(
+                candidate_id=f"cand_{MAX_CANDIDATE_REFS - 1}",
+                generated_from_draft_version=1,
+                request_id="req-final",
+                created_at="2026-01-01T00:00:00Z",
+            )
+        )
+        updated = draft_obj.model_copy(
+            update={"candidate_refs": refs, "updated_at": "2026-01-01T00:00:01Z"}
+        )
+        store_mod._save_draft_unlocked(root, updated, as_draft_id=draft_obj.draft_id)
+        injected["done"] = True
+        return original_load(root, draft_id)
+
+    monkeypatch.setattr(store_mod, "_load_draft_unlocked", load_and_inject)
+    monkeypatch.setattr(revise_mod, "_load_draft_unlocked", load_and_inject)
+
+    req = _service_request(draft)
+    body, digest, src_digest, instr_digest = _body_and_digests(req)
+    outcome, op = claim_revise_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_draft_version=draft.version,
+        request_id=req.request_id,
+        request_digest=digest,
+        request_body=body,
+        editor_state_revision=req.editor_state_revision,
+        source_definition_digest=src_digest,
+        instruction_options_digest=instr_digest,
+    )
+    assert outcome == "revise_history_full"
+    assert op is None
+    assert injected["done"] is True
 
 
 def test_actor_included_in_revise_request_digest() -> None:
@@ -650,12 +717,19 @@ def test_existing_authority_replay_skips_client_and_missing_draft(
         "apps.live_control_server.services.statblock_candidate_revision.build_statblock_v1_client",
         boom_client,
     )
-    monkeypatch.setattr(
-        "apps.live_control_server.services.statblock_candidate_revision.get_threat_draft",
-        lambda *_a, **_k: (_ for _ in ()).throw(
-            ThreatDraftStoreError("draft missing", status_code=404)
-        ),
+    # Delete the draft file after claim so any accidental draft I/O fails closed.
+    draft_path = (
+        tmp_path / "out" / "threat_drafts" / f"{draft.draft_id}.json"
     )
+    if draft_path.is_file():
+        draft_path.unlink()
+    else:
+        # Locate committed draft path via store layout.
+        candidates = list((tmp_path / "out").rglob(f"*{draft.draft_id}*.json"))
+        for path in candidates:
+            if "threat_draft" in str(path) or "draft" in path.name:
+                path.unlink(missing_ok=True)
+
     replay = revise_candidate_from_edited_definition(
         tmp_path,
         draft_id=draft.draft_id,
@@ -682,13 +756,6 @@ def test_changed_body_conflict_without_draft(
         editor_state_revision=req.editor_state_revision,
         source_definition_digest=src_digest,
         instruction_options_digest=instr_digest,
-        ref_candidate_ids=set(),
-    )
-    monkeypatch.setattr(
-        "apps.live_control_server.services.statblock_candidate_revision.get_threat_draft",
-        lambda *_a, **_k: (_ for _ in ()).throw(
-            ThreatDraftStoreError("draft missing", status_code=404)
-        ),
     )
     monkeypatch.setattr(
         "apps.live_control_server.services.statblock_candidate_revision.build_statblock_v1_client",
