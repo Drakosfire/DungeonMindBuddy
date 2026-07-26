@@ -160,6 +160,9 @@ def test_no_surface_imports_in_public_signature() -> None:
         "message",
         "severity",
     }
+    assert MarkdownMentionDiagnostic.model_fields["severity"].is_required()
+    assert MarkdownMentionDiagnostic.model_fields["code"].is_required()
+    assert MarkdownMentionDiagnostic.model_fields["message"].is_required()
 
 
 def test_binding_order_preserves_ambiguity_sample_casing() -> None:

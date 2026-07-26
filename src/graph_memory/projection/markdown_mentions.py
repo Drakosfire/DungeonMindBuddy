@@ -36,7 +36,7 @@ class MarkdownMention(BaseModel):
 class MarkdownMentionDiagnostic(BaseModel):
     code: str
     message: str
-    severity: str = "info"
+    severity: str
 
 
 def splice_node_link_spans(
