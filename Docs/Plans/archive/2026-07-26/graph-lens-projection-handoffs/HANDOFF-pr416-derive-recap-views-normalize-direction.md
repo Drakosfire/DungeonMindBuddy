@@ -46,9 +46,20 @@ pr_body_template: |
 
 # HANDOFF — Derive recap views and normalize World Graph direction
 
+> **COMPLETED — 2026-07-26T19:09:02Z.** Shipped via [PR #416](https://github.com/Drakosfire/DungeonMindBuddy/pull/416)
+> (`main` merge commit `6410e04763846b1752336e9725a00e360ba8579f`).
+> Recap nested views reuse `WorldGraphProjectionNodeView`; World Graph directions are
+> closed `outgoing`/`incoming`/`related`.
+> **Three review rounds** (all GitHub `COMMENTED` under self-review fallback; treat banners as the verdict):
+> 1. APPROVE (`pullrequestreview-4782314232`, head `c939a026`) — architecture/invariant held on first independent re-verify.
+> 2. REQUEST CHANGES (`pullrequestreview-4782325624`) — blockers: recap compatibility baseline lived only in `/tmp` (head-vs-head tests); typecheck red without base/head diagnostic equivalence + explicit operator waiver; no compile-time proof that World Graph direction rejects `outbound`.
+> 3. REQUEST CHANGES / waiver gate (`pullrequestreview-4782346430`, corrective heads `3e3c28bd`/`635b569a`) — technical evidence closed (committed `recap_compat_baseline_v1.json` + replay test; base/head typecheck 37→36, `only_head=0`; `WorldGraphDirectionContractProof`); remaining gate was explicit operator waiver for red `npm run typecheck`, which the operator granted before merge.
+> Archived as `HANDOFF-pr416-…`.
+> **Follow-ups (named successors still open — see DECISION next-gate fork):** `migrate-union-mention-path`; `normalize-union-direction-vocabulary`; PR380B. **Archived for historical reference; do not re-dispatch.**
+
 **Created:** 2026-07-26, America/Denver.
-**Status:** ACTIVE — dispatch exactly one contract-hygiene capability.
-**Canonical handoff path:** `Docs/Plans/HANDOFF-derive-recap-views-normalize-direction.md`
+**Status:** DONE — merged as GitHub **PR #416** (`6410e04763846b1752336e9725a00e360ba8579f`).
+**Canonical handoff path:** `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/HANDOFF-pr416-derive-recap-views-normalize-direction.md`
 **Implementation base:** `5c19d433c9e103573ea6bd72ae1f34483862569f` — merge of PR #414.
 **Suggested branch:** `agent/derive-recap-views-normalize-direction`
 **Content slug:** `derive-recap-views-normalize-direction`

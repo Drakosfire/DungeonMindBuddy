@@ -10,6 +10,7 @@ Historical plan, handoff, report, review, and operational-note material lives un
 | `2026-05-09/` | Aggressive sort: `handoffs/`, `reports/`, `reviews/`, `operational-notes/`, plus `evidence-gap-waves/` and superseded Mirathorn Cursor plan. See [`2026-05-09/README.md`](2026-05-09/README.md). |
 | `2026-06-22/` | Tier-1 cleanup: completed L5 slices, Session 22 handoffs, plan-surface R0–L1, merged statblock PRs #107–#112. See [`2026-06-22/README.md`](2026-06-22/README.md). |
 | `2026-07-15/` | Hermes foundation reset package + completed supergraph/statblock handoffs and superseded roadmaps. See [`2026-07-15/hermes-campaign-authoring-foundation-reset/`](2026-07-15/hermes-campaign-authoring-foundation-reset/), [`completed-supergraph-handoffs/`](2026-07-15/completed-supergraph-handoffs/), [`completed-statblock-handoffs/`](2026-07-15/completed-statblock-handoffs/), [`superseded-roadmaps/`](2026-07-15/superseded-roadmaps/). |
+| `2026-07-26/` | Graph-lens projection hygiene handoffs after PR #414 / #416. See [`2026-07-26/graph-lens-projection-handoffs/`](2026-07-26/graph-lens-projection-handoffs/). |
 
 When moving a file here, prefer:
 
