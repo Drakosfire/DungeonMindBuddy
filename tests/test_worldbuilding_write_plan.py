@@ -22,6 +22,7 @@ from graph_memory.worldbuilding_write_plan import (
     WorldbuildingWritePlanError,
     WorldbuildingWritePlanVerificationContext,
     build_worldbuilding_write_plan,
+    materialize_worldbuilding_contribution,
     verify_worldbuilding_write_plan,
 )
 from graph_memory.contribution_bundles import load_contribution_bundle
@@ -1576,3 +1577,66 @@ def test_verify_propagates_stale_parent_revision_from_rebuild(
         _verify(package, inputs, preview)
     assert exc.value.code == "stale_parent_revision"
     assert exc.value.status_code == 409
+
+
+def test_materialize_contribution_matches_verified_effect(tmp_path: Path) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    verified = _verify(_response_package(plan), inputs, preview)
+    contribution = materialize_worldbuilding_contribution(
+        world_id=verified["world_id"],
+        decision_digest=verified["decision_digest"],
+        effect=verified["effect"],
+    )
+    assert contribution.contribution_id == kernel.compute_contribution_id(
+        world_id=verified["world_id"],
+        source_kind="source_extraction",
+        source_artifact_id=plan.source_artifact_id,
+        source_revision_id=plan.source_revision_id,
+        extraction_profile=plan.extraction_profile,
+        authored_by="live_control:worldbuilding_write_plan",
+        proposal_digest=plan.decision_digest,
+    )
+    assert contribution.authored_by == "live_control:worldbuilding_write_plan"
+    assert contribution.source_kind == "source_extraction"
+    assert [item.assertion_id for item in contribution.accepted_assertions] == [
+        item["assertion_id"] for item in plan.effect["accepted_proposals"]
+    ]
+
+
+def test_verify_without_current_head_allows_rebuild_against_pinned_parent(
+    tmp_path: Path,
+) -> None:
+    plan, preview, inputs = _build(tmp_path)
+    package = _response_package(plan)
+    world_root = inputs["world_root"]
+    head, _revision, store = kernel.open_current_world_graph(world_root, WORLD_ID)
+    kernel.publish_world_graph_revision(
+        world_root,  # type: ignore[arg-type]
+        WORLD_ID,
+        store,
+        operation_ids=["op:worldbuilding-write-plan-pinned-parent-rebuild"],
+        expected_parent_revision_id=head.head_revision_id,
+    )
+    verified = verify_worldbuilding_write_plan(
+        package,
+        preview=preview,
+        world_root=world_root,  # type: ignore[arg-type]
+        context=WorldbuildingWritePlanVerificationContext(
+            world_id=WORLD_ID,
+            parent_revision_id=str(inputs["parent"]),
+            run_id="extraction-run:worldbuilding-test",
+            source_artifact_id="artifact:worldbuilding:test",
+            source_revision_id=str(inputs["source_revision"]),
+            source_uri=str(inputs["source_uri"]),
+            extraction_profile="worldbuilding_shepherds_flock_v0@0.1",
+            campaign_scope=CAMPAIGN_ID,
+        ),
+        require_current_head=False,
+    )
+    assert verified["plan_id"] == plan.plan_id
+    contribution = materialize_worldbuilding_contribution(
+        world_id=verified["world_id"],
+        decision_digest=verified["decision_digest"],
+        effect=verified["effect"],
+    )
+    assert contribution.contribution_id.startswith("contribution:")

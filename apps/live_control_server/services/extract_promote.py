@@ -32,6 +32,8 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromoteReviewSummary,
     ExtractPromotionReviewItem,
     ExtractPromoteStatusResponse,
+    WorldbuildingWritePlanConfirmReceipt,
+    WorldbuildingWritePlanConfirmRequest,
     WorldbuildingWritePlanPrepareRequest,
     WorldbuildingWritePlanResponse,
 )
@@ -61,6 +63,7 @@ from graph_memory.worldbuilding_write_plan import (
     WorldbuildingWritePlanError,
     WorldbuildingWritePlanVerificationContext,
     build_worldbuilding_write_plan,
+    materialize_worldbuilding_contribution,
     verify_worldbuilding_write_plan,
 )
 from graph_memory.world_supergraph.errors import WorldGraphNotFoundError
@@ -973,9 +976,94 @@ def prepare_worldbuilding(
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
+    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
+        resolved
+    )
+
+    try:
+        plan = build_worldbuilding_write_plan(
+            preview=typed_preview,
+            world_root=world_graph_root(),
+            world_id=DEFAULT_WORLD_ID,
+            expected_parent_revision_id=request.expected_parent_revision_id,
+            run_id=resolved.run_id,
+            source_artifact_id=resolved.source_artifact_id,
+            source_revision_id=resolved.source_revision_id,
+            source_uri=resolved.sealed_source_uri,
+            extraction_profile=expected_profile,
+            campaign_scope=resolved.campaign_id or None,
+            dispositions=[
+                WorldbuildingDispositionInput(
+                    assertion_id=item.assertion_id,
+                    decision=item.decision,
+                    target_node_id=item.target_node_id,
+                )
+                for item in request.dispositions
+            ],
+        )
+    except WorldbuildingWritePlanError as exc:
+        raise ExtractPromoteError(
+            str(exc),
+            code=exc.code,
+            status_code=exc.status_code,
+            diagnostics=[_diagnostic(exc.code, str(exc))],
+        ) from exc
+
+    response = WorldbuildingWritePlanResponse(
+        plan_id=plan.plan_id,
+        plan_digest=plan.plan_digest,
+        decision_digest=plan.decision_digest,
+        world_id=plan.world_id,
+        parent_revision_id=plan.parent_revision_id,
+        run_id=plan.run_id,
+        source_artifact_id=plan.source_artifact_id,
+        source_revision_id=plan.source_revision_id,
+        extraction_profile=plan.extraction_profile,  # type: ignore[arg-type]
+        candidate_preview_id=plan.candidate_preview_id,
+        candidate_schema=plan.candidate_schema,
+        candidate_version=plan.candidate_version,
+        effect=plan.effect,
+        summary=plan.summary,
+        diagnostics=plan.diagnostics,
+    )
+    try:
+        verify_worldbuilding_write_plan(
+            response.model_dump(mode="json", by_alias=True),
+            preview=typed_preview,
+            world_root=world_graph_root(),
+            context=WorldbuildingWritePlanVerificationContext(
+                world_id=DEFAULT_WORLD_ID,
+                parent_revision_id=request.expected_parent_revision_id,
+                run_id=resolved.run_id,
+                source_artifact_id=resolved.source_artifact_id,
+                source_revision_id=resolved.source_revision_id,
+                source_uri=resolved.sealed_source_uri,
+                extraction_profile=expected_profile,
+                campaign_scope=resolved.campaign_id or None,
+            ),
+        )
+    except WorldbuildingWritePlanError as exc:
+        if exc.code == "stale_parent_revision":
+            raise ExtractPromoteError(
+                str(exc),
+                code=exc.code,
+                status_code=exc.status_code,
+                diagnostics=[_diagnostic(exc.code, str(exc))],
+            ) from exc
+        raise ExtractPromoteError(
+            "worldbuilding write plan failed self-verification",
+            code="plan_verification_failed",
+            status_code=500,
+            diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
+        ) from exc
+    return response
+
+
+def _load_typed_worldbuilding_preview_for_run(resolved):
+    """Shared prepare/confirm admission for one exact BLD-08 worldbuilding run."""
     if resolved.source_domain != "worldbuilding":
         raise ExtractPromoteError(
-            "worldbuilding prepare requires a worldbuilding ExtractionRun",
+            "operation requires a worldbuilding ExtractionRun",
             code="worldbuilding_run_required",
             status_code=422,
             diagnostics=[
@@ -993,7 +1081,7 @@ def prepare_worldbuilding(
     expected_profile = f"{WORLDBUILDING_PROFILE_ID}@{WORLDBUILDING_PROFILE_VERSION}"
     if resolved.extraction_profile != expected_profile:
         raise ExtractPromoteError(
-            "worldbuilding prepare requires the exact BLD-08 extraction profile",
+            "operation requires the exact BLD-08 extraction profile",
             code="unsupported_worldbuilding_profile",
             status_code=422,
             diagnostics=[
@@ -1104,27 +1192,87 @@ def prepare_worldbuilding(
         source_artifact_id=resolved.source_artifact_id,
         span_index=span_index,
     )
+    return typed_preview, expected_profile
+
+
+def _worldbuilding_already_applied_revision(
+    *,
+    world_root: Path,
+    world_id: str,
+    contribution_id: str,
+) -> str | None:
+    """Return current head when contribution is already active; else None."""
+    # Same ledger authority as recap exact-retry; Kernel public API does not
+    # yet expose a dedicated already-applied probe.
+    from graph_memory.world_supergraph.contribution_store import (
+        load_contribution_index,
+        load_contribution_record,
+    )
+    import graph_memory.kernel as kernel
 
     try:
-        plan = build_worldbuilding_write_plan(
+        head, _rev, _store = kernel.open_current_world_graph(world_root, world_id)
+        index = load_contribution_index(world_root, world_id)
+        if contribution_id not in index.active_contribution_ids:
+            return None
+        existing = load_contribution_record(world_root, world_id, contribution_id)
+    except Exception:
+        return None
+    if existing is None or existing.status != "active":
+        return None
+    return head.head_revision_id
+
+
+def confirm_worldbuilding(
+    request: WorldbuildingWritePlanConfirmRequest,
+) -> WorldbuildingWritePlanConfirmReceipt:
+    """Verify one sealed worldbuilding write plan and commit its rebuilt effect."""
+    import graph_memory.kernel as kernel
+
+    plan = request.plan
+    plan_payload = plan.model_dump(mode="json", by_alias=True)
+    world_root = world_graph_root()
+    if (
+        world_root.resolve() == live_world_graph_root().resolve()
+        and not PRODUCT_CONFIRM_ALLOW_LIVE_WORLD
+    ):
+        raise ExtractPromoteError(
+            "refusing to mutate live world root without allow_live_world",
+            code="live_world_refused",
+            status_code=403,
+            diagnostics=[_diagnostic("live_world_refused", "live world refused")],
+        )
+
+    try:
+        resolved = resolve_promotable_ingest_run(plan.run_id, root=repo_root())
+    except PromotableIngestRunError as exc:
+        raise _promotable_run_error(exc) from exc
+
+    typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
+        resolved
+    )
+    context = WorldbuildingWritePlanVerificationContext(
+        world_id=DEFAULT_WORLD_ID,
+        parent_revision_id=plan.parent_revision_id,
+        run_id=resolved.run_id,
+        source_artifact_id=resolved.source_artifact_id,
+        source_revision_id=resolved.source_revision_id,
+        source_uri=resolved.sealed_source_uri,
+        extraction_profile=expected_profile,
+        campaign_scope=resolved.campaign_id or None,
+    )
+    try:
+        verified = verify_worldbuilding_write_plan(
+            plan_payload,
             preview=typed_preview,
-            world_root=world_graph_root(),
-            world_id=DEFAULT_WORLD_ID,
-            expected_parent_revision_id=request.expected_parent_revision_id,
-            run_id=resolved.run_id,
-            source_artifact_id=resolved.source_artifact_id,
-            source_revision_id=resolved.source_revision_id,
-            source_uri=resolved.sealed_source_uri,
-            extraction_profile=expected_profile,
-            campaign_scope=resolved.campaign_id or None,
-            dispositions=[
-                WorldbuildingDispositionInput(
-                    assertion_id=item.assertion_id,
-                    decision=item.decision,
-                    target_node_id=item.target_node_id,
-                )
-                for item in request.dispositions
-            ],
+            world_root=world_root,
+            context=context,
+            require_current_head=False,
+        )
+        contribution = materialize_worldbuilding_contribution(
+            world_id=verified["world_id"],
+            decision_digest=verified["decision_digest"],
+            effect=verified["effect"],
         )
     except WorldbuildingWritePlanError as exc:
         raise ExtractPromoteError(
@@ -1134,54 +1282,142 @@ def prepare_worldbuilding(
             diagnostics=[_diagnostic(exc.code, str(exc))],
         ) from exc
 
-    response = WorldbuildingWritePlanResponse(
-        plan_id=plan.plan_id,
-        plan_digest=plan.plan_digest,
-        decision_digest=plan.decision_digest,
-        world_id=plan.world_id,
-        parent_revision_id=plan.parent_revision_id,
-        run_id=plan.run_id,
-        source_artifact_id=plan.source_artifact_id,
-        source_revision_id=plan.source_revision_id,
-        extraction_profile=plan.extraction_profile,  # type: ignore[arg-type]
-        candidate_preview_id=plan.candidate_preview_id,
-        candidate_schema=plan.candidate_schema,
-        candidate_version=plan.candidate_version,
-        effect=plan.effect,
-        summary=plan.summary,
-        diagnostics=plan.diagnostics,
-    )
     try:
-        verify_worldbuilding_write_plan(
-            response.model_dump(mode="json", by_alias=True),
-            preview=typed_preview,
-            world_root=world_graph_root(),
-            context=WorldbuildingWritePlanVerificationContext(
-                world_id=DEFAULT_WORLD_ID,
-                parent_revision_id=request.expected_parent_revision_id,
-                run_id=resolved.run_id,
-                source_artifact_id=resolved.source_artifact_id,
-                source_revision_id=resolved.source_revision_id,
-                source_uri=resolved.sealed_source_uri,
-                extraction_profile=expected_profile,
-                campaign_scope=resolved.campaign_id or None,
-            ),
+        head, _rev, _store = kernel.open_current_world_graph(
+            world_root, verified["world_id"]
         )
-    except WorldbuildingWritePlanError as exc:
-        if exc.code == "stale_parent_revision":
+    except (kernel.WorldGraphNotFoundError, ValueError) as exc:
+        raise ExtractPromoteError(
+            "The World Graph is not initialized.",
+            code="world_not_initialized",
+            status_code=409,
+            diagnostics=[_diagnostic("world_not_initialized", str(exc))],
+        ) from exc
+
+    parent = verified["parent_revision_id"]
+    if head.head_revision_id != parent:
+        if PRODUCT_CONFIRM_ALLOW_IDEMPOTENT_NOOP:
+            applied_at = _worldbuilding_already_applied_revision(
+                world_root=world_root,
+                world_id=verified["world_id"],
+                contribution_id=contribution.contribution_id,
+            )
+            if applied_at is not None:
+                return WorldbuildingWritePlanConfirmReceipt(
+                    outcome="already_applied",
+                    world_id=verified["world_id"],
+                    plan_id=verified["plan_id"],
+                    plan_digest=verified["plan_digest"],
+                    decision_digest=verified["decision_digest"],
+                    parent_revision_id=parent,
+                    committed_revision_id=applied_at,
+                    head_advanced=False,
+                    contribution_id=contribution.contribution_id,
+                    applied_assertion_count=len(contribution.accepted_assertions),
+                )
+        raise ExtractPromoteError(
+            "expected parent revision is not the current World Graph head",
+            code="stale_parent_revision",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "stale_parent_revision",
+                    "expected parent revision is not the current World Graph head",
+                )
+            ],
+        )
+
+    if PRODUCT_CONFIRM_DRY_RUN:
+        raise ExtractPromoteError(
+            "worldbuilding confirm dry_run is not supported",
+            code="invalid_request",
+            status_code=422,
+            diagnostics=[_diagnostic("invalid_request", "dry_run not supported")],
+        )
+
+    try:
+        result = kernel.merge_contribution_to_revision(
+            world_root,
+            world_id=verified["world_id"],
+            contribution=contribution,
+            expected_parent_revision_id=parent,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if "stale parent" in message:
             raise ExtractPromoteError(
-                str(exc),
-                code=exc.code,
-                status_code=exc.status_code,
-                diagnostics=[_diagnostic(exc.code, str(exc))],
+                "expected parent revision is not the current World Graph head",
+                code="stale_parent_revision",
+                status_code=409,
+                diagnostics=[_diagnostic("stale_parent_revision", message)],
             ) from exc
         raise ExtractPromoteError(
-            "worldbuilding write plan failed self-verification",
-            code="plan_verification_failed",
-            status_code=500,
-            diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
+            message,
+            code="merge_did_not_publish",
+            status_code=409,
+            diagnostics=[_diagnostic("merge_did_not_publish", message)],
         ) from exc
-    return response
+    except kernel.WorldGraphNotFoundError as exc:
+        raise ExtractPromoteError(
+            "The World Graph is not initialized.",
+            code="world_not_initialized",
+            status_code=409,
+            diagnostics=[_diagnostic("world_not_initialized", str(exc))],
+        ) from exc
+
+    published = bool(result.published)
+    diagnostics = list(result.diagnostics or [])
+    is_already_applied = (
+        not published
+        and PRODUCT_CONFIRM_ALLOW_IDEMPOTENT_NOOP
+        and "idempotent_noop:contribution_already_applied" in diagnostics
+    )
+    if is_already_applied:
+        return WorldbuildingWritePlanConfirmReceipt(
+            outcome="already_applied",
+            world_id=verified["world_id"],
+            plan_id=verified["plan_id"],
+            plan_digest=verified["plan_digest"],
+            decision_digest=verified["decision_digest"],
+            parent_revision_id=parent,
+            committed_revision_id=str(result.revision_id or parent),
+            head_advanced=False,
+            contribution_id=contribution.contribution_id,
+            applied_assertion_count=len(contribution.accepted_assertions),
+        )
+    if not published:
+        raise ExtractPromoteError(
+            "merge did not publish",
+            code="merge_did_not_publish",
+            status_code=409,
+            diagnostics=[_diagnostic("merge_did_not_publish", "merge did not publish")],
+            failure_payload=result.model_dump(mode="json"),
+        )
+    committed = str(result.revision_id or "").strip()
+    if not committed:
+        raise ExtractPromoteError(
+            "committed revision missing after confirm",
+            code="extract_promote_internal_error",
+            status_code=500,
+            diagnostics=[
+                _diagnostic(
+                    "extract_promote_internal_error",
+                    "committed revision missing after confirm",
+                )
+            ],
+        )
+    return WorldbuildingWritePlanConfirmReceipt(
+        outcome="committed",
+        world_id=verified["world_id"],
+        plan_id=verified["plan_id"],
+        plan_digest=verified["plan_digest"],
+        decision_digest=verified["decision_digest"],
+        parent_revision_id=parent,
+        committed_revision_id=committed,
+        head_advanced=True,
+        contribution_id=contribution.contribution_id,
+        applied_assertion_count=len(contribution.accepted_assertions),
+    )
 
 
 def _project_assertion_fields(
@@ -1500,6 +1736,7 @@ __all__ = [
     "ExtractPromoteError",
     "assert_sealed_source_uri_allowed",
     "confirm",
+    "confirm_worldbuilding",
     "get_status",
     "prepare_worldbuilding",
     "prepare",

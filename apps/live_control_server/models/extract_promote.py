@@ -266,6 +266,42 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     ] = "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
 
 
+WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA = (
+    "dmb_worldbuilding_write_plan_confirm_request_v1"
+)
+WORLD_BUILDING_WRITE_PLAN_CONFIRM_RESPONSE_SCHEMA = (
+    "dmb_worldbuilding_write_plan_confirm_v1"
+)
+WorldbuildingConfirmOutcome = Literal["committed", "already_applied"]
+
+
+class WorldbuildingWritePlanConfirmRequest(_ExtractPromoteModel):
+    schema_: Literal[WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA] = Field(
+        default=WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA,
+        alias="schema",
+    )
+    plan: WorldbuildingWritePlanResponse
+
+
+class WorldbuildingWritePlanConfirmReceipt(_ExtractPromoteModel):
+    schema_: Literal[WORLD_BUILDING_WRITE_PLAN_CONFIRM_RESPONSE_SCHEMA] = Field(
+        default=WORLD_BUILDING_WRITE_PLAN_CONFIRM_RESPONSE_SCHEMA,
+        alias="schema",
+    )
+    outcome: WorldbuildingConfirmOutcome
+    world_id: str
+    plan_id: str
+    plan_digest: str
+    decision_digest: str
+    parent_revision_id: str
+    committed_revision_id: str
+    head_advanced: bool
+    contribution_id: str
+    applied_assertion_count: int
+    audit_status: ConfirmAuditStatus = "ok"
+    warnings: list[str] = Field(default_factory=list)
+
+
 ConfirmOutcome = Literal["committed", "already_applied", "published_audit_degraded"]
 ConfirmAuditStatus = Literal["ok", "degraded"]
 

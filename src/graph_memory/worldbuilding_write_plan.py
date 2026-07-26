@@ -817,6 +817,7 @@ def _load_pinned_parent(
     world_root: Path,
     world_id: str,
     expected_parent_revision_id: str,
+    require_current_head: bool = True,
 ) -> tuple[str, UnionSupergraphStore]:
     expected = _nonblank(
         expected_parent_revision_id, field="expected_parent_revision_id"
@@ -829,7 +830,7 @@ def _load_pinned_parent(
             code="world_not_initialized",
             status_code=409,
         ) from exc
-    if head.head_revision_id != expected:
+    if require_current_head and head.head_revision_id != expected:
         raise WorldbuildingWritePlanError(
             "expected parent revision is not the current World Graph head",
             code="stale_parent_revision",
@@ -847,6 +848,57 @@ def _load_pinned_parent(
         ) from exc
 
 
+def materialize_worldbuilding_contribution(
+    *,
+    world_id: str,
+    decision_digest: str,
+    effect: Mapping[str, Any],
+) -> GraphContribution:
+    """Build a GraphContribution from a rebuild-verified plan effect.
+
+    Call only after ``verify_worldbuilding_write_plan`` has proved the effect.
+    """
+    canonical = _canonical_effect(effect)
+    meta = canonical["contribution_meta"]
+    if meta["authored_by"] != WORLD_BUILDING_WRITE_PLAN_AUTHORED_BY:
+        raise WorldbuildingWritePlanError(
+            "effect authored_by is not the worldbuilding write-plan author",
+            code="plan_verification_failed",
+        )
+    if meta["source_kind"] != WORLD_BUILDING_WRITE_PLAN_SOURCE_KIND:
+        raise WorldbuildingWritePlanError(
+            "effect source_kind is not source_extraction",
+            code="plan_verification_failed",
+        )
+    accepted = [
+        GraphContributionAssertion.model_validate(item)
+        for item in canonical["accepted_proposals"]
+    ]
+    rejected = [
+        GraphContributionAssertion.model_validate(item)
+        for item in canonical["rejected_assertions"]
+    ]
+    unresolved = [
+        ContributionIdentityMention.model_validate(item)
+        for item in canonical["unresolved_mentions"]
+    ]
+    return create_graph_contribution(
+        world_id=_nonblank(world_id, field="world_id"),
+        source_kind=WORLD_BUILDING_WRITE_PLAN_SOURCE_KIND,  # type: ignore[arg-type]
+        source_artifact_id=meta["source_artifact_id"],
+        source_revision_id=meta["source_revision_id"],
+        extraction_profile=meta["extraction_profile"],
+        campaign_scope=meta["campaign_scope"],
+        accepted_assertions=accepted,
+        rejected_assertions=rejected,
+        unresolved_mentions=unresolved,
+        authored_by=WORLD_BUILDING_WRITE_PLAN_AUTHORED_BY,
+        proposal_digest=_nonblank(decision_digest, field="decision_digest"),
+        produced_at=_FIXED_PRODUCED_AT,
+        diagnostics=[],
+    )
+
+
 def build_worldbuilding_write_plan(
     *,
     preview: CandidateGraphPreview,
@@ -861,6 +913,7 @@ def build_worldbuilding_write_plan(
     campaign_scope: str | None,
     dispositions: Sequence[WorldbuildingDispositionInput | Mapping[str, Any]],
     self_verify: bool = True,
+    require_current_head: bool = True,
 ) -> WorldbuildingWritePlan:
     """Build one deterministic inert plan without any graph mutation."""
     world = _nonblank(world_id, field="world_id")
@@ -883,6 +936,7 @@ def build_worldbuilding_write_plan(
         world_root=world_root,
         world_id=world,
         expected_parent_revision_id=expected_parent_revision_id,
+        require_current_head=require_current_head,
     )
     disposition_map, decision_snapshot, nodes, edges = _validate_dispositions(
         preview, dispositions
@@ -1167,6 +1221,7 @@ def build_worldbuilding_write_plan(
                 extraction_profile=profile,
                 campaign_scope=campaign_scope,
             ),
+            require_current_head=require_current_head,
         )
     return plan
 
@@ -1214,12 +1269,16 @@ def verify_worldbuilding_write_plan(
     preview: CandidateGraphPreview,
     world_root: Path,
     context: WorldbuildingWritePlanVerificationContext,
+    require_current_head: bool = True,
 ) -> dict[str, Any]:
     """Verify a response-carried plan by rebuilding from trusted context.
 
     Envelope identity is compared to the server-resolved context first. The
     builder is then re-run only from that context plus the sealed dispositions
     and exact candidate preview.
+
+    When ``require_current_head`` is False, rebuild validates against the pinned
+    parent revision even if the live head has advanced (confirm retry path).
     """
     try:
         if not isinstance(plan, Mapping):
@@ -1401,6 +1460,7 @@ def verify_worldbuilding_write_plan(
                 campaign_scope=context.campaign_scope,
                 dispositions=dispositions,
                 self_verify=False,
+                require_current_head=require_current_head,
             )
         except WorldbuildingWritePlanError as exc:
             if exc.code == "stale_parent_revision":
@@ -1466,5 +1526,6 @@ __all__ = [
     "WorldbuildingWritePlanError",
     "WorldbuildingWritePlanVerificationContext",
     "build_worldbuilding_write_plan",
+    "materialize_worldbuilding_contribution",
     "verify_worldbuilding_write_plan",
 ]
