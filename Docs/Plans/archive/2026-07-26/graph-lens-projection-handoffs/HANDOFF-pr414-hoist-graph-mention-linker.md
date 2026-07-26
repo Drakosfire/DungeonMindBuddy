@@ -38,8 +38,12 @@ pr_body_template: |
 
 > **COMPLETED — 2026-07-26.** Shipped via [PR #414](https://github.com/Drakosfire/DungeonMindBuddy/pull/414)
 > (`main` merge commit `5c19d433c9e103573ea6bd72ae1f34483862569f`).
+> **Three review rounds** (all GitHub `COMMENTED` under self-review fallback; treat banners as the verdict):
+> 1. APPROVE (`pullrequestreview-4781008821`, head `0d3265b4`) — pure-move invariant held on first independent re-verify.
+> 2. REQUEST CHANGES (`pullrequestreview-4781999189`) — blocker: `MarkdownMentionDiagnostic.severity: str = "info"` made a required public field optional.
+> 3. MERGE (`pullrequestreview-4782060618`, corrective head `eaf441d0`) — severity required again; public-contract test asserts `code`/`message`/`severity` required; corrective delta limited to model + tests.
 > Archived and renamed from `HANDOFF-pr413-…` to `HANDOFF-pr414-…` per `AGENTS.md`.
-> Successor `derive-recap-views-normalize-direction` shipped as PR #416.
+> **Follow-ups:** `derive-recap-views-normalize-direction` (shipped as PR #416); `migrate-union-mention-path`; PR380B. **Archived for historical reference; do not re-dispatch.**
 
 **Created:** 2026-07-25.
 **Status:** DONE — merged as GitHub **PR #414** (`5c19d433c9e103573ea6bd72ae1f34483862569f`).
