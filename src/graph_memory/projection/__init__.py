@@ -21,6 +21,8 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionErrorResponse,
     WorldGraphProjectionRequest,
     WorldGraphQueryContext,
+    WorldGraphRelationshipDirection,
+    normalize_world_graph_relationship_direction,
 )
 from graph_memory.projection.recap_projection import (
     RecapGraphProjection,
@@ -31,7 +33,6 @@ from graph_memory.projection.recap_projection import (
 )
 from graph_memory.projection.world_recap_projection import (
     WorldGraphRecapProjection,
-    adapt_world_node_to_recap_view,
     project_world_markdown_mentions,
 )
 
@@ -49,10 +50,11 @@ __all__ = [
     "RecapGraphProjection",
     "RecapProjectionMention",
     "WorldGraphRecapProjection",
-    "adapt_world_node_to_recap_view",
+    "WorldGraphRelationshipDirection",
     "build_focus_overlay",
     "build_node_view",
     "build_recap_graph_projection",
+    "normalize_world_graph_relationship_direction",
     "project_markdown_mentions",
     "project_world_markdown_mentions",
     "splice_node_link_spans",

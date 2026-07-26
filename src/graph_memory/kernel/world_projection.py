@@ -45,6 +45,7 @@ from graph_memory.projection.world_projection import (
     SEARCH_MAX_NODES,
     SEARCH_MAX_RELATIONSHIPS,
     SEARCH_MAX_SOURCE_ARTIFACTS,
+    WorldGraphDirectionError,
     WorldGraphProjection,
     WorldGraphProjectionAdjacencyCandidate,
     WorldGraphProjectionAttributeView,
@@ -63,6 +64,7 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionTrustBoundary,
     WorldGraphQueryContext,
     derive_attribute_text_value,
+    normalize_world_graph_relationship_direction,
     rank_search_node_matches,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphEdge, UnionSupergraphNode, UnionSupergraphStore
@@ -1186,13 +1188,24 @@ def _convert_evidence_badge(
 def _convert_adjacency_candidate(
     candidate: GraphProjectionAdjacencyCandidate,
 ) -> WorldGraphProjectionAdjacencyCandidate:
+    try:
+        direction = normalize_world_graph_relationship_direction(candidate.direction)
+    except WorldGraphDirectionError as exc:
+        raise WorldGraphProjectionError(
+            str(exc),
+            code="unsupported_relationship_direction",
+            status_code=422,
+            diagnostics=[
+                _diagnostic("unsupported_relationship_direction", str(exc)),
+            ],
+        ) from exc
     return WorldGraphProjectionAdjacencyCandidate(
         edge_id=candidate.edge_id,
         node_id=candidate.node_id,
         label=candidate.label,
         kind=candidate.kind,
         predicate=candidate.predicate,
-        direction=candidate.direction,
+        direction=direction,
         anchored_to_focus_session=candidate.anchored_to_focus_session,
         source_domains=list(candidate.source_domains),
         evidence_ref_ids=list(candidate.evidence_ref_ids),
@@ -1474,6 +1487,19 @@ def _build_relationship_views(
             evidence_ref_ids,
             source_artifact_ids,
         )
+        try:
+            normalized_direction = normalize_world_graph_relationship_direction(
+                direction
+            )
+        except WorldGraphDirectionError as exc:
+            raise WorldGraphProjectionError(
+                str(exc),
+                code="unsupported_relationship_direction",
+                status_code=422,
+                diagnostics=[
+                    _diagnostic("unsupported_relationship_direction", str(exc)),
+                ],
+            ) from exc
         relationships.append(
             WorldGraphProjectionRelationshipView(
                 edge_id=edge.edge_id,
@@ -1481,7 +1507,7 @@ def _build_relationship_views(
                 target_node_id=target_node_id,
                 predicate=predicate,
                 label=relationship_label,
-                direction=direction,
+                direction=normalized_direction,
                 session_ids=relationship_session_ids,
                 source_domains=source_domains,
                 visibility=visibility,
