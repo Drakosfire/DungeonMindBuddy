@@ -51,10 +51,24 @@ pr_body_template: |
   {{TODO: none, or exact missing evidence, baseline failures, waivers, and discovered stop conditions}}
 ---
 
+> **COMPLETED (2026-07-26):** Merged as [PR #423](https://github.com/Drakosfire/DungeonMindBuddy/pull/423) (`eb2d40ba86a9992c2df526e78efc5e8a1033c3eb`).
+>
+> **Review rounds (7 COMMENT submissions; REQUEST_CHANGES posted as COMMENT because reviewer and PR author share the repo account):**
+> 1. `4782581852` / `4782582655` — REQUEST CHANGES: invalid fixture provenance (`base_sha` = fixture commit), partial full-payload proof, equal-length overlapping alias winner drift.
+> 2. `4782597249` — additional equal-length alias ordering blocker detail.
+> 3. `4782703875` — REQUEST CHANGES: neutral linker public default changed; fixture self-authorized identity-diagnostic drift.
+> 4. `4782790340` — REQUEST CHANGES: quarantining dmb-link case did not defer shipped diagnostic change; stop-condition test did not live-replay.
+> 5. `4782820545` — REQUEST CHANGES: evidence live-replay fixed; remaining blocker is operator contract decision + API waiver.
+> 6. `4782841190` — TECHNICALLY MERGE after operator option 1 (authorize `union_identity_mention_target_resolved` for destination protection); baseline-red manifest-path API quartet still required explicit waiver.
+>
+> **Follow-ups:** `normalize-union-direction-vocabulary` (next dispatched slice); PR380B; durable Union store direction migration remains false.
+>
+> Archived from `Docs/Plans/HANDOFF-pr420-migrate-union-mention-path.md` as part of the post-merge doc-sync that also dispatches the direction-vocabulary handoff.
+
 # HANDOFF — Migrate the union mention path onto the CommonMark-safe linker
 
 **Created:** 2026-07-26, America/Denver.
-**Status:** ACTIVE — dispatch exactly one behavior-hardening capability.
+**Status:** COMPLETED — merged as GitHub PR #423 (`eb2d40ba`).
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr420-migrate-union-mention-path.md`
 **Implementation base:** `d832a088f1aa62b171f69d59dfa57d17cb5308f8` — merge of PR #419, the atomic doc-sync after PR #416.
 **Suggested branch:** `agent/pr420-migrate-union-mention-path`
