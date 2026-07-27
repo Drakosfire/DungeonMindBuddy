@@ -1399,6 +1399,8 @@ def test_review_and_prepare_reject_unknown_span_ref(world_client) -> None:
     review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
     assert review.status_code == 422, review.text
     assert review.json()["code"] == "run_not_promotable"
+    assert review.json().get("inspectionStatus") == "blocked"
+    assert review.json().get("runStatus") == "reviewable"
     assert "unknown" in review.json()["message"].lower() or any(
         "unknown_span_ref" in (d.get("code") or "")
         for d in review.json().get("diagnostics") or []
@@ -1460,10 +1462,26 @@ def test_review_and_prepare_reject_false_anchor_quotes(world_client) -> None:
     _mutate_extraction_candidate(repo, run_id, mutate)
     review = client.get(f"/api/live/extract-promote/runs/{run_id}/review-package")
     assert review.status_code == 422, review.text
+    body = review.json()
+    assert body["code"] == "run_not_promotable"
+    assert body.get("inspectionStatus") == "invalid_evidence"
+    assert body.get("runStatus") == "reviewable"
+    diagnostics = body.get("diagnostics") or []
     assert any(
         "false_anchor_quote" in (d.get("code") or "")
-        for d in review.json().get("diagnostics") or []
-    ) or "anchor quote" in review.json()["message"].lower()
+        for d in diagnostics
+    ) or "anchor quote" in body["message"].lower()
+    span_ref_diag = next(
+        (item for item in diagnostics if item.get("code") == "span_ref"),
+        None,
+    )
+    assert span_ref_diag is not None, diagnostics
+    quote_diag = next(
+        (item for item in diagnostics if item.get("code") == "false_anchor_quote"),
+        None,
+    )
+    assert quote_diag is not None, diagnostics
+    assert "this quote is not in the source paragraph" in str(quote_diag.get("message") or "")
     prepare = client.post(PREPARE_URL, json=_prepare_body(run_id))
     assert prepare.status_code == 422
 
