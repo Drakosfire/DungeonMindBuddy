@@ -1,15 +1,16 @@
 # HANDOFF — SBW06 Candidate revise/regenerate and lineage
 
 **Created:** 2026-07-22
-**Updated:** 2026-07-27 — `#417` SBW06a MERGED (`8a73b101`); `#425` Dogfood Gate A MERGED (`13b2e258`)
-**Status:** `SBW06b` — ACTIVE (revise candidate reconciliation)
+**Updated:** 2026-07-27 — `#435` SBW06b MERGED (`32eb1571`); `SBW06c` ACTIVE
+**Status:** `SBW06c` — ACTIVE (Workbench revise UX)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`
 **Workstream:** `SBW06`
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**PR base / repository tip:** `13b2e258` on `main` (`#425` Dogfood Gate A merge)
-**Logical SBW predecessor:** `#425` / `13b2e25856db945d67bfd0e6dcfae8b7c1446f63` — Dogfood Gate A MERGED
-**This PR:** `SBW06b` — lineage-on-ref + atomic source status
-**Next after this PR merges:** `SBW06c` (Workbench revise UX)
+**PR base / repository tip:** `32eb1571` on `main` (`#435` SBW06b merge)
+**Logical SBW predecessor:** `#435` / `32eb1571f67b64c3b8c8ebd4d9fa9e6059eece05` — SBW06b MERGED
+**This PR:** `SBW06c` — Workbench revise UX
+**Next after this PR merges:** `SBW06d` (revise from exact accepted mechanics locator)
+**Active bite handoff:** [`HANDOFF-sbw06c-workbench-revise-ux.md`](HANDOFF-sbw06c-workbench-revise-ux.md)
 
 > Dispatch one capability across a contract PR plus four code PRs: create a new candidate proposal from an exact source and preserve lineage. Do not persist mechanics, compare accepted revisions, update graph bindings, or generate media.
 
@@ -19,8 +20,8 @@
 |---|---|---|---|---|
 | `SBW06-contract` | MERGED `#413` | Doc-only: freeze §12 revise authority tables | Docs only; no implementation | All code |
 | `SBW06a` | MERGED `#417` / `8a73b101` | Exact edited `source_definition` adapter + revise journal | Client + revision service + tests | Status UI, accepted-revision source, ThreatDraft lineage attach as ordinary success |
-| `SBW06b` | **THIS PR** | Durable candidate ref with embedded `CandidateLineageV1`, status transitions | Draft store/ref transitions + tests implementing frozen §12.8 | UI, accepted-revision revise |
-| `SBW06c` | after `SBW06b` | Workbench revise UX | Workbench + liveApi | Accepted-revision source, compare, append |
+| `SBW06b` | MERGED `#435` / `32eb1571` | Durable candidate ref with embedded `CandidateLineageV1`, status transitions | Draft store/ref transitions + tests implementing frozen §12.8 | UI, accepted-revision revise |
+| `SBW06c` | **THIS PR** | Workbench revise UX | Workbench + liveApi | Accepted-revision source, compare, append |
 | `SBW06d` | after `SBW06c` | Exact accepted `source_locator` revise | Service/route/UI using SBW07 locators | Graph, SBW13 append, compare, media |
 
 **Why after SBW07:** accepted-revision source needs exact locators; revise durability is deferred until first mechanics save is proven (SBW03 / SBW07b–c lesson).
