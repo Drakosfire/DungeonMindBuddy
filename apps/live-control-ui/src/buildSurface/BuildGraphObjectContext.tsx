@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LiveApiError, postWorldGraphProjection } from "../api/liveApi";
 import type { GraphProjectionNodeView, WorldGraphProjection } from "../api/types";
@@ -36,11 +36,19 @@ function adaptProjectionNodeMap(projection: WorldGraphProjection): Record<string
 
 export interface BuildGraphObjectContextProps {
   documentCampaignId?: string | null;
+  /**
+   * When true, refuse to load until document campaign admission succeeds.
+   * Use for document-backed Build shell; leave false on the new-source form.
+   */
+  requireDocumentScope?: boolean;
 }
 
 type ContextStatus = "idle" | "loading" | "ready" | "error" | "scope_mismatch" | "missing_node";
 
-export function BuildGraphObjectContext({ documentCampaignId }: BuildGraphObjectContextProps) {
+export function BuildGraphObjectContext({
+  documentCampaignId,
+  requireDocumentScope = false,
+}: BuildGraphObjectContextProps) {
   const pointer = useMemo(() => parseBuildGraphPointerFromLocation(), []);
   const [status, setStatus] = useState<ContextStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -48,22 +56,41 @@ export function BuildGraphObjectContext({ documentCampaignId }: BuildGraphObject
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [revisionId, setRevisionId] = useState<string | null>(null);
   const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
+  const requestGenerationRef = useRef(0);
 
   const loadProjection = useCallback(async () => {
+    const generation = ++requestGenerationRef.current;
+    const isCurrent = () => generation === requestGenerationRef.current;
+
     if (!pointer) {
-      setStatus("idle");
+      if (isCurrent()) setStatus("idle");
       return;
     }
 
-    if (documentCampaignId?.trim()) {
+    if (requireDocumentScope) {
       const admission = admitBuildDocumentScope({
         documentCampaignId,
         incomingCampaignId: pointer.campaignId,
       });
       if (!admission.ok) {
+        if (!isCurrent()) return;
         setStatus("scope_mismatch");
         setError(admission.reason);
         setNodeViews({});
+        setActiveNodeId(null);
+        return;
+      }
+    } else if (documentCampaignId?.trim()) {
+      const admission = admitBuildDocumentScope({
+        documentCampaignId,
+        incomingCampaignId: pointer.campaignId,
+      });
+      if (!admission.ok) {
+        if (!isCurrent()) return;
+        setStatus("scope_mismatch");
+        setError(admission.reason);
+        setNodeViews({});
+        setActiveNodeId(null);
         return;
       }
     }
@@ -73,15 +100,19 @@ export function BuildGraphObjectContext({ documentCampaignId }: BuildGraphObject
       revisionPin: pointer.graphRevision,
     });
     if (!request) {
+      if (!isCurrent()) return;
       setStatus("error");
       setError(`Unknown campaign mapping for ${pointer.campaignId}.`);
       return;
     }
 
-    setStatus("loading");
-    setError(null);
+    if (isCurrent()) {
+      setStatus("loading");
+      setError(null);
+    }
     try {
       const projection = await postWorldGraphProjection(request);
+      if (!isCurrent()) return;
       const adapted = adaptProjectionNodeMap(projection);
       setNodeViews(adapted);
       setRevisionId(projection.snapshot.revisionId);
@@ -93,6 +124,7 @@ export function BuildGraphObjectContext({ documentCampaignId }: BuildGraphObject
       }
       setStatus("ready");
     } catch (loadError) {
+      if (!isCurrent()) return;
       setNodeViews({});
       setStatus("error");
       setError(
@@ -103,10 +135,14 @@ export function BuildGraphObjectContext({ documentCampaignId }: BuildGraphObject
             : "Failed to load World Graph context.",
       );
     }
-  }, [documentCampaignId, pointer]);
+  }, [documentCampaignId, pointer, requireDocumentScope]);
 
   useEffect(() => {
     void loadProjection();
+    return () => {
+      // Invalidate in-flight responses when admission inputs change or the lane unmounts.
+      requestGenerationRef.current += 1;
+    };
   }, [loadProjection]);
 
   const handleSelectRelationshipTarget = useCallback(

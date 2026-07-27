@@ -105,12 +105,18 @@ export function WorldGraphRecapProjectionView({
         <span className="union-supergraph-graph-id">{payload.graphId}</span>
       </header>
 
+      <p className="recap-reader-hint world-graph-recap-mentions-hint">
+        Read-only TipTap projection of the published session recap. Editing and corpus writes are intentionally out of
+        scope here. Graph chips open exact durable World Graph node ids; evidence highlights show the recap paragraph
+        that supports the selected graph context. {payload.mentions.length} graph mention
+        {payload.mentions.length === 1 ? "" : "s"} projected.
+      </p>
+
       <div className={`recap-reader-layout union-supergraph-layout${activeNodeView ? " graph-explorer-open" : ""}`}>
         <GraphProjectionReader
           markdown={payload.markdown}
           nodeViews={adaptedNodeViews}
           sourceSpans={[]}
-          mentionsCount={payload.mentions.length}
           graphId={payload.graphId}
           showGraphId={false}
           documentLabel="Published recap"

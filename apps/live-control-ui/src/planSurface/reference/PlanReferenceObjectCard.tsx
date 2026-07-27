@@ -145,13 +145,11 @@ export function PlanReferenceObjectCard({
         mode="plan"
         aria-label={`${model.label} graph object`}
         showRelationshipProvenance={showRelationshipProvenance}
-        onSelectRelationshipTarget={
+        onSelectRelationship={
           projection
-            ? async (targetId) => {
+            ? async (relationship) => {
                 if (!projection?.openPlanReferenceResolution || navigatingRelationshipId) return;
                 if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
-                const relationship = (model.relationships ?? []).find((row) => row.targetId === targetId);
-                if (!relationship) return;
                 setNavigatingRelationshipId(relationship.id);
                 try {
                   const nextResolution = await resolvePlanRelationship(relationship);

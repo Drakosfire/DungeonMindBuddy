@@ -130,10 +130,12 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         );
         setSessionRecords(records);
         const campaignRecords = records.filter((record) => record.campaign_id === selectedCampaignId);
+        // Explicit ?session= must reach the recap endpoint unchanged, even when the
+        // artifact listing is stale or missing that session. Artifacts only choose a
+        // default when the URL omitted a session.
         const nextSessionId =
-          requestedSessionId && campaignRecords.some((record) => record.session_id === requestedSessionId)
-            ? requestedSessionId
-            : (campaignRecords.at(-1)?.session_id ?? fallbackSessionId);
+          requestedSessionId
+            ?? (campaignRecords.at(-1)?.session_id ?? fallbackSessionId);
         setSelectedSessionId(nextSessionId);
         setArtifactsLoaded(true);
       })

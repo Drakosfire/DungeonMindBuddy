@@ -56,6 +56,20 @@ describe("BuildGraphObjectContext", () => {
     );
   });
 
+  it("refuses document-backed load when requireDocumentScope lacks an admitted campaign", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
+    );
+    const postProjection = vi.spyOn(liveApi, "postWorldGraphProjection");
+
+    render(<BuildGraphObjectContext documentCampaignId={null} requireDocumentScope />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Select a Build source/i);
+    expect(postProjection).not.toHaveBeenCalled();
+  });
+
   it("BuildSurfacePage renders graph context beside new-source form", () => {
     window.history.replaceState(
       {},

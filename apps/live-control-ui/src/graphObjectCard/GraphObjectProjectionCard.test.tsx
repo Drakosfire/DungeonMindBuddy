@@ -25,6 +25,26 @@ describe("GraphObjectProjectionCard", () => {
     expect(onSelect).toHaveBeenCalledWith("loc_mirathorn");
   });
 
+  it("emits the full clicked relationship for Plan-style navigation", () => {
+    const onSelectRelationship = vi.fn();
+    const model = {
+      id: "npc-glowkindle",
+      label: "Glowkindle",
+      typeBadgeLabel: "NPC",
+      relationships: [
+        { id: "edge-lysandra", label: "Lysandra", predicate: "knows", targetId: "" },
+        { id: "edge-inn", label: "Inn", predicate: "met at", targetId: "" },
+      ],
+    };
+    render(
+      <GraphObjectProjectionCard model={model} onSelectRelationship={onSelectRelationship} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Open related object .*Inn/i }));
+    expect(onSelectRelationship).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "edge-inn", label: "Inn", targetId: "" }),
+    );
+  });
+
   it("resolveExactProjectedNode performs exact map lookup only", () => {
     expect(resolveExactProjectedNode(nodeViews, "loc_mirathorn")?.node_id).toBe("loc_mirathorn");
     expect(resolveExactProjectedNode(nodeViews, "missing-node")).toBeNull();

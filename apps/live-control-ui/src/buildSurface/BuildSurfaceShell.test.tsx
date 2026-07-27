@@ -825,4 +825,58 @@ describe("BuildSurfaceShell", () => {
     });
     expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });
+
+  it("PR380B: does not load graph context while the workspace document is still loading", async () => {
+    let releaseSnapshot: ((snapshot: ReturnType<typeof buildWorldbuildingSnapshot>) => void) | undefined;
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseSnapshot = resolve;
+        }),
+    );
+    window.history.pushState(
+      {},
+      "",
+      `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=wg-rev-test`,
+    );
+    const postProjection = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "wg-rev-test",
+        headRevisionId: "wg-rev-test",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-surface-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
+    expect(postProjection).not.toHaveBeenCalled();
+
+    releaseSnapshot?.(buildWorldbuildingSnapshot(DOC_ID));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+    });
+    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
+  });
 });

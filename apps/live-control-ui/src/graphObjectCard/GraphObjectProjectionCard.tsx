@@ -22,6 +22,12 @@ export interface GraphObjectProjectionCardProps {
   model?: GraphObjectCardViewModel;
   mode?: GraphObjectCardMode;
   actions?: ReactNode;
+  /**
+   * Preferred for Plan: receives the exact clicked relationship row so label-only
+   * edges (shared empty targetId) still resolve to the clicked edge.
+   */
+  onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
+  /** Exact-id navigation for Recap/Build when only the durable target id is needed. */
   onSelectRelationshipTarget?: (targetId: string) => void;
   loading?: boolean;
   disabled?: boolean;
@@ -36,6 +42,7 @@ export function GraphObjectProjectionCard({
   model,
   mode = "plan",
   actions,
+  onSelectRelationship,
   onSelectRelationshipTarget,
   loading = false,
   disabled = false,
@@ -63,14 +70,19 @@ export function GraphObjectProjectionCard({
     actions: baseModel.actions?.length ? baseModel.actions : [],
   };
 
-  const onSelectRelationship = onSelectRelationshipTarget
-    ? (relationship: GraphObjectRelationshipViewModel) => {
-        // Pass through empty-string targetIds so Plan's existing label/ambiguity
-        // resolver remains reachable. Recap/Build treat empty as unresolved.
-        if (relationship.targetId == null) return;
-        onSelectRelationshipTarget(relationship.targetId);
-      }
-    : undefined;
+  const handleSelectRelationship =
+    onSelectRelationship || onSelectRelationshipTarget
+      ? (relationship: GraphObjectRelationshipViewModel) => {
+          if (onSelectRelationship) {
+            onSelectRelationship(relationship);
+            return;
+          }
+          // Exact-id path: pass through empty-string targetIds so callers that still
+          // interpret "" can run; Recap/Build treat empty as unresolved.
+          if (relationship.targetId == null || !onSelectRelationshipTarget) return;
+          onSelectRelationshipTarget(relationship.targetId);
+        }
+      : undefined;
 
   return (
     <div className={className ?? "graph-object-projection-card"} data-testid="graph-object-projection-card">
@@ -79,7 +91,7 @@ export function GraphObjectProjectionCard({
         model={cardModel}
         aria-label={ariaLabel ?? `${cardModel.label} graph object`}
         showRelationshipProvenance={showRelationshipProvenance}
-        onSelectRelationship={onSelectRelationship}
+        onSelectRelationship={handleSelectRelationship}
         selectedRelationshipId={selectedRelationshipId}
         relationshipsDisabled={disabled}
         actionsSlot={actions ?? undefined}

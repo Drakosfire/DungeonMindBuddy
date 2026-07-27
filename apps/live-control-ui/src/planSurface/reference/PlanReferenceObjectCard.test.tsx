@@ -494,6 +494,65 @@ describe("PlanReferenceObjectCard", () => {
     expect(screen.queryByLabelText(/Glowkindle graph object/i)).not.toBeInTheDocument();
   });
 
+  it("navigates the clicked label-only relationship when multiple empty targetIds share a card", async () => {
+    const user = userEvent.setup();
+    const nodeWithMultipleLabelOnly: GraphProjectionNodeView = {
+      ...glowkindleNode,
+      adjacency: [
+        {
+          edge_id: "edge-lysandra",
+          node_id: "",
+          label: "Lysandra",
+          kind: "npc",
+          predicate: "knows",
+          direction: "outgoing",
+          related_summary: null,
+          evidence_ref_ids: [],
+          source_domains: [],
+          anchored_to_focus_session: true,
+          session_ids: [],
+        },
+        {
+          edge_id: "edge-inn",
+          node_id: "",
+          label: "Inn",
+          kind: "location",
+          predicate: "met at",
+          direction: "outgoing",
+          related_summary: null,
+          evidence_ref_ids: [],
+          source_domains: [],
+          anchored_to_focus_session: true,
+          session_ids: [],
+        },
+      ],
+    };
+
+    const initialResolution: PlanReferenceResolution = {
+      kind: "graph-node",
+      locator: "dmb-node:npc-glowkindle",
+      graphObject: buildGraphObjectCardFromNodeView(nodeWithMultipleLabelOnly),
+      graphNodeId: "npc-glowkindle",
+      fallback: null,
+      source: "world-graph",
+      graphProjectionState: "ready",
+    };
+
+    renderWithProjection(<PlanReferenceProjectionHarness initialResolution={initialResolution} />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
+    });
+
+    // First empty-targetId row is ambiguous Lysandra. Clicking Inn must not first-win that row.
+    await user.click(screen.getByRole("button", { name: /Open related object .*Inn/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Inn graph object/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("plan-reference-unresolved-card")).not.toBeInTheDocument();
+  });
+
   it("renders unresolved state for ambiguous graph matches", () => {
     const resolution: PlanReferenceResolution = {
       kind: "unresolved",

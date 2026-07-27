@@ -163,4 +163,36 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     expect(continueLink.getAttribute("href")).toContain("graphNodeId=pc_caelynn");
     expect(continueLink.getAttribute("href")).toContain(`graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`);
   });
+
+  it("does not render preview-candidate chip copy for published World Graph recap", async () => {
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
+    render(<RecapGraphModule context={context} />);
+    expect(
+      await screen.findByText(/Graph chips open exact durable World Graph node ids/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/preview memory candidates/i)).not.toBeInTheDocument();
+  });
+
+  it("preserves an explicit URL session even when it is absent from the artifact listing", async () => {
+    window.history.replaceState({}, "", "/plan?tool=recap&session=session-99");
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      records: [artifactRecord(24)],
+    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockRejectedValue(
+      new liveApi.LiveApiError("recap missing", 404, { code: "recap_markdown_unavailable" }),
+    );
+
+    render(<RecapGraphModule context={context} />);
+
+    await waitFor(() => {
+      expect(postRecap).toHaveBeenCalledWith(
+        expect.objectContaining({
+          focus: expect.objectContaining({ sessionId: "session-99" }),
+        }),
+      );
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Canonical normalized recap is unavailable for session-99 in longmont-c2.",
+    );
+  });
 });

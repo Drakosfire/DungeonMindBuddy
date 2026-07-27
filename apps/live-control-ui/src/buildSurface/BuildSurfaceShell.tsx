@@ -141,10 +141,19 @@ export function BuildSurfaceShell() {
     };
   }, [publishSurfaceContext, rehydrateScope]);
 
+  // Document-backed graph context must wait for an accepted record. While the
+  // document is loading, conflicted, or rejected, session.record is null — mounting
+  // then would skip scope admission and race a later rejection.
+  const graphPointer = parseBuildGraphPointerFromLocation();
+  const acceptedDocumentCampaignId = session.record?.campaign_id ?? null;
+
   return (
     <div className="build-surface-with-graph-context">
-      {parseBuildGraphPointerFromLocation() ? (
-        <BuildGraphObjectContext documentCampaignId={session.record?.campaign_id ?? null} />
+      {graphPointer && acceptedDocumentCampaignId ? (
+        <BuildGraphObjectContext
+          documentCampaignId={acceptedDocumentCampaignId}
+          requireDocumentScope
+        />
       ) : null}
       <MarkdownCanvas slots={slots} />
     </div>
