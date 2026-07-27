@@ -101,6 +101,8 @@ import type {
   GenerateThreatDraftCandidateRequestV1,
   GenerateThreatDraftCandidateResponseV1,
   ThreatDraftV1,
+  ReviseCandidateFromEditedDefinitionRequestV1,
+  ReviseCandidateFromEditedDefinitionResponseV1,
   WorldGraphBootstrapStatusV1,
   ReadStatblockCandidateResponseV1,
   ValidateDefinitionBuddyRequestV1,
@@ -772,6 +774,24 @@ export async function generateThreatDraftCandidate(
 ): Promise<GenerateThreatDraftCandidateResponseV1> {
   return apiFetch<GenerateThreatDraftCandidateResponseV1>(
     `/api/live/threat-drafts/${encodeURIComponent(draftId)}/candidates:generate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+}
+
+export async function getThreatDraft(draftId: string): Promise<ThreatDraftV1> {
+  return apiFetch<ThreatDraftV1>(`/api/live/threat-drafts/${encodeURIComponent(draftId)}`);
+}
+
+export async function reviseThreatDraftCandidate(
+  draftId: string,
+  request: ReviseCandidateFromEditedDefinitionRequestV1,
+): Promise<ReviseCandidateFromEditedDefinitionResponseV1> {
+  return apiFetch<ReviseCandidateFromEditedDefinitionResponseV1>(
+    `/api/live/threat-drafts/${encodeURIComponent(draftId)}/candidates:revise`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

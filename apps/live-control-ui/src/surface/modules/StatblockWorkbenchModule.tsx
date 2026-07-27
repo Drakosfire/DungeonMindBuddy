@@ -7,9 +7,11 @@ import {
   generateThreatDraftCandidate,
   getAcceptanceOperation,
   getStatblockCandidate,
+  getThreatDraft,
   getWorldGraphBootstrapStatus,
   LiveApiError,
   reconcileAcceptanceOperation,
+  reviseThreatDraftCandidate,
   validateStatblockDefinition,
 } from "../../api/liveApi";
 import type {
@@ -20,6 +22,8 @@ import type {
   GenerateThreatDraftCandidateResponseV1,
   ReadAcceptanceOperationResponseV1,
   ReadStatblockCandidateResponseV1,
+  ReviseCandidateFromEditedDefinitionResponseV1,
+  ThreatDraftV1,
   ValidateDefinitionBuddyResponseV1,
 } from "../../api/types";
 import type {
@@ -43,6 +47,25 @@ import {
   splitIssuesBySeverity,
 } from "../../statblocks/editor/statblockValidationIssues";
 import { StatblockRenderer } from "../../statblocks/render/StatblockRenderer";
+import {
+  MechanicsSavedAppendBoundary,
+  ProposalHistoryPanel,
+  ReviseWithAiPanel,
+} from "../../statblocks/revision/StatblockRevisePanels";
+import {
+  buildReviseRequestFromWorkingCopy,
+  classifyReviseResult,
+  isReviseAttemptCompleted,
+  markReviseAttemptCompleted,
+  proveReconciledRefOnDraft,
+  readCandidateWorkingCopy,
+  readLegacyJoinWorkingCopyForCandidate,
+  readStoredReviseAttempt,
+  updateReviseAttemptResult,
+  writeCandidateWorkingCopy,
+  writeStoredReviseAttempt,
+  type StoredReviseAttemptV1,
+} from "../../statblocks/revision/statblockRevisionAttempt";
 
 type LoadState =
   | { kind: "idle" }
@@ -704,17 +727,20 @@ function writeStoredWorkbenchJoin(join: StoredWorkbenchJoin): void {
   }
 }
 
-/** Prefer create/restore identity; Advanced draft fields are recovery only. */
+/** Prefer explicit Advanced draft fields when filled; else create/restore identity. */
 function resolveAcceptDraftIdentity(
   createdDraft: CreatedDraftIdentity | null,
   draftIdInput: string,
   draftVersionInput: string,
 ): { draft_id: string; version: number } | null {
+  const draftId = draftIdInput.trim();
+  const version = Number(draftVersionInput);
+  if (draftId && Number.isInteger(version) && version >= 1) {
+    return { draft_id: draftId, version };
+  }
   if (createdDraft?.draft_id && createdDraft.version >= 1) {
     return { draft_id: createdDraft.draft_id, version: createdDraft.version };
   }
-  const draftId = draftIdInput.trim();
-  const version = Number(draftVersionInput);
   if (!draftId || !Number.isInteger(version) || version < 1) {
     const stored = readStoredWorkbenchJoin();
     if (stored?.draft_id) {
@@ -769,6 +795,23 @@ function patchStoredWorkbenchJoin(patch: Partial<StoredWorkbenchJoin>): void {
     candidate_id: pick(patch.candidate_id, prev.candidate_id) as string | null,
     working_copy: pickWorkingCopy(patch.working_copy, prev.working_copy),
   });
+}
+
+function restoreWorkingCopyForCandidate(
+  base: StatblockEditorState,
+  draftId: string | null,
+  candidateId: string,
+  stored: StoredWorkbenchJoin | null,
+): StatblockEditorState {
+  if (draftId?.trim()) {
+    const scoped =
+      readCandidateWorkingCopy(draftId, candidateId) ??
+      readLegacyJoinWorkingCopyForCandidate(draftId, candidateId);
+    if (scoped) {
+      return updateWorkingCopy(base, () => scoped);
+    }
+  }
+  return editorStateWithRestoredWorkingCopy(base, candidateId, stored);
 }
 
 /** Rehydrate local edits for the same candidate without treating them as accepted mechanics. */
@@ -873,14 +916,6 @@ function writeStoredAcceptAttempt(draftId: string, attempt: StoredAcceptAttempt)
   } catch {
     /* private mode / quota — in-memory state still covers the session */
   }
-}
-
-function writeStoredAcceptOperationId(draftId: string, operationId: string): void {
-  const existing = readStoredAcceptAttempt(draftId);
-  writeStoredAcceptAttempt(draftId, {
-    operation_id: operationId,
-    request: existing?.request ?? null,
-  });
 }
 
 function clearStoredAcceptOperationId(draftId: string): void {
@@ -1072,6 +1107,7 @@ function AcceptMechanicsFlow({
   onValidate,
   validatePending,
   validateDisabled,
+  mechanicsSavedDraft,
 }: {
   preview: PreviewValidation | null;
   editorState: StatblockEditorState;
@@ -1084,6 +1120,7 @@ function AcceptMechanicsFlow({
   onValidate: () => void;
   validatePending: boolean;
   validateDisabled: boolean;
+  mechanicsSavedDraft: boolean;
 }) {
   const eligible = acceptPreviewEligible(preview, editorState, editorEpoch);
   const previewCurrent = previewIsCurrent(preview, editorState, editorEpoch);
@@ -1242,10 +1279,16 @@ function AcceptMechanicsFlow({
       setReplayRequest(storedAttempt.request);
     }
 
-    void runRestoreLookup(draftId, storedId, restoreGeneration);
+    queueMicrotask(() => {
+      if (!isRestoreGenerationCurrent(draftId, restoreGeneration)) {
+        return;
+      }
+      void runRestoreLookup(draftId, storedId, restoreGeneration);
+    });
 
     return () => {
-      // Cancellation always releases restorePending (draft change / unmount / Strict Mode).
+      // Strict Mode / draft switch: orphan in-flight restore lookups.
+      restoreGenerationRef.current += 1;
       setRestorePending(false);
     };
   }, [normalizedDraftId]);
@@ -1502,7 +1545,8 @@ function AcceptMechanicsFlow({
   const blocksNewAccept =
     existenceUnresolved || suppressesNewAccept(resultLabel, acceptResultOrigin);
   const hasDraftIdentity = Boolean(normalizedDraftId && expectedDraftVersion != null);
-  const showAcceptEntry = eligible && hasDraftIdentity && !blocksNewAccept && !restorePending;
+  const showAcceptEntry =
+    eligible && hasDraftIdentity && !blocksNewAccept && !restorePending && !mechanicsSavedDraft;
 
   const dockError = (() => {
     if (acceptError) {
@@ -1553,6 +1597,9 @@ function AcceptMechanicsFlow({
       }
       return "Accept/Save blocked by a durable outcome — use recovery actions above.";
     }
+    if (mechanicsSavedDraft) {
+      return "Mechanics already saved for this draft — first-save Accept/Save is not offered for revised proposals.";
+    }
     if (!previewCurrent) {
       return preview
         ? "Preview validation is stale — validate again before Accept/Save."
@@ -1577,6 +1624,7 @@ function AcceptMechanicsFlow({
 
   return (
     <div data-testid="accept-mechanics-flow" data-owned-draft={normalizedDraftId}>
+      {mechanicsSavedDraft ? <MechanicsSavedAppendBoundary /> : null}
       {restorePending && !acceptResult && !existenceUnresolved ? (
         <p className="module-muted" role="status" data-testid="accept-mechanics-restoring">
           Restoring acceptance operation…
@@ -1849,11 +1897,26 @@ export function StatblockWorkbenchModule() {
   const [pendingValidation, setPendingValidation] = useState<PendingValidation | null>(null);
   const [validationFailure, setValidationFailure] = useState<ValidationFailure | null>(null);
   const [editorEpoch, setEditorEpoch] = useState(0);
+  const [threatDraft, setThreatDraft] = useState<ThreatDraftV1 | null>(null);
+  const [draftSnapshotPending, setDraftSnapshotPending] = useState(false);
+  const [draftSnapshotError, setDraftSnapshotError] = useState<string | null>(null);
+  const [draftSnapshotUnavailable, setDraftSnapshotUnavailable] = useState(false);
+  const [reviseInstructionsRaw, setReviseInstructionsRaw] = useState("");
+  const [preserveElementKeys, setPreserveElementKeys] = useState(true);
+  const [reviseAttempt, setReviseAttempt] = useState<StoredReviseAttemptV1 | null>(null);
+  const [reviseStatusMessage, setReviseStatusMessage] = useState<string | null>(null);
+  const [reviseError, setReviseError] = useState<string | null>(null);
+  const [revisePending, setRevisePending] = useState(false);
 
   const validateRequestIdRef = useRef(0);
   const editorEpochRef = useRef(0);
   /** Shared monotonic identity for manual load, retry, and draft generation. */
   const candidateOpIdRef = useRef(0);
+  /** Monotonic guard for revise POST outcomes vs newer candidate/draft selection. */
+  const reviseOpGenerationRef = useRef(0);
+  const draftSnapshotGenerationRef = useRef(0);
+  const reviseInFlightRef = useRef(false);
+  const ownedDraftSnapshotIdRef = useRef<string>("");
   /** Synchronous duplicate-submit guard for create-and-generate. */
   const createAndGenerateInFlightRef = useRef(false);
   const editorStateRef = useRef<StatblockEditorState | null>(null);
@@ -1865,12 +1928,82 @@ export function StatblockWorkbenchModule() {
   createdDraftRef.current = createdDraft;
 
   const applyCreatedDraftIdentity = useCallback((identity: CreatedDraftIdentity) => {
+    const hadSameDraft = createdDraftRef.current?.draft_id === identity.draft_id;
     createdDraftRef.current = identity;
     setCreatedDraft(identity);
-    setDraftIdInput(identity.draft_id);
-    setDraftVersionInput(String(identity.version));
+    setDraftIdInput((current) => {
+      if (current.trim()) return current;
+      // Keep Advanced draft ID empty when session create identity matches — Accept uses createdDraft.
+      if (hadSameDraft) return "";
+      return identity.draft_id;
+    });
+    setDraftVersionInput((current) => {
+      if (current.trim() && current !== String(identity.version)) {
+        return current;
+      }
+      return String(identity.version);
+    });
     setCreatePhase((prev) => (prev === "idle" ? "draft_created" : prev));
   }, []);
+
+  const refreshThreatDraftSnapshot = useCallback(async (draftId: string) => {
+    const trimmed = draftId.trim();
+    if (!trimmed) return;
+    const generation = ++draftSnapshotGenerationRef.current;
+    ownedDraftSnapshotIdRef.current = trimmed;
+    setDraftSnapshotPending(true);
+    setDraftSnapshotError(null);
+    try {
+      const draft = await getThreatDraft(trimmed);
+      if (
+        generation !== draftSnapshotGenerationRef.current ||
+        ownedDraftSnapshotIdRef.current !== trimmed
+      ) {
+        return;
+      }
+      setThreatDraft(draft);
+      setDraftSnapshotUnavailable(false);
+      patchStoredWorkbenchJoin({
+        draft_id: draft.draft_id,
+        version: draft.version,
+        name: draft.name,
+      });
+      const storedAttempt = readStoredReviseAttempt(trimmed);
+      setReviseAttempt(storedAttempt);
+      if (storedAttempt?.raw_instructions) {
+        setReviseInstructionsRaw(storedAttempt.raw_instructions);
+      }
+    } catch (error) {
+      if (
+        generation !== draftSnapshotGenerationRef.current ||
+        ownedDraftSnapshotIdRef.current !== trimmed
+      ) {
+        return;
+      }
+      setDraftSnapshotUnavailable(true);
+      setDraftSnapshotError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (
+        generation === draftSnapshotGenerationRef.current &&
+        ownedDraftSnapshotIdRef.current === trimmed
+      ) {
+        setDraftSnapshotPending(false);
+      }
+    }
+  }, []);
+
+  const persistActiveCandidateWorkingCopy = useCallback(() => {
+    const candidateId = activeCandidateIdRef.current;
+    const draftId = createdDraftRef.current?.draft_id ?? draftIdInput.trim();
+    const editor = editorStateRef.current;
+    if (!candidateId || !draftId || !editor) return;
+    writeCandidateWorkingCopy(draftId, candidateId, editor.workingCopy);
+    patchStoredWorkbenchJoin({
+      candidate_id: candidateId,
+      draft_id: draftId,
+      working_copy: editor.workingCopy,
+    });
+  }, [draftIdInput]);
 
   const bumpEditorEpoch = useCallback(() => {
     const next = editorEpochRef.current + 1;
@@ -1919,19 +2052,27 @@ export function StatblockWorkbenchModule() {
       }
       const candidateId = activeCandidateIdRef.current;
       if (candidateId) {
+        const draftId = createdDraftRef.current?.draft_id ?? draftIdInput.trim();
+        if (draftId) {
+          writeCandidateWorkingCopy(draftId, candidateId, next.workingCopy);
+        }
         patchStoredWorkbenchJoin({
           candidate_id: candidateId,
           working_copy: next.workingCopy,
         });
       }
     },
-    [],
+    [draftIdInput],
   );
 
   const loadCandidate = useCallback(
     async (candidateId: string, options?: { opId?: number }) => {
       const trimmed = candidateId.trim();
       const opId = options?.opId ?? beginCandidateOp();
+      if (!isCurrentCandidateOp(opId)) {
+        return;
+      }
+      persistActiveCandidateWorkingCopy();
       // A fresh manual/retry load orphans in-flight generation UI.
       if (options?.opId == null) {
         setPendingGenerate(false);
@@ -1960,9 +2101,38 @@ export function StatblockWorkbenchModule() {
         if (response.status === "active" && response.candidate) {
           const loadedCandidateId = response.candidate.candidate_id || trimmed;
           const stored = readStoredWorkbenchJoin();
+          let draftIdentityEarly: CreatedDraftIdentity | null = null;
+          const fromResponseEarly =
+            typeof response.source_draft_id === "string" &&
+            response.source_draft_id.trim() &&
+            typeof response.source_draft_version === "number" &&
+            Number.isInteger(response.source_draft_version) &&
+            response.source_draft_version >= 1
+              ? {
+                  draft_id: response.source_draft_id.trim(),
+                  version: response.source_draft_version,
+                  name:
+                    typeof response.source_draft_name === "string" &&
+                    response.source_draft_name.trim()
+                      ? response.source_draft_name.trim()
+                      : response.source_draft_id.trim(),
+                }
+              : null;
+          if (fromResponseEarly) {
+            draftIdentityEarly = fromResponseEarly;
+          } else if (stored?.candidate_id === loadedCandidateId) {
+            draftIdentityEarly = createdDraftFromStoredJoin(stored);
+          } else if (
+            createdDraftRef.current &&
+            stored?.draft_id === createdDraftRef.current.draft_id &&
+            (stored?.candidate_id == null || stored.candidate_id === loadedCandidateId)
+          ) {
+            draftIdentityEarly = createdDraftRef.current;
+          }
           let nextEditor = createEditorStateFromOutput(response.candidate.definition);
-          nextEditor = editorStateWithRestoredWorkingCopy(
+          nextEditor = restoreWorkingCopyForCandidate(
             nextEditor,
+            draftIdentityEarly?.draft_id ?? null,
             loadedCandidateId,
             stored,
           );
@@ -2019,6 +2189,9 @@ export function StatblockWorkbenchModule() {
               candidate_id: loadedCandidateId,
               working_copy: preservedWorkingCopy,
             });
+            if (fromResponse && isCurrentCandidateOp(opId)) {
+              void refreshThreatDraftSnapshot(draftIdentity.draft_id);
+            }
           } else {
             createdDraftRef.current = null;
             setCreatedDraft(null);
@@ -2050,7 +2223,7 @@ export function StatblockWorkbenchModule() {
         });
       }
     },
-    [applyCreatedDraftIdentity, beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp],
+    [applyCreatedDraftIdentity, beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp, persistActiveCandidateWorkingCopy, refreshThreatDraftSnapshot],
   );
 
   useEffect(() => {
@@ -2075,6 +2248,179 @@ export function StatblockWorkbenchModule() {
     event.preventDefault();
     void loadCandidate(candidateIdInput);
   };
+
+  const handleReviseResponse = useCallback(
+    async (
+      generation: number,
+      draftId: string,
+      attempt: StoredReviseAttemptV1,
+      response: ReviseCandidateFromEditedDefinitionResponseV1,
+    ) => {
+      if (generation !== reviseOpGenerationRef.current) return;
+      const updated = updateReviseAttemptResult(
+        attempt,
+        response.result,
+        response.candidate_id ?? null,
+      );
+      writeStoredReviseAttempt(updated);
+      setReviseAttempt(updated);
+
+      if (response.result === "reconciled" && response.candidate_id) {
+        setReviseStatusMessage("Revised proposal reconciled — refreshing draft…");
+        try {
+          const refreshed = await getThreatDraft(draftId);
+          if (generation !== reviseOpGenerationRef.current) return;
+          const proof = proveReconciledRefOnDraft(
+            refreshed,
+            response.candidate_id,
+            attempt.request_id,
+          );
+          if (!proof) {
+            setReviseError(
+              "Revised proposal reconciled; local refresh incomplete — use Refresh proposal history.",
+            );
+            return;
+          }
+          setThreatDraft(refreshed);
+          applyCreatedDraftIdentity({
+            draft_id: refreshed.draft_id,
+            version: refreshed.version,
+            name: refreshed.name,
+          });
+          await loadCandidate(response.candidate_id, { opId: candidateOpIdRef.current });
+          if (generation !== reviseOpGenerationRef.current) return;
+          const completed = markReviseAttemptCompleted(updated, response.candidate_id);
+          writeStoredReviseAttempt(completed);
+          setReviseAttempt(completed);
+          setReviseStatusMessage("Revised proposal ready.");
+          setReviseError(null);
+        } catch (error) {
+          if (generation !== reviseOpGenerationRef.current) return;
+          setReviseError(
+            `Revised proposal reconciled; local refresh incomplete — ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+        return;
+      }
+
+      const klass = classifyReviseResult(response.result);
+      if (klass === "terminal_new_allowed") {
+        setReviseStatusMessage("Revision terminated — start a new revise attempt if needed.");
+      } else if (klass === "resume_same") {
+        setReviseStatusMessage(
+          "Revision outcome uncertain or still in progress — resume the same revise.",
+        );
+      } else if (response.result === "revise_blocked") {
+        setReviseError("Revision blocked — correct inputs and retry.");
+      } else {
+        setReviseStatusMessage(`Revision result: ${response.result}`);
+      }
+    },
+    [applyCreatedDraftIdentity, loadCandidate],
+  );
+
+  const postReviseAttempt = useCallback(
+    async (attempt: StoredReviseAttemptV1, mode: "create" | "resume") => {
+      if (reviseInFlightRef.current || revisePending) return;
+      if (draftSnapshotUnavailable) return;
+      const draftId = attempt.draft_id;
+      const generation = ++reviseOpGenerationRef.current;
+      reviseInFlightRef.current = true;
+      setRevisePending(true);
+      setReviseError(null);
+      setReviseStatusMessage(
+        mode === "create" ? "Creating revised proposal…" : "Resuming same revise…",
+      );
+      try {
+        const response = await reviseThreatDraftCandidate(draftId, attempt.request);
+        await handleReviseResponse(generation, draftId, attempt, response);
+      } catch (error) {
+        if (generation !== reviseOpGenerationRef.current) return;
+        if (error instanceof LiveApiError && error.status === 409) {
+          setReviseStatusMessage("Draft version changed — refresh the draft and retry explicitly.");
+          void refreshThreatDraftSnapshot(draftId);
+        } else {
+          setReviseError(
+            error instanceof Error
+              ? `Revision outcome unknown — ${error.message}`
+              : "Revision outcome unknown.",
+          );
+        }
+        writeStoredReviseAttempt(attempt);
+        setReviseAttempt(attempt);
+      } finally {
+        reviseInFlightRef.current = false;
+        if (generation === reviseOpGenerationRef.current) {
+          setRevisePending(false);
+        }
+      }
+    },
+    [draftSnapshotUnavailable, handleReviseResponse, refreshThreatDraftSnapshot, revisePending],
+  );
+
+  const onCreateRevisedProposal = useCallback(async () => {
+    const editor = editorStateRef.current;
+    const candidateId = activeCandidateIdRef.current;
+    const draft = threatDraft;
+    if (!editor || !candidateId || !draft) {
+      setReviseError("Load a candidate with ThreatDraft snapshot before revising.");
+      return;
+    }
+    if (reviseAttempt && !isReviseAttemptCompleted(reviseAttempt)) {
+      setReviseError("Unresolved revise attempt — resume the same revise.");
+      return;
+    }
+    const requestId = crypto.randomUUID();
+    const built = buildReviseRequestFromWorkingCopy({
+      requestId,
+      draft,
+      editorState: editor,
+      revisionInstructions: reviseInstructionsRaw.split(/\r?\n/),
+      preserveElementKeys,
+    });
+    if (!built.ok) {
+      setReviseError(built.message);
+      return;
+    }
+    const attempt: StoredReviseAttemptV1 = {
+      schema: "dmb_sbw06_revise_attempt_v1",
+      draft_id: draft.draft_id,
+      source_candidate_id: candidateId,
+      request_id: requestId,
+      raw_instructions: reviseInstructionsRaw,
+      request: built.request,
+      last_result: null,
+      candidate_id: null,
+      created_at: new Date().toISOString(),
+    };
+    writeStoredReviseAttempt(attempt);
+    setReviseAttempt(attempt);
+    await postReviseAttempt(attempt, "create");
+  }, [postReviseAttempt, preserveElementKeys, reviseAttempt, reviseInstructionsRaw, threatDraft]);
+
+  const onResumeSameRevise = useCallback(async () => {
+    const draftId = createdDraftRef.current?.draft_id ?? "";
+    const attempt = reviseAttempt ?? (draftId ? readStoredReviseAttempt(draftId) : null);
+    if (!attempt) return;
+    await postReviseAttempt(attempt, "resume");
+  }, [postReviseAttempt, reviseAttempt]);
+
+  const onStartNewReviseAttempt = useCallback(() => {
+    if (reviseAttempt?.last_result !== "terminal_failure") return;
+    setReviseAttempt(null);
+    setReviseStatusMessage(null);
+    setReviseError(null);
+  }, [reviseAttempt]);
+
+  const onSelectProposalCandidate = useCallback(
+    (candidateId: string) => {
+      persistActiveCandidateWorkingCopy();
+      void loadCandidate(candidateId);
+    },
+    [loadCandidate, persistActiveCandidateWorkingCopy],
+  );
 
   const runGenerateFromDraft = async (
     draftId: string,
@@ -2357,6 +2703,16 @@ export function StatblockWorkbenchModule() {
     draftIdInput,
     draftVersionInput,
   );
+  const acceptDraftVersion =
+    threatDraft != null && threatDraft.draft_id === acceptDraftIdentity?.draft_id
+      ? threatDraft.version
+      : (acceptDraftIdentity?.version ?? null);
+  const mechanicsSavedDraft = threatDraft?.workflow_state === "mechanics_saved";
+  const reviseDraftId = threatDraft?.draft_id ?? acceptDraftIdentity?.draft_id ?? null;
+  const unresolvedReviseAttempt =
+    reviseAttempt != null && !isReviseAttemptCompleted(reviseAttempt);
+  const reviseControlsDisabled =
+    draftSnapshotUnavailable || !threatDraft || draftSnapshotPending || !editorState;
 
   return (
     <div
@@ -2373,7 +2729,7 @@ export function StatblockWorkbenchModule() {
           <h2 className="module-title">Statblock Workbench</h2>
           <p className="module-muted">Create a threat, generate its candidate, then edit and accept mechanics.</p>
         </div>
-        <span className="badge">sbw07c-accept</span>
+        <span className="badge">sbw06c-revise</span>
       </header>
 
       <section className="statblock-section statblock-create-section">
@@ -2567,7 +2923,7 @@ export function StatblockWorkbenchModule() {
         ) : null}
       </section>
 
-      <details className="statblock-section statblock-create-details" data-testid="workbench-recover-controls">
+      <details className="statblock-section statblock-create-details" open data-testid="workbench-recover-controls">
         <summary>Advanced — recover by candidate or draft ID</summary>
         <p className="module-muted">
           Escape hatches for reopening a known <code>cand_…</code> or regenerating from an existing
@@ -2662,6 +3018,52 @@ export function StatblockWorkbenchModule() {
       {activeCandidate ? (
         <section className="statblock-section" data-testid="candidate-view-modes">
           <h3>Candidate {activeCandidate.candidate_id}</h3>
+          {draftSnapshotUnavailable ? (
+            <p className="statblock-command-error" role="alert" data-testid="draft-snapshot-unavailable">
+              ThreatDraft snapshot unavailable — revision and version-dependent save are disabled.{" "}
+              {draftSnapshotError}
+              {reviseDraftId ? (
+                <button
+                  type="button"
+                  className="statblock-inline-retry"
+                  onClick={() => void refreshThreatDraftSnapshot(reviseDraftId)}
+                >
+                  Retry draft refresh
+                </button>
+              ) : null}
+            </p>
+          ) : null}
+          {threatDraft ? (
+            <ProposalHistoryPanel
+              draft={threatDraft}
+              activeCandidateId={activeCandidate.candidate_id}
+              onSelectCandidate={onSelectProposalCandidate}
+              onRefresh={() => void refreshThreatDraftSnapshot(threatDraft.draft_id)}
+              refreshPending={draftSnapshotPending}
+            />
+          ) : null}
+          {editorState && reviseDraftId && threatDraft ? (
+            <ReviseWithAiPanel
+              candidateId={activeCandidate.candidate_id}
+              draftId={reviseDraftId}
+              draftVersion={threatDraft.version}
+              editorStateRevision={editorState.stateRevision}
+              instructions={reviseInstructionsRaw}
+              onInstructionsChange={setReviseInstructionsRaw}
+              preserveElementKeys={preserveElementKeys}
+              onPreserveElementKeysChange={setPreserveElementKeys}
+              onCreate={() => void onCreateRevisedProposal()}
+              onResume={() => void onResumeSameRevise()}
+              onStartNew={onStartNewReviseAttempt}
+              revisePending={revisePending}
+              showResume={unresolvedReviseAttempt}
+              showStartNew={reviseAttempt?.last_result === "terminal_failure"}
+              disabled={reviseControlsDisabled}
+              statusMessage={reviseStatusMessage}
+              errorMessage={reviseError}
+              mechanicsSaved={mechanicsSavedDraft}
+            />
+          ) : null}
           <div className="statblock-command-row" role="group" aria-label="Candidate view mode">
             <button
               type="button"
@@ -2707,7 +3109,7 @@ export function StatblockWorkbenchModule() {
               editorState={editorState}
               editorEpoch={editorEpoch}
               draftId={acceptDraftIdentity?.draft_id ?? null}
-              draftVersion={acceptDraftIdentity?.version ?? null}
+              draftVersion={acceptDraftVersion}
               sourceCandidateId={activeCandidate.candidate_id}
               workingCopy={editorState.workingCopy}
               validationFailure={validationFailure}
@@ -2718,6 +3120,7 @@ export function StatblockWorkbenchModule() {
               validateDisabled={
                 validatePendingForCurrent || getUiStatus(editorState) === "validating"
               }
+              mechanicsSavedDraft={mechanicsSavedDraft}
             />
           ) : null}
         </section>

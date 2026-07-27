@@ -2529,3 +2529,56 @@ button:disabled {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 0.78rem;
 }
+
+.statblock-proposal-history__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.statblock-proposal-history__list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.statblock-proposal-history__row {
+  border: 1px solid #3a4358;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+}
+
+.statblock-proposal-history__row--current {
+  border-color: #6b8cff;
+}
+
+.statblock-proposal-history__select {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.statblock-revise-source-disclosure {
+  display: grid;
+  gap: 0.35rem 1rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.statblock-revise-preserve-keys {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.statblock-inline-retry {
+  margin-left: 0.5rem;
+}

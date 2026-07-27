@@ -26,10 +26,12 @@ import {
   getStatblockCandidate,
   createThreatDraft,
   generateThreatDraftCandidate,
+  getThreatDraft,
   validateStatblockDefinition,
   acceptThreatDraftMechanics,
   getAcceptanceOperation,
   reconcileAcceptanceOperation,
+  reviseThreatDraftCandidate,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
   patchCombatEntity,
@@ -356,6 +358,101 @@ describe("liveApi artifact/capability helpers", () => {
     const [url, init] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/threat-drafts/draft-1/candidates:generate");
     expect(init?.method).toBe("POST");
+  });
+
+  it("getThreatDraft uses exact encoded draft ID", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_threat_draft_v1",
+        draft_id: "draft x",
+        version: 2,
+        world_id: "world",
+        campaign_id: "campaign",
+        focus: null,
+        name: "Threat",
+        description: "Desc",
+        threat_kind: "creature",
+        intended_roles: ["skirmisher"],
+        tags: [],
+        generation_intent: {
+          ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+          target_cr: "2",
+          complexity: null,
+          must_include: [],
+          must_avoid: [],
+        },
+        encounter_context: { party_level: 5, party_size: 4, terrain_notes: ["marsh"] },
+        graph_context_snapshot: {
+          graph_revision_id: "rev_1",
+          selected_node_ids: [],
+          admitted_source_anchor_ids: [],
+        },
+        candidate_refs: [],
+        accepted_mechanics_ref: null,
+        workflow_state: "candidate_ready",
+        created_by: "gm",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      }),
+    );
+
+    await getThreatDraft("draft x");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/threat-drafts/draft%20x");
+  });
+
+  it("reviseThreatDraftCandidate posts exact encoded draft ID and body", async () => {
+    const request = {
+      request_id: "req-revise-1",
+      expected_draft_version: 3,
+      editor_state_revision: "7",
+      source_definition: {
+        identity: { name: "Working Copy" },
+        ruleset: { system: "dnd5e", edition: "2024" },
+      },
+      revision_instructions: ["Increase AC", "Add reaction"],
+      preserve_element_keys: true,
+      ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+      intent: {
+        target_cr: "3",
+        roles: ["brute"],
+        complexity: null,
+        must_include: ["reach"],
+        must_avoid: [],
+      },
+      context: { party_level: 6, party_size: 5, terrain_notes: ["cavern"] },
+      source: { name_hint: "Threat Name", description: "Threat description" },
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_claimed",
+        request_id: request.request_id,
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      }),
+    );
+
+    await reviseThreatDraftCandidate("draft/with/slash", request as never);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/threat-drafts/draft%2Fwith%2Fslash/candidates:revise");
+    expect(init?.method).toBe("POST");
+    const body = JSON.parse(String(init?.body));
+    expect(body.request_id).toBe(request.request_id);
+    expect(body.expected_draft_version).toBe(3);
+    expect(body.editor_state_revision).toBe("7");
+    expect(body.source_definition).toEqual(request.source_definition);
+    expect(body.revision_instructions).toEqual(request.revision_instructions);
+    expect(body.preserve_element_keys).toBe(true);
+    expect(body.ruleset).toEqual(request.ruleset);
+    expect(body.intent).toEqual(request.intent);
+    expect(body.context).toEqual(request.context);
+    expect(body.source).toEqual(request.source);
   });
 
   it("getStatblockCandidate reads exact candidate id", async () => {

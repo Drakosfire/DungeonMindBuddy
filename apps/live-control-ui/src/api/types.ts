@@ -3197,6 +3197,62 @@ export interface ExtractPromoteErrorBody {
   failureResult?: Record<string, unknown> | null;
 }
 
+export interface EditedWorkingCopyLineageV1 {
+  draft_id: string;
+  source_draft_version: number;
+  editor_state_revision: string;
+  source_definition_digest: string;
+}
+
+export interface CandidateOriginLineageV1 {
+  source_candidate_id: string;
+  source_candidate_request_id: string;
+  draft_id: string;
+  source_generated_from_draft_version: number;
+  source_definition_digest: string;
+}
+
+export interface AcceptedRevisionLineageV1 {
+  provider: "dungeonmind";
+  statblock_id: string;
+  revision_id: string;
+  contract: string;
+  contract_version: string;
+  definition_digest: string;
+}
+
+export type CandidateLineageV1 =
+  | {
+      schema: "dmb_candidate_lineage_v1";
+      revise_request_id: string;
+      source_origin_kind: "edited_working_copy";
+      instruction_options_digest: string;
+      created_at: string;
+      edited_working_copy: EditedWorkingCopyLineageV1;
+      candidate?: never;
+      accepted_revision?: never;
+    }
+  | {
+      schema: "dmb_candidate_lineage_v1";
+      revise_request_id: string;
+      source_origin_kind: "candidate";
+      instruction_options_digest: string;
+      created_at: string;
+      candidate: CandidateOriginLineageV1;
+      edited_working_copy?: never;
+      accepted_revision?: never;
+    }
+  | {
+      schema: "dmb_candidate_lineage_v1";
+      revise_request_id: string;
+      source_origin_kind: "accepted_revision";
+      instruction_options_digest: string;
+      created_at: string;
+      accepted_revision: AcceptedRevisionLineageV1;
+      edited_working_copy?: never;
+      candidate?: never;
+    };
+
 export interface ThreatDraftCandidateRefV1 {
   candidate_id: string;
   generated_from_draft_version: number;
@@ -3204,6 +3260,17 @@ export interface ThreatDraftCandidateRefV1 {
   created_at: string;
   expires_at?: string | null;
   status: "active" | "superseded" | "rejected" | "expired" | "accepted_source";
+  lineage?: CandidateLineageV1 | null;
+}
+
+export interface AcceptedMechanicsRefV1 {
+  provider: "dungeonmind";
+  statblock_id: string;
+  revision_id: string;
+  contract: string;
+  contract_version: string;
+  definition_digest: string;
+  accepted_at: string;
 }
 
 /** Mirrors `CreateThreatDraftRequest` / nested models in live_control_server threat_draft. */
@@ -3264,20 +3331,85 @@ export interface CreateThreatDraftRequestV1 {
   created_by: string;
 }
 
-/** Create response fields required by create-and-generate; extra Server fields are ignored. */
+/** Full ThreatDraft read shape for Workbench revise/history (SBW06c). */
 export interface ThreatDraftV1 {
   schema: "dmb_threat_draft_v1";
   draft_id: string;
   version: number;
   world_id: string;
   campaign_id: string;
+  focus?: ThreatDraftFocusV1 | null;
   name: string;
+  slug_hint?: string | null;
   description: string;
   threat_kind: string;
+  intended_roles: string[];
+  tags: string[];
+  generation_intent: ThreatDraftGenerationIntentV1;
+  encounter_context: ThreatDraftEncounterContextV1;
+  graph_context_snapshot: ThreatDraftGraphContextSnapshotV1;
+  candidate_refs: ThreatDraftCandidateRefV1[];
+  accepted_mechanics_ref?: AcceptedMechanicsRefV1 | null;
   workflow_state: "drafting" | "candidate_ready" | "mechanics_saved";
   created_by: string;
   created_at: string;
   updated_at: string;
+}
+
+export type ReviseOperationStatus =
+  | "claimed"
+  | "dispatched_unknown"
+  | "candidate_received"
+  | "cache_stored_ref_pending"
+  | "reconciled"
+  | "terminal_failure";
+
+export type ReviseResultLabel =
+  | "revise_claimed"
+  | "dispatched_unknown"
+  | "candidate_received"
+  | "cache_stored_ref_pending"
+  | "reconciled"
+  | "revise_busy"
+  | "revise_history_full"
+  | "revise_input_conflict"
+  | "revise_integrity_conflict"
+  | "revise_blocked"
+  | "revise_draft_unavailable"
+  | "terminal_failure";
+
+export interface ReviseCandidateFromEditedDefinitionRequestV1 {
+  request_id: string;
+  expected_draft_version: number;
+  editor_state_revision: string;
+  source_definition: StatblockDefinitionV1_Input;
+  revision_instructions: string[];
+  preserve_element_keys: boolean;
+  ruleset: ThreatDraftRulesetRefV1;
+  actor?: string | null;
+  intent?: {
+    target_cr?: string | null;
+    roles?: string[];
+    complexity?: string | null;
+    must_include?: string[];
+    must_avoid?: string[];
+  } | null;
+  context?: ThreatDraftEncounterContextV1 | null;
+  source?: { name_hint: string; description: string; description_digest?: string | null } | null;
+}
+
+export interface ReviseCandidateFromEditedDefinitionResponseV1 {
+  schema: "dmb_revise_candidate_from_edited_definition_response_v1";
+  result: ReviseResultLabel;
+  request_id: string;
+  operation_status?: ReviseOperationStatus | null;
+  candidate_id?: string | null;
+  request_digest: string;
+  source_definition_digest: string;
+  instruction_options_digest: string;
+  message?: string | null;
+  failure_category?: string | null;
+  http_status?: number | null;
 }
 
 export interface GenerateThreatDraftCandidateRequestV1 {

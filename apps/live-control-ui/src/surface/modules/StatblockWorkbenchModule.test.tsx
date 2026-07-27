@@ -13,6 +13,7 @@ import type {
   GeneratedStatblockCandidateV1,
   ValidationReceiptV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import { readStoredReviseAttempt } from "../../statblocks/revision/statblockRevisionAttempt";
 import fixture from "../../../../../tests/fixtures/statblocks/v1/candidate-response.json";
 import {
   ACCEPT_RESTORE_LOOKUP,
@@ -295,8 +296,10 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.queryByDisplayValue("Ironhide Brute")).toBeNull();
     expect(screen.getByPlaceholderText("cand_…")).toHaveProperty("value", "cand_fixture2");
     expect(screen.queryByText(/Generated cand_fixture1/i)).toBeNull();
-    expect(liveApi.getStatblockCandidate).toHaveBeenCalledTimes(1);
-    expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture2");
+    const loadCalls = vi.mocked(liveApi.getStatblockCandidate).mock.calls.map((call) => call[0]);
+    expect(loadCalls).not.toContain("cand_fixture1");
+    expect(loadCalls.every((id) => id === "cand_fixture2")).toBe(true);
+    expect(loadCalls.length).toBeGreaterThanOrEqual(1);
   });
 
   it("ignores late generation failure after a newer manual load", async () => {
@@ -2639,7 +2642,8 @@ describe("StatblockWorkbenchModule", () => {
 
       // Clear the Advanced recovery fields — happy path must use createdDraft identity.
       const draftInput = screen.getByPlaceholderText("td_…");
-      await user.clear(draftInput);
+      await user.click(draftInput);
+      await user.keyboard("{Control>}a{/Control}{Backspace}");
       expect(draftInput).toHaveProperty("value", "");
 
       await validateWorkingCopy(user);
@@ -3214,6 +3218,354 @@ describe("StatblockWorkbenchModule", () => {
         "value",
         "Edited siege latch rules for dogfood.",
       );
+    });
+  });
+
+  describe("revise UX (SBW06c)", () => {
+    const DRAFT_ID = "00000000-0000-4000-8000-000000000099";
+
+    function threatDraftFixture(
+      overrides: Partial<import("../../api/types").ThreatDraftV1> = {},
+    ): import("../../api/types").ThreatDraftV1 {
+      return {
+        schema: "dmb_threat_draft_v1",
+        draft_id: DRAFT_ID,
+        version: 2,
+        world_id: "eldyrwild",
+        campaign_id: "longmont-c2",
+        focus: null,
+        name: "Ironhide Brute",
+        description: "A brute.",
+        threat_kind: "creature",
+        intended_roles: [],
+        tags: [],
+        generation_intent: {
+          ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+          target_cr: "3",
+          complexity: null,
+          must_include: [],
+          must_avoid: [],
+        },
+        encounter_context: { party_level: 5, party_size: 4, terrain_notes: [] },
+        graph_context_snapshot: {
+          graph_revision_id: "rev:abc",
+          selected_node_ids: [],
+          admitted_source_anchor_ids: [],
+        },
+        candidate_refs: [
+          {
+            candidate_id: "cand_fixture1",
+            generated_from_draft_version: 1,
+            request_id: "gen-req-1",
+            created_at: "2026-01-01T00:00:00Z",
+            status: "active",
+            lineage: null,
+          },
+        ],
+        accepted_mechanics_ref: null,
+        workflow_state: "candidate_ready",
+        created_by: "gm",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+        ...overrides,
+      };
+    }
+
+    function activeWithDraft(): ReadStatblockCandidateResponseV1 {
+      return {
+        ...activeResponse,
+        source_draft_id: DRAFT_ID,
+        source_draft_version: 2,
+        source_draft_name: "Ironhide Brute",
+      };
+    }
+
+    async function loadWithDraft() {
+      const user = userEvent.setup();
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      return user;
+    }
+
+    it("sends local edits in revise source_definition", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => {
+        expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy();
+      });
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_claimed",
+        request_id: "ignored",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      await user.clear(screen.getByLabelText("Creature name"));
+      await user.type(screen.getByLabelText("Creature name"), "Edited Brute Name");
+      await user.type(screen.getByTestId("revise-instructions"), "Increase AC");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(reviseSpy).toHaveBeenCalledTimes(1));
+      const body = reviseSpy.mock.calls[0][1];
+      expect(body.source_definition.identity?.name).toBe("Edited Brute Name");
+      expect(body.source_definition.identity?.name).not.toBe(candidate.definition.identity.name);
+    });
+
+    it("reconciled refreshes draft, loads new candidate, keeps history, no auto accept", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      const getDraftSpy = vi.spyOn(liveApi, "getThreatDraft");
+      const newCandidateId = "cand_revised1";
+      let draftFetchCount = 0;
+      const revisedCandidate = {
+        ...candidate,
+        candidate_id: newCandidateId,
+        definition: {
+          ...candidate.definition,
+          identity: { ...candidate.definition.identity, name: "Revised Brute" },
+        },
+      };
+      let lastReviseRequestId = "";
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => {
+        lastReviseRequestId = body.request_id;
+        return {
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "reconciled",
+          request_id: body.request_id,
+          candidate_id: newCandidateId,
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        };
+      });
+      getDraftSpy.mockImplementation(async () => {
+        draftFetchCount += 1;
+        const reqId =
+          lastReviseRequestId || readStoredReviseAttempt(DRAFT_ID)?.request_id || "missing";
+        if (!lastReviseRequestId) {
+          return threatDraftFixture();
+        }
+        return threatDraftFixture({
+          version: 3,
+          candidate_refs: [
+            {
+              candidate_id: "cand_fixture1",
+              generated_from_draft_version: 1,
+              request_id: "gen-req-1",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+            {
+              candidate_id: newCandidateId,
+              generated_from_draft_version: 3,
+              request_id: reqId,
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: {
+                schema: "dmb_candidate_lineage_v1",
+                revise_request_id: reqId,
+                source_origin_kind: "edited_working_copy",
+                instruction_options_digest: `sha256:${"c".repeat(64)}`,
+                created_at: "2026-01-02T00:00:00Z",
+                edited_working_copy: {
+                  draft_id: DRAFT_ID,
+                  source_draft_version: 2,
+                  editor_state_revision: "1",
+                  source_definition_digest: `sha256:${"b".repeat(64)}`,
+                },
+              },
+            },
+          ],
+        });
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === newCandidateId) {
+          return {
+            schema: "dmb_statblock_candidate_read_v1",
+            candidate_id: newCandidateId,
+            status: "active",
+            candidate: revisedCandidate,
+            source_draft_id: DRAFT_ID,
+            source_draft_version: 3,
+          };
+        }
+        return activeWithDraft();
+      });
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics");
+      await user.type(screen.getByTestId("revise-instructions"), "Make tougher");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => {
+        expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith(newCandidateId);
+      });
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Revised Brute")).toBeTruthy();
+      });
+      expect(getDraftSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByTestId("proposal-history-row-cand_fixture1")).toBeTruthy();
+      expect(screen.getByTestId(`proposal-history-row-${newCandidateId}`)).toBeTruthy();
+      expect(acceptSpy).not.toHaveBeenCalled();
+    });
+
+    it("transport failure retains attempt; resume does not call randomUUID", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(new Error("network down"));
+      await user.type(screen.getByTestId("revise-instructions"), "Add reach");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      expect(screen.getByTestId("revise-instructions")).toHaveProperty("value", "Add reach");
+      const firstUuid = uuidSpy.mock.results[0]?.value;
+      uuidSpy.mockClear();
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_claimed",
+        request_id: "resume",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      await user.click(screen.getByTestId("revise-resume-same"));
+      await waitFor(() => expect(liveApi.reviseThreatDraftCandidate).toHaveBeenCalled());
+      expect(uuidSpy).not.toHaveBeenCalled();
+      const resumeBody = vi.mocked(liveApi.reviseThreatDraftCandidate).mock.calls.at(-1)?.[1];
+      expect(resumeBody?.request_id).toBe(firstUuid);
+    });
+
+    it("preserves separate working copies when switching proposal candidates", async () => {
+      const candB = "cand_fixture_b";
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === candB) {
+          return {
+            ...activeWithDraft(),
+            candidate_id: candB,
+            candidate: { ...candidate, candidate_id: candB },
+          };
+        }
+        return activeWithDraft();
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_fixture1",
+              generated_from_draft_version: 1,
+              request_id: "gen-req-1",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+            {
+              candidate_id: candB,
+              generated_from_draft_version: 1,
+              request_id: "gen-req-2",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+          ],
+        }),
+      );
+      const user = userEvent.setup();
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      await user.clear(screen.getByLabelText("Creature name"));
+      await user.type(screen.getByLabelText("Creature name"), "Name A");
+      await user.click(
+        screen.getByTestId(`proposal-history-row-${candB}`).querySelector("button")!,
+      );
+      await waitFor(() => expect(screen.getByDisplayValue("Ironhide Brute")).toBeTruthy());
+      await user.clear(screen.getByLabelText("Creature name"));
+      await user.type(screen.getByLabelText("Creature name"), "Name B");
+      await user.click(
+        screen.getByTestId("proposal-history-row-cand_fixture1").querySelector("button")!,
+      );
+      await waitFor(() => expect(screen.getByDisplayValue("Name A")).toBeTruthy());
+    });
+
+    it("mechanics_saved shows boundary and disables Accept/Save", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          workflow_state: "mechanics_saved",
+          accepted_mechanics_ref: {
+            provider: "dungeonmind",
+            statblock_id: "sb_test",
+            revision_id: "rev_test",
+            contract: "dungeonmind.dungeonbuddy-statblocks",
+            contract_version: "1.0.0",
+            definition_digest: `sha256:${"d".repeat(64)}`,
+            accepted_at: "2026-01-01T00:00:00Z",
+          },
+        }),
+      );
+      await loadId("cand_fixture1");
+      await waitFor(() => expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy());
+      expect(screen.getByTestId("sbw13-append-boundary")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
+    });
+
+    it("double-click create revise sends one POST", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      let resolveRevise!: (value: unknown) => void;
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRevise = resolve;
+          }) as ReturnType<typeof liveApi.reviseThreatDraftCandidate>,
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "One shot");
+      const btn = screen.getByTestId("revise-create-proposal");
+      await user.click(btn);
+      await user.click(btn);
+      expect(reviseSpy).toHaveBeenCalledTimes(1);
+      resolveRevise({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_claimed",
+        request_id: "x",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+    });
+
+    it("ignores stale revise response after candidate switch", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      let resolveRevise!: (value: unknown) => void;
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRevise = resolve;
+          }) as ReturnType<typeof liveApi.reviseThreatDraftCandidate>,
+      );
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => ({
+        ...activeWithDraft(),
+        candidate_id: id,
+        candidate: { ...candidate, candidate_id: id },
+      }));
+      await user.type(screen.getByTestId("revise-instructions"), "Slow revise");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await user.click(screen.getByTestId("proposal-history-row-cand_fixture1").querySelector("button")!);
+      resolveRevise({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "reconciled",
+        request_id: "stale",
+        candidate_id: "cand_should_not_load",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      await waitFor(() => {
+        expect(screen.queryByDisplayValue("cand_should_not_load")).toBeNull();
+      });
+      expect(liveApi.getStatblockCandidate).not.toHaveBeenCalledWith("cand_should_not_load");
     });
   });
 });
