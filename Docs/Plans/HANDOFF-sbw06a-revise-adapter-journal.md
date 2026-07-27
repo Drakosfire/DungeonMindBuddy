@@ -11,7 +11,7 @@
 **Logical Buddy predecessor:** PR `#413`, merge `e9264610238ccf59a91d66fd3ea4e4d68cfcd3a4`, frozen contract head `b8877e342cb4ac9fce86b582b5354e65d4dc286c`
 **External recovery-gate predecessor:** DungeonMindServer PR `#24`, merge `2c7d2566baa744f2b1a4667761775c1dec87a2d4`, reviewed head `1ad8de2baf0431c7ddb401cdd72389afc730519a`
 **Buddy base SHA:** `5c19d433c9e103573ea6bd72ae1f34483862569f`
-**Next slice:** `SBW06b` — attach one durable candidate ref with embedded `CandidateLineageV1` and perform the frozen ThreatDraft CAS/status transition
+**Next slice:** `SBW06b` ACTIVE — attach one durable candidate ref with embedded `CandidateLineageV1` and perform the frozen ThreatDraft CAS/status transition
 
 > Full dispatch text for this bite lives in the agent transcript / parent brief of 2026-07-26. This file is the in-repo status pointer; §12 of `HANDOFF-sbw06-candidate-revise-lineage.md` remains normative.
 

@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
@@ -202,7 +203,7 @@ def test_revise_busy_blocks_second_request_id(tmp_path: Path) -> None:
     assert outcome == "revise_busy"
 
 
-def test_happy_path_ends_cache_stored_ref_pending_without_draft_mutation(
+def test_happy_path_reconciles_with_lineage_and_one_version_bump(
     tmp_path: Path,
 ) -> None:
     draft = _create_draft(tmp_path)
@@ -220,19 +221,26 @@ def test_happy_path_ends_cache_stored_ref_pending_without_draft_mutation(
         request=req,
         client=client,
     )
-    assert result.result == "cache_stored_ref_pending"
-    assert result.operation_status == "cache_stored_ref_pending"
+    assert result.result == "reconciled"
+    assert result.operation_status == "reconciled"
     assert result.candidate_id == response_fixture.candidate_id
 
     after = get_threat_draft(tmp_path, draft.draft_id)
-    assert after.version == before.version
-    assert after.candidate_refs == before.candidate_refs
+    assert after.version == before.version + 1
+    assert len(after.candidate_refs) == 1
+    attached = after.candidate_refs[0]
+    assert attached.candidate_id == response_fixture.candidate_id
+    assert attached.lineage is not None
+    assert attached.lineage.source_origin_kind == "edited_working_copy"
+    assert attached.lineage.revise_request_id == req.request_id
 
     stored = get_revise_operation(
         tmp_path, draft_id=draft.draft_id, request_id=req.request_id
     )
     assert stored is not None
-    assert stored.status == "cache_stored_ref_pending"
+    assert stored.status == "reconciled"
+    assert stored.materialization.draft_ref == "attached"
+    assert stored.materialization.source_status == "none"
     client.revise_candidate.assert_called_once()
 
 
@@ -251,7 +259,8 @@ def test_replay_resumes_without_second_post_when_candidate_known(tmp_path: Path)
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
+    version_after_first = get_threat_draft(tmp_path, draft.draft_id).version
     client.revise_candidate.reset_mock()
 
     second = revise_candidate_from_edited_definition(
@@ -260,7 +269,8 @@ def test_replay_resumes_without_second_post_when_candidate_known(tmp_path: Path)
         request=req,
         client=client,
     )
-    assert second.result == "cache_stored_ref_pending"
+    assert second.result == "reconciled"
+    assert get_threat_draft(tmp_path, draft.draft_id).version == version_after_first
     client.revise_candidate.assert_not_called()
 
 
@@ -336,7 +346,7 @@ def test_lost_response_same_key_replay_posts_stored_body(tmp_path: Path) -> None
         request=req,
         client=client,
     )
-    assert second.result == "cache_stored_ref_pending"
+    assert second.result == "reconciled"
     assert second.candidate_id == response_fixture.candidate_id
     assert client.revise_candidate.call_count == 2
     posted = client.revise_candidate.call_args_list[1].args[0]
@@ -698,6 +708,7 @@ def test_actor_included_in_revise_request_digest() -> None:
 def test_existing_authority_replay_skips_client_and_missing_draft(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Missing draft on reconciled replay is unavailable, not integrity conflict."""
     draft = _create_draft(tmp_path)
     req = _service_request(draft)
     response_fixture = _revise_response()
@@ -709,23 +720,22 @@ def test_existing_authority_replay_skips_client_and_missing_draft(
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
 
     def boom_client() -> None:
-        raise AssertionError("client must not be constructed for cache-complete replay")
+        raise AssertionError("client must not be constructed for reconciled replay")
 
     monkeypatch.setattr(
         "apps.live_control_server.services.statblock_candidate_revision.build_statblock_v1_client",
         boom_client,
     )
-    # Delete the draft file after claim so any accidental draft I/O fails closed.
+    # Delete the draft file after claim so draft re-proof cannot succeed.
     draft_path = (
         tmp_path / "out" / "threat_drafts" / f"{draft.draft_id}.json"
     )
     if draft_path.is_file():
         draft_path.unlink()
     else:
-        # Locate committed draft path via store layout.
         candidates = list((tmp_path / "out").rglob(f"*{draft.draft_id}*.json"))
         for path in candidates:
             if "threat_draft" in str(path) or "draft" in path.name:
@@ -737,8 +747,7 @@ def test_existing_authority_replay_skips_client_and_missing_draft(
         request=req,
         client=None,
     )
-    assert replay.result == "cache_stored_ref_pending"
-    assert replay.candidate_id == response_fixture.candidate_id
+    assert replay.result == "revise_draft_unavailable"
 
 
 def test_changed_body_conflict_without_draft(
@@ -775,8 +784,14 @@ def test_changed_body_conflict_without_draft(
 def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
     tmp_path: Path,
 ) -> None:
+    from apps.live_control_server.models.statblock_candidate_revision import (
+        ReviseMaterializationV1,
+    )
     from apps.live_control_server.services.statblock_candidate_cache import (
         candidate_cache_root,
+    )
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        _write_operation_unlocked,
     )
 
     draft = _create_draft(tmp_path)
@@ -792,7 +807,23 @@ def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
+
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    pending = stored.model_copy(
+        update={
+            "status": "cache_stored_ref_pending",
+            "materialization": ReviseMaterializationV1(
+                cache="stored",
+                draft_ref="missing",
+                source_status="none",
+            ),
+        }
+    )
+    _write_operation_unlocked(tmp_path, pending)
 
     cache_path = (
         candidate_cache_root(tmp_path) / f"{response_fixture.candidate_id}.json"
@@ -808,7 +839,7 @@ def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
         request=req,
         client=client,
     )
-    assert repaired.result == "cache_stored_ref_pending"
+    assert repaired.result == "reconciled"
     client.revise_candidate.assert_not_called()
     client.get_candidate.assert_called_once_with(response_fixture.candidate_id)
     assert cache_path.is_file()
@@ -816,15 +847,21 @@ def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
         tmp_path, draft_id=draft.draft_id, request_id=req.request_id
     )
     assert stored is not None
-    assert stored.status == "cache_stored_ref_pending"
+    assert stored.status == "reconciled"
     assert stored.materialization.cache == "stored"
 
 
 def test_cache_stored_ref_pending_demotes_when_get_repair_fails(
     tmp_path: Path,
 ) -> None:
+    from apps.live_control_server.models.statblock_candidate_revision import (
+        ReviseMaterializationV1,
+    )
     from apps.live_control_server.services.statblock_candidate_cache import (
         candidate_cache_root,
+    )
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        _write_operation_unlocked,
     )
 
     draft = _create_draft(tmp_path)
@@ -840,7 +877,24 @@ def test_cache_stored_ref_pending_demotes_when_get_repair_fails(
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    _write_operation_unlocked(
+        tmp_path,
+        stored.model_copy(
+            update={
+                "status": "cache_stored_ref_pending",
+                "materialization": ReviseMaterializationV1(
+                    cache="stored",
+                    draft_ref="missing",
+                    source_status="none",
+                ),
+            }
+        ),
+    )
     cache_path = (
         candidate_cache_root(tmp_path) / f"{response_fixture.candidate_id}.json"
     )
@@ -997,7 +1051,7 @@ def test_demote_preserves_draft_ref_failed_and_reloads(
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
 
     stored = get_revise_operation(
         tmp_path, draft_id=draft.draft_id, request_id=req.request_id
@@ -1006,10 +1060,12 @@ def test_demote_preserves_draft_ref_failed_and_reloads(
     # Simulate SBW06b ThreatDraft CAS failure leaving draft_ref=failed.
     pending_with_failed_ref = stored.model_copy(
         update={
+            "status": "cache_stored_ref_pending",
             "materialization": ReviseMaterializationV1(
                 cache="stored",
                 draft_ref="failed",
-            )
+                source_status="none",
+            ),
         }
     )
     _write_operation_unlocked(tmp_path, pending_with_failed_ref)
@@ -1107,3 +1163,315 @@ def test_exact_body_idempotency_conflict_is_durable_integrity_classification(
         client=client,
     )
     assert conflict.result == "revise_input_conflict"
+
+
+def test_mark_revise_reconciled_rejects_applied_source_status(tmp_path: Path) -> None:
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        ReviseReconciliationError,
+        mark_revise_reconciled,
+    )
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+    result = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert result.result == "reconciled"
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+
+    with pytest.raises(ReviseReconciliationError) as exc_info:
+        mark_revise_reconciled(
+            tmp_path,
+            draft_id=draft.draft_id,
+            request_id=req.request_id,
+            request_digest=stored.request_digest,
+            candidate_id=response_fixture.candidate_id,
+            source_status="applied",
+        )
+    assert exc_info.value.status_code == 422
+
+
+def test_persisted_reconciled_applied_fails_closed_on_reload_and_replay(
+    tmp_path: Path,
+) -> None:
+    """Poisoned reconciled/applied must not replay as ordinary success."""
+    from apps.live_control_server.models.statblock_candidate_revision import (
+        ReviseOperationV1,
+    )
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        ReviseReconciliationError,
+        _record_path,
+    )
+    from src.live_play.live_store import write_json
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+    revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.status == "reconciled"
+
+    poisoned = stored.model_dump(mode="json", by_alias=True)
+    poisoned["materialization"]["source_status"] = "applied"
+    path = _record_path(tmp_path, draft_id=draft.draft_id, request_id=req.request_id)
+    write_json(path, poisoned)
+
+    with pytest.raises(ValidationError):
+        ReviseOperationV1.model_validate(poisoned)
+
+    with pytest.raises(ReviseReconciliationError) as exc_info:
+        get_revise_operation(
+            tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+        )
+    assert exc_info.value.status_code == 409
+    assert "applied" in str(exc_info.value)
+
+    replay = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert replay.result == "revise_integrity_conflict"
+
+
+def test_reconciled_materialization_is_immutable_none_only(tmp_path: Path) -> None:
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        mark_revise_reconciled,
+    )
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+    revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.status == "reconciled"
+    assert stored.materialization.source_status == "none"
+
+    again = mark_revise_reconciled(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request_id=req.request_id,
+        request_digest=stored.request_digest,
+        candidate_id=response_fixture.candidate_id,
+        source_status="none",
+    )
+    assert again.status == "reconciled"
+    assert again.materialization.source_status == "none"
+
+
+def test_prove_revise_ref_attached_ignores_journal_source_status(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.models.threat_draft import CandidateLineageV1
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        prove_revise_ref_attached,
+    )
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+    revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    after = get_threat_draft(tmp_path, draft.draft_id)
+    lineage = CandidateLineageV1.model_validate(
+        after.candidate_refs[0].lineage.model_dump(mode="json", by_alias=True)
+    )
+    assert prove_revise_ref_attached(
+        after,
+        stored,
+        expected_lineage=lineage,
+    )
+
+
+def test_replay_fails_when_generated_from_diverges_from_journal(
+    tmp_path: Path,
+) -> None:
+    """Readable draft with mismatched generated_from is integrity, not success."""
+    from src.live_play.live_store import write_json
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+    first = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert first.result == "reconciled"
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.source_draft_version == 1
+
+    after = get_threat_draft(tmp_path, draft.draft_id)
+    poisoned = after.model_dump(mode="json", by_alias=True)
+    poisoned["candidate_refs"][0]["generated_from_draft_version"] = 99
+    draft_path = tmp_path / "out" / "threat_drafts" / f"{draft.draft_id}.json"
+    write_json(draft_path, poisoned)
+
+    replay = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert replay.result == "revise_integrity_conflict"
+
+
+def test_pending_applied_source_status_rejected_by_model_and_load(
+    tmp_path: Path,
+) -> None:
+    """cache_stored_ref_pending/applied must not load or normalize to reconciled."""
+    from apps.live_control_server.models.statblock_candidate_revision import (
+        ReviseOperationV1,
+    )
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        _record_path,
+        mark_cache_stored_ref_pending,
+        record_candidate_received,
+    )
+    from src.live_play.live_store import write_json
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    body, digest, src_digest, instr_digest = _body_and_digests(req)
+    claim_revise_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_draft_version=draft.version,
+        request_id=req.request_id,
+        request_digest=digest,
+        request_body=body,
+        editor_state_revision=req.editor_state_revision,
+        source_definition_digest=src_digest,
+        instruction_options_digest=instr_digest,
+    )
+    write_ahead_dispatched_unknown(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request_id=req.request_id,
+        request_digest=digest,
+    )
+
+    response_fixture = _revise_response()
+    record_candidate_received(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request_id=req.request_id,
+        request_digest=digest,
+        candidate_id=response_fixture.candidate_id,
+    )
+    pending = mark_cache_stored_ref_pending(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request_id=req.request_id,
+        request_digest=digest,
+        candidate_id=response_fixture.candidate_id,
+    )
+    assert pending.status == "cache_stored_ref_pending"
+    assert pending.materialization.source_status == "none"
+
+    poisoned = pending.model_dump(mode="json", by_alias=True)
+    poisoned["materialization"]["source_status"] = "applied"
+    path = _record_path(tmp_path, draft_id=draft.draft_id, request_id=req.request_id)
+    write_json(path, poisoned)
+
+    with pytest.raises(ValidationError):
+        ReviseOperationV1.model_validate(poisoned)
+
+    with pytest.raises(ReviseReconciliationError) as exc_info:
+        get_revise_operation(
+            tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+        )
+    assert exc_info.value.status_code == 409
+    assert "applied" in str(exc_info.value)
+
+    replay = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=MagicMock(),
+    )
+    assert replay.result == "revise_integrity_conflict"
+    # Journal must not have been silently healed to reconciled/none.
+    with pytest.raises(ReviseReconciliationError):
+        get_revise_operation(
+            tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+        )
+
+
+def test_corrupt_draft_on_reconciled_replay_is_unavailable(tmp_path: Path) -> None:
+    from src.live_play.live_store import write_json
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    first = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert first.result == "reconciled"
+
+    draft_path = tmp_path / "out" / "threat_drafts" / f"{draft.draft_id}.json"
+    write_json(draft_path, {"not": "a threat draft"})
+
+    replay = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert replay.result == "revise_draft_unavailable"

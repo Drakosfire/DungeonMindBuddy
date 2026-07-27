@@ -123,18 +123,117 @@ class FocusV1(StrictModel):
     prep_label: str | None = Field(default=None, max_length=_MAX_NAME)
 
 
+class EditedWorkingCopyLineageV1(StrictModel):
+    draft_id: str
+    source_draft_version: int = Field(ge=1)
+    editor_state_revision: str = Field(min_length=1, max_length=256)
+    source_definition_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+    @field_validator("draft_id")
+    @classmethod
+    def _draft_id(cls, value: str) -> str:
+        return require_draft_id(value)
+
+
+class CandidateOriginLineageV1(StrictModel):
+    source_candidate_id: str = Field(pattern=r"^cand_[a-z0-9]+$")
+    source_candidate_request_id: str
+    draft_id: str
+    source_generated_from_draft_version: int = Field(ge=1)
+    source_definition_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+    @field_validator("draft_id")
+    @classmethod
+    def _draft_id(cls, value: str) -> str:
+        return require_draft_id(value)
+
+    @field_validator("source_candidate_request_id")
+    @classmethod
+    def _source_candidate_request_id(cls, value: str) -> str:
+        return _require_id(value, label="source_candidate_request_id")
+
+
+class AcceptedRevisionLineageV1(StrictModel):
+    provider: Literal["dungeonmind"] = "dungeonmind"
+    statblock_id: str = Field(pattern=r"^sb_[a-z0-9]+$")
+    revision_id: str = Field(pattern=r"^rev_[a-z0-9]+$")
+    contract: str
+    contract_version: str
+    definition_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class CandidateLineageV1(StrictModel):
+    schema_name: Literal["dmb_candidate_lineage_v1"] = Field(
+        default="dmb_candidate_lineage_v1", alias="schema"
+    )
+    revise_request_id: str
+    source_origin_kind: Literal[
+        "edited_working_copy", "candidate", "accepted_revision"
+    ]
+    instruction_options_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    created_at: str
+    edited_working_copy: EditedWorkingCopyLineageV1 | None = None
+    candidate: CandidateOriginLineageV1 | None = None
+    accepted_revision: AcceptedRevisionLineageV1 | None = None
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    @field_validator("revise_request_id")
+    @classmethod
+    def _revise_request_id(cls, value: str) -> str:
+        return _require_id(value, label="revise_request_id")
+
+    @model_validator(mode="after")
+    def _exactly_one_variant(self) -> CandidateLineageV1:
+        variants: dict[str, object | None] = {
+            "edited_working_copy": self.edited_working_copy,
+            "candidate": self.candidate,
+            "accepted_revision": self.accepted_revision,
+        }
+        present = [name for name, value in variants.items() if value is not None]
+        if len(present) != 1 or present[0] != self.source_origin_kind:
+            raise ValueError("lineage variant must match source_origin_kind")
+        return self
+
+
+class RequestedSourceStatusTransitionV1(StrictModel):
+    """Explicit source-ref lifecycle transition for the revise CAS only.
+
+    ``exact_expires_at`` is required for ``expired`` and must equal the source
+    candidate ref's durable ``expires_at`` (exact expiry evidence, not a bool).
+    """
+
+    source_candidate_id: str = Field(pattern=r"^cand_[a-z0-9]+$")
+    to_status: Literal[
+        "superseded", "rejected", "expired", "accepted_source", "active"
+    ]
+    exact_expires_at: str | None = Field(default=None, max_length=64)
+
+
 class ThreatDraftCandidateRefV1(StrictModel):
     candidate_id: str = Field(pattern=r"^cand_[a-z0-9]+$")
     generated_from_draft_version: int = Field(ge=1)
     request_id: str = Field(min_length=1, max_length=128)
     created_at: str = Field(min_length=1, max_length=64)
     expires_at: str | None = Field(default=None, max_length=64)
-    status: Literal["active", "superseded", "rejected", "expired", "accepted_source"] = "active"
+    status: Literal["active", "superseded", "rejected", "expired", "accepted_source"] = (
+        "active"
+    )
+    lineage: CandidateLineageV1 | None = None
 
     @field_validator("request_id")
     @classmethod
     def _request_id(cls, value: str) -> str:
         return _require_id(value, label="request_id")
+
+    @model_validator(mode="after")
+    def _lineage_request_binding(self) -> ThreatDraftCandidateRefV1:
+        if (
+            self.lineage is not None
+            and self.lineage.revise_request_id != self.request_id
+        ):
+            raise ValueError("lineage.revise_request_id must equal request_id")
+        return self
 
 
 class ThreatDraftV1(StrictModel):

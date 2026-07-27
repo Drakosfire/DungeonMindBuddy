@@ -16,6 +16,7 @@ from apps.live_control_server.models.threat_draft import (
     MAX_CANDIDATE_REFS,
     MAX_LIST_LIMIT,
     CreateThreatDraftRequest,
+    RequestedSourceStatusTransitionV1,
     ThreatDraftCandidateRefV1,
     ThreatDraftIndexV1,
     ThreatDraftSummaryV1,
@@ -398,7 +399,16 @@ def append_candidate_ref(
 
     Historical lineage is preserved: a ref generated from an earlier draft version
     may still be attached after the draft advances.
+
+    Revise-created refs with embedded lineage must use
+    ``reconcile_revise_candidate_ref`` (version-bumping CAS); this generation
+    path rejects non-null lineage.
     """
+    if candidate_ref.lineage is not None:
+        raise ThreatDraftStoreError(
+            "generation append rejects revise lineage; use reconcile_revise_candidate_ref",
+            status_code=422,
+        )
     if candidate_ref.generated_from_draft_version != expected_version:
         raise ThreatDraftStoreError(
             "candidate ref source version mismatch",
@@ -445,6 +455,293 @@ def append_candidate_ref(
             updates["workflow_state"] = workflow_state
         # Validate the full record before write so an over-limit or invalid
         # payload cannot be persisted and fail on reload.
+        updated = ThreatDraftV1.model_validate(
+            current.model_copy(update=updates).model_dump(mode="json", by_alias=True)
+        )
+        _save_draft_unlocked(root, updated, as_draft_id=committed_id)
+        return updated
+
+
+_TERMINAL_CANDIDATE_REF_STATUS = frozenset(
+    {"superseded", "rejected", "expired", "accepted_source"}
+)
+
+
+def _ref_json(ref: ThreatDraftCandidateRefV1) -> dict:
+    return ref.model_dump(mode="json")
+
+
+def _validate_lineage_for_target_draft(
+    draft: ThreatDraftV1,
+    candidate_ref: ThreatDraftCandidateRefV1,
+) -> None:
+    """Bind origin-specific lineage to the committed draft and ref fields.
+
+    SBW06b only proves ``edited_working_copy``. ``candidate`` and
+    ``accepted_revision`` origins wait for owning slices with exact source proof.
+    """
+    lineage = candidate_ref.lineage
+    if lineage is None:
+        raise ThreatDraftStoreError(
+            "revise candidate ref requires lineage",
+            status_code=422,
+        )
+    if lineage.revise_request_id != candidate_ref.request_id:
+        raise ThreatDraftStoreError(
+            "candidate ref request_id must match lineage.revise_request_id",
+            status_code=422,
+        )
+    if lineage.source_origin_kind != "edited_working_copy":
+        raise ThreatDraftStoreError(
+            "SBW06b revise CAS accepts edited_working_copy lineage only",
+            status_code=422,
+        )
+    assert lineage.edited_working_copy is not None
+    ewc = lineage.edited_working_copy
+    if ewc.draft_id != draft.draft_id:
+        raise ThreatDraftStoreError(
+            "edited_working_copy lineage draft_id must match target draft",
+            status_code=422,
+        )
+    if ewc.source_draft_version != candidate_ref.generated_from_draft_version:
+        raise ThreatDraftStoreError(
+            "edited_working_copy source_draft_version must match "
+            "generated_from_draft_version",
+            status_code=422,
+        )
+    # Historical sources are allowed (source <= committed); future versions are not.
+    if ewc.source_draft_version > draft.version:
+        raise ThreatDraftStoreError(
+            "edited_working_copy source_draft_version exceeds committed draft version",
+            status_code=422,
+        )
+
+
+def _parse_expires_at_utc(value: str) -> datetime:
+    cleaned = value.strip()
+    if cleaned.endswith("Z"):
+        cleaned = cleaned[:-1] + "+00:00"
+    parsed = datetime.fromisoformat(cleaned)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _validate_source_status_transition(
+    draft: ThreatDraftV1,
+    refs: list[ThreatDraftCandidateRefV1],
+    transition: RequestedSourceStatusTransitionV1,
+) -> None:
+    source = next(
+        (ref for ref in refs if ref.candidate_id == transition.source_candidate_id),
+        None,
+    )
+    if source is None:
+        raise ThreatDraftStoreError(
+            "source candidate ref not found",
+            status_code=409,
+        )
+    current_status = source.status
+    target = transition.to_status
+    if current_status == target:
+        return
+    if current_status in _TERMINAL_CANDIDATE_REF_STATUS:
+        raise ThreatDraftStoreError(
+            "source candidate status transition forbidden",
+            status_code=409,
+        )
+    if current_status != "active":
+        raise ThreatDraftStoreError(
+            "source candidate status transition forbidden",
+            status_code=409,
+        )
+    if target == "expired":
+        if not source.expires_at:
+            raise ThreatDraftStoreError(
+                "expired transition requires source expires_at",
+                status_code=409,
+            )
+        if transition.exact_expires_at != source.expires_at:
+            raise ThreatDraftStoreError(
+                "expired transition requires exact expires_at evidence",
+                status_code=409,
+            )
+        try:
+            expires_at = _parse_expires_at_utc(source.expires_at)
+        except ValueError as exc:
+            raise ThreatDraftStoreError(
+                "expired transition requires parseable expires_at",
+                status_code=409,
+            ) from exc
+        if expires_at > datetime.now(UTC):
+            raise ThreatDraftStoreError(
+                "expired transition requires expires_at in the past",
+                status_code=409,
+            )
+    if target == "accepted_source":
+        accepted = draft.accepted_mechanics_ref
+        if accepted is None or accepted.accepted_from_candidate_id != transition.source_candidate_id:
+            raise ThreatDraftStoreError(
+                "accepted_source transition requires accepted mechanics proof",
+                status_code=409,
+            )
+
+
+def _apply_source_status_transition(
+    refs: list[ThreatDraftCandidateRefV1],
+    transition: RequestedSourceStatusTransitionV1,
+) -> tuple[list[ThreatDraftCandidateRefV1], bool]:
+    """Return updated refs and whether any status changed."""
+    updated_refs: list[ThreatDraftCandidateRefV1] = []
+    changed = False
+    for ref in refs:
+        if ref.candidate_id != transition.source_candidate_id:
+            updated_refs.append(ref)
+            continue
+        if ref.status == transition.to_status:
+            updated_refs.append(ref)
+            continue
+        updated_refs.append(ref.model_copy(update={"status": transition.to_status}))
+        changed = True
+    return updated_refs, changed
+
+
+def _source_transition_satisfied(
+    refs: list[ThreatDraftCandidateRefV1],
+    transition: RequestedSourceStatusTransitionV1 | None,
+) -> bool:
+    if transition is None:
+        return True
+    source = next(
+        (ref for ref in refs if ref.candidate_id == transition.source_candidate_id),
+        None,
+    )
+    if source is None:
+        return False
+    return source.status == transition.to_status
+
+
+def reconcile_revise_candidate_ref(
+    root: Path,
+    *,
+    draft_id: str,
+    expected_version: int,
+    candidate_ref: ThreatDraftCandidateRefV1,
+    requested_source_transition: RequestedSourceStatusTransitionV1 | None = None,
+) -> ThreatDraftV1:
+    """Atomic revise ref attach with required lineage and optional source transition."""
+    if candidate_ref.lineage is None:
+        raise ThreatDraftStoreError(
+            "revise candidate ref requires lineage",
+            status_code=422,
+        )
+    if candidate_ref.request_id != candidate_ref.lineage.revise_request_id:
+        raise ThreatDraftStoreError(
+            "candidate ref request_id must match lineage.revise_request_id",
+            status_code=422,
+        )
+
+    with _store_lock(root):
+        committed_id = _require_committed_draft_id(root, draft_id)
+        current = _load_draft_unlocked(root, committed_id)
+        if current.version != expected_version:
+            raise ThreatDraftStoreError(
+                "expected_version mismatch",
+                status_code=409,
+            )
+
+        _validate_lineage_for_target_draft(current, candidate_ref)
+
+        refs = list(current.candidate_refs)
+        incoming_json = _ref_json(candidate_ref)
+        existing_by_cid = next(
+            (ref for ref in refs if ref.candidate_id == candidate_ref.candidate_id),
+            None,
+        )
+        existing_by_rid = next(
+            (ref for ref in refs if ref.request_id == candidate_ref.request_id),
+            None,
+        )
+
+        if existing_by_cid is not None:
+            if existing_by_cid.request_id != candidate_ref.request_id:
+                raise ThreatDraftStoreError(
+                    "candidate ref identity conflict",
+                    status_code=409,
+                )
+            if _ref_json(existing_by_cid) != incoming_json:
+                raise ThreatDraftStoreError(
+                    "candidate ref identity conflict",
+                    status_code=409,
+                )
+        if existing_by_rid is not None:
+            if existing_by_rid.candidate_id != candidate_ref.candidate_id:
+                raise ThreatDraftStoreError(
+                    "candidate ref identity conflict",
+                    status_code=409,
+                )
+
+        idempotent_ref_present = existing_by_cid is not None and _ref_json(
+            existing_by_cid
+        ) == incoming_json
+
+        if not idempotent_ref_present and candidate_ref.status != "active":
+            raise ThreatDraftStoreError(
+                "revise candidate ref must begin active",
+                status_code=422,
+            )
+
+        working_refs = refs
+        if requested_source_transition is not None:
+            _validate_source_status_transition(
+                current, working_refs, requested_source_transition
+            )
+
+        transition_needed = (
+            requested_source_transition is not None
+            and not _source_transition_satisfied(working_refs, requested_source_transition)
+        )
+
+        if idempotent_ref_present:
+            if not transition_needed:
+                return current
+            working_refs, _ = _apply_source_status_transition(
+                working_refs, requested_source_transition
+            )
+            updates: dict = {
+                "candidate_refs": working_refs,
+                "version": current.version + 1,
+                "updated_at": _utc_now_iso(),
+            }
+            updated = ThreatDraftV1.model_validate(
+                current.model_copy(update=updates).model_dump(mode="json", by_alias=True)
+            )
+            _save_draft_unlocked(root, updated, as_draft_id=committed_id)
+            return updated
+
+        if len(refs) >= MAX_CANDIDATE_REFS:
+            raise ThreatDraftStoreError(
+                "candidate_refs limit exceeded",
+                status_code=422,
+            )
+
+        working_refs = list(refs)
+        working_refs.append(candidate_ref)
+        if requested_source_transition is not None:
+            working_refs, _ = _apply_source_status_transition(
+                working_refs, requested_source_transition
+            )
+
+        updates = {
+            "candidate_refs": working_refs,
+            "version": current.version + 1,
+            "updated_at": _utc_now_iso(),
+        }
+        if current.workflow_state == "mechanics_saved":
+            updates["workflow_state"] = "mechanics_saved"
+        elif current.workflow_state == "drafting":
+            updates["workflow_state"] = "candidate_ready"
+
         updated = ThreatDraftV1.model_validate(
             current.model_copy(update=updates).model_dump(mode="json", by_alias=True)
         )

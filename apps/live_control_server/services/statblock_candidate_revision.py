@@ -28,19 +28,32 @@ from apps.live_control_server.models.statblock_candidate_revision import (
     revise_request_digest_for_server_body,
     source_definition_digest_from_body,
 )
+from apps.live_control_server.models.threat_draft import (
+    CandidateLineageV1,
+    EditedWorkingCopyLineageV1,
+    ThreatDraftCandidateRefV1,
+)
 from apps.live_control_server.services.statblock_candidate_cache import (
     CandidateCacheError,
     read_candidate_payload_or_none,
     store_candidate_payload,
 )
 from apps.live_control_server.services.statblock_revise_reconciliation import (
+    ReviseReconciliationError,
     claim_revise_operation,
     get_revise_operation,
     mark_cache_failed,
     mark_cache_stored_ref_pending,
     mark_idempotency_authority_conflict,
+    mark_revise_reconciled,
+    prove_revise_ref_attached,
     record_candidate_received,
     write_ahead_dispatched_unknown,
+)
+from apps.live_control_server.services.threat_draft_store import (
+    ThreatDraftStoreError,
+    get_threat_draft,
+    reconcile_revise_candidate_ref,
 )
 
 
@@ -60,6 +73,7 @@ def _response_from_operation(
         "dispatched_unknown",
         "candidate_received",
         "cache_stored_ref_pending",
+        "reconciled",
         "revise_busy",
         "revise_history_full",
         "revise_input_conflict",
@@ -86,6 +100,151 @@ def _receipt_digest_str(receipt_digest: object) -> str | None:
     if hasattr(receipt_digest, "root"):
         return str(receipt_digest.root)
     return str(receipt_digest)
+
+
+def _build_lineage_from_operation(operation: ReviseOperationV1) -> CandidateLineageV1:
+    return CandidateLineageV1(
+        revise_request_id=operation.request_id,
+        source_origin_kind="edited_working_copy",
+        instruction_options_digest=operation.instruction_options_digest,
+        created_at=operation.created_at,
+        edited_working_copy=EditedWorkingCopyLineageV1(
+            draft_id=operation.draft_id,
+            source_draft_version=operation.source_draft_version,
+            editor_state_revision=operation.editor_state_revision,
+            source_definition_digest=operation.source_definition_digest,
+        ),
+    )
+
+
+def _build_revise_candidate_ref(
+    operation: ReviseOperationV1,
+    lineage: CandidateLineageV1,
+) -> ThreatDraftCandidateRefV1:
+    if operation.candidate_id is None:
+        raise ReviseCandidateRevisionError(
+            "reconcile requires candidate_id",
+            status_code=500,
+        )
+    return ThreatDraftCandidateRefV1(
+        candidate_id=operation.candidate_id,
+        generated_from_draft_version=operation.source_draft_version,
+        request_id=operation.request_id,
+        created_at=operation.created_at,
+        status="active",
+        lineage=lineage,
+    )
+
+
+def _mark_reconciled_or_recover(
+    root: Path,
+    operation: ReviseOperationV1,
+    *,
+    lineage: CandidateLineageV1,
+) -> ReviseOperationV1:
+    assert operation.candidate_id is not None
+    try:
+        return mark_revise_reconciled(
+            root,
+            draft_id=operation.draft_id,
+            request_id=operation.request_id,
+            request_digest=operation.request_digest,
+            candidate_id=operation.candidate_id,
+            source_status="none",
+        )
+    except ReviseReconciliationError:
+        draft = get_threat_draft(root, operation.draft_id)
+        if prove_revise_ref_attached(
+            draft,
+            operation,
+            expected_lineage=lineage,
+        ):
+            return mark_revise_reconciled(
+                root,
+                draft_id=operation.draft_id,
+                request_id=operation.request_id,
+                request_digest=operation.request_digest,
+                candidate_id=operation.candidate_id,
+                source_status="none",
+            )
+        raise
+
+
+def _return_reconciled_if_proven(
+    root: Path,
+    operation: ReviseOperationV1,
+) -> ReviseCandidateFromEditedDefinitionResponseV1:
+    """Ordinary success only when journal none-authority matches draft proof."""
+    if (
+        operation.materialization.draft_ref != "attached"
+        or operation.materialization.source_status != "none"
+    ):
+        return _response_from_operation(operation, result="revise_integrity_conflict")
+    lineage = _build_lineage_from_operation(operation)
+    try:
+        draft = get_threat_draft(root, operation.draft_id)
+    except ThreatDraftStoreError:
+        # Missing/corrupt/unreadable draft — retain journal; do not claim integrity.
+        return _response_from_operation(operation, result="revise_draft_unavailable")
+    if not prove_revise_ref_attached(
+        draft,
+        operation,
+        expected_lineage=lineage,
+    ):
+        return _response_from_operation(operation, result="revise_integrity_conflict")
+    return _response_from_operation(operation, result="reconciled")
+
+
+def _reconcile_draft_and_journal(
+    root: Path,
+    operation: ReviseOperationV1,
+) -> ReviseCandidateFromEditedDefinitionResponseV1:
+    if operation.status == "reconciled":
+        return _return_reconciled_if_proven(root, operation)
+    if operation.status != "cache_stored_ref_pending":
+        return _response_from_operation(operation, result="cache_stored_ref_pending")
+
+    lineage = _build_lineage_from_operation(operation)
+    candidate_ref = _build_revise_candidate_ref(operation, lineage)
+    try:
+        draft = get_threat_draft(root, operation.draft_id)
+    except ThreatDraftStoreError:
+        return _response_from_operation(operation, result="revise_draft_unavailable")
+
+    if prove_revise_ref_attached(
+        draft,
+        operation,
+        expected_lineage=lineage,
+    ):
+        try:
+            operation = _mark_reconciled_or_recover(root, operation, lineage=lineage)
+        except ReviseReconciliationError:
+            return _response_from_operation(
+                operation, result="cache_stored_ref_pending"
+            )
+        return _response_from_operation(operation, result="reconciled")
+
+    try:
+        reconcile_revise_candidate_ref(
+            root,
+            draft_id=operation.draft_id,
+            expected_version=draft.version,
+            candidate_ref=candidate_ref,
+            requested_source_transition=None,
+        )
+    except ThreatDraftStoreError as exc:
+        if exc.status_code == 409 and "identity conflict" in str(exc):
+            return _response_from_operation(
+                operation, result="revise_integrity_conflict"
+            )
+        return _response_from_operation(operation, result="cache_stored_ref_pending")
+
+    try:
+        operation = _mark_reconciled_or_recover(root, operation, lineage=lineage)
+    except ReviseReconciliationError:
+        return _response_from_operation(operation, result="cache_stored_ref_pending")
+
+    return _response_from_operation(operation, result="reconciled")
 
 
 def bind_candidate_to_revise_operation(
@@ -214,11 +373,8 @@ def _repair_or_demote_known_candidate(
                         root, operation, candidate_id=operation.candidate_id
                     )
                     return _response_from_operation(failed, result="candidate_received")
-            return _response_from_operation(
-                operation, result="cache_stored_ref_pending"
-            )
+            return _reconcile_draft_and_journal(root, operation)
 
-    # Cache missing, corrupt, or unbound — exact GET repair.
     try:
         candidate = resolve_client().get_candidate(operation.candidate_id)
         bind_candidate_to_revise_operation(candidate, operation)
@@ -244,7 +400,7 @@ def _repair_or_demote_known_candidate(
             root, operation, candidate_id=candidate.candidate_id
         )
         return _response_from_operation(failed, result="candidate_received")
-    return _response_from_operation(operation, result="cache_stored_ref_pending")
+    return _reconcile_draft_and_journal(root, operation)
 
 
 def _client_factory(
@@ -271,6 +427,9 @@ def _advance_after_claim(
     operation: ReviseOperationV1,
     resolve_client: Callable[[], StatblockV1Client],
 ) -> ReviseCandidateFromEditedDefinitionResponseV1:
+    if operation.status == "reconciled":
+        return _return_reconciled_if_proven(root, operation)
+
     # Known candidate: always verify cache before claiming cache_stored_ref_pending.
     if operation.candidate_id is not None:
         return _repair_or_demote_known_candidate(
@@ -338,7 +497,7 @@ def _advance_after_claim(
             root, operation, candidate_id=candidate.candidate_id
         )
         return _response_from_operation(failed, result="candidate_received")
-    return _response_from_operation(operation, result="cache_stored_ref_pending")
+    return _reconcile_draft_and_journal(root, operation)
 
 
 def revise_candidate_from_edited_definition(
@@ -348,7 +507,7 @@ def revise_candidate_from_edited_definition(
     request: ReviseCandidateFromEditedDefinitionRequestV1,
     client: StatblockV1Client | None = None,
 ) -> ReviseCandidateFromEditedDefinitionResponseV1:
-    """Exact edited definition revise adapter; ends at cache_stored_ref_pending.
+    """Exact edited definition revise adapter through reconciled product success.
 
     Existing journal authority is classified before draft/version/capacity
     checks and before Server client construction. The client is built lazily
@@ -374,11 +533,27 @@ def revise_candidate_from_edited_definition(
         )
 
         # Durable journal authority before draft I/O or client construction.
-        existing = get_revise_operation(
-            root,
-            draft_id=draft_id,
-            request_id=request.request_id,
-        )
+        try:
+            existing = get_revise_operation(
+                root,
+                draft_id=draft_id,
+                request_id=request.request_id,
+            )
+        except ReviseReconciliationError as exc:
+            if (
+                exc.status_code == 409
+                and "unauthorized source_status=applied" in str(exc)
+            ):
+                return ReviseCandidateFromEditedDefinitionResponseV1(
+                    result="revise_integrity_conflict",
+                    request_id=request.request_id,
+                    operation_status=None,
+                    candidate_id=None,
+                    request_digest=request_digest,
+                    source_definition_digest=src_digest,
+                    instruction_options_digest=instr_digest,
+                )
+            raise
         if existing is not None:
             if (
                 existing.request_digest != request_digest

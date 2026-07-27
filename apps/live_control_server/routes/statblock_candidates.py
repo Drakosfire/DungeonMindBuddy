@@ -14,9 +14,16 @@ from apps.live_control_server.models.statblock_mechanics_acceptance import (
     AcceptThreatDraftMechanicsResponseV1,
     ReadAcceptanceOperationResponseV1,
 )
+from apps.live_control_server.models.statblock_candidate_revision import (
+    ReviseCandidateFromEditedDefinitionRequestV1,
+)
 from apps.live_control_server.services.statblock_candidate_generation import (
     generate_candidate_from_draft,
     read_candidate,
+)
+from apps.live_control_server.services.statblock_candidate_revision import (
+    ReviseCandidateRevisionError,
+    revise_candidate_from_edited_definition,
 )
 from apps.live_control_server.services.statblock_mechanics_acceptance import (
     begin_or_resume_acceptance,
@@ -27,6 +34,9 @@ from apps.live_control_server.services.statblock_definition_validation import (
     ValidateDefinitionBuddyRequestV1,
     ValidateDefinitionBuddyResponseV1,
     validate_definition,
+)
+from apps.live_control_server.services.statblock_revise_reconciliation import (
+    ReviseReconciliationError,
 )
 from apps.live_control_server.services.threat_draft_store import ThreatDraftStoreError
 
@@ -44,6 +54,26 @@ def post_generate_candidate(
             draft_id=draft_id,
             request=body,
         )
+    except ThreatDraftStoreError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return result.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/threat-drafts/{draft_id}/candidates:revise")
+def post_revise_candidate_from_edited_definition(
+    draft_id: str,
+    body: ReviseCandidateFromEditedDefinitionRequestV1,
+) -> dict[str, Any]:
+    try:
+        result = revise_candidate_from_edited_definition(
+            repo_root(),
+            draft_id=draft_id,
+            request=body,
+        )
+    except ReviseCandidateRevisionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except ReviseReconciliationError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except ThreatDraftStoreError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return result.model_dump(mode="json", by_alias=True)
