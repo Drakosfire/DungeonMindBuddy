@@ -3,13 +3,15 @@
 **Created:** 2026-07-25
 **Status:** ACCEPTED — governs projection layering from the mention-linker hoist forward.
 **Supersedes:** nothing. **Superseded by:** nothing.
-**Authority for:** completed graph-lens hygiene slices (PR #414 / #416 / #423 handoffs under `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/`), the in-flight `normalize-union-direction-vocabulary` handoff, PR380B (Recap/Ingest UI migration), and any future surface that renders prose beside World Graph nodes.
+**Authority for:** completed graph-lens hygiene slices (PR #414 / #416 / #423 / #427 handoffs under `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/`), PR380B (Recap/Ingest UI migration), and any future surface that renders prose beside World Graph nodes.
 
 > **Numbering lesson (2026-07-25):** Do not name successor slices by guessed GitHub PR numbers in authority docs. Use content slugs. Planned `#413` collided with an unrelated open PR; the hoist landed as `#414`. Archive rename to `HANDOFF-pr414-…` completed 2026-07-26.
 >
 > **Doc-sync (2026-07-26):** PR #416 merged (`6410e047`). Sequencing table and archived handoffs updated in the same batch so re-anchors do not still say “dispatched.”
 >
 > **Doc-sync (2026-07-26, later):** PR #423 merged (`eb2d40ba`). `migrate-union-mention-path` archived; `normalize-union-direction-vocabulary` dispatched via `Docs/Plans/HANDOFF-normalize-union-direction-vocabulary.md`.
+>
+> **Doc-sync (2026-07-26, after #427):** PR #427 merged (`7a024363`). `normalize-union-direction-vocabulary` archived; graph-lens hygiene sequencing complete; next product gate is PR380B.
 
 ## Context
 
@@ -78,21 +80,19 @@ A projection is: **exact snapshot identity + node/edge views + focus overlay + t
 | `hoist-graph-mention-linker` | Hoist the linker to `markdown_mentions.py`, parameterized by bindings, byte-for-byte identical output | **merged** as GitHub PR #414 (`5c19d433`) — archived `HANDOFF-pr414-hoist-graph-mention-linker.md` |
 | `derive-recap-views-normalize-direction` | Derive recap views from generic views; normalize `direction` at the kernel boundary | **merged** as GitHub PR #416 (`6410e047`) — archived `HANDOFF-pr416-derive-recap-views-normalize-direction.md` |
 | `migrate-union-mention-path` | Migrate `recap_projection._project_markdown_mentions` onto the hoisted linker, closing the unprotected second implementation | **merged** as GitHub PR #423 (`eb2d40ba`) — archived `HANDOFF-pr420-migrate-union-mention-path.md` |
-| `normalize-union-direction-vocabulary` | Close the Union-compatible snake_case direction vocabulary at the shared adjacency wire-model boundary | **dispatched** — `Docs/Plans/HANDOFF-normalize-union-direction-vocabulary.md`; implementation not merged |
-| PR380B | Recap/Ingest UI migration; consumes the World Graph recap route + hoisted linker | **unblocked** — World Graph hygiene + union CommonMark mention path complete; product migration not started |
+| `normalize-union-direction-vocabulary` | Close the Union-compatible snake_case direction vocabulary at the shared adjacency wire-model boundary | **merged** as GitHub PR #427 (`7a024363`) — archived `HANDOFF-pr427-normalize-union-direction-vocabulary.md` |
+| PR380B | Recap/Ingest UI migration; consumes the World Graph recap route + hoisted linker | **unblocked** — graph-lens hygiene complete; product migration not started |
 
-The hoist was deliberately a pure move with a characterization-test invariant. `derive-recap-views-normalize-direction` was the genuine contract change: direct generic-model reuse for recap nested views plus closed `outgoing`/`incoming`/`related` vocabulary at the World Graph boundary. `migrate-union-mention-path` closed the unprotected second mention implementation. All three are now on `main`.
+The hoist was deliberately a pure move with a characterization-test invariant. `derive-recap-views-normalize-direction` was the genuine contract change: direct generic-model reuse for recap nested views plus closed `outgoing`/`incoming`/`related` vocabulary at the World Graph boundary. `migrate-union-mention-path` closed the unprotected second mention implementation. `normalize-union-direction-vocabulary` closed the dual Union wire-direction contract. All four hygiene slices are now on `main`.
 
 ### Next gate
 
-**In flight:** `normalize-union-direction-vocabulary` via `HANDOFF-normalize-union-direction-vocabulary.md`. Do not start a sibling union/UI slice that overlaps its §4 allowlist until that PR merges or the handoff is withdrawn.
+**No graph-lens hygiene slice in flight.** The next product gate is PR380B.
 
-Still independently available after this slice (or instead, if it is withdrawn):
+1. **PR380B** — migrate Recap/Ingest UI (and shared object navigation) onto the World Graph recap route (`POST /api/live/world-graph/recap-projection`). Satisfies Backlog `[READY] Recap View / ingest must project world graph`.
+2. Any durable Union store/contribution direction migration remains explicitly deferred and must not be folded into PR380B.
 
-1. **PR380B** — migrate Recap/Ingest UI (and shared object navigation) onto the World Graph recap route. May proceed if the operator accepts living with legacy union direction wire values until later.
-2. Any durable Union store/contribution direction migration (explicitly out of the in-flight handoff).
-
-Do not combine these with the in-flight direction-vocabulary slice into one PR.
+Do not combine PR380B with a storage migration or a new graph-lens hygiene slice.
 
 ## Consequences
 
@@ -118,7 +118,7 @@ Do not combine these with the in-flight direction-vocabulary slice into one PR.
 ## Related
 
 - `Docs/Plans/HANDOFF-pr412-world-graph-recap-projection-contract.md` — the slice whose review rounds produced this record.
-- `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/` — completed PR #414 / #416 handoffs.
+- `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/` — completed PR #414 / #416 / #423 / #427 handoffs.
 - `Docs/Design/CONTRACT-graph-kernel-boundary.md` — where decision 3's normalization lands.
 - `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` — sibling concern for surface vocabulary.
 - `Backlog.md` `[READY] Recap View / ingest must project world graph (not session preview union)` — product intent that PR380B satisfies.
