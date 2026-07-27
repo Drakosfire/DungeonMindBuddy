@@ -6,6 +6,9 @@ import type { AppChromeTools } from "../../chrome/AppChrome";
 import {
   GraphNodeChipRuntimeProvider,
   type GraphNodeChipRuntimeValue,
+  GraphReferenceSearch,
+  insertMarkdownReference,
+  useOpenGraphReference,
 } from "../../graphReference";
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
@@ -35,7 +38,6 @@ import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenc
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
-import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
 
@@ -57,7 +59,8 @@ export function PlanSurfaceCanvas({
   const planningDocument = sessionDescriptor.planningDocument;
   const documentKind = planningDocument.kind as WorkspaceDocumentLocalKind;
   const { isLocked, canEdit, toggleLock } = useEditCapability();
-  const { openContentFromChip, openPlanReferenceResolution } = useProjection();
+  const { openContentFromChip } = useProjection();
+  const openGraphReferenceFromPlan = useOpenGraphReference();
   const {
     resolvePlanReference,
     projection,
@@ -140,9 +143,9 @@ export function PlanSurfaceCanvas({
     [editor],
   );
 
-  const insertRunbookReference = useCallback(
+  const handleInsertMarkdownReference = useCallback(
     (attrs: RunbookReferenceAttrs) => {
-      editor?.chain().focus().insertRunbookReference(attrs).run();
+      insertMarkdownReference(editor, attrs);
     },
     [editor],
   );
@@ -154,7 +157,7 @@ export function PlanSurfaceCanvas({
 
   const handleViewGraphNode = useCallback(
     (node: GraphProjectionNodeView) => {
-      openPlanReferenceResolution(
+      openGraphReferenceFromPlan(
         {
           kind: "graph-node",
           locator: `dmb-node:${node.node_id}`,
@@ -170,17 +173,17 @@ export function PlanSurfaceCanvas({
         projectionState,
       );
     },
-    [openPlanReferenceResolution, projectionState],
+    [openGraphReferenceFromPlan, projectionState],
   );
 
   const graphRefSearchPanel = useMemo(
     () => (
-      <PlanGraphRefSearch
+      <GraphReferenceSearch
         nodes={projectionNodes}
         projectionState={projectionState}
         projectionError={projectionError}
         insertDisabled={!editor || isLocked || !editorInteractive}
-        onInsert={insertRunbookReference}
+        onInsert={handleInsertMarkdownReference}
         onView={handleViewGraphNode}
       />
     ),
@@ -188,7 +191,7 @@ export function PlanSurfaceCanvas({
       editor,
       editorInteractive,
       handleViewGraphNode,
-      insertRunbookReference,
+      handleInsertMarkdownReference,
       isLocked,
       projectionError,
       projectionNodes,
