@@ -164,13 +164,15 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     expect(continueLink.getAttribute("href")).toContain(`graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`);
   });
 
-  it("does not render preview-candidate chip copy for published World Graph recap", async () => {
+  it("does not render preview-candidate or evidence-highlight copy for published World Graph recap", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
     expect(
       await screen.findByText(/Graph chips open exact durable World Graph node ids/i),
     ).toBeInTheDocument();
     expect(screen.queryByText(/preview memory candidates/i)).not.toBeInTheDocument();
+    // Backend recap projection ships source_spans=[]; do not promise paragraph highlights.
+    expect(screen.queryByText(/evidence highlights/i)).not.toBeInTheDocument();
   });
 
   it("preserves an explicit URL session even when it is absent from the artifact listing", async () => {

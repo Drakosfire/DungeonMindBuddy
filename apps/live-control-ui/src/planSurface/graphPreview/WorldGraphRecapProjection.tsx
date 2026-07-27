@@ -107,8 +107,8 @@ export function WorldGraphRecapProjectionView({
 
       <p className="recap-reader-hint world-graph-recap-mentions-hint">
         Read-only TipTap projection of the published session recap. Editing and corpus writes are intentionally out of
-        scope here. Graph chips open exact durable World Graph node ids; evidence highlights show the recap paragraph
-        that supports the selected graph context. {payload.mentions.length} graph mention
+        scope here. Graph chips open exact durable World Graph node ids from the published projection.{" "}
+        {payload.mentions.length} graph mention
         {payload.mentions.length === 1 ? "" : "s"} projected.
       </p>
 
