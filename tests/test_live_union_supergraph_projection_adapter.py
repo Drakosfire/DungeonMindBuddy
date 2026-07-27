@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,22 @@ from graph_memory.union_supergraph.preview_run_materialize import (
     PreviewUnionMaterializeOptions,
     materialize_preview_union_store_from_graph_ingest_run,
 )
+
+
+def _apply_legacy_direction_aliases_only(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return a deep copy with only outbound/inbound direction leaves rewritten."""
+    rewritten = copy.deepcopy(payload)
+    alias_map = {"outbound": "outgoing", "inbound": "incoming"}
+    for node_view in (rewritten.get("node_views") or {}).values():
+        for candidate in node_view.get("adjacency") or []:
+            direction = candidate.get("direction")
+            if direction in alias_map:
+                candidate["direction"] = alias_map[direction]
+        for expansion in node_view.get("suggested_expansions") or []:
+            direction = expansion.get("direction")
+            if direction in alias_map:
+                expansion["direction"] = alias_map[direction]
+    return rewritten
 
 
 def test_adapter_builds_projection_for_session_23() -> None:
@@ -271,6 +288,22 @@ def test_reusable_projection_payload_normalizes_legacy_directions_without_mutati
     _stamp_reusable_projection_payload(tmp_path, result, projection_payload)
     projection_path = result.manifest_path.parent / "projection_payload.json"
     before_bytes = projection_path.read_bytes()
+    stamped_payload = json.loads(before_bytes)
+    assert (
+        stamped_payload["node_views"]["npc:legacy"]["adjacency"][0]["direction"]
+        == "outbound"
+    )
+    assert (
+        stamped_payload["node_views"]["npc:legacy"]["suggested_expansions"][0][
+            "direction"
+        ]
+        == "inbound"
+    )
+    # Full serialized proof: result equals the stamped payload after only the
+    # accepted outbound/inbound rewrites, compared at the same model boundary.
+    expected_projection = RecapGraphProjection.model_validate(
+        _apply_legacy_direction_aliases_only(stamped_payload)
+    ).model_dump(mode="json")
 
     projection = build_plan_union_supergraph_projection(
         session_id="session-24",
@@ -278,6 +311,7 @@ def test_reusable_projection_payload_normalizes_legacy_directions_without_mutati
     )
 
     assert projection_path.read_bytes() == before_bytes
+    assert projection.model_dump(mode="json") == expected_projection
     legacy_view = projection.node_views["npc:legacy"]
     assert legacy_view.adjacency[0].direction == "outgoing"
     assert legacy_view.suggested_expansions[0].direction == "incoming"

@@ -37,6 +37,23 @@ UNION_DIRECTION_FIXTURE_PATH = (
     Path(__file__).parent / "fixtures" / "graph_memory" / "union_direction_characterization_v1.json"
 )
 UNION_DIRECTION_EXPECTED_BASE_SHA = "8f7cda7fece546ee6493ce20fab41faeac97945b"
+_CLOSED_DIRECTION_VOCABULARY = frozenset({"outgoing", "incoming", "related"})
+_ACCEPTED_DIRECTION_NORMALIZATION_CONTRACT = {
+    "outbound": "outgoing",
+    "outgoing": "outgoing",
+    "inbound": "incoming",
+    "incoming": "incoming",
+    "related": "related",
+    "empty_or_whitespace": "related",
+    "unknown_nonempty": "error",
+}
+_ACCEPTED_DIRECTION_VALUE_MAP = {
+    "outbound": "outgoing",
+    "outgoing": "outgoing",
+    "inbound": "incoming",
+    "incoming": "incoming",
+    "related": "related",
+}
 
 
 def _load_union_direction_fixture() -> dict:
@@ -85,12 +102,26 @@ def _json_leaf_diffs(
     return []
 
 
+def _accepted_head_direction_for_base(base: object) -> str:
+    """Map a characterized base direction leaf through the accepted alias table."""
+    if not isinstance(base, str):
+        raise AssertionError(f"Direction base must be a string, got {base!r}")
+    if base.strip() == "":
+        return "related"
+    try:
+        return _ACCEPTED_DIRECTION_VALUE_MAP[base]
+    except KeyError as exc:
+        raise AssertionError(
+            f"Fixture base direction {base!r} is outside the accepted mapping table"
+        ) from exc
+
+
 def _closed_direction_leaves(projection: dict) -> list[str]:
     leaves: list[str] = []
-    for node_id, node_view in (projection.get("node_views") or {}).items():
-        for idx, item in enumerate(node_view.get("adjacency") or []):
+    for _node_id, node_view in (projection.get("node_views") or {}).items():
+        for item in node_view.get("adjacency") or []:
             leaves.append(item["direction"])
-        for idx, item in enumerate(node_view.get("suggested_expansions") or []):
+        for item in node_view.get("suggested_expansions") or []:
             leaves.append(item["direction"])
     return leaves
 
@@ -438,13 +469,57 @@ def test_union_direction_characterization_fixture_provenance() -> None:
     assert fixture["generated_via"] == (
         "graph_memory.projection.recap_projection.build_recap_graph_projection"
     )
-    assert len(fixture["cases"]) >= 24
-    assert any(
-        delta["base"] in {"outbound", "inbound"}
-        for case in fixture["cases"]
-        for delta in case["expected_direction_deltas"]
+    assert fixture["normalization_contract"] == _ACCEPTED_DIRECTION_NORMALIZATION_CONTRACT
+    cases = fixture["cases"]
+    assert len(cases) >= 24
+
+    legacy_alias_cases = sum(
+        1
+        for case in cases
+        if any(
+            delta["base"] in {"outbound", "inbound"}
+            for delta in case["expected_direction_deltas"]
+        )
     )
-    assert sum(1 for case in fixture["cases"] if case["category"] == "unchanged") >= 6
+    unchanged_cases = sum(1 for case in cases if case["category"] == "unchanged")
+    both_carrier_cases = sum(
+        1
+        for case in cases
+        if any(
+            "/adjacency/" in delta["path"] for delta in case["expected_direction_deltas"]
+        )
+        and any(
+            "/suggested_expansions/" in delta["path"]
+            for delta in case["expected_direction_deltas"]
+        )
+    )
+    identity_redirect_cases = sum(
+        1 for case in cases if "identity_redirect" in case["case_id"]
+    )
+    edge_fallback_cases = sum(
+        1 for case in cases if case["case_id"].startswith("edge_fallback_")
+    )
+    closed_store_cases = sum(
+        1 for case in cases if case["case_id"].startswith("store_adjacency_closed_")
+    )
+    case_ids = {case["case_id"] for case in cases}
+
+    assert legacy_alias_cases >= 8
+    assert unchanged_cases >= 6
+    assert both_carrier_cases >= 4
+    assert identity_redirect_cases >= 2
+    assert edge_fallback_cases >= 4
+    assert closed_store_cases >= 4
+    assert "store_adjacency_empty_direction" in case_ids
+    assert "store_adjacency_whitespace_direction" in case_ids
+    assert "longmont_default_fixture" in case_ids
+    assert "empty_node_view_no_edges" in case_ids
+
+    for case in cases:
+        for delta in case["expected_direction_deltas"]:
+            assert delta["path"].endswith("/direction")
+            assert delta["head"] == _accepted_head_direction_for_base(delta["base"])
+            assert delta["head"] in _CLOSED_DIRECTION_VOCABULARY
 
 
 @pytest.mark.parametrize(
@@ -455,9 +530,23 @@ def test_union_direction_characterization_fixture_provenance() -> None:
 def test_union_direction_characterization_replay(case: dict) -> None:
     head = _projection_from_union_direction_case(case).model_dump(mode="json")
     base = case["base_projection"]
+    head_direction_leaves = _closed_direction_leaves(head)
+    assert all(
+        direction in _CLOSED_DIRECTION_VOCABULARY for direction in head_direction_leaves
+    )
+
     if case["category"] == "unchanged":
         assert head == base
+        assert case["expected_direction_deltas"] == []
         return
+
+    assert case["expected_direction_deltas"]
+    assert head_direction_leaves
+
+    for item in case["expected_direction_deltas"]:
+        assert item["path"].endswith("/direction")
+        assert item["head"] == _accepted_head_direction_for_base(item["base"])
+        assert item["head"] in _CLOSED_DIRECTION_VOCABULARY
 
     diffs = _json_leaf_diffs(base, head)
     expected = {
@@ -466,8 +555,10 @@ def test_union_direction_characterization_replay(case: dict) -> None:
     }
     actual = set(diffs)
     assert actual == expected
-    for path, _, _ in diffs:
+    for path, base_value, head_value in diffs:
         assert path.endswith("/direction")
+        assert head_value == _accepted_head_direction_for_base(base_value)
+        assert head_value in _CLOSED_DIRECTION_VOCABULARY
 
 
 @pytest.mark.parametrize(
