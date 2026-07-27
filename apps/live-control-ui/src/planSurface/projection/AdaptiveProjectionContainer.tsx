@@ -10,7 +10,8 @@ import {
 } from "../graphPreview/recapSessionLabels";
 
 interface AdaptiveProjectionContainerProps {
-  config: SurfaceConfig;
+  /** Optional override for tests; production reads the app-scoped bound surface config. */
+  config?: SurfaceConfig;
 }
 
 function requestedToolFromLocation(): string | null {
@@ -35,17 +36,28 @@ const SESSION_AWARE_TOOLS = new Set([
   "party-registry",
 ]);
 
-export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContainerProps) {
-  const { active, activePlanReference, close, expandContent, openTool, planProjectionState } = useProjection();
+export function AdaptiveProjectionContainer({ config: configProp }: AdaptiveProjectionContainerProps) {
+  const {
+    surfaceConfig,
+    active,
+    activePlanReference,
+    close,
+    expandContent,
+    openTool,
+    planProjectionState,
+  } = useProjection();
+  const config = configProp ?? surfaceConfig;
   const isOpen = Boolean(active);
   const activeToolId = active?.kind === "tool" ? active.key : null;
-  const firstToolId = config.tools[0]?.id;
+  const firstToolId = config?.tools[0]?.id;
   const [latestIngestedSessionId, setLatestIngestedSessionId] = useState<string | null>(null);
+  const campaignId = config?.context.campaignId;
 
   const resolveLatestIngestedSessionId = useCallback(async () => {
     if (latestIngestedSessionId) return latestIngestedSessionId;
+    if (!campaignId) return null;
     try {
-      const response = await getRecapArtifacts(config.context.campaignId);
+      const response = await getRecapArtifacts(campaignId);
       const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
       const sessionId = records.at(-1)?.session_id ?? null;
       setLatestIngestedSessionId(sessionId);
@@ -54,7 +66,7 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
       setLatestIngestedSessionId(null);
       return null;
     }
-  }, [config.context.campaignId, latestIngestedSessionId]);
+  }, [campaignId, latestIngestedSessionId]);
 
   const openToolFromNav = useCallback(
     async (toolId: string) => {
@@ -81,10 +93,10 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
 
   useEffect(() => {
     const requestedTool = requestedToolFromLocation();
-    if (requestedTool && config.tools.some((tool) => tool.id === requestedTool)) {
+    if (requestedTool && config?.tools.some((tool) => tool.id === requestedTool)) {
       openTool(requestedTool);
     }
-  }, [config.tools, openTool]);
+  }, [config?.tools, openTool]);
 
   useEffect(() => {
     document.body.classList.toggle("plan-toolbox-open", isOpen);
@@ -100,6 +112,11 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [close, isOpen]);
 
+  // No bound surface (index/build without toolbox): hide host chrome entirely.
+  if (!config) {
+    return null;
+  }
+
   const containerClass = projectionContainerClass(active?.size);
   // Reference glances must leave the canvas interactive so chips stay clickable
   // while a card is open. Modal backdrop stays for tool projections only.
@@ -114,7 +131,7 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
     .join(" ");
 
   return (
-    <div className={rootClass}>
+    <div className={rootClass} data-testid="app-projection-host">
       <button
         type="button"
         className="plan-toolbox-toggle"

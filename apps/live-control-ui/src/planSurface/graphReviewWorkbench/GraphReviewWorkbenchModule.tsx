@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   getExtractionRun,
@@ -13,6 +13,9 @@ import {
 import type {
   ExtractionRunRecord,
   ExtractionRunStatusResponse,
+  ExactRunReviewPackage,
+  ExtractPromoteErrorBody,
+  ExtractPromotePrepareResponse,
   GoldReviewCompareResponse,
   ManualReviewBedDetail,
   ManualReviewBedSummary,
@@ -22,13 +25,12 @@ import {
   getExactRunReviewPackage,
   prepareExtractPromote,
 } from "../../api/extractPromoteApi";
-import type { ExactRunReviewPackage, ExtractPromotePrepareResponse } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import { AdaptiveProjectionContainer } from "../projection/AdaptiveProjectionContainer";
-import { ProjectionProvider } from "../projection/projectionContext";
-import type { PlanContextDescriptor } from "../types";
+import { useBindProjectionSurface } from "../projection/projectionContext";
+import type { PlanContextDescriptor, SurfaceConfig } from "../types";
 import { resolveInitialReviewCampaignId } from "../sessionCampaignContext";
 import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
@@ -65,6 +67,22 @@ import type {
   GraphReviewExactRunHandoff,
   GraphReviewExactRunLineage,
 } from "./graphReviewRunSelection";
+
+type ExactRunReviewFailure = {
+  message: string;
+  inspectionStatus?: ExtractPromoteErrorBody["inspectionStatus"];
+  runStatus?: string;
+  diagnostics?: NonNullable<ExtractPromoteErrorBody["diagnostics"]>;
+};
+
+function exactRunReviewFailureFromApiError(error: ExtractPromoteApiError): ExactRunReviewFailure {
+  return {
+    message: error.message,
+    inspectionStatus: error.body?.inspectionStatus,
+    runStatus: error.body?.runStatus,
+    diagnostics: error.body?.diagnostics,
+  };
+}
 
 interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
@@ -188,7 +206,9 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [exactReviewStatus, setExactReviewStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
   );
-  const [exactReviewError, setExactReviewError] = useState<string | null>(null);
+  const [exactReviewFailure, setExactReviewFailure] = useState<ExactRunReviewFailure | null>(
+    null,
+  );
   const appliedCampaignSessions = useMemo(
     () =>
       appliedSelection
@@ -365,7 +385,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       setExactRunError(message);
       setExactReview(null);
       setExactReviewStatus("idle");
-      setExactReviewError(null);
+      setExactReviewFailure(null);
     };
     void (async () => {
       let run: ExtractionRunRecord;
@@ -430,7 +450,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
       setExactLineage(lineage);
       setExactRunStatus("ready");
       setExactReviewStatus("loading");
-      setExactReviewError(null);
+      setExactReviewFailure(null);
       setExactReview(null);
       try {
         const packageResponse = await getExactRunReviewPackage(run.run_id);
@@ -448,9 +468,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         ) {
           setExactReview(null);
           setExactReviewStatus("error");
-          setExactReviewError(
-            "exact-run review package identity does not match the loaded ExtractionRun",
-          );
+          setExactReviewFailure({
+            message:
+              "exact-run review package identity does not match the loaded ExtractionRun",
+          });
           return;
         }
         setExactReview(packageResponse);
@@ -476,10 +497,15 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         }
         setExactReview(null);
         setExactReviewStatus("error");
-        setExactReviewError(
-          error instanceof ExtractPromoteApiError || error instanceof Error
-            ? error.message
-            : "Failed to load exact-run source evidence.",
+        setExactReviewFailure(
+          error instanceof ExtractPromoteApiError
+            ? exactRunReviewFailureFromApiError(error)
+            : {
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to load exact-run source evidence.",
+              },
         );
       }
     })();
@@ -642,7 +668,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     setExactRunError(null);
     setExactReview(null);
     setExactReviewStatus("idle");
-    setExactReviewError(null);
+    setExactReviewFailure(null);
     setExactPrepared(null);
     setExactPrepareError(null);
     setAppliedSelection(nextApplied);
@@ -744,7 +770,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     : appliedSession?.sessionId || draftSessionId || fallbackSessionId;
 
   return (
-    <ProjectionProvider config={toolboxConfig}>
+    <GraphReviewProjectionBinder config={toolboxConfig}>
       <GraphReviewLiveStateProvider
         campaignId={reviewCampaignId}
         sessionId={reviewSessionId}
@@ -800,10 +826,34 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
               {exactReviewStatus === "loading" ? (
                 <p className="plan-projection-empty">Loading source evidence…</p>
               ) : null}
-              {exactReviewError ? (
-                <p className="graph-review-error" data-testid="graph-review-exact-run-review-error">
-                  {exactReviewError}
-                </p>
+              {exactReviewFailure ? (
+                <div
+                  className="graph-review-error"
+                  data-testid="graph-review-exact-run-review-error"
+                >
+                  <p>{exactReviewFailure.message}</p>
+                  {exactReviewFailure.inspectionStatus ? (
+                    <p data-testid="graph-review-exact-run-inspection-status">
+                      Inspection status:{" "}
+                      <code>{exactReviewFailure.inspectionStatus}</code>
+                      {exactReviewFailure.runStatus ? (
+                        <>
+                          {" "}
+                          (run lifecycle: <code>{exactReviewFailure.runStatus}</code>)
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
+                  {exactReviewFailure.diagnostics?.length ? (
+                    <ul data-testid="graph-review-exact-run-review-diagnostics">
+                      {exactReviewFailure.diagnostics.map((item, index) => (
+                        <li key={`${item.code}-${index}`}>
+                          <code>{item.code}</code>: {item.message}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
               ) : null}
               {exactReview ? <GraphReviewExactRunProjection review={exactReview} /> : null}
               {!exactRunReviewable ? (
@@ -887,6 +937,17 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           />
         </div>
       </GraphReviewLiveStateProvider>
-    </ProjectionProvider>
+    </GraphReviewProjectionBinder>
   );
+}
+
+function GraphReviewProjectionBinder({
+  config,
+  children,
+}: {
+  config: SurfaceConfig;
+  children: ReactNode;
+}) {
+  useBindProjectionSurface(config);
+  return children;
 }

@@ -10,7 +10,7 @@ import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { resolvePlanningDocument } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
-import { ProjectionProvider } from "./projection/projectionContext";
+import { useBindProjectionSurface } from "./projection/projectionContext";
 import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "./types";
@@ -84,10 +84,41 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
   }
 
   return (
+    <PlanSurfaceBoundShell
+      config={config}
+      planView={planView}
+      saveStatusLabel={saveStatusLabel}
+      setSaveStatusLabel={setSaveStatusLabel}
+      setPlanningDocument={setPlanningDocument}
+      onEditorToolsChange={onEditorToolsChange}
+      dogfoodMode={dogfoodMode}
+    />
+  );
+}
+
+function PlanSurfaceBoundShell({
+  config,
+  planView,
+  saveStatusLabel,
+  setSaveStatusLabel,
+  setPlanningDocument,
+  onEditorToolsChange,
+  dogfoodMode,
+}: {
+  config: PlanSurfaceConfig;
+  planView: PlanViewProjection;
+  saveStatusLabel: string;
+  setSaveStatusLabel: (label: string) => void;
+  setPlanningDocument: (document: PlanDocumentDescriptor | null) => void;
+  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  dogfoodMode: boolean;
+}) {
+  useBindProjectionSurface(config);
+
+  return (
     <EditCapabilityProvider>
-      <ProjectionProvider config={config}>
-        <PlanGraphLensProvider planCampaignId={config.sessionDescriptor.campaignId}>
-          <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
+      <PlanGraphLensProvider planCampaignId={config.sessionDescriptor.campaignId}>
+        <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
           <div
             className="plan-surface-root"
             data-surface={config.id}
@@ -114,9 +145,8 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
             </div>
             <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
           </div>
-          </PlanGraphReferenceResolverProvider>
-        </PlanGraphLensProvider>
-      </ProjectionProvider>
+        </PlanGraphReferenceResolverProvider>
+      </PlanGraphLensProvider>
     </EditCapabilityProvider>
   );
 }

@@ -3188,6 +3188,8 @@ export interface ExtractPromoteConfirmReceipt {
   warnings: string[];
 }
 
+export type ExtractPromoteInspectionStatus = "ready" | "blocked" | "invalid_evidence";
+
 export interface ExtractPromoteErrorBody {
   schema?: "dmb_extract_promote_error_v1";
   code?: string;
@@ -3195,6 +3197,8 @@ export interface ExtractPromoteErrorBody {
   statusCode?: number;
   diagnostics?: Array<{ code: string; message: string; severity?: string }>;
   failureResult?: Record<string, unknown> | null;
+  runStatus?: string;
+  inspectionStatus?: ExtractPromoteInspectionStatus;
 }
 
 export interface ThreatDraftCandidateRefV1 {

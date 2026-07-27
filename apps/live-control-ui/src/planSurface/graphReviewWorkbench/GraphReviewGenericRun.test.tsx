@@ -1,10 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
 
 import * as extractPromoteApi from "../../api/extractPromoteApi";
+import { ExtractPromoteApiError } from "../../api/extractPromoteApi";
 import * as liveApi from "../../api/liveApi";
 import type { PlanContextDescriptor } from "../types";
+import { ProjectionProvider } from "../projection/projectionContext";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 
 const context: PlanContextDescriptor = {
@@ -13,6 +16,10 @@ const context: PlanContextDescriptor = {
   ingestSession: 23,
   headerLabel: "Ingest",
 };
+
+function renderWorkbench(ui: ReactElement) {
+  return render(<ProjectionProvider>{ui}</ProjectionProvider>);
+}
 
 const exactRun = {
   schema_version: "dmb_extraction_run_v1" as const,
@@ -135,7 +142,7 @@ describe("GraphReviewGenericRun", () => {
     vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
     mockExactRunReviewPackage();
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-banner")).toBeInTheDocument();
@@ -164,7 +171,7 @@ describe("GraphReviewGenericRun", () => {
       campaignId: null,
     });
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-scope")).toHaveTextContent(
@@ -185,7 +192,7 @@ describe("GraphReviewGenericRun", () => {
       sourceArtifactId: "artifact:worldbuilding:other",
     });
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-review-error")).toHaveTextContent(
@@ -195,13 +202,68 @@ describe("GraphReviewGenericRun", () => {
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
   });
 
+  it("surfaces review-package inspection diagnostics for false anchor quotes", async () => {
+    mockCatalogApis();
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
+    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockRejectedValue(
+      new ExtractPromoteApiError(
+        "assertion 'obj_session22_vial' evidence[0] anchor quote does not occur in the canonical span paragraph",
+        422,
+        "run_not_promotable",
+        {
+          schema: "dmb_extract_promote_error_v1",
+          code: "run_not_promotable",
+          message:
+            "assertion 'obj_session22_vial' evidence[0] anchor quote does not occur in the canonical span paragraph",
+          statusCode: 422,
+          runStatus: "reviewable",
+          inspectionStatus: "invalid_evidence",
+          diagnostics: [
+            {
+              code: "false_anchor_quote",
+              message: "this quote is not in the source paragraph",
+              severity: "error",
+            },
+            {
+              code: "span_ref",
+              message: "span:worldbuilding:doc:r1:abcdef123456:1",
+              severity: "error",
+            },
+          ],
+        },
+      ),
+    );
+
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-exact-run-review-error")).toHaveTextContent(
+        "anchor quote does not occur",
+      );
+    });
+    expect(screen.getByTestId("graph-review-exact-run-inspection-status")).toHaveTextContent(
+      "invalid_evidence",
+    );
+    expect(screen.getByTestId("graph-review-exact-run-inspection-status")).toHaveTextContent(
+      "reviewable",
+    );
+    expect(screen.getByTestId("graph-review-exact-run-review-diagnostics")).toHaveTextContent(
+      "false_anchor_quote",
+    );
+    expect(screen.getByTestId("graph-review-exact-run-review-diagnostics")).toHaveTextContent(
+      "span:worldbuilding:doc:r1:abcdef123456:1",
+    );
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+  });
+
   it("displays canonical source prose and assertion evidence for the exact run", async () => {
     mockCatalogApis();
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
     vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
     mockExactRunReviewPackage();
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-source-prose")).toHaveTextContent(
@@ -229,7 +291,7 @@ describe("GraphReviewGenericRun", () => {
       document_revision: 4,
     });
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-error")).toHaveTextContent(
@@ -247,7 +309,7 @@ describe("GraphReviewGenericRun", () => {
       new Error("build context unavailable"),
     );
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-error")).toHaveTextContent(
@@ -275,7 +337,7 @@ describe("GraphReviewGenericRun", () => {
     });
     const buildContextSpy = vi.spyOn(liveApi, "getExtractionRunStatus");
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-scope")).toHaveTextContent(
@@ -295,7 +357,7 @@ describe("GraphReviewGenericRun", () => {
     );
     const getRun = vi.spyOn(liveApi, "getExtractionRun");
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-error")).toHaveTextContent(
@@ -310,7 +372,7 @@ describe("GraphReviewGenericRun", () => {
     window.history.replaceState({}, "", "/ingest?extractionRunId=latest");
     const getRun = vi.spyOn(liveApi, "getExtractionRun");
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-error")).toHaveTextContent(
@@ -327,7 +389,7 @@ describe("GraphReviewGenericRun", () => {
     mockExactRunReviewPackage();
     const prepare = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-not-promotable")).toBeInTheDocument();
     });
@@ -417,7 +479,7 @@ describe("GraphReviewGenericRun", () => {
       sessionId: "session-22",
     });
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-prepare")).toBeInTheDocument();
     });
@@ -439,7 +501,7 @@ describe("GraphReviewGenericRun", () => {
     const prepare = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
     const projectionSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-not-promotable")).toBeInTheDocument();
     });
@@ -463,7 +525,7 @@ describe("GraphReviewGenericRun", () => {
     });
     mockExactRunReviewPackage();
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-unreviewable")).toBeInTheDocument();
     });
@@ -587,7 +649,7 @@ describe("GraphReviewGenericRun", () => {
       gold_fixture_relpath: "gold/session-23.json",
     });
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument();
     });

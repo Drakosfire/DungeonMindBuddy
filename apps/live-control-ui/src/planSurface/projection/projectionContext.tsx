@@ -2,7 +2,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -12,6 +14,8 @@ import type { PlanGraphProjectionState, PlanReferenceResolution } from "../refer
 import type { ActiveProjection, ProjectionSize, SurfaceConfig } from "../types";
 
 interface ProjectionContextValue {
+  /** Bound surface config for the active route; null when no surface has bound. */
+  surfaceConfig: SurfaceConfig | null;
   active: ActiveProjection | null;
   activePlanReference: PlanReferenceResolution | null;
   planProjectionState: PlanGraphProjectionState | null;
@@ -29,6 +33,8 @@ interface ProjectionContextValue {
   ) => void;
   expandContent: () => void;
   close: () => void;
+  /** R10a: bind/unbind the active surface's toolbox config. */
+  bindSurfaceConfig: (config: SurfaceConfig | null) => void;
 }
 
 const ProjectionContext = createContext<ProjectionContextValue | null>(null);
@@ -38,16 +44,30 @@ function contentSize(resolution: PlanReferenceResolution): ProjectionSize {
   return "compact";
 }
 
+function surfaceConfigKey(config: SurfaceConfig | null): string | null {
+  if (!config) return null;
+  return [
+    config.id,
+    config.context.campaignId,
+    config.context.ingestSession,
+    config.canvas.documentId ?? "",
+    config.tools.map((tool) => tool.id).join(","),
+  ].join("|");
+}
+
 export function ProjectionProvider({
-  config,
+  config: propConfig,
   children,
 }: {
-  config: SurfaceConfig;
+  /** Optional initial/test config. App-scoped host omits this; surfaces bind via useBindProjectionSurface. */
+  config?: SurfaceConfig;
   children: ReactNode;
 }) {
+  const [boundConfig, setBoundConfig] = useState<SurfaceConfig | null>(propConfig ?? null);
   const [active, setActive] = useState<ActiveProjection | null>(null);
   const [activePlanReference, setActivePlanReference] = useState<PlanReferenceResolution | null>(null);
   const [planProjectionState, setPlanProjectionState] = useState<PlanGraphProjectionState | null>(null);
+  const previousKeyRef = useRef<string | null>(surfaceConfigKey(propConfig ?? null));
 
   const close = useCallback(() => {
     setActive(null);
@@ -55,9 +75,31 @@ export function ProjectionProvider({
     setPlanProjectionState(null);
   }, []);
 
+  const bindSurfaceConfig = useCallback((config: SurfaceConfig | null) => {
+    setBoundConfig(config);
+  }, []);
+
+  // Keep prop-driven config (unit tests) in sync.
+  useEffect(() => {
+    if (propConfig !== undefined) {
+      setBoundConfig(propConfig);
+    }
+  }, [propConfig]);
+
+  // Clear selected projection when the bound surface context changes.
+  useEffect(() => {
+    const nextKey = surfaceConfigKey(boundConfig);
+    if (previousKeyRef.current !== nextKey) {
+      previousKeyRef.current = nextKey;
+      setActive(null);
+      setActivePlanReference(null);
+      setPlanProjectionState(null);
+    }
+  }, [boundConfig]);
+
   const openTool = useCallback(
     (toolId: string) => {
-      const tool = config.tools.find((entry) => entry.id === toolId);
+      const tool = boundConfig?.tools.find((entry) => entry.id === toolId);
       if (!tool) return;
       setActivePlanReference(null);
       setPlanProjectionState(null);
@@ -68,7 +110,7 @@ export function ProjectionProvider({
         title: tool.label,
       });
     },
-    [config.tools],
+    [boundConfig?.tools],
   );
 
   const openContentFromChip = useCallback(
@@ -123,6 +165,7 @@ export function ProjectionProvider({
 
   const value = useMemo(
     () => ({
+      surfaceConfig: boundConfig,
       active,
       activePlanReference,
       planProjectionState,
@@ -131,10 +174,13 @@ export function ProjectionProvider({
       openPlanReferenceResolution,
       expandContent,
       close,
+      bindSurfaceConfig,
     }),
     [
       active,
       activePlanReference,
+      bindSurfaceConfig,
+      boundConfig,
       close,
       expandContent,
       openContentFromChip,
@@ -157,6 +203,24 @@ export function useProjection(): ProjectionContextValue {
 
 export function useOptionalProjection(): ProjectionContextValue | null {
   return useContext(ProjectionContext);
+}
+
+/**
+ * Bind the active route's SurfaceConfig into the app-scoped projection host.
+ * Clears the binding (and closes the active projection) on unmount.
+ */
+export function useBindProjectionSurface(config: SurfaceConfig | null): void {
+  const { bindSurfaceConfig } = useProjection();
+  const key = surfaceConfigKey(config);
+
+  useEffect(() => {
+    bindSurfaceConfig(config);
+    return () => {
+      bindSurfaceConfig(null);
+    };
+    // Intentionally key on stable surface identity, not object identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bindSurfaceConfig, key]);
 }
 
 export function projectionContainerClass(size: ProjectionSize | undefined): string {

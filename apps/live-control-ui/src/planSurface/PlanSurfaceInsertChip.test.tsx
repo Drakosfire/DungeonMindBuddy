@@ -10,6 +10,7 @@ import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { fixtureWorkspaceDocumentRecord } from "./config/planSessionDescriptor";
 import { mockPlanView } from "../test/fixtures";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
+import { ProjectionProvider } from "./projection/projectionContext";
 
 vi.mock("./config/planSessionDescriptor", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./config/planSessionDescriptor")>();
@@ -82,9 +83,11 @@ function Harness() {
   const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
   return (
     <AgentInteractionProvider>
-      <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-        <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-      </AppChrome>
+      <ProjectionProvider>
+        <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+          <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+        </AppChrome>
+      </ProjectionProvider>
     </AgentInteractionProvider>
   );
 }

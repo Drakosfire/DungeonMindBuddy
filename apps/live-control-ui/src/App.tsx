@@ -18,8 +18,10 @@ import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane"
 import { SurfaceShell } from "./surface/SurfaceShell";
 import type { PaneTarget } from "./surface/targetTypes";
 import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
+import { ProjectionProvider } from "./planSurface/projection/projectionContext";
 import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
+import "./planSurface/planSurface.css";
 
 type LoadStatus = "loading" | "ready" | "error";
 type AppRoute = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest" | "build";
@@ -237,5 +239,9 @@ export function App() {
   } else {
     content = <LiveControlApp />;
   }
-  return <AgentInteractionProvider>{content}</AgentInteractionProvider>;
+  return (
+    <AgentInteractionProvider>
+      <ProjectionProvider>{content}</ProjectionProvider>
+    </AgentInteractionProvider>
+  );
 }

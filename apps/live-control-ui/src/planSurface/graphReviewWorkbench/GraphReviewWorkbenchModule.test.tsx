@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
 
 import * as liveApi from "../../api/liveApi";
 import type { PlanContextDescriptor } from "../types";
+import { ProjectionProvider } from "../projection/projectionContext";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 
 const context: PlanContextDescriptor = {
@@ -12,6 +14,10 @@ const context: PlanContextDescriptor = {
   ingestSession: 23,
   headerLabel: "Ingest",
 };
+
+function renderWorkbench(ui: ReactElement) {
+  return render(<ProjectionProvider>{ui}</ProjectionProvider>);
+}
 
 const sessionWithRun = {
   session_id: "session-23",
@@ -183,7 +189,7 @@ describe("GraphReviewWorkbenchModule", () => {
 
   it("starts empty on a fresh visit without a session query param", async () => {
     window.history.replaceState({}, "", "/ingest");
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
@@ -200,7 +206,7 @@ describe("GraphReviewWorkbenchModule", () => {
   it("exposes Ingest Recap from the toolbox before a session is loaded", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest");
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument(),
@@ -216,7 +222,7 @@ describe("GraphReviewWorkbenchModule", () => {
 
   it("auto-loads when a session query param is present", async () => {
     window.history.replaceState({}, "", "/ingest?session=session-23");
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
@@ -230,7 +236,7 @@ describe("GraphReviewWorkbenchModule", () => {
   it("loads prose after choosing a session in the load dialog", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest");
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
@@ -251,7 +257,7 @@ describe("GraphReviewWorkbenchModule", () => {
   it("keeps the loaded graph after a remount that simulates browser refresh", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest");
-    const first = render(<GraphReviewWorkbenchModule context={context} />);
+    const first = renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
@@ -265,7 +271,7 @@ describe("GraphReviewWorkbenchModule", () => {
     const restoredUrl = `${window.location.pathname}${window.location.search}`;
     first.unmount();
     window.history.replaceState({}, "", restoredUrl);
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
@@ -277,7 +283,7 @@ describe("GraphReviewWorkbenchModule", () => {
   it("opens toolbox with Ingest Recap and Diagnostics tools", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest?session=session-23");
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
@@ -293,7 +299,7 @@ describe("GraphReviewWorkbenchModule", () => {
   it("opens diagnostics content from the toolbox", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest?session=session-23");
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
@@ -310,7 +316,7 @@ describe("GraphReviewWorkbenchModule", () => {
   it("author node drawer enables relationship staging from projected pills", async () => {
     const user = userEvent.setup();
     window.history.replaceState({}, "", "/ingest?session=session-23");
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
@@ -348,7 +354,7 @@ describe("GraphReviewWorkbenchModule", () => {
       "",
       "/ingest?session=session-23&tool=graph-review-author-draft",
     );
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-review-author-draft-workspace")).toBeInTheDocument(),
@@ -387,7 +393,7 @@ describe("GraphReviewWorkbenchModule", () => {
       ],
     });
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench(<GraphReviewWorkbenchModule context={context} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
@@ -424,7 +430,7 @@ describe("GraphReviewWorkbenchModule", () => {
     const compareSpy = vi.spyOn(liveApi, "getGoldReviewCompare");
 
     window.history.replaceState({}, "", "/ingest?session=session-2&campaign=longmont-c1");
-    render(
+    renderWorkbench(
       <GraphReviewWorkbenchModule
         context={{ ...context, campaignId: "longmont-c1", ingestSession: 2 }}
       />,
