@@ -29,6 +29,16 @@ export interface StoredReviseAttemptV1 {
   last_result: ReviseResultLabel | null;
   candidate_id: string | null;
   created_at: string;
+  awaiting_local_refresh?: boolean;
+  ui_preclaim?: "stale_version" | "http_422" | null;
+}
+
+export interface RevisePanelActions {
+  showResume: boolean;
+  showStartNew: boolean;
+  allowCreateNew: boolean;
+  freezeReplaySource: boolean;
+  awaitingLocalRefresh: boolean;
 }
 
 export type ReviseResultClass =
@@ -61,16 +71,20 @@ export function candidateWorkingCopyStorageKey(draftId: string, candidateId: str
   return `${CANDIDATE_WORKING_COPY_PREFIX}${draftId.trim()}:${candidateId.trim()}`;
 }
 
+export function unicodeCodePointLength(value: string): number {
+  return [...value].length;
+}
+
 export function normalizeRevisionInstructions(rawLines: string[]): NormalizeInstructionsResult {
   const normalized: string[] = [];
   let totalCodepoints = 0;
   for (const item of rawLines) {
     const trimmed = item.trim();
     if (!trimmed) continue;
-    if (trimmed.length > MAX_INSTRUCTION_CODEPOINTS) {
+    if (unicodeCodePointLength(trimmed) > MAX_INSTRUCTION_CODEPOINTS) {
       return { ok: false, message: "Each instruction must be at most 500 characters." };
     }
-    totalCodepoints += trimmed.length;
+    totalCodepoints += unicodeCodePointLength(trimmed);
     if (totalCodepoints > MAX_INSTRUCTIONS_TOTAL_CODEPOINTS) {
       return { ok: false, message: "Revision instructions exceed the total size limit." };
     }
@@ -180,6 +194,19 @@ export function validateStoredReviseAttempt(
   if (!req.ruleset || typeof req.ruleset !== "object") return null;
   if (record.last_result != null && typeof record.last_result !== "string") return null;
   if (record.candidate_id != null && typeof record.candidate_id !== "string") return null;
+  if (
+    record.awaiting_local_refresh != null &&
+    typeof record.awaiting_local_refresh !== "boolean"
+  ) {
+    return null;
+  }
+  if (
+    record.ui_preclaim != null &&
+    record.ui_preclaim !== "stale_version" &&
+    record.ui_preclaim !== "http_422"
+  ) {
+    return null;
+  }
   return record;
 }
 
@@ -345,7 +372,24 @@ export function proveReconciledRefOnDraft(
 }
 
 export function isReviseAttemptCompleted(attempt: StoredReviseAttemptV1): boolean {
-  return attempt.last_result === "reconciled" && attempt.candidate_id != null;
+  return (
+    attempt.last_result === "reconciled" &&
+    attempt.candidate_id != null &&
+    attempt.awaiting_local_refresh !== true
+  );
+}
+
+export function markReviseAwaitingLocalRefresh(
+  attempt: StoredReviseAttemptV1,
+  candidateId: string,
+): StoredReviseAttemptV1 {
+  return {
+    ...attempt,
+    last_result: "reconciled",
+    candidate_id: candidateId,
+    awaiting_local_refresh: true,
+    ui_preclaim: null,
+  };
 }
 
 export function markReviseAttemptCompleted(
@@ -356,6 +400,109 @@ export function markReviseAttemptCompleted(
     ...attempt,
     last_result: "reconciled",
     candidate_id: candidateId,
+    awaiting_local_refresh: false,
+    ui_preclaim: null,
+  };
+}
+
+export function markRevisePreclaimRebuild(
+  attempt: StoredReviseAttemptV1,
+  preclaim: "stale_version" | "http_422",
+): StoredReviseAttemptV1 {
+  return {
+    ...attempt,
+    ui_preclaim: preclaim,
+    awaiting_local_refresh: false,
+  };
+}
+
+export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): RevisePanelActions {
+  const completedDefault: RevisePanelActions = {
+    showResume: false,
+    showStartNew: false,
+    allowCreateNew: true,
+    freezeReplaySource: false,
+    awaitingLocalRefresh: false,
+  };
+  if (!attempt) {
+    return completedDefault;
+  }
+  if (isReviseAttemptCompleted(attempt)) {
+    return completedDefault;
+  }
+  if (attempt.awaiting_local_refresh === true) {
+    return {
+      showResume: false,
+      showStartNew: false,
+      allowCreateNew: false,
+      freezeReplaySource: true,
+      awaitingLocalRefresh: true,
+    };
+  }
+  if (attempt.ui_preclaim === "stale_version" || attempt.ui_preclaim === "http_422") {
+    return {
+      showResume: false,
+      showStartNew: false,
+      allowCreateNew: true,
+      freezeReplaySource: false,
+      awaitingLocalRefresh: false,
+    };
+  }
+  if (attempt.last_result == null) {
+    return {
+      showResume: true,
+      showStartNew: false,
+      allowCreateNew: false,
+      freezeReplaySource: true,
+      awaitingLocalRefresh: false,
+    };
+  }
+  const klass = classifyReviseResult(attempt.last_result);
+  if (klass === "resume_same") {
+    return {
+      showResume: true,
+      showStartNew: false,
+      allowCreateNew: false,
+      freezeReplaySource: true,
+      awaitingLocalRefresh: false,
+    };
+  }
+  if (klass === "terminal_new_allowed") {
+    return {
+      showResume: false,
+      showStartNew: true,
+      allowCreateNew: false,
+      freezeReplaySource: true,
+      awaitingLocalRefresh: false,
+    };
+  }
+  if (attempt.last_result === "revise_blocked") {
+    return {
+      showResume: false,
+      showStartNew: false,
+      allowCreateNew: true,
+      freezeReplaySource: false,
+      awaitingLocalRefresh: false,
+    };
+  }
+  if (
+    attempt.last_result === "revise_input_conflict" ||
+    attempt.last_result === "revise_integrity_conflict"
+  ) {
+    return {
+      showResume: false,
+      showStartNew: false,
+      allowCreateNew: false,
+      freezeReplaySource: true,
+      awaitingLocalRefresh: false,
+    };
+  }
+  return {
+    showResume: false,
+    showStartNew: false,
+    allowCreateNew: false,
+    freezeReplaySource: true,
+    awaitingLocalRefresh: false,
   };
 }
 

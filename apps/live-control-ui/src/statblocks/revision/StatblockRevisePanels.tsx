@@ -93,9 +93,11 @@ export function ReviseWithAiPanel({
   showResume,
   showStartNew,
   disabled,
+  createDisabled,
   statusMessage,
   errorMessage,
   mechanicsSaved,
+  readOnlyInstructions,
 }: {
   candidateId: string;
   draftId: string;
@@ -112,9 +114,11 @@ export function ReviseWithAiPanel({
   showResume: boolean;
   showStartNew: boolean;
   disabled: boolean;
+  createDisabled?: boolean;
   statusMessage: string | null;
   errorMessage: string | null;
   mechanicsSaved: boolean;
+  readOnlyInstructions?: boolean;
 }) {
   return (
     <section className="statblock-section statblock-revise-panel" data-testid="revise-with-ai-panel">
@@ -153,6 +157,7 @@ export function ReviseWithAiPanel({
           onChange={(event) => onInstructionsChange(event.target.value)}
           rows={4}
           data-testid="revise-instructions"
+          readOnly={readOnlyInstructions === true}
         />
       </label>
       <label className="statblock-revise-preserve-keys">
@@ -161,6 +166,7 @@ export function ReviseWithAiPanel({
           checked={preserveElementKeys}
           onChange={(event) => onPreserveElementKeysChange(event.target.checked)}
           data-testid="revise-preserve-element-keys"
+          disabled={readOnlyInstructions === true}
         />
         Preserve element keys where possible
       </label>
@@ -168,7 +174,7 @@ export function ReviseWithAiPanel({
         <button
           type="button"
           onClick={onCreate}
-          disabled={disabled || revisePending}
+          disabled={disabled || createDisabled === true || revisePending}
           data-testid="revise-create-proposal"
         >
           {revisePending ? "Creating revised proposal…" : "Create revised proposal"}

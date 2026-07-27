@@ -55,12 +55,15 @@ import {
 import {
   buildReviseRequestFromWorkingCopy,
   classifyReviseResult,
-  isReviseAttemptCompleted,
   markReviseAttemptCompleted,
+  markReviseAwaitingLocalRefresh,
+  markRevisePreclaimRebuild,
   proveReconciledRefOnDraft,
   readCandidateWorkingCopy,
   readLegacyJoinWorkingCopyForCandidate,
   readStoredReviseAttempt,
+  reviseAttemptStorageKey,
+  revisePanelActions,
   updateReviseAttemptResult,
   writeCandidateWorkingCopy,
   writeStoredReviseAttempt,
@@ -2066,11 +2069,14 @@ export function StatblockWorkbenchModule() {
   );
 
   const loadCandidate = useCallback(
-    async (candidateId: string, options?: { opId?: number }) => {
+    async (candidateId: string, options?: { opId?: number }): Promise<boolean> => {
+      if (options?.opId == null) {
+        reviseOpGenerationRef.current += 1;
+      }
       const trimmed = candidateId.trim();
       const opId = options?.opId ?? beginCandidateOp();
       if (!isCurrentCandidateOp(opId)) {
-        return;
+        return false;
       }
       persistActiveCandidateWorkingCopy();
       // A fresh manual/retry load orphans in-flight generation UI.
@@ -2086,17 +2092,17 @@ export function StatblockWorkbenchModule() {
       activeCandidateIdRef.current = null;
 
       if (!trimmed) {
-        if (!isCurrentCandidateOp(opId)) return;
+        if (!isCurrentCandidateOp(opId)) return false;
         setLoadState({ kind: "error", candidateId: "", message: "Enter an exact candidate ID." });
-        return;
+        return false;
       }
 
-      if (!isCurrentCandidateOp(opId)) return;
+      if (!isCurrentCandidateOp(opId)) return false;
       setLoadState({ kind: "loading", candidateId: trimmed });
 
       try {
         const response = await getStatblockCandidate(trimmed);
-        if (!isCurrentCandidateOp(opId)) return;
+        if (!isCurrentCandidateOp(opId)) return false;
 
         if (response.status === "active" && response.candidate) {
           const loadedCandidateId = response.candidate.candidate_id || trimmed;
@@ -2205,7 +2211,7 @@ export function StatblockWorkbenchModule() {
               working_copy: preservedWorkingCopy,
             });
           }
-          return;
+          return true;
         }
         setLoadState({
           kind: "status",
@@ -2214,13 +2220,15 @@ export function StatblockWorkbenchModule() {
           failureCategory: response.failure_category ?? null,
           failureMessage: response.failure_message ?? null,
         });
+        return false;
       } catch (error) {
-        if (!isCurrentCandidateOp(opId)) return;
+        if (!isCurrentCandidateOp(opId)) return false;
         setLoadState({
           kind: "error",
           candidateId: trimmed,
           message: error instanceof Error ? error.message : String(error),
         });
+        return false;
       }
     },
     [applyCreatedDraftIdentity, beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp, persistActiveCandidateWorkingCopy, refreshThreatDraftSnapshot],
@@ -2255,17 +2263,14 @@ export function StatblockWorkbenchModule() {
       draftId: string,
       attempt: StoredReviseAttemptV1,
       response: ReviseCandidateFromEditedDefinitionResponseV1,
+      reviseCandidateOpId: number,
     ) => {
       if (generation !== reviseOpGenerationRef.current) return;
-      const updated = updateReviseAttemptResult(
-        attempt,
-        response.result,
-        response.candidate_id ?? null,
-      );
-      writeStoredReviseAttempt(updated);
-      setReviseAttempt(updated);
 
       if (response.result === "reconciled" && response.candidate_id) {
+        const awaiting = markReviseAwaitingLocalRefresh(attempt, response.candidate_id);
+        writeStoredReviseAttempt(awaiting);
+        setReviseAttempt(awaiting);
         setReviseStatusMessage("Revised proposal reconciled — refreshing draft…");
         try {
           const refreshed = await getThreatDraft(draftId);
@@ -2287,9 +2292,13 @@ export function StatblockWorkbenchModule() {
             version: refreshed.version,
             name: refreshed.name,
           });
-          await loadCandidate(response.candidate_id, { opId: candidateOpIdRef.current });
+          const loaded = await loadCandidate(response.candidate_id, { opId: reviseCandidateOpId });
           if (generation !== reviseOpGenerationRef.current) return;
-          const completed = markReviseAttemptCompleted(updated, response.candidate_id);
+          if (!loaded) {
+            setReviseError("Revised proposal reconciled; local refresh incomplete");
+            return;
+          }
+          const completed = markReviseAttemptCompleted(awaiting, response.candidate_id);
           writeStoredReviseAttempt(completed);
           setReviseAttempt(completed);
           setReviseStatusMessage("Revised proposal ready.");
@@ -2304,6 +2313,14 @@ export function StatblockWorkbenchModule() {
         }
         return;
       }
+
+      const updated = updateReviseAttemptResult(
+        attempt,
+        response.result,
+        response.candidate_id ?? null,
+      );
+      writeStoredReviseAttempt(updated);
+      setReviseAttempt(updated);
 
       const klass = classifyReviseResult(response.result);
       if (klass === "terminal_new_allowed") {
@@ -2327,6 +2344,7 @@ export function StatblockWorkbenchModule() {
       if (draftSnapshotUnavailable) return;
       const draftId = attempt.draft_id;
       const generation = ++reviseOpGenerationRef.current;
+      const reviseCandidateOpId = beginCandidateOp();
       reviseInFlightRef.current = true;
       setRevisePending(true);
       setReviseError(null);
@@ -2335,21 +2353,29 @@ export function StatblockWorkbenchModule() {
       );
       try {
         const response = await reviseThreatDraftCandidate(draftId, attempt.request);
-        await handleReviseResponse(generation, draftId, attempt, response);
+        await handleReviseResponse(generation, draftId, attempt, response, reviseCandidateOpId);
       } catch (error) {
         if (generation !== reviseOpGenerationRef.current) return;
         if (error instanceof LiveApiError && error.status === 409) {
           setReviseStatusMessage("Draft version changed — refresh the draft and retry explicitly.");
           void refreshThreatDraftSnapshot(draftId);
+          const preclaimed = markRevisePreclaimRebuild(attempt, "stale_version");
+          writeStoredReviseAttempt(preclaimed);
+          setReviseAttempt(preclaimed);
+        } else if (error instanceof LiveApiError && error.status === 422) {
+          setReviseError("Revision rejected — correct inputs and create a new revised proposal.");
+          const preclaimed = markRevisePreclaimRebuild(attempt, "http_422");
+          writeStoredReviseAttempt(preclaimed);
+          setReviseAttempt(preclaimed);
         } else {
           setReviseError(
             error instanceof Error
               ? `Revision outcome unknown — ${error.message}`
               : "Revision outcome unknown.",
           );
+          writeStoredReviseAttempt(attempt);
+          setReviseAttempt(attempt);
         }
-        writeStoredReviseAttempt(attempt);
-        setReviseAttempt(attempt);
       } finally {
         reviseInFlightRef.current = false;
         if (generation === reviseOpGenerationRef.current) {
@@ -2368,7 +2394,8 @@ export function StatblockWorkbenchModule() {
       setReviseError("Load a candidate with ThreatDraft snapshot before revising.");
       return;
     }
-    if (reviseAttempt && !isReviseAttemptCompleted(reviseAttempt)) {
+    const panelActions = revisePanelActions(reviseAttempt);
+    if (!panelActions.allowCreateNew) {
       setReviseError("Unresolved revise attempt — resume the same revise.");
       return;
     }
@@ -2384,10 +2411,11 @@ export function StatblockWorkbenchModule() {
       setReviseError(built.message);
       return;
     }
+    const sourceCandidateId = candidateId;
     const attempt: StoredReviseAttemptV1 = {
       schema: "dmb_sbw06_revise_attempt_v1",
       draft_id: draft.draft_id,
-      source_candidate_id: candidateId,
+      source_candidate_id: sourceCandidateId,
       request_id: requestId,
       raw_instructions: reviseInstructionsRaw,
       request: built.request,
@@ -2404,11 +2432,22 @@ export function StatblockWorkbenchModule() {
     const draftId = createdDraftRef.current?.draft_id ?? "";
     const attempt = reviseAttempt ?? (draftId ? readStoredReviseAttempt(draftId) : null);
     if (!attempt) return;
+    const panelActions = revisePanelActions(attempt);
+    if (!panelActions.showResume) return;
     await postReviseAttempt(attempt, "resume");
   }, [postReviseAttempt, reviseAttempt]);
 
   const onStartNewReviseAttempt = useCallback(() => {
-    if (reviseAttempt?.last_result !== "terminal_failure") return;
+    const panelActions = revisePanelActions(reviseAttempt);
+    if (!panelActions.showStartNew) return;
+    const draftId = reviseAttempt?.draft_id ?? createdDraftRef.current?.draft_id;
+    if (draftId) {
+      try {
+        sessionStorage.removeItem(reviseAttemptStorageKey(draftId));
+      } catch {
+        /* ignore */
+      }
+    }
     setReviseAttempt(null);
     setReviseStatusMessage(null);
     setReviseError(null);
@@ -2709,8 +2748,8 @@ export function StatblockWorkbenchModule() {
       : (acceptDraftIdentity?.version ?? null);
   const mechanicsSavedDraft = threatDraft?.workflow_state === "mechanics_saved";
   const reviseDraftId = threatDraft?.draft_id ?? acceptDraftIdentity?.draft_id ?? null;
-  const unresolvedReviseAttempt =
-    reviseAttempt != null && !isReviseAttemptCompleted(reviseAttempt);
+  const revisePanel = revisePanelActions(reviseAttempt);
+  const reviseReplayFrozen = revisePanel.freezeReplaySource && reviseAttempt != null;
   const reviseControlsDisabled =
     draftSnapshotUnavailable || !threatDraft || draftSnapshotPending || !editorState;
 
@@ -3044,24 +3083,38 @@ export function StatblockWorkbenchModule() {
           ) : null}
           {editorState && reviseDraftId && threatDraft ? (
             <ReviseWithAiPanel
-              candidateId={activeCandidate.candidate_id}
+              candidateId={
+                reviseReplayFrozen ? reviseAttempt.source_candidate_id : activeCandidate.candidate_id
+              }
               draftId={reviseDraftId}
               draftVersion={threatDraft.version}
-              editorStateRevision={editorState.stateRevision}
-              instructions={reviseInstructionsRaw}
+              editorStateRevision={
+                reviseReplayFrozen
+                  ? Number(reviseAttempt.request.editor_state_revision) || 0
+                  : editorState.stateRevision
+              }
+              instructions={
+                reviseReplayFrozen ? reviseAttempt.raw_instructions : reviseInstructionsRaw
+              }
               onInstructionsChange={setReviseInstructionsRaw}
-              preserveElementKeys={preserveElementKeys}
+              preserveElementKeys={
+                reviseReplayFrozen
+                  ? reviseAttempt.request.preserve_element_keys
+                  : preserveElementKeys
+              }
               onPreserveElementKeysChange={setPreserveElementKeys}
               onCreate={() => void onCreateRevisedProposal()}
               onResume={() => void onResumeSameRevise()}
               onStartNew={onStartNewReviseAttempt}
               revisePending={revisePending}
-              showResume={unresolvedReviseAttempt}
-              showStartNew={reviseAttempt?.last_result === "terminal_failure"}
+              showResume={revisePanel.showResume}
+              showStartNew={revisePanel.showStartNew}
               disabled={reviseControlsDisabled}
+              createDisabled={!revisePanel.allowCreateNew}
               statusMessage={reviseStatusMessage}
               errorMessage={reviseError}
               mechanicsSaved={mechanicsSavedDraft}
+              readOnlyInstructions={reviseReplayFrozen}
             />
           ) : null}
           <div className="statblock-command-row" role="group" aria-label="Candidate view mode">
@@ -3123,6 +3176,33 @@ export function StatblockWorkbenchModule() {
               mechanicsSavedDraft={mechanicsSavedDraft}
             />
           ) : null}
+        </section>
+      ) : null}
+
+      {reviseAttempt?.awaiting_local_refresh && reviseDraftId && threatDraft && !editorState ? (
+        <section className="statblock-section" data-testid="revise-awaiting-refresh-panel">
+          <ReviseWithAiPanel
+            candidateId={reviseAttempt.source_candidate_id}
+            draftId={reviseDraftId}
+            draftVersion={threatDraft.version}
+            editorStateRevision={Number(reviseAttempt.request.editor_state_revision) || 0}
+            instructions={reviseAttempt.raw_instructions}
+            onInstructionsChange={setReviseInstructionsRaw}
+            preserveElementKeys={reviseAttempt.request.preserve_element_keys}
+            onPreserveElementKeysChange={setPreserveElementKeys}
+            onCreate={() => void onCreateRevisedProposal()}
+            onResume={() => void onResumeSameRevise()}
+            onStartNew={onStartNewReviseAttempt}
+            revisePending={revisePending}
+            showResume={revisePanel.showResume}
+            showStartNew={revisePanel.showStartNew}
+            disabled
+            createDisabled
+            statusMessage={reviseStatusMessage}
+            errorMessage={reviseError}
+            mechanicsSaved={mechanicsSavedDraft}
+            readOnlyInstructions
+          />
         </section>
       ) : null}
     </div>
