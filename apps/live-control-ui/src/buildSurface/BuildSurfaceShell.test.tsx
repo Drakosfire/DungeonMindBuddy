@@ -768,20 +768,61 @@ describe("BuildSurfaceShell", () => {
     expect(JSON.parse(storedRaw!).base_revision).toBe(2);
   });
 
-  it("PR380B: Build shell has no graph-object context lane on current main", async () => {
+  it("PR380B: mounts graph-object context lane when document and pointer are present", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
     window.history.pushState(
       {},
       "",
       `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=wg-rev-test`,
     );
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "wg-rev-test",
+        headRevisionId: "wg-rev-test",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "pc_caelynn",
+          label: "Caelynn",
+          kind: "pc",
+          role: "pc",
+          aliases: [],
+          sourceDomains: [],
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          anchoredToFocusSession: true,
+          summary: "Test",
+          campaignScope: "longmont-c2",
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
     render(<BuildDocumentHarness documentId={DOC_ID} />);
     await waitFor(() => {
       expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
     });
-    expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
-    expect(
-      existsSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "BuildGraphObjectContext.tsx")),
-    ).toBe(false);
+    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });
 });

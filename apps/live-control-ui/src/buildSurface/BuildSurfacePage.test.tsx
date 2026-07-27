@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { BuildSurfacePage } from "./BuildSurfacePage";
 
 function renderBuildPage() {
@@ -187,14 +188,32 @@ describe("BuildSurfacePage", () => {
     expect(await screen.findByTestId("build-new-source-form")).toBeInTheDocument();
   });
 
-  it("PR380B: ignores graphNodeId/graphRevision URL params until Build graph context lands", () => {
+  it("PR380B: shows graph-object context when pointer params are present", async () => {
     window.history.pushState(
       {},
       "",
-      "/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=wg-rev-test",
+      `/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`,
     );
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: session23WorldGraphRecapFixture.snapshot,
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [session23WorldGraphRecapFixture.nodeViews.pc_caelynn],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
     renderBuildPage();
-    expect(screen.getByTestId("build-new-source-form")).toBeInTheDocument();
-    expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
+    expect(screen.getByTestId("build-new-campaign")).toHaveValue("longmont-c2");
   });
 });

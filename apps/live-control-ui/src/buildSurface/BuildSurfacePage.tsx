@@ -12,6 +12,7 @@ import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
+import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_NEW_SOURCE_HEADING, BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
 
 function navigateToDocument(documentId: string): void {
@@ -40,7 +41,11 @@ const DEFAULT_FORM: NewSourceFormState = {
 
 export function BuildSurfacePage() {
   const documentId = useWorkspaceDocumentUrlSelection();
-  const [form, setForm] = useState<NewSourceFormState>(DEFAULT_FORM);
+  const graphPointer = parseBuildGraphPointerFromLocation();
+  const [form, setForm] = useState<NewSourceFormState>(() => ({
+    ...DEFAULT_FORM,
+    campaignId: graphPointer?.campaignId ?? DEFAULT_FORM.campaignId,
+  }));
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -67,6 +72,15 @@ export function BuildSurfacePage() {
   }, [form]);
 
   useEffect(() => {
+    if (documentId || !graphPointer?.campaignId) return;
+    setForm((current) =>
+      current.campaignId === graphPointer.campaignId
+        ? current
+        : { ...current, campaignId: graphPointer.campaignId },
+    );
+  }, [documentId, graphPointer?.campaignId]);
+
+  useEffect(() => {
     if (documentId) return;
     setCreateError(null);
   }, [documentId]);
@@ -77,7 +91,9 @@ export function BuildSurfacePage() {
         <main className="build-surface-new" data-testid="build-new-source-form">
           <h1>{BUILD_SURFACE_LABEL}</h1>
           <p>{BUILD_NEW_SOURCE_HEADING}</p>
-          <form onSubmit={(event) => void handleCreate(event)}>
+          <div className="build-surface-new-layout">
+            {graphPointer ? <BuildGraphObjectContext /> : null}
+            <form onSubmit={(event) => void handleCreate(event)}>
             <label>
               Title
               <input
@@ -136,6 +152,7 @@ export function BuildSurfacePage() {
               Create source
             </button>
           </form>
+          </div>
         </main>
       </AppChrome>
     );

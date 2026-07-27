@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
+import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 
@@ -140,5 +141,12 @@ export function BuildSurfaceShell() {
     };
   }, [publishSurfaceContext, rehydrateScope]);
 
-  return <MarkdownCanvas slots={slots} />;
+  return (
+    <div className="build-surface-with-graph-context">
+      {parseBuildGraphPointerFromLocation() ? (
+        <BuildGraphObjectContext documentCampaignId={session.record?.campaign_id ?? null} />
+      ) : null}
+      <MarkdownCanvas slots={slots} />
+    </div>
+  );
 }

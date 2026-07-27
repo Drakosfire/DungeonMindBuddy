@@ -3,12 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   LiveApiError,
   getRecapArtifacts,
-  getUnionSupergraphProjection,
+  postWorldGraphRecapProjection,
 } from "../../api/liveApi";
-import type {
-  RecapArtifactRecord,
-  UnionSupergraphProjectionResponse,
-} from "../../api/types";
+import type { RecapArtifactRecord, WorldGraphRecapProjection } from "../../api/types";
+import { buildWorldGraphRecapProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import type { PlanContextDescriptor } from "../types";
 import {
@@ -16,13 +14,15 @@ import {
   resolveSessionRecapContext,
   syncReviewCampaignUrl,
 } from "../sessionCampaignContext";
-import { UnionSupergraphRecapProjection } from "./UnionSupergraphRecapProjection";
 import {
   filterNumericRecapArtifactRecords,
   sortRecapArtifactRecords,
 } from "./recapSessionLabels";
+import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
 
 type LoadStatus = "loading" | "ready" | "error";
+
+/** Legacy Union recap source labels retained for GraphIngestProjectionPanel consumers. */
 export type RecapProjectionSource =
   | "latest-graph-ingest"
   | "recap-only"
@@ -42,8 +42,20 @@ function requestedSessionFromLocation(): string | null {
   return session || null;
 }
 
-function isExpectedProjectionMiss(error: unknown): boolean {
-  return error instanceof LiveApiError && (error.status === 400 || error.status === 404);
+function recapUnavailableMessage(error: unknown, sessionId: string, campaignId: string): string {
+  if (error instanceof LiveApiError) {
+    if (error.status === 404 && error.code === "recap_markdown_unavailable") {
+      return `Canonical normalized recap is unavailable for ${sessionId} in ${campaignId}.`;
+    }
+    if (error.status === 404 || error.status === 400) {
+      return `Published World Graph recap is unavailable for ${sessionId} in ${campaignId}.`;
+    }
+    if (error.status === 422) {
+      return error.message || "World Graph recap request was invalid for the selected context.";
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "Failed to load published World Graph recap.";
 }
 
 export function RecapGraphModule({ context }: RecapGraphModuleProps) {
@@ -52,8 +64,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const defaultSessionId = requestedSessionId ?? fallbackSessionId;
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [unionPayload, setUnionPayload] = useState<UnionSupergraphProjectionResponse | null>(null);
-  const [projectionSource, setProjectionSource] = useState<RecapProjectionSource>("unavailable");
+  const [recapPayload, setRecapPayload] = useState<WorldGraphRecapProjection | null>(null);
   const [sessionRecords, setSessionRecords] = useState<RecapArtifactRecord[]>([]);
   const [artifactsLoaded, setArtifactsLoaded] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState(defaultSessionId);
@@ -78,53 +89,31 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     });
   }, [campaignSessionRecords, context.ingestSession, defaultSessionId]);
 
-  const loadUnionProjection = useCallback(async (sessionId = selectedSessionId) => {
+  const loadRecapProjection = useCallback(async (sessionId = selectedSessionId) => {
     setStatus("loading");
     setError(null);
-    const { campaignId, record: selectedRecord } = resolveSessionRecapContext(
+    const { campaignId } = resolveSessionRecapContext(
       sessionId,
       selectedCampaignId,
       sessionRecords,
     );
-    try {
-      const projection = await getUnionSupergraphProjection({
-        campaignId,
-        sessionId,
-        useLatestGraphIngest: true,
-        graphRunManifestPath: selectedRecord?.run_manifest_uri || undefined,
-        sourceRecapPath: selectedRecord?.source_recap_path,
-        sourceRecapSha256: selectedRecord?.source_sha256,
-      });
-      setUnionPayload(projection);
-      setProjectionSource("latest-graph-ingest");
-      setStatus("ready");
-      return;
-    } catch (latestError) {
-      if (!isExpectedProjectionMiss(latestError)) {
-        setUnionPayload(null);
-        setProjectionSource("unavailable");
-        setError(latestError instanceof Error ? latestError.message : "Failed to load latest graph-ingest projection");
-        setStatus("error");
-        return;
-      }
-    }
-
-    if (selectedRecord) {
-      setUnionPayload(null);
-      setProjectionSource("unavailable");
-      setError(
-        `Graph projection is not ready for ${sessionId} in ${campaignId}. Recap memory exists, but no lineage-matched preview union projection was found.`,
-      );
+    const request = buildWorldGraphRecapProjectionRequest({ campaignId, sessionId });
+    if (!request) {
+      setRecapPayload(null);
+      setError(`World Graph mapping is unavailable for campaign ${campaignId}.`);
       setStatus("error");
       return;
     }
 
-    setUnionPayload(null);
-    setProjectionSource("unavailable");
-    setError(
-      `No ingested recap artifact or union-supergraph projection is available for ${sessionId} in ${selectedCampaignId}.`,
-    );
-    setStatus("error");
+    try {
+      const projection = await postWorldGraphRecapProjection(request);
+      setRecapPayload(projection);
+      setStatus("ready");
+    } catch (loadError) {
+      setRecapPayload(null);
+      setError(recapUnavailableMessage(loadError, sessionId, campaignId));
+      setStatus("error");
+    }
   }, [selectedCampaignId, selectedSessionId, sessionRecords]);
 
   useEffect(() => {
@@ -165,8 +154,8 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     if (!artifactsLoaded) {
       return;
     }
-    void loadUnionProjection(selectedSessionId);
-  }, [artifactsLoaded, loadUnionProjection, selectedSessionId]);
+    void loadRecapProjection(selectedSessionId);
+  }, [artifactsLoaded, loadRecapProjection, selectedSessionId]);
 
   const handleCampaignSelect = (campaignId: string) => {
     setSelectedCampaignId(campaignId);
@@ -200,7 +189,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   );
 
   if (status === "loading") {
-    return <p className="plan-projection-empty">Loading union supergraph projection…</p>;
+    return <p className="plan-projection-empty">Loading published World Graph recap…</p>;
   }
 
   if (status === "error") {
@@ -208,28 +197,27 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       <div className="recap-reader-root">
         {reviewToolbar}
         <p className="graph-preview-error" role="alert">
-          {error ?? `No union-supergraph projection is available for ${selectedSessionId}.`}
+          {error ?? `Published World Graph recap is unavailable for ${selectedSessionId}.`}
         </p>
-        <button type="button" onClick={() => void loadUnionProjection(selectedSessionId)}>
+        <button type="button" onClick={() => void loadRecapProjection(selectedSessionId)}>
           Retry
         </button>
       </div>
     );
   }
 
-  if (unionPayload) {
+  if (recapPayload) {
     return (
-      <UnionSupergraphRecapProjection
-        payload={unionPayload}
+      <WorldGraphRecapProjectionView
+        payload={recapPayload}
         selectedSessionId={selectedSessionId}
         onSelectSession={handleSessionSelect}
         sessionOptions={sessionOptions}
-        projectionSource={projectionSource}
         selectedCampaignId={selectedCampaignId}
         onSelectCampaign={handleCampaignSelect}
       />
     );
   }
 
-  return <p className="plan-projection-empty">No union-supergraph projection loaded.</p>;
+  return <p className="plan-projection-empty">No published World Graph recap loaded.</p>;
 }

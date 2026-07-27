@@ -1,13 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type { RecapArtifactRecord } from "../../api/types";
 import { RecapGraphModule } from "./RecapGraphModule";
-import { session23UnionSupergraphFixture } from "./unionSupergraphFixture";
 import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
 
 const context = {
@@ -54,25 +50,25 @@ describe("RecapGraphModule", () => {
     mockArtifacts();
   });
 
-  it("requests the latest graph-ingest projection for the URL session", async () => {
-    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      ...session23UnionSupergraphFixture,
-      session_id: "session-24",
-      focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-24" },
+  it("requests World Graph recap projection for the URL session", async () => {
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+      ...session23WorldGraphRecapFixture,
+      sessionId: "session-24",
     });
 
     render(<RecapGraphModule context={context} />);
 
     await waitFor(() => {
-      expect(getUnion).toHaveBeenCalledWith({
+      expect(postRecap).toHaveBeenCalledWith({
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "eldyrwild",
         campaignId: "longmont-c2",
-        sessionId: "session-24",
-        useLatestGraphIngest: true,
-        sourceRecapPath: artifactRecord(24).source_recap_path,
-        sourceRecapSha256: artifactRecord(24).source_sha256,
+        scopeMode: "campaign",
+        focus: { kind: "session", sessionId: "session-24", campaignId: "longmont-c2" },
+        admissibility: "gm",
       });
     });
-    expect(await screen.findByText(/Source: latest graph-ingest preview/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Published World Graph/i)).length).toBeGreaterThan(0);
   });
 
   it("defaults to the latest ingested recap artifact when no URL session is provided", async () => {
@@ -80,213 +76,91 @@ describe("RecapGraphModule", () => {
     vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
       records: [artifactRecord(23), artifactRecord(24)],
     });
-    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      ...session23UnionSupergraphFixture,
-      session_id: "session-24",
-      focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-24" },
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+      ...session23WorldGraphRecapFixture,
+      sessionId: "session-24",
     });
 
     render(<RecapGraphModule context={context} />);
 
     await waitFor(() => {
-      expect(getUnion).toHaveBeenCalledWith({
-        campaignId: "longmont-c2",
-        sessionId: "session-24",
-        useLatestGraphIngest: true,
-        sourceRecapPath: artifactRecord(24).source_recap_path,
-        sourceRecapSha256: artifactRecord(24).source_sha256,
-      });
+      expect(postRecap).toHaveBeenCalledWith(
+        expect.objectContaining({ focus: expect.objectContaining({ sessionId: "session-24" }) }),
+      );
     });
   });
 
-  it("shows graph projection unavailable when recap exists but latest graph-ingest is missing", async () => {
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockRejectedValue(
-      new liveApi.LiveApiError("latest missing", 404),
-    );
-    const fallback = vi.spyOn(liveApi, "getDefaultUnionSupergraphProjection").mockResolvedValue({} as never);
+  it("succeeds when recap memory exists but preview union is absent", async () => {
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
 
     render(<RecapGraphModule context={context} />);
 
-    expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
-    expect(fallback).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Graph projection is not ready for session-24 in longmont-c2. Recap memory exists, but no lineage-matched preview union projection was found.",
-    );
+    expect((await screen.findAllByText(/Published World Graph/i)).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("button", { name: /Caelynn/i })).toBeInTheDocument();
   });
 
-  it("does not fall back to the default fixture when no recap artifact exists", async () => {
-    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({ records: [] });
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockRejectedValue(
-      new liveApi.LiveApiError("latest missing", 404),
+  it("shows unavailable message for recap_markdown_unavailable without preview fallback", async () => {
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockRejectedValue(
+      new liveApi.LiveApiError("recap missing", 404, { code: "recap_markdown_unavailable" }),
     );
-    const fallback = vi.spyOn(liveApi, "getDefaultUnionSupergraphProjection").mockResolvedValue({} as never);
 
     render(<RecapGraphModule context={context} />);
 
-    expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
-    expect(fallback).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "No ingested recap artifact or union-supergraph projection is available for session-22 in longmont-c2.",
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Canonical normalized recap is unavailable for session-24 in longmont-c2.",
     );
   });
 
-  it("uses the campaign-specific recap record when session numbers collide across campaigns", async () => {
+  it("uses campaign-specific session selection without manifest fields in graph request", async () => {
     window.history.replaceState({}, "", "/plan?tool=recap&session=session-1&campaign=longmont-c1");
     vi.spyOn(liveApi, "getRecapArtifacts").mockImplementation(async (campaignId) => {
       if (campaignId === "longmont-c1") {
-        return {
-          records: [
-            {
-              ...artifactRecord(1),
-              artifact_id: "longmont-c1/session-1",
-              campaign_id: "longmont-c1",
-              session_id: "session-1",
-              source_recap_path:
-                "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge.md",
-              source_sha256: "sha256:c1-session-1",
-              run_manifest_uri:
-                "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/graph_ingest_run_manifest.json",
-            },
-          ],
-        };
+        return { records: [{ ...artifactRecord(1), campaign_id: "longmont-c1", session_id: "session-1" }] };
       }
       return { records: [] };
     });
-    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      ...session23UnionSupergraphFixture,
-      campaign_id: "longmont-c1",
-      session_id: "session-1",
-      focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-1" },
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+      ...session23WorldGraphRecapFixture,
+      campaignId: "longmont-c1",
+      sessionId: "session-1",
     });
 
     render(<RecapGraphModule context={context} />);
 
     await waitFor(() => {
-      expect(getUnion).toHaveBeenCalledWith({
-        campaignId: "longmont-c1",
-        sessionId: "session-1",
-        useLatestGraphIngest: true,
-        graphRunManifestPath:
-          "evals/graph_memory_layer/artifacts/graph_ingest_runs/session_1_vocabulary_ablation_projection_dogfood/graph_ingest_run_manifest.json",
-        sourceRecapPath:
-          "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/_normalized/Session 01 - Stonebridge.md",
-        sourceRecapSha256: "sha256:c1-session-1",
-      });
+      expect(postRecap).toHaveBeenCalledWith(
+        expect.objectContaining({ campaignId: "longmont-c1", focus: expect.objectContaining({ sessionId: "session-1" }) }),
+      );
     });
-  });
-
-  it("loads the selected campaign when the campaign picker changes", async () => {
-    window.history.replaceState({}, "", "/plan?tool=recap&session=session-1&campaign=longmont-c2");
-    const getArtifacts = vi.spyOn(liveApi, "getRecapArtifacts").mockImplementation(async (campaignId) => ({
-      records:
-        campaignId === "longmont-c2"
-          ? [
-              {
-                ...artifactRecord(1),
-                artifact_id: "longmont-c2/session-1",
-                campaign_id: "longmont-c2",
-                session_id: "session-1",
-                source_recap_path:
-                  "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 01 - Let the Games Begin.md",
-                source_sha256: "sha256:c2-session-1",
-              },
-            ]
-          : [],
-    }));
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      ...session23UnionSupergraphFixture,
-      campaign_id: "longmont-c2",
-      session_id: "session-1",
-      focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-1" },
-    });
-
-    render(<RecapGraphModule context={context} />);
-
-    await waitFor(() => {
-      expect(getArtifacts).toHaveBeenCalledWith("longmont-c2");
-    });
-  });
-
-  it("does not offer legacy recap preview when union projection is unavailable", async () => {
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockRejectedValue(
-      new liveApi.LiveApiError("latest missing", 404),
-    );
-    vi.spyOn(liveApi, "getDefaultUnionSupergraphProjection").mockRejectedValue(
-      new liveApi.LiveApiError("fixture missing", 404),
-    );
-
-    render(<RecapGraphModule context={context} />);
-
-    expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Graph projection is not ready for session-24 in longmont-c2. Recap memory exists, but no lineage-matched preview union projection was found.",
-    );
+    const body = postRecap.mock.calls[0]?.[0];
+    expect(body).not.toHaveProperty("revisionPin");
   });
 });
 
-describe("RecapGraphModule PR380B characterization (current Union authority)", () => {
+describe("RecapGraphModule PR380B World Graph authority", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.history.replaceState({}, "", "/plan?tool=recap&session=session-24");
     mockArtifacts();
   });
 
-  it("locks latest-ingest Union selector with recap lineage fields (target: World recap route)", async () => {
-    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      ...session23UnionSupergraphFixture,
-      session_id: "session-24",
-      focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-24" },
-    });
+  it("does not call Union/latest-ingest selectors", async () => {
+    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection");
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
 
     render(<RecapGraphModule context={context} />);
-
-    await waitFor(() => {
-      expect(getUnion).toHaveBeenCalledWith({
-        campaignId: "longmont-c2",
-        sessionId: "session-24",
-        useLatestGraphIngest: true,
-        sourceRecapPath: artifactRecord(24).source_recap_path,
-        sourceRecapSha256: artifactRecord(24).source_sha256,
-      });
-    });
-    const liveApiModule = await import("../../api/liveApi");
-    expect(liveApiModule).not.toHaveProperty("postWorldGraphRecapProjection");
+    await screen.findByText(/Published World Graph/i);
+    expect(getUnion).not.toHaveBeenCalled();
   });
 
-  it("composes UnionSupergraphRecapProjection instead of neutral graph-object card module", () => {
-    const dir = path.dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(path.join(dir, "RecapGraphModule.tsx"), "utf8");
-    expect(source).toContain("UnionSupergraphRecapProjection");
-    expect(source).toContain("getUnionSupergraphProjection");
-    expect(source).not.toContain("GraphObjectProjectionCard");
-    expect(source).not.toContain("postWorldGraphRecapProjection");
-    expect(() =>
-      readFileSync(path.join(dir, "../../graphObjectCard/GraphObjectProjectionCard.tsx")),
-    ).toThrow();
-  });
-
-  it("does not expose Continue in Build on current Union-backed recap", async () => {
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      ...session23UnionSupergraphFixture,
-      session_id: "session-24",
-    });
-
+  it("exposes Continue in Build with pointer-only URL fields", async () => {
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-
-    await screen.findByText(/Source: latest graph-ingest preview/i);
-    expect(screen.queryByRole("button", { name: /Continue in Build/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Continue in Build/i })).not.toBeInTheDocument();
-  });
-
-  it("documents PR380A fixture vocabulary for post-migration Recap proofs", () => {
-    expect(session23WorldGraphRecapFixture.schema).toBe("dmb_world_graph_recap_projection_v1");
-    expect(session23WorldGraphRecapFixture.snapshot.revisionId).toBeTruthy();
-    expect(session23WorldGraphRecapFixture.nodeViews.pc_caelynn?.anchoredToFocusSession).toBe(true);
-    expect(session23WorldGraphRecapFixture.nodeViews.loc_mirathorn?.anchoredToFocusSession).toBe(
-      false,
-    );
+    const chip = await screen.findByRole("button", { name: /Caelynn/i });
+    fireEvent.click(chip);
+    const continueLink = await screen.findByRole("link", { name: /Continue in Build/i });
+    expect(continueLink.getAttribute("href")).toContain("campaign=longmont-c2");
+    expect(continueLink.getAttribute("href")).toContain("graphNodeId=pc_caelynn");
+    expect(continueLink.getAttribute("href")).toContain(`graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`);
   });
 });

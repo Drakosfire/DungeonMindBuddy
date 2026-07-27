@@ -711,7 +711,7 @@ describe("IngestionModule", () => {
     const openButton = screen.getByRole("button", { name: "Open Recap View" });
     await user.click(openButton);
 
-    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
+    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&campaign=longmont-c2&session=session-22");
   });
 
   it("always sends graph extraction flags with Generate Recap Memory", async () => {
@@ -1287,75 +1287,31 @@ describe("IngestionModule PR380B characterization (Recap CTA vs preview union)",
     }
   }
 
-  it("does not render Open Recap View before ready_for_planning_activation", async () => {
+  it("enables Open Recap View when normalized recap exists without preview union", async () => {
     await renderWithStatus(
       makeStatus({
         status: "recap_applied",
         states: ["recap_applied", "normalized_created"],
       }),
     );
-    expect(screen.queryByRole("button", { name: "Open Recap View" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+    });
   });
 
-  it("requires preview union or materialization signal once inspect hydrates ready_for_planning_activation", async () => {
+  it("does not require preview union readiness for Open Recap View", async () => {
     await renderWithStatus(
       makeStatus({
         status: "ready_for_planning_activation",
-        states: ["recap_applied", "preview_union_store_ready", "ready_for_planning_activation"],
-        ingest_report: {
-          graph_preview: {
-            status: "preview_union_store_ready",
-            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
-            can_open_union_graph: true,
-          },
-        },
+        states: ["recap_applied", "normalized_created", "ready_for_planning_activation"],
       }),
     );
-    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+    });
   });
 
-  it("enables Open Recap View when preview union store is ready", async () => {
-    await renderWithStatus(
-      makeStatus({
-        status: "ready_for_planning_activation",
-        states: ["recap_applied", "preview_union_store_ready", "ready_for_planning_activation"],
-        ingest_report: {
-          graph_preview: {
-            status: "preview_union_store_ready",
-            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
-            can_open_union_graph: true,
-          },
-        },
-      }),
-    );
-    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
-  });
-
-  it("enables Open Recap View when session memory is materialized without preview union", async () => {
-    await renderWithStatus(
-      makeStatus({
-        status: "ready_for_planning_activation",
-        states: [
-          "recap_applied",
-          "session_memory_materialized",
-          "ready_for_planning_activation",
-        ],
-      }),
-    );
-    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
-  });
-
-  it("treats ready_for_planning_activation status as materialized for canOpenRecapView", async () => {
-    await renderWithStatus(
-      makeStatus({
-        status: "ready_for_planning_activation",
-        states: ["recap_applied", "ready_for_planning_activation"],
-      }),
-    );
-    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
-  });
-
-  it("navigates to Recap without campaign query param on current main", async () => {
+  it("navigates to Recap with campaign and session query params", async () => {
     const user = setupIngestUser();
     const assign = vi.spyOn(window.location, "assign").mockImplementation(() => undefined);
     mockRecapIngestWithInspect(() =>
@@ -1384,8 +1340,7 @@ describe("IngestionModule PR380B characterization (Recap CTA vs preview union)",
       expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
     });
     await user.click(screen.getByRole("button", { name: "Open Recap View" }));
-    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
-    expect(assign.mock.calls[0]?.[0]).not.toContain("campaign=");
+    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&campaign=longmont-c2&session=session-22");
     assign.mockRestore();
   });
 });
