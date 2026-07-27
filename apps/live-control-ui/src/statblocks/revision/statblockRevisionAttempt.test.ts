@@ -11,10 +11,15 @@ import {
   buildReviseRequestFromWorkingCopy,
   candidateWorkingCopyStorageKey,
   classifyReviseResult,
+  isReviseAttemptCompleted,
+  markReviseAwaitingLocalRefresh,
+  markReviseAttemptCompleted,
   normalizeRevisionInstructionsFromTextarea,
   proveReconciledRefOnDraft,
   readCandidateWorkingCopy,
   readStoredReviseAttempt,
+  revisePanelActions,
+  unicodeCodePointLength,
   validateStoredReviseAttempt,
   writeCandidateWorkingCopy,
   writeStoredReviseAttempt,
@@ -88,9 +93,107 @@ describe("statblockRevisionAttempt", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("counts emoji as one code point toward per-line limit", () => {
+    const emoji = "😀";
+    expect(unicodeCodePointLength(emoji)).toBe(1);
+    expect(emoji.length).toBe(2);
+    const within = normalizeRevisionInstructionsFromTextarea(`${"😀".repeat(500)}`);
+    expect(within.ok).toBe(true);
+    const over = normalizeRevisionInstructionsFromTextarea(`${"😀".repeat(501)}`);
+    expect(over.ok).toBe(false);
+  });
+
   it("rejects total payload over 4000 code points", () => {
     const result = normalizeRevisionInstructionsFromTextarea(`${"a".repeat(4001)}`);
     expect(result.ok).toBe(false);
+  });
+
+  it("isReviseAttemptCompleted is false while awaiting local refresh", () => {
+    const editorState = createEditorStateFromOutput(candidate.definition);
+    const draft = minimalDraft();
+    const built = buildReviseRequestFromWorkingCopy({
+      requestId: "req-await",
+      draft,
+      editorState,
+      revisionInstructions: ["Buff"],
+      preserveElementKeys: true,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const base = {
+      schema: "dmb_sbw06_revise_attempt_v1" as const,
+      draft_id: draft.draft_id,
+      source_candidate_id: "cand_a",
+      request_id: built.request.request_id,
+      raw_instructions: "Buff",
+      request: built.request,
+      last_result: "reconciled" as const,
+      candidate_id: "cand_new",
+      created_at: new Date().toISOString(),
+    };
+    const awaiting = markReviseAwaitingLocalRefresh(base, "cand_new");
+    expect(isReviseAttemptCompleted(awaiting)).toBe(false);
+    const done = markReviseAttemptCompleted(awaiting, "cand_new");
+    expect(isReviseAttemptCompleted(done)).toBe(true);
+  });
+
+  it("revisePanelActions maps terminal_failure to start new without resume", () => {
+    const editorState = createEditorStateFromOutput(candidate.definition);
+    const draft = minimalDraft();
+    const built = buildReviseRequestFromWorkingCopy({
+      requestId: "req-term",
+      draft,
+      editorState,
+      revisionInstructions: ["x"],
+      preserveElementKeys: true,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const attempt = {
+      schema: "dmb_sbw06_revise_attempt_v1" as const,
+      draft_id: draft.draft_id,
+      source_candidate_id: "cand_a",
+      request_id: built.request.request_id,
+      raw_instructions: "x",
+      request: built.request,
+      last_result: "terminal_failure" as const,
+      candidate_id: null,
+      created_at: new Date().toISOString(),
+    };
+    const actions = revisePanelActions(attempt);
+    expect(actions.showStartNew).toBe(true);
+    expect(actions.showResume).toBe(false);
+    expect(actions.allowCreateNew).toBe(false);
+  });
+
+  it("revisePanelActions allows create rebuild after stale_version preclaim", () => {
+    const editorState = createEditorStateFromOutput(candidate.definition);
+    const draft = minimalDraft();
+    const built = buildReviseRequestFromWorkingCopy({
+      requestId: "req-pre",
+      draft,
+      editorState,
+      revisionInstructions: ["x"],
+      preserveElementKeys: true,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const attempt = {
+      schema: "dmb_sbw06_revise_attempt_v1" as const,
+      draft_id: draft.draft_id,
+      source_candidate_id: "cand_a",
+      request_id: built.request.request_id,
+      raw_instructions: "x",
+      request: built.request,
+      last_result: null,
+      candidate_id: null,
+      created_at: new Date().toISOString(),
+      ui_preclaim: "stale_version" as const,
+    };
+    const actions = revisePanelActions(attempt);
+    expect(actions.showResume).toBe(false);
+    expect(actions.allowCreateNew).toBe(true);
+    expect(actions.freezeReplaySource).toBe(false);
   });
 
   it("builds request from working copy snapshot and stateRevision", () => {

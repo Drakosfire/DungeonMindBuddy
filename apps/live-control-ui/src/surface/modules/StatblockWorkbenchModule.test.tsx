@@ -3539,12 +3539,49 @@ describe("StatblockWorkbenchModule", () => {
       const user = await loadWithDraft();
       await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
       let resolveRevise!: (value: unknown) => void;
-      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            resolveRevise = resolve;
-          }) as ReturnType<typeof liveApi.reviseThreatDraftCandidate>,
-      );
+      let lastReviseRequestId = "";
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => {
+        lastReviseRequestId = body.request_id;
+        return new Promise((resolve) => {
+          resolveRevise = resolve;
+        }) as ReturnType<typeof liveApi.reviseThreatDraftCandidate>;
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockImplementation(async () => {
+        const reqId =
+          lastReviseRequestId || readStoredReviseAttempt(DRAFT_ID)?.request_id || "missing";
+        return threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_fixture1",
+              generated_from_draft_version: 1,
+              request_id: "gen-req-1",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+            {
+              candidate_id: "cand_should_not_load",
+              generated_from_draft_version: 2,
+              request_id: reqId,
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: {
+                schema: "dmb_candidate_lineage_v1",
+                revise_request_id: reqId,
+                source_origin_kind: "edited_working_copy",
+                instruction_options_digest: `sha256:${"c".repeat(64)}`,
+                created_at: "2026-01-02T00:00:00Z",
+                edited_working_copy: {
+                  draft_id: DRAFT_ID,
+                  source_draft_version: 2,
+                  editor_state_revision: "1",
+                  source_definition_digest: `sha256:${"b".repeat(64)}`,
+                },
+              },
+            },
+          ],
+        });
+      });
       vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => ({
         ...activeWithDraft(),
         candidate_id: id,
@@ -3556,7 +3593,7 @@ describe("StatblockWorkbenchModule", () => {
       resolveRevise({
         schema: "dmb_revise_candidate_from_edited_definition_response_v1",
         result: "reconciled",
-        request_id: "stale",
+        request_id: lastReviseRequestId,
         candidate_id: "cand_should_not_load",
         request_digest: `sha256:${"a".repeat(64)}`,
         source_definition_digest: `sha256:${"b".repeat(64)}`,
@@ -3566,6 +3603,112 @@ describe("StatblockWorkbenchModule", () => {
         expect(screen.queryByDisplayValue("cand_should_not_load")).toBeNull();
       });
       expect(liveApi.getStatblockCandidate).not.toHaveBeenCalledWith("cand_should_not_load");
+    });
+
+    it("reconciled with failed candidate load leaves attempt awaiting refresh", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      let lastReviseRequestId = "";
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => {
+        lastReviseRequestId = body.request_id;
+        return {
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "reconciled",
+          request_id: body.request_id,
+          candidate_id: "cand_fail_load",
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        };
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockImplementation(async () =>
+        threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_fail_load",
+              generated_from_draft_version: 2,
+              request_id: lastReviseRequestId,
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: {
+                schema: "dmb_candidate_lineage_v1",
+                revise_request_id: lastReviseRequestId,
+                source_origin_kind: "edited_working_copy",
+                instruction_options_digest: `sha256:${"c".repeat(64)}`,
+                created_at: "2026-01-02T00:00:00Z",
+                edited_working_copy: {
+                  draft_id: DRAFT_ID,
+                  source_draft_version: 2,
+                  editor_state_revision: "1",
+                  source_definition_digest: `sha256:${"b".repeat(64)}`,
+                },
+              },
+            },
+          ],
+        }),
+      );
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === "cand_fail_load") {
+          return {
+            schema: "dmb_statblock_candidate_read_v1",
+            candidate_id: id,
+            status: "missing",
+            candidate: null,
+          };
+        }
+        return activeWithDraft();
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Make tougher");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      expect(screen.getByTestId("revise-error").textContent).toContain("local refresh incomplete");
+      expect(screen.queryByText("Revised proposal ready.")).toBeNull();
+      const stored = readStoredReviseAttempt(DRAFT_ID);
+      expect(stored?.awaiting_local_refresh).toBe(true);
+      expect(stored?.last_result).toBe("reconciled");
+    });
+
+    it("terminal_failure shows Start new and hides Resume", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "terminal_failure",
+        request_id: "term",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Fail path");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-start-new")).toBeTruthy());
+      expect(screen.queryByTestId("revise-resume-same")).toBeNull();
+    });
+
+    it("HTTP 409 preclaim allows create rebuild without resume", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(
+        new liveApi.LiveApiError("version mismatch", 409),
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "Stale draft");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(readStoredReviseAttempt(DRAFT_ID)?.ui_preclaim).toBe("stale_version"));
+      expect(screen.queryByTestId("revise-resume-same")).toBeNull();
+      expect(screen.getByTestId("revise-create-proposal")).not.toBeDisabled();
+    });
+
+    it("HTTP 422 preclaim allows create rebuild without resume", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(
+        new liveApi.LiveApiError("invalid body", 422),
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "Bad body");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(readStoredReviseAttempt(DRAFT_ID)?.ui_preclaim).toBe("http_422"));
+      expect(screen.queryByTestId("revise-resume-same")).toBeNull();
+      expect(screen.getByTestId("revise-create-proposal")).not.toBeDisabled();
     });
   });
 });
