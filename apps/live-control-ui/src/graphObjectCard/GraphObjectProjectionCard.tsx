@@ -2,7 +2,11 @@ import type { ReactNode } from "react";
 
 import type { GraphProjectionNodeView } from "../api/types";
 import { GraphObjectCard } from "./GraphObjectCard";
-import type { GraphObjectRelationshipViewModel } from "./types";
+import type {
+  GraphObjectCardMode,
+  GraphObjectCardViewModel,
+  GraphObjectRelationshipViewModel,
+} from "./types";
 import { buildGraphObjectCardFromNodeView } from "./buildGraphObjectCardFromNodeView";
 
 export function resolveExactProjectedNode(
@@ -61,7 +65,9 @@ export function GraphObjectProjectionCard({
 
   const onSelectRelationship = onSelectRelationshipTarget
     ? (relationship: GraphObjectRelationshipViewModel) => {
-        if (!relationship.targetId) return;
+        // Pass through empty-string targetIds so Plan's existing label/ambiguity
+        // resolver remains reachable. Recap/Build treat empty as unresolved.
+        if (relationship.targetId == null) return;
         onSelectRelationshipTarget(relationship.targetId);
       }
     : undefined;
