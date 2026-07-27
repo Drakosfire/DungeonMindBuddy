@@ -1,6 +1,9 @@
 import type { ComponentProps } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
@@ -763,5 +766,117 @@ describe("BuildSurfaceShell", () => {
     const storedRaw = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
     expect(storedRaw).toBeTruthy();
     expect(JSON.parse(storedRaw!).base_revision).toBe(2);
+  });
+
+  it("PR380B: mounts graph-object context lane when document and pointer are present", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    window.history.pushState(
+      {},
+      "",
+      `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=wg-rev-test`,
+    );
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "wg-rev-test",
+        headRevisionId: "wg-rev-test",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "pc_caelynn",
+          label: "Caelynn",
+          kind: "pc",
+          role: "pc",
+          aliases: [],
+          sourceDomains: [],
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          anchoredToFocusSession: true,
+          summary: "Test",
+          campaignScope: "longmont-c2",
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+    });
+    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
+  });
+
+  it("PR380B: does not load graph context while the workspace document is still loading", async () => {
+    let releaseSnapshot: ((snapshot: ReturnType<typeof buildWorldbuildingSnapshot>) => void) | undefined;
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseSnapshot = resolve;
+        }),
+    );
+    window.history.pushState(
+      {},
+      "",
+      `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=wg-rev-test`,
+    );
+    const postProjection = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "wg-rev-test",
+        headRevisionId: "wg-rev-test",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "campaign",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    expect(await screen.findByTestId("build-surface-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
+    expect(postProjection).not.toHaveBeenCalled();
+
+    releaseSnapshot?.(buildWorldbuildingSnapshot(DOC_ID));
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+    });
+    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
   });
 });

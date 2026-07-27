@@ -27,10 +27,15 @@ export interface WorldGraphRevisionCommittedDetail {
   affectedNodeIds?: string[];
 }
 
-const WORLD_ID_BY_CAMPAIGN: Record<string, string> = {
-  "longmont-c1": "eldyrwild",
-  "longmont-c2": "eldyrwild",
-};
+import { getWorldIdForCampaign } from "../../worldGraph/worldGraphSurfaceContext";
+
+export {
+  buildBuildWorldGraphProjectionRequest,
+  buildWorldGraphRecapProjectionRequest,
+  getWorldIdForCampaign,
+  admitBuildDocumentScope,
+  WORLD_ID_BY_CAMPAIGN,
+} from "../../worldGraph/worldGraphSurfaceContext";
 
 function buildProjectionFocus(context: PlanWorldGraphContext): WorldGraphProjectionFocus {
   if (context.focus.kind === "none") {
@@ -78,7 +83,7 @@ export function getPlanWorldGraphContext(
   const derived = deriveApiLens(lens, sessionDescriptor.campaignId);
   if (!derived) return null;
 
-  const worldId = WORLD_ID_BY_CAMPAIGN[derived.campaignId];
+  const worldId = getWorldIdForCampaign(derived.campaignId);
   if (!worldId) return null;
 
   const scopeMode = options?.scopeMode ?? derived.scopeMode ?? resolvePlanGraphScopeMode();

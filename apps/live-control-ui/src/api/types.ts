@@ -2416,6 +2416,48 @@ export interface WorldGraphProjection {
   diagnostics: Array<{ code: string; message: string; severity: "error" | "warning" | "info" }>;
 }
 
+export interface WorldGraphRecapFocusOverlay {
+  focusSessionId: string | null;
+  focusedEvidenceRefIds: string[];
+  focusedEdgeIds: string[];
+  focusedNodeIds: string[];
+}
+
+export interface WorldGraphRecapMention {
+  mentionId: string;
+  nodeId: string;
+  label: string;
+  startOffset: number | null;
+  endOffset: number | null;
+  evidenceRefIds: string[];
+}
+
+export interface WorldGraphRecapSourceSpan {
+  spanId: string;
+  sourceArtifactId: string | null;
+  textExcerpt: string | null;
+}
+
+export interface WorldGraphProjectionTrustBoundary {
+  canTrust: string[];
+  cannotTrust: string[];
+}
+
+export interface WorldGraphRecapProjection {
+  schema: "dmb_world_graph_recap_projection_v1";
+  campaignId: string;
+  sessionId: string;
+  graphId: string;
+  snapshot: WorldGraphProjectionSnapshot;
+  markdown: string;
+  focus: WorldGraphRecapFocusOverlay;
+  nodeViews: Record<string, WorldGraphProjectionNodeView>;
+  mentions: WorldGraphRecapMention[];
+  sourceSpans: WorldGraphRecapSourceSpan[];
+  diagnostics: Array<{ code: string; message: string; severity?: string | null }>;
+  trustBoundary: WorldGraphProjectionTrustBoundary;
+}
+
 export interface WorldGraphProjectionErrorResponse {
   schema: "dmb_world_graph_projection_error_v1";
   code: string;

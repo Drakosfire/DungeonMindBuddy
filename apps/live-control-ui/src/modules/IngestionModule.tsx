@@ -676,7 +676,7 @@ function buildToastForResult(
       : frontmatterSeedReady
         ? "Frontmatter seed is ready for human review before breadcrumb ingest."
       : result.status === "ready_for_planning_activation" && graphBlocked
-        ? `Recap memory generated. Preview graph extraction was blocked: ${graphPreview?.blocked_reason ?? "unknown reason"}. Open Recap View still works, but chips may fall back or be unavailable.`
+        ? `Recap memory generated. Preview graph extraction was blocked: ${graphPreview?.blocked_reason ?? "unknown reason"}. Open Recap View for published World Graph memory; use Graph Review for unpublished candidates.`
       : result.status === "ready_for_planning_activation" && graphMaterialized
         ? "Recap memory generated and preview graph materialized. Open Recap View to inspect graph-backed chips."
       : result.status === "ready_for_planning_activation"
@@ -1407,7 +1407,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
           tone: graphBlocked || stagedRawConflict ? "warning" : "success",
           title: stagedRawConflict ? "Full ingest complete using staged notes" : "Full ingest complete",
           detail: graphBlocked
-            ? `Recap memory generated. Preview graph extraction was blocked: ${graphPreview?.blocked_reason ?? "unknown reason"}. Open Recap View still works, but chips may fall back or be unavailable.`
+            ? `Recap memory generated. Preview graph extraction was blocked: ${graphPreview?.blocked_reason ?? "unknown reason"}. Open Recap View for published World Graph memory; use Graph Review for unpublished candidates.`
             : stagedRawConflict && graphMaterialized
               ? "Recap memory and graph projection were generated from the existing staged notes. The pasted text was not written."
             : stagedRawConflict
@@ -1718,7 +1718,9 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
 
   function openRecapView() {
     if (typeof window !== "undefined") {
-      window.location.assign(`/plan?tool=recap&session=session-${recapSession}`);
+      window.location.assign(
+        `/plan?tool=recap&campaign=${encodeURIComponent(ingestCampaignId)}&session=session-${recapSession}`,
+      );
     }
   }
 
@@ -1807,7 +1809,8 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     recommendedKeep ??
     (selectableKeep.length === 1 ? selectableKeep[0].basename : null);
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
-  const canOpenRecapView = (hasPreviewUnionStore || hasMaterialized) && (state.status === "ready_for_planning_activation" || hasApplied);
+  const canOpenRecapView =
+    hasApplied && (state.status === "ready_for_planning_activation" || hasApplied);
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -2282,10 +2285,9 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
           {state.status === "error" ? (
             <p className="module-error">{state.message ?? "Ingestion operation failed."}</p>
           ) : null}
-          {state.status === "ready_for_planning_activation" ? (
+          {canOpenRecapView ? (
             <div className="module-success">
-              <p>{workflowNextAction}</p>
-              <button type="button" onClick={openRecapView} disabled={!canOpenRecapView}>
+              <button type="button" onClick={openRecapView}>
                 Open Recap View
               </button>
             </div>

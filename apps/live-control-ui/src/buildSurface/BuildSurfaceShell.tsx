@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
+import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 
@@ -140,5 +141,21 @@ export function BuildSurfaceShell() {
     };
   }, [publishSurfaceContext, rehydrateScope]);
 
-  return <MarkdownCanvas slots={slots} />;
+  // Document-backed graph context must wait for an accepted record. While the
+  // document is loading, conflicted, or rejected, session.record is null — mounting
+  // then would skip scope admission and race a later rejection.
+  const graphPointer = parseBuildGraphPointerFromLocation();
+  const acceptedDocumentCampaignId = session.record?.campaign_id ?? null;
+
+  return (
+    <div className="build-surface-with-graph-context">
+      {graphPointer && acceptedDocumentCampaignId ? (
+        <BuildGraphObjectContext
+          documentCampaignId={acceptedDocumentCampaignId}
+          requireDocumentScope
+        />
+      ) : null}
+      <MarkdownCanvas slots={slots} />
+    </div>
+  );
 }

@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import {
@@ -113,5 +116,25 @@ describe("planGraphContextRequest", () => {
 
     expect(context?.scopeMode).toBe("campaign");
     expect(buildPlanWorldGraphProjectionRequest(context!).scopeMode).toBe("campaign");
+  });
+
+  it("PR380B: longmont-c1/c2 map to eldyrwild for future neutral surface context re-export", () => {
+    const c1 = getPlanWorldGraphContext(
+      fixturePlanSessionDescriptor({ campaignId: "longmont-c1", memorySession: 1 }),
+      {
+        lens: { selectedCampaignIds: ["longmont-c1"], focus: null },
+      },
+    );
+    const c2 = getPlanWorldGraphContext(sessionDescriptor, {
+      lens: { selectedCampaignIds: ["longmont-c2"], focus: null },
+    });
+    expect(c1?.worldId).toBe("eldyrwild");
+    expect(c2?.worldId).toBe("eldyrwild");
+  });
+
+  it("re-exports neutral worldGraphSurfaceContext helpers", async () => {
+    const planContext = await import("./planGraphContextRequest");
+    expect(planContext.buildWorldGraphRecapProjectionRequest).toBeTypeOf("function");
+    expect(planContext.getWorldIdForCampaign("longmont-c2")).toBe("eldyrwild");
   });
 });

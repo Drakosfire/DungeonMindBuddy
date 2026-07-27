@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { GraphObjectCard } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
+import { GraphObjectProjectionCard } from "../../graphObjectCard/GraphObjectProjectionCard";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
 import type { PlanReferenceProjectionBinding } from "../projection/projectionBindings";
 import type { PlanSessionDescriptor } from "../types";
@@ -110,6 +111,7 @@ function PlanReferenceUnresolvedCard({
 /**
  * Forward Plan selected-object renderer for graph-aware reference resolution.
  * Consumes explicit props/binding only — no route-local resolver or projection hooks.
+ * Graph-native rendering goes through the shared GraphObjectProjectionCard.
  */
 export function PlanReferenceObjectCard({
   resolution,
@@ -178,14 +180,14 @@ export function PlanReferenceObjectCard({
     };
 
     return (
-      <GraphObjectCard
-        mode="plan"
+      <GraphObjectProjectionCard
         model={model}
+        mode="plan"
         aria-label={`${model.label} graph object`}
         showRelationshipProvenance={showRelationshipProvenance}
         onSelectRelationship={planReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
-        relationshipsDisabled={relationshipsDisabled}
+        disabled={relationshipsDisabled}
       />
     );
   }

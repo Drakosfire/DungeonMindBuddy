@@ -1119,3 +1119,47 @@ describe("liveApi workspace worldbuilding contracts", () => {
     expect(String(fetchSpy.mock.calls[0]?.[0])).toContain(`/workspace-documents/${record.document_id}/snapshot`);
   });
 });
+
+describe("liveApi PR380B World Graph recap client", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("postWorldGraphRecapProjection POSTs /api/live/world-graph/recap-projection", async () => {
+    const mod = await import("./liveApi");
+    expect(mod).toHaveProperty("postWorldGraphRecapProjection");
+    const postRecap = (mod as { postWorldGraphRecapProjection: (body: unknown) => Promise<unknown> })
+      .postWorldGraphRecapProjection;
+    const request = {
+      schema: "dmb_world_graph_projection_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      focus: { kind: "session", sessionId: "session-23", campaignId: "longmont-c2" },
+      admissibility: "gm",
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_world_graph_recap_projection_v1",
+        campaignId: "longmont-c2",
+        sessionId: "session-23",
+        graphId: "rev-1",
+        snapshot: {},
+        markdown: "",
+        focus: {},
+        nodeViews: {},
+        mentions: [],
+        sourceSpans: [],
+        diagnostics: [],
+        trustBoundary: { canTrust: [], cannotTrust: [] },
+      }),
+    );
+
+    await postRecap(request);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/world-graph/recap-projection");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+  });
+});

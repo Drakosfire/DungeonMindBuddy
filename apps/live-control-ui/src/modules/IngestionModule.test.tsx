@@ -711,7 +711,7 @@ describe("IngestionModule", () => {
     const openButton = screen.getByRole("button", { name: "Open Recap View" });
     await user.click(openButton);
 
-    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
+    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&campaign=longmont-c2&session=session-22");
   });
 
   it("always sends graph extraction flags with Generate Recap Memory", async () => {
@@ -1256,5 +1256,91 @@ describe("IngestionModule", () => {
       .find((row) => row?.textContent?.includes(titled));
     expect(proveCanonical).toBeTruthy();
     expect(proveCanonical).toHaveTextContent("Found");
+  });
+});
+
+describe("IngestionModule PR380B characterization (Recap CTA vs preview union)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function renderWithStatus(status: RecapIngestStatus) {
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return status;
+      }
+      return status;
+    });
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    if (status.status === "ready_for_planning_activation") {
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
+      });
+    } else {
+      await waitFor(() => {
+        expect(recapIngestApi.postRecapIngest).toHaveBeenCalled();
+      });
+    }
+  }
+
+  it("enables Open Recap View when normalized recap exists without preview union", async () => {
+    await renderWithStatus(
+      makeStatus({
+        status: "recap_applied",
+        states: ["recap_applied", "normalized_created"],
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+    });
+  });
+
+  it("does not require preview union readiness for Open Recap View", async () => {
+    await renderWithStatus(
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "normalized_created", "ready_for_planning_activation"],
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+    });
+  });
+
+  it("navigates to Recap with campaign and session query params", async () => {
+    const user = setupIngestUser();
+    const assign = vi.spyOn(window.location, "assign").mockImplementation(() => undefined);
+    mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: [
+          "recap_applied",
+          "session_memory_materialized",
+          "preview_union_store_ready",
+          "ready_for_planning_activation",
+        ],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await fillRecapInputs(user, "Session 22 Recap\n\nBody.", "Session 22 - Title");
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+    });
+    await user.click(screen.getByRole("button", { name: "Open Recap View" }));
+    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&campaign=longmont-c2&session=session-22");
+    assign.mockRestore();
   });
 });
