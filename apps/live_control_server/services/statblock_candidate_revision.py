@@ -158,7 +158,6 @@ def _mark_reconciled_or_recover(
             draft,
             operation,
             expected_lineage=lineage,
-            expected_source_status="none",
         ):
             return mark_revise_reconciled(
                 root,
@@ -188,7 +187,6 @@ def _reconcile_draft_and_journal(
         draft,
         operation,
         expected_lineage=lineage,
-        expected_source_status="none",
     ):
         try:
             operation = _mark_reconciled_or_recover(root, operation, lineage=lineage)

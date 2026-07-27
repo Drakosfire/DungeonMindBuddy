@@ -399,7 +399,16 @@ def append_candidate_ref(
 
     Historical lineage is preserved: a ref generated from an earlier draft version
     may still be attached after the draft advances.
+
+    Revise-created refs with embedded lineage must use
+    ``reconcile_revise_candidate_ref`` (version-bumping CAS); this generation
+    path rejects non-null lineage.
     """
+    if candidate_ref.lineage is not None:
+        raise ThreatDraftStoreError(
+            "generation append rejects revise lineage; use reconcile_revise_candidate_ref",
+            status_code=422,
+        )
     if candidate_ref.generated_from_draft_version != expected_version:
         raise ThreatDraftStoreError(
             "candidate ref source version mismatch",
@@ -462,6 +471,54 @@ def _ref_json(ref: ThreatDraftCandidateRefV1) -> dict:
     return ref.model_dump(mode="json")
 
 
+def _validate_lineage_for_target_draft(
+    draft: ThreatDraftV1,
+    candidate_ref: ThreatDraftCandidateRefV1,
+) -> None:
+    """Bind origin-specific lineage to the committed draft and ref fields."""
+    lineage = candidate_ref.lineage
+    if lineage is None:
+        raise ThreatDraftStoreError(
+            "revise candidate ref requires lineage",
+            status_code=422,
+        )
+    if lineage.revise_request_id != candidate_ref.request_id:
+        raise ThreatDraftStoreError(
+            "candidate ref request_id must match lineage.revise_request_id",
+            status_code=422,
+        )
+    if lineage.source_origin_kind == "edited_working_copy":
+        assert lineage.edited_working_copy is not None
+        ewc = lineage.edited_working_copy
+        if ewc.draft_id != draft.draft_id:
+            raise ThreatDraftStoreError(
+                "edited_working_copy lineage draft_id must match target draft",
+                status_code=422,
+            )
+        if ewc.source_draft_version != candidate_ref.generated_from_draft_version:
+            raise ThreatDraftStoreError(
+                "edited_working_copy source_draft_version must match "
+                "generated_from_draft_version",
+                status_code=422,
+            )
+    elif lineage.source_origin_kind == "candidate":
+        assert lineage.candidate is not None
+        if lineage.candidate.draft_id != draft.draft_id:
+            raise ThreatDraftStoreError(
+                "candidate lineage draft_id must match target draft",
+                status_code=422,
+            )
+        if (
+            lineage.candidate.source_generated_from_draft_version
+            != candidate_ref.generated_from_draft_version
+        ):
+            raise ThreatDraftStoreError(
+                "candidate lineage source_generated_from_draft_version must match "
+                "generated_from_draft_version",
+                status_code=422,
+            )
+
+
 def _validate_source_status_transition(
     draft: ThreatDraftV1,
     refs: list[ThreatDraftCandidateRefV1],
@@ -490,11 +547,17 @@ def _validate_source_status_transition(
             "source candidate status transition forbidden",
             status_code=409,
         )
-    if target == "expired" and not transition.expiry_proven:
-        raise ThreatDraftStoreError(
-            "expired transition requires expiry proof",
-            status_code=409,
-        )
+    if target == "expired":
+        if not source.expires_at:
+            raise ThreatDraftStoreError(
+                "expired transition requires source expires_at",
+                status_code=409,
+            )
+        if transition.exact_expires_at != source.expires_at:
+            raise ThreatDraftStoreError(
+                "expired transition requires exact expires_at evidence",
+                status_code=409,
+            )
     if target == "accepted_source":
         accepted = draft.accepted_mechanics_ref
         if accepted is None or accepted.accepted_from_candidate_id != transition.source_candidate_id:
@@ -567,6 +630,8 @@ def reconcile_revise_candidate_ref(
                 status_code=409,
             )
 
+        _validate_lineage_for_target_draft(current, candidate_ref)
+
         refs = list(current.candidate_refs)
         incoming_json = _ref_json(candidate_ref)
         existing_by_cid = next(
@@ -599,6 +664,12 @@ def reconcile_revise_candidate_ref(
         idempotent_ref_present = existing_by_cid is not None and _ref_json(
             existing_by_cid
         ) == incoming_json
+
+        if not idempotent_ref_present and candidate_ref.status != "active":
+            raise ThreatDraftStoreError(
+                "revise candidate ref must begin active",
+                status_code=422,
+            )
 
         working_refs = refs
         if requested_source_transition is not None:

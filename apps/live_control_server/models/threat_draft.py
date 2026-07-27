@@ -197,11 +197,17 @@ class CandidateLineageV1(StrictModel):
 
 
 class RequestedSourceStatusTransitionV1(StrictModel):
+    """Explicit source-ref lifecycle transition for the revise CAS only.
+
+    ``exact_expires_at`` is required for ``expired`` and must equal the source
+    candidate ref's durable ``expires_at`` (exact expiry evidence, not a bool).
+    """
+
     source_candidate_id: str = Field(pattern=r"^cand_[a-z0-9]+$")
     to_status: Literal[
         "superseded", "rejected", "expired", "accepted_source", "active"
     ]
-    expiry_proven: bool = False
+    exact_expires_at: str | None = Field(default=None, max_length=64)
 
 
 class ThreatDraftCandidateRefV1(StrictModel):

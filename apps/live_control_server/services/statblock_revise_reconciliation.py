@@ -456,9 +456,12 @@ def prove_revise_ref_attached(
     operation: ReviseOperationV1,
     *,
     expected_lineage: CandidateLineageV1,
-    expected_source_status: ReviseSourceStatusMaterialization,
 ) -> bool:
-    """True when draft holds the exact revise ref and source materialization proof."""
+    """True when the ThreatDraft holds the exact revise ref + lineage.
+
+    SBW06b journal authority is ``source_status=none`` only; this proof inspects
+    the draft, never the journal's own materialization field.
+    """
     if operation.candidate_id is None:
         return False
     attached = next(
@@ -473,11 +476,7 @@ def prove_revise_ref_attached(
         return False
     if attached.lineage.model_dump(mode="json") != expected_lineage.model_dump(mode="json"):
         return False
-    if expected_source_status == "none":
-        return True
-    if expected_source_status != "applied":
-        return False
-    return operation.materialization.source_status == "applied"
+    return True
 
 
 def mark_revise_reconciled(
@@ -487,8 +486,20 @@ def mark_revise_reconciled(
     request_id: str,
     request_digest: str,
     candidate_id: str,
-    source_status: ReviseSourceStatusMaterialization,
+    source_status: ReviseSourceStatusMaterialization = "none",
 ) -> ReviseOperationV1:
+    """Mark journal reconciled after draft attach is proven.
+
+    SBW06b durable authority is ``source_status=none`` only. ``applied`` requires
+    a digest-bound transition identity that is not yet in the frozen journal;
+    reject it rather than invent request authority. Already-reconciled records
+    are immutable: a different ``source_status`` is a conflict, not a rewrite.
+    """
+    if source_status != "none":
+        raise ReviseReconciliationError(
+            "SBW06b revise journal accepts source_status=none only",
+            status_code=422,
+        )
     with _draft_revise_lock(root, draft_id):
         existing = _read_operation_unlocked(
             root, draft_id=draft_id, request_id=request_id
@@ -502,13 +513,18 @@ def mark_revise_reconciled(
             raise ReviseReconciliationError("revise operation conflict", status_code=409)
         if existing.candidate_id != candidate_id:
             raise ReviseReconciliationError("revise operation conflict", status_code=409)
-        if existing.status == "reconciled" and existing.candidate_id == candidate_id:
+        if existing.status == "reconciled":
             if (
                 existing.materialization.draft_ref == "attached"
-                and existing.materialization.source_status == source_status
+                and existing.materialization.source_status == "none"
+                and source_status == "none"
             ):
                 return existing
-        if existing.status not in {"cache_stored_ref_pending", "reconciled"}:
+            raise ReviseReconciliationError(
+                "reconciled revise materialization is immutable",
+                status_code=409,
+            )
+        if existing.status != "cache_stored_ref_pending":
             raise ReviseReconciliationError("revise operation conflict", status_code=409)
         updated = existing.model_copy(
             update={
@@ -516,7 +532,7 @@ def mark_revise_reconciled(
                 "materialization": ReviseMaterializationV1(
                     cache=existing.materialization.cache,
                     draft_ref="attached",
-                    source_status=source_status,
+                    source_status="none",
                 ),
                 "recovery_classification": None,
                 "recovery_details": None,
