@@ -312,7 +312,9 @@ flowchart TB
   r1 --> r2["R2 one projection registry plus adaptive container app-level"]
   r1 --> r8["R8 single theme canvas inherits"]
 
-  r2 --> r10["R10 agent interaction provider bottom bar pane plus context publishing seam plus localStorage phase A"]
+  r2 --> r10aDeps["R10a-deps projection-host dependency extraction"]
+  r10aDeps --> r10a["R10a lift into AgentInteractionProvider plus publication seam"]
+  r10a --> r10["R10b remainder bottom bar pane plus localStorage phase A"]
   r2 --> r11["R11 ingestion source vocabulary adapter IngestionSourceBundle"]
 
   r2 --> r6["R6 ingestion tool mount"]
@@ -331,11 +333,31 @@ flowchart TB
   r8 --> r9
 ```
 
+**R10 split note:** R10 is split into **R10a-deps → R10a → R10b/remainder**. The
+graph above is the architecture spine; Build/canvas sequencing
+(MC-02a → MC-02b after R10a; independent BLD inspection-truth lane) is owned by
+`Docs/Plans/PLAN-shared-markdown-canvas-build-first.md` and must not be collapsed
+back into a monolithic R10 node.
+
 Parallel lanes after R0: the UI spine (R1 → R2 → {R6, R7}, plus R8) and the leaf-module lane ({L1, L2, L3}, no shell dependency) run concurrently and converge at R5; R9 integrates. Each rung is small, independently shippable, and defensible on its own — boring before powerful, mirroring the ladder operating rule.
 
-**R10 (agent interaction provider)** hoists R2's single projection container from surface-local to app-level: it lifts the projection state into an `AgentInteractionProvider` mounted above the route switch, replaces the right-side drawer with the bottom Agent Interaction Bar/Pane hosted in `AppChrome`, adds the surface → provider context-publishing seam, and persists a bounded subset to `localStorage` (Phase A). It is sequenced after R2 and migrates lift-then-replace: first move state behind the existing drawer with no UI change, then swap the drawer for the bottom bar/pane. R10 must hold the pointers-only discipline (no corpus content in provider state) and the keep-it-singular rule (it relocates the one container; it does not add a second).
+**R10 (agent interaction provider; full target)** hoists R2's single projection container from surface-local to app-level: it lifts the projection state into an `AgentInteractionProvider` mounted above the route switch, replaces the right-side drawer with the bottom Agent Interaction Bar/Pane hosted in `AppChrome`, adds the surface → provider context-publishing seam, and persists a bounded subset to `localStorage` (Phase A). It is sequenced after R2 and migrates lift-then-replace: first move state behind the existing drawer with no UI change, then swap the drawer for the bottom bar/pane. R10 must hold the pointers-only discipline (no corpus content in provider state) and the keep-it-singular rule (it relocates the one container; it does not add a second).
 
-**R10a (lift-only half; executable before Build graph-reference enablement):** move the existing projection registry, selected-projection state, and AdaptiveProjectionContainer ownership above Plan/Build/Ingest route switching **without** changing Plan interaction behavior and **without** the bottom-pane redesign or localStorage Phase A. Surfaces consume one host; Build must not mount a second container. Full R10 (bar/pane + persistence) remains after R10a. Sequencing authority for Build/canvas follow-ons: `Docs/Plans/PLAN-shared-markdown-canvas-build-first.md`.
+**R10a-deps + R10a (lift half; Path A locked 2026-07-27):** a bare hoist is not
+executable against current topology — Plan’s container sits inside
+`PlanGraphLensProvider` / `PlanGraphReferenceResolverProvider`, and Graph Review’s
+container sits inside `GraphReviewLiveStateProvider`; projected content still
+calls those route-local hooks. **R10a-deps** extracts those dependencies to
+explicit payloads / app-registered adapters. **R10a** then absorbs projection
+registry, selected-projection state, and AdaptiveProjectionContainer ownership
+into the existing **`AgentInteractionProvider`** (no sibling projection owner),
+including the minimum truthful surface publication seam (nullable inactive host;
+registration/cleanup identity; clear/revalidate on surface change; Build may bind
+without Plan-only tools/context). No bottom-pane redesign and no localStorage
+Phase A in R10a. Build must not mount a second container. Full R10 / R10b
+(bar/pane + persistence) remains after R10a on the same provider. Sequencing
+authority for Build/canvas follow-ons:
+`Docs/Plans/PLAN-shared-markdown-canvas-build-first.md`.
 
 **R11 (ingestion source vocabulary adapter)** implements the read-only contract in `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`: current recap-ingest status/artifacts map to `IngestionSourceBundle` with `SourceArtifact`, `SourceAnchor`, and `SourceUnit` entries. R11 is the seam that prevents Agent Interaction from depending directly on `_normalized/`, `_breadcrumbed/`, `.records_meta.jsonl`, or `corpus_impact` as semantics. Taxonomy/ontology later enriches or replaces this producer without changing the Agent Interaction consumer envelope.
 

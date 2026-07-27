@@ -3,9 +3,9 @@ document_id: dmb-design-shared-markdown-canvas-surface-composition
 title: Shared Markdown Canvas and Surface Capability Composition
 document_class: architecture_supplement
 status: active
-version: 1.1
+version: 1.2
 created_at: "2026-07-26"
-updated_at: "2026-07-26"
+updated_at: "2026-07-27"
 parent_authority: ARCHITECTURE-plan-surface-toolbox.md
 first_consumer: /build
 extends_backlog: "Hoist the Build authoring lifecycle into a shared document-bound Markdown canvas"
@@ -374,12 +374,29 @@ The floating-chrome / Agent Interaction track owns **where those regions live**:
 - optional Agent Interaction shell;
 - R10 lift-then-replace.
 
-**R10a (prerequisite before Build projection consumption):** lift the existing
-projection registry, selected-projection state, and AdaptiveProjectionContainer
-ownership **above** Plan/Build/Ingest route switching **without** changing Plan
-behavior and **without** the future bottom-pane redesign or localStorage Phase A
-expansion. Build must not mount a second container. Full R10 (bottom bar/pane +
-persistence) remains later.
+**Path A (locked 2026-07-27) — R10a is not a bare hoist.** Today Plan mounts
+`AdaptiveProjectionContainer` inside `PlanGraphLensProvider` /
+`PlanGraphReferenceResolverProvider`, and Graph Review mounts it inside
+`GraphReviewLiveStateProvider`. Projected content still calls those route-local
+hooks. Hoisting the container above routing without prior dependency extraction
+would break hooks, retain hidden route-local containers, or force R10a to absorb
+MC-02a work under another name.
+
+Executable Lane 1 order:
+
+1. **R10a-deps** — projected renderers consume explicit payloads or app-registered
+   dependencies rather than route-local Plan/Ingest hooks.
+2. **R10a** — absorb projection registry/state/container into the existing
+   app-level **`AgentInteractionProvider`** (no sibling `ProjectionProvider`),
+   including the minimum truthful surface publication seam (nullable inactive
+   host; registration/cleanup identity; clear/revalidate on surface change;
+   Build may bind with empty tools without Plan-only context).
+3. **MC-02a** — remaining neutral graph-reference capability extraction.
+4. **MC-02b** — Build enables those capabilities.
+
+Full R10 (bottom bar/pane + localStorage Phase A) remains after R10a on the same
+provider. Sequencing authority:
+`Docs/Plans/PLAN-shared-markdown-canvas-build-first.md`.
 
 ## Delivery sequence
 
@@ -392,21 +409,35 @@ persistence) remains later.
 - Preserve current Build behavior and exact-run semantics.
 - Do not change Plan.
 
-### R10a — App-scoped projection host lift
+### Lane 1 — R10a-deps → R10a → MC-02a → MC-02b
 
-- One provider instance and one AdaptiveProjectionContainer above the route switch.
+#### R10a-deps — Projection-host dependency extraction
+
+- Plan/Ingest projected content no longer requires route-local resolver or
+  live-state hooks for correctness.
+- Dependencies reach the future app-level renderer via explicit payloads and/or
+  registered adapters.
+- No container ownership move; no Build enablement.
+
+#### R10a — App-scoped projection host lift
+
+- One owner (`AgentInteractionProvider`) and one AdaptiveProjectionContainer above
+  the route switch.
+- Typed surface publication/cleanup as specified in the plan (nullable inactive
+  host; identity-safe unbind; surface-change clear/revalidate).
 - Plan (and Ingest Graph Review) behavior interaction-equivalent.
-- Selected projection clears/revalidates on surface context change.
-- No Build graph-reference enablement in this slice.
+- No Build graph-reference enablement; no sibling ProjectionProvider; no hidden
+  route-local containers after the lift.
 
-### MC-02a — Neutral graph-reference capability extraction
+#### MC-02a — Neutral graph-reference capability extraction
 
-- Extract/wrap surface-neutral contracts for render / insert_existing / project.
+- Extract/wrap remaining surface-neutral contracts for render / insert_existing /
+  project.
 - Plan remains the characterized consumer; Plan behavior unchanged.
 - Shared GraphObjectCard glance path named and used; no third card.
 - No Build enablement; no extraction inspector.
 
-### MC-02b — Build enables shared reference capabilities
+#### MC-02b — Build enables shared reference capabilities
 
 - Build Surface capability config enables `reference_render`,
   `reference_insert_existing`, `reference_project` with Build graph lens.
@@ -415,13 +446,20 @@ persistence) remains later.
 - Exclude: extraction candidates, run inspector, node creation, elevation, handoff
   redesign, PlanGraphLoadPanel.
 
-### Stay-on-Build / BLD successors (after MC-02b)
+### Lane 2 — BLD inspection truth (immediate; independent)
 
-1. **BLD inspection truth** — `false_anchor_quote` / reviewable vs package readiness.
-2. **Stay-on-Build v1** — exact-run summary in-place; secondary Open full Graph Review.
-3. **Stay-on-Build v2** — Build Extraction Run Inspector as a **tool projection** in
+**BLD inspection truth** — `false_anchor_quote` / reviewable vs package readiness —
+starts immediately and does **not** wait on MC-02b or any Lane 1 slice. It is a
+backend/contract correctness defect with no Build panel. Converges with Lane 1
+before Stay-on-Build v2. Stay-on-Build v1 that displays inspection readiness
+depends on this lane.
+
+### Stay-on-Build successors (after Lane 1 through MC-02b **and** Lane 2)
+
+1. **Stay-on-Build v1** — exact-run summary in-place; secondary Open full Graph Review.
+2. **Stay-on-Build v2** — Build Extraction Run Inspector as a **tool projection** in
    the singular adaptive container (read-only; no dispositions).
-4. **Candidate-assisted Find existing** — bridge inspector → MC-02 insert path.
+3. **Candidate-assisted Find existing** — bridge inspector → MC-02 insert path.
 
 ### MC-03 — Node authoring design and migration
 
@@ -462,14 +500,17 @@ Before dispatch:
 
 ## Explicitly later
 
-- Stay-on-Build v1/v2 and candidate Find-existing (after MC-02b);
-- BLD inspection-truth defect (`false_anchor_quote` / readiness split);
+- Stay-on-Build v1/v2 and candidate Find-existing (after Lane 1 through MC-02b
+  and Lane 2 BLD inspection truth);
 - BLD-10c worldbuilding dispositions and prepare/confirm UX;
 - BLD-09 PDF/OCR lineage;
 - Plan and runbook migration to `MarkdownCanvas`;
-- Full R10 bottom bar/pane + localStorage Phase A (after R10a);
+- Full R10 / R10b bottom bar/pane + localStorage Phase A (after R10a, same
+  `AgentInteractionProvider`);
 - node-authoring capability implementation (MC-03);
 - broad Build visual redesign.
+
+BLD inspection truth is **not** “later than MC-02b”; it is Lane 2 now.
 
 ## Documentation authority and history
 
