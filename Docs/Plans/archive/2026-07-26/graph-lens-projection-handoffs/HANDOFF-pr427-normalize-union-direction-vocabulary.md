@@ -59,10 +59,21 @@ pr_body_template: |
   {{TODO}}
 ---
 
+> **COMPLETED (2026-07-26):** Merged as [PR #427](https://github.com/Drakosfire/DungeonMindBuddy/pull/427) (`7a024363667f459560668df85928a4b6399c7cff`).
+>
+> **Review rounds (3 COMMENT submissions; REQUEST_CHANGES/APPROVE posted as COMMENT because reviewer and PR author share the repo account):**
+> 1. `4783243121` — REQUEST CHANGES: endpoint direction walk missing; characterization could self-authorize wrong mapping; reusable-snapshot proof not full-payload; operator waiver/ledger gates.
+> 2. `4783395237` — REQUEST CHANGES (waiver/ledger only): technical blockers closed by `39685a84`; still needed explicit operator waiver posture and PR-body ledger refresh.
+> 3. `4783416821` — APPROVE at `39685a84`: endpoint, mapping-lock, and reusable full-payload proofs held; baseline-identical red tests not a separate merge gate per operator direction.
+>
+> **Follow-ups:** PR380B (Recap/Ingest UI + shared object navigation onto World Graph recap route); durable Union store/contribution direction migration remains deferred.
+>
+> Archived from `Docs/Plans/HANDOFF-normalize-union-direction-vocabulary.md` as part of the post-merge atomic doc-sync after PR #427.
+
 # HANDOFF — Normalize the Union Supergraph projection direction vocabulary
 
 **Created:** 2026-07-26, America/Denver.
-**Status:** ACTIVE — dispatch exactly one union wire-contract normalization slice.
+**Status:** COMPLETED — merged as GitHub PR #427 (`7a024363`).
 **Canonical handoff path:** `Docs/Plans/HANDOFF-normalize-union-direction-vocabulary.md`
 **Implementation base:** `eb2d40ba86a9992c2df526e78efc5e8a1033c3eb` — merge of PR #423, `migrate-union-mention-path`.
 **Suggested branch:** `agent/normalize-union-direction-vocabulary`
