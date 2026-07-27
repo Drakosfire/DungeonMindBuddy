@@ -1,18 +1,32 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
-const graphObjectCardDir = path.dirname(fileURLToPath(import.meta.url));
+import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import { adaptWorldGraphNodeView } from "../worldGraph/worldGraphNodeViewAdapter";
+import { GraphObjectProjectionCard, resolveExactProjectedNode } from "./GraphObjectProjectionCard";
 
-describe("GraphObjectProjectionCard (PR380B target module)", () => {
-  it("production module file is absent on current main", () => {
-    expect(existsSync(path.join(graphObjectCardDir, "GraphObjectProjectionCard.tsx"))).toBe(false);
+describe("GraphObjectProjectionCard", () => {
+  const nodeView = adaptWorldGraphNodeView(session23WorldGraphRecapFixture.nodeViews.pc_caelynn);
+  const nodeViews = {
+    pc_caelynn: nodeView,
+    loc_mirathorn: adaptWorldGraphNodeView(session23WorldGraphRecapFixture.nodeViews.loc_mirathorn),
+  };
+
+  it("renders exact node card content from nodeView", () => {
+    render(<GraphObjectProjectionCard nodeView={nodeView} />);
+    expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    expect(screen.getByText("Caelynn")).toBeInTheDocument();
   });
 
-  it("pre-hoist PlanReferenceObjectCard still renders GraphObjectCard directly", async () => {
-    const planCard = await import("../planSurface/reference/PlanReferenceObjectCard");
-    expect(planCard.PlanReferenceObjectCard).toBeTypeOf("function");
-    expect(existsSync(path.join(graphObjectCardDir, "GraphObjectProjectionCard.tsx"))).toBe(false);
+  it("emits exact relationship target ids", () => {
+    const onSelect = vi.fn();
+    render(<GraphObjectProjectionCard nodeView={nodeView} onSelectRelationshipTarget={onSelect} />);
+    fireEvent.click(screen.getByRole("button", { name: /Mirathorn/i }));
+    expect(onSelect).toHaveBeenCalledWith("loc_mirathorn");
+  });
+
+  it("resolveExactProjectedNode performs exact map lookup only", () => {
+    expect(resolveExactProjectedNode(nodeViews, "loc_mirathorn")?.node_id).toBe("loc_mirathorn");
+    expect(resolveExactProjectedNode(nodeViews, "missing-node")).toBeNull();
   });
 });

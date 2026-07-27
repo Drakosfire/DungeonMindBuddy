@@ -132,10 +132,9 @@ describe("planGraphContextRequest", () => {
     expect(c2?.worldId).toBe("eldyrwild");
   });
 
-  it("PR380B: planGraphContextRequest remains local until worldGraphSurfaceContext hoist", () => {
-    expect(existsSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "../../worldGraph/worldGraphSurfaceContext.ts"))).toBe(
-      false,
-    );
-    expect(buildPlanWorldGraphProjectionRequest).toBeTypeOf("function");
+  it("re-exports neutral worldGraphSurfaceContext helpers", async () => {
+    const planContext = await import("./planGraphContextRequest");
+    expect(planContext.buildWorldGraphRecapProjectionRequest).toBeTypeOf("function");
+    expect(planContext.getWorldIdForCampaign("longmont-c2")).toBe("eldyrwild");
   });
 });

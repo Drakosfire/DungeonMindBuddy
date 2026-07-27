@@ -617,7 +617,7 @@ describe("PlanReferenceObjectCard", () => {
     expect(screen.getByText(/World Graph projection is unavailable/i)).toBeInTheDocument();
   });
 
-  it("PR380B: still Plan-owns graph card rendering until GraphObjectProjectionCard hoist", () => {
+  it("PR380B: delegates graph-native rendering to GraphObjectProjectionCard", () => {
     expect(
       existsSync(
         path.join(
@@ -625,6 +625,6 @@ describe("PlanReferenceObjectCard", () => {
           "../../graphObjectCard/GraphObjectProjectionCard.tsx",
         ),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

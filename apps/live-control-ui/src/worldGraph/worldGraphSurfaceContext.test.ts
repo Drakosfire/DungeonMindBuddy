@@ -1,39 +1,71 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
+import {
+  admitBuildDocumentScope,
+  buildBuildWorldGraphProjectionRequest,
+  buildWorldGraphRecapProjectionRequest,
+  getWorldIdForCampaign,
+} from "./worldGraphSurfaceContext";
 
-const worldGraphDir = path.dirname(fileURLToPath(import.meta.url));
-
-describe("worldGraphSurfaceContext (PR380B target module)", () => {
-  it("production module file is absent on current main", () => {
-    expect(existsSync(path.join(worldGraphDir, "worldGraphSurfaceContext.ts"))).toBe(false);
+describe("worldGraphSurfaceContext", () => {
+  it("maps longmont campaigns to eldyrwild", () => {
+    expect(getWorldIdForCampaign("longmont-c1")).toBe("eldyrwild");
+    expect(getWorldIdForCampaign("longmont-c2")).toBe("eldyrwild");
+    expect(getWorldIdForCampaign("unknown")).toBeNull();
   });
 
-  it("fixture preserves eldyrwild campaign mapping vocabulary for future Recap/Build requests", () => {
-    expect(session23WorldGraphRecapFixture.snapshot.worldId).toBe("eldyrwild");
-    expect(session23WorldGraphRecapFixture.campaignId).toBe("longmont-c2");
-    expect(session23WorldGraphRecapFixture.graphId).toBe(
-      session23WorldGraphRecapFixture.snapshot.revisionId,
-    );
-  });
-
-  it("target: buildWorldGraphRecapProjectionRequest will map longmont campaigns to eldyrwild", async () => {
-    const planContext = await import("../planSurface/reference/planGraphContextRequest");
-    const context = planContext.getPlanWorldGraphContext(
-      (await import("../planSurface/config/planSessionDescriptor")).fixturePlanSessionDescriptor({
-        campaignId: "longmont-c1",
-        memorySession: 3,
+  it("buildWorldGraphRecapProjectionRequest uses session focus without revision pin", () => {
+    expect(
+      buildWorldGraphRecapProjectionRequest({
+        campaignId: "longmont-c2",
+        sessionId: "session-23",
       }),
-      {
-        lens: {
-          selectedCampaignIds: ["longmont-c1"],
-          focus: { campaignId: "longmont-c1", sessionNumber: 3 },
-        },
-      },
-    );
-    expect(context?.worldId).toBe("eldyrwild");
+    ).toEqual({
+      schema: "dmb_world_graph_projection_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      focus: { kind: "session", sessionId: "session-23", campaignId: "longmont-c2" },
+      admissibility: "gm",
+    });
+  });
+
+  it("buildBuildWorldGraphProjectionRequest pins revision when provided", () => {
+    expect(
+      buildBuildWorldGraphProjectionRequest({
+        campaignId: "longmont-c2",
+        revisionPin: session23WorldGraphRecapFixture.snapshot.revisionId,
+      }),
+    ).toEqual({
+      schema: "dmb_world_graph_projection_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      focus: { kind: "none", sessionId: null },
+      admissibility: "gm",
+      revisionPin: session23WorldGraphRecapFixture.snapshot.revisionId,
+    });
+  });
+
+  it("admitBuildDocumentScope accepts campaign-scoped and world-scoped documents", () => {
+    expect(
+      admitBuildDocumentScope({
+        documentCampaignId: "longmont-c2",
+        incomingCampaignId: "longmont-c2",
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      admitBuildDocumentScope({
+        documentCampaignId: "eldyrwild",
+        incomingCampaignId: "longmont-c2",
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      admitBuildDocumentScope({
+        documentCampaignId: "longmont-c1",
+        incomingCampaignId: "longmont-c2",
+      }).ok,
+    ).toBe(false);
   });
 });

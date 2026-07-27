@@ -1120,17 +1120,12 @@ describe("liveApi workspace worldbuilding contracts", () => {
   });
 });
 
-describe("liveApi PR380B World Graph recap client (characterization + target)", () => {
+describe("liveApi PR380B World Graph recap client", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("does not export postWorldGraphRecapProjection on current main", async () => {
-    const mod = await import("./liveApi");
-    expect(mod).not.toHaveProperty("postWorldGraphRecapProjection");
-  });
-
-  it("target: postWorldGraphRecapProjection POSTs /api/live/world-graph/recap-projection", async () => {
+  it("postWorldGraphRecapProjection POSTs /api/live/world-graph/recap-projection", async () => {
     const mod = await import("./liveApi");
     expect(mod).toHaveProperty("postWorldGraphRecapProjection");
     const postRecap = (mod as { postWorldGraphRecapProjection: (body: unknown) => Promise<unknown> })

@@ -98,7 +98,7 @@ describe("worldGraphProjectionAdapter PR380B hoist compatibility", () => {
     expect(adaptWorldGraphNodeForPlanCard).toBeTypeOf("function");
   });
 
-  it("target: neutral worldGraphNodeViewAdapter module will replace direct Plan ownership", () => {
+  it("delegates adaptWorldGraphNodeForPlanCard to the neutral adapter module", () => {
     expect(
       existsSync(
         path.join(
@@ -106,6 +106,6 @@ describe("worldGraphProjectionAdapter PR380B hoist compatibility", () => {
           "../../worldGraph/worldGraphNodeViewAdapter.ts",
         ),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 });
