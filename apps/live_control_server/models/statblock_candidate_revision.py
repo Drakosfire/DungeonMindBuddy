@@ -39,11 +39,13 @@ ReviseOperationStatus = Literal[
     "dispatched_unknown",
     "candidate_received",
     "cache_stored_ref_pending",
+    "reconciled",
     "terminal_failure",
 ]
 
 ReviseCacheMaterialization = Literal["missing", "stored", "failed"]
-ReviseDraftRefMaterialization = Literal["missing", "failed"]
+ReviseDraftRefMaterialization = Literal["missing", "failed", "attached"]
+ReviseSourceStatusMaterialization = Literal["none", "applied"]
 
 ClaimReviseOutcome = Literal[
     "claimed",
@@ -59,6 +61,7 @@ ReviseResultLabel = Literal[
     "dispatched_unknown",
     "candidate_received",
     "cache_stored_ref_pending",
+    "reconciled",
     "revise_busy",
     "revise_history_full",
     "revise_input_conflict",
@@ -72,6 +75,7 @@ ReviseResultLabel = Literal[
 class ReviseMaterializationV1(StrictModel):
     cache: ReviseCacheMaterialization = "missing"
     draft_ref: ReviseDraftRefMaterialization = "missing"
+    source_status: ReviseSourceStatusMaterialization = "none"
 
 
 class ReviseOperationV1(StrictModel):
@@ -146,6 +150,13 @@ class ReviseOperationV1(StrictModel):
             self.recovery_classification is not None
             or self.recovery_details is not None
         )
+        # SBW06b v1: applied requires digest-bound transition authority not yet
+        # present in the journal. Reject in every state; do not normalize later.
+        if self.materialization.source_status != "none":
+            raise ValueError(
+                "revise journal requires source_status=none "
+                "(applied lacks digest-bound transition authority)"
+            )
         if state == "claimed":
             if self.candidate_id is not None:
                 raise ValueError("claimed forbids candidate_id")
@@ -190,6 +201,17 @@ class ReviseOperationV1(StrictModel):
                 raise ValueError(
                     "cache_stored_ref_pending forbids recovery classification"
                 )
+        elif state == "reconciled":
+            if not self.candidate_id:
+                raise ValueError("reconciled requires candidate_id")
+            if self.materialization.cache not in {"stored", "failed", "missing"}:
+                raise ValueError("reconciled requires cache stored|failed|missing")
+            if self.materialization.draft_ref != "attached":
+                raise ValueError("reconciled requires draft_ref=attached")
+            if has_terminal:
+                raise ValueError("reconciled forbids terminal fields")
+            if has_recovery:
+                raise ValueError("reconciled forbids recovery classification")
         elif state == "terminal_failure":
             if self.candidate_id is not None:
                 raise ValueError("terminal_failure forbids candidate_id")

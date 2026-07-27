@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -10,11 +11,25 @@ import {
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { PlanGraphProjectionState, PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import type { ActiveProjection, ProjectionSize, SurfaceConfig } from "../types";
+import type {
+  GraphReviewDiagnosticsProjectionPayload,
+  PlanReferenceProjectionBinding,
+  RegisterableToolProjectionId,
+  ToolProjectionPayloadMap,
+} from "./projectionBindings";
+import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "./projectionBindings";
+
+interface BindingRegistration<T> {
+  token: symbol;
+  value: T;
+}
 
 interface ProjectionContextValue {
   active: ActiveProjection | null;
   activePlanReference: PlanReferenceResolution | null;
   planProjectionState: PlanGraphProjectionState | null;
+  planReferenceBinding: PlanReferenceProjectionBinding | null;
+  graphReviewDiagnosticsPayload: GraphReviewDiagnosticsProjectionPayload | null;
   openTool: (toolId: string) => void;
   openContentFromChip: (
     ref: RunbookReferenceAttrs,
@@ -29,6 +44,11 @@ interface ProjectionContextValue {
   ) => void;
   expandContent: () => void;
   close: () => void;
+  registerPlanReferenceBinding: (binding: PlanReferenceProjectionBinding) => () => void;
+  registerToolProjectionPayload: <K extends RegisterableToolProjectionId>(
+    toolId: K,
+    payload: ToolProjectionPayloadMap[K],
+  ) => () => void;
 }
 
 const ProjectionContext = createContext<ProjectionContextValue | null>(null);
@@ -48,6 +68,16 @@ export function ProjectionProvider({
   const [active, setActive] = useState<ActiveProjection | null>(null);
   const [activePlanReference, setActivePlanReference] = useState<PlanReferenceResolution | null>(null);
   const [planProjectionState, setPlanProjectionState] = useState<PlanGraphProjectionState | null>(null);
+  const [planReferenceRegistration, setPlanReferenceRegistration] = useState<
+    BindingRegistration<PlanReferenceProjectionBinding> | null
+  >(null);
+  const [diagnosticsRegistration, setDiagnosticsRegistration] = useState<
+    BindingRegistration<GraphReviewDiagnosticsProjectionPayload> | null
+  >(null);
+  /** Synchronous identity authority — updated in register/cleanup, not on render. */
+  const planReferenceRegistrationRef = useRef<BindingRegistration<PlanReferenceProjectionBinding> | null>(
+    null,
+  );
 
   const close = useCallback(() => {
     setActive(null);
@@ -121,26 +151,91 @@ export function ProjectionProvider({
     });
   }, []);
 
+  const registerPlanReferenceBinding = useCallback((binding: PlanReferenceProjectionBinding) => {
+    const token = Symbol("plan-reference-binding");
+    const registration: BindingRegistration<PlanReferenceProjectionBinding> = {
+      token,
+      value: binding,
+    };
+    // Sync before setState so awaited completions cannot commit through a superseded token
+    // in the pre-rerender window.
+    planReferenceRegistrationRef.current = registration;
+    setPlanReferenceRegistration(registration);
+    return () => {
+      if (planReferenceRegistrationRef.current?.token === token) {
+        planReferenceRegistrationRef.current = null;
+      }
+      setPlanReferenceRegistration((current) => (current?.token === token ? null : current));
+    };
+  }, []);
+
+  const registerToolProjectionPayload = useCallback(
+    <K extends RegisterableToolProjectionId>(toolId: K, payload: ToolProjectionPayloadMap[K]) => {
+      if (toolId !== GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID) {
+        return () => undefined;
+      }
+      const token = Symbol(`tool-payload:${toolId}`);
+      const typedPayload = payload as GraphReviewDiagnosticsProjectionPayload;
+      setDiagnosticsRegistration({ token, value: typedPayload });
+      return () => {
+        setDiagnosticsRegistration((current) => (current?.token === token ? null : current));
+      };
+    },
+    [],
+  );
+
+  /**
+   * Expose the registered Plan binding with open* actions gated on the active
+   * registration token so a superseded adapter cannot commit after an await.
+   */
+  const planReferenceBinding = useMemo((): PlanReferenceProjectionBinding | null => {
+    const registration = planReferenceRegistration;
+    if (!registration) return null;
+    const { token, value: binding } = registration;
+    return {
+      resolverState: binding.resolverState,
+      resolveRelationship: (relationship) => binding.resolveRelationship(relationship),
+      openResolvedReference: (resolution, projectionState) => {
+        const current = planReferenceRegistrationRef.current;
+        if (!current || current.token !== token) return;
+        current.value.openResolvedReference(resolution, projectionState);
+      },
+      openTool: (toolId) => {
+        const current = planReferenceRegistrationRef.current;
+        if (!current || current.token !== token) return;
+        current.value.openTool(toolId);
+      },
+    };
+  }, [planReferenceRegistration]);
+
   const value = useMemo(
     () => ({
       active,
       activePlanReference,
       planProjectionState,
+      planReferenceBinding,
+      graphReviewDiagnosticsPayload: diagnosticsRegistration?.value ?? null,
       openTool,
       openContentFromChip,
       openPlanReferenceResolution,
       expandContent,
       close,
+      registerPlanReferenceBinding,
+      registerToolProjectionPayload,
     }),
     [
       active,
       activePlanReference,
       close,
+      diagnosticsRegistration,
       expandContent,
       openContentFromChip,
       openPlanReferenceResolution,
       openTool,
       planProjectionState,
+      planReferenceBinding,
+      registerPlanReferenceBinding,
+      registerToolProjectionPayload,
     ],
   );
 

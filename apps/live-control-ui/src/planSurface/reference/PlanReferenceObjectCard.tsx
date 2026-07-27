@@ -1,19 +1,23 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { GraphObjectCard } from "../../graphObjectCard";
+import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import { GraphObjectProjectionCard } from "../../graphObjectCard/GraphObjectProjectionCard";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
-import { useOptionalProjection } from "../projection/projectionContext";
+import type { PlanReferenceProjectionBinding } from "../projection/projectionBindings";
 import type { PlanSessionDescriptor } from "../types";
 import { buildGraphObjectCardFromCorpusFallback } from "./buildGraphObjectCardFromCorpusFallback";
 import { buildPlanGraphObjectActions } from "./buildPlanGraphObjectActions";
 import type { PlanGraphProjectionState, PlanReferenceResolution } from "./graphAwareReferenceResolver";
-import { usePlanGraphReferenceResolver } from "./usePlanGraphReferenceResolver";
 
 export interface PlanReferenceObjectCardProps {
   resolution: PlanReferenceResolution;
   sessionDescriptor?: PlanSessionDescriptor;
   projectionState?: PlanGraphProjectionState | null;
+  /** Explicit registered Plan projection binding; absent → content only, actions fail closed. */
+  planReferenceBinding?: PlanReferenceProjectionBinding | null;
+  /** Compact chip open stays glance-only; Expand unlocks relationship provenance. */
+  glanceOnly?: boolean;
 }
 
 function projectionStateNote(
@@ -106,23 +110,59 @@ function PlanReferenceUnresolvedCard({
 
 /**
  * Forward Plan selected-object renderer for graph-aware reference resolution.
+ * Consumes explicit props/binding only — no route-local resolver or projection hooks.
+ * Graph-native rendering goes through the shared GraphObjectProjectionCard.
  */
 export function PlanReferenceObjectCard({
   resolution,
   sessionDescriptor,
   projectionState,
+  planReferenceBinding = null,
+  glanceOnly = false,
 }: PlanReferenceObjectCardProps) {
-  const projection = useOptionalProjection();
-  const { resolvePlanRelationship, projectionState: resolverProjectionState } =
-    usePlanGraphReferenceResolver();
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
+  const planReferenceBindingRef = useRef(planReferenceBinding);
+  planReferenceBindingRef.current = planReferenceBinding;
 
+  const resolverProjectionState = planReferenceBinding?.resolverState ?? null;
   const effectiveProjectionState =
     projectionState ?? resolution.graphProjectionState ?? resolverProjectionState ?? null;
-  const onOpenStatblock = projection ? () => projection.openTool("statblock") : undefined;
-  // Compact chip open stays glance-only; Expand (or relationship navigation) unlocks provenance.
-  const showRelationshipProvenance =
-    projection?.active?.kind === "content" ? projection.active.glanceOnly !== true : true;
+  const onOpenStatblock = planReferenceBinding
+    ? () => {
+        const current = planReferenceBindingRef.current;
+        if (!current) return;
+        current.openTool("statblock");
+      }
+    : undefined;
+  const showRelationshipProvenance = glanceOnly !== true;
+
+  const onSelectRelationship = useCallback(
+    async (relationship: GraphObjectRelationshipViewModel) => {
+      const bindingAtStart = planReferenceBinding;
+      if (!bindingAtStart || navigatingRelationshipId) return;
+      if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
+
+      setNavigatingRelationshipId(relationship.id);
+      try {
+        const nextResolution = await bindingAtStart.resolveRelationship(relationship);
+        // Stale-operation rule: commit only through the still-current binding.
+        const current = planReferenceBindingRef.current;
+        if (!current || current !== bindingAtStart) return;
+        current.openResolvedReference(
+          nextResolution,
+          nextResolution.graphProjectionState ?? effectiveProjectionState,
+        );
+      } finally {
+        setNavigatingRelationshipId(null);
+      }
+    },
+    [
+      effectiveProjectionState,
+      navigatingRelationshipId,
+      planReferenceBinding,
+      resolverProjectionState,
+    ],
+  );
 
   const relationshipsDisabled =
     Boolean(navigatingRelationshipId)
@@ -145,24 +185,7 @@ export function PlanReferenceObjectCard({
         mode="plan"
         aria-label={`${model.label} graph object`}
         showRelationshipProvenance={showRelationshipProvenance}
-        onSelectRelationship={
-          projection
-            ? async (relationship) => {
-                if (!projection?.openPlanReferenceResolution || navigatingRelationshipId) return;
-                if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
-                setNavigatingRelationshipId(relationship.id);
-                try {
-                  const nextResolution = await resolvePlanRelationship(relationship);
-                  projection.openPlanReferenceResolution(
-                    nextResolution,
-                    nextResolution.graphProjectionState ?? effectiveProjectionState,
-                  );
-                } finally {
-                  setNavigatingRelationshipId(null);
-                }
-              }
-            : undefined
-        }
+        onSelectRelationship={planReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
         disabled={relationshipsDisabled}
       />

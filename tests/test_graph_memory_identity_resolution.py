@@ -146,19 +146,17 @@ def test_unrelated_kinds_do_not_match_on_shared_token():
 
 
 def test_resolved_corpus_ref_is_decisive():
-    cr = {"type": "npc", "ref_id": "captain_lysandra_ironveil", "resolution": "resolved",
-          "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"}
+    cr = {"type": "npc", "ref_id": "captain_lysandra_ironveil", "resolution": "resolved"}
     gold = _node("node:captain-lysandra", "Lysandra", "character", corpus_ref=cr)
     cand = _node("character_lysandra", "Lieutenant L.", "character", corpus_ref=dict(cr))
-    # labels disagree, but identical resolved hub_path forces a match.
+    # labels disagree, but identical type+ref_id forces a match.
     assert ir.nodes_match(gold, cand)
 
 
 def test_corpus_ref_splits_distinct_subentities_sharing_a_hub():
-    # A location/collection hub (Mireward) documents many distinct sub-entities,
-    # each with its own ref_id but the SAME hub_path. Keying on hub_path alone
-    # collapses them into one node (silent cross-session corruption); pairing
-    # hub_path with ref_id keeps them distinct.
+    # A location/collection hub (Mireward) may document many distinct
+    # sub-entities. Identity is type+ref_id only, so shared hub_path metadata
+    # (if present) must not collapse them.
     hub = "Elderwyld/Cities and Towns/Mireward/README.md"
     city = _node("n_mireward", "Mireward", "location",
                  corpus_ref={"type": "location", "ref_id": "mireward", "hub_path": hub})
@@ -171,15 +169,39 @@ def test_corpus_ref_splits_distinct_subentities_sharing_a_hub():
 
 
 def test_corpus_ref_merges_same_entity_across_sessions():
-    # The same NPC hub (one entity = one ref_id) must still merge across sessions:
-    # identical hub_path AND ref_id -> identical canonical key -> decisive match.
-    cr = {"type": "npc", "ref_id": "captain_lysandra_ironveil",
-          "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"}
-    s22 = _node("node:captain-lysandra", "Lysandra", "character", corpus_ref=dict(cr))
-    s23 = _node("character_lysandra", "Lieutenant Lysandra", "character", corpus_ref=dict(cr))
+    # Same type+ref_id merges across sessions even when hub_path differs or is absent.
+    s22 = _node(
+        "node:captain-lysandra",
+        "Lysandra",
+        "character",
+        corpus_ref={
+            "type": "npc",
+            "ref_id": "captain_lysandra_ironveil",
+            "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md",
+        },
+    )
+    s23 = _node(
+        "character_lysandra",
+        "Lieutenant Lysandra",
+        "character",
+        corpus_ref={"type": "npc", "ref_id": "captain_lysandra_ironveil"},
+    )
     assert ir.canonical_node_key(s22) == ir.canonical_node_key(s23)
     assert ir.node_match_score(s22, s23) == 1.0
 
+
+def test_hub_path_alone_is_not_corpus_identity():
+    node = _node(
+        "n_hub_only",
+        "Mystery",
+        "character",
+        corpus_ref={
+            "type": "npc",
+            "hub_path": "Longmont Campaign/Campaign 1/NPCs/Mystery/README.md",
+        },
+    )
+    assert ir.corpus_ref_identity(node) is None
+    assert ir.canonical_node_key(node)[0] != "corpus"
 
 def test_best_match_assignment_resolves_mireward_collision():
     gold = [

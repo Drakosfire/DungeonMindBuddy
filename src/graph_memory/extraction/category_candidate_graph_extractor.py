@@ -1070,7 +1070,9 @@ def consolidate_category_outputs(
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
         "edge_predicate_issues": edge_predicate_issues,
-        "party_anchor_hub_paths": sorted(party_ctx.anchor_hub_paths()),
+        "party_anchor_identity_keys": sorted(party_ctx.anchor_identity_keys()),
+        # Deprecated alias of party_anchor_identity_keys (hub paths shed).
+        "party_anchor_hub_paths": sorted(party_ctx.anchor_identity_keys()),
         "inserted_party_anchor_slugs": anchor_merge_diag.get("inserted_party_anchor_slugs", []),
         "party_collective_inserted": party_collective_diag.get("party_collective_inserted", False),
         "party_membership_edge_slugs": party_collective_diag.get("party_membership_edge_slugs", []),

@@ -1,3 +1,4 @@
+import type { GraphReviewDiagnosticsProjectionPayload } from "../projection/projectionBindings";
 import { GraphReviewDeltaInspectorPanel } from "./GraphReviewDeltaInspectorPanel";
 import { GraphReviewDeltaSummaryPanel } from "./GraphReviewDeltaSummaryPanel";
 import { GraphReviewEvidenceSplitPanel } from "./GraphReviewEvidenceSplitPanel";
@@ -7,9 +8,22 @@ import { GraphReviewSourceSpanRail } from "./GraphReviewSourceSpanRail";
 import { GraphReviewVariantInventoryPanel } from "./GraphReviewVariantInventoryPanel";
 import { GraphReviewVariantLanePanel } from "./GraphReviewVariantLanePanel";
 import { GraphReviewVariantObjectInspectorPanel } from "./GraphReviewVariantObjectInspectorPanel";
-import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
-export function GraphReviewDiagnosticsToolPanel() {
+export interface GraphReviewDiagnosticsToolPanelProps {
+  payload: GraphReviewDiagnosticsProjectionPayload | null;
+}
+
+export function GraphReviewDiagnosticsToolPanel({
+  payload,
+}: GraphReviewDiagnosticsToolPanelProps) {
+  if (!payload) {
+    return (
+      <p className="plan-projection-empty" data-testid="graph-review-diagnostics-unavailable">
+        Graph Review diagnostics are unavailable for the current projection surface.
+      </p>
+    );
+  }
+
   const {
     campaignId,
     sessionId,
@@ -44,7 +58,7 @@ export function GraphReviewDiagnosticsToolPanel() {
     selectedVariantInventoryRowId,
     setSelectedVariantInventoryRowId,
     selectedVariantInventoryRow,
-  } = useGraphReviewLiveState();
+  } = payload;
 
   if (projectionStatus !== "ready" || !projection || !liveRun) {
     return (

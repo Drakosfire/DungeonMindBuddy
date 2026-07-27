@@ -7,12 +7,19 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Depth C — drop hub README harvest from party/extraction scaffolding — captured 2026-07-27
+**Context:** Shed A+B landed on `feat/shed-hub-readme-graph-identity`: hub paths are no longer openable graph sources or identity keys. Party context still optionally reads hub READMEs for display name / player / related-slug enrichment.
+**Insight:** Full decommission (stop hub file reads entirely; registry-only standing context) is separable and lower urgency than the Graph Review fail-closed bug A+B fixed.
+**Action:** When enrichment via hub becomes a liability (missing hubs, path drift), remove `_resolve_member` hub I/O and related-slug harvest; keep registry slug → type+ref_id seeds only.
+**Surfaces when:** party_context hub README, related_hub_slugs, hub enrichment, depth C shed, missing PC hub
+**Refs:** `src/graph_memory/party_context.py`; `Backlog-DONE.md` `[DONE] Shed hub-README graph identity (A+B)`
+
 ## [READY] Live UI dogfood always starts at `/` — captured 2026-07-26
 **Context:** PR #418 packaging dogfood brief handed the operator `http://127.0.0.1:5173/ingest?campaign=longmont-c2&session=session-23` as the start URL. Operator corrected: that deep-link start is way out of date; product entry is the root launcher.
 **Insight:** `App.tsx` `MirewardIndex` at `/` is the intended start. Deep links (`/ingest?…`, `/plan?dogfood=1&…`) are mid-flow or measurement scaffolds, not the dogfood door. Agents keep resurrecting deep-link starts from old ingest notes.
-**Action:** When directing live UI dogfood, open `http://127.0.0.1:5173/` first; operator picks Plan / Ingest / Build / Live Control from launcher cards or site nav. Keep query-param deep links only as optional mid-flow shortcuts after the launcher. `apps/live-control-ui/README.md` Manual smoke updated 2026-07-26; nav/root slimmed same day.
-**Surfaces when:** dogfood URLs, “open /ingest?”, live-control-ui smoke, PR packaging/recap verify, agent brief that skips the launcher
-**Refs:** `apps/live-control-ui/src/App.tsx` (`MirewardIndex`); `apps/live-control-ui/README.md`; `Backlog-DONE.md` `[DONE] Slim live-control-ui nav + root launcher`
+**Action:** When directing live UI dogfood, open `http://127.0.0.1:5173/` first; operator picks Plan / Ingest / Build / Combat Tracker from launcher cards or site nav. Combat Tracker is the mature Mireward `combat.html` (not Live Control React roster). Keep query-param deep links only as optional mid-flow shortcuts after the launcher. Full Live Control board remains at `/surface` (not primary nav).
+**Surfaces when:** dogfood URLs, “open /ingest?”, live-control-ui smoke, PR packaging/recap verify, agent brief that skips the launcher, Combat Tracker, combat.html
+**Refs:** `apps/live-control-ui/src/App.tsx` (`MirewardIndex`); `evals/c2_live_prep/mireward-prep/combat.html`; `apps/live-control-ui/vite.config.ts`; `apps/live-control-ui/README.md`; `Backlog-DONE.md` `[DONE] Slim live-control-ui nav + root launcher`
 
 ## [READY] Floating chrome consolidation — Agent Interaction path — captured 2026-07-26
 **Context:** Readiness inventory of floating UI (z>0): nav, Edit/Tools drawers, Plan/Ingest projection toolbox, Agent bar, graph load, Graph Review/Build toolbars. Authority: `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` (Agent Interaction owns one adaptive projection container in AppChrome).

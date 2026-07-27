@@ -51,9 +51,13 @@ Terminal 2:
 cd apps/live-control-ui && npm run dev
 ```
 
-**Always start at the launcher:** open [http://127.0.0.1:5173/](http://127.0.0.1:5173/) — not a deep-linked `/ingest?…` or `/plan?…` URL. The index is the product entry; pick Plan, Ingest, Build, or Live Control from the cards (or the site nav). Eval HTML prep pages and `/tiptap-callout-spike` remain URL-reachable but are not primary nav.
+**Always start at the launcher:** open [http://127.0.0.1:5173/](http://127.0.0.1:5173/) — not a deep-linked `/ingest?…` or `/plan?…` URL. The index is the product entry; pick Plan, Ingest, Build, or Combat Tracker from the cards (or the site nav).
 
-For Live Control Chat smoke: from `/` open **Live Control** (`/surface`), then submit:
+**Combat Tracker** opens the mature Mireward command-board tracker (`evals/c2_live_prep/mireward-prep/combat.html`) at `/combat` (alias `/combat.html`) — circular initiative, HP, statblock drilldown, import/export. It is not the Live Control React `CombatRosterModule`. The full Live Control board (`/surface`), other eval HTML prep pages, and `/tiptap-callout-spike` remain URL-reachable but are not primary nav.
+
+For Combat Tracker smoke: from `/` open **Combat Tracker**, confirm North Reach Gate combat loads (localStorage or `saves/combat/…` bootstrap).
+
+For legacy Live Control Chat smoke: open `/surface` directly, then submit:
 
 ```text
 Weather 7. Caelynn Nature 19.

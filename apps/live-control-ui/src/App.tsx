@@ -39,7 +39,7 @@ function MirewardIndex() {
     <main className="launcher-root">
       <header className="launcher-header">
         <h1>Command Board</h1>
-        <p>Core surfaces for prep, memory review, worldbuilding, and live control.</p>
+        <p>Core surfaces for prep, memory review, worldbuilding, and combat.</p>
       </header>
 
       <section className="launcher-grid" aria-label="Main surfaces">
@@ -58,10 +58,13 @@ function MirewardIndex() {
           <strong>Worldbuilding source</strong>
           <span>Create and edit worldbuilding workspace documents.</span>
         </a>
-        <a className="launcher-card" href="/surface">
-          <span className="launcher-kicker">Live Control</span>
-          <strong>React surface</strong>
-          <span>Configurable live-control UI for at-table modules.</span>
+        <a className="launcher-card" href="/combat">
+          <span className="launcher-kicker">Combat Tracker</span>
+          <strong>North Reach Gate tracker</strong>
+          <span>
+            Mature command-board combat: circular initiative, HP, statblock
+            drilldown, import/export.
+          </span>
         </a>
       </section>
     </main>

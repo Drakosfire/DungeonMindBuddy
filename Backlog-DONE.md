@@ -7,6 +7,13 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Shed hub-README graph identity (A+B) — captured 2026-07-27, done 2026-07-27
+**Context:** Graph Review load failed with `path does not exist: Longmont Campaign/.../PCs/baergrom/README.md`. Preview union stamped corpus-relative hub paths as openable `source_artifacts` URIs; verified snapshot required them under the repo root.
+**Insight:** Hub README paths are documentation location, not graph identity and not openable projection sources. Identity is `corpus_ref` type+ref_id; worldbuilding provenance uses `fixture://corpus-ref/…` with `can_open_source=False`. Legacy worldbuilding URIs are skipped in the path assert so old runs still load.
+**Action completed:** On branch `feat/shed-hub-readme-graph-identity` — preview_import fixture URIs; verified-snapshot skip for non-filesystem + worldbuilding; `corpus_ref_identity` / party anchors on type+ref_id; tests green (68 scoped + legacy session-12 smoke).
+**Surfaces when:** hub_path identity, path does not exist README, worldbuilding source_artifact, party_anchor_hub_paths, Graph Review verified snapshot
+**Refs:** `src/graph_memory/union_supergraph/preview_import.py`; `src/graph_memory/ingestion/graph_ingest_verified_snapshot.py`; `src/graph_memory/identity_resolution.py`; `src/graph_memory/party_context.py`
+
 ## [DONE] Workbench ThreatDraft create-and-generate (context-aware, candidate-op owned) — captured 2026-07-24, done 2026-07-27
 **Priority:** high — dogfood friction; pulled out of SBW05c/#404 after review.
 **Context:** Quick “Create & generate” landed in #404 dogfood commit `c7f9201a`, then reverted. Review: create did not claim candidate-op id before `createThreatDraft`; hard-coded world/campaign/fake graph provenance; outside SBW05c allowlist.

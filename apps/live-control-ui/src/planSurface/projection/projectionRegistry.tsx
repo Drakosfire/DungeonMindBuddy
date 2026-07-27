@@ -11,6 +11,11 @@ import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import type { PlanContextDescriptor, SurfaceConfig } from "../types";
 import type { PlanGraphProjectionState, PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import { PlanReferenceObjectCard } from "../reference/PlanReferenceObjectCard";
+import type {
+  GraphReviewDiagnosticsProjectionPayload,
+  PlanReferenceProjectionBinding,
+} from "./projectionBindings";
+import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "./projectionBindings";
 
 export interface ToolProjectionProps {
   context: PlanContextDescriptor;
@@ -21,7 +26,20 @@ export interface ContentProjectionProps {
   projectionState?: PlanGraphProjectionState | null;
 }
 
-export function renderToolProjection(toolId: string, context: PlanContextDescriptor): ReactNode {
+export interface RenderToolProjectionDeps {
+  graphReviewDiagnosticsPayload?: GraphReviewDiagnosticsProjectionPayload | null;
+}
+
+export interface RenderContentProjectionDeps {
+  planReferenceBinding?: PlanReferenceProjectionBinding | null;
+  glanceOnly?: boolean;
+}
+
+export function renderToolProjection(
+  toolId: string,
+  context: PlanContextDescriptor,
+  deps: RenderToolProjectionDeps = {},
+): ReactNode {
   if (toolId === "ingest-recap") {
     return (
       <IngestionModule
@@ -42,8 +60,12 @@ export function renderToolProjection(toolId: string, context: PlanContextDescrip
   if (toolId === "graph-gold-review") {
     return <GraphGoldReviewModule context={context} />;
   }
-  if (toolId === "graph-review-diagnostics") {
-    return <GraphReviewDiagnosticsToolPanel />;
+  if (toolId === GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID) {
+    return (
+      <GraphReviewDiagnosticsToolPanel
+        payload={deps.graphReviewDiagnosticsPayload ?? null}
+      />
+    );
   }
   if (toolId === "manual-review") {
     return <ManualReviewModule />;
@@ -58,12 +80,15 @@ export function renderContentProjection(
   resolution: PlanReferenceResolution,
   config: SurfaceConfig,
   projectionState?: PlanGraphProjectionState | null,
+  deps: RenderContentProjectionDeps = {},
 ): ReactNode {
   return (
     <PlanReferenceObjectCard
       resolution={resolution}
       sessionDescriptor={config.sessionDescriptor}
       projectionState={projectionState}
+      planReferenceBinding={deps.planReferenceBinding}
+      glanceOnly={deps.glanceOnly}
     />
   );
 }

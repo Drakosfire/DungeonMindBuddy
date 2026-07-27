@@ -430,7 +430,9 @@ def consolidate_category_outputs(
         "merged_nodes": node_dedup["merged"],
         "merged_edges": edge_dedup["merged"],
         "dropped_edges_missing_endpoints": dropped_edges,
-        "party_anchor_hub_paths": sorted(party_ctx.anchor_hub_paths()),
+        "party_anchor_identity_keys": sorted(party_ctx.anchor_identity_keys()),
+        # Deprecated alias of party_anchor_identity_keys (hub paths shed).
+        "party_anchor_hub_paths": sorted(party_ctx.anchor_identity_keys()),
     }
     return {
         "nodes": deduped_nodes,

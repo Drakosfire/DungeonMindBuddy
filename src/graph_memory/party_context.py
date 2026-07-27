@@ -15,21 +15,21 @@ frontmatter parse, no LLM, no network):
   the sibling ``session_companion_rosters`` added for non-PC travelling
   companions. This is the same registry the sentence-routing eval consumes via
   ``evals/sentence_routing_retrieval_falsification/session_roster.py``.
-* Each member is resolved to its canonical hub (``<sub>/<slug>/README.md``),
-  yielding a **resolved ``corpus_ref``** — the strongest identity key for
-  ``identity_resolution.canonical_node_key`` and therefore the thing that makes
-  a party member dedup-stable across sessions.
+* Each member is keyed by **``corpus_ref`` type + ``ref_id`` (slug)** — the
+  strongest identity for ``identity_resolution.canonical_node_key``. Optional
+  hub README files may enrich display name / player / related-slug harvest;
+  hub paths are never identity keys and are not emitted on ``corpus_ref``.
 * "Related nodes" are harvested from the hub README's cross-links
-  (``PCs/<slug>/`` / ``NPCs/<slug>/`` route fragments) as a deterministic
-  adjacency seed.
+  (``PCs/<slug>/`` / ``NPCs/<slug>/`` route fragments) when a hub is present,
+  as a deterministic adjacency seed.
 
 Node-shape policy (see module-level note ``PARTY_NODE_SHAPE``): party members
 are emitted as ordinary ``character`` nodes carrying a **resolved corpus_ref**.
 They are *context anchors*, not session-novel extractions — the
 "anchor vs. novel" distinction is expressed by membership in this context set
-(keyed by hub_path via :func:`PartyContext.anchor_hub_paths`), **not** by a bespoke
-node field, so the candidate-graph schema is unchanged and the comparator can
-exclude anchors from node recall/precision denominators.
+(keyed by type+ref_id via :func:`PartyContext.anchor_identity_keys`), **not** by a
+bespoke node field, so the candidate-graph schema is unchanged and the
+comparator can exclude anchors from node recall/precision denominators.
 
 Discovery, not provision: this is task-agnostic standing context derived from
 corpus-resident registry/frontmatter the model could itself read. It is the
@@ -81,27 +81,31 @@ class PartyMember:
     kind: str  # "pc" | "companion"
     display_name: str
     corpus_ref_type: str  # "pc" | "npc"
-    hub_rel_path: str  # corpus-root-relative "<...>/README.md"
-    hub_resolved: bool
+    hub_rel_path: str  # corpus-root-relative "<...>/README.md" (enrichment only)
+    hub_resolved: bool  # True when hub README exists for optional enrichment
     player: str | None = None
     related_hub_slugs: tuple[str, ...] = ()
 
     def corpus_ref(self) -> dict[str, object]:
-        """Resolved (or proposed) corpus_ref dict matching ``CorpusRef`` shape."""
-        resolved = self.hub_resolved
+        """Resolved corpus_ref for identity — type + ref_id only (no hub_path)."""
         return {
             "type": self.corpus_ref_type,
             "ref_id": self.slug,
-            "resolution": "resolved" if resolved else "proposed",
-            "hub_path": self.hub_rel_path if resolved else None,
+            # Registry membership is enough for resolved identity; hub files
+            # are optional enrichment, not a resolution gate.
+            "resolution": "resolved",
         }
+
+    def identity_key(self) -> str:
+        """Stable anchor key: ``<corpus_ref_type>::<slug>``."""
+        return f"{self.corpus_ref_type}::{self.slug}"
 
     def seed_node(self) -> dict[str, object]:
         """Identity-bearing candidate-graph node stub for this party member.
 
         A lightweight context node (not a full ``CandidateGraphPreview`` node):
         it carries exactly the fields ``identity_resolution`` reads so the
-        member dedup-matches its extracted counterpart by hub_path.
+        member dedup-matches its extracted counterpart by type+ref_id.
         """
         return {
             "node_id": f"node:{self.slug.replace('_', '-')}",
@@ -128,10 +132,17 @@ class PartyContext:
     def seed_nodes(self) -> list[dict[str, object]]:
         return [m.seed_node() for m in self.members]
 
+    def anchor_identity_keys(self) -> set[str]:
+        """type+ref_id keys for standing party anchors (comparator exclude set)."""
+        return {m.identity_key() for m in self.members}
+
     def anchor_hub_paths(self) -> set[str]:
-        """Resolved hub_paths of party members — the set a comparator uses to
-        exclude standing party anchors from node recall/precision denominators."""
-        return {m.hub_rel_path for m in self.members if m.hub_resolved}
+        """Deprecated alias — returns identity keys, not filesystem hub paths.
+
+        Kept so older diagnostics callers keep working during the shed; prefer
+        :meth:`anchor_identity_keys`.
+        """
+        return self.anchor_identity_keys()
 
 
 def campaign_dir(corpus_root: Path, campaign_rel: str) -> Path:

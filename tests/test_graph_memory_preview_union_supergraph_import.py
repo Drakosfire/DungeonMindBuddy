@@ -162,3 +162,70 @@ def test_preview_import_paragraph_lookup_preserves_legacy_spref_id(tmp_path: Pat
     assert lookup["session-22:recap:paragraph:002"] == "Legacy road paragraph."
     assert lookup["spref:session-22:p002"] == "Legacy road paragraph."
     assert lookup["session-22:p002"] == "Legacy road paragraph."
+
+
+def test_worldbuilding_corpus_ref_uses_non_openable_fixture_uri(tmp_path: Path) -> None:
+    """Hub README paths must not become openable filesystem URIs (shed A)."""
+    import json
+
+    recap_path = tmp_path / "recap.md"
+    recap_path.write_text("Baergrom stands watch.\n", encoding="utf-8")
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        json.dumps(
+            {
+                "campaign_id": "longmont-c1",
+                "session_id": "session-1",
+                "nodes": [
+                    {
+                        "node_id": "node:baergrom",
+                        "node_type": "character",
+                        "label": "Baergrom",
+                        "corpus_ref": {
+                            "type": "pc",
+                            "ref_id": "baergrom",
+                            "resolution": "resolved",
+                            "hub_path": "Longmont Campaign/Campaign 1/PCs/baergrom/README.md",
+                        },
+                        "evidence_refs": [
+                            {
+                                "id": "ev:1",
+                                "span_id": "session-1:recap:paragraph:001",
+                                "text_excerpt": "Baergrom stands watch.",
+                                "anchor_quotes": ["Baergrom"],
+                                "can_open_source": True,
+                                "can_highlight_span": True,
+                            }
+                        ],
+                    }
+                ],
+                "edges": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = build_preview_union_supergraph(
+        [
+            CandidateGraphInput(
+                path=candidate_path, session_id="session-1", recap_path=recap_path
+            )
+        ],
+        focus_session_id="session-1",
+    )
+    wb_artifacts = [
+        a
+        for a in payload["source_artifacts"].values()
+        if a.get("source_domain") == "worldbuilding"
+    ]
+    wb_evidence = [
+        e
+        for e in payload["evidence"].values()
+        if e.get("source_domain") == "worldbuilding"
+    ]
+    assert wb_artifacts
+    assert all(str(a["uri"]).startswith("fixture://corpus-ref/") for a in wb_artifacts)
+    assert all(not str(a["uri"]).endswith(".md") for a in wb_artifacts)
+    assert wb_evidence
+    assert all(e.get("can_open_source") is False for e in wb_evidence)
+    assert all(str(e.get("locator", "")).startswith("fixture://corpus-ref/") for e in wb_evidence)

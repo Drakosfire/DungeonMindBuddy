@@ -1,4 +1,10 @@
-export type AppRouteKey = "index" | "surface" | "tiptap-callout-spike" | "plan" | "ingest" | "build";
+export type AppRouteKey =
+  | "index"
+  | "surface"
+  | "tiptap-callout-spike"
+  | "plan"
+  | "ingest"
+  | "build";
 
 export interface AppNavItem {
   route?: AppRouteKey;
@@ -6,7 +12,11 @@ export interface AppNavItem {
   label: string;
 }
 
-/** Primary product surfaces only. Eval HTML and tip-tap spike stay URL-reachable. */
+/**
+ * Primary product surfaces. Combat Tracker opens the mature Mireward command-board
+ * tracker (`evals/c2_live_prep/mireward-prep/combat.html`), not the Live Control
+ * React roster module. Full `/surface` board stays URL-reachable only.
+ */
 export const APP_NAV_ITEMS: AppNavItem[] = [
   {
     route: "index",
@@ -29,9 +39,8 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: "Build",
   },
   {
-    route: "surface",
-    href: "/surface",
-    label: "Live Control",
+    href: "/combat",
+    label: "Combat Tracker",
   },
 ];
 

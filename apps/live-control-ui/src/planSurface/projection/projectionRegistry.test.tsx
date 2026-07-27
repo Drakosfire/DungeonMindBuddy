@@ -3,10 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
-import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import { renderContentProjection } from "./projectionRegistry";
 import type { PlanSurfaceConfig } from "../types";
-import { FIXTURE_DOC_ID, fixturePlanSessionDescriptor, workspaceDocumentStorageKey } from "../config/planSessionDescriptor";
+import { FIXTURE_DOC_ID, fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 
 const node: GraphProjectionNodeView = {
   node_id: "location-north-gate",
@@ -41,20 +40,18 @@ const config = {
 describe("renderContentProjection", () => {
   it("renders PlanReferenceObjectCard instead of SelectedObjectCard for graph hits", () => {
     render(
-      <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
-        {renderContentProjection(
-          {
-            kind: "graph-node",
-            locator: "dmb-node:location-north-gate",
-            graphObject: buildGraphObjectCardFromNodeView(node),
-            graphNodeId: "location-north-gate",
-            fallback: null,
-            source: "union-supergraph",
-          },
-          config,
-          "ready",
-        )}
-      </PlanGraphReferenceResolverProvider>,
+      renderContentProjection(
+        {
+          kind: "graph-node",
+          locator: "dmb-node:location-north-gate",
+          graphObject: buildGraphObjectCardFromNodeView(node),
+          graphNodeId: "location-north-gate",
+          fallback: null,
+          source: "union-supergraph",
+        },
+        config,
+        "ready",
+      ),
     );
 
     expect(screen.getByLabelText(/North Reach Gate graph object/i)).toBeInTheDocument();

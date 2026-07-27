@@ -27,6 +27,8 @@ const prepPageAliases: Record<string, string> = {
   "/retrieval": "retrieval.html",
   "/retrieval/": "retrieval.html",
   "/retrieval.html": "retrieval.html",
+  "/combat": "combat.html",
+  "/combat/": "combat.html",
   "/combat.html": "combat.html",
   "/live-notes.html": "live-notes.html",
   "/timeline.html": "timeline.html",
