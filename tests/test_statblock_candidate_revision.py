@@ -202,7 +202,7 @@ def test_revise_busy_blocks_second_request_id(tmp_path: Path) -> None:
     assert outcome == "revise_busy"
 
 
-def test_happy_path_ends_cache_stored_ref_pending_without_draft_mutation(
+def test_happy_path_reconciles_with_lineage_and_one_version_bump(
     tmp_path: Path,
 ) -> None:
     draft = _create_draft(tmp_path)
@@ -220,19 +220,26 @@ def test_happy_path_ends_cache_stored_ref_pending_without_draft_mutation(
         request=req,
         client=client,
     )
-    assert result.result == "cache_stored_ref_pending"
-    assert result.operation_status == "cache_stored_ref_pending"
+    assert result.result == "reconciled"
+    assert result.operation_status == "reconciled"
     assert result.candidate_id == response_fixture.candidate_id
 
     after = get_threat_draft(tmp_path, draft.draft_id)
-    assert after.version == before.version
-    assert after.candidate_refs == before.candidate_refs
+    assert after.version == before.version + 1
+    assert len(after.candidate_refs) == 1
+    attached = after.candidate_refs[0]
+    assert attached.candidate_id == response_fixture.candidate_id
+    assert attached.lineage is not None
+    assert attached.lineage.source_origin_kind == "edited_working_copy"
+    assert attached.lineage.revise_request_id == req.request_id
 
     stored = get_revise_operation(
         tmp_path, draft_id=draft.draft_id, request_id=req.request_id
     )
     assert stored is not None
-    assert stored.status == "cache_stored_ref_pending"
+    assert stored.status == "reconciled"
+    assert stored.materialization.draft_ref == "attached"
+    assert stored.materialization.source_status == "none"
     client.revise_candidate.assert_called_once()
 
 
@@ -251,7 +258,8 @@ def test_replay_resumes_without_second_post_when_candidate_known(tmp_path: Path)
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
+    version_after_first = get_threat_draft(tmp_path, draft.draft_id).version
     client.revise_candidate.reset_mock()
 
     second = revise_candidate_from_edited_definition(
@@ -260,7 +268,8 @@ def test_replay_resumes_without_second_post_when_candidate_known(tmp_path: Path)
         request=req,
         client=client,
     )
-    assert second.result == "cache_stored_ref_pending"
+    assert second.result == "reconciled"
+    assert get_threat_draft(tmp_path, draft.draft_id).version == version_after_first
     client.revise_candidate.assert_not_called()
 
 
@@ -336,7 +345,7 @@ def test_lost_response_same_key_replay_posts_stored_body(tmp_path: Path) -> None
         request=req,
         client=client,
     )
-    assert second.result == "cache_stored_ref_pending"
+    assert second.result == "reconciled"
     assert second.candidate_id == response_fixture.candidate_id
     assert client.revise_candidate.call_count == 2
     posted = client.revise_candidate.call_args_list[1].args[0]
@@ -709,10 +718,10 @@ def test_existing_authority_replay_skips_client_and_missing_draft(
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
 
     def boom_client() -> None:
-        raise AssertionError("client must not be constructed for cache-complete replay")
+        raise AssertionError("client must not be constructed for reconciled replay")
 
     monkeypatch.setattr(
         "apps.live_control_server.services.statblock_candidate_revision.build_statblock_v1_client",
@@ -737,7 +746,7 @@ def test_existing_authority_replay_skips_client_and_missing_draft(
         request=req,
         client=None,
     )
-    assert replay.result == "cache_stored_ref_pending"
+    assert replay.result == "reconciled"
     assert replay.candidate_id == response_fixture.candidate_id
 
 
@@ -775,8 +784,14 @@ def test_changed_body_conflict_without_draft(
 def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
     tmp_path: Path,
 ) -> None:
+    from apps.live_control_server.models.statblock_candidate_revision import (
+        ReviseMaterializationV1,
+    )
     from apps.live_control_server.services.statblock_candidate_cache import (
         candidate_cache_root,
+    )
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        _write_operation_unlocked,
     )
 
     draft = _create_draft(tmp_path)
@@ -792,7 +807,23 @@ def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
+
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    pending = stored.model_copy(
+        update={
+            "status": "cache_stored_ref_pending",
+            "materialization": ReviseMaterializationV1(
+                cache="stored",
+                draft_ref="missing",
+                source_status="none",
+            ),
+        }
+    )
+    _write_operation_unlocked(tmp_path, pending)
 
     cache_path = (
         candidate_cache_root(tmp_path) / f"{response_fixture.candidate_id}.json"
@@ -808,7 +839,7 @@ def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
         request=req,
         client=client,
     )
-    assert repaired.result == "cache_stored_ref_pending"
+    assert repaired.result == "reconciled"
     client.revise_candidate.assert_not_called()
     client.get_candidate.assert_called_once_with(response_fixture.candidate_id)
     assert cache_path.is_file()
@@ -816,15 +847,21 @@ def test_cache_stored_ref_pending_repairs_missing_cache_via_get(
         tmp_path, draft_id=draft.draft_id, request_id=req.request_id
     )
     assert stored is not None
-    assert stored.status == "cache_stored_ref_pending"
+    assert stored.status == "reconciled"
     assert stored.materialization.cache == "stored"
 
 
 def test_cache_stored_ref_pending_demotes_when_get_repair_fails(
     tmp_path: Path,
 ) -> None:
+    from apps.live_control_server.models.statblock_candidate_revision import (
+        ReviseMaterializationV1,
+    )
     from apps.live_control_server.services.statblock_candidate_cache import (
         candidate_cache_root,
+    )
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
+        _write_operation_unlocked,
     )
 
     draft = _create_draft(tmp_path)
@@ -840,7 +877,24 @@ def test_cache_stored_ref_pending_demotes_when_get_repair_fails(
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    _write_operation_unlocked(
+        tmp_path,
+        stored.model_copy(
+            update={
+                "status": "cache_stored_ref_pending",
+                "materialization": ReviseMaterializationV1(
+                    cache="stored",
+                    draft_ref="missing",
+                    source_status="none",
+                ),
+            }
+        ),
+    )
     cache_path = (
         candidate_cache_root(tmp_path) / f"{response_fixture.candidate_id}.json"
     )
@@ -997,7 +1051,7 @@ def test_demote_preserves_draft_ref_failed_and_reloads(
         request=req,
         client=client,
     )
-    assert first.result == "cache_stored_ref_pending"
+    assert first.result == "reconciled"
 
     stored = get_revise_operation(
         tmp_path, draft_id=draft.draft_id, request_id=req.request_id
@@ -1006,10 +1060,12 @@ def test_demote_preserves_draft_ref_failed_and_reloads(
     # Simulate SBW06b ThreatDraft CAS failure leaving draft_ref=failed.
     pending_with_failed_ref = stored.model_copy(
         update={
+            "status": "cache_stored_ref_pending",
             "materialization": ReviseMaterializationV1(
                 cache="stored",
                 draft_ref="failed",
-            )
+                source_status="none",
+            ),
         }
     )
     _write_operation_unlocked(tmp_path, pending_with_failed_ref)

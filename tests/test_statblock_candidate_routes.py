@@ -101,8 +101,6 @@ def test_accept_mechanics_route_contract(monkeypatch, tmp_path: Path) -> None:
     import json
     from pathlib import Path as P
 
-    from apps.live_control_server.services import statblock_mechanics_acceptance as acc
-
     monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(candidate_routes, "repo_root", lambda: tmp_path)
 
@@ -148,3 +146,76 @@ def test_accept_mechanics_route_contract(monkeypatch, tmp_path: Path) -> None:
     assert body["schema"] == "dmb_accept_threat_draft_mechanics_response_v1"
     assert body["result_label"] == "mechanics_saved"
     assert body["operation_id"] == op_id
+
+
+def test_revise_route_returns_reconciled_and_exposes_lineage(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from unittest.mock import MagicMock
+
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        ReviseCandidateRequestV1,
+    )
+    from apps.live_control_server.services import statblock_candidate_revision as revise_svc
+
+    monkeypatch.setattr(threat_drafts_routes, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(candidate_routes, "repo_root", lambda: tmp_path)
+
+    revise_fixtures = (
+        Path(__file__).parent / "fixtures" / "statblocks" / "v1" / "server_revise_transcripts"
+    )
+    typed = ReviseCandidateRequestV1.model_validate(
+        json.loads((revise_fixtures / "revise-request.json").read_text(encoding="utf-8"))
+    )
+    response_fixture = GeneratedStatblockCandidateV1.model_validate(
+        json.loads((revise_fixtures / "revise-replay-response.json").read_text(encoding="utf-8"))
+    )
+
+    fake_client = MagicMock()
+    fake_client.revise_candidate.return_value = response_fixture
+    fake_client.get_candidate.return_value = response_fixture
+
+    def _wrapped(root, **kwargs):
+        kwargs["client"] = fake_client
+        return revise_svc.revise_candidate_from_edited_definition(root, **kwargs)
+
+    monkeypatch.setattr(candidate_routes, "revise_candidate_from_edited_definition", _wrapped)
+
+    client = TestClient(create_app())
+    created = client.post("/api/live/threat-drafts", json=_draft_payload()).json()
+    draft_id = created["draft_id"]
+
+    assert typed.source_definition is not None
+    revise_body = {
+        "request_id": "fixture-revise-source-def-1",
+        "expected_draft_version": 1,
+        "editor_state_revision": "editor-rev-route",
+        "source_definition": typed.source_definition.model_dump(mode="json", by_alias=True),
+        "revision_instructions": list(typed.revision_instructions),
+        "preserve_element_keys": typed.preserve_element_keys,
+        "ruleset": typed.ruleset.model_dump(mode="json", by_alias=True),
+        "actor": typed.actor,
+    }
+    first = client.post(
+        f"/api/live/threat-drafts/{draft_id}/candidates:revise",
+        json=revise_body,
+    )
+    assert first.status_code == 200
+    body = first.json()
+    assert body["result"] == "reconciled"
+    assert body["candidate_id"] == response_fixture.candidate_id
+
+    draft = client.get(f"/api/live/threat-drafts/{draft_id}").json()
+    assert draft["version"] == 2
+    assert len(draft["candidate_refs"]) == 1
+    assert draft["candidate_refs"][0]["lineage"]["source_origin_kind"] == "edited_working_copy"
+
+    replay = client.post(
+        f"/api/live/threat-drafts/{draft_id}/candidates:revise",
+        json=revise_body,
+    )
+    assert replay.status_code == 200
+    assert replay.json()["result"] == "reconciled"
+    draft_replay = client.get(f"/api/live/threat-drafts/{draft_id}").json()
+    assert draft_replay["version"] == 2
+    assert len(draft_replay["candidate_refs"]) == 1

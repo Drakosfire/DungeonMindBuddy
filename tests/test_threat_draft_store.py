@@ -697,3 +697,264 @@ def test_find_threat_draft_for_candidate_by_ref(tmp_path: Path) -> None:
     assert found_draft.draft_id == draft.draft_id
     assert found_ref.candidate_id == "cand_findme123"
     assert find_threat_draft_for_candidate(tmp_path, "cand_missing999") is None
+
+
+def _sample_revise_lineage(*, request_id: str = "req_revise_1", draft_id: str) -> dict:
+    return {
+        "schema": "dmb_candidate_lineage_v1",
+        "revise_request_id": request_id,
+        "source_origin_kind": "edited_working_copy",
+        "instruction_options_digest": "sha256:" + "b" * 64,
+        "created_at": "2026-07-27T00:00:00Z",
+        "edited_working_copy": {
+            "draft_id": draft_id,
+            "source_draft_version": 1,
+            "editor_state_revision": "editor-1",
+            "source_definition_digest": "sha256:" + "c" * 64,
+        },
+    }
+
+
+def _revise_candidate_ref(
+    *,
+    candidate_id: str = "cand_revise01",
+    request_id: str = "req_revise_1",
+    draft_id: str,
+):
+    from apps.live_control_server.models.threat_draft import (
+        CandidateLineageV1,
+        ThreatDraftCandidateRefV1,
+    )
+
+    return ThreatDraftCandidateRefV1(
+        candidate_id=candidate_id,
+        generated_from_draft_version=1,
+        request_id=request_id,
+        created_at="2026-07-27T00:00:00Z",
+        status="active",
+        lineage=CandidateLineageV1.model_validate(
+            _sample_revise_lineage(request_id=request_id, draft_id=draft_id)
+        ),
+    )
+
+
+def test_legacy_candidate_ref_without_lineage_loads(tmp_path: Path) -> None:
+    from apps.live_control_server.models.threat_draft import ThreatDraftCandidateRefV1
+
+    created = create_threat_draft(tmp_path, _create_request())
+    ref = ThreatDraftCandidateRefV1(
+        candidate_id="cand_legacy01",
+        generated_from_draft_version=1,
+        request_id="req_legacy_1",
+        created_at="2026-07-27T00:00:00Z",
+    )
+    payload = get_threat_draft(tmp_path, created.draft_id).model_dump(mode="json", by_alias=True)
+    payload["candidate_refs"] = [ref.model_dump(mode="json")]
+    from apps.live_control_server.models.threat_draft import ThreatDraftV1
+
+    ThreatDraftV1.model_validate(payload)
+    loaded = ThreatDraftCandidateRefV1.model_validate(ref.model_dump(mode="json"))
+    assert loaded.lineage is None
+
+
+def test_reconcile_revise_candidate_ref_fresh_attach_bumps_version_once(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.threat_draft_store import (
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    ref = _revise_candidate_ref(draft_id=created.draft_id)
+    updated = reconcile_revise_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=1,
+        candidate_ref=ref,
+    )
+    assert updated.version == 2
+    assert len(updated.candidate_refs) == 1
+    assert updated.candidate_refs[0].lineage is not None
+    assert updated.workflow_state == "candidate_ready"
+
+    again = reconcile_revise_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=2,
+        candidate_ref=ref,
+    )
+    assert again.version == 2
+    assert len(again.candidate_refs) == 1
+
+
+def test_reconcile_rejects_missing_lineage(tmp_path: Path) -> None:
+    from apps.live_control_server.models.threat_draft import ThreatDraftCandidateRefV1
+    from apps.live_control_server.services.threat_draft_store import (
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    ref = ThreatDraftCandidateRefV1(
+        candidate_id="cand_nolineage",
+        generated_from_draft_version=1,
+        request_id="req_nolineage",
+        created_at="2026-07-27T00:00:00Z",
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        reconcile_revise_candidate_ref(
+            tmp_path,
+            draft_id=created.draft_id,
+            expected_version=1,
+            candidate_ref=ref,
+        )
+    assert exc_info.value.status_code == 422
+    assert get_threat_draft(tmp_path, created.draft_id).version == 1
+
+
+def test_reconcile_stale_version_writes_nothing(tmp_path: Path) -> None:
+    from apps.live_control_server.services.threat_draft_store import (
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    ref = _revise_candidate_ref(draft_id=created.draft_id)
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        reconcile_revise_candidate_ref(
+            tmp_path,
+            draft_id=created.draft_id,
+            expected_version=99,
+            candidate_ref=ref,
+        )
+    assert exc_info.value.status_code == 409
+    assert get_threat_draft(tmp_path, created.draft_id).candidate_refs == []
+
+
+def test_reconcile_identity_conflict_same_candidate_different_request(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.threat_draft_store import (
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    first = _revise_candidate_ref(draft_id=created.draft_id, request_id="req_a")
+    reconcile_revise_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=1,
+        candidate_ref=first,
+    )
+    conflict = _revise_candidate_ref(
+        candidate_id="cand_revise01",
+        draft_id=created.draft_id,
+        request_id="req_b",
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        reconcile_revise_candidate_ref(
+            tmp_path,
+            draft_id=created.draft_id,
+            expected_version=2,
+            candidate_ref=conflict,
+        )
+    assert exc_info.value.status_code == 409
+
+
+def test_reconcile_active_to_superseded_with_idempotent_replay(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.models.threat_draft import (
+        RequestedSourceStatusTransitionV1,
+        ThreatDraftCandidateRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        append_candidate_ref,
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    source = ThreatDraftCandidateRefV1(
+        candidate_id="cand_source01",
+        generated_from_draft_version=1,
+        request_id="req_source",
+        created_at="2026-07-26T00:00:00Z",
+        status="active",
+    )
+    draft = append_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=1,
+        candidate_ref=source,
+    )
+    revise_ref = _revise_candidate_ref(
+        candidate_id="cand_revise02",
+        request_id="req_revise_2",
+        draft_id=created.draft_id,
+    )
+    transition = RequestedSourceStatusTransitionV1(
+        source_candidate_id="cand_source01",
+        to_status="superseded",
+    )
+    after = reconcile_revise_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=draft.version,
+        candidate_ref=revise_ref,
+        requested_source_transition=transition,
+    )
+    source_ref = next(
+        ref for ref in after.candidate_refs if ref.candidate_id == "cand_source01"
+    )
+    assert source_ref.status == "superseded"
+    version_after = after.version
+    replay = reconcile_revise_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=version_after,
+        candidate_ref=revise_ref,
+        requested_source_transition=transition,
+    )
+    assert replay.version == version_after
+
+
+def test_reconcile_preserves_mechanics_saved(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import (
+        AcceptedMechanicsRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        attach_accepted_mechanics_ref,
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    ref = AcceptedMechanicsRefV1.from_locator(
+        MechanicsLocatorV1(
+            provider=PROVIDER_DUNGEONMIND,
+            statblock_id="sb_a",
+            revision_id="rev_one",
+            contract="dungeonmind.dungeonbuddy-statblocks",
+            contract_version="1.0.0",
+            definition_digest="sha256:" + "a" * 64,
+        ),
+        accepted_from_draft_version=1,
+        accepted_at="2020-01-01T00:00:00Z",
+    )
+    saved = attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=1,
+        locator=ref,
+    )
+    revise_ref = _revise_candidate_ref(draft_id=created.draft_id)
+    after = reconcile_revise_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=saved.version,
+        candidate_ref=revise_ref,
+    )
+    assert after.workflow_state == "mechanics_saved"
+    assert after.accepted_mechanics_ref is not None
+
