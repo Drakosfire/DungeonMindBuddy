@@ -3,8 +3,9 @@ document_id: dmb-plan-shared-markdown-canvas-build-first
 title: Shared Markdown Canvas — Build-First Execution Plan
 document_class: implementation_plan
 status: active
-version: 1.0
+version: 1.1
 created_at: "2026-07-26"
+updated_at: "2026-07-26"
 design: ../Design/DESIGN-shared-markdown-canvas-surface-composition.md
 surface_authority: ../Design/ARCHITECTURE-plan-surface-toolbox.md
 first_consumer: /build
@@ -14,19 +15,24 @@ first_consumer: /build
 
 ## Status
 
-**ACTIVE.** The prior BLD-00–BLD-10 foundation established source authoring,
-extraction, review, and worldbuilding publication. This plan begins the componentization
-phase: Build becomes the first consumer of a reusable document-bound Markdown canvas.
+**ACTIVE.** MC-01 (shared Markdown canvas session + Build migration) has landed.
+Dogfood after the preloaded Build canvas re-anchored the next sequence: shared
+graph-reference capabilities and stay-on-Build extraction inspection — **not**
+“Plan parity” by copying Plan providers, and **not** a Build-local candidate
+workbench.
 
-The sequence is deliberately narrow:
+Executable next:
 
 ```text
-MC-01 Build-first Markdown canvas session
-  → MC-02 surface capability composition
-      → MC-03 node authoring design gate
+R10a app-scoped projection host lift
+  → MC-02a neutral graph-reference extraction
+      → MC-02b Build enables shared reference capabilities
+          → BLD inspection-truth defect
+              → Stay-on-Build v1 summary
+                  → Stay-on-Build v2 read-only inspector (tool projection)
+                      → Candidate-assisted Find existing
+                          → MC-03 node authoring design gate (still gated)
 ```
-
-Only MC-01 is executable now.
 
 ## Re-anchor
 
@@ -43,113 +49,169 @@ Its sequencing and current-state sections are no longer operationally accurate. 
 full originals are archived at
 `archive/2026-07-26/build-surface-foundation/`.
 
-This plan is now the sequencing authority for shared canvas/component work. It does
+**2026-07-26 dogfood re-anchor** (see design § Dogfood re-anchor):
+
+- Framing: Plan and Build consume the **same** graph-reference capabilities,
+  configured per surface — not “Build behaves like Plan.”
+- Decomposition: `reference_render` | `reference_insert_existing` |
+  `reference_project`.
+- Prerequisite: **R10a** lifts the singular projection host above routing before
+  Build consumes it.
+- Exact-run boundary: Build may host a **read-only** exact-run inspector in that
+  singular container; Build does **not** own dispositions, identity decisions,
+  elevation, or prepare/confirm.
+- Candidate insertion: **Find existing object** (operator selects); direct Insert
+  only with an exact durable node ID already on the payload.
+- Do not archive “no second review panel”; **replace** with the refined boundary
+  above.
+
+This plan is the sequencing authority for shared canvas/component work. It does
 not replace:
 
 - BLD-09 PDF/OCR;
-- BLD-10c worldbuilding review UX;
-- Agent Interaction R10;
+- BLD-10c worldbuilding review UX (dispositions);
+- full R10 bottom-pane + localStorage Phase A (R10a is lift-only);
 - graph projection or Kernel architecture.
 
 ## Current product state
 
 | Area | Current state | Next correction |
 |---|---|---|
-| Build editor | Direct `useWorkspaceDocumentAuthoring` + `MarkdownEditorCore` in `BuildSurfaceShell` | Render through shared canvas session/view |
-| Build extraction | Sibling toolbar independently reloads snapshot and reads local draft | Consume `committed_clean` canvas envelope |
-| Build operation races | Launch/refresh generations live in `useBuildExtraction` | Canvas command host owns document-bound arbitration; plugin keeps run-domain state |
-| Plan Edit | Built inside `PlanSurfaceCanvas` and forwarded to AppChrome | Leave unchanged in MC-01; compose in MC-02 |
-| Surface config | Build has constants but no real capability config; context type is Plan-shaped | Generalize in MC-02 |
-| Node authoring | Owned by Graph Review Author Draft paths | Design gate before any shared capability |
+| Build editor | Shared `MarkdownCanvasSession` + `MarkdownCanvas` on `/build` | Enable shared graph-reference capabilities (MC-02b) after R10a/MC-02a |
+| Build extraction | Toolbar consumes `committed_clean` envelope | Stay-on-Build summary/inspector after MC-02b; handoff becomes secondary |
+| Projection host | Plan shell + Graph Review each mount `ProjectionProvider` / container | **R10a** singular host above route switch |
+| Plan Edit / refs | Plan-local search, chip runtime, projection open | **MC-02a** neutral contracts; Plan characterized consumer |
+| Build graph interaction | Starter `#dmb-ref` chips render; no Edit dock / projection glance | MC-02b Build lens + docked search + shared glance |
+| Node authoring | Graph Review Author Draft | MC-03 design gate |
+| Inspection truth | Run can be `reviewable` while review-package 422s (`false_anchor_quote`) | BLD inspection-truth defect before Stay-on-Build v2 |
 
 ## Slice table
 
 | Slice | Status | Mission | Must remain false |
 |---|---|---|---|
-| MC-01 | **PREPARED for implementation after this docs PR merges** | Shared canvas session/view + Build migration + admitted extraction envelope | Plan migration, common capability catalog, node authoring, BLD-10c |
-| MC-02 | QUEUED | Shared surface capability catalog/composer for Edit and Tools; real Build config | Node-authoring behavior, R10 relocation |
-| MC-03 | DESIGN GATE | Decide and then migrate one graph node-authoring capability | Canvas-owned graph writes, Build-local copy |
+| MC-01 | **DONE** (PR #426) | Shared canvas session/view + Build migration + admitted extraction envelope | — |
+| R10a | **NEXT** | Singular projection registry/state/container above Plan/Build/Ingest routing; Plan interaction-equivalent | Build graph enablement; bottom-pane redesign; localStorage Phase A |
+| MC-02a | QUEUED | Surface-neutral `reference_render` / `reference_insert_existing` / `reference_project`; Plan unchanged as consumer | Build enablement; extraction inspector; MC-03 |
+| MC-02b | QUEUED | Build enables those three capabilities via Build lens + app-scoped host | Extraction candidates; dispositions; PlanGraphLoadPanel; node create |
+| BLD inspection truth | QUEUED | Truthful inspection readiness vs `reviewable`; structured diagnostics | New Build panel; weakened evidence validation |
+| Stay-on-Build v1 | QUEUED | In-place exact-run summary + secondary Open full Graph Review | Candidate selection; highlight; insert |
+| Stay-on-Build v2 | QUEUED | Read-only Extraction Run Inspector as tool projection | Dispositions; identity correction; elevation; prepare/confirm; direct insert |
+| Candidate Find existing | QUEUED | Candidate seeds shared search; operator selects; insert reference | Implicit candidate→node mapping; MC-03 create |
+| MC-03 | DESIGN GATE | One reusable node-authoring capability | Canvas-owned graph writes; Build-local copy of Author Draft |
 
-## MC-01 — Build-first Markdown canvas session
+## R10a — App-scoped projection host lift
 
 ### Outcome
 
-A Build workspace document is opened, edited, saved, recovered, and consumed by
-extraction through one shared canvas authority. The extraction tool no longer reloads
-workspace snapshots or reads canvas local storage to decide whether it may launch.
+Projection state, registry, and AdaptiveProjectionContainer are owned once above the
+route switch. Plan and Ingest Graph Review consume that host; UI remains the
+current drawer/container chrome (no bottom-pane swap).
 
 ### Merge-ready invariant
 
-For one selected Build workspace-document UUID, the rendered editor, local draft,
-authoritative snapshot, commit receipt, Agent Interaction context, and any
-document-consuming command identify the same document and revision/digest authority.
-Extraction can launch only from a `committed_clean` envelope produced by that authority.
-Document changes invalidate pending document commands, and no canvas module knows what
-an ExtractionRun is.
+Across Plan ↔ Build ↔ Ingest navigation there is exactly one projection provider
+and one adaptive container. Plan’s existing open/close/content/tool projection
+behavior is interaction-equivalent. Selected projection clears or revalidates when
+surface context changes. Build gains **no** new graph-reference affordances.
 
-### Handoff
+### Must remain false
 
-[`HANDOFF-pr426-build-first-markdown-canvas.md`](HANDOFF-pr426-build-first-markdown-canvas.md)
+- Second container under `BuildSurfacePage`
+- Agent Interaction bottom bar/pane redesign
+- localStorage Phase A expansion
+- Build Edit dock / chip glance enablement
 
-### Acceptance summary
-
-- Build create/open/edit/save/conflict/recovery behavior is unchanged.
-- Build extraction receives exact document ID, revision, and content digest from the
-  canvas.
-- `useBuildExtraction` no longer calls `getWorkspaceDocumentSnapshot` or
-  `readWorkspaceDocumentLocalState`.
-- Both launch→refresh and refresh→launch orderings retain current exact-run behavior.
-- Document A completions cannot affect document B.
-- Plan files and behavior are untouched.
-- Source guards prove generic canvas modules import no Build/extraction/Graph Review
-  types.
-
-## MC-02 — Surface capability composition
+## MC-02a — Neutral graph-reference capability extraction
 
 ### Outcome
 
-Build and later Plan declare capabilities rather than assembling chrome ad hoc.
+Plan’s reference rendering, insertion, resolution, and object-opening behavior is
+supplied through surface-neutral contracts without changing Plan behavior.
 
-### Required design work
+### Required design/implementation work
 
-- Define capability IDs and typed params.
-- Produce region contributions for AppChrome Edit and existing adaptive Tools.
-- Generalize `SurfaceConfig` context away from a mandatory Plan descriptor.
-- Establish shared baseline Markdown actions and explicit surface extensions.
-- Give Build a real config consumed by its shell.
+- Characterize Plan paths first; then extract or wrap:
+  search, `insertMarkdownReference`, resolution states, `openGraphReference`,
+  chip runtime.
+- Keep capability IDs independently enableable.
+- Shared glance uses `GraphObjectCard`; ambiguous resolution never auto-picks.
+- Optional thin shared-card cleanup only if required for the invariant.
 
-### Gate
+### Must remain false
 
-Do not dispatch until MC-01 proves:
+- Build enablement
+- Extraction / Graph Review disposition changes (beyond shared-card extract)
+- Renaming Plan UI copy in a way that changes operator-visible Plan behavior
 
-- the canvas API is not Build-shaped;
-- admitted envelopes are sufficient for extraction;
-- command arbitration survives Build races;
-- Plan did not need to move to make the primitive viable.
+## MC-02b — Build enables shared reference capabilities
+
+### Outcome
+
+A Build Markdown document can render, insert, persist, and open **existing** graph
+references using neutral capabilities and the app-scoped host. Build document and
+extraction authority remain unchanged.
+
+### Include
+
+- Build Surface capability config + Build graph lens
+- Docked existing-object search
+- Insert → dirty → Save → reload persistence
+- Chip click → truthful resolution → shared GraphObjectCard glance
+
+### Exclude
+
+- Extraction candidates / run inspector
+- Node creation / elevation
+- Graph Review handoff redesign
+- PlanGraphLoadPanel / transitional graph-loader UX
+
+### Dogfood proof
+
+Wherever there is a Markdown canvas on Build, an existing graph object can be
+referenced durably and opened interactively — without visiting `/ingest`.
+
+## BLD inspection truth — false_anchor_quote
+
+### Outcome
+
+An exact ExtractionRun reports inspection readiness truthfully. Invalid evidence
+produces stable structured diagnostics. Exact-source validation is not weakened.
+
+### Model choice (pick one in the slice)
+
+- **A:** `reviewable` means package-materializable; else blocked/invalid-evidence.
+- **B:** separate `run_status` and `inspection_status` (+ diagnostics).
+
+Reproduce `loc_mirathorn`; freeze artifact/revision/span/quote. No new Build panel.
+
+## Stay-on-Build v1 — exact-run summary
+
+Successful extraction leaves the operator on Build with run ID/status, pinned
+source revision/digest, diagnostic state, optional truthful count/category summary,
+and secondary “Open full Graph Review.” No candidate selection, highlight, or insert.
+
+## Stay-on-Build v2 — Extraction Run Inspector
+
+Build-owned **tool projection** in the singular adaptive container: candidate list,
+evidence/spans, pinned source preview/navigation, structured invalid-evidence
+diagnostics. Revision-pinned evidence contract is mandatory. No dispositions,
+identity correction, elevation, prepare/confirm, or direct candidate insertion.
+
+## Candidate-assisted Find existing
+
+Candidate → Find existing object → shared WG search prefilled → operator selects →
+insert reference → dirty → Save. Bridge only; does not create nodes or canonize
+candidates.
 
 ## MC-03 — Node authoring design gate
 
-### Outcome
-
-Not yet selected. The gate must decide the reusable capability before code.
-
-### Required inventory
-
-- Graph Review Author Draft host and selection ownership;
-- create/bind/merge/commit boundaries;
-- source span and evidence authority;
-- Build's permitted authoring mode;
-- Plan's permitted selected-object behavior.
-
-### Hard boundary
-
-No node-authoring implementation may begin by copying Graph Review code into
-`buildSurface/` or by giving `MarkdownCanvas` graph-write knowledge.
+Unchanged: design gate before any create/bind graph-write capability. No copying
+Graph Review Author Draft into `buildSurface/`; no canvas-owned graph writes.
 
 ## Independent successors
 
-- **BLD-10c:** exact-run/worldbuilding dispositions and prepare/confirm UX, consuming
-  the shell once appropriate.
+- **BLD-10c:** worldbuilding dispositions and prepare/confirm UX on Graph Review.
 - **BLD-09:** PDF/OCR source lineage; independent.
-- **R10:** move the one adaptive projection host into Agent Interaction.
-- **Plan/runbook canvas migration:** only after MC-01, and likely after MC-02.
+- **R10 (remainder):** bottom Agent Interaction Bar/Pane + localStorage Phase A
+  after R10a.
+- **Plan/runbook canvas migration:** after MC-02b proves shared refs on Build.

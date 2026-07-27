@@ -3,8 +3,9 @@ document_id: dmb-design-shared-markdown-canvas-surface-composition
 title: Shared Markdown Canvas and Surface Capability Composition
 document_class: architecture_supplement
 status: active
-version: 1.0
+version: 1.1
 created_at: "2026-07-26"
+updated_at: "2026-07-26"
 parent_authority: ARCHITECTURE-plan-surface-toolbox.md
 first_consumer: /build
 extends_backlog: "Hoist the Build authoring lifecycle into a shared document-bound Markdown canvas"
@@ -250,33 +251,116 @@ The shell composes canvas and plugins. Plugins do not own or wrap the canvas.
 
 ### Build
 
-Build v1 enables:
+Build after MC-01 enables:
 
 - baseline Markdown edit/save/recovery;
 - Build extraction;
-- exact-run status and Open in Graph Review.
+- exact-run status and Open in Graph Review (handoff remains intentional, not the
+  sole gravity for inspection).
 
-Build does not inherit Plan graph search, callout insertion, or session policy unless
-those capabilities are intentionally enabled later.
+After **MC-02b**, Build also enables the shared graph-reference capabilities
+(`reference_render`, `reference_insert_existing`, `reference_project`) using a
+**Build graph lens** (world/campaign/GM admissibility/published revision — not a
+prep-session or Plan document target). Build does **not** inherit Plan session
+policy, PlanGraphLoadPanel transitional loaders, or Graph Review dispositions.
+
+**Exact-run inspection boundary (refined from BLD-06):** Build may host a
+**read-only exact-run inspector** in the singular shared projection container.
+Build does **not** own dispositions, evidence correction, identity decisions,
+authority elevation, prepare/confirm, or publication.
 
 ### Plan
 
-Plan remains unchanged in the first slice. Later it may consume:
-
-- baseline Markdown edit/save/recovery;
-- Plan lock policy;
-- Plan graph-reference search;
-- callout/block actions;
-- Plan commit handback.
+Plan remains the first characterized consumer of shared graph-reference
+capabilities. It continues to supply Plan lock policy, prep/session lens where
+required, callout/block actions, and Plan commit handback as **Plan extensions**,
+not as the shared vocabulary.
 
 ### Ingest / Graph Review
 
-Ingest remains the review/correction surface. It does not become a workspace-document
-canvas merely because it renders Markdown.
+Ingest remains the review/correction and disposition surface. It does not become a
+workspace-document canvas merely because it renders Markdown.
 
-`authoring.node` is a later capability whose ownership must be designed around the
-existing Graph Review Author Draft and selection flows. It may not be copied into
-`buildSurface/`.
+`authoring.node` (MC-03) remains design-gated around Graph Review Author Draft. It
+may not be copied into `buildSurface/`.
+
+## Dogfood re-anchor (2026-07-26) — graph references and stay-on-Build
+
+Dogfood after the preloaded Build canvas proved two **separate** product needs:
+
+1. Wherever there is a Markdown canvas, an **existing** graph object can be
+   referenced durably and opened interactively.
+2. Build should inspect its own ExtractionRun without being forced onto `/ingest`.
+
+**Framing (locked):** Plan and Build consume the same graph-reference capabilities,
+configured for different surface contexts. Do **not** implement “Build behaves like
+Plan” by copying Plan-named providers under Build.
+
+### Graph-reference capability decomposition
+
+Independently enabled:
+
+| Capability ID | Contract |
+|---|---|
+| `reference_render` | Durable typed refs render as chips |
+| `reference_insert_existing` | Docked search → operator inserts durable Markdown reference |
+| `reference_project` | Resolved object opens in the singular app-scoped projection host |
+
+Neutral names (targets): `GraphReferenceSearch`, `GraphReferenceRuntimeProvider`,
+`insertMarkdownReference`, `openGraphReference`, `GraphReferenceResolver`.
+`PlanGraphRefSearch` / `insertRunbookReference` are transitional Plan vocabulary,
+not the permanent shared API.
+
+### Reference resolution states
+
+A chip is not a “graph-node chip” until status is `resolved_graph`. The resolver
+returns a truthful state, never a silent first-ranked pick on ambiguity:
+
+```text
+resolved_graph | resolved_corpus_fallback | ambiguous | unresolved
+```
+
+Acceptance: an ambiguous Mireward chip must not silently open whichever node ranks
+first.
+
+### Shared object glance ownership
+
+Chip click opens content in the singular AdaptiveProjectionContainer via the
+existing shared [`GraphObjectCard`](../../apps/live-control-ui/src/graphObjectCard/)
+shell (GraphReviewNodeGameCard-derived). Hosting surfaces inject actions. Do **not**
+create a third selected-object card or route Build through a corpus-only Plan card
+as the durable path.
+
+### Candidate → document reference
+
+Extraction candidates are not World Graph nodes. Insertion uses:
+
+1. **Find existing object** — candidate seeds search text/type hints; operator
+   selects a published node; then insert reference; document becomes dirty; Save
+   required.
+2. **Direct Insert** only when the candidate payload already carries an exact,
+   admissible, validated durable node ID from an owning identity contract.
+
+No implicit candidate→node mapping inside Build. No MC-03 create-from-highlight.
+
+### Revision-pinned evidence
+
+Exact-run evidence/highlights bind to the run’s pinned source revision/digest. If
+the current canvas revision/digest differs (dirty edits, later save, document
+switch, digest mismatch), highlights are unavailable on the current draft and the
+UI offers pinned-source inspection — it must not attach evidence to the wrong
+prose.
+
+### Inspection readiness vs run lifecycle
+
+`reviewable` must not mean “the only review representation cannot open.” Either:
+
+- **Model A:** `reviewable` implies package-materializable; otherwise a blocked /
+  invalid-evidence status; or
+- **Model B:** separate `run_status` and `inspection_status` (+ structured
+  diagnostics).
+
+Do not weaken exact-evidence validation merely to open a UI.
 
 ## Relationship to floating chrome and R10
 
@@ -290,8 +374,12 @@ The floating-chrome / Agent Interaction track owns **where those regions live**:
 - optional Agent Interaction shell;
 - R10 lift-then-replace.
 
-The canvas work hydrates the current right-side regions first. R10 may later relocate
-the one adaptive container without changing canvas or capability contracts.
+**R10a (prerequisite before Build projection consumption):** lift the existing
+projection registry, selected-projection state, and AdaptiveProjectionContainer
+ownership **above** Plan/Build/Ingest route switching **without** changing Plan
+behavior and **without** the future bottom-pane redesign or localStorage Phase A
+expansion. Build must not mount a second container. Full R10 (bottom bar/pane +
+persistence) remains later.
 
 ## Delivery sequence
 
@@ -304,14 +392,36 @@ the one adaptive container without changing canvas or capability contracts.
 - Preserve current Build behavior and exact-run semantics.
 - Do not change Plan.
 
-### MC-02 — Surface capability composition
+### R10a — App-scoped projection host lift
 
-- Add the shared capability catalog and composition result.
-- Establish baseline `edit.markdown`.
-- Give Build a real Surface capability config.
-- Wire Build Edit and Build extraction through common region composition.
-- Generalize the Plan-shaped surface context contract without fabricating session
-  values.
+- One provider instance and one AdaptiveProjectionContainer above the route switch.
+- Plan (and Ingest Graph Review) behavior interaction-equivalent.
+- Selected projection clears/revalidates on surface context change.
+- No Build graph-reference enablement in this slice.
+
+### MC-02a — Neutral graph-reference capability extraction
+
+- Extract/wrap surface-neutral contracts for render / insert_existing / project.
+- Plan remains the characterized consumer; Plan behavior unchanged.
+- Shared GraphObjectCard glance path named and used; no third card.
+- No Build enablement; no extraction inspector.
+
+### MC-02b — Build enables shared reference capabilities
+
+- Build Surface capability config enables `reference_render`,
+  `reference_insert_existing`, `reference_project` with Build graph lens.
+- Docked existing-object search; insert; save/reload persistence; chip → shared
+  glance with truthful resolution states.
+- Exclude: extraction candidates, run inspector, node creation, elevation, handoff
+  redesign, PlanGraphLoadPanel.
+
+### Stay-on-Build / BLD successors (after MC-02b)
+
+1. **BLD inspection truth** — `false_anchor_quote` / reviewable vs package readiness.
+2. **Stay-on-Build v1** — exact-run summary in-place; secondary Open full Graph Review.
+3. **Stay-on-Build v2** — Build Extraction Run Inspector as a **tool projection** in
+   the singular adaptive container (read-only; no dispositions).
+4. **Candidate-assisted Find existing** — bridge inspector → MC-02 insert path.
 
 ### MC-03 — Node authoring design and migration
 
@@ -352,11 +462,13 @@ Before dispatch:
 
 ## Explicitly later
 
+- Stay-on-Build v1/v2 and candidate Find-existing (after MC-02b);
+- BLD inspection-truth defect (`false_anchor_quote` / readiness split);
 - BLD-10c worldbuilding dispositions and prepare/confirm UX;
 - BLD-09 PDF/OCR lineage;
 - Plan and runbook migration to `MarkdownCanvas`;
-- Agent Interaction R10;
-- node-authoring capability implementation;
+- Full R10 bottom bar/pane + localStorage Phase A (after R10a);
+- node-authoring capability implementation (MC-03);
 - broad Build visual redesign.
 
 ## Documentation authority and history
