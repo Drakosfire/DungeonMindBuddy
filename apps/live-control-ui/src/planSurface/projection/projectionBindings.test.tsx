@@ -428,6 +428,110 @@ describe("projectionBindings sibling topology", () => {
     expect(screen.queryByLabelText(/Inn graph object/i)).not.toBeInTheDocument();
   });
 
+  it("blocks superseded binding completion before provider rerender", async () => {
+    const seen: Array<PlanBinding | null> = [];
+    let register: ((binding: PlanBinding) => () => void) | null = null;
+
+    function Registrar() {
+      const { registerPlanReferenceBinding } = useProjection();
+      useEffect(() => {
+        register = registerPlanReferenceBinding;
+      }, [registerPlanReferenceBinding]);
+      return <BindingReader onBinding={(binding) => seen.push(binding)} />;
+    }
+
+    render(
+      <ProjectionProvider config={surfaceConfig}>
+        <Registrar />
+      </ProjectionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(register).not.toBeNull();
+    });
+
+    const openFromFirst = vi.fn();
+    const openFromSecond = vi.fn();
+    const bindingA: PlanBinding = {
+      resolverState: "ready",
+      resolveRelationship: vi.fn(),
+      openResolvedReference: openFromFirst,
+      openTool: vi.fn(),
+    };
+    const bindingB: PlanBinding = {
+      resolverState: "ready",
+      resolveRelationship: vi.fn(),
+      openResolvedReference: openFromSecond,
+      openTool: vi.fn(),
+    };
+
+    await act(async () => {
+      register!(bindingA);
+    });
+    await waitFor(() => {
+      expect(seen.at(-1)?.resolverState).toBe("ready");
+    });
+    const wrapperA = seen.at(-1);
+    expect(wrapperA).not.toBeNull();
+
+    // Register B and complete through A in the same turn — before React can publish wrapper B.
+    act(() => {
+      register!(bindingB);
+      wrapperA!.openResolvedReference(innResolution, "ready");
+    });
+
+    expect(openFromFirst).not.toHaveBeenCalled();
+    expect(openFromSecond).not.toHaveBeenCalled();
+  });
+
+  it("blocks unregistered binding completion before provider rerender", async () => {
+    const seen: Array<PlanBinding | null> = [];
+    let register: ((binding: PlanBinding) => () => void) | null = null;
+
+    function Registrar() {
+      const { registerPlanReferenceBinding } = useProjection();
+      useEffect(() => {
+        register = registerPlanReferenceBinding;
+      }, [registerPlanReferenceBinding]);
+      return <BindingReader onBinding={(binding) => seen.push(binding)} />;
+    }
+
+    render(
+      <ProjectionProvider config={surfaceConfig}>
+        <Registrar />
+      </ProjectionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(register).not.toBeNull();
+    });
+
+    const openFromFirst = vi.fn();
+    const bindingA: PlanBinding = {
+      resolverState: "ready",
+      resolveRelationship: vi.fn(),
+      openResolvedReference: openFromFirst,
+      openTool: vi.fn(),
+    };
+
+    let cleanupA: (() => void) | undefined;
+    await act(async () => {
+      cleanupA = register!(bindingA);
+    });
+    await waitFor(() => {
+      expect(seen.at(-1)?.openResolvedReference).toEqual(expect.any(Function));
+    });
+    const wrapperA = seen.at(-1);
+    expect(wrapperA).not.toBeNull();
+
+    act(() => {
+      cleanupA!();
+      wrapperA!.openResolvedReference(innResolution, "ready");
+    });
+
+    expect(openFromFirst).not.toHaveBeenCalled();
+  });
+
   it("does not let stale cleanup erase a newer registration", async () => {
     const seen: Array<PlanBinding | null> = [];
     let register: ((binding: PlanBinding) => () => void) | null = null;

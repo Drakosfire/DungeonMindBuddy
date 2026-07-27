@@ -74,8 +74,10 @@ export function ProjectionProvider({
   const [diagnosticsRegistration, setDiagnosticsRegistration] = useState<
     BindingRegistration<GraphReviewDiagnosticsProjectionPayload> | null
   >(null);
-  const planReferenceRegistrationRef = useRef(planReferenceRegistration);
-  planReferenceRegistrationRef.current = planReferenceRegistration;
+  /** Synchronous identity authority — updated in register/cleanup, not on render. */
+  const planReferenceRegistrationRef = useRef<BindingRegistration<PlanReferenceProjectionBinding> | null>(
+    null,
+  );
 
   const close = useCallback(() => {
     setActive(null);
@@ -151,8 +153,18 @@ export function ProjectionProvider({
 
   const registerPlanReferenceBinding = useCallback((binding: PlanReferenceProjectionBinding) => {
     const token = Symbol("plan-reference-binding");
-    setPlanReferenceRegistration({ token, value: binding });
+    const registration: BindingRegistration<PlanReferenceProjectionBinding> = {
+      token,
+      value: binding,
+    };
+    // Sync before setState so awaited completions cannot commit through a superseded token
+    // in the pre-rerender window.
+    planReferenceRegistrationRef.current = registration;
+    setPlanReferenceRegistration(registration);
     return () => {
+      if (planReferenceRegistrationRef.current?.token === token) {
+        planReferenceRegistrationRef.current = null;
+      }
       setPlanReferenceRegistration((current) => (current?.token === token ? null : current));
     };
   }, []);
