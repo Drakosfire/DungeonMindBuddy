@@ -3,7 +3,7 @@ document_id: dmb-plan-shared-markdown-canvas-build-first
 title: Shared Markdown Canvas — Build-First Execution Plan
 document_class: implementation_plan
 status: active
-version: 1.2
+version: 1.3
 created_at: "2026-07-26"
 updated_at: "2026-07-27"
 design: ../Design/DESIGN-shared-markdown-canvas-surface-composition.md
@@ -40,8 +40,16 @@ Convergence
               → MC-03 node authoring design gate (still gated)
 ```
 
-**R10a is not NEXT until R10a-deps lands.** A bare “hoist the container above the
-route switch” against today’s topology is not executable (see § R10a-deps).
+Executable next (Lane 1):
+
+```text
+R10a-deps ACTIVE — see HANDOFF-r10a-deps-projection-host-dependency-extraction.md
+  → R10a app-scoped lift into AgentInteractionProvider
+    → MC-02a remaining neutral graph-reference extraction
+      → MC-02b Build enables shared reference capabilities
+```
+
+Lane 2 remains independently executable: BLD inspection-truth defect.
 
 ## Re-anchor
 
@@ -103,7 +111,7 @@ not replace:
 | Slice | Status | Mission | Must remain false |
 |---|---|---|---|
 | MC-01 | **DONE** (PR #426) | Shared canvas session/view + Build migration + admitted extraction envelope | — |
-| R10a-deps | **NEXT** | Projected Plan/Ingest content stops requiring route-local hooks; explicit payloads or app-registered deps | Container lift; Build enablement; bottom-pane redesign |
+| R10a-deps | **ACTIVE** — [`HANDOFF-r10a-deps-projection-host-dependency-extraction.md`](./HANDOFF-r10a-deps-projection-host-dependency-extraction.md) | Projected Plan/Ingest content stops requiring route-local hooks; explicit payloads or app-registered deps | Container lift; Build enablement; bottom-pane redesign |
 | R10a | QUEUED | Singular projection registry/state/container owned by `AgentInteractionProvider` above route switch; typed surface publication; Plan interaction-equivalent | Build graph enablement; bottom-pane redesign; localStorage Phase A; sibling ProjectionProvider |
 | MC-02a | QUEUED | Remaining surface-neutral `reference_render` / `reference_insert_existing` / `reference_project`; Plan unchanged as consumer | Build enablement; extraction inspector; MC-03 |
 | MC-02b | QUEUED | Build enables those three capabilities via Build lens + app-scoped host | Extraction candidates; dispositions; PlanGraphLoadPanel; node create |

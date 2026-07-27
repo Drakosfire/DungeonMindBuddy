@@ -35,6 +35,7 @@ import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
+import { GraphReviewDiagnosticsProjectionBinding } from "./GraphReviewDiagnosticsProjectionBinding";
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
@@ -770,6 +771,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         selection={selection}
         onSelectSelection={setSelection}
       >
+        <GraphReviewDiagnosticsProjectionBinding />
         <div className="graph-review-workbench-root">
           <GraphReviewWorkbenchHeader
             loaded={hasAppliedLoad || hasExactRunLoad}

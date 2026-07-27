@@ -9,7 +9,6 @@ import type { PlanReferenceResolution } from "../reference/graphAwareReferenceRe
 import type { SurfaceConfig } from "../types";
 import { AdaptiveProjectionContainer } from "./AdaptiveProjectionContainer";
 import { ProjectionProvider, useProjection } from "./projectionContext";
-import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 
 vi.mock("../../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api/liveApi")>();
@@ -91,10 +90,8 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     const user = userEvent.setup();
     render(
       <ProjectionProvider config={surfaceConfig}>
-        <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-          <OpenReferenceButton />
-          <AdaptiveProjectionContainer config={surfaceConfig} />
-        </PlanGraphReferenceResolverProvider>
+        <OpenReferenceButton />
+        <AdaptiveProjectionContainer config={surfaceConfig} />
       </ProjectionProvider>,
     );
 
@@ -111,5 +108,19 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     expect(drawer).toBeTruthy();
     expect(drawer?.querySelector(".plan-projection-header h2")?.textContent).toBe("Reference");
     expect(screen.getByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
+  });
+
+  it("renders content without a Plan binding and does not crash", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProjectionProvider config={surfaceConfig}>
+        <OpenReferenceButton />
+        <AdaptiveProjectionContainer config={surfaceConfig} />
+      </ProjectionProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
+    expect(await screen.findByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open related object/i })).not.toBeInTheDocument();
   });
 });
