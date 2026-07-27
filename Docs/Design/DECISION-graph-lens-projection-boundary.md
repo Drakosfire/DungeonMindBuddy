@@ -3,7 +3,7 @@
 **Created:** 2026-07-25
 **Status:** ACCEPTED — governs projection layering from the mention-linker hoist forward.
 **Supersedes:** nothing. **Superseded by:** nothing.
-**Authority for:** completed graph-lens hygiene slices (PR #414 / #416 / #423 / #427 handoffs under `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/`), PR380B (Recap/Ingest UI migration), and any future surface that renders prose beside World Graph nodes.
+**Authority for:** completed graph-lens hygiene slices (PR #414 / #416 / #423 / #427 handoffs under `Docs/Plans/archive/2026-07-26/graph-lens-projection-handoffs/`), in-flight PR380B (`Docs/Plans/HANDOFF-pr380b-world-graph-recap-ui-migration.md`), and any future surface that renders prose beside World Graph nodes.
 
 > **Numbering lesson (2026-07-25):** Do not name successor slices by guessed GitHub PR numbers in authority docs. Use content slugs. Planned `#413` collided with an unrelated open PR; the hoist landed as `#414`. Archive rename to `HANDOFF-pr414-…` completed 2026-07-26.
 >
@@ -12,6 +12,8 @@
 > **Doc-sync (2026-07-26, later):** PR #423 merged (`eb2d40ba`). `migrate-union-mention-path` archived; `normalize-union-direction-vocabulary` dispatched via `Docs/Plans/HANDOFF-normalize-union-direction-vocabulary.md`.
 >
 > **Doc-sync (2026-07-26, after #427):** PR #427 merged (`7a024363`). `normalize-union-direction-vocabulary` archived; graph-lens hygiene sequencing complete; next product gate is PR380B.
+>
+> **Doc-sync (2026-07-27):** PR380B dispatched via `Docs/Plans/HANDOFF-pr380b-world-graph-recap-ui-migration.md` (Recap/Ingest UI + Build read-only object context); implementation not started on `main`.
 
 ## Context
 
@@ -81,15 +83,15 @@ A projection is: **exact snapshot identity + node/edge views + focus overlay + t
 | `derive-recap-views-normalize-direction` | Derive recap views from generic views; normalize `direction` at the kernel boundary | **merged** as GitHub PR #416 (`6410e047`) — archived `HANDOFF-pr416-derive-recap-views-normalize-direction.md` |
 | `migrate-union-mention-path` | Migrate `recap_projection._project_markdown_mentions` onto the hoisted linker, closing the unprotected second implementation | **merged** as GitHub PR #423 (`eb2d40ba`) — archived `HANDOFF-pr420-migrate-union-mention-path.md` |
 | `normalize-union-direction-vocabulary` | Close the Union-compatible snake_case direction vocabulary at the shared adjacency wire-model boundary | **merged** as GitHub PR #427 (`7a024363`) — archived `HANDOFF-pr427-normalize-union-direction-vocabulary.md` |
-| PR380B | Recap/Ingest UI migration; consumes the World Graph recap route + hoisted linker | **unblocked** — graph-lens hygiene complete; product migration not started |
+| PR380B | Recap/Ingest UI migration; consumes the World Graph recap route + hoisted linker | **dispatched** — `Docs/Plans/HANDOFF-pr380b-world-graph-recap-ui-migration.md`; implementation not started |
 
 The hoist was deliberately a pure move with a characterization-test invariant. `derive-recap-views-normalize-direction` was the genuine contract change: direct generic-model reuse for recap nested views plus closed `outgoing`/`incoming`/`related` vocabulary at the World Graph boundary. `migrate-union-mention-path` closed the unprotected second mention implementation. `normalize-union-direction-vocabulary` closed the dual Union wire-direction contract. All four hygiene slices are now on `main`.
 
 ### Next gate
 
-**No graph-lens hygiene slice in flight.** The next product gate is PR380B.
+**PR380B is in flight** via `Docs/Plans/HANDOFF-pr380b-world-graph-recap-ui-migration.md`. Do not start overlapping successor slices (PR380C, preview-union retirement, cache/telemetry, Ingest workflow simplification, extraction hardening) until PR380B merges or is withdrawn.
 
-1. **PR380B** — migrate Recap/Ingest UI (and shared object navigation) onto the World Graph recap route (`POST /api/live/world-graph/recap-projection`). Satisfies Backlog `[READY] Recap View / ingest must project world graph`.
+1. **PR380B** — migrate Recap/Ingest UI (and shared object navigation) onto the World Graph recap route (`POST /api/live/world-graph/recap-projection`), plus read-only Build object context per the handoff. Satisfies Backlog `[READY] Recap View / ingest must project world graph`.
 2. Any durable Union store/contribution direction migration remains explicitly deferred and must not be folded into PR380B.
 
 Do not combine PR380B with a storage migration or a new graph-lens hygiene slice.
