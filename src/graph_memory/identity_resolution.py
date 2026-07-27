@@ -258,33 +258,22 @@ def _span_overlap_supported(a: Any, b: Any) -> bool:
 def corpus_ref_identity(node: Any) -> tuple[str, str] | None:
     """Return (type_class, normalized_ref) when a node carries a corpus_ref.
 
-    Used as a confirmation/boost during matching and as the strongest key for
-    production cross-session merge when a hub_path is resolved.
+    Identity is ``type + ref_id`` only. Hub README paths are documentation
+    location metadata and must never participate in merge keys — a shared hub
+    (e.g. Mireward) documents many distinct sub-entities, and path-keyed
+    identity either collapses them or couples the graph to corpus layout.
     """
     cr = _get(node, "corpus_ref")
     if not cr:
         return None
-    hub_path = _get(cr, "hub_path")
     ref_id = _get(cr, "ref_id")
+    if not ref_id:
+        return None
+    ref = str(ref_id).strip()
+    if not ref:
+        return None
     ref_type = node_type_class(str(_get(cr, "type", "") or ""))
-    # ``ref_id`` is the entity-specific slug; ``hub_path`` is only where the docs
-    # live. A single location/collection hub (e.g. Mireward) is the documentation
-    # home for many distinct sub-entities (North gate, townspeople, the city
-    # itself), each with its own ``ref_id``. Keying on ``hub_path`` alone collapses
-    # all of them into one node — silent cross-session corruption that compounds
-    # per ingested session. Pair ``hub_path`` WITH ``ref_id`` so a multi-entity hub
-    # splits correctly, while a single-entity hub (one NPC = one ref_id, identical
-    # across sessions) still merges. The failure mode degrades to fail-to-merge
-    # (visible duplicate, recoverable) — never false-merge (silent entity loss).
-    hub = str(hub_path).strip().lower() if hub_path else ""
-    ref = str(ref_id).strip().lower() if ref_id else ""
-    if hub and ref:
-        return ("hub", f"{hub}::{ref}")
-    if hub:
-        return ("hub", hub)
-    if ref:
-        return (ref_type, normalize_label(str(ref_id).replace("_", " ")))
-    return None
+    return (ref_type, normalize_label(ref.replace("_", " ")))
 
 
 # --------------------------------------------------------------------------- #
@@ -676,8 +665,8 @@ def beat_match_score(
 def canonical_node_key(node: Any) -> tuple[str, str]:
     """Strongest available merge key for a single node.
 
-    Resolved corpus identity (hub_path or type+ref_id) wins; otherwise
-    normalized label + type class.
+    Resolved corpus identity (type+ref_id) wins; otherwise normalized label +
+    type class. Hub paths are never identity keys.
     """
     cr = corpus_ref_identity(node)
     if cr is not None:

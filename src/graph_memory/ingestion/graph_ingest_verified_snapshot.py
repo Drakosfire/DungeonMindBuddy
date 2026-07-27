@@ -718,6 +718,18 @@ def _load_candidate_validation_report(
     return report_payload, actual_digest
 
 
+def _is_non_filesystem_uri(uri: str) -> bool:
+    """True for scheme URIs (fixture://, https://, …) that are not repo paths."""
+    text = str(uri).strip().replace("\\", "/")
+    if not text:
+        return True
+    # Pathlib treats "fixture://…" as a path with a drive-ish quirk on some
+    # platforms; scheme presence is the durable signal.
+    if "://" in text:
+        return True
+    return False
+
+
 def _resolve_repo_contained_path(path: Path, root: Path) -> Path:
     """Reject absolute/escaping paths the same way projection consumers historically did."""
     value = str(path).replace("\\", "/")
@@ -744,17 +756,29 @@ def _assert_store_source_paths_repo_contained(
     repo_root: Path,
     session_id: str,
 ) -> None:
-    """Fail closed when store source/recap/bundle paths escape the repo root."""
+    """Fail closed when store source/recap/bundle paths escape the repo root.
+
+    Non-filesystem URIs (e.g. ``fixture://corpus-ref/…``) and worldbuilding
+    artifacts are skipped — hub README paths are documentation location only,
+    not openable graph sources (including legacy corpus-relative hub URIs).
+    """
     root = repo_root.resolve()
     for artifact in store.source_artifacts.values():
+        source_domain = getattr(artifact, "source_domain", None)
         uri = getattr(artifact, "uri", None)
-        if uri:
+        if (
+            uri
+            and not _is_non_filesystem_uri(str(uri))
+            and source_domain != "worldbuilding"
+        ):
             _resolve_repo_contained_path(Path(str(uri)), root)
         recap_path = getattr(artifact, "recap_path", None)
-        if recap_path:
+        if recap_path and not _is_non_filesystem_uri(str(recap_path)):
             _resolve_repo_contained_path(Path(str(recap_path)), root)
         bundle_uri = getattr(artifact, "ingest_run_bundle_uri", None)
         if not bundle_uri:
+            continue
+        if _is_non_filesystem_uri(str(bundle_uri)):
             continue
         bundle_path = _resolve_repo_contained_path(Path(str(bundle_uri)), root)
         # Mirror legacy focus-recap markdown loading: probe input_path_record when

@@ -249,14 +249,22 @@ def _add_worldbuilding_evidence(
     global_node_id: str,
     corpus_ref: Mapping[str, Any],
 ) -> str:
+    """Attach non-openable corpus-ref context for worldbuilding provenance.
+
+    Hub README paths are documentation location only — never filesystem URIs.
+    Graph Review verified-snapshot asserts repo-contained paths; stamping a
+    corpus-relative ``hub_path`` as ``uri``/`locator` with ``can_open_source``
+    caused false ``path does not exist`` failures on load.
+    """
     artifact_id = f"artifact:worldbuilding:{campaign_id}:{_slug(str(corpus_ref.get('ref_id') or global_node_id))}"
+    fixture_uri = f"fixture://corpus-ref/{global_node_id}"
     source_artifacts.setdefault(
         artifact_id,
         {
             "source_artifact_id": artifact_id,
             "source_domain": "worldbuilding",
             "campaign_id": campaign_id,
-            "uri": str(corpus_ref.get("hub_path") or f"fixture://corpus-ref/{global_node_id}"),
+            "uri": fixture_uri,
         },
     )
     evidence_id = f"evidence:worldbuilding:{global_node_id}:corpus-ref"
@@ -267,8 +275,8 @@ def _add_worldbuilding_evidence(
             "source_artifact_id": artifact_id,
             "source_domain": "worldbuilding",
             "evidence_role": "corpus_ref_context",
-            "locator": str(corpus_ref.get("hub_path") or f"fixture://corpus-ref/{global_node_id}"),
-            "can_open_source": True,
+            "locator": fixture_uri,
+            "can_open_source": False,
             "can_highlight_span": False,
         },
     )

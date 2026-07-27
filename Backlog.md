@@ -7,6 +7,13 @@ Project-specific learnings, ideas, and follow-ups for the DungeonMindBuddy repo 
 
 Sort newest → oldest within each status; promote with `/promote`; archive with `/done` or `/drop`.
 
+## [IDEA] Depth C — drop hub README harvest from party/extraction scaffolding — captured 2026-07-27
+**Context:** Shed A+B landed on `feat/shed-hub-readme-graph-identity`: hub paths are no longer openable graph sources or identity keys. Party context still optionally reads hub READMEs for display name / player / related-slug enrichment.
+**Insight:** Full decommission (stop hub file reads entirely; registry-only standing context) is separable and lower urgency than the Graph Review fail-closed bug A+B fixed.
+**Action:** When enrichment via hub becomes a liability (missing hubs, path drift), remove `_resolve_member` hub I/O and related-slug harvest; keep registry slug → type+ref_id seeds only.
+**Surfaces when:** party_context hub README, related_hub_slugs, hub enrichment, depth C shed, missing PC hub
+**Refs:** `src/graph_memory/party_context.py`; `Backlog-DONE.md` `[DONE] Shed hub-README graph identity (A+B)`
+
 ## [READY] Live UI dogfood always starts at `/` — captured 2026-07-26
 **Context:** PR #418 packaging dogfood brief handed the operator `http://127.0.0.1:5173/ingest?campaign=longmont-c2&session=session-23` as the start URL. Operator corrected: that deep-link start is way out of date; product entry is the root launcher.
 **Insight:** `App.tsx` `MirewardIndex` at `/` is the intended start. Deep links (`/ingest?…`, `/plan?dogfood=1&…`) are mid-flow or measurement scaffolds, not the dogfood door. Agents keep resurrecting deep-link starts from old ingest notes.

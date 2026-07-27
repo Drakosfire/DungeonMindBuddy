@@ -4,10 +4,9 @@ Pins the deterministic party-context construction against the real Longmont
 Campaign 2 corpus + ``_party_registry.json`` (PC roster, the new
 ``session_companion_rosters`` for Thrin/Lysandra), and verifies the node-shape
 policy: party members emit resolved-corpus_ref nodes whose
-``identity_resolution.canonical_node_key`` is the hub_path, so a party member
+``identity_resolution.canonical_node_key`` is type+ref_id, so a party member
 dedup-matches its extracted counterpart across sessions.
 """
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -56,9 +55,9 @@ def test_campaign_1_session_1_roster_resolves_party_anchors():
         "stafl",
     }
     assert ctx.companions() == ()
-    anchors = ctx.anchor_hub_paths()
+    anchors = ctx.anchor_identity_keys()
     assert len(anchors) == 6
-    assert all(p.endswith("/README.md") for p in anchors)
+    assert all(k.startswith("pc::") for k in anchors)
 
 
 def test_session_without_roster_carries_forward_from_prior():
@@ -148,20 +147,21 @@ def test_seed_node_is_character_with_resolved_corpus_ref():
     cr = node["corpus_ref"]
     assert cr["type"] == "npc" and cr["ref_id"] == "captain_lysandra_ironveil"
     assert cr["resolution"] == "resolved"
-    assert cr["hub_path"].endswith("captain_lysandra_ironveil/README.md")
+    assert "hub_path" not in cr
 
 
-def test_party_member_canonical_key_is_hub_path():
+def test_party_member_canonical_key_is_type_ref_id():
     ctx = pc.build_party_context(22)
     thrin = next(m for m in ctx.members if m.slug == "thrin_branchborn")
     key = ir.canonical_node_key(thrin.seed_node())
-    assert key[0] == "corpus" and "thrin_branchborn/readme.md" in key[1]
+    assert key[0] == "corpus"
+    assert key[1] == "actor::thrin branchborn"
 
 
 def test_party_anchor_matches_divergently_labelled_extraction():
-    # The whole point: an extractor node that resolves the same hub but labels
-    # it differently ("Lieutenant L.") still dedup-matches the standing anchor,
-    # because resolved corpus identity is decisive in node_match_score.
+    # The whole point: an extractor node that resolves the same type+ref_id but
+    # labels it differently ("Lieutenant L.") still dedup-matches the standing
+    # anchor, because resolved corpus identity is decisive in node_match_score.
     ctx = pc.build_party_context(22)
     anchor = next(m for m in ctx.members if m.slug == "captain_lysandra_ironveil").seed_node()
     extracted = {
@@ -173,12 +173,13 @@ def test_party_anchor_matches_divergently_labelled_extraction():
     assert ir.nodes_match(anchor, extracted)
 
 
-def test_anchor_hub_paths_cover_all_resolved_members():
+def test_anchor_identity_keys_cover_all_members():
     ctx = pc.build_party_context(22)
-    anchors = ctx.anchor_hub_paths()
-    assert len(anchors) == len([m for m in ctx.members if m.hub_resolved])
-    assert any("captain_lysandra_ironveil" in p for p in anchors)
-    assert any("thrin_branchborn" in p for p in anchors)
+    anchors = ctx.anchor_identity_keys()
+    assert len(anchors) == len(ctx.members)
+    assert "npc::captain_lysandra_ironveil" in anchors
+    assert "npc::thrin_branchborn" in anchors
+    assert "pc::stafl" in anchors
 
 
 # --------------------------------------------------------------------------- #
