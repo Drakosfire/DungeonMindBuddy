@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
 import { existsSync } from "node:fs";
@@ -16,6 +16,8 @@ import {
 } from "../tiptap/state/tiptapLocalState";
 import { BuildCanvasTestProvider } from "./buildCanvasTestProvider";
 import { BUILD_AUTHORITY_REJECTION_AMBIENT, BuildSurfaceShell } from "./BuildSurfaceShell";
+import { createBuildSurfaceConfig } from "./createBuildSurfaceConfig";
+import { ProjectionSurfacePublisher } from "../planSurface/projection/projectionTestHost";
 
 let buildShellTestEditor: Editor | null = null;
 
@@ -44,6 +46,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
   };
 });
 
@@ -98,13 +101,30 @@ function buildWorldbuildingSnapshot(documentId: string) {
 }
 
 function BuildDocumentHarness({ documentId }: { documentId: string }) {
+  const snap = buildWorldbuildingSnapshot(documentId);
   return (
     <AgentInteractionProvider>
-      <ScopeProbe />
-      <BuildCanvasTestProvider documentId={documentId}>
-        <BuildSurfaceShell />
-      </BuildCanvasTestProvider>
+      <ProjectionSurfacePublisher config={createBuildSurfaceConfig(snap.record)}>
+        <ScopeProbe />
+        <BuildCanvasTestProvider documentId={documentId}>
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
+      </ProjectionSurfacePublisher>
     </AgentInteractionProvider>
+  );
+}
+
+function renderBuildShell(documentId: string, extras?: ReactNode) {
+  const snap = buildWorldbuildingSnapshot(documentId);
+  return render(
+    <AgentInteractionProvider>
+      <ProjectionSurfacePublisher config={createBuildSurfaceConfig(snap.record)}>
+        {extras}
+        <BuildCanvasTestProvider documentId={documentId}>
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
+      </ProjectionSurfacePublisher>
+    </AgentInteractionProvider>,
   );
 }
 
@@ -113,6 +133,33 @@ describe("BuildSurfaceShell", () => {
     vi.clearAllMocks();
     localStorage.clear();
     buildShellTestEditor = null;
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "world",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    } as never);
   });
 
   it("publishes null session scope for worldbuilding build", async () => {
@@ -143,12 +190,7 @@ describe("BuildSurfaceShell", () => {
       loaded_revision: 1,
     });
 
-    render(
-      <AgentInteractionProvider>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
-      </AgentInteractionProvider>,
-    );
+    renderBuildShell(DOC_ID, <ScopeProbe />);
 
     await waitFor(() => {
       expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
@@ -188,12 +230,7 @@ describe("BuildSurfaceShell", () => {
       loaded_revision: 2,
     });
 
-    render(
-      <AgentInteractionProvider>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
-      </AgentInteractionProvider>,
-    );
+    renderBuildShell(DOC_ID, <ScopeProbe />);
 
     expect(await screen.findByTestId("build-surface-error")).toBeInTheDocument();
     expect(screen.queryByTestId("build-save-button")).not.toBeInTheDocument();
@@ -264,12 +301,7 @@ describe("BuildSurfaceShell", () => {
 
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(validSnapshot);
 
-    const { rerender } = render(
-      <AgentInteractionProvider>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
-      </AgentInteractionProvider>,
-    );
+    const { rerender } = renderBuildShell(DOC_ID, <ScopeProbe />);
 
     await waitFor(() => {
       expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
@@ -281,8 +313,12 @@ describe("BuildSurfaceShell", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(rejectedSnapshot);
     rerender(
       <AgentInteractionProvider>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={PLAN_DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <ProjectionSurfacePublisher config={createBuildSurfaceConfig(rejectedSnapshot.record)}>
+          <ScopeProbe />
+          <BuildCanvasTestProvider documentId={PLAN_DOC_ID}>
+            <BuildSurfaceShell />
+          </BuildCanvasTestProvider>
+        </ProjectionSurfacePublisher>
       </AgentInteractionProvider>,
     );
 
@@ -339,11 +375,7 @@ describe("BuildSurfaceShell", () => {
     local.exported_markdown = "# Local dirty copy\n";
     writeWorkspaceDocumentLocalState(window.localStorage, local);
 
-    render(
-      <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
-      </AgentInteractionProvider>,
-    );
+    renderBuildShell(DOC_ID);
 
     expect(await screen.findByTestId("build-surface-conflict")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /discard local draft/i }));
@@ -398,11 +430,7 @@ describe("BuildSurfaceShell", () => {
     local.exported_markdown = "# Local dirty copy\n";
     writeWorkspaceDocumentLocalState(window.localStorage, local);
 
-    render(
-      <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
-      </AgentInteractionProvider>,
-    );
+    renderBuildShell(DOC_ID);
 
     expect(await screen.findByTestId("build-surface-conflict")).toBeInTheDocument();
     expect(screen.getByText(/changed while a dirty local draft/i)).toBeInTheDocument();
@@ -451,11 +479,7 @@ describe("BuildSurfaceShell", () => {
     local.exported_markdown = "# Dirty local\n";
     window.localStorage.setItem(workspaceDocumentStorageKey(DOC_ID), JSON.stringify(local));
 
-    render(
-      <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
-      </AgentInteractionProvider>,
-    );
+    renderBuildShell(DOC_ID);
 
     expect(await screen.findByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
   });
@@ -768,14 +792,14 @@ describe("BuildSurfaceShell", () => {
     expect(JSON.parse(storedRaw!).base_revision).toBe(2);
   });
 
-  it("PR380B: mounts graph-object context lane when document and pointer are present", async () => {
+  it("PR380B: loads world-graph projection when document and pointer params are present", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
     window.history.pushState(
       {},
       "",
       `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=wg-rev-test`,
     );
-    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
+    const postProjection = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
         worldId: "eldyrwild",
@@ -823,10 +847,12 @@ describe("BuildSurfaceShell", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
     });
-    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(postProjection).toHaveBeenCalled();
+    });
   });
 
-  it("PR380B: does not load graph context while the workspace document is still loading", async () => {
+  it("PR380B: does not load world-graph projection while the workspace document is still loading", async () => {
     let releaseSnapshot: ((snapshot: ReturnType<typeof buildWorldbuildingSnapshot>) => void) | undefined;
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(
       () =>
@@ -870,13 +896,14 @@ describe("BuildSurfaceShell", () => {
     render(<BuildDocumentHarness documentId={DOC_ID} />);
 
     expect(await screen.findByTestId("build-surface-loading")).toBeInTheDocument();
-    expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
     expect(postProjection).not.toHaveBeenCalled();
 
     releaseSnapshot?.(buildWorldbuildingSnapshot(DOC_ID));
     await waitFor(() => {
       expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
     });
-    expect(await screen.findByTestId("build-graph-object-context")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(postProjection).toHaveBeenCalled();
+    });
   });
 });

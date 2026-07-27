@@ -1,24 +1,106 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
+import type { AppChromeTools } from "../chrome/AppChrome";
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
-import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
+import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
+import type { ProjectionSurfacePublication } from "../agentInteraction/projectionSurfacePublication";
+import { PlanGraphReferenceResolverProvider } from "../planSurface/reference/usePlanGraphReferenceResolver";
+import type { SurfaceConfig } from "../planSurface/types";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
+import { BuildGraphReferenceShell } from "./BuildGraphReferenceShell";
 import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
+import { createBuildSurfaceConfig } from "./createBuildSurfaceConfig";
 
 /** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
 export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
+
+interface BuildSurfaceShellProps {
+  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+}
+
+function BuildSurfaceBoundShell({
+  config,
+  onEditorToolsChange,
+  slots,
+}: {
+  config: SurfaceConfig;
+  onEditorToolsChange?: (tools: AppChromeTools | null) => void;
+  slots: ReturnType<typeof useBuildMarkdownCanvasSlots>;
+}) {
+  return (
+    /*
+     * Reuse PlanGraphReferenceResolverProvider with a minimal session descriptor
+     * (campaign from workspace record, memorySession null) so world-graph search
+     * works without Plan prep-session policy or PlanGraphLoadPanel.
+     */
+    <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
+      <div className="build-surface-layout plan-surface-layout">
+        <div className="plan-surface-main">
+          <BuildGraphReferenceShell slots={slots} onEditorToolsChange={onEditorToolsChange} />
+        </div>
+      </div>
+    </PlanGraphReferenceResolverProvider>
+  );
+}
 
 /**
  * Build document chrome: Agent Interaction publication + shared MarkdownCanvas.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
  */
-export function BuildSurfaceShell() {
+export function BuildSurfaceShell({ onEditorToolsChange }: BuildSurfaceShellProps) {
   const session = useMarkdownCanvasSession();
   const slots = useBuildMarkdownCanvasSlots();
-  const { rehydrateScope, publishSurfaceContext } = useAgentInteraction();
+  const {
+    rehydrateScope,
+    publishSurfaceContext,
+    publishProjectionSurface,
+    updateProjectionSurfaceConfig,
+  } = useAgentInteraction();
   const lastAcceptedCampaignRef = useRef<string>("build");
+
+  const surfaceConfig = useMemo(
+    () => (session.record ? createBuildSurfaceConfig(session.record) : null),
+    [
+      session.record?.campaign_id,
+      session.record?.content_status,
+      session.record?.document_id,
+      session.record?.revision,
+      session.record?.target_relpath,
+      session.record?.title,
+      session.record,
+    ],
+  );
+
+  const graphReferenceReady =
+    Boolean(session.record)
+    && session.phase !== "loading"
+    && session.phase !== "unloaded"
+    && session.phase !== "load_error"
+    && session.phase !== "conflict";
+
+  const publication = useMemo((): ProjectionSurfacePublication | null => {
+    if (!graphReferenceReady || !surfaceConfig || !session.record) return null;
+    return {
+      identity: buildBuildSurfaceIdentity({ documentId: session.record.document_id }),
+      config: surfaceConfig,
+    };
+  }, [graphReferenceReady, session.record, surfaceConfig]);
+
+  const publicationInstanceKey = publication?.identity.instanceKey ?? null;
+  const publicationRef = useRef(publication);
+  publicationRef.current = publication;
+
+  useEffect(() => {
+    if (!publicationRef.current) return;
+    return publishProjectionSurface(publicationRef.current);
+  }, [publicationInstanceKey, publishProjectionSurface]);
+
+  useEffect(() => {
+    if (!publication) return;
+    updateProjectionSurfaceConfig(publication);
+  }, [publication, updateProjectionSurfaceConfig]);
 
   useEffect(() => {
     if (session.record?.campaign_id) {
@@ -141,21 +223,15 @@ export function BuildSurfaceShell() {
     };
   }, [publishSurfaceContext, rehydrateScope]);
 
-  // Document-backed graph context must wait for an accepted record. While the
-  // document is loading, conflicted, or rejected, session.record is null — mounting
-  // then would skip scope admission and race a later rejection.
-  const graphPointer = parseBuildGraphPointerFromLocation();
-  const acceptedDocumentCampaignId = session.record?.campaign_id ?? null;
+  if (graphReferenceReady && surfaceConfig) {
+    return (
+      <BuildSurfaceBoundShell
+        config={surfaceConfig}
+        onEditorToolsChange={onEditorToolsChange}
+        slots={slots}
+      />
+    );
+  }
 
-  return (
-    <div className="build-surface-with-graph-context">
-      {graphPointer && acceptedDocumentCampaignId ? (
-        <BuildGraphObjectContext
-          documentCampaignId={acceptedDocumentCampaignId}
-          requireDocumentScope
-        />
-      ) : null}
-      <MarkdownCanvas slots={slots} />
-    </div>
-  );
+  return <MarkdownCanvas slots={slots} />;
 }

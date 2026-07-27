@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { IngestionModule } from "../../modules/IngestionModule";
 import { PartyRegistryModule } from "../../modules/PartyRegistryModule";
 import { StatblockWorkbenchModule } from "../../surface/modules/StatblockWorkbenchModule";
+import { BuildExtractionRunInspector } from "../../buildSurface/BuildExtractionRunInspector";
 import { GraphPreviewModule } from "../graphPreview/GraphPreviewModule";
 import { GraphGoldReviewModule } from "../graphGoldReview/GraphGoldReviewModule";
 import { GraphReviewDiagnosticsToolPanel } from "../graphReviewWorkbench/GraphReviewDiagnosticsToolPanel";
@@ -75,6 +76,9 @@ export function renderToolProjection(
   }
   if (toolId === "party-registry") {
     return <PartyRegistryModule context={context} />;
+  }
+  if (toolId === "build-extraction-run-inspector") {
+    return <BuildExtractionRunInspector context={context} />;
   }
   return <p className="plan-projection-empty">Unknown tool: {toolId}</p>;
 }

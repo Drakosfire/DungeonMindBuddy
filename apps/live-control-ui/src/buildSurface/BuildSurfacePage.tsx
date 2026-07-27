@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { createWorkspaceDocument } from "../api/liveApi";
 import type {
@@ -7,7 +7,7 @@ import type {
 } from "../api/types";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { createBuildSurfacePublication } from "../agentInteraction/projectionSurfacePublication";
-import { AppChrome } from "../chrome/AppChrome";
+import { AppChrome, type AppChromeTools } from "../chrome/AppChrome";
 import { MarkdownCanvasSessionProvider } from "../markdownCanvas/MarkdownCanvasSession";
 import { useWorkspaceDocumentUrlSelection } from "../workspaceDocument/useWorkspaceDocumentUrlSelection";
 import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
@@ -16,12 +16,17 @@ import { BuildIngestToolbar } from "./BuildIngestToolbar";
 import { BuildSurfaceShell } from "./BuildSurfaceShell";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_NEW_SOURCE_HEADING, BUILD_SURFACE_LABEL, BUILD_SURFACE_ROUTE } from "./buildSurfaceConfig";
+import { buildWorldbuildingStarterContent } from "./buildWorldbuildingStarter";
+
+import "../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
+import "../tiptap/tiptapSpike.css";
+import "./buildSurface.css";
 
 function navigateToDocument(documentId: string): void {
   const url = new URL(window.location.href);
   url.pathname = BUILD_SURFACE_ROUTE;
   url.searchParams.set("documentId", documentId);
-  window.history.pushState({}, "", url.toString());
+  window.history.replaceState({}, "", url.toString());
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -41,6 +46,9 @@ const DEFAULT_FORM: NewSourceFormState = {
   visibilityState: "internal",
 };
 
+/**
+ * Bare /build shows the new-source form; graph-pointer params prefill campaign context.
+ */
 export function BuildSurfacePage() {
   const documentId = useWorkspaceDocumentUrlSelection();
   const graphPointer = parseBuildGraphPointerFromLocation();
@@ -51,6 +59,8 @@ export function BuildSurfacePage() {
   }));
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [editorTools, setEditorTools] = useState<AppChromeTools | null>(null);
+  const emptyMarkdownFallback = useMemo(() => buildWorldbuildingStarterContent(), []);
 
   const handleCreate = useCallback(async (event: FormEvent) => {
     event.preventDefault();
@@ -84,8 +94,9 @@ export function BuildSurfacePage() {
   }, [documentId, graphPointer?.campaignId]);
 
   useEffect(() => {
+    if (documentId) return;
     return publishProjectionSurface(
-      createBuildSurfacePublication({ documentId, label: BUILD_SURFACE_LABEL }),
+      createBuildSurfacePublication({ documentId: null, label: BUILD_SURFACE_LABEL }),
     );
   }, [documentId, publishProjectionSurface]);
 
@@ -103,64 +114,64 @@ export function BuildSurfacePage() {
           <div className="build-surface-new-layout">
             {graphPointer ? <BuildGraphObjectContext /> : null}
             <form onSubmit={(event) => void handleCreate(event)}>
-            <label>
-              Title
-              <input
-                data-testid="build-new-title"
-                value={form.title}
-                onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-              />
-            </label>
-            <label>
-              Campaign
-              <input
-                data-testid="build-new-campaign"
-                value={form.campaignId}
-                onChange={(event) => setForm((current) => ({ ...current, campaignId: event.target.value }))}
-              />
-            </label>
-            <label>
-              Class
-              <input
-                data-testid="build-new-class"
-                value={form.documentClass}
-                onChange={(event) => setForm((current) => ({ ...current, documentClass: event.target.value }))}
-              />
-            </label>
-            <label>
-              Authority
-              <select
-                data-testid="build-new-authority"
-                value={form.authorityState}
-                onChange={(event) => setForm((current) => ({
-                  ...current,
-                  authorityState: event.target.value as WorldbuildingAuthorityState,
-                }))}
-              >
-                <option value="draft">draft</option>
-                <option value="reviewed">reviewed</option>
-                <option value="canonical">canonical</option>
-              </select>
-            </label>
-            <label>
-              Visibility
-              <select
-                data-testid="build-new-visibility"
-                value={form.visibilityState}
-                onChange={(event) => setForm((current) => ({
-                  ...current,
-                  visibilityState: event.target.value as WorldbuildingVisibilityState,
-                }))}
-              >
-                <option value="internal">internal</option>
-                <option value="player_safe">player_safe</option>
-              </select>
-            </label>
-            {createError ? <p role="alert">{createError}</p> : null}
-            <button type="submit" data-testid="build-create-button" disabled={creating}>
-              Create source
-            </button>
-          </form>
+              <label>
+                Title
+                <input
+                  data-testid="build-new-title"
+                  value={form.title}
+                  onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+                />
+              </label>
+              <label>
+                Campaign
+                <input
+                  data-testid="build-new-campaign"
+                  value={form.campaignId}
+                  onChange={(event) => setForm((current) => ({ ...current, campaignId: event.target.value }))}
+                />
+              </label>
+              <label>
+                Class
+                <input
+                  data-testid="build-new-class"
+                  value={form.documentClass}
+                  onChange={(event) => setForm((current) => ({ ...current, documentClass: event.target.value }))}
+                />
+              </label>
+              <label>
+                Authority
+                <select
+                  data-testid="build-new-authority"
+                  value={form.authorityState}
+                  onChange={(event) => setForm((current) => ({
+                    ...current,
+                    authorityState: event.target.value as WorldbuildingAuthorityState,
+                  }))}
+                >
+                  <option value="draft">draft</option>
+                  <option value="reviewed">reviewed</option>
+                  <option value="canonical">canonical</option>
+                </select>
+              </label>
+              <label>
+                Visibility
+                <select
+                  data-testid="build-new-visibility"
+                  value={form.visibilityState}
+                  onChange={(event) => setForm((current) => ({
+                    ...current,
+                    visibilityState: event.target.value as WorldbuildingVisibilityState,
+                  }))}
+                >
+                  <option value="internal">internal</option>
+                  <option value="player_safe">player_safe</option>
+                </select>
+              </label>
+              {createError ? <p role="alert">{createError}</p> : null}
+              <button type="submit" data-testid="build-create-button" disabled={creating}>
+                Create source
+              </button>
+            </form>
           </div>
         </main>
       </AppChrome>
@@ -168,16 +179,17 @@ export function BuildSurfacePage() {
   }
 
   return (
-    <AppChrome activeRoute="build">
+    <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock">
       <MarkdownCanvasSessionProvider
         key={documentId}
         documentId={documentId}
         surface={BUILD_MARKDOWN_CANVAS.surface}
         kind={BUILD_MARKDOWN_CANVAS.kind}
         saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
+        emptyMarkdownFallback={emptyMarkdownFallback}
       >
         <BuildIngestToolbar documentId={documentId} />
-        <BuildSurfaceShell />
+        <BuildSurfaceShell onEditorToolsChange={setEditorTools} />
       </MarkdownCanvasSessionProvider>
     </AppChrome>
   );

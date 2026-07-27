@@ -33,6 +33,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
   };
 });
 
@@ -43,6 +44,33 @@ describe("BuildSurfacePage", () => {
     vi.clearAllMocks();
     localStorage.clear();
     window.history.pushState({}, "", "/build");
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "world",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    } as never);
   });
 
   it("does not create a document on mount without documentId", () => {
@@ -159,6 +187,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_ID);
     });
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
   });
@@ -185,10 +214,10 @@ describe("BuildSurfacePage", () => {
         authority_state: "draft",
         visibility_state: "internal",
       },
-      markdown: `# ${id}\n`,
+      markdown: `# ${id === DOC_ID ? "Doc A" : "Doc B"}\n`,
       content_sha256: `sha-${id}`,
-      file_fingerprint: "absent",
-      file_exists: false,
+      file_fingerprint: id === DOC_ID ? "present" : "absent",
+      file_exists: id === DOC_ID,
       loaded_revision: 1,
     }));
 

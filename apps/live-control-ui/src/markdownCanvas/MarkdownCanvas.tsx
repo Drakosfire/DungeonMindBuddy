@@ -31,6 +31,8 @@ export interface MarkdownCanvasSlots {
   conflictTestId?: string;
   statusTestId?: string;
   saveErrorTestId?: string;
+  /** Optional markdown theme attribute for styled prose canvases. */
+  editorMdTheme?: string;
 }
 
 export interface MarkdownCanvasProps {
@@ -62,6 +64,7 @@ export function MarkdownCanvas({ slots = {} }: MarkdownCanvasProps) {
     conflictTestId,
     statusTestId,
     saveErrorTestId,
+    editorMdTheme,
   } = slots;
 
   if (session.phase === "loading" || session.phase === "unloaded") {
@@ -112,7 +115,7 @@ export function MarkdownCanvas({ slots = {} }: MarkdownCanvasProps) {
         {statusExtra}
       </header>
 
-      <section className={editorClassName}>
+      <section className={editorClassName} {...(editorMdTheme ? { "data-md-theme": editorMdTheme } : {})}>
         <MarkdownEditorCore
           documentKey={session.documentKey}
           content={session.editorContent as Content}

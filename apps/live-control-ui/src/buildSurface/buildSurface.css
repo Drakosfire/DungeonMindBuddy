@@ -1,0 +1,109 @@
+/* Build canvas chrome — reuses Plan/spike editor look without owning a new theme. */
+
+.build-surface-shell {
+  width: min(1440px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.build-surface-header,
+.markdown-canvas-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.build-surface-shell h1,
+.markdown-canvas-header h1 {
+  margin: 0;
+}
+
+.build-surface-shell .markdown-canvas-header p,
+.build-surface-shell > header p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted, #9aa3b5);
+}
+
+.build-surface-editor {
+  margin-top: 0.5rem;
+}
+
+.build-surface-editor.tiptap-spike-editor .ProseMirror,
+.build-surface-editor .ProseMirror {
+  min-height: min(70vh, 720px);
+}
+
+.markdown-canvas-actions,
+.build-surface-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.markdown-canvas-actions button,
+.build-surface-actions button {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #2a3142;
+  border-radius: 7px;
+  background: #12141a;
+  color: var(--text, #e8eaef);
+  cursor: pointer;
+}
+
+.markdown-canvas-actions button:disabled,
+.build-surface-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.markdown-canvas-actions button.primary,
+.build-surface-actions button.primary {
+  background: #7aa2f7;
+  color: #0b1020;
+  font-weight: 700;
+  border-color: transparent;
+}
+
+.build-ingest-toolbar {
+  width: min(1440px, calc(100% - 2rem));
+  margin: 0.75rem auto 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid #2a3142;
+  border-radius: 10px;
+  background: rgba(23, 27, 36, 0.9);
+}
+
+.build-ingest-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.build-ingest-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.build-ingest-toolbar-actions button,
+.build-ingest-toolbar-actions a {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #2a3142;
+  border-radius: 7px;
+  background: #12141a;
+  color: var(--text, #e8eaef);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.build-ingest-toolbar-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

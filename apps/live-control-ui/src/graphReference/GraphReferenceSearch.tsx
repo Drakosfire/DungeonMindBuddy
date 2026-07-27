@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { GraphReferenceProjectionState, GraphReferenceSearchItem } from "./types";
 import { searchGraphReferences, sortGraphReferenceItems } from "./searchGraphReferences";
@@ -10,6 +10,8 @@ export interface GraphReferenceSearchProps {
   projectionError?: string | null;
   /** Disables chip insert only. Search and view stay available while editing is locked. */
   insertDisabled?: boolean;
+  /** Seeds the search field when opened from another Build surface action. */
+  initialQuery?: string;
   onInsert: (attrs: RunbookReferenceAttrs) => void;
   onView?: (item: GraphReferenceSearchItem) => void;
 }
@@ -19,10 +21,15 @@ export function GraphReferenceSearch({
   projectionState,
   projectionError = null,
   insertDisabled = false,
+  initialQuery = "",
   onInsert,
   onView,
 }: GraphReferenceSearchProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   const results = useMemo(() => {
     const matched = sortGraphReferenceItems(searchGraphReferences(items, query));
