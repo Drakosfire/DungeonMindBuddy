@@ -1,11 +1,11 @@
 # PR Tracker — Threat + Statblock Authoring and Projection
 
 **Status:** ACTIVE SLICE / IMPLEMENTATION
-**Date:** 2026-07-26
-**PR base / repository tip:** `8a73b101` on `main` (`#417` SBW06a merge)
-**Logical SBW predecessor:** `#417` / `8a73b101` — `SBW06a` MERGED
-**This PR:** SBW Dogfood Gate A — context-aware Workbench ThreatDraft create-and-generate
-**Next dispatch after this PR merges:** **operator dogfood pause** — `SBW06b` not auto-dispatched
+**Date:** 2026-07-27
+**PR base / repository tip:** `13b2e258` on `main` (`#425` Dogfood Gate A merge)
+**Logical SBW predecessor:** `#425` / `13b2e258` — Dogfood Gate A MERGED
+**This PR / active focus:** none (doc-sync complete) — next dispatch `SBW06b`
+**Next dispatch:** `SBW06b` (ThreatDraft ref + embedded lineage CAS)
 **Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).
 
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
@@ -45,7 +45,7 @@ Required deletion owner:
 | `SBW04` | MERGED `#397` (`40ea5234`); **live-proof debt open** | `SBW03` | Shared semantic renderer + real read-only candidate workbench | [`HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`](HANDOFF-sbw04-semantic-renderer-candidate-workbench.md) |
 | `SBW05` | MERGED — `05a` `#398`; `05b` `#402`; `05c` `#404` / `427a357b` | `SBW04` | Complete-definition editing + authoritative preview validation | [`HANDOFF-sbw05-typed-candidate-edit-validation.md`](HANDOFF-sbw05-typed-candidate-edit-validation.md) |
 | `SBW07` | COMPLETE — `07-contract` `#405`; `07a` `#406`; `07b` `#407`; `07c` `#409` / `455daf49` | `SBW05` | Persist accepted mechanics as exact immutable first revision | [`HANDOFF-sbw07-persist-accepted-mechanics.md`](HANDOFF-sbw07-persist-accepted-mechanics.md) |
-| `SBW06` | IN PROGRESS — `06-contract` MERGED `#413`; `06a` MERGED `#417`; **Dogfood Gate A (this PR)**; `06b–d` **PAUSED** | `SBW05` + `SBW07` + `SBW06a` | Revise/regenerate candidate lineage; dogfood entry before continuing | [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md); dogfood [`HANDOFF-sbw-dogfood-create-generate.md`](HANDOFF-sbw-dogfood-create-generate.md) |
+| `SBW06` | IN PROGRESS — contract MERGED `#413`; `06a` MERGED `#417`; Dogfood Gate A MERGED `#425`; next `06b` | `SBW05` + `SBW07` + `SBW06a` | Revise/regenerate candidate lineage | [`HANDOFF-sbw06-candidate-revise-lineage.md`](HANDOFF-sbw06-candidate-revise-lineage.md); dogfood archived [`HANDOFF-sbw-dogfood-create-generate.md`](archive/2026-07-27/handoffs/HANDOFF-sbw-dogfood-create-generate.md) |
 | `SBW08` | PRE-DESIGNED / PARALLEL | Stable current graph contracts | External statblock resource + typed Threat binding graph contract | [`HANDOFF-sbw08-world-graph-statblock-binding-contract.md`](HANDOFF-sbw08-world-graph-statblock-binding-contract.md) |
 | `SBW09` | PRE-DESIGNED | `SBW07–08` + governed graph review | Publish planned Threat + exact binding through preview/confirm | [`HANDOFF-sbw09-governed-threat-binding-publication.md`](HANDOFF-sbw09-governed-threat-binding-publication.md) |
 | `SBW10` | PRE-DESIGNED | `SBW09` | Exact-revision Threat Sheet/full view | [`HANDOFF-sbw10-exact-revision-threat-sheet.md`](HANDOFF-sbw10-exact-revision-threat-sheet.md) |
@@ -199,8 +199,8 @@ These are not owned by `SBW14`. Before dispatch, decompose them according to the
 |---|---|---|---|
 | `SBW06-contract` | MERGED `#413` | Doc-only revise journal + lineage/status transition table (§12 freeze) | Implementation code |
 | `SBW06a` | MERGED `#417` / `8a73b101` | Revise from edited `source_definition` + revise journal | Status UI, ThreatDraft attach as ordinary success |
-| `Dogfood Gate A` | **this PR** | Context-aware Workbench ThreatDraft create-and-generate | Editor expansion, revise UI/lineage, draft management UI |
-| `SBW06b` | **PAUSED** after operator dogfood | Candidate-ref status + lineage persistence | UI, accepted-revision revise |
+| `Dogfood Gate A` | MERGED `#425` / `13b2e258` | Context-aware Workbench ThreatDraft create-and-generate | Editor expansion, revise UI/lineage, draft management UI |
+| `SBW06b` | **next** — ready to dispatch | Candidate-ref status + lineage persistence | UI, accepted-revision revise |
 | `SBW06c` | after `SBW06b` | Revise UI | Accepted-revision source |
 | `SBW06d` | after `SBW06c` | Revise from accepted `source_locator` | Graph, compare, media |
 

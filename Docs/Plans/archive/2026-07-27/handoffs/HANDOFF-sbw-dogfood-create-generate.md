@@ -1,14 +1,16 @@
+> **Status:** MERGED `#425` / `13b2e258` (2026-07-27). Dogfood Gate A complete. **Successor:** `SBW06b`.
+
 # HANDOFF — SBW Dogfood Gate A: Context-Aware ThreatDraft Create-and-Generate
 
 **Created:** 2026-07-26
-**Status:** ACTIVE — dispatch exactly one demo-enablement capability, then pause for operator dogfood.
-**Canonical handoff path:** `Docs/Plans/HANDOFF-sbw-dogfood-create-generate.md`
+**Status:** MERGED `#425` / `13b2e258` (2026-07-27)
+**Canonical handoff path:** `Docs/Plans/archive/2026-07-27/handoffs/HANDOFF-sbw-dogfood-create-generate.md`
 **Implementation base:** `8a73b10185e0e4b5c84bca92c2b1f3e0deda9432`
-**Suggested branch:** `feat/sbw-dogfood-create-generate`
+**Merge tip:** `13b2e25856db945d67bfd0e6dcfae8b7c1446f63` (PR `#425`)
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Workstream:** Threat + Statblock Authoring and Projection
 **Predecessor:** PR `#417`, `SBW06a` merged
-**Paused successor:** `SBW06b` — do not begin automatically after this PR
+**Next slice:** `SBW06b` — ThreatDraft ref + embedded lineage CAS
 
 > This is an intentional dogfood/demo pause inserted between `SBW06a` and `SBW06b`. Its purpose is to expose the already-built prose → durable ThreatDraft → DungeonMindServer candidate → structured workbench path without requiring manual API calls or copying draft IDs and versions between tools.
 
