@@ -6,9 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import type { PlanReferenceProjectionBinding } from "../projection/projectionBindings";
 import { ProjectionProvider, useProjection } from "../projection/projectionContext";
 import type { SurfaceConfig } from "../types";
 import { PlanReferenceObjectCard } from "./PlanReferenceObjectCard";
+import { PlanReferenceProjectionBinding as PlanReferenceProjectionBindingMount } from "./PlanReferenceProjectionBinding";
 import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
 import { PlanGraphReferenceResolverProvider } from "./usePlanGraphReferenceResolver";
 
@@ -138,22 +140,8 @@ const surfaceConfig: SurfaceConfig = {
   sessionDescriptor,
 };
 
-function renderWithProjection(ui: ReactElement) {
-  return render(
-    <ProjectionProvider config={surfaceConfig}>
-      <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-        {ui}
-      </PlanGraphReferenceResolverProvider>
-    </ProjectionProvider>,
-  );
-}
-
-function renderWithResolver(ui: ReactElement) {
-  return render(
-    <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-      {ui}
-    </PlanGraphReferenceResolverProvider>,
-  );
+function renderBare(ui: ReactElement) {
+  return render(ui);
 }
 
 function PlanReferenceProjectionHarness({
@@ -161,7 +149,12 @@ function PlanReferenceProjectionHarness({
 }: {
   initialResolution: PlanReferenceResolution;
 }) {
-  const { activePlanReference, planProjectionState, openPlanReferenceResolution } = useProjection();
+  const {
+    activePlanReference,
+    planProjectionState,
+    openPlanReferenceResolution,
+    planReferenceBinding,
+  } = useProjection();
   const seeded = useRef(false);
 
   useEffect(() => {
@@ -179,8 +172,56 @@ function PlanReferenceProjectionHarness({
       resolution={activePlanReference}
       sessionDescriptor={sessionDescriptor}
       projectionState={planProjectionState}
+      planReferenceBinding={planReferenceBinding}
+      glanceOnly={false}
     />
   );
+}
+
+function renderHarness(initialResolution: PlanReferenceResolution) {
+  return render(
+    <ProjectionProvider config={surfaceConfig}>
+      <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+        <PlanReferenceProjectionBindingMount />
+        <PlanReferenceProjectionHarness initialResolution={initialResolution} />
+      </PlanGraphReferenceResolverProvider>
+    </ProjectionProvider>,
+  );
+}
+
+function renderWithLiveBinding(card: ReactElement) {
+  function BoundCard() {
+    const { planReferenceBinding } = useProjection();
+    const props = card.props as React.ComponentProps<typeof PlanReferenceObjectCard>;
+    return (
+      <PlanReferenceObjectCard
+        {...props}
+        planReferenceBinding={planReferenceBinding}
+        glanceOnly={false}
+      />
+    );
+  }
+
+  return render(
+    <ProjectionProvider config={surfaceConfig}>
+      <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
+        <PlanReferenceProjectionBindingMount />
+        <BoundCard />
+      </PlanGraphReferenceResolverProvider>
+    </ProjectionProvider>,
+  );
+}
+
+function mockBinding(
+  overrides: Partial<PlanReferenceProjectionBinding> = {},
+): PlanReferenceProjectionBinding {
+  return {
+    resolverState: "ready",
+    resolveRelationship: vi.fn(),
+    openResolvedReference: vi.fn(),
+    openTool: vi.fn(),
+    ...overrides,
+  };
 }
 
 describe("PlanReferenceObjectCard", () => {
@@ -230,7 +271,7 @@ describe("PlanReferenceObjectCard", () => {
     };
 
     const user = userEvent.setup();
-    renderWithResolver(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
 
     const card = screen.getByLabelText(/Glowkindle graph object/i);
     expect(card).toHaveClass("graph-object-card");
@@ -269,7 +310,7 @@ describe("PlanReferenceObjectCard", () => {
     };
 
     const user = userEvent.setup();
-    renderWithResolver(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
 
     const card = screen.getByLabelText(/Glowkindle graph object/i);
     const details = within(card).getByText("Details").closest("details");
@@ -299,8 +340,13 @@ describe("PlanReferenceObjectCard", () => {
     };
 
     const user = userEvent.setup();
-    renderWithProjection(
-      <PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />,
+    const openTool = vi.fn();
+    renderBare(
+      <PlanReferenceObjectCard
+        resolution={resolution}
+        sessionDescriptor={sessionDescriptor}
+        planReferenceBinding={mockBinding({ openTool })}
+      />,
     );
 
     const card = screen.getByLabelText(/Tripod Null-Calf graph object/i);
@@ -312,7 +358,7 @@ describe("PlanReferenceObjectCard", () => {
     );
 
     await user.click(within(card).getByRole("button", { name: "Open statblock tool" }));
-    expect(within(card).getByRole("button", { name: "Open statblock tool" })).toBeInTheDocument();
+    expect(openTool).toHaveBeenCalledWith("statblock");
   });
 
   it("omits Open statblock tool when projection context is unavailable", () => {
@@ -333,7 +379,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "ready",
     };
 
-    renderWithResolver(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
+    renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
 
     expect(screen.queryByRole("button", { name: "Open statblock tool" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Review memory in \/ingest/i })).toBeInTheDocument();
@@ -351,7 +397,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "ready",
     };
 
-    renderWithProjection(<PlanReferenceProjectionHarness initialResolution={initialResolution} />);
+    renderHarness(initialResolution);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
@@ -383,7 +429,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "ready",
     };
 
-    renderWithProjection(
+    renderWithLiveBinding(
       <PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />,
     );
 
@@ -422,7 +468,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "ready",
     };
 
-    renderWithProjection(<PlanReferenceProjectionHarness initialResolution={initialResolution} />);
+    renderHarness(initialResolution);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
@@ -476,7 +522,7 @@ describe("PlanReferenceObjectCard", () => {
       json: async () => ({ locations: [] }),
     } as Response);
 
-    renderWithProjection(<PlanReferenceProjectionHarness initialResolution={initialResolution} />);
+    renderHarness(initialResolution);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Glowkindle graph object/i)).toBeInTheDocument();
@@ -507,7 +553,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "ready",
     };
 
-    renderWithResolver(
+    renderBare(
       <PlanReferenceObjectCard
         resolution={resolution}
         sessionDescriptor={sessionDescriptor}
@@ -553,7 +599,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "ready",
     };
 
-    renderWithResolver(
+    renderBare(
       <PlanReferenceObjectCard
         resolution={resolution}
         sessionDescriptor={sessionDescriptor}
@@ -603,7 +649,7 @@ describe("PlanReferenceObjectCard", () => {
       graphProjectionState: "unavailable",
     };
 
-    renderWithResolver(
+    renderBare(
       <PlanReferenceObjectCard
         resolution={resolution}
         sessionDescriptor={sessionDescriptor}

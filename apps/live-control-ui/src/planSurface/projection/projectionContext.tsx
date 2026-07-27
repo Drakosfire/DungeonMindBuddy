@@ -10,11 +10,25 @@ import {
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
 import type { PlanGraphProjectionState, PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import type { ActiveProjection, ProjectionSize, SurfaceConfig } from "../types";
+import type {
+  GraphReviewDiagnosticsProjectionPayload,
+  PlanReferenceProjectionBinding,
+  RegisterableToolProjectionId,
+  ToolProjectionPayloadMap,
+} from "./projectionBindings";
+import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "./projectionBindings";
+
+interface BindingRegistration<T> {
+  token: symbol;
+  value: T;
+}
 
 interface ProjectionContextValue {
   active: ActiveProjection | null;
   activePlanReference: PlanReferenceResolution | null;
   planProjectionState: PlanGraphProjectionState | null;
+  planReferenceBinding: PlanReferenceProjectionBinding | null;
+  graphReviewDiagnosticsPayload: GraphReviewDiagnosticsProjectionPayload | null;
   openTool: (toolId: string) => void;
   openContentFromChip: (
     ref: RunbookReferenceAttrs,
@@ -29,6 +43,11 @@ interface ProjectionContextValue {
   ) => void;
   expandContent: () => void;
   close: () => void;
+  registerPlanReferenceBinding: (binding: PlanReferenceProjectionBinding) => () => void;
+  registerToolProjectionPayload: <K extends RegisterableToolProjectionId>(
+    toolId: K,
+    payload: ToolProjectionPayloadMap[K],
+  ) => () => void;
 }
 
 const ProjectionContext = createContext<ProjectionContextValue | null>(null);
@@ -48,6 +67,12 @@ export function ProjectionProvider({
   const [active, setActive] = useState<ActiveProjection | null>(null);
   const [activePlanReference, setActivePlanReference] = useState<PlanReferenceResolution | null>(null);
   const [planProjectionState, setPlanProjectionState] = useState<PlanGraphProjectionState | null>(null);
+  const [planReferenceRegistration, setPlanReferenceRegistration] = useState<
+    BindingRegistration<PlanReferenceProjectionBinding> | null
+  >(null);
+  const [diagnosticsRegistration, setDiagnosticsRegistration] = useState<
+    BindingRegistration<GraphReviewDiagnosticsProjectionPayload> | null
+  >(null);
 
   const close = useCallback(() => {
     setActive(null);
@@ -121,26 +146,57 @@ export function ProjectionProvider({
     });
   }, []);
 
+  const registerPlanReferenceBinding = useCallback((binding: PlanReferenceProjectionBinding) => {
+    const token = Symbol("plan-reference-binding");
+    setPlanReferenceRegistration({ token, value: binding });
+    return () => {
+      setPlanReferenceRegistration((current) => (current?.token === token ? null : current));
+    };
+  }, []);
+
+  const registerToolProjectionPayload = useCallback(
+    <K extends RegisterableToolProjectionId>(toolId: K, payload: ToolProjectionPayloadMap[K]) => {
+      if (toolId !== GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID) {
+        return () => undefined;
+      }
+      const token = Symbol(`tool-payload:${toolId}`);
+      const typedPayload = payload as GraphReviewDiagnosticsProjectionPayload;
+      setDiagnosticsRegistration({ token, value: typedPayload });
+      return () => {
+        setDiagnosticsRegistration((current) => (current?.token === token ? null : current));
+      };
+    },
+    [],
+  );
+
   const value = useMemo(
     () => ({
       active,
       activePlanReference,
       planProjectionState,
+      planReferenceBinding: planReferenceRegistration?.value ?? null,
+      graphReviewDiagnosticsPayload: diagnosticsRegistration?.value ?? null,
       openTool,
       openContentFromChip,
       openPlanReferenceResolution,
       expandContent,
       close,
+      registerPlanReferenceBinding,
+      registerToolProjectionPayload,
     }),
     [
       active,
       activePlanReference,
       close,
+      diagnosticsRegistration,
       expandContent,
       openContentFromChip,
       openPlanReferenceResolution,
       openTool,
       planProjectionState,
+      planReferenceRegistration,
+      registerPlanReferenceBinding,
+      registerToolProjectionPayload,
     ],
   );
 

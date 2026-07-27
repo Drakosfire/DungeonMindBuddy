@@ -12,6 +12,7 @@ import { EditCapabilityProvider } from "./edit/editCapability";
 import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
 import { ProjectionProvider } from "./projection/projectionContext";
 import { PlanGraphLensProvider } from "./PlanGraphLensContext";
+import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
 import type { PlanDocumentDescriptor, PlanSurfaceConfig } from "./types";
 import "./planSurface.css";
@@ -88,6 +89,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
       <ProjectionProvider config={config}>
         <PlanGraphLensProvider planCampaignId={config.sessionDescriptor.campaignId}>
           <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
+          <PlanReferenceProjectionBinding />
           <div
             className="plan-surface-root"
             data-surface={config.id}
