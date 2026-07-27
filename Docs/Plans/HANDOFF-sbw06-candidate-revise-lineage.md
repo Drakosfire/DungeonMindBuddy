@@ -2,13 +2,14 @@
 
 **Created:** 2026-07-22
 **Updated:** 2026-07-27 — `#417` SBW06a MERGED (`8a73b101`); `#425` Dogfood Gate A MERGED (`13b2e258`)
-**Status:** `SBW06b` — NEXT (after Gate A `#425`)
+**Status:** `SBW06b` — ACTIVE (revise candidate reconciliation)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`
 **Workstream:** `SBW06`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **PR base / repository tip:** `13b2e258` on `main` (`#425` Dogfood Gate A merge)
 **Logical SBW predecessor:** `#425` / `13b2e25856db945d67bfd0e6dcfae8b7c1446f63` — Dogfood Gate A MERGED
-**Next dispatch:** `SBW06b` — ThreatDraft ref + embedded `CandidateLineageV1` CAS
+**This PR:** `SBW06b` — lineage-on-ref + atomic source status
+**Next after this PR merges:** `SBW06c` (Workbench revise UX)
 
 > Dispatch one capability across a contract PR plus four code PRs: create a new candidate proposal from an exact source and preserve lineage. Do not persist mechanics, compare accepted revisions, update graph bindings, or generate media.
 
@@ -18,7 +19,7 @@
 |---|---|---|---|---|
 | `SBW06-contract` | MERGED `#413` | Doc-only: freeze §12 revise authority tables | Docs only; no implementation | All code |
 | `SBW06a` | MERGED `#417` / `8a73b101` | Exact edited `source_definition` adapter + revise journal | Client + revision service + tests | Status UI, accepted-revision source, ThreatDraft lineage attach as ordinary success |
-| `SBW06b` | **next** | Durable candidate ref with embedded `CandidateLineageV1`, status transitions | Draft store/ref transitions + tests implementing frozen §12.8 | UI, accepted-revision revise |
+| `SBW06b` | **THIS PR** | Durable candidate ref with embedded `CandidateLineageV1`, status transitions | Draft store/ref transitions + tests implementing frozen §12.8 | UI, accepted-revision revise |
 | `SBW06c` | after `SBW06b` | Workbench revise UX | Workbench + liveApi | Accepted-revision source, compare, append |
 | `SBW06d` | after `SBW06c` | Exact accepted `source_locator` revise | Service/route/UI using SBW07 locators | Graph, SBW13 append, compare, media |
 
