@@ -1258,3 +1258,134 @@ describe("IngestionModule", () => {
     expect(proveCanonical).toHaveTextContent("Found");
   });
 });
+
+describe("IngestionModule PR380B characterization (Recap CTA vs preview union)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function renderWithStatus(status: RecapIngestStatus) {
+    vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") {
+        return status;
+      }
+      return status;
+    });
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    if (status.status === "ready_for_planning_activation") {
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Open Recap View" })).toBeInTheDocument();
+      });
+    } else {
+      await waitFor(() => {
+        expect(recapIngestApi.postRecapIngest).toHaveBeenCalled();
+      });
+    }
+  }
+
+  it("does not render Open Recap View before ready_for_planning_activation", async () => {
+    await renderWithStatus(
+      makeStatus({
+        status: "recap_applied",
+        states: ["recap_applied", "normalized_created"],
+      }),
+    );
+    expect(screen.queryByRole("button", { name: "Open Recap View" })).not.toBeInTheDocument();
+  });
+
+  it("requires preview union or materialization signal once inspect hydrates ready_for_planning_activation", async () => {
+    await renderWithStatus(
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "preview_union_store_ready", "ready_for_planning_activation"],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+  });
+
+  it("enables Open Recap View when preview union store is ready", async () => {
+    await renderWithStatus(
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "preview_union_store_ready", "ready_for_planning_activation"],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+  });
+
+  it("enables Open Recap View when session memory is materialized without preview union", async () => {
+    await renderWithStatus(
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: [
+          "recap_applied",
+          "session_memory_materialized",
+          "ready_for_planning_activation",
+        ],
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+  });
+
+  it("treats ready_for_planning_activation status as materialized for canOpenRecapView", async () => {
+    await renderWithStatus(
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "ready_for_planning_activation"],
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+  });
+
+  it("navigates to Recap without campaign query param on current main", async () => {
+    const user = setupIngestUser();
+    const assign = vi.spyOn(window.location, "assign").mockImplementation(() => undefined);
+    mockRecapIngestWithInspect(() =>
+      makeStatus({
+        status: "ready_for_planning_activation",
+        states: [
+          "recap_applied",
+          "session_memory_materialized",
+          "preview_union_store_ready",
+          "ready_for_planning_activation",
+        ],
+        ingest_report: {
+          graph_preview: {
+            status: "preview_union_store_ready",
+            preview_union_store_path: "out/graph_memory/runs/longmont-c2/session-22/run/preview_union_supergraph.json",
+            can_open_union_graph: true,
+          },
+        },
+      }),
+    );
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await fillRecapInputs(user, "Session 22 Recap\n\nBody.", "Session 22 - Title");
+    await user.click(screen.getByRole("button", { name: "Generate Recap Memory" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open Recap View" })).toBeEnabled();
+    });
+    await user.click(screen.getByRole("button", { name: "Open Recap View" }));
+    expect(assign).toHaveBeenCalledWith("/plan?tool=recap&session=session-22");
+    expect(assign.mock.calls[0]?.[0]).not.toContain("campaign=");
+    assign.mockRestore();
+  });
+});

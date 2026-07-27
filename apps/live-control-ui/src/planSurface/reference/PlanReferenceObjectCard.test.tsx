@@ -1,5 +1,8 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ReactElement } from "react";
 import { useEffect, useRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -612,5 +615,16 @@ describe("PlanReferenceObjectCard", () => {
     );
 
     expect(screen.getByText(/World Graph projection is unavailable/i)).toBeInTheDocument();
+  });
+
+  it("PR380B: still Plan-owns graph card rendering until GraphObjectProjectionCard hoist", () => {
+    expect(
+      existsSync(
+        path.join(
+          path.dirname(fileURLToPath(import.meta.url)),
+          "../../graphObjectCard/GraphObjectProjectionCard.tsx",
+        ),
+      ),
+    ).toBe(false);
   });
 });

@@ -186,4 +186,15 @@ describe("BuildSurfacePage", () => {
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(await screen.findByTestId("build-new-source-form")).toBeInTheDocument();
   });
+
+  it("PR380B: ignores graphNodeId/graphRevision URL params until Build graph context lands", () => {
+    window.history.pushState(
+      {},
+      "",
+      "/build?campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=wg-rev-test",
+    );
+    renderBuildPage();
+    expect(screen.getByTestId("build-new-source-form")).toBeInTheDocument();
+    expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
+  });
 });

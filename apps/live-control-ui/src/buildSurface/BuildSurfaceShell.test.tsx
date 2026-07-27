@@ -1,6 +1,9 @@
 import type { ComponentProps } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
@@ -763,5 +766,22 @@ describe("BuildSurfaceShell", () => {
     const storedRaw = window.localStorage.getItem(workspaceDocumentStorageKey(DOC_ID));
     expect(storedRaw).toBeTruthy();
     expect(JSON.parse(storedRaw!).base_revision).toBe(2);
+  });
+
+  it("PR380B: Build shell has no graph-object context lane on current main", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    window.history.pushState(
+      {},
+      "",
+      `/build?documentId=${DOC_ID}&campaign=longmont-c2&graphNodeId=pc_caelynn&graphRevision=wg-rev-test`,
+    );
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await waitFor(() => {
+      expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("build-graph-object-context")).not.toBeInTheDocument();
+    expect(
+      existsSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "BuildGraphObjectContext.tsx")),
+    ).toBe(false);
   });
 });

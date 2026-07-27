@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { WorldGraphProjectionNodeView } from "../../api/types";
 import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
@@ -87,5 +90,22 @@ describe("adaptWorldGraphNodeForPlanCard", () => {
       }],
     };
     expect(adaptWorldGraphNodeForPlanCard(relatedNode).adjacency[0]?.direction).toBe("related");
+  });
+});
+
+describe("worldGraphProjectionAdapter PR380B hoist compatibility", () => {
+  it("currently owns adaptWorldGraphNodeForPlanCard locally (pre-hoist)", () => {
+    expect(adaptWorldGraphNodeForPlanCard).toBeTypeOf("function");
+  });
+
+  it("target: neutral worldGraphNodeViewAdapter module will replace direct Plan ownership", () => {
+    expect(
+      existsSync(
+        path.join(
+          path.dirname(fileURLToPath(import.meta.url)),
+          "../../worldGraph/worldGraphNodeViewAdapter.ts",
+        ),
+      ),
+    ).toBe(false);
   });
 });

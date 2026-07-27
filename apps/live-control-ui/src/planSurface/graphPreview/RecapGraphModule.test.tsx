@@ -1,10 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import type { RecapArtifactRecord } from "../../api/types";
 import { RecapGraphModule } from "./RecapGraphModule";
 import { session23UnionSupergraphFixture } from "./unionSupergraphFixture";
+import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
 
 const context = {
   campaignId: "longmont-c2",
@@ -219,6 +223,70 @@ describe("RecapGraphModule", () => {
     expect(screen.queryByRole("button", { name: "Open legacy recap preview" })).not.toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Graph projection is not ready for session-24 in longmont-c2. Recap memory exists, but no lineage-matched preview union projection was found.",
+    );
+  });
+});
+
+describe("RecapGraphModule PR380B characterization (current Union authority)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState({}, "", "/plan?tool=recap&session=session-24");
+    mockArtifacts();
+  });
+
+  it("locks latest-ingest Union selector with recap lineage fields (target: World recap route)", async () => {
+    const getUnion = vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+      ...session23UnionSupergraphFixture,
+      session_id: "session-24",
+      focus: { ...session23UnionSupergraphFixture.focus, focus_session_id: "session-24" },
+    });
+
+    render(<RecapGraphModule context={context} />);
+
+    await waitFor(() => {
+      expect(getUnion).toHaveBeenCalledWith({
+        campaignId: "longmont-c2",
+        sessionId: "session-24",
+        useLatestGraphIngest: true,
+        sourceRecapPath: artifactRecord(24).source_recap_path,
+        sourceRecapSha256: artifactRecord(24).source_sha256,
+      });
+    });
+    const liveApiModule = await import("../../api/liveApi");
+    expect(liveApiModule).not.toHaveProperty("postWorldGraphRecapProjection");
+  });
+
+  it("composes UnionSupergraphRecapProjection instead of neutral graph-object card module", () => {
+    const dir = path.dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(path.join(dir, "RecapGraphModule.tsx"), "utf8");
+    expect(source).toContain("UnionSupergraphRecapProjection");
+    expect(source).toContain("getUnionSupergraphProjection");
+    expect(source).not.toContain("GraphObjectProjectionCard");
+    expect(source).not.toContain("postWorldGraphRecapProjection");
+    expect(() =>
+      readFileSync(path.join(dir, "../../graphObjectCard/GraphObjectProjectionCard.tsx")),
+    ).toThrow();
+  });
+
+  it("does not expose Continue in Build on current Union-backed recap", async () => {
+    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+      ...session23UnionSupergraphFixture,
+      session_id: "session-24",
+    });
+
+    render(<RecapGraphModule context={context} />);
+
+    await screen.findByText(/Source: latest graph-ingest preview/i);
+    expect(screen.queryByRole("button", { name: /Continue in Build/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Continue in Build/i })).not.toBeInTheDocument();
+  });
+
+  it("documents PR380A fixture vocabulary for post-migration Recap proofs", () => {
+    expect(session23WorldGraphRecapFixture.schema).toBe("dmb_world_graph_recap_projection_v1");
+    expect(session23WorldGraphRecapFixture.snapshot.revisionId).toBeTruthy();
+    expect(session23WorldGraphRecapFixture.nodeViews.pc_caelynn?.anchoredToFocusSession).toBe(true);
+    expect(session23WorldGraphRecapFixture.nodeViews.loc_mirathorn?.anchoredToFocusSession).toBe(
+      false,
     );
   });
 });
