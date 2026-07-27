@@ -111,6 +111,31 @@ def test_union_supergraph_projection_api_includes_suggested_expansions() -> None
     assert caelynn["suggested_expansions"][1]["node_id"] == "loc_mirathorn"
 
 
+_CLOSED_API_DIRECTIONS = frozenset({"outgoing", "incoming", "related"})
+
+
+def test_union_supergraph_projection_api_emits_only_closed_directions() -> None:
+    """Non-vacuous recursive walk: every adjacency/expansion direction is closed."""
+    payload = _get_projection_payload()
+    direction_leaves: list[tuple[str, str]] = []
+    for node_id, node_view in payload["node_views"].items():
+        for index, candidate in enumerate(node_view.get("adjacency") or []):
+            path = f"/node_views/{node_id}/adjacency/{index}/direction"
+            direction_leaves.append((path, candidate["direction"]))
+        for index, expansion in enumerate(node_view.get("suggested_expansions") or []):
+            path = f"/node_views/{node_id}/suggested_expansions/{index}/direction"
+            direction_leaves.append((path, expansion["direction"]))
+
+    assert direction_leaves, "endpoint proof must observe at least one direction leaf"
+    unexpected = [
+        (path, value)
+        for path, value in direction_leaves
+        if value not in _CLOSED_API_DIRECTIONS
+    ]
+    assert unexpected == []
+    assert {value for _, value in direction_leaves} <= _CLOSED_API_DIRECTIONS
+
+
 def test_union_supergraph_projection_api_preserves_focus_metadata() -> None:
     payload = _get_projection_payload()
 
