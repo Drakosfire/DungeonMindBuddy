@@ -1118,6 +1118,137 @@ def test_reconcile_expired_requires_exact_expires_at_evidence(tmp_path: Path) ->
     assert source_ref.status == "expired"
 
 
+def test_reconcile_rejects_future_expiry_even_with_exact_timestamp(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.models.threat_draft import (
+        RequestedSourceStatusTransitionV1,
+        ThreatDraftCandidateRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        append_candidate_ref,
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    source = ThreatDraftCandidateRefV1(
+        candidate_id="cand_sourcefut1",
+        generated_from_draft_version=1,
+        request_id="req_source_fut",
+        created_at="2026-07-26T00:00:00Z",
+        expires_at="2099-01-01T00:00:00Z",
+        status="active",
+    )
+    draft = append_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=1,
+        candidate_ref=source,
+    )
+    revise_ref = _revise_candidate_ref(
+        candidate_id="cand_revisefut1",
+        request_id="req_revise_fut",
+        draft_id=created.draft_id,
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        reconcile_revise_candidate_ref(
+            tmp_path,
+            draft_id=created.draft_id,
+            expected_version=draft.version,
+            candidate_ref=revise_ref,
+            requested_source_transition=RequestedSourceStatusTransitionV1(
+                source_candidate_id="cand_sourcefut1",
+                to_status="expired",
+                exact_expires_at="2099-01-01T00:00:00Z",
+            ),
+        )
+    assert exc_info.value.status_code == 409
+    assert "past" in str(exc_info.value).lower()
+    assert get_threat_draft(tmp_path, created.draft_id).version == draft.version
+
+
+def test_reconcile_rejects_candidate_and_accepted_revision_lineage_origins(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.models.threat_draft import (
+        CandidateLineageV1,
+        ThreatDraftCandidateRefV1,
+    )
+    from apps.live_control_server.services.threat_draft_store import (
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    candidate_lineage = CandidateLineageV1.model_validate(
+        {
+            "schema": "dmb_candidate_lineage_v1",
+            "revise_request_id": "req_cand_origin",
+            "source_origin_kind": "candidate",
+            "instruction_options_digest": "sha256:" + "b" * 64,
+            "created_at": "2026-07-27T00:00:00Z",
+            "candidate": {
+                "source_candidate_id": "cand_prior01",
+                "source_candidate_request_id": "req_prior",
+                "draft_id": created.draft_id,
+                "source_generated_from_draft_version": 1,
+                "source_definition_digest": "sha256:" + "c" * 64,
+            },
+        }
+    )
+    cand_ref = ThreatDraftCandidateRefV1(
+        candidate_id="cand_fromcand1",
+        generated_from_draft_version=1,
+        request_id="req_cand_origin",
+        created_at="2026-07-27T00:00:00Z",
+        status="active",
+        lineage=candidate_lineage,
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        reconcile_revise_candidate_ref(
+            tmp_path,
+            draft_id=created.draft_id,
+            expected_version=1,
+            candidate_ref=cand_ref,
+        )
+    assert exc_info.value.status_code == 422
+    assert "edited_working_copy" in str(exc_info.value)
+
+    accepted_lineage = CandidateLineageV1.model_validate(
+        {
+            "schema": "dmb_candidate_lineage_v1",
+            "revise_request_id": "req_acc_origin",
+            "source_origin_kind": "accepted_revision",
+            "instruction_options_digest": "sha256:" + "b" * 64,
+            "created_at": "2026-07-27T00:00:00Z",
+            "accepted_revision": {
+                "provider": "dungeonmind",
+                "statblock_id": "sb_a",
+                "revision_id": "rev_one",
+                "contract": "dungeonmind.dungeonbuddy-statblocks",
+                "contract_version": "1.0.0",
+                "definition_digest": "sha256:" + "a" * 64,
+            },
+        }
+    )
+    acc_ref = ThreatDraftCandidateRefV1(
+        candidate_id="cand_fromacc1",
+        generated_from_draft_version=1,
+        request_id="req_acc_origin",
+        created_at="2026-07-27T00:00:00Z",
+        status="active",
+        lineage=accepted_lineage,
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        reconcile_revise_candidate_ref(
+            tmp_path,
+            draft_id=created.draft_id,
+            expected_version=1,
+            candidate_ref=acc_ref,
+        )
+    assert exc_info.value.status_code == 422
+    assert get_threat_draft(tmp_path, created.draft_id).candidate_refs == []
+
+
 def test_reconcile_active_to_rejected_and_terminal_cannot_transition(
     tmp_path: Path,
 ) -> None:

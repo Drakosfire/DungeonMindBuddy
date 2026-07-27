@@ -201,8 +201,13 @@ class ReviseOperationV1(StrictModel):
                 raise ValueError("reconciled requires cache stored|failed|missing")
             if self.materialization.draft_ref != "attached":
                 raise ValueError("reconciled requires draft_ref=attached")
-            if self.materialization.source_status not in {"none", "applied"}:
-                raise ValueError("reconciled requires source_status none|applied")
+            # SBW06b: applied requires digest-bound transition authority not yet
+            # present in the journal. Fail closed rather than treat it as success.
+            if self.materialization.source_status != "none":
+                raise ValueError(
+                    "reconciled requires source_status=none "
+                    "(applied lacks digest-bound transition authority)"
+                )
             if has_terminal:
                 raise ValueError("reconciled forbids terminal fields")
             if has_recovery:

@@ -475,7 +475,11 @@ def _validate_lineage_for_target_draft(
     draft: ThreatDraftV1,
     candidate_ref: ThreatDraftCandidateRefV1,
 ) -> None:
-    """Bind origin-specific lineage to the committed draft and ref fields."""
+    """Bind origin-specific lineage to the committed draft and ref fields.
+
+    SBW06b only proves ``edited_working_copy``. ``candidate`` and
+    ``accepted_revision`` origins wait for owning slices with exact source proof.
+    """
     lineage = candidate_ref.lineage
     if lineage is None:
         raise ThreatDraftStoreError(
@@ -487,36 +491,34 @@ def _validate_lineage_for_target_draft(
             "candidate ref request_id must match lineage.revise_request_id",
             status_code=422,
         )
-    if lineage.source_origin_kind == "edited_working_copy":
-        assert lineage.edited_working_copy is not None
-        ewc = lineage.edited_working_copy
-        if ewc.draft_id != draft.draft_id:
-            raise ThreatDraftStoreError(
-                "edited_working_copy lineage draft_id must match target draft",
-                status_code=422,
-            )
-        if ewc.source_draft_version != candidate_ref.generated_from_draft_version:
-            raise ThreatDraftStoreError(
-                "edited_working_copy source_draft_version must match "
-                "generated_from_draft_version",
-                status_code=422,
-            )
-    elif lineage.source_origin_kind == "candidate":
-        assert lineage.candidate is not None
-        if lineage.candidate.draft_id != draft.draft_id:
-            raise ThreatDraftStoreError(
-                "candidate lineage draft_id must match target draft",
-                status_code=422,
-            )
-        if (
-            lineage.candidate.source_generated_from_draft_version
-            != candidate_ref.generated_from_draft_version
-        ):
-            raise ThreatDraftStoreError(
-                "candidate lineage source_generated_from_draft_version must match "
-                "generated_from_draft_version",
-                status_code=422,
-            )
+    if lineage.source_origin_kind != "edited_working_copy":
+        raise ThreatDraftStoreError(
+            "SBW06b revise CAS accepts edited_working_copy lineage only",
+            status_code=422,
+        )
+    assert lineage.edited_working_copy is not None
+    ewc = lineage.edited_working_copy
+    if ewc.draft_id != draft.draft_id:
+        raise ThreatDraftStoreError(
+            "edited_working_copy lineage draft_id must match target draft",
+            status_code=422,
+        )
+    if ewc.source_draft_version != candidate_ref.generated_from_draft_version:
+        raise ThreatDraftStoreError(
+            "edited_working_copy source_draft_version must match "
+            "generated_from_draft_version",
+            status_code=422,
+        )
+
+
+def _parse_expires_at_utc(value: str) -> datetime:
+    cleaned = value.strip()
+    if cleaned.endswith("Z"):
+        cleaned = cleaned[:-1] + "+00:00"
+    parsed = datetime.fromisoformat(cleaned)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _validate_source_status_transition(
@@ -556,6 +558,18 @@ def _validate_source_status_transition(
         if transition.exact_expires_at != source.expires_at:
             raise ThreatDraftStoreError(
                 "expired transition requires exact expires_at evidence",
+                status_code=409,
+            )
+        try:
+            expires_at = _parse_expires_at_utc(source.expires_at)
+        except ValueError as exc:
+            raise ThreatDraftStoreError(
+                "expired transition requires parseable expires_at",
+                status_code=409,
+            ) from exc
+        if expires_at > datetime.now(UTC):
+            raise ThreatDraftStoreError(
+                "expired transition requires expires_at in the past",
                 status_code=409,
             )
     if target == "accepted_source":

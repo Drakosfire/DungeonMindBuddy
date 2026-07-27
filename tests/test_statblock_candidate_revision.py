@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
     StatblockIntegrationError,
@@ -707,6 +708,7 @@ def test_actor_included_in_revise_request_digest() -> None:
 def test_existing_authority_replay_skips_client_and_missing_draft(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Reconciled replay without draft proof fails closed (no silent success)."""
     draft = _create_draft(tmp_path)
     req = _service_request(draft)
     response_fixture = _revise_response()
@@ -727,14 +729,13 @@ def test_existing_authority_replay_skips_client_and_missing_draft(
         "apps.live_control_server.services.statblock_candidate_revision.build_statblock_v1_client",
         boom_client,
     )
-    # Delete the draft file after claim so any accidental draft I/O fails closed.
+    # Delete the draft file after claim so draft re-proof cannot succeed.
     draft_path = (
         tmp_path / "out" / "threat_drafts" / f"{draft.draft_id}.json"
     )
     if draft_path.is_file():
         draft_path.unlink()
     else:
-        # Locate committed draft path via store layout.
         candidates = list((tmp_path / "out").rglob(f"*{draft.draft_id}*.json"))
         for path in candidates:
             if "threat_draft" in str(path) or "draft" in path.name:
@@ -746,8 +747,7 @@ def test_existing_authority_replay_skips_client_and_missing_draft(
         request=req,
         client=None,
     )
-    assert replay.result == "reconciled"
-    assert replay.candidate_id == response_fixture.candidate_id
+    assert replay.result == "revise_integrity_conflict"
 
 
 def test_changed_body_conflict_without_draft(
@@ -1177,8 +1177,6 @@ def test_mark_revise_reconciled_rejects_applied_source_status(tmp_path: Path) ->
     client = MagicMock()
     client.revise_candidate.return_value = response_fixture
     client.get_candidate.return_value = response_fixture
-    # Force stop before reconcile by patching after cache? Easier: run full path
-    # then demote isn't needed — claim through cache_stored manually.
     result = revise_candidate_from_edited_definition(
         tmp_path,
         draft_id=draft.draft_id,
@@ -1203,13 +1201,63 @@ def test_mark_revise_reconciled_rejects_applied_source_status(tmp_path: Path) ->
     assert exc_info.value.status_code == 422
 
 
-def test_reconciled_materialization_is_immutable_none_only(tmp_path: Path) -> None:
+def test_persisted_reconciled_applied_fails_closed_on_reload_and_replay(
+    tmp_path: Path,
+) -> None:
+    """Poisoned reconciled/applied must not replay as ordinary success."""
     from apps.live_control_server.models.statblock_candidate_revision import (
-        ReviseMaterializationV1,
+        ReviseOperationV1,
     )
     from apps.live_control_server.services.statblock_revise_reconciliation import (
         ReviseReconciliationError,
-        _write_operation_unlocked,
+        _record_path,
+    )
+    from src.live_play.live_store import write_json
+
+    draft = _create_draft(tmp_path)
+    req = _service_request(draft)
+    response_fixture = _revise_response()
+    client = MagicMock()
+    client.revise_candidate.return_value = response_fixture
+    client.get_candidate.return_value = response_fixture
+    revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    stored = get_revise_operation(
+        tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+    )
+    assert stored is not None
+    assert stored.status == "reconciled"
+
+    poisoned = stored.model_dump(mode="json", by_alias=True)
+    poisoned["materialization"]["source_status"] = "applied"
+    path = _record_path(tmp_path, draft_id=draft.draft_id, request_id=req.request_id)
+    write_json(path, poisoned)
+
+    with pytest.raises(ValidationError):
+        ReviseOperationV1.model_validate(poisoned)
+
+    with pytest.raises(ReviseReconciliationError) as exc_info:
+        get_revise_operation(
+            tmp_path, draft_id=draft.draft_id, request_id=req.request_id
+        )
+    assert exc_info.value.status_code == 409
+    assert "applied" in str(exc_info.value)
+
+    replay = revise_candidate_from_edited_definition(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=req,
+        client=client,
+    )
+    assert replay.result == "revise_integrity_conflict"
+
+
+def test_reconciled_materialization_is_immutable_none_only(tmp_path: Path) -> None:
+    from apps.live_control_server.services.statblock_revise_reconciliation import (
         mark_revise_reconciled,
     )
 
@@ -1232,7 +1280,6 @@ def test_reconciled_materialization_is_immutable_none_only(tmp_path: Path) -> No
     assert stored.status == "reconciled"
     assert stored.materialization.source_status == "none"
 
-    # Same-key idempotent reconcile with none succeeds.
     again = mark_revise_reconciled(
         tmp_path,
         draft_id=draft.draft_id,
@@ -1243,29 +1290,6 @@ def test_reconciled_materialization_is_immutable_none_only(tmp_path: Path) -> No
     )
     assert again.status == "reconciled"
     assert again.materialization.source_status == "none"
-
-    # Corrupt in-memory attempt: write applied onto reconciled then refuse rewrite.
-    forged = stored.model_copy(
-        update={
-            "materialization": ReviseMaterializationV1(
-                cache="stored",
-                draft_ref="attached",
-                source_status="applied",
-            )
-        }
-    )
-    _write_operation_unlocked(tmp_path, forged)
-    with pytest.raises(ReviseReconciliationError) as exc_info:
-        mark_revise_reconciled(
-            tmp_path,
-            draft_id=draft.draft_id,
-            request_id=req.request_id,
-            request_digest=stored.request_digest,
-            candidate_id=response_fixture.candidate_id,
-            source_status="none",
-        )
-    assert exc_info.value.status_code == 409
-    assert "immutable" in str(exc_info.value).lower()
 
 
 def test_prove_revise_ref_attached_ignores_journal_source_status(
@@ -1296,7 +1320,6 @@ def test_prove_revise_ref_attached_ignores_journal_source_status(
     lineage = CandidateLineageV1.model_validate(
         after.candidate_refs[0].lineage.model_dump(mode="json", by_alias=True)
     )
-    # Proof is draft-only; journal materialization field is irrelevant.
     assert prove_revise_ref_attached(
         after,
         stored,

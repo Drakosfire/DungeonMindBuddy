@@ -141,6 +141,16 @@ def _read_operation_unlocked(
             "corrupt revise operation record",
             status_code=500,
         )
+    # Fail closed on unauthorized reconciled/applied before generic corrupt 500.
+    materialization = payload.get("materialization") or {}
+    if (
+        payload.get("status") == "reconciled"
+        and materialization.get("source_status") == "applied"
+    ):
+        raise ReviseReconciliationError(
+            "unauthorized reconciled source_status=applied",
+            status_code=409,
+        )
     try:
         record = ReviseOperationV1.model_validate(payload)
     except Exception as exc:

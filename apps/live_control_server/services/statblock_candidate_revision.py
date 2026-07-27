@@ -170,12 +170,36 @@ def _mark_reconciled_or_recover(
         raise
 
 
+def _return_reconciled_if_proven(
+    root: Path,
+    operation: ReviseOperationV1,
+) -> ReviseCandidateFromEditedDefinitionResponseV1:
+    """Ordinary success only when journal none-authority matches draft proof."""
+    if (
+        operation.materialization.draft_ref != "attached"
+        or operation.materialization.source_status != "none"
+    ):
+        return _response_from_operation(operation, result="revise_integrity_conflict")
+    lineage = _build_lineage_from_operation(operation)
+    try:
+        draft = get_threat_draft(root, operation.draft_id)
+    except ThreatDraftStoreError:
+        return _response_from_operation(operation, result="revise_integrity_conflict")
+    if not prove_revise_ref_attached(
+        draft,
+        operation,
+        expected_lineage=lineage,
+    ):
+        return _response_from_operation(operation, result="revise_integrity_conflict")
+    return _response_from_operation(operation, result="reconciled")
+
+
 def _reconcile_draft_and_journal(
     root: Path,
     operation: ReviseOperationV1,
 ) -> ReviseCandidateFromEditedDefinitionResponseV1:
     if operation.status == "reconciled":
-        return _response_from_operation(operation, result="reconciled")
+        return _return_reconciled_if_proven(root, operation)
     if operation.status != "cache_stored_ref_pending":
         return _response_from_operation(operation, result="cache_stored_ref_pending")
 
@@ -400,7 +424,7 @@ def _advance_after_claim(
     resolve_client: Callable[[], StatblockV1Client],
 ) -> ReviseCandidateFromEditedDefinitionResponseV1:
     if operation.status == "reconciled":
-        return _response_from_operation(operation, result="reconciled")
+        return _return_reconciled_if_proven(root, operation)
 
     # Known candidate: always verify cache before claiming cache_stored_ref_pending.
     if operation.candidate_id is not None:
@@ -505,11 +529,27 @@ def revise_candidate_from_edited_definition(
         )
 
         # Durable journal authority before draft I/O or client construction.
-        existing = get_revise_operation(
-            root,
-            draft_id=draft_id,
-            request_id=request.request_id,
-        )
+        try:
+            existing = get_revise_operation(
+                root,
+                draft_id=draft_id,
+                request_id=request.request_id,
+            )
+        except ReviseReconciliationError as exc:
+            if (
+                exc.status_code == 409
+                and "unauthorized reconciled source_status=applied" in str(exc)
+            ):
+                return ReviseCandidateFromEditedDefinitionResponseV1(
+                    result="revise_integrity_conflict",
+                    request_id=request.request_id,
+                    operation_status=None,
+                    candidate_id=None,
+                    request_digest=request_digest,
+                    source_definition_digest=src_digest,
+                    instruction_options_digest=instr_digest,
+                )
+            raise
         if existing is not None:
             if (
                 existing.request_digest != request_digest
