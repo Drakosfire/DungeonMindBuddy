@@ -509,6 +509,12 @@ def _validate_lineage_for_target_draft(
             "generated_from_draft_version",
             status_code=422,
         )
+    # Historical sources are allowed (source <= committed); future versions are not.
+    if ewc.source_draft_version > draft.version:
+        raise ThreatDraftStoreError(
+            "edited_working_copy source_draft_version exceeds committed draft version",
+            status_code=422,
+        )
 
 
 def _parse_expires_at_utc(value: str) -> datetime:

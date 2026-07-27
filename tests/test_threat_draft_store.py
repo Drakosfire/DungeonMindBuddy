@@ -999,6 +999,70 @@ def test_reconcile_rejects_cross_draft_lineage(tmp_path: Path) -> None:
     assert get_threat_draft(tmp_path, target.draft_id).candidate_refs == []
 
 
+def test_reconcile_rejects_future_source_version(tmp_path: Path) -> None:
+    from apps.live_control_server.services.threat_draft_store import (
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    assert created.version == 1
+    ref = _revise_candidate_ref(
+        draft_id=created.draft_id,
+        generated_from_draft_version=99,
+        source_draft_version=99,
+    )
+    with pytest.raises(ThreatDraftStoreError) as exc_info:
+        reconcile_revise_candidate_ref(
+            tmp_path,
+            draft_id=created.draft_id,
+            expected_version=1,
+            candidate_ref=ref,
+        )
+    assert exc_info.value.status_code == 422
+    assert "exceeds committed draft version" in str(exc_info.value)
+    assert get_threat_draft(tmp_path, created.draft_id).candidate_refs == []
+    assert get_threat_draft(tmp_path, created.draft_id).version == 1
+
+
+def test_reconcile_allows_historical_source_version(tmp_path: Path) -> None:
+    from apps.live_control_server.services.threat_draft_store import (
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _create_request())
+    first = _revise_candidate_ref(
+        draft_id=created.draft_id,
+        candidate_id="cand_revise01",
+        request_id="req_revise_1",
+        generated_from_draft_version=1,
+        source_draft_version=1,
+    )
+    after_first = reconcile_revise_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=1,
+        candidate_ref=first,
+    )
+    assert after_first.version == 2
+
+    historical = _revise_candidate_ref(
+        draft_id=created.draft_id,
+        candidate_id="cand_revise02",
+        request_id="req_revise_2",
+        generated_from_draft_version=1,
+        source_draft_version=1,
+    )
+    after_second = reconcile_revise_candidate_ref(
+        tmp_path,
+        draft_id=created.draft_id,
+        expected_version=2,
+        candidate_ref=historical,
+    )
+    assert after_second.version == 3
+    assert len(after_second.candidate_refs) == 2
+    assert after_second.candidate_refs[1].generated_from_draft_version == 1
+
+
 def test_reconcile_rejects_source_version_mismatch(tmp_path: Path) -> None:
     from apps.live_control_server.services.threat_draft_store import (
         reconcile_revise_candidate_ref,

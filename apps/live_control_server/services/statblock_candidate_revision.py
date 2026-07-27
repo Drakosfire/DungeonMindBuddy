@@ -184,7 +184,8 @@ def _return_reconciled_if_proven(
     try:
         draft = get_threat_draft(root, operation.draft_id)
     except ThreatDraftStoreError:
-        return _response_from_operation(operation, result="revise_integrity_conflict")
+        # Missing/corrupt/unreadable draft — retain journal; do not claim integrity.
+        return _response_from_operation(operation, result="revise_draft_unavailable")
     if not prove_revise_ref_attached(
         draft,
         operation,
@@ -205,7 +206,10 @@ def _reconcile_draft_and_journal(
 
     lineage = _build_lineage_from_operation(operation)
     candidate_ref = _build_revise_candidate_ref(operation, lineage)
-    draft = get_threat_draft(root, operation.draft_id)
+    try:
+        draft = get_threat_draft(root, operation.draft_id)
+    except ThreatDraftStoreError:
+        return _response_from_operation(operation, result="revise_draft_unavailable")
 
     if prove_revise_ref_attached(
         draft,
@@ -538,7 +542,7 @@ def revise_candidate_from_edited_definition(
         except ReviseReconciliationError as exc:
             if (
                 exc.status_code == 409
-                and "unauthorized reconciled source_status=applied" in str(exc)
+                and "unauthorized source_status=applied" in str(exc)
             ):
                 return ReviseCandidateFromEditedDefinitionResponseV1(
                     result="revise_integrity_conflict",

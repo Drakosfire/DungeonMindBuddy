@@ -141,14 +141,12 @@ def _read_operation_unlocked(
             "corrupt revise operation record",
             status_code=500,
         )
-    # Fail closed on unauthorized reconciled/applied before generic corrupt 500.
+    # Fail closed on unauthorized applied before generic corrupt 500.
+    # SBW06b v1 journal has no digest-bound applied-transition authority in any state.
     materialization = payload.get("materialization") or {}
-    if (
-        payload.get("status") == "reconciled"
-        and materialization.get("source_status") == "applied"
-    ):
+    if materialization.get("source_status") == "applied":
         raise ReviseReconciliationError(
-            "unauthorized reconciled source_status=applied",
+            "unauthorized source_status=applied",
             status_code=409,
         )
     try:
@@ -481,6 +479,8 @@ def prove_revise_ref_attached(
     if attached is None:
         return False
     if attached.request_id != operation.request_id:
+        return False
+    if attached.generated_from_draft_version != operation.source_draft_version:
         return False
     if attached.lineage is None:
         return False

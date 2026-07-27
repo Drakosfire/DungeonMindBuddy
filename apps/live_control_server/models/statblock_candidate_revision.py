@@ -150,6 +150,13 @@ class ReviseOperationV1(StrictModel):
             self.recovery_classification is not None
             or self.recovery_details is not None
         )
+        # SBW06b v1: applied requires digest-bound transition authority not yet
+        # present in the journal. Reject in every state; do not normalize later.
+        if self.materialization.source_status != "none":
+            raise ValueError(
+                "revise journal requires source_status=none "
+                "(applied lacks digest-bound transition authority)"
+            )
         if state == "claimed":
             if self.candidate_id is not None:
                 raise ValueError("claimed forbids candidate_id")
@@ -201,13 +208,6 @@ class ReviseOperationV1(StrictModel):
                 raise ValueError("reconciled requires cache stored|failed|missing")
             if self.materialization.draft_ref != "attached":
                 raise ValueError("reconciled requires draft_ref=attached")
-            # SBW06b: applied requires digest-bound transition authority not yet
-            # present in the journal. Fail closed rather than treat it as success.
-            if self.materialization.source_status != "none":
-                raise ValueError(
-                    "reconciled requires source_status=none "
-                    "(applied lacks digest-bound transition authority)"
-                )
             if has_terminal:
                 raise ValueError("reconciled forbids terminal fields")
             if has_recovery:
