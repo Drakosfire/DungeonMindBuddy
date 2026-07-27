@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -73,6 +74,8 @@ export function ProjectionProvider({
   const [diagnosticsRegistration, setDiagnosticsRegistration] = useState<
     BindingRegistration<GraphReviewDiagnosticsProjectionPayload> | null
   >(null);
+  const planReferenceRegistrationRef = useRef(planReferenceRegistration);
+  planReferenceRegistrationRef.current = planReferenceRegistration;
 
   const close = useCallback(() => {
     setActive(null);
@@ -169,12 +172,36 @@ export function ProjectionProvider({
     [],
   );
 
+  /**
+   * Expose the registered Plan binding with open* actions gated on the active
+   * registration token so a superseded adapter cannot commit after an await.
+   */
+  const planReferenceBinding = useMemo((): PlanReferenceProjectionBinding | null => {
+    const registration = planReferenceRegistration;
+    if (!registration) return null;
+    const { token, value: binding } = registration;
+    return {
+      resolverState: binding.resolverState,
+      resolveRelationship: (relationship) => binding.resolveRelationship(relationship),
+      openResolvedReference: (resolution, projectionState) => {
+        const current = planReferenceRegistrationRef.current;
+        if (!current || current.token !== token) return;
+        current.value.openResolvedReference(resolution, projectionState);
+      },
+      openTool: (toolId) => {
+        const current = planReferenceRegistrationRef.current;
+        if (!current || current.token !== token) return;
+        current.value.openTool(toolId);
+      },
+    };
+  }, [planReferenceRegistration]);
+
   const value = useMemo(
     () => ({
       active,
       activePlanReference,
       planProjectionState,
-      planReferenceBinding: planReferenceRegistration?.value ?? null,
+      planReferenceBinding,
       graphReviewDiagnosticsPayload: diagnosticsRegistration?.value ?? null,
       openTool,
       openContentFromChip,
@@ -194,7 +221,7 @@ export function ProjectionProvider({
       openPlanReferenceResolution,
       openTool,
       planProjectionState,
-      planReferenceRegistration,
+      planReferenceBinding,
       registerPlanReferenceBinding,
       registerToolProjectionPayload,
     ],

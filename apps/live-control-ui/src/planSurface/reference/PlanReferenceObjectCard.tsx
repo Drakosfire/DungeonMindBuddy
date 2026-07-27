@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { GraphObjectCard } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
@@ -119,24 +119,34 @@ export function PlanReferenceObjectCard({
   glanceOnly = false,
 }: PlanReferenceObjectCardProps) {
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
+  const planReferenceBindingRef = useRef(planReferenceBinding);
+  planReferenceBindingRef.current = planReferenceBinding;
 
   const resolverProjectionState = planReferenceBinding?.resolverState ?? null;
   const effectiveProjectionState =
     projectionState ?? resolution.graphProjectionState ?? resolverProjectionState ?? null;
   const onOpenStatblock = planReferenceBinding
-    ? () => planReferenceBinding.openTool("statblock")
+    ? () => {
+        const current = planReferenceBindingRef.current;
+        if (!current) return;
+        current.openTool("statblock");
+      }
     : undefined;
   const showRelationshipProvenance = glanceOnly !== true;
 
   const onSelectRelationship = useCallback(
     async (relationship: GraphObjectRelationshipViewModel) => {
-      if (!planReferenceBinding || navigatingRelationshipId) return;
+      const bindingAtStart = planReferenceBinding;
+      if (!bindingAtStart || navigatingRelationshipId) return;
       if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
 
       setNavigatingRelationshipId(relationship.id);
       try {
-        const nextResolution = await planReferenceBinding.resolveRelationship(relationship);
-        planReferenceBinding.openResolvedReference(
+        const nextResolution = await bindingAtStart.resolveRelationship(relationship);
+        // Stale-operation rule: commit only through the still-current binding.
+        const current = planReferenceBindingRef.current;
+        if (!current || current !== bindingAtStart) return;
+        current.openResolvedReference(
           nextResolution,
           nextResolution.graphProjectionState ?? effectiveProjectionState,
         );
