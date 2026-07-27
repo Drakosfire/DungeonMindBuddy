@@ -9,6 +9,8 @@ import {
 } from "../tiptap/state/tiptapLocalState";
 import { BuildCanvasTestProvider } from "./buildCanvasTestProvider";
 import { BuildIngestToolbar } from "./BuildIngestToolbar";
+import { createBuildSurfaceConfig } from "./createBuildSurfaceConfig";
+import { ProjectionProvider } from "../planSurface/projection/projectionContext";
 
 vi.mock("../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/liveApi")>();
@@ -72,6 +74,17 @@ function snapshot(documentId: string, revision: number, sha: string, contentStat
   };
 }
 
+function renderToolbar(documentId: string) {
+  const snap = snapshot(documentId, 2, "sha-2");
+  return render(
+    <ProjectionProvider config={createBuildSurfaceConfig(snap.record)}>
+      <BuildCanvasTestProvider documentId={documentId}>
+        <BuildIngestToolbar documentId={documentId} />
+      </BuildCanvasTestProvider>
+    </ProjectionProvider>,
+  );
+}
+
 describe("BuildIngestToolbar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -87,7 +100,7 @@ describe("BuildIngestToolbar", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       snapshot(DOC_ID, 1, "sha-1", "draft"),
     );
-    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
+    renderToolbar(DOC_ID);
     expect(await screen.findByTestId("build-extract-button")).toBeDisabled();
     expect(screen.getByTestId("build-open-graph-review-disabled")).toBeInTheDocument();
   });
@@ -120,10 +133,14 @@ describe("BuildIngestToolbar", () => {
       },
     });
 
-    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
+    renderToolbar(DOC_ID);
     await waitFor(() => expect(screen.getByTestId("build-extract-button")).not.toBeDisabled());
     await user.click(screen.getByTestId("build-extract-button"));
     expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_ID);
+    expect(screen.getByTestId("build-extraction-run-status")).toHaveTextContent("reviewable");
+    expect(screen.getByTestId("build-extraction-pinned-revision")).toHaveTextContent("2");
+    expect(screen.getByTestId("build-extraction-pinned-digest")).toHaveTextContent("sha-2");
+    expect(screen.getByTestId("build-inspect-run")).toBeInTheDocument();
     expect(liveApi.launchExtractionRun).toHaveBeenCalledTimes(1);
     expect(liveApi.launchExtractionRun).toHaveBeenCalledWith({
       document_id: DOC_ID,
@@ -163,7 +180,7 @@ describe("BuildIngestToolbar", () => {
       },
     });
 
-    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
+    renderToolbar(DOC_ID);
     await waitFor(() => expect(screen.getByTestId("build-extract-button")).not.toBeDisabled());
     await user.click(screen.getByTestId("build-extract-button"));
     expect(await screen.findByTestId("build-extraction-run-id")).toHaveTextContent(RUN_ID);
@@ -198,7 +215,7 @@ describe("BuildIngestToolbar", () => {
       },
     });
 
-    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
+    renderToolbar(DOC_ID);
     const link = await screen.findByTestId("build-open-graph-review");
     expect(link).toHaveAttribute(
       "href",
@@ -233,7 +250,14 @@ describe("BuildIngestToolbar", () => {
       },
     });
 
-    const { rerender } = render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
+    const snapA = snapshot(DOC_ID, 2, "sha-2");
+    const { rerender } = render(
+      <ProjectionProvider config={createBuildSurfaceConfig(snapA.record)}>
+        <BuildCanvasTestProvider documentId={DOC_ID}>
+          <BuildIngestToolbar documentId={DOC_ID} />
+        </BuildCanvasTestProvider>
+      </ProjectionProvider>,
+    );
     expect(await screen.findByTestId("build-open-graph-review")).toBeInTheDocument();
 
     seedCleanLocal(DOC_B, 5, "sha-b");
@@ -265,7 +289,14 @@ describe("BuildIngestToolbar", () => {
     });
     localStorage.setItem(`dmb.buildExtractionRun.${DOC_B}`, RUN_B);
 
-    rerender(<BuildCanvasTestProvider documentId={DOC_B}><BuildIngestToolbar documentId={DOC_B} /></BuildCanvasTestProvider>);
+    const snapB = snapshot(DOC_B, 5, "sha-b");
+    rerender(
+      <ProjectionProvider config={createBuildSurfaceConfig(snapB.record)}>
+        <BuildCanvasTestProvider documentId={DOC_B}>
+          <BuildIngestToolbar documentId={DOC_B} />
+        </BuildCanvasTestProvider>
+      </ProjectionProvider>,
+    );
 
     await waitFor(() => {
       expect(screen.queryByTestId("build-open-graph-review")).not.toBeInTheDocument();
@@ -306,7 +337,7 @@ describe("BuildIngestToolbar", () => {
       }),
     );
 
-    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
+    renderToolbar(DOC_ID);
     expect(await screen.findByTestId("build-open-graph-review")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId("build-extract-button")).not.toBeDisabled());
 

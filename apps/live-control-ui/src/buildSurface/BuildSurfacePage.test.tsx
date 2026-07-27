@@ -1,15 +1,18 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { ProjectionProvider } from "../planSurface/projection/projectionContext";
 import { BuildSurfacePage } from "./BuildSurfacePage";
+import { BUILD_WORLDBUILDING_STARTER_TITLE } from "./buildWorldbuildingStarter";
 
 function renderBuildPage() {
   return render(
     <AgentInteractionProvider>
-      <BuildSurfacePage />
+      <ProjectionProvider>
+        <BuildSurfacePage />
+      </ProjectionProvider>
     </AgentInteractionProvider>,
   );
 }
@@ -22,6 +25,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
   };
 });
 
@@ -32,20 +36,40 @@ describe("BuildSurfacePage", () => {
     vi.clearAllMocks();
     localStorage.clear();
     window.history.pushState({}, "", "/build");
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "world",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    } as never);
   });
 
-  it("does not create a document on mount without documentId", () => {
-    renderBuildPage();
-    expect(screen.getByTestId("build-new-source-form")).toBeInTheDocument();
-    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
-  });
-
-  it("creates a document only when the new-source form is submitted", async () => {
-    const user = userEvent.setup();
+  it("auto-creates a preloaded Mireward canvas on bare /build", async () => {
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
       schema_version: "dmb_workspace_document_record_v1",
       document_id: DOC_ID,
-      title: "Faction Notes",
+      title: BUILD_WORLDBUILDING_STARTER_TITLE,
       campaign_id: "eldyrwild",
       target_session: null,
       kind: "worldbuilding_source",
@@ -56,7 +80,7 @@ describe("BuildSurfacePage", () => {
       created_at: "2026-07-22T00:00:00Z",
       updated_at: "2026-07-22T00:00:00Z",
       source_domain: "worldbuilding",
-      document_class: "faction",
+      document_class: "lore",
       authority_state: "draft",
       visibility_state: "internal",
     });
@@ -65,7 +89,7 @@ describe("BuildSurfacePage", () => {
       record: {
         schema_version: "dmb_workspace_document_record_v1",
         document_id: DOC_ID,
-        title: "Faction Notes",
+        title: BUILD_WORLDBUILDING_STARTER_TITLE,
         campaign_id: "eldyrwild",
         target_session: null,
         kind: "worldbuilding_source",
@@ -76,7 +100,7 @@ describe("BuildSurfacePage", () => {
         created_at: "2026-07-22T00:00:00Z",
         updated_at: "2026-07-22T00:00:00Z",
         source_domain: "worldbuilding",
-        document_class: "faction",
+        document_class: "lore",
         authority_state: "draft",
         visibility_state: "internal",
       },
@@ -88,23 +112,24 @@ describe("BuildSurfacePage", () => {
     });
 
     renderBuildPage();
-    await user.type(screen.getByTestId("build-new-title"), "Faction Notes");
-    await user.clear(screen.getByTestId("build-new-class"));
-    await user.type(screen.getByTestId("build-new-class"), "faction");
-    await user.click(screen.getByTestId("build-create-button"));
+    expect(screen.getByTestId("build-new-source-opening")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
     });
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith({
-      title: "Faction Notes",
+      title: BUILD_WORLDBUILDING_STARTER_TITLE,
       campaign_id: "eldyrwild",
       kind: "worldbuilding_source",
       source_domain: "worldbuilding",
-      document_class: "faction",
+      document_class: "lore",
       authority_state: "draft",
       visibility_state: "internal",
     });
+
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
+    expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument();
+    expect(window.location.search).toContain(`documentId=${DOC_ID}`);
   });
 
   it("loads snapshot markdown when reopening with documentId", async () => {
@@ -141,6 +166,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_ID);
     });
+    expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
     expect(screen.getByTestId("build-document-status")).toHaveTextContent("Committed");
   });
@@ -167,23 +193,23 @@ describe("BuildSurfacePage", () => {
         authority_state: "draft",
         visibility_state: "internal",
       },
-      markdown: `# ${id}\n`,
+      markdown: `# ${id === DOC_ID ? "Doc A" : "Doc B"}\n`,
       content_sha256: `sha-${id}`,
-      file_fingerprint: "absent",
-      file_exists: false,
+      file_fingerprint: "present",
+      file_exists: true,
       loaded_revision: 1,
     }));
 
     window.history.pushState({}, "", `/build?documentId=${DOC_ID}`);
     renderBuildPage();
-    expect(await screen.findByText("Doc A")).toBeInTheDocument();
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
 
     window.history.pushState({}, "", `/build?documentId=${otherId}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
-    expect(await screen.findByText("Doc B")).toBeInTheDocument();
 
-    window.history.pushState({}, "", "/build");
-    window.dispatchEvent(new PopStateEvent("popstate"));
-    expect(await screen.findByTestId("build-new-source-form")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(otherId);
+    });
+    expect(await screen.findByTestId("build-surface-shell")).toBeInTheDocument();
   });
 });

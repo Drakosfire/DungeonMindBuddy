@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { GraphProjectionNodeView } from "../../api/types";
 import type { PlanGraphProjectionState } from "../reference/graphAwareReferenceResolver";
@@ -24,6 +24,8 @@ export interface PlanGraphRefSearchProps {
   projectionError?: string | null;
   /** Disables chip insert only. Search and view stay available while editing is locked. */
   insertDisabled?: boolean;
+  /** Seeds the search field when opened from another Build surface action. */
+  initialQuery?: string;
   onInsert: (attrs: RunbookReferenceAttrs) => void;
   onView?: (node: GraphProjectionNodeView) => void;
 }
@@ -33,10 +35,15 @@ export function PlanGraphRefSearch({
   projectionState,
   projectionError = null,
   insertDisabled = false,
+  initialQuery = "",
   onInsert,
   onView,
 }: PlanGraphRefSearchProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   const results = useMemo(() => {
     const matched = sortGraphProjectionNodes(searchGraphProjectionNodes(nodes, query));

@@ -13,6 +13,7 @@ import {
 } from "../tiptap/state/tiptapLocalState";
 import { BuildCanvasTestProvider } from "./buildCanvasTestProvider";
 import { BUILD_AUTHORITY_REJECTION_AMBIENT, BuildSurfaceShell } from "./BuildSurfaceShell";
+import { ProjectionProvider } from "../planSurface/projection/projectionContext";
 
 let buildShellTestEditor: Editor | null = null;
 
@@ -41,6 +42,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     getWorkspaceDocumentSnapshot: vi.fn(),
     prepareTiptapMarkdownWrite: vi.fn(),
     commitTiptapMarkdownWrite: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
   };
 });
 
@@ -97,10 +99,12 @@ function buildWorldbuildingSnapshot(documentId: string) {
 function BuildDocumentHarness({ documentId }: { documentId: string }) {
   return (
     <AgentInteractionProvider>
-      <ScopeProbe />
-      <BuildCanvasTestProvider documentId={documentId}>
-        <BuildSurfaceShell />
-      </BuildCanvasTestProvider>
+      <ProjectionProvider>
+        <ScopeProbe />
+        <BuildCanvasTestProvider documentId={documentId}>
+          <BuildSurfaceShell />
+        </BuildCanvasTestProvider>
+      </ProjectionProvider>
     </AgentInteractionProvider>
   );
 }
@@ -110,6 +114,33 @@ describe("BuildSurfaceShell", () => {
     vi.clearAllMocks();
     localStorage.clear();
     buildShellTestEditor = null;
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-1",
+        headRevisionId: "rev-1",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "world",
+      },
+      summary: {
+        nodeCount: 0,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    } as never);
   });
 
   it("publishes null session scope for worldbuilding build", async () => {
@@ -142,8 +173,10 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <ProjectionProvider>
+          <ScopeProbe />
+          <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        </ProjectionProvider>
       </AgentInteractionProvider>,
     );
 
@@ -187,8 +220,10 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <ProjectionProvider>
+          <ScopeProbe />
+          <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        </ProjectionProvider>
       </AgentInteractionProvider>,
     );
 
@@ -263,8 +298,10 @@ describe("BuildSurfaceShell", () => {
 
     const { rerender } = render(
       <AgentInteractionProvider>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <ProjectionProvider>
+          <ScopeProbe />
+          <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        </ProjectionProvider>
       </AgentInteractionProvider>,
     );
 
@@ -278,8 +315,10 @@ describe("BuildSurfaceShell", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(rejectedSnapshot);
     rerender(
       <AgentInteractionProvider>
-        <ScopeProbe />
-        <BuildCanvasTestProvider documentId={PLAN_DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <ProjectionProvider>
+          <ScopeProbe />
+          <BuildCanvasTestProvider documentId={PLAN_DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        </ProjectionProvider>
       </AgentInteractionProvider>,
     );
 
@@ -338,7 +377,9 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <ProjectionProvider>
+          <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        </ProjectionProvider>
       </AgentInteractionProvider>,
     );
 
@@ -397,7 +438,9 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <ProjectionProvider>
+          <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        </ProjectionProvider>
       </AgentInteractionProvider>,
     );
 
@@ -450,7 +493,9 @@ describe("BuildSurfaceShell", () => {
 
     render(
       <AgentInteractionProvider>
-        <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        <ProjectionProvider>
+          <BuildCanvasTestProvider documentId={DOC_ID}><BuildSurfaceShell /></BuildCanvasTestProvider>
+        </ProjectionProvider>
       </AgentInteractionProvider>,
     );
 

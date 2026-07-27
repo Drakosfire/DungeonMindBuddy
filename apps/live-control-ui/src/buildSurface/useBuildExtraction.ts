@@ -19,7 +19,21 @@ import {
   BUILD_EXTRACT_COMMAND_ID,
 } from "./buildDocumentCommands";
 
-const RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
+export const BUILD_EXTRACTION_RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
+
+function readStoredRunId(documentId: string): string | null {
+  try {
+    return window.localStorage.getItem(`${BUILD_EXTRACTION_RUN_STORAGE_PREFIX}${documentId}`);
+  } catch {
+    return null;
+  }
+}
+
+export function readBuildExtractionRunId(documentId: string): string | null {
+  const fromUrl = runIdFromLocation();
+  if (fromUrl) return fromUrl;
+  return readStoredRunId(documentId);
+}
 
 /** Bounded BLD-08 worldbuilding profile (Build product default). */
 export const BUILD_WORLDBUILDING_PROFILE_ID = "worldbuilding_shepherds_flock_v0";
@@ -43,17 +57,9 @@ function setRunIdInLocationForDocument(documentId: string, runId: string): void 
   window.history.replaceState({}, "", `${url.pathname}${url.search}`);
 }
 
-function readStoredRunId(documentId: string): string | null {
-  try {
-    return window.localStorage.getItem(`${RUN_STORAGE_PREFIX}${documentId}`);
-  } catch {
-    return null;
-  }
-}
-
 function writeStoredRunId(documentId: string, runId: string): void {
   try {
-    window.localStorage.setItem(`${RUN_STORAGE_PREFIX}${documentId}`, runId);
+    window.localStorage.setItem(`${BUILD_EXTRACTION_RUN_STORAGE_PREFIX}${documentId}`, runId);
   } catch {
     // ignore quota
   }
@@ -196,12 +202,16 @@ export interface BuildExtractionState {
   snapshot: WorkspaceDocumentSnapshot | null;
   run: ExtractionRunRecord | null;
   handoff: GraphReviewHandoffPayload | null;
+  pinnedRevision: number | null;
+  pinnedDigest: string | null;
+  runDiagnostics: string[];
   statusLabel: string;
   error: string | null;
   launching: boolean;
   canLaunch: boolean;
   canRefresh: boolean;
   canOpenGraphReview: boolean;
+  canInspectRun: boolean;
   refresh: () => Promise<void>;
   launch: () => Promise<void>;
 }
@@ -211,6 +221,9 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
   const canvas = useMarkdownCanvasSession();
   const [run, setRun] = useState<ExtractionRunRecord | null>(null);
   const [handoff, setHandoff] = useState<GraphReviewHandoffPayload | null>(null);
+  const [pinnedRevision, setPinnedRevision] = useState<number | null>(null);
+  const [pinnedDigest, setPinnedDigest] = useState<string | null>(null);
+  const [runDiagnostics, setRunDiagnostics] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
 
@@ -230,10 +243,32 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
   const clearAdoptedRunState = useCallback(() => {
     setRun(null);
     setHandoff(null);
+    setPinnedRevision(null);
+    setPinnedDigest(null);
+    setRunDiagnostics([]);
     setError(null);
     launchingRef.current = false;
     setLaunching(false);
   }, []);
+
+  const adoptExactRunEnvelope = useCallback(
+    (
+      response: Pick<
+        ExtractionRunStatusResponse,
+        | "run"
+        | "document_revision"
+        | "source_content_sha256"
+        | "graph_review_handoff"
+      >,
+      options?: { diagnostics?: string[] },
+    ) => {
+      setRun(response.run);
+      setPinnedRevision(response.document_revision);
+      setPinnedDigest(response.source_content_sha256);
+      setRunDiagnostics(options?.diagnostics ?? []);
+    },
+    [],
+  );
 
   const refresh = useCallback(async () => {
     // Refresh must not supersede an active launch generation or clear a pending
@@ -273,7 +308,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         requestedRunId: exactRunId,
         response: status,
       });
-      setRun(status.run);
+      adoptExactRunEnvelope(status);
       if (!validation.ok) {
         setHandoff(null);
         setError(validation.reason);
@@ -293,7 +328,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         return exactRunId ? diagnosticRun(exactRunId) : null;
       });
     }
-  }, [clearAdoptedRunState, documentId]);
+  }, [clearAdoptedRunState, documentId, adoptExactRunEnvelope]);
 
   useEffect(() => {
     // Invalidate any in-flight refresh/launch belonging to a prior selection.
@@ -371,14 +406,13 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         expectedDocumentRevision: envelope.revision,
         expectedContentSha256: envelope.contentSha256,
       });
+      adoptExactRunEnvelope(response, { diagnostics: response.diagnostics });
       if (!validation.ok) {
-        setRun(response.run);
         setHandoff(null);
         setError(validation.reason);
         return;
       }
 
-      setRun(response.run);
       setHandoff(validation.handoff);
       setRunIdInLocationForDocument(selectedDocumentId, response.run.run_id);
       writeStoredRunId(selectedDocumentId, response.run.run_id);
@@ -406,6 +440,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     && handoff
     && run.status === "reviewable",
   );
+  const canInspectRun = Boolean(!launching && run);
 
   let statusLabel = "No extraction run";
   if (launching) statusLabel = "Launching extraction…";
@@ -425,6 +460,10 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
     canLaunch,
     canRefresh,
     canOpenGraphReview,
+    canInspectRun,
+    pinnedRevision,
+    pinnedDigest,
+    runDiagnostics,
     refresh,
     launch,
   };

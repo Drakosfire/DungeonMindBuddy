@@ -4,6 +4,8 @@ import { BUILD_SURFACE_LABEL } from "./buildSurfaceConfig";
 import type { MarkdownCanvasSlots } from "../markdownCanvas/MarkdownCanvas";
 import { useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 
+const BUILD_EDITOR_THEME_CLASS = "md-theme-mireward-runbook";
+
 /** Build-owned slot copy and Save action for the shared MarkdownCanvas. */
 export function useBuildMarkdownCanvasSlots(args?: {
   statusExtra?: ReactNode;
@@ -17,7 +19,8 @@ export function useBuildMarkdownCanvasSlots(args?: {
     errorHeading: BUILD_SURFACE_LABEL,
     conflictHeading: BUILD_SURFACE_LABEL,
     className: "build-surface-shell",
-    editorClassName: "build-surface-editor",
+    editorClassName: `build-surface-editor tiptap-spike-editor md-content ${BUILD_EDITOR_THEME_CLASS}`,
+    editorMdTheme: "mireward-runbook",
     dataTestId: "build-surface-shell",
     editorDataTestId: "build-markdown-editor",
     loadingTestId: "build-surface-loading",
@@ -39,6 +42,7 @@ export function useBuildMarkdownCanvasSlots(args?: {
     actions: (
       <button
         type="button"
+        className="primary"
         data-testid="build-save-button"
         disabled={session.saveDisabled}
         onClick={() => void session.saveMarkdown()}

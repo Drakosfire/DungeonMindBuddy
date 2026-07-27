@@ -1,3 +1,5 @@
+import { useProjection } from "../planSurface/projection/projectionContext";
+import { BuildExactRunSummary } from "./BuildExactRunSummary";
 import { useBuildExtraction } from "./useBuildExtraction";
 
 interface BuildIngestToolbarProps {
@@ -5,15 +7,20 @@ interface BuildIngestToolbarProps {
 }
 
 export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
+  const { openTool } = useProjection();
   const {
     statusLabel,
     error,
     canLaunch,
     canRefresh,
     canOpenGraphReview,
+    canInspectRun,
     launching,
     handoff,
     run,
+    pinnedRevision,
+    pinnedDigest,
+    runDiagnostics,
     launch,
     refresh,
   } = useBuildExtraction({ documentId });
@@ -43,24 +50,37 @@ export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
           >
             Refresh run
           </button>
+          {canInspectRun ? (
+            <button
+              type="button"
+              data-testid="build-inspect-run"
+              onClick={() => openTool("build-extraction-run-inspector")}
+            >
+              Inspect run
+            </button>
+          ) : null}
           {canOpenGraphReview && handoff ? (
             <a
+              className="build-ingest-toolbar-secondary-link"
               data-testid="build-open-graph-review"
               href={handoff.href}
             >
-              Open in Graph Review
+              Open full Graph Review
             </a>
           ) : (
-            <span data-testid="build-open-graph-review-disabled">Open in Graph Review</span>
+            <span data-testid="build-open-graph-review-disabled">Open full Graph Review</span>
           )}
         </div>
       </div>
       {run ? (
-        <p data-testid="build-extraction-run-id">
-          Exact run: <code>{run.run_id}</code>
-        </p>
-      ) : null}
-      {error ? (
+        <BuildExactRunSummary
+          run={run}
+          pinnedRevision={pinnedRevision}
+          pinnedDigest={pinnedDigest}
+          error={error}
+          runDiagnostics={runDiagnostics}
+        />
+      ) : error ? (
         <p role="alert" data-testid="build-extraction-error">{error}</p>
       ) : null}
     </section>
