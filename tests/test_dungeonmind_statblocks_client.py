@@ -648,6 +648,27 @@ def test_create_statblock_serializes_request_and_idempotency_key() -> None:
     assert result.locator.definition_digest.startswith("sha256:")
 
 
+def test_create_statblock_dict_path_strips_null_optional_fields() -> None:
+    """Journal replay bodies may still carry nulls; DMS 422s on those fields."""
+    captured: dict[str, object] = {}
+
+    def handler(request_http: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request_http.content.decode("utf-8"))
+        return httpx.Response(200, json=_fixture("create-response.json"))
+
+    body = dict(_fixture("create-request.json"))
+    body["accepted_through"] = None
+    body["asset_bindings"] = None
+    body["actor"] = None
+    _client(httpx.MockTransport(handler)).create_statblock(body)
+    sent = captured["body"]
+    assert isinstance(sent, dict)
+    assert "accepted_through" not in sent
+    assert "asset_bindings" not in sent
+    assert "actor" not in sent
+    assert sent["idempotency_key"] == body["idempotency_key"]
+
+
 def test_create_statblock_parses_six_field_locator() -> None:
     from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
         MechanicsLocatorV1,

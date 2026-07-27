@@ -1,7 +1,6 @@
 """SBW07b: validation gate, idempotent create orchestration, Phase 1/2 repair."""
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -127,7 +126,9 @@ def _build_create_body(request: AcceptThreatDraftMechanicsRequestV1) -> dict[str
         actor=request.actor,
         accepted_through=request.accepted_through,
     )
-    return json.loads(create.model_dump_json())
+    # DMS CreateStatblockRequestV1 treats accepted_through / asset_bindings as
+    # object/array (not nullable). exclude_none omits nulls so Server defaults apply.
+    return create.model_dump(mode="json", exclude_none=True)
 
 
 def _result_label_for_operation(

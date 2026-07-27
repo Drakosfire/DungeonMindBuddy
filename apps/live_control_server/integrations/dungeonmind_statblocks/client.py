@@ -294,7 +294,9 @@ class DungeonMindStatblockV1Client:
         if isinstance(body, CreateStatblockRequestV1):
             json_body = body.model_dump(mode="json", by_alias=True, exclude_none=True)
         else:
-            json_body = body
+            # Dict path (acceptance journal replay): strip nulls so DMS does not
+            # 422 on accepted_through/asset_bindings typed as object/array only.
+            json_body = {k: v for k, v in body.items() if v is not None}
         idempotency_key = json_body.get("idempotency_key")
         if not isinstance(idempotency_key, str) or not idempotency_key.strip():
             raise downstream_invalid_request("create request missing idempotency_key")

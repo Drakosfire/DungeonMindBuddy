@@ -175,9 +175,14 @@ class AcceptanceOperationV1(StrictModel):
         if typed_body.idempotency_key != self.idempotency_key:
             raise ValueError("request_body.idempotency_key must equal record key")
 
-        body_candidate = (
-            str(typed_body.candidate_id) if typed_body.candidate_id is not None else None
-        )
+        # CandidateId is a pydantic RootModel — str(value) yields "root='cand_…'",
+        # not the bare id. Compare the root string (or plain str) instead.
+        raw_candidate = typed_body.candidate_id
+        if raw_candidate is None:
+            body_candidate = None
+        else:
+            root = getattr(raw_candidate, "root", None)
+            body_candidate = root if isinstance(root, str) else str(raw_candidate)
         if body_candidate != self.source_candidate_id:
             raise ValueError(
                 "source_candidate_id must match request_body.candidate_id"

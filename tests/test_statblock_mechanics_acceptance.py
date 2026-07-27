@@ -187,6 +187,10 @@ def test_success_mechanics_saved(mock_validate, tmp_path: Path) -> None:
     )
     assert result.result_label == "mechanics_saved"
     assert len(client.create_calls) == 1
+    create_body = client.create_calls[0]
+    # DMS rejects null for these non-nullable object/array fields (422).
+    assert "accepted_through" not in create_body
+    assert "asset_bindings" not in create_body
     reloaded = get_threat_draft(tmp_path, draft.draft_id)
     assert reloaded.workflow_state == "mechanics_saved"
     assert reloaded.accepted_mechanics_ref is not None
@@ -196,6 +200,26 @@ def test_success_mechanics_saved(mock_validate, tmp_path: Path) -> None:
     assert op is not None
     assert op.authority_state == "reconciled"
     assert op.materialization.draft_ref == "attached"
+
+
+def test_build_create_body_omits_null_accepted_through_and_asset_bindings() -> None:
+    request = AcceptThreatDraftMechanicsRequestV1(
+        operation_id=str(uuid.uuid4()),
+        expected_draft_version=1,
+        definition=_definition(),
+        validation_receipt=_receipt(),
+        validation_definition_digest=_digest(),
+        change_summary="Accepted in test.",
+        actor=None,
+        accepted_through=None,
+        source_candidate_id="cand_5enq3tnxsu3lw6fk",
+    )
+    body = acceptance._build_create_body(request)
+    assert "accepted_through" not in body
+    assert "asset_bindings" not in body
+    assert "actor" not in body
+    assert body["candidate_id"] == "cand_5enq3tnxsu3lw6fk"
+    assert body["change_summary"] == "Accepted in test."
 
 
 @patch.object(acceptance, "validate_definition", side_effect=_validate_ok)

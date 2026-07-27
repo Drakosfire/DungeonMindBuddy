@@ -3286,6 +3286,9 @@ export interface ReadStatblockCandidateResponseV1 {
   candidate?: GeneratedStatblockCandidateV1 | null;
   failure_category?: string | null;
   failure_message?: string | null;
+  source_draft_id?: string | null;
+  source_draft_version?: number | null;
+  source_draft_name?: string | null;
 }
 
 /** Buddy envelope for SBW05a `/statblock-definitions:validate` (browser → Buddy). */

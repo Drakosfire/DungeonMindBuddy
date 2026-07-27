@@ -266,6 +266,27 @@ def get_threat_draft(root: Path, draft_id: str) -> ThreatDraftV1:
         return _load_draft_unlocked(root, committed_id)
 
 
+def find_threat_draft_for_candidate(
+    root: Path,
+    candidate_id: str,
+) -> tuple[ThreatDraftV1, ThreatDraftCandidateRefV1] | None:
+    """Reverse-lookup the ThreatDraft that lists this candidate in candidate_refs."""
+    cleaned = (candidate_id or "").strip()
+    if not cleaned:
+        return None
+    with _store_lock(root):
+        index = _load_index(root)
+        for draft_id in index.draft_ids:
+            try:
+                draft = _load_draft_unlocked(root, draft_id)
+            except ThreatDraftStoreError:
+                continue
+            for ref in draft.candidate_refs:
+                if ref.candidate_id == cleaned:
+                    return draft, ref
+    return None
+
+
 def read_committed_draft_version(root: Path, draft_id: str) -> int:
     """Read a committed draft's version under the ThreatDraft store lock.
 
