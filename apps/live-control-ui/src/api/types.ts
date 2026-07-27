@@ -2177,19 +2177,6 @@ export type GraphProjectionRelationshipDirection =
   | "incoming"
   | "related";
 
-type _ExpectTrue<T extends true> = T;
-type _GraphProjectionDirectionRejectsOutbound = _ExpectTrue<
-  "outbound" extends GraphProjectionRelationshipDirection ? false : true
->;
-type _GraphProjectionDirectionRejectsInbound = _ExpectTrue<
-  "inbound" extends GraphProjectionRelationshipDirection ? false : true
->;
-type _GraphProjectionDirectionAcceptsClosed = _ExpectTrue<
-  "outgoing" | "incoming" | "related" extends GraphProjectionRelationshipDirection
-    ? true
-    : false
->;
-
 export interface GraphProjectionAdjacencyCandidate {
   edge_id: string;
   node_id: string;
@@ -2334,7 +2321,7 @@ export interface WorldGraphProjectionEvidenceBadge {
 
 export type WorldGraphRelationshipDirection = "outgoing" | "incoming" | "related";
 
-/** Compile-time proof: closed World Graph direction rejects legacy aliases. */
+/** Compile-time proof helper shared by closed direction contracts in this module. */
 type _ExpectTrue<T extends true> = T;
 type _WorldGraphDirectionRejectsOutbound = _ExpectTrue<
   "outbound" extends WorldGraphRelationshipDirection ? false : true
@@ -2345,6 +2332,23 @@ type _WorldGraphDirectionRejectsInbound = _ExpectTrue<
 type _WorldGraphDirectionAcceptsClosed = _ExpectTrue<
   "outgoing" | "incoming" | "related" extends WorldGraphRelationshipDirection ? true : false
 >;
+/** Compile-time proof: closed Union-compatible direction rejects legacy aliases. */
+type _GraphProjectionDirectionRejectsOutbound = _ExpectTrue<
+  "outbound" extends GraphProjectionRelationshipDirection ? false : true
+>;
+type _GraphProjectionDirectionRejectsInbound = _ExpectTrue<
+  "inbound" extends GraphProjectionRelationshipDirection ? false : true
+>;
+type _GraphProjectionDirectionAcceptsClosed = _ExpectTrue<
+  "outgoing" | "incoming" | "related" extends GraphProjectionRelationshipDirection
+    ? true
+    : false
+>;
+export type GraphProjectionDirectionContractProof = [
+  _GraphProjectionDirectionRejectsOutbound,
+  _GraphProjectionDirectionRejectsInbound,
+  _GraphProjectionDirectionAcceptsClosed,
+];
 export type WorldGraphDirectionContractProof = [
   _WorldGraphDirectionRejectsOutbound,
   _WorldGraphDirectionRejectsInbound,
