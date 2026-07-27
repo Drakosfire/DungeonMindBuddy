@@ -24,6 +24,7 @@ import {
   getStatblockWorkbenchDraft,
   getStatblockWorkbenchSample,
   getStatblockCandidate,
+  createThreatDraft,
   generateThreatDraftCandidate,
   validateStatblockDefinition,
   acceptThreatDraftMechanics,
@@ -269,6 +270,64 @@ describe("liveApi artifact/capability helpers", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/statblocks/workbench/sample");
+  });
+
+  it("createThreatDraft posts exact ThreatDraft create body to collection route", async () => {
+    const request = {
+      world_id: "world_eldyrwild",
+      campaign_id: "campaign_longmont_c2",
+      focus: { session: 22, prep_label: null },
+      name: "Mireward Latchling",
+      slug_hint: null,
+      description: "A newly authored Mireward threat.",
+      threat_kind: "creature",
+      intended_roles: [],
+      tags: [],
+      generation_intent: {
+        ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+        target_cr: "2",
+        complexity: null,
+        must_include: [],
+        must_avoid: [],
+      },
+      encounter_context: {
+        party_level: null,
+        party_size: null,
+        terrain_notes: [],
+      },
+      graph_context_snapshot: {
+        graph_revision_id: "rev_exact_1",
+        selected_node_ids: [],
+        admitted_source_anchor_ids: [],
+      },
+      created_by: "gm",
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_threat_draft_v1",
+        draft_id: "11111111-1111-4111-8111-111111111111",
+        version: 1,
+        world_id: request.world_id,
+        campaign_id: request.campaign_id,
+        name: request.name,
+        description: request.description,
+        threat_kind: request.threat_kind,
+        workflow_state: "drafting",
+        created_by: request.created_by,
+        created_at: "2026-07-26T00:00:00Z",
+        updated_at: "2026-07-26T00:00:00Z",
+      }),
+    );
+
+    const created = await createThreatDraft(request);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/threat-drafts");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+    expect(created.draft_id).toBe("11111111-1111-4111-8111-111111111111");
+    expect(created.version).toBe(1);
   });
 
   it("generateThreatDraftCandidate posts to exact draft generate route", async () => {

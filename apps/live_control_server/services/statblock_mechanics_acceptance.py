@@ -1,7 +1,6 @@
 """SBW07b: validation gate, idempotent create orchestration, Phase 1/2 repair."""
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -127,7 +126,10 @@ def _build_create_body(request: AcceptThreatDraftMechanicsRequestV1) -> dict[str
         actor=request.actor,
         accepted_through=request.accepted_through,
     )
-    return json.loads(create.model_dump_json())
+    # Journal body must retain null optional fields for digest/body equality on
+    # replay across deploys. DMS null rejection is handled only at the client
+    # transport boundary (exclude_none / strip-none on send).
+    return create.model_dump(mode="json", exclude_none=False)
 
 
 def _result_label_for_operation(

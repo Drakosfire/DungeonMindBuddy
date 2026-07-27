@@ -56,6 +56,7 @@ from apps.live_control_server.services.threat_draft_store import (
     _require_committed_draft_id,
     _store_lock,
     append_candidate_ref,
+    find_threat_draft_for_candidate,
     get_threat_draft,
 )
 
@@ -1199,6 +1200,26 @@ def read_candidate(
     candidate_id: str,
     client: StatblockV1Client | None = None,
 ) -> ReadStatblockCandidateResponseV1:
+    def _with_source_draft(
+        response: ReadStatblockCandidateResponseV1,
+    ) -> ReadStatblockCandidateResponseV1:
+        if response.status not in {"active", "expired"}:
+            return response
+        try:
+            found = find_threat_draft_for_candidate(root, candidate_id)
+        except ThreatDraftStoreError:
+            return response
+        if found is None:
+            return response
+        draft, ref = found
+        return response.model_copy(
+            update={
+                "source_draft_id": draft.draft_id,
+                "source_draft_version": ref.generated_from_draft_version,
+                "source_draft_name": draft.name,
+            }
+        )
+
     try:
         cached = read_candidate_payload_or_none(root, candidate_id)
     except CandidateCacheError as exc:
@@ -1211,15 +1232,19 @@ def read_candidate(
 
     if cached is not None:
         if _candidate_is_expired(cached):
-            return ReadStatblockCandidateResponseV1(
+            return _with_source_draft(
+                ReadStatblockCandidateResponseV1(
+                    candidate_id=candidate_id,
+                    status="expired",
+                    candidate=cached,
+                )
+            )
+        return _with_source_draft(
+            ReadStatblockCandidateResponseV1(
                 candidate_id=candidate_id,
-                status="expired",
+                status="active",
                 candidate=cached,
             )
-        return ReadStatblockCandidateResponseV1(
-            candidate_id=candidate_id,
-            status="active",
-            candidate=cached,
         )
 
     active_client = client or DungeonMindStatblockV1Client()
@@ -1248,13 +1273,17 @@ def read_candidate(
     except CandidateCacheError:
         pass
     if _candidate_is_expired(payload):
-        return ReadStatblockCandidateResponseV1(
+        return _with_source_draft(
+            ReadStatblockCandidateResponseV1(
+                candidate_id=candidate_id,
+                status="expired",
+                candidate=payload,
+            )
+        )
+    return _with_source_draft(
+        ReadStatblockCandidateResponseV1(
             candidate_id=candidate_id,
-            status="expired",
+            status="active",
             candidate=payload,
         )
-    return ReadStatblockCandidateResponseV1(
-        candidate_id=candidate_id,
-        status="active",
-        candidate=payload,
     )

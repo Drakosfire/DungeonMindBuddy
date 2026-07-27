@@ -3206,6 +3206,80 @@ export interface ThreatDraftCandidateRefV1 {
   status: "active" | "superseded" | "rejected" | "expired" | "accepted_source";
 }
 
+/** Mirrors `CreateThreatDraftRequest` / nested models in live_control_server threat_draft. */
+export interface ThreatDraftRulesetRefV1 {
+  system: string;
+  edition: string;
+  house_ruleset_id?: string | null;
+}
+
+export interface ThreatDraftGenerationIntentV1 {
+  ruleset: ThreatDraftRulesetRefV1;
+  target_cr?: string | null;
+  complexity?: string | null;
+  must_include: string[];
+  must_avoid: string[];
+}
+
+export interface ThreatDraftEncounterContextV1 {
+  party_level?: number | null;
+  party_size?: number | null;
+  terrain_notes: string[];
+}
+
+export interface ThreatDraftGraphContextSnapshotV1 {
+  graph_revision_id: string;
+  selected_node_ids: string[];
+  admitted_source_anchor_ids: string[];
+}
+
+/** CamelCase wire shape from `/api/live/world-graph-bootstrap/status`. */
+export interface WorldGraphBootstrapStatusV1 {
+  schema: "dmb_world_graph_bootstrap_status_v1";
+  state: string;
+  worldId: string;
+  campaignId: string;
+  currentHeadRevisionId?: string | null;
+  initialHeadRevisionId?: string | null;
+}
+
+export interface ThreatDraftFocusV1 {
+  session?: number | null;
+  prep_label?: string | null;
+}
+
+export interface CreateThreatDraftRequestV1 {
+  world_id: string;
+  campaign_id: string;
+  focus?: ThreatDraftFocusV1 | null;
+  name: string;
+  slug_hint?: string | null;
+  description: string;
+  threat_kind: string;
+  intended_roles: string[];
+  tags: string[];
+  generation_intent: ThreatDraftGenerationIntentV1;
+  encounter_context: ThreatDraftEncounterContextV1;
+  graph_context_snapshot: ThreatDraftGraphContextSnapshotV1;
+  created_by: string;
+}
+
+/** Create response fields required by create-and-generate; extra Server fields are ignored. */
+export interface ThreatDraftV1 {
+  schema: "dmb_threat_draft_v1";
+  draft_id: string;
+  version: number;
+  world_id: string;
+  campaign_id: string;
+  name: string;
+  description: string;
+  threat_kind: string;
+  workflow_state: "drafting" | "candidate_ready" | "mechanics_saved";
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface GenerateThreatDraftCandidateRequestV1 {
   expected_draft_version: number;
   client_request_id?: string | null;
@@ -3244,6 +3318,9 @@ export interface ReadStatblockCandidateResponseV1 {
   candidate?: GeneratedStatblockCandidateV1 | null;
   failure_category?: string | null;
   failure_message?: string | null;
+  source_draft_id?: string | null;
+  source_draft_version?: number | null;
+  source_draft_name?: string | null;
 }
 
 /** Buddy envelope for SBW05a `/statblock-definitions:validate` (browser → Buddy). */

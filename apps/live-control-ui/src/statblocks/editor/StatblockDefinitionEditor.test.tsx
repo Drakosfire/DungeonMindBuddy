@@ -18,11 +18,17 @@ function ControlledEditor({ output }: { output: ReturnType<typeof baseCandidateD
 }
 
 describe("StatblockDefinitionEditor", () => {
-  it("discloses rule element summary and uses honest remainder badges", () => {
+  it("discloses rule element summary and uses honest remainder badges behind advanced", () => {
     render(<ControlledEditor output={baseCandidateDefinition()} />);
+
+    const advanced = screen.getByTestId("editor-advanced-structure");
+    expect(advanced).toBeInstanceOf(HTMLDetailsElement);
+    expect((advanced as HTMLDetailsElement).open).toBe(false);
+    expect(screen.getByText(/Advanced — full data structure/i)).toBeTruthy();
 
     const summaryBlock = document.querySelector('[data-protected-path="rule_elements[0].summary"]');
     expect(summaryBlock).toBeTruthy();
+    expect(advanced.contains(summaryBlock!)).toBe(true);
     expect(summaryBlock!.querySelector("pre")?.textContent).toContain("null");
 
     const structureBlock = document.querySelector('[data-protected-path="rule_elements[0].structure"]');
@@ -46,10 +52,12 @@ describe("StatblockDefinitionEditor", () => {
 
   it("renders protected regions queryable in the DOM with session disclosure", () => {
     render(<ControlledEditor output={complexCandidateDefinition()} />);
+    const advanced = screen.getByTestId("editor-advanced-structure");
     const protectedRegions = document.querySelectorAll('[data-editor-region="protected"]');
     expect(protectedRegions.length).toBeGreaterThan(0);
     expect(document.querySelector('[data-protected-path="lair"]')).toBeTruthy();
     expect(document.querySelector('[data-protected-path="phases"]')).toBeTruthy();
+    expect(advanced.contains(document.querySelector('[data-protected-path="lair"]')!)).toBe(true);
     expect(screen.getByText(/Session-only working copy/)).toBeTruthy();
     expect(screen.getByText(/unsaved/i)).toBeTruthy();
   });

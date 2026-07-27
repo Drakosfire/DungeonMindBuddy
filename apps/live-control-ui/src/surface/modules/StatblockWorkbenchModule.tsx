@@ -3,9 +3,12 @@ import type { FormEvent } from "react";
 
 import {
   acceptThreatDraftMechanics,
+  createThreatDraft,
   generateThreatDraftCandidate,
   getAcceptanceOperation,
   getStatblockCandidate,
+  getWorldGraphBootstrapStatus,
+  LiveApiError,
   reconcileAcceptanceOperation,
   validateStatblockDefinition,
 } from "../../api/liveApi";
@@ -13,6 +16,7 @@ import type {
   AcceptanceResultLabel,
   AcceptThreatDraftMechanicsRequestV1,
   AcceptThreatDraftMechanicsResponseV1,
+  CreateThreatDraftRequestV1,
   GenerateThreatDraftCandidateResponseV1,
   ReadAcceptanceOperationResponseV1,
   ReadStatblockCandidateResponseV1,
@@ -30,6 +34,7 @@ import {
   getUiStatus,
   markValidationAssociated,
   markValidationUnavailable,
+  updateWorkingCopy,
   type StatblockEditorState,
 } from "../../statblocks/editor/statblockEditorState";
 import {
@@ -103,6 +108,280 @@ function readCandidateIdFromLocation(): string {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
   return params.get("candidateId")?.trim() ?? "";
+}
+
+/** Split comma/newline operator lists into bounded non-empty trimmed strings. */
+function parseBoundedStringList(raw: string): string[] {
+  return raw
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function parseOptionalPositiveInt(raw: string): number | null | "invalid" {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const value = Number(trimmed);
+  if (!Number.isInteger(value) || value < 1) return "invalid";
+  return value;
+}
+
+type CreatedDraftIdentity = {
+  draft_id: string;
+  version: number;
+  name: string;
+};
+
+/**
+ * Live Control scope defaults for dogfood create. Graph revision is NOT invented
+ * here — it is resolved from World Graph bootstrap head (or an exact Advanced override).
+ */
+const LIVE_CONTROL_CREATE_CONTEXT = {
+  world_id: "eldyrwild",
+  campaign_id: "longmont-c2",
+  threat_kind: "creature",
+  created_by: "gm",
+  ruleset: {
+    system: "dnd5e",
+    edition: "2024",
+    house_ruleset_id: null as string | null,
+  },
+} as const;
+
+type CreateFormFields = {
+  description: string;
+  focusSession: string;
+  prepLabel: string;
+  slugHint: string;
+  targetCr: string;
+  complexity: string;
+  mustInclude: string;
+  mustAvoid: string;
+  intendedRoles: string;
+  tags: string;
+  partyLevel: string;
+  partySize: string;
+  terrainNotes: string;
+  /** Exact World Graph revision override (e.g. rev:…). Empty → resolve bootstrap head. */
+  graphRevisionId: string;
+};
+
+const DEFAULT_CREATE_FORM: CreateFormFields = {
+  description: "",
+  focusSession: "",
+  prepLabel: "",
+  slugHint: "",
+  targetCr: "",
+  complexity: "",
+  mustInclude: "",
+  mustAvoid: "",
+  intendedRoles: "",
+  tags: "",
+  partyLevel: "",
+  partySize: "",
+  terrainNotes: "",
+  graphRevisionId: "",
+};
+
+type ResolvedCreateScope = {
+  world_id: string;
+  campaign_id: string;
+  graph_revision_id: string;
+};
+
+/** Derive a short ThreatDraft name from pasted prose (not a full paragraph dump). */
+function deriveThreatNameFromDescription(description: string): string {
+  const firstLine =
+    description
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) ?? "";
+  const cleaned = firstLine.replace(/[.。]+$/u, "").trim();
+  if (!cleaned) return "Untitled threat";
+
+  const namedSubject = cleaned.match(/^(?:A|An|The)\s+(.+?)\s+is\b/iu);
+  if (namedSubject?.[1]) {
+    const subject = namedSubject[1].trim();
+    if (subject.length > 0 && subject.length <= 80) return subject;
+  }
+
+  const firstSentence = cleaned.match(/^(.+?[.!?])(?:\s|$)/u)?.[1]?.trim();
+  const candidate = firstSentence && firstSentence.length <= 80 ? firstSentence.replace(/[.!?]$/u, "").trim() : cleaned;
+
+  const maxLen = 48;
+  if (candidate.length <= maxLen) return candidate;
+  const sliced = candidate.slice(0, maxLen);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const truncated = (lastSpace > 16 ? sliced.slice(0, lastSpace) : sliced).trim();
+  return `${truncated}…`;
+}
+
+function shortThreatDisplayName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "Untitled threat";
+  if (trimmed.length <= 48) return trimmed;
+  const sliced = trimmed.slice(0, 48);
+  const lastSpace = sliced.lastIndexOf(" ");
+  return `${(lastSpace > 16 ? sliced.slice(0, lastSpace) : sliced).trim()}…`;
+}
+
+function buildCreateThreatDraftRequest(
+  fields: CreateFormFields,
+  scope: ResolvedCreateScope,
+): { ok: true; request: CreateThreatDraftRequestV1 } | { ok: false; message: string } {
+  const description = fields.description.trim();
+  if (!description) return { ok: false, message: "Provide a threat description." };
+
+  const graphRevisionId = scope.graph_revision_id.trim();
+  if (!graphRevisionId) {
+    return {
+      ok: false,
+      message:
+        "No authoritative World Graph head — bootstrap Eldyrwild or enter an exact graph revision (rev:…) in Optional controls.",
+    };
+  }
+
+  const name = deriveThreatNameFromDescription(description);
+
+  let focusSessionValue: number | null = null;
+  const focusSessionRaw = fields.focusSession.trim();
+  if (focusSessionRaw) {
+    const parsed = Number(focusSessionRaw);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      return { ok: false, message: "Focus session must be an integer ≥ 0, or empty." };
+    }
+    focusSessionValue = parsed;
+  }
+
+  const partyLevel = parseOptionalPositiveInt(fields.partyLevel);
+  if (partyLevel === "invalid") {
+    return { ok: false, message: "Party level must be an integer ≥ 1, or empty." };
+  }
+  const partySize = parseOptionalPositiveInt(fields.partySize);
+  if (partySize === "invalid") {
+    return { ok: false, message: "Party size must be an integer ≥ 1, or empty." };
+  }
+
+  const prepLabel = fields.prepLabel.trim() || null;
+  const slugHint = fields.slugHint.trim() || null;
+  const targetCr = fields.targetCr.trim() || null;
+  const complexity = fields.complexity.trim() || null;
+  const focus =
+    focusSessionValue != null || prepLabel != null
+      ? { session: focusSessionValue, prep_label: prepLabel }
+      : null;
+
+  return {
+    ok: true,
+    request: {
+      world_id: scope.world_id,
+      campaign_id: scope.campaign_id,
+      focus,
+      name,
+      slug_hint: slugHint,
+      description,
+      threat_kind: LIVE_CONTROL_CREATE_CONTEXT.threat_kind,
+      intended_roles: parseBoundedStringList(fields.intendedRoles),
+      tags: parseBoundedStringList(fields.tags),
+      generation_intent: {
+        ruleset: {
+          system: LIVE_CONTROL_CREATE_CONTEXT.ruleset.system,
+          edition: LIVE_CONTROL_CREATE_CONTEXT.ruleset.edition,
+          house_ruleset_id: LIVE_CONTROL_CREATE_CONTEXT.ruleset.house_ruleset_id,
+        },
+        target_cr: targetCr,
+        complexity,
+        must_include: parseBoundedStringList(fields.mustInclude),
+        must_avoid: parseBoundedStringList(fields.mustAvoid),
+      },
+      encounter_context: {
+        party_level: partyLevel,
+        party_size: partySize,
+        terrain_notes: parseBoundedStringList(fields.terrainNotes),
+      },
+      graph_context_snapshot: {
+        graph_revision_id: graphRevisionId,
+        selected_node_ids: [],
+        admitted_source_anchor_ids: [],
+      },
+      created_by: LIVE_CONTROL_CREATE_CONTEXT.created_by,
+    },
+  };
+}
+
+async function resolveCreateScope(
+  fields: CreateFormFields,
+): Promise<{ ok: true; scope: ResolvedCreateScope } | { ok: false; message: string }> {
+  const override = fields.graphRevisionId.trim();
+  if (override) {
+    return {
+      ok: true,
+      scope: {
+        world_id: LIVE_CONTROL_CREATE_CONTEXT.world_id,
+        campaign_id: LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
+        graph_revision_id: override,
+      },
+    };
+  }
+
+  try {
+    const status = await getWorldGraphBootstrapStatus();
+    const worldId =
+      typeof status.worldId === "string" && status.worldId.trim()
+        ? status.worldId.trim()
+        : LIVE_CONTROL_CREATE_CONTEXT.world_id;
+    const campaignId =
+      typeof status.campaignId === "string" && status.campaignId.trim()
+        ? status.campaignId.trim()
+        : LIVE_CONTROL_CREATE_CONTEXT.campaign_id;
+    const head =
+      typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
+        ? status.currentHeadRevisionId.trim()
+        : "";
+    if (!head) {
+      return {
+        ok: false,
+        message:
+          "No authoritative World Graph head from bootstrap — bootstrap Eldyrwild or enter an exact graph revision (rev:…) in Optional controls.",
+      };
+    }
+    return {
+      ok: true,
+      scope: {
+        world_id: worldId,
+        campaign_id: campaignId,
+        graph_revision_id: head,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Could not resolve World Graph head: ${
+        error instanceof Error ? error.message : String(error)
+      }. Enter an exact graph revision (rev:…) in Optional controls, or retry.`,
+    };
+  }
+}
+
+function isCreateTransportUncertainty(error: unknown): boolean {
+  if (error instanceof LiveApiError) {
+    // HTTP status was observed — definite request outcome from the API layer.
+    return false;
+  }
+  return true;
+}
+
+function createdDraftFromResponse(draft: {
+  draft_id?: unknown;
+  version?: unknown;
+  name?: unknown;
+}): CreatedDraftIdentity | null {
+  if (typeof draft.draft_id !== "string" || !draft.draft_id.trim()) return null;
+  if (typeof draft.version !== "number" || !Number.isInteger(draft.version) || draft.version < 1) {
+    return null;
+  }
+  const name = typeof draft.name === "string" && draft.name.trim() ? draft.name.trim() : draft.draft_id;
+  return { draft_id: draft.draft_id.trim(), version: draft.version, name };
 }
 
 function isIntegrityFailureCategory(category: string | null | undefined): boolean {
@@ -369,11 +648,188 @@ function PreviewValidationPanel({
 
 const ACCEPT_OP_STORAGE_PREFIX = "dmb.sbw07.acceptOperationId:";
 const ACCEPT_ATTEMPT_STORAGE_PREFIX = "dmb.sbw07.acceptAttempt:";
+/** Session join for dogfood: draft/candidate IDs + local working-copy edits (not accepted mechanics). */
+const WORKBENCH_JOIN_STORAGE_KEY = "dmb.sbw.workbenchJoin";
 
 interface StoredAcceptAttempt {
   operation_id: string;
   /** Exact mechanics:accept body for same-key replay when no journal claim exists yet. */
   request?: AcceptThreatDraftMechanicsRequestV1 | null;
+}
+
+interface StoredWorkbenchJoin {
+  draft_id?: string | null;
+  version?: number | null;
+  name?: string | null;
+  candidate_id?: string | null;
+  /** Local editor working copy for the joined candidate — restored across hard reload. */
+  working_copy?: StatblockDefinitionV1_Input | null;
+}
+
+function readStoredWorkingCopy(value: unknown): StatblockDefinitionV1_Input | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as StatblockDefinitionV1_Input;
+}
+
+function readStoredWorkbenchJoin(): StoredWorkbenchJoin | null {
+  try {
+    const raw = sessionStorage.getItem(WORKBENCH_JOIN_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredWorkbenchJoin;
+    if (!parsed || typeof parsed !== "object") return null;
+    const draft_id =
+      typeof parsed.draft_id === "string" && parsed.draft_id.trim() ? parsed.draft_id.trim() : null;
+    const candidate_id =
+      typeof parsed.candidate_id === "string" && parsed.candidate_id.trim()
+        ? parsed.candidate_id.trim()
+        : null;
+    const version =
+      typeof parsed.version === "number" && Number.isInteger(parsed.version) && parsed.version >= 1
+        ? parsed.version
+        : null;
+    const name = typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : null;
+    const working_copy = readStoredWorkingCopy(parsed.working_copy);
+    if (!draft_id && !candidate_id) return null;
+    return { draft_id, version, name, candidate_id, working_copy };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredWorkbenchJoin(join: StoredWorkbenchJoin): void {
+  try {
+    sessionStorage.setItem(WORKBENCH_JOIN_STORAGE_KEY, JSON.stringify(join));
+  } catch {
+    /* private mode / quota — in-memory state still covers the session */
+  }
+}
+
+/** Prefer create/restore identity; Advanced draft fields are recovery only. */
+function resolveAcceptDraftIdentity(
+  createdDraft: CreatedDraftIdentity | null,
+  draftIdInput: string,
+  draftVersionInput: string,
+): { draft_id: string; version: number } | null {
+  if (createdDraft?.draft_id && createdDraft.version >= 1) {
+    return { draft_id: createdDraft.draft_id, version: createdDraft.version };
+  }
+  const draftId = draftIdInput.trim();
+  const version = Number(draftVersionInput);
+  if (!draftId || !Number.isInteger(version) || version < 1) {
+    const stored = readStoredWorkbenchJoin();
+    if (stored?.draft_id) {
+      const storedVersion = stored.version ?? 1;
+      if (Number.isInteger(storedVersion) && storedVersion >= 1) {
+        return { draft_id: stored.draft_id, version: storedVersion };
+      }
+    }
+    return null;
+  }
+  return { draft_id: draftId, version };
+}
+
+/** Keep workflow failures readable in the fixed dock without dumping transport essays. */
+function formatWorkbenchDockError(message: string, kind: "accept" | "validate"): string {
+  const prefix = kind === "accept" ? "Accept failed" : "Validate failed";
+  const raw = message.trim();
+  if (/not valid JSON/i.test(raw) && /HTML page/i.test(raw)) {
+    const http = raw.match(/HTTP\s+(\d+)/i)?.[1];
+    return `${prefix}: HTTP ${http ?? "error"} returned HTML instead of JSON — Buddy/L3 likely down or /api not proxied.`;
+  }
+  if (raw.length <= 160) return `${prefix}: ${raw}`;
+  return `${prefix}: ${raw.slice(0, 157).trimEnd()}…`;
+}
+
+function patchStoredWorkbenchJoin(patch: Partial<StoredWorkbenchJoin>): void {
+  const prev = readStoredWorkbenchJoin() ?? {};
+  const pick = (
+    next: string | number | null | undefined,
+    current: string | number | null | undefined,
+  ): string | number | null => {
+    if (next === undefined) {
+      return current ?? null;
+    }
+    // Never clobber a known identity with an explicit null from a partial patch.
+    if (next === null) {
+      return current ?? null;
+    }
+    return next;
+  };
+  const pickWorkingCopy = (
+    next: StatblockDefinitionV1_Input | null | undefined,
+    current: StatblockDefinitionV1_Input | null | undefined,
+  ): StatblockDefinitionV1_Input | null => {
+    if (next === undefined) return current ?? null;
+    return next;
+  };
+  writeStoredWorkbenchJoin({
+    draft_id: pick(patch.draft_id, prev.draft_id) as string | null,
+    version: pick(patch.version, prev.version) as number | null,
+    name: pick(patch.name, prev.name) as string | null,
+    candidate_id: pick(patch.candidate_id, prev.candidate_id) as string | null,
+    working_copy: pickWorkingCopy(patch.working_copy, prev.working_copy),
+  });
+}
+
+/** Rehydrate local edits for the same candidate without treating them as accepted mechanics. */
+function editorStateWithRestoredWorkingCopy(
+  base: StatblockEditorState,
+  candidateId: string,
+  stored: StoredWorkbenchJoin | null,
+): StatblockEditorState {
+  if (
+    !stored?.working_copy ||
+    !stored.candidate_id ||
+    stored.candidate_id !== candidateId
+  ) {
+    return base;
+  }
+  return updateWorkingCopy(base, () => stored.working_copy as StatblockDefinitionV1_Input);
+}
+
+function clearStoredWorkbenchJoin(): void {
+  try {
+    sessionStorage.removeItem(WORKBENCH_JOIN_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function createdDraftFromStoredJoin(
+  stored: StoredWorkbenchJoin | null | undefined,
+): CreatedDraftIdentity | null {
+  if (!stored?.draft_id) return null;
+  const version = stored.version ?? 1;
+  if (!Number.isInteger(version) || version < 1) return null;
+  return {
+    draft_id: stored.draft_id,
+    version,
+    name: stored.name ?? stored.draft_id,
+  };
+}
+
+/** Synchronous session restore so Accept never mounts before draft identity exists. */
+function readInitialWorkbenchJoinState(): {
+  createdDraft: CreatedDraftIdentity | null;
+  draftIdInput: string;
+  draftVersionInput: string;
+  createPhase: "idle" | "draft_created";
+} {
+  const createdDraft = createdDraftFromStoredJoin(readStoredWorkbenchJoin());
+  if (!createdDraft) {
+    return {
+      createdDraft: null,
+      draftIdInput: "",
+      draftVersionInput: "1",
+      createPhase: "idle",
+    };
+  }
+  return {
+    createdDraft,
+    draftIdInput: createdDraft.draft_id,
+    draftVersionInput: String(createdDraft.version),
+    createPhase: "draft_created",
+  };
 }
 
 function acceptOpStorageKey(draftId: string): string {
@@ -608,23 +1064,38 @@ function AcceptMechanicsFlow({
   preview,
   editorState,
   editorEpoch,
-  draftIdInput,
-  draftVersionInput,
+  draftId,
+  draftVersion,
   sourceCandidateId,
   workingCopy,
+  validationFailure,
+  onValidate,
+  validatePending,
+  validateDisabled,
 }: {
   preview: PreviewValidation | null;
   editorState: StatblockEditorState;
   editorEpoch: number;
-  draftIdInput: string;
-  draftVersionInput: string;
+  draftId: string | null;
+  draftVersion: number | null;
   sourceCandidateId: string;
   workingCopy: StatblockDefinitionV1_Input;
+  validationFailure: ValidationFailure | null;
+  onValidate: () => void;
+  validatePending: boolean;
+  validateDisabled: boolean;
 }) {
   const eligible = acceptPreviewEligible(preview, editorState, editorEpoch);
   const previewCurrent = previewIsCurrent(preview, editorState, editorEpoch);
-  const normalizedDraftId = draftIdInput.trim();
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const normalizedDraftId = (draftId ?? "").trim();
+  const expectedDraftVersion =
+    draftVersion != null && Number.isInteger(draftVersion) && draftVersion >= 1
+      ? draftVersion
+      : null;
+  const validationFailureCurrent =
+    validationFailure != null &&
+    validationFailure.editorEpoch === editorEpoch &&
+    validationFailure.stateRevision === editorState.stateRevision;
   const [acceptPending, setAcceptPending] = useState(false);
   const [restorePending, setRestorePending] = useState(false);
   const [existenceUnresolved, setExistenceUnresolved] = useState(false);
@@ -638,7 +1109,7 @@ function AcceptMechanicsFlow({
     null,
   );
   const acceptOperationIdRef = useRef<string | null>(null);
-  /** Synchronous guard — Confirm can fire twice before React re-renders acceptPending. */
+  /** Synchronous guard — Accept/Save can fire twice before React re-renders acceptPending. */
   const acceptInFlightRef = useRef(false);
   /** Draft ID that currently owns acceptResult / operation ref / restore UI. */
   const ownedDraftIdRef = useRef<string>("");
@@ -646,7 +1117,6 @@ function AcceptMechanicsFlow({
   const acceptRequestGenerationRef = useRef(0);
 
   const clearOwnedAcceptState = () => {
-    setConfirmOpen(false);
     setAcceptPending(false);
     setRestorePending(false);
     setExistenceUnresolved(false);
@@ -748,13 +1218,6 @@ function AcceptMechanicsFlow({
     }
   };
 
-  // Pending identity is independent of validation eligibility — only close the confirm sheet.
-  useEffect(() => {
-    if (!eligible) {
-      setConfirmOpen(false);
-    }
-  }, [eligible]);
-
   // Draft-scoped ownership: reset when the normalized draft ID changes, then restore only B.
   useEffect(() => {
     const draftId = normalizedDraftId;
@@ -794,20 +1257,6 @@ function AcceptMechanicsFlow({
     return acceptOperationIdRef.current;
   };
 
-  const resetAcceptSession = () => {
-    // Cancel only the pre-submit confirm sheet. Keep durable/restored/unresolved identity.
-    setConfirmOpen(false);
-    setAcceptPending(false);
-    setAcceptError(null);
-    if (
-      !existenceUnresolved &&
-      (!acceptResult ||
-        acceptActionClass(acceptResult.result_label, acceptResultOrigin) === "ephemeralAttempt")
-    ) {
-      acceptOperationIdRef.current = null;
-    }
-  };
-
   const startNewAcceptOperation = () => {
     // Only safe after backend-proven terminal_failure (SBW07a non-begin). Local storage
     // deletion alone must never be treated as closing a possibly still-claiming operation.
@@ -822,7 +1271,6 @@ function AcceptMechanicsFlow({
     setReplayRequest(null);
     setExistenceUnresolved(false);
     setAcceptError(null);
-    setConfirmOpen(false);
     setAcceptPending(false);
   };
 
@@ -854,22 +1302,34 @@ function AcceptMechanicsFlow({
       setExistenceUnresolved(false);
     }
     setAcceptResult(response);
-    setConfirmOpen(false);
   };
 
   const runAccept = async () => {
     if (!preview || !eligible) return;
+
+    // Ephemeral attempt barriers must not block a fresh dock Accept/Save in the same click.
+    let currentResult = acceptResult;
+    let currentOrigin = acceptResultOrigin;
+    if (acceptActionClass(currentResult?.result_label, currentOrigin) === "ephemeralAttempt") {
+      setAcceptResult(null);
+      acceptOperationIdRef.current = null;
+      currentResult = null;
+      currentOrigin = "fresh";
+    }
+
     // Never mint/replace while an optimistic or restored operation is unresolved.
-    if (existenceUnresolved || suppressesNewAccept(acceptResult?.result_label, acceptResultOrigin)) {
+    if (existenceUnresolved || suppressesNewAccept(currentResult?.result_label, currentOrigin)) {
       return;
     }
-    // Prevent concurrent confirmations before React disables the button.
+    // Prevent concurrent Accept/Save clicks before React disables the button.
     if (acceptInFlightRef.current || acceptPending) return;
 
     const draftId = normalizedDraftId;
-    const expectedVersion = Number(draftVersionInput);
-    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
-      setAcceptError("Provide a draft ID and expected draft version ≥ 1 before accepting.");
+    const expectedVersion = expectedDraftVersion;
+    if (!draftId || expectedVersion == null) {
+      setAcceptError(
+        "ThreatDraft identity missing — create and generate first, or recover a draft in Advanced.",
+      );
       return;
     }
 
@@ -1041,101 +1501,85 @@ function AcceptMechanicsFlow({
   const actionClass = acceptActionClass(resultLabel, acceptResultOrigin);
   const blocksNewAccept =
     existenceUnresolved || suppressesNewAccept(resultLabel, acceptResultOrigin);
-  const showAcceptEntry = eligible && !blocksNewAccept && !restorePending;
+  const hasDraftIdentity = Boolean(normalizedDraftId && expectedDraftVersion != null);
+  const showAcceptEntry = eligible && hasDraftIdentity && !blocksNewAccept && !restorePending;
 
-  if (restorePending && !acceptResult && !existenceUnresolved) {
-    return (
-      <p className="module-muted" role="status" data-testid="accept-mechanics-restoring">
-        Restoring acceptance operation…
-      </p>
-    );
-  }
+  const dockError = (() => {
+    if (acceptError) {
+      return {
+        kind: "accept" as const,
+        message: acceptError,
+        display: formatWorkbenchDockError(acceptError, "accept"),
+      };
+    }
+    if (validationFailureCurrent && validationFailure) {
+      return {
+        kind: "validate" as const,
+        message: validationFailure.message,
+        display: formatWorkbenchDockError(validationFailure.message, "validate"),
+      };
+    }
+    return null;
+  })();
 
-  if (!previewCurrent && !blocksNewAccept) {
-    return (
-      <p className="module-muted">
-        {preview
-          ? "Preview validation is stale — revalidate before accept/save."
-          : "Validate the working copy to preview acceptance eligibility. Mechanics accept/save does not publish to the World Graph."}
-      </p>
-    );
-  }
+  const dockStatus = (() => {
+    if (acceptPending) {
+      return "Accepting…";
+    }
+    if (dockError) {
+      return dockError.display;
+    }
+    if (restorePending && !acceptResult && !existenceUnresolved) {
+      return "Restoring acceptance operation…";
+    }
+    if (existenceUnresolved) {
+      return "Acceptance operation unresolved — use Retry / Replay / Resume above. New Accept/Save is blocked.";
+    }
+    if (blocksNewAccept) {
+      if (resultLabel === "mechanics_saved") {
+        return "Mechanics already saved for this draft — not published to the World Graph.";
+      }
+      if (resultLabel === "server_committed_reference_pending") {
+        return "Server mechanics committed; ThreatDraft attachment still pending — reconcile above.";
+      }
+      if (resultLabel === "dispatched_unknown") {
+        return "Acceptance uncertain — resume the same operation above.";
+      }
+      if (resultLabel === "accepted_ref_conflict") {
+        return "Accepted-ref conflict — first-save cannot overwrite.";
+      }
+      if (resultLabel === "terminal_failure") {
+        return "Acceptance terminated — start a new accept operation above if offered.";
+      }
+      return "Accept/Save blocked by a durable outcome — use recovery actions above.";
+    }
+    if (!previewCurrent) {
+      return preview
+        ? "Preview validation is stale — validate again before Accept/Save."
+        : "Validate the working copy to enable Accept/Save. Mechanics save does not publish to the World Graph.";
+    }
+    if (preview?.receipt.status === "invalid") {
+      return "Fix validation errors before Accept/Save.";
+    }
+    if (eligible && !hasDraftIdentity) {
+      return "ThreatDraft identity missing — create and generate first, or recover a draft in Advanced.";
+    }
+    if (showAcceptEntry) {
+      return "Ready to Accept/Save mechanics (ThreatDraft only — not World Graph publish).";
+    }
+    return "Accept/Save unavailable.";
+  })();
 
-  if (previewCurrent && preview?.receipt.status === "invalid" && !blocksNewAccept) {
-    return (
-      <p className="module-muted" role="status">
-        Fix validation errors before accept/save. Invalid preview receipts cannot be accepted.
-      </p>
-    );
-  }
+  const onAcceptSave = () => {
+    setAcceptError(null);
+    void runAccept();
+  };
 
   return (
     <div data-testid="accept-mechanics-flow" data-owned-draft={normalizedDraftId}>
-      {showAcceptEntry ? (
-        <div className="statblock-command-row">
-          {!confirmOpen ? (
-            <button
-              type="button"
-              onClick={() => {
-                // Drop ephemeral attempt copy when starting a fresh confirm sheet.
-                if (
-                  acceptActionClass(acceptResult?.result_label, acceptResultOrigin) ===
-                  "ephemeralAttempt"
-                ) {
-                  setAcceptResult(null);
-                  acceptOperationIdRef.current = null;
-                }
-                ensureOperationId();
-                setConfirmOpen(true);
-                setAcceptError(null);
-              }}
-            >
-              Accept/Save mechanics
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      {confirmOpen && eligible && preview && !blocksNewAccept ? (
-        <section
-          className="statblock-section"
-          data-testid="accept-mechanics-panel"
-          aria-label="Accept mechanics confirmation"
-        >
-          <h4>Accept / save mechanics</h4>
-          <p className="module-muted">
-            Mechanics only — not published to the World Graph. Accepting saves immutable mechanics
-            to the ThreatDraft; it does not create or update World Graph entities.
-          </p>
-          <p>
-            Definition digest: <code>{preview.definitionDigest}</code>
-          </p>
-          <p>
-            Validation status: <code>{preview.receipt.status}</code>
-          </p>
-          <div className="statblock-command-row">
-            <button
-              type="button"
-              disabled={acceptPending}
-              onClick={() => void runAccept()}
-              data-testid="accept-mechanics-confirm"
-            >
-              {acceptPending ? "Accepting…" : "Confirm accept/save"}
-            </button>
-            <button
-              type="button"
-              disabled={acceptPending}
-              onClick={() => resetAcceptSession()}
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {acceptError ? (
-        <p className="statblock-command-error" role="alert">
-          {acceptError}
+      {restorePending && !acceptResult && !existenceUnresolved ? (
+        <p className="module-muted" role="status" data-testid="accept-mechanics-restoring">
+          Restoring acceptance operation…
         </p>
       ) : null}
 
@@ -1339,14 +1783,62 @@ function AcceptMechanicsFlow({
           ) : null}
         </section>
       ) : null}
+
+      <div
+        className="statblock-workbench-dock"
+        data-testid="workbench-edit-dock"
+        role="toolbar"
+        aria-label="Statblock workbench edit tools"
+      >
+        <p
+          className="statblock-workbench-dock__status"
+          role={dockError ? "alert" : "status"}
+          data-dock-tone={dockError ? "error" : "info"}
+          title={dockError?.message}
+        >
+          {dockStatus}
+        </p>
+        <div className="statblock-workbench-dock__actions">
+          <button
+            type="button"
+            onClick={() => {
+              setAcceptError(null);
+              onValidate();
+            }}
+            disabled={validateDisabled || validatePending}
+          >
+            {validatePending ? "Validating…" : "Validate working copy"}
+          </button>
+          <button
+            type="button"
+            onClick={onAcceptSave}
+            disabled={!showAcceptEntry || acceptPending}
+            title={showAcceptEntry ? undefined : dockStatus}
+            data-testid="accept-mechanics-save"
+          >
+            {acceptPending ? "Accepting…" : "Accept/Save mechanics"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
+
 export function StatblockWorkbenchModule() {
+  const [initialJoin] = useState(readInitialWorkbenchJoinState);
   const [candidateIdInput, setCandidateIdInput] = useState(readCandidateIdFromLocation);
-  const [draftIdInput, setDraftIdInput] = useState("");
-  const [draftVersionInput, setDraftVersionInput] = useState("1");
+  const [draftIdInput, setDraftIdInput] = useState(initialJoin.draftIdInput);
+  const [draftVersionInput, setDraftVersionInput] = useState(initialJoin.draftVersionInput);
+  const [createForm, setCreateForm] = useState<CreateFormFields>(DEFAULT_CREATE_FORM);
+  const [createdDraft, setCreatedDraft] = useState<CreatedDraftIdentity | null>(
+    initialJoin.createdDraft,
+  );
+  const [createPhase, setCreatePhase] = useState<
+    "idle" | "creating" | "create_failed" | "create_uncertain" | "draft_created" | "generating"
+  >(initialJoin.createPhase);
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<LoadState>({ kind: "idle" });
   const [generateMessage, setGenerateMessage] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -1362,9 +1854,23 @@ export function StatblockWorkbenchModule() {
   const editorEpochRef = useRef(0);
   /** Shared monotonic identity for manual load, retry, and draft generation. */
   const candidateOpIdRef = useRef(0);
+  /** Synchronous duplicate-submit guard for create-and-generate. */
+  const createAndGenerateInFlightRef = useRef(false);
   const editorStateRef = useRef<StatblockEditorState | null>(null);
+  const createdDraftRef = useRef<CreatedDraftIdentity | null>(initialJoin.createdDraft);
+  /** Candidate id currently loaded into the editor — used to scope working-copy persistence. */
+  const activeCandidateIdRef = useRef<string | null>(null);
   editorStateRef.current = editorState;
   editorEpochRef.current = editorEpoch;
+  createdDraftRef.current = createdDraft;
+
+  const applyCreatedDraftIdentity = useCallback((identity: CreatedDraftIdentity) => {
+    createdDraftRef.current = identity;
+    setCreatedDraft(identity);
+    setDraftIdInput(identity.draft_id);
+    setDraftVersionInput(String(identity.version));
+    setCreatePhase((prev) => (prev === "idle" ? "draft_created" : prev));
+  }, []);
 
   const bumpEditorEpoch = useCallback(() => {
     const next = editorEpochRef.current + 1;
@@ -1411,6 +1917,13 @@ export function StatblockWorkbenchModule() {
         setPendingValidation(null);
         setValidationFailure(null);
       }
+      const candidateId = activeCandidateIdRef.current;
+      if (candidateId) {
+        patchStoredWorkbenchJoin({
+          candidate_id: candidateId,
+          working_copy: next.workingCopy,
+        });
+      }
     },
     [],
   );
@@ -1429,6 +1942,7 @@ export function StatblockWorkbenchModule() {
       invalidateValidationOwnership();
       setEditorState(null);
       editorStateRef.current = null;
+      activeCandidateIdRef.current = null;
 
       if (!trimmed) {
         if (!isCurrentCandidateOp(opId)) return;
@@ -1444,11 +1958,80 @@ export function StatblockWorkbenchModule() {
         if (!isCurrentCandidateOp(opId)) return;
 
         if (response.status === "active" && response.candidate) {
-          const nextEditor = createEditorStateFromOutput(response.candidate.definition);
+          const loadedCandidateId = response.candidate.candidate_id || trimmed;
+          const stored = readStoredWorkbenchJoin();
+          let nextEditor = createEditorStateFromOutput(response.candidate.definition);
+          nextEditor = editorStateWithRestoredWorkingCopy(
+            nextEditor,
+            loadedCandidateId,
+            stored,
+          );
           editorStateRef.current = nextEditor;
+          activeCandidateIdRef.current = loadedCandidateId;
           setLoadState({ kind: "success", response });
           setEditorState(nextEditor);
           setViewMode("edit");
+          setCandidateIdInput(loadedCandidateId);
+
+          const fromResponse =
+            typeof response.source_draft_id === "string" &&
+            response.source_draft_id.trim() &&
+            typeof response.source_draft_version === "number" &&
+            Number.isInteger(response.source_draft_version) &&
+            response.source_draft_version >= 1
+              ? {
+                  draft_id: response.source_draft_id.trim(),
+                  version: response.source_draft_version,
+                  name:
+                    typeof response.source_draft_name === "string" &&
+                    response.source_draft_name.trim()
+                      ? response.source_draft_name.trim()
+                      : response.source_draft_id.trim(),
+                }
+              : null;
+          // Candidate-scoped identity: response wins; stored join only when bound to
+          // this candidate; same-session create may still have candidate_id=null.
+          let draftIdentity: CreatedDraftIdentity | null = null;
+          if (fromResponse) {
+            draftIdentity = fromResponse;
+          } else if (stored?.candidate_id === loadedCandidateId) {
+            draftIdentity = createdDraftFromStoredJoin(stored);
+          } else if (
+            createdDraftRef.current &&
+            stored?.draft_id === createdDraftRef.current.draft_id &&
+            (stored?.candidate_id == null || stored.candidate_id === loadedCandidateId)
+          ) {
+            draftIdentity = createdDraftRef.current;
+          }
+          const preservedWorkingCopy =
+            stored?.candidate_id === loadedCandidateId ? stored.working_copy ?? null : null;
+          if (draftIdentity) {
+            if (
+              !createdDraftRef.current ||
+              createdDraftRef.current.draft_id !== draftIdentity.draft_id
+            ) {
+              applyCreatedDraftIdentity(draftIdentity);
+            }
+            writeStoredWorkbenchJoin({
+              draft_id: draftIdentity.draft_id,
+              version: draftIdentity.version,
+              name: draftIdentity.name,
+              candidate_id: loadedCandidateId,
+              working_copy: preservedWorkingCopy,
+            });
+          } else {
+            createdDraftRef.current = null;
+            setCreatedDraft(null);
+            setDraftIdInput("");
+            setDraftVersionInput("1");
+            writeStoredWorkbenchJoin({
+              draft_id: null,
+              version: null,
+              name: null,
+              candidate_id: loadedCandidateId,
+              working_copy: preservedWorkingCopy,
+            });
+          }
           return;
         }
         setLoadState({
@@ -1467,30 +2050,38 @@ export function StatblockWorkbenchModule() {
         });
       }
     },
-    [beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp],
+    [applyCreatedDraftIdentity, beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp],
   );
 
   useEffect(() => {
-    const initial = readCandidateIdFromLocation();
-    if (initial) {
-      void loadCandidate(initial);
+    const fromUrl = readCandidateIdFromLocation();
+    const stored = readStoredWorkbenchJoin();
+    const restored = createdDraftFromStoredJoin(stored);
+    if (restored) {
+      applyCreatedDraftIdentity(restored);
     }
-  }, [loadCandidate]);
+    if (fromUrl) {
+      setCandidateIdInput(fromUrl);
+      void loadCandidate(fromUrl);
+      return;
+    }
+    if (stored?.candidate_id) {
+      setCandidateIdInput(stored.candidate_id);
+      void loadCandidate(stored.candidate_id);
+    }
+  }, [applyCreatedDraftIdentity, loadCandidate]);
 
   const onSubmitCandidate = (event: FormEvent) => {
     event.preventDefault();
     void loadCandidate(candidateIdInput);
   };
 
-  const onGenerateFromDraft = async (event: FormEvent) => {
-    event.preventDefault();
-    const draftId = draftIdInput.trim();
-    const expectedVersion = Number(draftVersionInput);
-    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
-      setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
-      return;
-    }
-    const opId = beginCandidateOp();
+  const runGenerateFromDraft = async (
+    draftId: string,
+    expectedVersion: number,
+    options?: { opId?: number },
+  ) => {
+    const opId = options?.opId ?? beginCandidateOp();
     // Newer generation orphans prior load outcomes and prior generate UI.
     setPendingGenerate(true);
     setGenerateError(null);
@@ -1506,14 +2097,16 @@ export function StatblockWorkbenchModule() {
       if (response.outcome === "success" && response.candidate?.candidate_id) {
         const candidateId = response.candidate.candidate_id;
         setCandidateIdInput(candidateId);
-        setGenerateMessage(
-          `Generated ${candidateId}${
-            response.cache_status ? ` (${response.cache_status})` : ""
-          }. Loading structured review…`,
-        );
+        setGenerateMessage("Loading candidate…");
+        setCreateMessage(null);
         await loadCandidate(candidateId, { opId });
+        if (isCurrentCandidateOp(opId)) {
+          setGenerateMessage(null);
+          setCreateMessage(null);
+        }
         return;
       }
+      setCreateMessage(null);
       setGenerateError(
         response.failure_message ??
           response.failure_category ??
@@ -1521,12 +2114,145 @@ export function StatblockWorkbenchModule() {
       );
     } catch (error) {
       if (!isCurrentCandidateOp(opId)) return;
+      setCreateMessage(null);
       setGenerateError(error instanceof Error ? error.message : String(error));
     } finally {
       if (isCurrentCandidateOp(opId)) {
         setPendingGenerate(false);
+        setCreatePhase((prev) => (prev === "generating" ? "draft_created" : prev));
       }
     }
+  };
+
+  const onGenerateFromDraft = async (event: FormEvent) => {
+    event.preventDefault();
+    const draftId = draftIdInput.trim();
+    const expectedVersion = Number(draftVersionInput);
+    if (!draftId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      setGenerateError("Provide a draft ID and expected draft version ≥ 1.");
+      return;
+    }
+    await runGenerateFromDraft(draftId, expectedVersion);
+  };
+
+  const onRetryGenerateCreatedDraft = async () => {
+    if (!createdDraft) return;
+    setCreatePhase("generating");
+    setCreateError(null);
+    setCreateMessage("Generating…");
+    await runGenerateFromDraft(createdDraft.draft_id, createdDraft.version);
+  };
+
+  const onCreateAndGenerate = async (event: FormEvent) => {
+    event.preventDefault();
+    if (createAndGenerateInFlightRef.current || pendingGenerate || createPhase === "creating") {
+      return;
+    }
+
+    createAndGenerateInFlightRef.current = true;
+    const opId = beginCandidateOp();
+    setCreatePhase("creating");
+    setCreateError(null);
+    setCreateMessage("Resolving graph head…");
+    setGenerateError(null);
+    setGenerateMessage(null);
+    setPendingGenerate(false);
+    setLoadState((prev) => (prev.kind === "loading" ? { kind: "idle" } : prev));
+
+    try {
+      const resolved = await resolveCreateScope(createForm);
+      if (!isCurrentCandidateOp(opId)) return;
+      if (!resolved.ok) {
+        setCreatePhase("create_failed");
+        setCreateError(resolved.message);
+        setCreateMessage(null);
+        return;
+      }
+
+      const built = buildCreateThreatDraftRequest(createForm, resolved.scope);
+      if (!built.ok) {
+        setCreatePhase("create_failed");
+        setCreateError(built.message);
+        setCreateMessage(null);
+        return;
+      }
+
+      setCreateMessage("Creating…");
+
+      let created: CreatedDraftIdentity | null = null;
+      try {
+        const response = await createThreatDraft(built.request);
+        if (!isCurrentCandidateOp(opId)) return;
+        created = createdDraftFromResponse(response);
+        if (!created) {
+          setCreatePhase("create_failed");
+          setCreateError(
+            "Create response lacked an exact draft_id/version; generation was not started.",
+          );
+          setCreateMessage(null);
+          return;
+        }
+        setCreatedDraft(created);
+        createdDraftRef.current = created;
+        setDraftIdInput(created.draft_id);
+        setDraftVersionInput(String(created.version));
+        writeStoredWorkbenchJoin({
+          draft_id: created.draft_id,
+          version: created.version,
+          name: created.name,
+          candidate_id: null,
+          working_copy: null,
+        });
+        setCreatePhase("generating");
+        setCreateMessage("Generating…");
+      } catch (error) {
+        if (!isCurrentCandidateOp(opId)) return;
+        if (isCreateTransportUncertainty(error)) {
+          setCreatePhase("create_uncertain");
+          setCreateError(error instanceof Error ? error.message : String(error));
+          setCreateMessage(
+            "Create may or may not have succeeded. Form kept — confirm before submitting again.",
+          );
+        } else {
+          setCreatePhase("create_failed");
+          setCreateError(error instanceof Error ? error.message : String(error));
+          setCreateMessage(null);
+        }
+        return;
+      }
+
+      if (!isCurrentCandidateOp(opId)) return;
+      await runGenerateFromDraft(created.draft_id, created.version, { opId });
+    } finally {
+      createAndGenerateInFlightRef.current = false;
+    }
+  };
+
+  const onStartAnotherThreat = () => {
+    beginCandidateOp();
+    createAndGenerateInFlightRef.current = false;
+    clearStoredWorkbenchJoin();
+    setCreateForm(DEFAULT_CREATE_FORM);
+    setCreatedDraft(null);
+    createdDraftRef.current = null;
+    activeCandidateIdRef.current = null;
+    setCreatePhase("idle");
+    setCreateMessage(null);
+    setCreateError(null);
+    setGenerateMessage(null);
+    setGenerateError(null);
+    setPendingGenerate(false);
+    setCandidateIdInput("");
+    setDraftIdInput("");
+    setDraftVersionInput("1");
+    setLoadState({ kind: "idle" });
+    setEditorState(null);
+    editorStateRef.current = null;
+    invalidateValidationOwnership();
+  };
+
+  const updateCreateField = <K extends keyof CreateFormFields>(key: K, value: CreateFormFields[K]) => {
+    setCreateForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const onValidateWorkingCopy = async () => {
@@ -1626,80 +2352,288 @@ export function StatblockWorkbenchModule() {
     pendingValidation.editorEpoch === editorEpoch &&
     pendingValidation.stateRevision === editorState.stateRevision;
 
+  const acceptDraftIdentity = resolveAcceptDraftIdentity(
+    createdDraft,
+    draftIdInput,
+    draftVersionInput,
+  );
+
   return (
-    <div className="module-panel statblock-workbench" data-module-id="statblock_workbench">
+    <div
+      className={
+        activeCandidate && editorState
+          ? "module-panel statblock-workbench statblock-workbench--edit-dock"
+          : "module-panel statblock-workbench"
+      }
+      data-module-id="statblock_workbench"
+    >
       <header className="statblock-workbench-header">
         <div>
-          <p className="eyebrow">Typed candidate review, preview validation, and mechanics accept</p>
+          <p className="eyebrow">Typed candidate review and mechanics accept</p>
           <h2 className="module-title">Statblock Workbench</h2>
-          <p className="module-muted">
-            Displays mechanics from a structured DungeonMind candidate. Edit mode holds a session-only
-            working copy; preview validation checks the copy; accept/save persists mechanics to the
-            ThreatDraft without publishing to the World Graph.
-          </p>
+          <p className="module-muted">Create a threat, generate its candidate, then edit and accept mechanics.</p>
         </div>
         <span className="badge">sbw07c-accept</span>
       </header>
 
-      <section className="statblock-section">
-        <h3>Load exact candidate</h3>
-        <form className="statblock-command-row" onSubmit={onSubmitCandidate}>
-          <label>
-            Candidate ID
-            <input
-              value={candidateIdInput}
-              onChange={(event) => setCandidateIdInput(event.target.value)}
-              placeholder="cand_…"
-              autoComplete="off"
-              spellCheck={false}
+      <section className="statblock-section statblock-create-section">
+        <h3>New threat — create and generate</h3>
+        <p className="module-muted">Paste a threat. First line becomes the name.</p>
+        <p className="statblock-create-context" data-testid="create-threat-context-binding">
+          Using {LIVE_CONTROL_CREATE_CONTEXT.world_id} · {LIVE_CONTROL_CREATE_CONTEXT.campaign_id} ·{" "}
+          {LIVE_CONTROL_CREATE_CONTEXT.ruleset.system} {LIVE_CONTROL_CREATE_CONTEXT.ruleset.edition} ·{" "}
+          {LIVE_CONTROL_CREATE_CONTEXT.threat_kind} · {LIVE_CONTROL_CREATE_CONTEXT.created_by} · graph
+          head resolved at create
+        </p>
+        <form className="statblock-create-form" onSubmit={onCreateAndGenerate}>
+          <label className="statblock-create-field">
+            <span className="statblock-create-field-label">Description</span>
+            <textarea
+              value={createForm.description}
+              onChange={(event) => updateCreateField("description", event.target.value)}
+              rows={8}
+              placeholder={"Mireward Latchling\nA reed-choked latching scavenger from the Mireward verge."}
+              data-testid="create-threat-description"
             />
           </label>
-          <button type="submit">Load candidate</button>
+          <details className="statblock-create-details">
+            <summary>Optional generation and focus controls</summary>
+            <div className="statblock-create-optional">
+              <div className="statblock-create-optional-grid">
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">Focus session</span>
+                  <input
+                    value={createForm.focusSession}
+                    onChange={(event) => updateCreateField("focusSession", event.target.value)}
+                    inputMode="numeric"
+                  />
+                </label>
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">Prep label</span>
+                  <input
+                    value={createForm.prepLabel}
+                    onChange={(event) => updateCreateField("prepLabel", event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">Slug hint</span>
+                  <input
+                    value={createForm.slugHint}
+                    onChange={(event) => updateCreateField("slugHint", event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">Target CR</span>
+                  <input
+                    value={createForm.targetCr}
+                    onChange={(event) => updateCreateField("targetCr", event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">Complexity</span>
+                  <input
+                    value={createForm.complexity}
+                    onChange={(event) => updateCreateField("complexity", event.target.value)}
+                    autoComplete="off"
+                  />
+                </label>
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">Party level</span>
+                  <input
+                    value={createForm.partyLevel}
+                    onChange={(event) => updateCreateField("partyLevel", event.target.value)}
+                    inputMode="numeric"
+                  />
+                </label>
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">Party size</span>
+                  <input
+                    value={createForm.partySize}
+                    onChange={(event) => updateCreateField("partySize", event.target.value)}
+                    inputMode="numeric"
+                  />
+                </label>
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">
+                    Graph revision override (exact rev:…; empty uses bootstrap head)
+                  </span>
+                  <input
+                    value={createForm.graphRevisionId}
+                    onChange={(event) => updateCreateField("graphRevisionId", event.target.value)}
+                    placeholder="rev:…"
+                    autoComplete="off"
+                    data-testid="create-threat-graph-revision"
+                  />
+                </label>
+              </div>
+              <label className="statblock-create-field">
+                <span className="statblock-create-field-label">Must include (comma or newline)</span>
+                <textarea
+                  value={createForm.mustInclude}
+                  onChange={(event) => updateCreateField("mustInclude", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label className="statblock-create-field">
+                <span className="statblock-create-field-label">Must avoid (comma or newline)</span>
+                <textarea
+                  value={createForm.mustAvoid}
+                  onChange={(event) => updateCreateField("mustAvoid", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label className="statblock-create-field">
+                <span className="statblock-create-field-label">Intended roles (comma or newline)</span>
+                <textarea
+                  value={createForm.intendedRoles}
+                  onChange={(event) => updateCreateField("intendedRoles", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label className="statblock-create-field">
+                <span className="statblock-create-field-label">Tags (comma or newline)</span>
+                <textarea
+                  value={createForm.tags}
+                  onChange={(event) => updateCreateField("tags", event.target.value)}
+                  rows={2}
+                />
+              </label>
+              <label className="statblock-create-field">
+                <span className="statblock-create-field-label">Terrain notes (comma or newline)</span>
+                <textarea
+                  value={createForm.terrainNotes}
+                  onChange={(event) => updateCreateField("terrainNotes", event.target.value)}
+                  rows={2}
+                />
+              </label>
+            </div>
+          </details>
+          <div className="statblock-command-row statblock-create-actions">
+            <button
+              type="submit"
+              disabled={
+                pendingGenerate ||
+                createPhase === "creating" ||
+                createPhase === "generating"
+              }
+              data-testid="create-and-generate-submit"
+            >
+              {createPhase === "creating"
+                ? "Creating…"
+                : createPhase === "generating" || pendingGenerate
+                  ? "Generating…"
+                  : "Create & generate"}
+            </button>
+            <button type="button" onClick={onStartAnotherThreat} data-testid="start-another-threat">
+              Start another threat
+            </button>
+            {createdDraft && generateError ? (
+              <button
+                type="button"
+                onClick={() => void onRetryGenerateCreatedDraft()}
+                disabled={pendingGenerate}
+                data-testid="retry-generate-created-draft"
+              >
+                Retry generation (same draft)
+              </button>
+            ) : null}
+          </div>
         </form>
-        <p className="module-muted">
-          Optional deep link: <code>?candidateId=cand_…</code>
-        </p>
+        {createMessage ? (
+          <p className="statblock-command-status" role="status" data-testid="create-threat-status">
+            {createMessage}
+          </p>
+        ) : null}
+        {createError ? (
+          <p className="statblock-command-error" role="alert" data-testid="create-threat-error">
+            {createPhase === "create_uncertain"
+              ? `Create outcome unknown: ${createError}`
+              : `Unable to create ThreatDraft: ${createError}`}
+          </p>
+        ) : null}
+        {!createMessage && createdDraft && generateError ? (
+          <p
+            className="statblock-command-error"
+            role="alert"
+            data-testid="created-draft-identity"
+            data-draft-id={createdDraft.draft_id}
+          >
+            Couldn’t generate a candidate for {shortThreatDisplayName(createdDraft.name)}:{" "}
+            {generateError}
+          </p>
+        ) : null}
       </section>
 
-      <section className="statblock-section">
-        <h3>Generate from ThreatDraft</h3>
-        <form className="statblock-command-row" onSubmit={onGenerateFromDraft}>
-          <label>
-            Draft ID
-            <input
-              value={draftIdInput}
-              onChange={(event) => setDraftIdInput(event.target.value)}
-              placeholder="td_…"
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
-          <label>
-            Expected version
-            <input
-              value={draftVersionInput}
-              onChange={(event) => setDraftVersionInput(event.target.value)}
-              inputMode="numeric"
-            />
-          </label>
-          <button type="submit" disabled={pendingGenerate}>
-            {pendingGenerate ? "Generating…" : "Generate candidate"}
-          </button>
-        </form>
-        {generateMessage ? (
-          <p className="statblock-command-status" role="status">
-            {generateMessage}
+      <details className="statblock-section statblock-create-details" data-testid="workbench-recover-controls">
+        <summary>Advanced — recover by candidate or draft ID</summary>
+        <p className="module-muted">
+          Escape hatches for reopening a known <code>cand_…</code> or regenerating from an existing
+          ThreatDraft.
+        </p>
+        <section className="statblock-storage-section">
+          <h3>Load exact candidate</h3>
+          <form className="statblock-command-row" onSubmit={onSubmitCandidate}>
+            <label className="statblock-create-field">
+              <span className="statblock-create-field-label">Candidate ID</span>
+              <input
+                value={candidateIdInput}
+                onChange={(event) => setCandidateIdInput(event.target.value)}
+                placeholder="cand_…"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <button type="submit">Load candidate</button>
+          </form>
+          <p className="module-muted">
+            Optional deep link: <code>?candidateId=cand_…</code>
           </p>
-        ) : null}
-        {generateError ? (
-          <p className="statblock-command-error" role="alert">
-            Unable to generate candidate: {generateError}
-          </p>
-        ) : null}
-      </section>
+        </section>
+        <section className="statblock-storage-section">
+          <h3>Generate from ThreatDraft</h3>
+          <form className="statblock-command-row" onSubmit={onGenerateFromDraft}>
+            <label className="statblock-create-field">
+              <span className="statblock-create-field-label">Draft ID</span>
+              <input
+                value={draftIdInput}
+                onChange={(event) => setDraftIdInput(event.target.value)}
+                placeholder="td_…"
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <label className="statblock-create-field">
+              <span className="statblock-create-field-label">Expected version</span>
+              <input
+                value={draftVersionInput}
+                onChange={(event) => setDraftVersionInput(event.target.value)}
+                inputMode="numeric"
+              />
+            </label>
+            <button type="submit" disabled={pendingGenerate}>
+              {pendingGenerate ? "Generating…" : "Generate candidate"}
+            </button>
+          </form>
+          {generateMessage ? (
+            <p className="statblock-command-status" role="status">
+              {generateMessage}
+            </p>
+          ) : null}
+          {generateError ? (
+            <p className="statblock-command-error" role="alert">
+              Unable to generate candidate: {generateError}
+            </p>
+          ) : null}
+        </section>
+      </details>
 
       {loadState.kind === "idle" ? (
-        <p className="module-muted">Load an exact candidate ID to review structured mechanics.</p>
+        <p className="module-muted">
+          Create and generate a threat above, or open Advanced to recover a known candidate.
+        </p>
       ) : null}
 
       {loadState.kind === "loading" ? (
@@ -1751,26 +2685,6 @@ export function StatblockWorkbenchModule() {
 
           {viewMode === "edit" && editorState ? (
             <>
-              <div className="statblock-command-row">
-                <button
-                  type="button"
-                  onClick={() => void onValidateWorkingCopy()}
-                  disabled={validatePendingForCurrent || getUiStatus(editorState) === "validating"}
-                >
-                  {validatePendingForCurrent || getUiStatus(editorState) === "validating"
-                    ? "Validating…"
-                    : "Validate working copy"}
-                </button>
-              </div>
-              <AcceptMechanicsFlow
-                preview={previewValidation}
-                editorState={editorState}
-                editorEpoch={editorEpoch}
-                draftIdInput={draftIdInput}
-                draftVersionInput={draftVersionInput}
-                sourceCandidateId={activeCandidate.candidate_id}
-                workingCopy={editorState.workingCopy}
-              />
               <PreviewValidationPanel
                 preview={previewValidation}
                 editorState={editorState}
@@ -1784,6 +2698,27 @@ export function StatblockWorkbenchModule() {
                 onEditorStateChange={onEditorStateChange}
               />
             </>
+          ) : null}
+
+          {/* Dock stays mounted in review and edit — Validate/Accept operate on the working copy. */}
+          {editorState ? (
+            <AcceptMechanicsFlow
+              preview={previewValidation}
+              editorState={editorState}
+              editorEpoch={editorEpoch}
+              draftId={acceptDraftIdentity?.draft_id ?? null}
+              draftVersion={acceptDraftIdentity?.version ?? null}
+              sourceCandidateId={activeCandidate.candidate_id}
+              workingCopy={editorState.workingCopy}
+              validationFailure={validationFailure}
+              onValidate={() => void onValidateWorkingCopy()}
+              validatePending={
+                validatePendingForCurrent || getUiStatus(editorState) === "validating"
+              }
+              validateDisabled={
+                validatePendingForCurrent || getUiStatus(editorState) === "validating"
+              }
+            />
           ) : null}
         </section>
       ) : null}

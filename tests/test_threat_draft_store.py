@@ -74,6 +74,30 @@ def test_create_read_list_round_trip(tmp_path: Path) -> None:
     assert summaries[0].draft_id == created.draft_id
 
 
+def test_graph_revision_id_accepts_world_graph_colon_form(tmp_path: Path) -> None:
+    created = create_threat_draft(
+        tmp_path,
+        _create_request(
+            graph_context_snapshot=GraphContextSnapshotV1(
+                graph_revision_id="rev:5cadc9798562862cdde22350d8a3b56c",
+                selected_node_ids=["node_a"],
+                admitted_source_anchor_ids=["anchor_1"],
+            ),
+        ),
+    )
+    loaded = get_threat_draft(tmp_path, created.draft_id)
+    assert loaded.graph_context_snapshot.graph_revision_id == (
+        "rev:5cadc9798562862cdde22350d8a3b56c"
+    )
+
+
+def test_graph_revision_id_rejects_whitespace_and_slash() -> None:
+    with pytest.raises(ValidationError):
+        GraphContextSnapshotV1(graph_revision_id="rev: bad")
+    with pytest.raises(ValidationError):
+        GraphContextSnapshotV1(graph_revision_id="rev:../escape")
+
+
 def test_update_increments_version_once(tmp_path: Path) -> None:
     created = create_threat_draft(tmp_path, _create_request())
     updated = update_threat_draft(
@@ -643,3 +667,33 @@ def test_append_candidate_ref_does_not_regress_mechanics_saved(tmp_path: Path) -
     assert after.workflow_state == "mechanics_saved"
     assert after.accepted_mechanics_ref is not None
     assert len(after.candidate_refs) == 1
+
+
+def test_find_threat_draft_for_candidate_by_ref(tmp_path: Path) -> None:
+    from apps.live_control_server.services.threat_draft_store import (
+        append_candidate_ref,
+        create_threat_draft,
+        find_threat_draft_for_candidate,
+    )
+    from apps.live_control_server.models.threat_draft import ThreatDraftCandidateRefV1
+
+    draft = create_threat_draft(tmp_path, _create_request(name="Latchling"))
+    ref = ThreatDraftCandidateRefV1(
+        candidate_id="cand_findme123",
+        generated_from_draft_version=1,
+        request_id="req_find_1",
+        created_at="2026-07-26T00:00:00Z",
+        status="active",
+    )
+    append_candidate_ref(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_version=1,
+        candidate_ref=ref,
+    )
+    found = find_threat_draft_for_candidate(tmp_path, "cand_findme123")
+    assert found is not None
+    found_draft, found_ref = found
+    assert found_draft.draft_id == draft.draft_id
+    assert found_ref.candidate_id == "cand_findme123"
+    assert find_threat_draft_for_candidate(tmp_path, "cand_missing999") is None

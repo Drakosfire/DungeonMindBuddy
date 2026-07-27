@@ -7,6 +7,14 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Workbench ThreatDraft create-and-generate (context-aware, candidate-op owned) — captured 2026-07-24, done 2026-07-26
+**Priority:** high — dogfood friction; pulled out of SBW05c/#404 after review.
+**Context:** Quick “Create & generate” landed in #404 dogfood commit `c7f9201a`, then reverted. Review: create did not claim candidate-op id before `createThreatDraft`; hard-coded world/campaign/fake graph provenance; outside SBW05c allowlist.
+**Insight:** Generate-for-dogfood is a real product surface, but it must be designed as one owned user operation bound to real Plan world/campaign/graph context — not a mid-slice bootstrap with placeholder ids.
+**Action completed:** Dispatched as SBW Dogfood Gate A (`HANDOFF-sbw-dogfood-create-generate.md`): workbench form requires exact world/campaign/graph revision/actor/ruleset; claims candidate-op before create; returned draft ID/version drives generate+load; races/retry/uncertainty covered; no placeholder provenance; `SBW06b` paused for operator dogfood.
+**Surfaces when:** workbench generate, ThreatDraft create UI, SBW05c dogfood without scripts, candidate-operation ownership, fabricated graph provenance
+**Refs:** `Docs/Plans/HANDOFF-sbw-dogfood-create-generate.md`; `StatblockWorkbenchModule.tsx`; `liveApi.createThreatDraft`; PR Dogfood Gate A
+
 ## [DONE] Slim live-control-ui nav + root launcher — captured 2026-07-26, done 2026-07-26
 **Context:** Floating-chrome consolidation readiness inventory. Operator wanted a usable root and a non-overpopulated top nav.
 **Insight:** Nav and Index are already chrome — not a hoist. Overpopulation was `APP_NAV_ITEMS` mixing product routes with Mireward eval HTML + Tiptap spike.

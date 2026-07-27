@@ -241,6 +241,41 @@ def test_schema_accepts_persistence_ready_false_terminal() -> None:
     assert record.authority_state == "terminal_failure"
 
 
+def test_schema_accepts_matching_source_candidate_id_rootmodel() -> None:
+    """Regression: CandidateId RootModel must not break source_candidate_id binding.
+
+    str(CandidateId(...)) yields \"root='cand_…'\"; comparing that to the bare id
+    previously 500'd Accept when the UI sent source_candidate_id.
+    """
+    op_id = str(uuid.uuid4())
+    candidate_id = "cand_5enq3tnxsu3lw6fk"
+    create = CreateStatblockRequestV1(
+        idempotency_key=idempotency_key_for_operation(op_id),
+        definition=_definition(),
+        candidate_id=candidate_id,
+        change_summary="accept with provenance",
+        actor="gm",
+    )
+    body = json.loads(create.model_dump_json())
+    record = AcceptanceOperationV1(
+        operation_id=op_id,
+        idempotency_key=idempotency_key_for_operation(op_id),
+        create_request_digest=create_request_digest_for_body(body),
+        request_body=body,
+        source_draft_id=str(uuid.uuid4()),
+        source_draft_version=1,
+        source_candidate_id=candidate_id,
+        validation_receipt_digest="sha256:" + "c" * 64,
+        authority_state="dispatched_unknown",
+        locator=None,
+        materialization=AcceptanceMaterializationV1(draft_ref="missing"),
+        created_at=_now(),
+        updated_at=_now(),
+    )
+    assert record.source_candidate_id == candidate_id
+    assert body["candidate_id"] == candidate_id
+
+
 def test_concurrent_claim_one_active_slot(tmp_path) -> None:
     draft = _create_draft(tmp_path)
     draft_id = draft.draft_id

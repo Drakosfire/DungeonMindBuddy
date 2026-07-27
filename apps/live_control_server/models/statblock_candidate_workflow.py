@@ -66,5 +66,9 @@ class ReadStatblockCandidateResponseV1(StrictModel):
     candidate: GeneratedStatblockCandidateV1 | None = None
     failure_category: str | None = None
     failure_message: str | None = None
+    # Present when Buddy can reverse-map the candidate to a ThreatDraft via candidate_refs.
+    source_draft_id: str | None = None
+    source_draft_version: int | None = Field(default=None, ge=1)
+    source_draft_name: str | None = None
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
