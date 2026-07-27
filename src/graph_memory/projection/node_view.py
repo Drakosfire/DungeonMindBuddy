@@ -1,8 +1,36 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal, cast
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from graph_memory.projection.focus_overlay import GraphProjectionEvidenceBadge
+from graph_memory.projection.world_projection import (
+    WorldGraphDirectionError,
+    normalize_world_graph_relationship_direction,
+)
+
+GraphProjectionRelationshipDirection = Literal[
+    "outgoing",
+    "incoming",
+    "related",
+]
+
+
+class GraphProjectionDirectionError(ValueError):
+    """Raw relationship direction cannot enter the closed snake_case wire."""
+
+
+def normalize_graph_projection_relationship_direction(
+    direction: str | None,
+) -> GraphProjectionRelationshipDirection:
+    try:
+        normalized = normalize_world_graph_relationship_direction(direction)
+    except WorldGraphDirectionError as exc:
+        raise GraphProjectionDirectionError(
+            f"Unsupported graph projection relationship direction: {direction!r}"
+        ) from exc
+    return cast(GraphProjectionRelationshipDirection, normalized)
 
 
 class GraphProjectionTextHighlightSpan(BaseModel):
@@ -24,7 +52,7 @@ class GraphProjectionAdjacencyCandidate(BaseModel):
     label: str
     kind: str
     predicate: str
-    direction: str
+    direction: GraphProjectionRelationshipDirection
     anchored_to_focus_session: bool = False
     source_domains: list[str] = Field(default_factory=list)
     evidence_ref_ids: list[str] = Field(default_factory=list)
@@ -42,6 +70,15 @@ class GraphProjectionAdjacencyCandidate(BaseModel):
     source_excerpt_highlight_spans: list[GraphProjectionTextHighlightSpan] = Field(
         default_factory=list
     )
+
+    @field_validator("direction", mode="before")
+    @classmethod
+    def _normalize_direction(cls, value: object) -> GraphProjectionRelationshipDirection:
+        if value is not None and not isinstance(value, str):
+            raise ValueError(
+                f"Unsupported graph projection relationship direction: {value!r}"
+            )
+        return normalize_graph_projection_relationship_direction(value)
 
 
 class GraphProjectionSuggestedExpansion(GraphProjectionAdjacencyCandidate):

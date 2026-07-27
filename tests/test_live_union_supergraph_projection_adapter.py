@@ -209,6 +209,80 @@ def test_adapter_prefers_persisted_projection_payload(
     assert projection.markdown == "# Persisted projection markdown"
 
 
+def test_reusable_projection_payload_normalizes_legacy_directions_without_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _preview_union_ready_run(tmp_path, monkeypatch)
+    projection_payload = {
+        "campaign_id": "longmont-c2",
+        "session_id": "session-24",
+        "graph_id": "longmont-c2:persisted-projection",
+        "markdown": "# Persisted projection markdown",
+        "focus": {
+            "focus_session_id": "session-24",
+            "focused_evidence_ref_ids": [],
+            "focused_edge_ids": [],
+            "focused_node_ids": [],
+        },
+        "node_views": {
+            "npc:legacy": {
+                "node_id": "npc:legacy",
+                "label": "Legacy",
+                "kind": "npc",
+                "role": "npc",
+                "aliases": [],
+                "source_domains": ["recap"],
+                "evidence_badges": [],
+                "adjacency": [
+                    {
+                        "edge_id": "edge:legacy:outbound",
+                        "node_id": "npc:target",
+                        "label": "Target",
+                        "kind": "npc",
+                        "predicate": "knows",
+                        "direction": "outbound",
+                        "anchored_to_focus_session": False,
+                        "source_domains": ["recap"],
+                        "evidence_ref_ids": [],
+                    }
+                ],
+                "suggested_expansions": [
+                    {
+                        "edge_id": "edge:legacy:inbound",
+                        "node_id": "npc:source",
+                        "label": "Source",
+                        "kind": "npc",
+                        "predicate": "knows",
+                        "direction": "inbound",
+                        "anchored_to_focus_session": False,
+                        "source_domains": ["recap"],
+                        "evidence_ref_ids": [],
+                        "rank": 1,
+                        "rank_reason": "connected thread",
+                    }
+                ],
+                "anchored_to_focus_session": False,
+                "summary": None,
+            }
+        },
+        "mentions": [],
+        "source_spans": [],
+    }
+    _stamp_reusable_projection_payload(tmp_path, result, projection_payload)
+    projection_path = result.manifest_path.parent / "projection_payload.json"
+    before_bytes = projection_path.read_bytes()
+
+    projection = build_plan_union_supergraph_projection(
+        session_id="session-24",
+        graph_run_manifest_path=result.manifest_path,
+    )
+
+    assert projection_path.read_bytes() == before_bytes
+    legacy_view = projection.node_views["npc:legacy"]
+    assert legacy_view.adjacency[0].direction == "outgoing"
+    assert legacy_view.suggested_expansions[0].direction == "incoming"
+
+
 def test_adapter_prefers_preview_union_store_over_persisted_manifest_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

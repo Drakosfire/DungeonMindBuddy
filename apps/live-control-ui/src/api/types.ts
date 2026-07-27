@@ -2172,13 +2172,31 @@ export interface GraphProjectionEvidenceBadge {
   source_span_ref_id?: string | null;
 }
 
+export type GraphProjectionRelationshipDirection =
+  | "outgoing"
+  | "incoming"
+  | "related";
+
+type _ExpectTrue<T extends true> = T;
+type _GraphProjectionDirectionRejectsOutbound = _ExpectTrue<
+  "outbound" extends GraphProjectionRelationshipDirection ? false : true
+>;
+type _GraphProjectionDirectionRejectsInbound = _ExpectTrue<
+  "inbound" extends GraphProjectionRelationshipDirection ? false : true
+>;
+type _GraphProjectionDirectionAcceptsClosed = _ExpectTrue<
+  "outgoing" | "incoming" | "related" extends GraphProjectionRelationshipDirection
+    ? true
+    : false
+>;
+
 export interface GraphProjectionAdjacencyCandidate {
   edge_id: string;
   node_id: string;
   label: string;
   kind: string;
   predicate: string;
-  direction: string;
+  direction: GraphProjectionRelationshipDirection;
   anchored_to_focus_session: boolean;
   source_domains: string[];
   evidence_ref_ids: string[];

@@ -9,12 +9,18 @@ import pytest
 from pydantic import ValidationError
 
 from graph_memory.projection import (
+    GraphProjectionAdjacencyCandidate,
     GraphProjectionEvidenceBadge,
     RecapGraphProjection,
     build_focus_overlay,
     build_node_view,
     build_recap_graph_projection,
 )
+from graph_memory.projection.node_view import (
+    GraphProjectionDirectionError,
+    normalize_graph_projection_relationship_direction,
+)
+from graph_memory.projection import node_view as node_view_module
 from graph_memory.projection import recap_projection as recap_projection_module
 from graph_memory.union_supergraph.load import (
     DEFAULT_FIXTURE_PATH,
@@ -27,6 +33,66 @@ from graph_memory.union_supergraph.model import UnionSupergraphStore
 UNION_MENTION_FIXTURE_PATH = (
     Path(__file__).parent / "fixtures" / "graph_memory" / "union_mention_characterization_v1.json"
 )
+UNION_DIRECTION_FIXTURE_PATH = (
+    Path(__file__).parent / "fixtures" / "graph_memory" / "union_direction_characterization_v1.json"
+)
+UNION_DIRECTION_EXPECTED_BASE_SHA = "8f7cda7fece546ee6493ce20fab41faeac97945b"
+
+
+def _load_union_direction_fixture() -> dict:
+    return json.loads(UNION_DIRECTION_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+def _projection_from_union_direction_case(case: dict) -> RecapGraphProjection:
+    store = parse_union_supergraph_store(case["store"])
+    return build_recap_graph_projection(store, case["session_id"])
+
+
+def _json_leaf_diffs(
+    base: object,
+    head: object,
+    *,
+    path: str = "",
+) -> list[tuple[str, object, object]]:
+    if type(base) is not type(head):
+        return [(path or "/", base, head)]
+    if isinstance(base, dict):
+        diffs: list[tuple[str, object, object]] = []
+        base_keys = set(base.keys())
+        head_keys = set(head.keys())
+        if base_keys != head_keys:
+            missing = base_keys - head_keys
+            extra = head_keys - base_keys
+            if missing:
+                diffs.append((f"{path}/<missing-keys>", sorted(missing), None))
+            if extra:
+                diffs.append((f"{path}/<extra-keys>", None, sorted(extra)))
+        for key in sorted(base_keys & head_keys):
+            child_path = f"{path}/{key}" if path else f"/{key}"
+            diffs.extend(_json_leaf_diffs(base[key], head[key], path=child_path))
+        return diffs
+    if isinstance(base, list):
+        diffs = []
+        if len(base) != len(head):
+            diffs.append((f"{path}/<length>", len(base), len(head)))
+        for index, (base_item, head_item) in enumerate(zip(base, head, strict=False)):
+            diffs.extend(
+                _json_leaf_diffs(base_item, head_item, path=f"{path}/{index}")
+            )
+        return diffs
+    if base != head:
+        return [(path or "/", base, head)]
+    return []
+
+
+def _closed_direction_leaves(projection: dict) -> list[str]:
+    leaves: list[str] = []
+    for node_id, node_view in (projection.get("node_views") or {}).items():
+        for idx, item in enumerate(node_view.get("adjacency") or []):
+            leaves.append(item["direction"])
+        for idx, item in enumerate(node_view.get("suggested_expansions") or []):
+            leaves.append(item["direction"])
+    return leaves
 
 
 @pytest.fixture
@@ -362,6 +428,102 @@ def _projection_from_union_case(case: dict) -> RecapGraphProjection:
 _AUTHORIZED_NON_MENTION_DELTAS_BY_CASE = {
     "alias_existing_dmb_link_plus_plain": frozenset({"union_identity_diagnostics"}),
 }
+
+
+def test_union_direction_characterization_fixture_provenance() -> None:
+    fixture = _load_union_direction_fixture()
+    assert fixture["schema"] == "dmb_union_direction_characterization_v1"
+    assert fixture["base_sha"] == UNION_DIRECTION_EXPECTED_BASE_SHA
+    assert fixture.get("fixture_parent_sha") == UNION_DIRECTION_EXPECTED_BASE_SHA
+    assert fixture["generated_via"] == (
+        "graph_memory.projection.recap_projection.build_recap_graph_projection"
+    )
+    assert len(fixture["cases"]) >= 24
+    assert any(
+        delta["base"] in {"outbound", "inbound"}
+        for case in fixture["cases"]
+        for delta in case["expected_direction_deltas"]
+    )
+    assert sum(1 for case in fixture["cases"] if case["category"] == "unchanged") >= 6
+
+
+@pytest.mark.parametrize(
+    "case",
+    _load_union_direction_fixture()["cases"],
+    ids=[case["case_id"] for case in _load_union_direction_fixture()["cases"]],
+)
+def test_union_direction_characterization_replay(case: dict) -> None:
+    head = _projection_from_union_direction_case(case).model_dump(mode="json")
+    base = case["base_projection"]
+    if case["category"] == "unchanged":
+        assert head == base
+        return
+
+    diffs = _json_leaf_diffs(base, head)
+    expected = {
+        (item["path"], item["base"], item["head"])
+        for item in case["expected_direction_deltas"]
+    }
+    actual = set(diffs)
+    assert actual == expected
+    for path, _, _ in diffs:
+        assert path.endswith("/direction")
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("outbound", "outgoing"),
+        ("outgoing", "outgoing"),
+        ("inbound", "incoming"),
+        ("incoming", "incoming"),
+        ("related", "related"),
+        (None, "related"),
+        ("", "related"),
+        ("   ", "related"),
+    ],
+)
+def test_normalize_graph_projection_relationship_direction_matrix(
+    raw: str | None,
+    expected: str,
+) -> None:
+    assert normalize_graph_projection_relationship_direction(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["OUTBOUND", "sideways", 7, {"direction": "outbound"}],
+)
+def test_normalize_graph_projection_relationship_direction_fail_closed(raw: object) -> None:
+    with pytest.raises(GraphProjectionDirectionError):
+        normalize_graph_projection_relationship_direction(raw)  # type: ignore[arg-type]
+
+
+def test_graph_projection_adjacency_candidate_validates_legacy_aliases() -> None:
+    candidate = GraphProjectionAdjacencyCandidate.model_validate(
+        {
+            "edge_id": "edge:1",
+            "node_id": "node:1",
+            "label": "Alpha",
+            "kind": "npc",
+            "predicate": "knows",
+            "direction": "outbound",
+        }
+    )
+    assert candidate.direction == "outgoing"
+
+
+def test_graph_projection_direction_normalizer_delegates_to_world_helper() -> None:
+    source = inspect.getsource(node_view_module.normalize_graph_projection_relationship_direction)
+    assert "normalize_world_graph_relationship_direction" in source
+    assert "_WORLD_GRAPH_DIRECTION_ALIASES" not in source
+    node_view_source = Path(node_view_module.__file__).read_text(encoding="utf-8")
+    assert "_WORLD_GRAPH_DIRECTION_ALIASES" not in node_view_source
+
+
+def test_graph_projection_adjacency_direction_annotation_is_closed_literal() -> None:
+    field = GraphProjectionAdjacencyCandidate.model_fields["direction"]
+    assert "str" not in str(field.annotation)
 
 
 def test_union_mention_characterization_fixture_provenance() -> None:

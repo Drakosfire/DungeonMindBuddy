@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { GraphProjectionNodeView } from "../api/types";
+import { session23UnionSupergraphFixture } from "../planSurface/graphPreview/unionSupergraphFixture";
 import { buildGraphObjectCardFromNodeView } from "./buildGraphObjectCardFromNodeView";
 import { relationshipSessionStamp } from "./graphObjectDisplay";
 
@@ -112,6 +113,17 @@ describe("buildGraphObjectCardFromNodeView", () => {
     expect(model.summary).toBeNull();
     expect(model.gameSummary).toBeNull();
     expect(model.aliases).toEqual(["Glow"]);
+  });
+
+  it("maps healthy union fixture relationship directions without null collapse", () => {
+    const caelynn = session23UnionSupergraphFixture.node_views.pc_caelynn;
+    const model = buildGraphObjectCardFromNodeView(caelynn);
+
+    expect(model.relationships?.length).toBeGreaterThan(0);
+    for (const relationship of model.relationships ?? []) {
+      expect(relationship.direction).not.toBeNull();
+      expect(relationship.direction).toMatch(/^(incoming|outgoing|related)$/);
+    }
   });
 
   it("keeps C1 and C2 session-2 relationships distinguishable on the card", () => {
