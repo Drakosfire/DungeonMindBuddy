@@ -1,15 +1,14 @@
 # HANDOFF — SBW06 Candidate revise/regenerate and lineage
 
 **Created:** 2026-07-22
-**Updated:** 2026-07-25 — `SBW07` COMPLETE (`#409` / `455daf49`); `SBW06-contract` active (doc-only freeze)
-**Status:** `SBW06a` — IN PROGRESS (exact edited `source_definition` adapter + revise journal)
+**Updated:** 2026-07-27 — `#417` SBW06a MERGED (`8a73b101`); `#425` Dogfood Gate A MERGED (`13b2e258`)
+**Status:** `SBW06b` — NEXT (after Gate A `#425`)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`
 **Workstream:** `SBW06`
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**PR base / repository tip:** `742415e7` on `main` (includes `#409` SBW07c merge)
-**Logical SBW predecessor:** `#409` / `455daf49897bce0235972e7b9f07c3656a3fe27b` — `SBW07c` Accept UI + corpus demolition (SBW07 COMPLETE)
-**This PR:** `SBW06-contract` — revise journal, source identity, lineage, status, capacity, partial completion
-**Next after this PR merges:** `SBW06a` (only if §12.11 Server revise recovery gate is closed)
+**PR base / repository tip:** `13b2e258` on `main` (`#425` Dogfood Gate A merge)
+**Logical SBW predecessor:** `#425` / `13b2e25856db945d67bfd0e6dcfae8b7c1446f63` — Dogfood Gate A MERGED
+**Next dispatch:** `SBW06b` — ThreatDraft ref + embedded `CandidateLineageV1` CAS
 
 > Dispatch one capability across a contract PR plus four code PRs: create a new candidate proposal from an exact source and preserve lineage. Do not persist mechanics, compare accepted revisions, update graph bindings, or generate media.
 
@@ -17,9 +16,9 @@
 
 | Bite | Status | PR mission | Allowlist focus | Still false |
 |---|---|---|---|---|
-| `SBW06-contract` | **this PR** | Doc-only: freeze §12 revise authority tables | Docs only; no implementation | All code |
-| `SBW06a` | after contract + §12.11 gate | Exact edited `source_definition` adapter + revise journal | Client + revision service + tests | Status UI, accepted-revision source, ThreatDraft lineage attach as ordinary success |
-| `SBW06b` | after `SBW06a` | Durable candidate ref with embedded `CandidateLineageV1`, status transitions | Draft store/ref transitions + tests implementing frozen §12.8 | UI, accepted-revision revise |
+| `SBW06-contract` | MERGED `#413` | Doc-only: freeze §12 revise authority tables | Docs only; no implementation | All code |
+| `SBW06a` | MERGED `#417` / `8a73b101` | Exact edited `source_definition` adapter + revise journal | Client + revision service + tests | Status UI, accepted-revision source, ThreatDraft lineage attach as ordinary success |
+| `SBW06b` | **next** | Durable candidate ref with embedded `CandidateLineageV1`, status transitions | Draft store/ref transitions + tests implementing frozen §12.8 | UI, accepted-revision revise |
 | `SBW06c` | after `SBW06b` | Workbench revise UX | Workbench + liveApi | Accepted-revision source, compare, append |
 | `SBW06d` | after `SBW06c` | Exact accepted `source_locator` revise | Service/route/UI using SBW07 locators | Graph, SBW13 append, compare, media |
 
@@ -728,7 +727,7 @@ Stop if:
 
 - [x] Re-anchor after `SBW07` COMPLETE (`#409` / `455daf49`) and `SBW05`.
 - [x] Inventory Server revise source variants from vendored OpenAPI (`source_definition` XOR `source_locator`).
-- [ ] Capture real v1 revise success/error/replay fixtures (required in `SBW06a`; none in Buddy yet).
+- [x] Capture real v1 revise success/error/replay fixtures (required in `SBW06a`; merged `#417`).
 - [x] Confirm first-save is already true via `SBW07`; graph, compare, upgrade, and media remain false.
-- [ ] `SBW06-contract` §12 approved before `SBW06a+` code.
-- [ ] §12.11 Server revise recovery gate closed with evidence before merging `SBW06a`.
+- [x] `SBW06-contract` §12 approved before `SBW06a+` code (MERGED `#413`).
+- [x] §12.11 Server revise recovery gate closed with evidence before merging `SBW06a` (MERGED `#417`).

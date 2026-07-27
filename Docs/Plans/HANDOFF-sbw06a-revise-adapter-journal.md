@@ -1,10 +1,12 @@
 # HANDOFF — SBW06a Buddy Exact Edited-Definition Revise Adapter + Durable Revise Journal
 
+> **MERGED** `#417` / `8a73b101` (2026-07-26). Revise adapter + durable revise journal shipped; ordinary reconcile success remains **SBW06b**. **Next slice:** `SBW06b`.
+
 **Created:** 2026-07-26
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Workstream:** Threat + Statblock Authoring and Projection (`SBW`)
 **Slice:** `SBW06a`
-**Status:** IN PROGRESS — implementation on `feat/sbw06a-revise-adapter-journal`
+**Status:** MERGED `#417` / `8a73b101` (2026-07-26)
 **Normative contract:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md` §12
 **Logical Buddy predecessor:** PR `#413`, merge `e9264610238ccf59a91d66fd3ea4e4d68cfcd3a4`, frozen contract head `b8877e342cb4ac9fce86b582b5354e65d4dc286c`
 **External recovery-gate predecessor:** DungeonMindServer PR `#24`, merge `2c7d2566baa744f2b1a4667761775c1dec87a2d4`, reviewed head `1ad8de2baf0431c7ddb401cdd72389afc730519a`
