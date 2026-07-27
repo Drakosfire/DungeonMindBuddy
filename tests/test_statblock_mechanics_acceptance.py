@@ -188,9 +188,10 @@ def test_success_mechanics_saved(mock_validate, tmp_path: Path) -> None:
     assert result.result_label == "mechanics_saved"
     assert len(client.create_calls) == 1
     create_body = client.create_calls[0]
-    # DMS rejects null for these non-nullable object/array fields (422).
-    assert "accepted_through" not in create_body
-    assert "asset_bindings" not in create_body
+    # Fake client records the durable journal body (nulls retained). Real DMS
+    # client strips nulls only on the outbound wire.
+    assert create_body.get("accepted_through") is None
+    assert "asset_bindings" in create_body or create_body.get("asset_bindings") is None
     reloaded = get_threat_draft(tmp_path, draft.draft_id)
     assert reloaded.workflow_state == "mechanics_saved"
     assert reloaded.accepted_mechanics_ref is not None
@@ -202,7 +203,8 @@ def test_success_mechanics_saved(mock_validate, tmp_path: Path) -> None:
     assert op.materialization.draft_ref == "attached"
 
 
-def test_build_create_body_omits_null_accepted_through_and_asset_bindings() -> None:
+def test_build_create_body_keeps_null_optional_fields_for_journal_digest() -> None:
+    """Durable journal body must keep nulls so pre-change ops still resume."""
     request = AcceptThreatDraftMechanicsRequestV1(
         operation_id=str(uuid.uuid4()),
         expected_draft_version=1,
@@ -215,11 +217,48 @@ def test_build_create_body_omits_null_accepted_through_and_asset_bindings() -> N
         source_candidate_id="cand_5enq3tnxsu3lw6fk",
     )
     body = acceptance._build_create_body(request)
-    assert "accepted_through" not in body
-    assert "asset_bindings" not in body
-    assert "actor" not in body
+    assert body.get("accepted_through") is None
+    assert body.get("asset_bindings") is None
+    assert body.get("actor") is None
     assert body["candidate_id"] == "cand_5enq3tnxsu3lw6fk"
     assert body["change_summary"] == "Accepted in test."
+
+
+@patch.object(acceptance, "validate_definition", side_effect=_validate_ok)
+def test_resume_matches_prechange_null_inclusive_journal_body(
+    mock_validate, tmp_path: Path
+) -> None:
+    """Replay after exclude_none journal regression: null-inclusive body must resume."""
+    draft = _create_draft(tmp_path)
+    request = _accept_request(draft)
+    # Pre-change journal shape: optional fields present as null.
+    body = acceptance._build_create_body(request)
+    assert "accepted_through" in body
+    assert body["accepted_through"] is None
+    digest = create_request_digest_for_body(body)
+    claim_outcome, op = claim_acceptance_operation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_draft_version=draft.version,
+        operation_id=request.operation_id,
+        create_request_digest=digest,
+        request_body=body,
+        validation_receipt_digest=request.validation_definition_digest,
+        source_candidate_id=None,
+    )
+    assert claim_outcome == "claimed"
+    assert op is not None
+
+    client = FakeStatblockClient(result=_create_result())
+    # Same Accept body rebuilt post-fix must exact-match journal (no input_conflict).
+    result = begin_or_resume_acceptance(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=request,
+        client=client,  # type: ignore[arg-type]
+    )
+    assert result.result_label != "acceptance_input_conflict"
+    assert result.operation_id == request.operation_id
 
 
 @patch.object(acceptance, "validate_definition", side_effect=_validate_ok)

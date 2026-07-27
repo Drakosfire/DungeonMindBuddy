@@ -126,9 +126,10 @@ def _build_create_body(request: AcceptThreatDraftMechanicsRequestV1) -> dict[str
         actor=request.actor,
         accepted_through=request.accepted_through,
     )
-    # DMS CreateStatblockRequestV1 treats accepted_through / asset_bindings as
-    # object/array (not nullable). exclude_none omits nulls so Server defaults apply.
-    return create.model_dump(mode="json", exclude_none=True)
+    # Journal body must retain null optional fields for digest/body equality on
+    # replay across deploys. DMS null rejection is handled only at the client
+    # transport boundary (exclude_none / strip-none on send).
+    return create.model_dump(mode="json", exclude_none=False)
 
 
 def _result_label_for_operation(

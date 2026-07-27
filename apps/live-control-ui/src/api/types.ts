@@ -3211,6 +3211,16 @@ export interface ThreatDraftGraphContextSnapshotV1 {
   admitted_source_anchor_ids: string[];
 }
 
+/** CamelCase wire shape from `/api/live/world-graph-bootstrap/status`. */
+export interface WorldGraphBootstrapStatusV1 {
+  schema: "dmb_world_graph_bootstrap_status_v1";
+  state: string;
+  worldId: string;
+  campaignId: string;
+  currentHeadRevisionId?: string | null;
+  initialHeadRevisionId?: string | null;
+}
+
 export interface ThreatDraftFocusV1 {
   session?: number | null;
   prep_label?: string | null;

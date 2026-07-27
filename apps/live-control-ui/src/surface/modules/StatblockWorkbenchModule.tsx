@@ -7,6 +7,7 @@ import {
   generateThreatDraftCandidate,
   getAcceptanceOperation,
   getStatblockCandidate,
+  getWorldGraphBootstrapStatus,
   LiveApiError,
   reconcileAcceptanceOperation,
   validateStatblockDefinition,
@@ -132,14 +133,12 @@ type CreatedDraftIdentity = {
 };
 
 /**
- * Dogfood Gate A create binding from Live Control defaults — not blank form fields.
- * World Graph head revisions use `rev:…`; ThreatDraft IDs forbid `:`, so this is an
- * exact dogfood provenance token (not "latest" / "demo" / "current").
+ * Live Control scope defaults for dogfood create. Graph revision is NOT invented
+ * here — it is resolved from World Graph bootstrap head (or an exact Advanced override).
  */
 const LIVE_CONTROL_CREATE_CONTEXT = {
   world_id: "eldyrwild",
   campaign_id: "longmont-c2",
-  graph_revision_id: "rev_live_control_eldyrwild",
   threat_kind: "creature",
   created_by: "gm",
   ruleset: {
@@ -163,6 +162,8 @@ type CreateFormFields = {
   partyLevel: string;
   partySize: string;
   terrainNotes: string;
+  /** Exact World Graph revision override (e.g. rev:…). Empty → resolve bootstrap head. */
+  graphRevisionId: string;
 };
 
 const DEFAULT_CREATE_FORM: CreateFormFields = {
@@ -179,6 +180,13 @@ const DEFAULT_CREATE_FORM: CreateFormFields = {
   partyLevel: "",
   partySize: "",
   terrainNotes: "",
+  graphRevisionId: "",
+};
+
+type ResolvedCreateScope = {
+  world_id: string;
+  campaign_id: string;
+  graph_revision_id: string;
 };
 
 /** Derive a short ThreatDraft name from pasted prose (not a full paragraph dump). */
@@ -219,9 +227,19 @@ function shortThreatDisplayName(name: string): string {
 
 function buildCreateThreatDraftRequest(
   fields: CreateFormFields,
+  scope: ResolvedCreateScope,
 ): { ok: true; request: CreateThreatDraftRequestV1 } | { ok: false; message: string } {
   const description = fields.description.trim();
   if (!description) return { ok: false, message: "Provide a threat description." };
+
+  const graphRevisionId = scope.graph_revision_id.trim();
+  if (!graphRevisionId) {
+    return {
+      ok: false,
+      message:
+        "No authoritative World Graph head — bootstrap Eldyrwild or enter an exact graph revision (rev:…) in Optional controls.",
+    };
+  }
 
   const name = deriveThreatNameFromDescription(description);
 
@@ -256,8 +274,8 @@ function buildCreateThreatDraftRequest(
   return {
     ok: true,
     request: {
-      world_id: LIVE_CONTROL_CREATE_CONTEXT.world_id,
-      campaign_id: LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
+      world_id: scope.world_id,
+      campaign_id: scope.campaign_id,
       focus,
       name,
       slug_hint: slugHint,
@@ -282,13 +300,67 @@ function buildCreateThreatDraftRequest(
         terrain_notes: parseBoundedStringList(fields.terrainNotes),
       },
       graph_context_snapshot: {
-        graph_revision_id: LIVE_CONTROL_CREATE_CONTEXT.graph_revision_id,
+        graph_revision_id: graphRevisionId,
         selected_node_ids: [],
         admitted_source_anchor_ids: [],
       },
       created_by: LIVE_CONTROL_CREATE_CONTEXT.created_by,
     },
   };
+}
+
+async function resolveCreateScope(
+  fields: CreateFormFields,
+): Promise<{ ok: true; scope: ResolvedCreateScope } | { ok: false; message: string }> {
+  const override = fields.graphRevisionId.trim();
+  if (override) {
+    return {
+      ok: true,
+      scope: {
+        world_id: LIVE_CONTROL_CREATE_CONTEXT.world_id,
+        campaign_id: LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
+        graph_revision_id: override,
+      },
+    };
+  }
+
+  try {
+    const status = await getWorldGraphBootstrapStatus();
+    const worldId =
+      typeof status.worldId === "string" && status.worldId.trim()
+        ? status.worldId.trim()
+        : LIVE_CONTROL_CREATE_CONTEXT.world_id;
+    const campaignId =
+      typeof status.campaignId === "string" && status.campaignId.trim()
+        ? status.campaignId.trim()
+        : LIVE_CONTROL_CREATE_CONTEXT.campaign_id;
+    const head =
+      typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
+        ? status.currentHeadRevisionId.trim()
+        : "";
+    if (!head) {
+      return {
+        ok: false,
+        message:
+          "No authoritative World Graph head from bootstrap — bootstrap Eldyrwild or enter an exact graph revision (rev:…) in Optional controls.",
+      };
+    }
+    return {
+      ok: true,
+      scope: {
+        world_id: worldId,
+        campaign_id: campaignId,
+        graph_revision_id: head,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Could not resolve World Graph head: ${
+        error instanceof Error ? error.message : String(error)
+      }. Enter an exact graph revision (rev:…) in Optional controls, or retry.`,
+    };
+  }
 }
 
 function isCreateTransportUncertainty(error: unknown): boolean {
@@ -1917,10 +1989,20 @@ export function StatblockWorkbenchModule() {
                       : response.source_draft_id.trim(),
                 }
               : null;
-          const draftIdentity =
-            createdDraftRef.current ??
-            createdDraftFromStoredJoin(stored) ??
-            fromResponse;
+          // Candidate-scoped identity: response wins; stored join only when bound to
+          // this candidate; same-session create may still have candidate_id=null.
+          let draftIdentity: CreatedDraftIdentity | null = null;
+          if (fromResponse) {
+            draftIdentity = fromResponse;
+          } else if (stored?.candidate_id === loadedCandidateId) {
+            draftIdentity = createdDraftFromStoredJoin(stored);
+          } else if (
+            createdDraftRef.current &&
+            stored?.draft_id === createdDraftRef.current.draft_id &&
+            (stored?.candidate_id == null || stored.candidate_id === loadedCandidateId)
+          ) {
+            draftIdentity = createdDraftRef.current;
+          }
           const preservedWorkingCopy =
             stored?.candidate_id === loadedCandidateId ? stored.working_copy ?? null : null;
           if (draftIdentity) {
@@ -1938,10 +2020,14 @@ export function StatblockWorkbenchModule() {
               working_copy: preservedWorkingCopy,
             });
           } else {
+            createdDraftRef.current = null;
+            setCreatedDraft(null);
+            setDraftIdInput("");
+            setDraftVersionInput("1");
             writeStoredWorkbenchJoin({
-              draft_id: stored?.draft_id ?? null,
-              version: stored?.version ?? null,
-              name: stored?.name ?? null,
+              draft_id: null,
+              version: null,
+              name: null,
               candidate_id: loadedCandidateId,
               working_copy: preservedWorkingCopy,
             });
@@ -2063,24 +2149,36 @@ export function StatblockWorkbenchModule() {
       return;
     }
 
-    const built = buildCreateThreatDraftRequest(createForm);
-    if (!built.ok) {
-      setCreateError(built.message);
-      setCreatePhase("create_failed");
-      return;
-    }
-
     createAndGenerateInFlightRef.current = true;
     const opId = beginCandidateOp();
     setCreatePhase("creating");
     setCreateError(null);
-    setCreateMessage("Creating…");
+    setCreateMessage("Resolving graph head…");
     setGenerateError(null);
     setGenerateMessage(null);
     setPendingGenerate(false);
     setLoadState((prev) => (prev.kind === "loading" ? { kind: "idle" } : prev));
 
     try {
+      const resolved = await resolveCreateScope(createForm);
+      if (!isCurrentCandidateOp(opId)) return;
+      if (!resolved.ok) {
+        setCreatePhase("create_failed");
+        setCreateError(resolved.message);
+        setCreateMessage(null);
+        return;
+      }
+
+      const built = buildCreateThreatDraftRequest(createForm, resolved.scope);
+      if (!built.ok) {
+        setCreatePhase("create_failed");
+        setCreateError(built.message);
+        setCreateMessage(null);
+        return;
+      }
+
+      setCreateMessage("Creating…");
+
       let created: CreatedDraftIdentity | null = null;
       try {
         const response = await createThreatDraft(built.request);
@@ -2284,7 +2382,8 @@ export function StatblockWorkbenchModule() {
         <p className="statblock-create-context" data-testid="create-threat-context-binding">
           Using {LIVE_CONTROL_CREATE_CONTEXT.world_id} · {LIVE_CONTROL_CREATE_CONTEXT.campaign_id} ·{" "}
           {LIVE_CONTROL_CREATE_CONTEXT.ruleset.system} {LIVE_CONTROL_CREATE_CONTEXT.ruleset.edition} ·{" "}
-          {LIVE_CONTROL_CREATE_CONTEXT.threat_kind} · {LIVE_CONTROL_CREATE_CONTEXT.created_by}
+          {LIVE_CONTROL_CREATE_CONTEXT.threat_kind} · {LIVE_CONTROL_CREATE_CONTEXT.created_by} · graph
+          head resolved at create
         </p>
         <form className="statblock-create-form" onSubmit={onCreateAndGenerate}>
           <label className="statblock-create-field">
@@ -2355,6 +2454,18 @@ export function StatblockWorkbenchModule() {
                     value={createForm.partySize}
                     onChange={(event) => updateCreateField("partySize", event.target.value)}
                     inputMode="numeric"
+                  />
+                </label>
+                <label className="statblock-create-field">
+                  <span className="statblock-create-field-label">
+                    Graph revision override (exact rev:…; empty uses bootstrap head)
+                  </span>
+                  <input
+                    value={createForm.graphRevisionId}
+                    onChange={(event) => updateCreateField("graphRevisionId", event.target.value)}
+                    placeholder="rev:…"
+                    autoComplete="off"
+                    data-testid="create-threat-graph-revision"
                   />
                 </label>
               </div>

@@ -2466,6 +2466,7 @@ describe("StatblockWorkbenchModule", () => {
     const DRAFT_ID = "11111111-1111-4111-8111-111111111111";
     const THREAT_DESCRIPTION =
       "Mireward Latchling\nA reed-choked latching scavenger from the Mireward verge.";
+    const GRAPH_HEAD = "rev:5cadc9798562862cdde22350d8a3b56c";
 
     async function fillRequiredCreateFields(user: ReturnType<typeof userEvent.setup>) {
       await user.type(screen.getByTestId("create-threat-description"), THREAT_DESCRIPTION);
@@ -2487,6 +2488,21 @@ describe("StatblockWorkbenchModule", () => {
         updated_at: "2026-07-26T00:00:00Z",
       };
     }
+
+    function mockBootstrapHead(head: string | null = GRAPH_HEAD) {
+      return vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
+        schema: "dmb_world_graph_bootstrap_status_v1",
+        state: head ? "active" : "invalid_bundle",
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        currentHeadRevisionId: head,
+        initialHeadRevisionId: head,
+      });
+    }
+
+    beforeEach(() => {
+      mockBootstrapHead();
+    });
 
     it("creates a draft then generates and loads using the returned identity", async () => {
       const user = userEvent.setup();
@@ -2522,7 +2538,7 @@ describe("StatblockWorkbenchModule", () => {
       expect(createBody.created_by).toBe("gm");
       expect(createBody.world_id).toBe("eldyrwild");
       expect(createBody.campaign_id).toBe("longmont-c2");
-      expect(createBody.graph_context_snapshot.graph_revision_id).toBe("rev_live_control_eldyrwild");
+      expect(createBody.graph_context_snapshot.graph_revision_id).toBe(GRAPH_HEAD);
       expect(createBody.graph_context_snapshot.selected_node_ids).toEqual([]);
       expect(createBody.graph_context_snapshot.admitted_source_anchor_ids).toEqual([]);
       expect(createBody.generation_intent.ruleset).toEqual({
@@ -2534,12 +2550,54 @@ describe("StatblockWorkbenchModule", () => {
       expect(createBody.tags).toEqual([]);
       expect(createBody.generation_intent.must_include).toEqual([]);
       expect(createBody.generation_intent.must_avoid).toEqual([]);
-      expect(JSON.stringify(createBody)).not.toMatch(/rev_workbench_quick_create|demo|latest|"current"/i);
+      expect(JSON.stringify(createBody)).not.toMatch(
+        /rev_live_control_eldyrwild|rev_workbench_quick_create|demo|latest|"current"/i,
+      );
       expect(generateSpy).toHaveBeenCalledWith(DRAFT_ID, { expected_draft_version: 1 });
       expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
       expect(screen.queryByTestId("created-draft-identity")).toBeNull();
       expect(screen.queryByTestId("create-threat-status")).toBeNull();
       expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", DRAFT_ID);
+    });
+
+    it("blocks create when bootstrap head is missing and no override is provided", async () => {
+      mockBootstrapHead(null);
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft");
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(screen.getByText(/No authoritative World Graph head/i)).toBeTruthy();
+      });
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it("uses exact Advanced graph revision override without inventing a token", async () => {
+      mockBootstrapHead(null);
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
+      vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: DRAFT_ID,
+        generated_from_draft_version: 1,
+        request_id: "req_override_rev",
+        outcome: "success",
+        candidate,
+        cache_status: "stored",
+        persistence_failures: [],
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByText(/Optional generation and focus controls/i));
+      await user.type(screen.getByTestId("create-threat-graph-revision"), GRAPH_HEAD);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalledTimes(1);
+      });
+      expect(createSpy.mock.calls[0][0].graph_context_snapshot.graph_revision_id).toBe(GRAPH_HEAD);
     });
 
     it("accepts mechanics from create-and-generate without typing Advanced draft fields", async () => {
@@ -3045,6 +3103,53 @@ describe("StatblockWorkbenchModule", () => {
           expect.objectContaining({ expected_draft_version: 1 }),
         );
       });
+    });
+
+    it("clears stale draft A when loading candidate B without matching join or source_draft", async () => {
+      sessionStorage.setItem(
+        "dmb.sbw.workbenchJoin",
+        JSON.stringify({
+          draft_id: DRAFT_ID,
+          version: 1,
+          name: "Draft A",
+          candidate_id: "cand_fixture1",
+        }),
+      );
+      const candidateB = { ...candidate, candidate_id: "cand_fixture2" };
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === "cand_fixture2") {
+          return {
+            schema: "dmb_statblock_candidate_read_v1" as const,
+            candidate_id: "cand_fixture2",
+            status: "active" as const,
+            candidate: candidateB,
+          };
+        }
+        return activeResponse;
+      });
+
+      const user = userEvent.setup();
+      render(<StatblockWorkbenchModule />);
+      await waitFor(() => {
+        expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", DRAFT_ID);
+
+      await user.click(screen.getByText(/Advanced — recover by candidate or draft ID/i));
+      const candInput = screen.getByPlaceholderText("cand_…");
+      await user.clear(candInput);
+      await user.type(candInput, "cand_fixture2");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => {
+        expect(screen.getByText(/Candidate cand_fixture2/i)).toBeTruthy();
+      });
+      expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", "");
+      const stored = JSON.parse(sessionStorage.getItem("dmb.sbw.workbenchJoin") ?? "null") as {
+        draft_id?: string | null;
+        candidate_id?: string | null;
+      };
+      expect(stored.candidate_id).toBe("cand_fixture2");
+      expect(stored.draft_id).toBeNull();
     });
 
     it("clears the stored join when starting another threat", async () => {

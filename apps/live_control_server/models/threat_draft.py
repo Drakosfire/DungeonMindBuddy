@@ -17,6 +17,8 @@ INDEX_SCHEMA = "dmb_threat_draft_index_v1"
 LIST_SCHEMA = "dmb_threat_draft_list_v1"
 
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+# World Graph revision ids are typically `rev:<hex>`; ThreatDraft must accept the colon.
+_GRAPH_REVISION_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 _MAX_TEXT = 20_000
 _MAX_LIST = 64
 _MAX_NAME = 200
@@ -37,6 +39,13 @@ def _require_id(value: str, *, label: str) -> str:
     cleaned = value.strip()
     if not _ID_RE.fullmatch(cleaned):
         raise ValueError(f"invalid {label}")
+    return cleaned
+
+
+def _require_graph_revision_id(value: str) -> str:
+    cleaned = value.strip()
+    if not _GRAPH_REVISION_ID_RE.fullmatch(cleaned):
+        raise ValueError("invalid graph_revision_id")
     return cleaned
 
 
@@ -101,7 +110,7 @@ class GraphContextSnapshotV1(StrictModel):
     @field_validator("graph_revision_id")
     @classmethod
     def _graph_revision_id(cls, value: str) -> str:
-        return _require_id(value, label="graph_revision_id")
+        return _require_graph_revision_id(value)
 
     @field_validator("selected_node_ids", "admitted_source_anchor_ids")
     @classmethod

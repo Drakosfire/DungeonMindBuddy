@@ -74,6 +74,30 @@ def test_create_read_list_round_trip(tmp_path: Path) -> None:
     assert summaries[0].draft_id == created.draft_id
 
 
+def test_graph_revision_id_accepts_world_graph_colon_form(tmp_path: Path) -> None:
+    created = create_threat_draft(
+        tmp_path,
+        _create_request(
+            graph_context_snapshot=GraphContextSnapshotV1(
+                graph_revision_id="rev:5cadc9798562862cdde22350d8a3b56c",
+                selected_node_ids=["node_a"],
+                admitted_source_anchor_ids=["anchor_1"],
+            ),
+        ),
+    )
+    loaded = get_threat_draft(tmp_path, created.draft_id)
+    assert loaded.graph_context_snapshot.graph_revision_id == (
+        "rev:5cadc9798562862cdde22350d8a3b56c"
+    )
+
+
+def test_graph_revision_id_rejects_whitespace_and_slash() -> None:
+    with pytest.raises(ValidationError):
+        GraphContextSnapshotV1(graph_revision_id="rev: bad")
+    with pytest.raises(ValidationError):
+        GraphContextSnapshotV1(graph_revision_id="rev:../escape")
+
+
 def test_update_increments_version_once(tmp_path: Path) -> None:
     created = create_threat_draft(tmp_path, _create_request())
     updated = update_threat_draft(

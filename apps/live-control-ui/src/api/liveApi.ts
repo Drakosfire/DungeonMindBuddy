@@ -101,6 +101,7 @@ import type {
   GenerateThreatDraftCandidateRequestV1,
   GenerateThreatDraftCandidateResponseV1,
   ThreatDraftV1,
+  WorldGraphBootstrapStatusV1,
   ReadStatblockCandidateResponseV1,
   ValidateDefinitionBuddyRequestV1,
   ValidateDefinitionBuddyResponseV1,
@@ -749,6 +750,10 @@ export async function getStatblockWorkbenchSample(): Promise<StatblockWorkbenchS
 
 export async function getStatblockIntegrationReadiness(): Promise<StatblockIntegrationReadinessV1> {
   return apiFetch<StatblockIntegrationReadinessV1>("/api/live/statblocks/v1/readiness");
+}
+
+export async function getWorldGraphBootstrapStatus(): Promise<WorldGraphBootstrapStatusV1> {
+  return apiFetch<WorldGraphBootstrapStatusV1>("/api/live/world-graph-bootstrap/status");
 }
 
 export async function createThreatDraft(
