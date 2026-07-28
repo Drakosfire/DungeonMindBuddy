@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as extractPromoteApi from "../../api/extractPromoteApi";
@@ -19,6 +19,7 @@ import {
   GraphReviewLiveStateProvider,
   useGraphReviewLiveState,
 } from "./GraphReviewLiveStateContext";
+import { catalogRunBindingKey } from "./graphReviewCommittedAuthority";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 
 vi.mock("../../api/liveApi", async () => {
@@ -693,6 +694,150 @@ describe("GraphReviewExtractPromoteSheet", () => {
       sourceArtifacts: [],
       diagnostics: [],
     });
+  });
+
+  it("does not adopt run A receipt onto run B after binding changes during deferred confirm", async () => {
+    let resolveConfirm!: (value: ExtractPromoteConfirmReceipt) => void;
+    const deferredConfirm = new Promise<ExtractPromoteConfirmReceipt>((resolve) => {
+      resolveConfirm = resolve;
+    });
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockReturnValue(deferredConfirm);
+    vi.mocked(postWorldGraphProjection).mockClear();
+
+    function BindingRaceHarness() {
+      const [run, setRun] = useState(
+        baseRun({
+          run_id: "run-a",
+          manifest_path: "artifacts/run-a/manifest.json",
+        }),
+      );
+      const [confirmInFlight, setConfirmInFlight] = useState(false);
+      const binding = useMemo(
+        () => ({
+          kind: "catalog_run" as const,
+          key: catalogRunBindingKey({
+            runId: run.run_id!,
+            campaignId: "longmont-c2",
+            sessionId: "session-25",
+          }),
+          runId: run.run_id!,
+          campaignId: "longmont-c2",
+          sessionId: "session-25",
+        }),
+        [run.run_id],
+      );
+
+      function AuthorityProbe() {
+        const { committedPhase, committedReceipt, committedBinding } =
+          useGraphReviewLiveState();
+        return (
+          <>
+            <span data-testid="committed-phase">{committedPhase}</span>
+            <span data-testid="committed-has-receipt">
+              {committedReceipt ? "yes" : "no"}
+            </span>
+            <span data-testid="committed-binding-key">
+              {committedBinding?.key ?? ""}
+            </span>
+            <span data-testid="committed-receipt-digest">
+              {committedReceipt?.proposalDigest ?? ""}
+            </span>
+          </>
+        );
+      }
+
+      return (
+        <ProjectionProvider config={createIngestSurfaceConfig(planContext)}>
+          <GraphReviewLiveStateProvider
+            campaignId="longmont-c2"
+            sessionId="session-25"
+            liveRun={run}
+            committedBinding={binding}
+            hasGold={false}
+            compare={null}
+            compareStatus="idle"
+            compareError={null}
+            selection={null}
+            onSelectSelection={() => undefined}
+          >
+            <AuthorityProbe />
+            <button
+              type="button"
+              data-testid="load-run-b"
+              onClick={() =>
+                setRun(
+                  baseRun({
+                    run_id: "run-b",
+                    manifest_path: "artifacts/run-b/manifest.json",
+                  }),
+                )
+              }
+            >
+              Load B
+            </button>
+            {/* Retain prepared sheet while confirm is in flight (catalog toolbar behavior). */}
+            {(confirmInFlight || run.run_id === "run-a") && (
+              <GraphReviewExtractPromoteSheet
+                prepared={prepareResponse({
+                  runId: "run-a",
+                  proposalDigest: "digest-run-a",
+                  proposalId: "prop-run-a",
+                })}
+                onClose={() => undefined}
+                onConfirmInFlightChange={setConfirmInFlight}
+              />
+            )}
+          </GraphReviewLiveStateProvider>
+        </ProjectionProvider>
+      );
+    }
+
+    render(<BindingRaceHarness />);
+
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-merge-cta")).toHaveTextContent(
+        "Merging…",
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("load-run-b"));
+    await waitFor(() => {
+      expect(screen.getByTestId("committed-binding-key")).toHaveTextContent(
+        catalogRunBindingKey({
+          runId: "run-b",
+          campaignId: "longmont-c2",
+          sessionId: "session-25",
+        }),
+      );
+      expect(screen.getByTestId("committed-phase")).toHaveTextContent("candidate");
+    });
+
+    resolveConfirm(
+      confirmReceipt({
+        proposalId: "prop-run-a",
+        proposalDigest: "digest-run-a",
+        affectedObjectIds: ["object-1"],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-reload-error")).toHaveTextContent(
+        /binding changed/i,
+      );
+    });
+
+    expect(screen.getByTestId("committed-phase")).toHaveTextContent("candidate");
+    expect(screen.getByTestId("committed-has-receipt")).toHaveTextContent("no");
+    expect(screen.getByTestId("committed-receipt-digest")).toHaveTextContent("");
+    expect(screen.getByTestId("committed-binding-key")).toHaveTextContent(
+      catalogRunBindingKey({
+        runId: "run-b",
+        campaignId: "longmont-c2",
+        sessionId: "session-25",
+      }),
+    );
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
   });
 });
 

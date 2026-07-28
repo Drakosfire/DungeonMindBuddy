@@ -106,7 +106,7 @@ export function GraphReviewExtractPromoteSheet({
   onConfirmInFlightChange,
   onCatalogRefresh = defaultCatalogRefresh,
 }: GraphReviewExtractPromoteSheetProps) {
-  const { adoptCommittedReceipt, reloadCommittedAuthority } =
+  const { adoptCommittedReceipt, reloadCommittedAuthority, committedBinding } =
     useGraphReviewLiveState();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
@@ -152,11 +152,16 @@ export function GraphReviewExtractPromoteSheet({
   };
 
   const adoptTerminalReceipt = useCallback(
-    async (nextReceipt: ExtractPromoteConfirmReceipt) => {
+    async (
+      nextReceipt: ExtractPromoteConfirmReceipt,
+      frozenBinding: typeof committedBinding,
+    ) => {
       setReloadError(null);
       try {
         // Provider owns receipt adoption, including campaignless fail-closed reads.
-        await adoptCommittedReceipt(nextReceipt, prepared);
+        // Pass the binding frozen at confirm start so a mid-flight load cannot
+        // attach this receipt onto a different active binding.
+        await adoptCommittedReceipt(nextReceipt, prepared, frozenBinding);
       } catch (error) {
         setReloadError(
           error instanceof Error
@@ -165,11 +170,12 @@ export function GraphReviewExtractPromoteSheet({
         );
       }
     },
-    [adoptCommittedReceipt, prepared],
+    [adoptCommittedReceipt, committedBinding, prepared],
   );
 
   const runConfirm = useCallback(
     async (assertionIds: string[]) => {
+      const frozenBinding = committedBinding;
       setConfirmPhase("confirming");
       setConfirmError(null);
       setReloadError(null);
@@ -202,7 +208,7 @@ export function GraphReviewExtractPromoteSheet({
       // Adopt before catalog refresh so a refresh-driven binding change cannot
       // race ahead of freezing committed authority for the current binding.
       try {
-        await adoptTerminalReceipt(nextReceipt);
+        await adoptTerminalReceipt(nextReceipt, frozenBinding);
       } catch (error) {
         // adoptTerminalReceipt already catches; never flip phase away from receipt.
         setReloadError(
@@ -218,7 +224,7 @@ export function GraphReviewExtractPromoteSheet({
         // Catalog refresh failure must not erase receipt.
       }
     },
-    [adoptTerminalReceipt, onCatalogRefresh, prepared.reviewPackage],
+    [adoptTerminalReceipt, committedBinding, onCatalogRefresh, prepared.reviewPackage],
   );
 
   const onMergeClick = () => {

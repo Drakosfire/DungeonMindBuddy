@@ -16,6 +16,8 @@ interface GraphReviewWorkbenchHeaderProps {
   loaded: boolean;
   sessionLabel: string | null;
   onOpenLoad: () => void;
+  loadDisabled?: boolean;
+  loadDisabledReason?: string | null;
   exactRun?: GraphReviewExactRunSummary | null;
 }
 
@@ -23,6 +25,8 @@ export function GraphReviewWorkbenchHeader({
   loaded,
   sessionLabel,
   onOpenLoad,
+  loadDisabled = false,
+  loadDisabledReason = null,
   exactRun = null,
 }: GraphReviewWorkbenchHeaderProps) {
   const scopeLabel = exactRun
@@ -80,6 +84,9 @@ export function GraphReviewWorkbenchHeader({
         <button
           type="button"
           className="graph-review-workbench-header-button graph-review-load-recap-button"
+          data-testid="graph-review-load-recap"
+          disabled={loadDisabled}
+          title={loadDisabled ? (loadDisabledReason ?? "Load recap unavailable") : undefined}
           onClick={onOpenLoad}
         >
           Load recap

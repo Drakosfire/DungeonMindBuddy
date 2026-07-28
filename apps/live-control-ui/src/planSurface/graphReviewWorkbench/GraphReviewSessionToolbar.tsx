@@ -29,7 +29,11 @@ function promoteErrorMessage(error: unknown): string {
   return "Failed to prepare promotion.";
 }
 
-export function GraphReviewSessionToolbar() {
+export function GraphReviewSessionToolbar({
+  onConfirmInFlightChange,
+}: {
+  onConfirmInFlightChange?: (inFlight: boolean) => void;
+} = {}) {
   const { projection, projectionStatus, liveRun, committedPhase, committedReceipt } =
     useGraphReviewLiveState();
   const [worldInitialized, setWorldInitialized] = useState(false);
@@ -44,6 +48,14 @@ export function GraphReviewSessionToolbar() {
   liveRunIdRef.current = liveRun?.run_id?.trim() || null;
   const hasTerminalCommittedReceipt =
     committedPhase !== "candidate" && committedReceipt != null;
+
+  const handleConfirmInFlightChange = useCallback(
+    (inFlight: boolean) => {
+      setConfirmInFlight(inFlight);
+      onConfirmInFlightChange?.(inFlight);
+    },
+    [onConfirmInFlightChange],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +219,7 @@ export function GraphReviewSessionToolbar() {
             if (confirmInFlight) return;
             setPrepared(null);
           }}
-          onConfirmInFlightChange={setConfirmInFlight}
+          onConfirmInFlightChange={handleConfirmInFlightChange}
         />
       ) : null}
     </div>

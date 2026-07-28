@@ -289,17 +289,33 @@ export function useGraphReviewLiveReviewState({
       nextReceipt: ExtractPromoteConfirmReceipt,
       prepared?: CommittedPreparedIdentity | null,
       frozenRequest?: WorldGraphProjectionRequest | null,
+      frozenBinding?: GraphReviewCommittedBinding | null,
     ): Promise<void> => {
+      const activeBinding = committedBindingRef.current;
+      const adoptBinding = frozenBinding ?? activeBinding;
+      // Confirm may resolve after a load switched bindings. Never attach a
+      // prior binding's receipt onto the newly active binding.
+      if (!committedBindingsEqual(adoptBinding, activeBinding)) {
+        throw new Error(
+          "Confirm completed after the review binding changed; receipt was not adopted onto the new binding.",
+        );
+      }
+
       const adoption = validateCommittedReceiptAdoption(
         nextReceipt,
         prepared,
-        committedBindingRef.current,
+        adoptBinding,
       );
       if (!adoption.ok) {
         // Terminal publication already happened. Preserve the receipt so
         // prepare/confirm cannot reopen for this binding even when
-        // prepared/binding integrity checks fail closed.
-        if (nextReceipt && isTerminalConfirmOutcome(nextReceipt.outcome)) {
+        // prepared/binding integrity checks fail closed — but only while the
+        // adopt binding is still the active review binding.
+        if (
+          nextReceipt
+          && isTerminalConfirmOutcome(nextReceipt.outcome)
+          && committedBindingsEqual(adoptBinding, committedBindingRef.current)
+        ) {
           const affectedObjectIds = normalizeAffectedObjectIds(
             nextReceipt.affectedObjectIds ?? [],
           );
@@ -308,23 +324,28 @@ export function useGraphReviewLiveReviewState({
             affectedObjectIds,
           });
           setCommittedAffectedObjectIds(affectedObjectIds);
-          setCommittedBindingState(committedBindingRef.current);
+          setCommittedBindingState(adoptBinding);
+          setCommittedProjection(null);
+          setCommittedSelectedObjectId(null);
+          setCommittedRequest(null);
+          setCommittedPhase("error");
+          setCommittedError(adoption.reason);
         }
-        setCommittedProjection(null);
-        setCommittedSelectedObjectId(null);
-        setCommittedRequest(null);
-        setCommittedPhase("error");
-        setCommittedError(adoption.reason);
         throw new Error(adoption.reason);
       }
 
       const trimmedCampaign = (campaignId ?? "").trim();
       if (!trimmedCampaign) {
+        if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
+          throw new Error(
+            "Confirm completed after the review binding changed; receipt was not adopted onto the new binding.",
+          );
+        }
         const reason =
           "Committed revision preserved; campaignless exact runs cannot be reloaded through a campaign projection lens (degraded read).";
         setCommittedReceipt(adoption.receipt);
         setCommittedAffectedObjectIds(adoption.affectedObjectIds);
-        setCommittedBindingState(committedBindingRef.current);
+        setCommittedBindingState(adoptBinding);
         setCommittedProjection(null);
         setCommittedSelectedObjectId(null);
         setCommittedRequest(null);
@@ -341,11 +362,16 @@ export function useGraphReviewLiveReviewState({
           receipt: adoption.receipt,
         });
       if (!request) {
+        if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
+          throw new Error(
+            "Confirm completed after the review binding changed; receipt was not adopted onto the new binding.",
+          );
+        }
         const reason =
           "Committed receipt worldId is not admitted by the current campaign mapping.";
         setCommittedReceipt(adoption.receipt);
         setCommittedAffectedObjectIds(adoption.affectedObjectIds);
-        setCommittedBindingState(committedBindingRef.current);
+        setCommittedBindingState(adoptBinding);
         setCommittedProjection(null);
         setCommittedSelectedObjectId(null);
         setCommittedRequest(null);
@@ -354,10 +380,16 @@ export function useGraphReviewLiveReviewState({
         throw new Error(reason);
       }
 
+      if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
+        throw new Error(
+          "Confirm completed after the review binding changed; receipt was not adopted onto the new binding.",
+        );
+      }
+
       const generation = ++committedGenerationRef.current;
       setCommittedReceipt(adoption.receipt);
       setCommittedAffectedObjectIds(adoption.affectedObjectIds);
-      setCommittedBindingState(committedBindingRef.current);
+      setCommittedBindingState(adoptBinding);
       setCommittedRequest(request);
       setCommittedPhase("loading");
       setCommittedError(null);
@@ -365,6 +397,9 @@ export function useGraphReviewLiveReviewState({
       try {
         const response = await postWorldGraphProjection(request);
         if (generation !== committedGenerationRef.current) return;
+        if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
+          return;
+        }
 
         const validated = validateCommittedProjectionResponse({
           projection: response,
@@ -396,6 +431,9 @@ export function useGraphReviewLiveReviewState({
         );
       } catch (error) {
         if (generation !== committedGenerationRef.current) return;
+        if (!committedBindingsEqual(adoptBinding, committedBindingRef.current)) {
+          return;
+        }
         const message = friendlyProjectionError(error);
         // Preserve receipt + frozen request on request/integrity failures for retry.
         setCommittedProjection(null);
@@ -412,8 +450,14 @@ export function useGraphReviewLiveReviewState({
     async (
       nextReceipt: ExtractPromoteConfirmReceipt,
       prepared?: CommittedPreparedIdentity | null,
+      frozenBinding?: GraphReviewCommittedBinding | null,
     ): Promise<void> => {
-      await installCommittedAuthority(nextReceipt, prepared);
+      await installCommittedAuthority(
+        nextReceipt,
+        prepared,
+        null,
+        frozenBinding,
+      );
     },
     [installCommittedAuthority],
   );
@@ -426,6 +470,7 @@ export function useGraphReviewLiveReviewState({
       committedReceipt,
       null,
       committedRequestRef.current,
+      committedBindingRef.current,
     );
   }, [committedReceipt, installCommittedAuthority]);
 

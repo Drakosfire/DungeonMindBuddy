@@ -192,6 +192,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [exactPreparing, setExactPreparing] = useState(false);
   const [exactPrepareError, setExactPrepareError] = useState<string | null>(null);
   const [exactConfirmInFlight, setExactConfirmInFlight] = useState(false);
+  const [catalogConfirmInFlight, setCatalogConfirmInFlight] = useState(false);
   const [exactReview, setExactReview] = useState<ExactRunReviewPackage | null>(null);
   const [exactReviewStatus, setExactReviewStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
@@ -585,7 +586,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     void loadCompare();
   }, [loadCompare, sessionsLoaded]);
 
+  const loadBlockedByConfirm = catalogConfirmInFlight || exactConfirmInFlight;
+
   const openLoadDialog = () => {
+    if (loadBlockedByConfirm) return;
     if (appliedSelection) {
       setDraftCampaignId(appliedSelection.campaignId);
       setDraftSessionId(appliedSelection.sessionId);
@@ -634,6 +638,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   };
 
   const handleApplyLoad = () => {
+    if (loadBlockedByConfirm) return;
     if (!draftSession || !draftLiveRun) return;
     const nextApplied: GraphReviewAppliedSelection = {
       campaignId: draftCampaignId,
@@ -837,6 +842,12 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
             loaded={hasAppliedLoad || hasExactRunLoad}
             sessionLabel={loadBarSummary}
             onOpenLoad={openLoadDialog}
+            loadDisabled={loadBlockedByConfirm}
+            loadDisabledReason={
+              loadBlockedByConfirm
+                ? "Merge confirmation is in progress."
+                : null
+            }
             exactRun={exactRunSummary}
           />
 
@@ -884,7 +895,9 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
                     Load an ingested session to review extracted objects in recap prose.
                   </p>
                 ) : (
-                  <GraphReviewSessionToolbar />
+                  <GraphReviewSessionToolbar
+                    onConfirmInFlightChange={setCatalogConfirmInFlight}
+                  />
                 )
               }
               projection={hasAppliedLoad ? <GraphReviewLiveProjectionPanel /> : null}
