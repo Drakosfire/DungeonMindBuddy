@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { getRecapArtifacts } from "../../api/liveApi";
 import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
+import {
+  sameProjectionSurfaceIdentity,
+  type ProjectionSurfaceIdentity,
+} from "../../agentInteraction/projectionSurfacePublication";
 import { useProjection, projectionContainerClass } from "./projectionContext";
 import { renderContentProjection, renderToolProjection } from "./projectionRegistry";
 import {
@@ -53,6 +57,7 @@ export function AdaptiveProjectionContainer() {
 
   return (
     <AdaptiveProjectionContainerInner
+      surfaceIdentity={projectionSurface!.publication.identity}
       config={config}
       active={active}
       activePlanReference={activePlanReference}
@@ -67,6 +72,7 @@ export function AdaptiveProjectionContainer() {
 }
 
 interface AdaptiveProjectionContainerInnerProps {
+  surfaceIdentity: ProjectionSurfaceIdentity;
   config: NonNullable<ReturnType<typeof useAgentInteraction>["projectionSurface"]>["publication"]["config"];
   active: ReturnType<typeof useProjection>["active"];
   activePlanReference: ReturnType<typeof useProjection>["activePlanReference"];
@@ -79,6 +85,7 @@ interface AdaptiveProjectionContainerInnerProps {
 }
 
 function AdaptiveProjectionContainerInner({
+  surfaceIdentity,
   config,
   active,
   activePlanReference,
@@ -90,6 +97,15 @@ function AdaptiveProjectionContainerInner({
   graphReviewDiagnosticsPayload,
 }: AdaptiveProjectionContainerInnerProps) {
   const isOpen = Boolean(active);
+  // Latest rendered surface identity for async re-validation. Cleared on
+  // unmount so completions from an unmounted surface can never act.
+  const surfaceIdentityRef = useRef<ProjectionSurfaceIdentity | null>(surfaceIdentity);
+  surfaceIdentityRef.current = surfaceIdentity;
+  useEffect(() => {
+    return () => {
+      surfaceIdentityRef.current = null;
+    };
+  }, []);
   const activeToolId = active?.kind === "tool" ? active.key : null;
   const firstToolId = config.tools[0]?.id;
   const campaignKey = config.context!.campaignId;
@@ -122,10 +138,23 @@ function AdaptiveProjectionContainerInner({
 
   const openToolFromNav = useCallback(
     async (toolId: string) => {
+      // Capture the exact surface identity at invocation; an async session
+      // lookup may complete after the host has moved to another surface.
+      const identityAtStart = surfaceIdentityRef.current;
       const inferredSessionId =
         SESSION_AWARE_TOOLS.has(toolId) && !requestedSessionFromLocation()
           ? await resolveLatestIngestedSessionId()
           : null;
+      const identityNow = surfaceIdentityRef.current;
+      if (
+        !identityAtStart ||
+        !identityNow ||
+        !sameProjectionSurfaceIdentity(identityAtStart, identityNow)
+      ) {
+        // Stale lookup result: it must never touch another surface's URL or
+        // projection state.
+        return;
+      }
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
         params.set("tool", toolId);

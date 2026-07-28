@@ -1145,7 +1145,7 @@ describe("GraphReviewWorkbenchModule exact-run primary after confirm", () => {
       diagnostics: [],
     }));
 
-    render(<GraphReviewWorkbenchModule context={context} />);
+    renderWorkbench();
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-source-prose")).toBeInTheDocument();

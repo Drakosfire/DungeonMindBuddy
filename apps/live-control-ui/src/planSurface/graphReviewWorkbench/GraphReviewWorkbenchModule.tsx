@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getExtractionRun,
@@ -149,7 +149,24 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
   const toolboxConfig = useMemo(() => createIngestSurfaceConfig(context), [context]);
-  const { publishProjectionSurface } = useAgentInteraction();
+  const { publishProjectionSurface, updateProjectionSurfaceConfig } = useAgentInteraction();
+
+  // Identity registration and same-identity config updates are separate
+  // operations: a config-only change must not unbind the surface lease.
+  const projectionPublication = useMemo(
+    () => ({
+      identity: buildIngestSurfaceIdentity({
+        campaignId: context.campaignId,
+        liveSession: context.liveSession,
+        ingestSession: context.ingestSession,
+      }),
+      config: toolboxConfig,
+    }),
+    [context.campaignId, context.ingestSession, context.liveSession, toolboxConfig],
+  );
+  const projectionInstanceKey = projectionPublication.identity.instanceKey;
+  const projectionPublicationRef = useRef(projectionPublication);
+  projectionPublicationRef.current = projectionPublication;
   const [exactHandoff, setExactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
     parseGraphReviewRunHandoff(
       typeof window !== "undefined" ? window.location.search : "",
@@ -168,15 +185,13 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     if (!sessionsLoaded) {
       return publishProjectionSurface(null);
     }
-    return publishProjectionSurface({
-      identity: buildIngestSurfaceIdentity({
-        campaignId: context.campaignId,
-        liveSession: context.liveSession,
-        ingestSession: context.ingestSession,
-      }),
-      config: toolboxConfig,
-    });
-  }, [context.campaignId, context.ingestSession, context.liveSession, publishProjectionSurface, sessionsLoaded, toolboxConfig]);
+    return publishProjectionSurface(projectionPublicationRef.current);
+  }, [projectionInstanceKey, publishProjectionSurface, sessionsLoaded]);
+
+  useEffect(() => {
+    if (!sessionsLoaded) return;
+    updateProjectionSurfaceConfig(projectionPublication);
+  }, [projectionPublication, sessionsLoaded, updateProjectionSurfaceConfig]);
 
   const [catalogRefreshToken, setCatalogRefreshToken] = useState(0);
   const [appliedSelection, setAppliedSelection] = useState<GraphReviewAppliedSelection | null>(

@@ -1,4 +1,4 @@
-import { useLayoutEffect, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 
 import {
   AgentInteractionProvider,
@@ -49,10 +49,19 @@ export function ProjectionSurfacePublisher({
   config: SurfaceConfig;
   children: ReactNode;
 }) {
-  const { publishProjectionSurface } = useAgentInteraction();
+  const { publishProjectionSurface, updateProjectionSurfaceConfig } = useAgentInteraction();
+  // Mirrors the production publishers: identity registration is separate from
+  // same-identity config updates so a config-only rerender never unbinds.
+  const publication = useMemo(() => buildPublicationForConfig(config), [config]);
+  const publicationInstanceKey = `${publication.identity.surfaceId}${publication.identity.instanceKey}`;
+  const publicationRef = useRef(publication);
+  publicationRef.current = publication;
   useLayoutEffect(() => {
-    return publishProjectionSurface(buildPublicationForConfig(config));
-  }, [config, publishProjectionSurface]);
+    return publishProjectionSurface(publicationRef.current);
+  }, [publicationInstanceKey, publishProjectionSurface]);
+  useLayoutEffect(() => {
+    updateProjectionSurfaceConfig(publication);
+  }, [publication, updateProjectionSurfaceConfig]);
   return children;
 }
 

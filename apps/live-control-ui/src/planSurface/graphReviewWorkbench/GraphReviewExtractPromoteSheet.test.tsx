@@ -328,7 +328,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
 
     const config = createIngestSurfaceConfig(planContext);
     render(
-      <ProjectionProvider config={config}>
+      <AgentInteractionProjectionTestHost config={config}>
         <GraphReviewLiveStateProvider
           campaignId=""
           sessionId=""
@@ -345,7 +345,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
             onClose={() => undefined}
           />
         </GraphReviewLiveStateProvider>
-      </ProjectionProvider>,
+      </AgentInteractionProjectionTestHost>,
     );
     fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
 
@@ -747,7 +747,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
       }
 
       return (
-        <ProjectionProvider config={createIngestSurfaceConfig(planContext)}>
+        <AgentInteractionProjectionTestHost config={createIngestSurfaceConfig(planContext)}>
           <GraphReviewLiveStateProvider
             campaignId="longmont-c2"
             sessionId="session-25"
@@ -788,7 +788,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
               />
             )}
           </GraphReviewLiveStateProvider>
-        </ProjectionProvider>
+        </AgentInteractionProjectionTestHost>
       );
     }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { buildPlanSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
@@ -64,22 +64,41 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     () => (planningDocument ? createPlanSurfaceConfig(planView, planningDocument, locationSearch) : null),
     [locationSearch, planView, planningDocument],
   );
-  const { publishProjectionSurface } = useAgentInteraction();
+  const { publishProjectionSurface, updateProjectionSurfaceConfig } = useAgentInteraction();
+
+  // Identity registration and same-identity config updates are separate
+  // operations: a config-only change (e.g. a document commit recreating the
+  // config with an unchanged identity) must not unbind the surface lease.
+  const publication = useMemo(
+    () =>
+      config
+        ? {
+            identity: buildPlanSurfaceIdentity({
+              documentId: config.sessionDescriptor.planningDocument.documentId,
+              campaignId: config.sessionDescriptor.campaignId,
+              liveSession: config.context.liveSession,
+              memorySession: config.sessionDescriptor.memorySession,
+            }),
+            config,
+          }
+        : null,
+    [config],
+  );
+  const publicationInstanceKey = publication?.identity.instanceKey ?? null;
+  const publicationRef = useRef(publication);
+  publicationRef.current = publication;
 
   useEffect(() => {
-    if (documentLoadStatus !== "ready" || !config) {
+    if (documentLoadStatus !== "ready" || !publicationRef.current) {
       return publishProjectionSurface(null);
     }
-    return publishProjectionSurface({
-      identity: buildPlanSurfaceIdentity({
-        documentId: config.sessionDescriptor.planningDocument.documentId,
-        campaignId: config.sessionDescriptor.campaignId,
-        liveSession: config.context.liveSession,
-        memorySession: config.sessionDescriptor.memorySession,
-      }),
-      config,
-    });
-  }, [config, documentLoadStatus, publishProjectionSurface]);
+    return publishProjectionSurface(publicationRef.current);
+  }, [documentLoadStatus, publicationInstanceKey, publishProjectionSurface]);
+
+  useEffect(() => {
+    if (documentLoadStatus !== "ready" || !publication) return;
+    updateProjectionSurfaceConfig(publication);
+  }, [documentLoadStatus, publication, updateProjectionSurfaceConfig]);
 
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();

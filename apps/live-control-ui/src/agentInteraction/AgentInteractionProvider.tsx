@@ -96,11 +96,12 @@ function revalidateLeasedProjection(
 ): LeasedActiveProjection | null {
   if (!leased) return null;
   const { projection } = leased;
+  // No render context: nothing remains valid, including tools (§7.8).
+  if (!config.context) return null;
   if (projection.kind === "tool") {
     if (!config.tools.some((entry) => entry.id === projection.key)) return null;
     return leased;
   }
-  if (!config.context) return null;
   return leased;
 }
 
@@ -140,37 +141,57 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     setLeasedPlanProjectionState(null);
   }, []);
 
+  // Same-identity update: the surface lease continues, so its token, live
+  // callbacks, and dependency registrations are retained; latest config wins
+  // and the active lease is revalidated against it.
+  const applySameIdentityConfigUpdate = useCallback(
+    (validated: ValidatedProjectionSurface): boolean => {
+      const current = surfaceRegistrationRef.current;
+      if (!current?.validated) return false;
+      if (!sameProjectionSurfaceIdentity(current.validated.publication.identity, validated.publication.identity)) {
+        return false;
+      }
+      const next: SurfaceRegistration = { token: current.token, validated };
+      surfaceRegistrationRef.current = next;
+      setSurfaceRegistration(next);
+      const config = validated.publication.config;
+      const nextLeased = revalidateLeasedProjection(config, leasedActiveRef.current);
+      leasedActiveRef.current = nextLeased;
+      setLeasedActive(nextLeased);
+      if (!nextLeased || nextLeased.projection.kind !== "content" || !config.context) {
+        setLeasedPlanReference(null);
+        setLeasedPlanProjectionState(null);
+      }
+      return true;
+    },
+    [],
+  );
+
   const publishProjectionSurface = useCallback(
     (publication: ProjectionSurfacePublication | null) => {
-      const token = Symbol("projection-surface");
-      const prevIdentity = surfaceRegistrationRef.current?.validated?.publication.identity ?? null;
-
-      if (publication === null) {
-        surfaceRegistrationRef.current = { token, validated: null };
-        clearSelectedProjection();
-        setSurfaceRegistration({ token, validated: null });
-      } else {
+      if (publication !== null) {
         const validated = validateProjectionSurfacePublication(publication);
-        const identityChanged = !sameProjectionSurfaceIdentity(prevIdentity, publication.identity);
-        surfaceRegistrationRef.current = { token, validated };
-        setSurfaceRegistration({ token, validated });
-        if (identityChanged) {
-          clearSelectedProjection();
-        } else {
-          const config = validated.publication.config;
-          const nextLeased = revalidateLeasedProjection(config, leasedActiveRef.current);
-          leasedActiveRef.current = nextLeased;
-          setLeasedActive(nextLeased);
-          if (!nextLeased || nextLeased.projection.kind !== "content") {
-            setLeasedPlanReference(null);
-            setLeasedPlanProjectionState(null);
-          } else if (!config.context) {
-            setLeasedPlanReference(null);
-            setLeasedPlanProjectionState(null);
-          }
+        if (applySameIdentityConfigUpdate(validated)) {
+          // Config update on the existing lease — no new registration, so the
+          // returned cleanup must not unbind anything.
+          return () => undefined;
         }
+        const token = Symbol("projection-surface");
+        surfaceRegistrationRef.current = { token, validated };
+        clearSelectedProjection();
+        setSurfaceRegistration({ token, validated });
+        return () => {
+          if (surfaceRegistrationRef.current?.token !== token) return;
+          surfaceRegistrationRef.current = null;
+          clearSelectedProjection();
+          setSurfaceRegistration(null);
+        };
       }
 
+      const token = Symbol("projection-surface");
+      surfaceRegistrationRef.current = { token, validated: null };
+      clearSelectedProjection();
+      setSurfaceRegistration({ token, validated: null });
       return () => {
         if (surfaceRegistrationRef.current?.token !== token) return;
         surfaceRegistrationRef.current = null;
@@ -178,48 +199,54 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         setSurfaceRegistration(null);
       };
     },
-    [clearSelectedProjection],
+    [applySameIdentityConfigUpdate, clearSelectedProjection],
   );
 
-  const surfaceTokenGuard = (capturedToken: symbol | undefined, reg: SurfaceRegistration | null) => {
-    if (!reg) return false;
-    if (capturedToken !== undefined && reg.token !== capturedToken) return false;
-    return true;
+  const updateProjectionSurfaceConfig = useCallback(
+    (publication: ProjectionSurfacePublication) => {
+      applySameIdentityConfigUpdate(validateProjectionSurfacePublication(publication));
+    },
+    [applySameIdentityConfigUpdate],
+  );
+
+  // Exact lease authorization: a callback captured without a current surface
+  // lease (null token) must stay a no-op permanently, never a wildcard.
+  const surfaceTokenGuard = (capturedToken: symbol | null, reg: SurfaceRegistration | null) => {
+    if (capturedToken === null || !reg) return false;
+    return reg.token === capturedToken;
   };
 
   const currentSurfaceToken = surfaceRegistration?.token ?? null;
 
   const close = useCallback(() => {
-    ((capturedToken: symbol | undefined) => {
-      const reg = surfaceRegistrationRef.current;
-      if (!surfaceTokenGuard(capturedToken, reg)) return;
-      clearSelectedProjection();
-    })(currentSurfaceToken ?? undefined);
+    const capturedToken = currentSurfaceToken;
+    const reg = surfaceRegistrationRef.current;
+    if (!surfaceTokenGuard(capturedToken, reg)) return;
+    clearSelectedProjection();
   }, [clearSelectedProjection, currentSurfaceToken]);
 
   const openTool = useCallback(
     (toolId: string) => {
-      ((capturedToken: symbol | undefined) => {
-        const reg = surfaceRegistrationRef.current;
-        if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
-        const activeToken = reg!.token;
-        const config = reg!.validated.publication.config;
-        const tool = config.tools.find((entry) => entry.id === toolId);
-        if (!tool) return;
-        const next: LeasedActiveProjection = {
-          surfaceToken: activeToken,
-          projection: {
-            kind: "tool",
-            key: toolId,
-            size: tool.size,
-            title: tool.label,
-          },
-        };
-        leasedActiveRef.current = next;
-        setLeasedActive(next);
-        setLeasedPlanReference(null);
-        setLeasedPlanProjectionState(null);
-      })(currentSurfaceToken ?? undefined);
+      const capturedToken = currentSurfaceToken;
+      const reg = surfaceRegistrationRef.current;
+      if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
+      const activeToken = reg!.token;
+      const config = reg!.validated.publication.config;
+      const tool = config.tools.find((entry) => entry.id === toolId);
+      if (!tool) return;
+      const next: LeasedActiveProjection = {
+        surfaceToken: activeToken,
+        projection: {
+          kind: "tool",
+          key: toolId,
+          size: tool.size,
+          title: tool.label,
+        },
+      };
+      leasedActiveRef.current = next;
+      setLeasedActive(next);
+      setLeasedPlanReference(null);
+      setLeasedPlanProjectionState(null);
     },
     [currentSurfaceToken],
   );
@@ -231,26 +258,25 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       glanceOnly = true,
       projectionState: PlanGraphProjectionState | null = resolution.graphProjectionState ?? null,
     ) => {
-      ((capturedToken: symbol | undefined) => {
-        const reg = surfaceRegistrationRef.current;
-        if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
-        if (!reg!.validated.publication.config.context) return;
-        const activeToken = reg!.token;
-        const next: LeasedActiveProjection = {
-          surfaceToken: activeToken,
-          projection: {
-            kind: "content",
-            key: ref.refType,
-            size: glanceOnly ? "compact" : contentSize(resolution),
-            title: ref.label,
-            glanceOnly,
-          },
-        };
-        leasedActiveRef.current = next;
-        setLeasedActive(next);
-        setLeasedPlanReference({ surfaceToken: activeToken, resolution });
-        setLeasedPlanProjectionState({ surfaceToken: activeToken, state: projectionState });
-      })(currentSurfaceToken ?? undefined);
+      const capturedToken = currentSurfaceToken;
+      const reg = surfaceRegistrationRef.current;
+      if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
+      if (!reg!.validated.publication.config.context) return;
+      const activeToken = reg!.token;
+      const next: LeasedActiveProjection = {
+        surfaceToken: activeToken,
+        projection: {
+          kind: "content",
+          key: ref.refType,
+          size: glanceOnly ? "compact" : contentSize(resolution),
+          title: ref.label,
+          glanceOnly,
+        },
+      };
+      leasedActiveRef.current = next;
+      setLeasedActive(next);
+      setLeasedPlanReference({ surfaceToken: activeToken, resolution });
+      setLeasedPlanProjectionState({ surfaceToken: activeToken, state: projectionState });
     },
     [currentSurfaceToken],
   );
@@ -260,84 +286,92 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       resolution: PlanReferenceResolution,
       projectionState: PlanGraphProjectionState | null = resolution.graphProjectionState ?? null,
     ) => {
-      ((capturedToken: symbol | undefined) => {
-        const reg = surfaceRegistrationRef.current;
-        if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
-        if (!reg!.validated.publication.config.context) return;
-        const activeToken = reg!.token;
-        const title =
-          resolution.graphObject?.label
-          ?? resolution.fallback?.ref.label
-          ?? resolution.locator
-          ?? "Related object";
-        const next: LeasedActiveProjection = {
-          surfaceToken: activeToken,
-          projection: {
-            kind: "content",
-            key: resolution.refType ?? resolution.graphNodeId ?? "plan-reference",
-            size: contentSize(resolution),
-            title,
-            glanceOnly: false,
-          },
-        };
-        leasedActiveRef.current = next;
-        setLeasedActive(next);
-        setLeasedPlanReference({ surfaceToken: activeToken, resolution });
-        setLeasedPlanProjectionState({ surfaceToken: activeToken, state: projectionState });
-      })(currentSurfaceToken ?? undefined);
+      const capturedToken = currentSurfaceToken;
+      const reg = surfaceRegistrationRef.current;
+      if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
+      if (!reg!.validated.publication.config.context) return;
+      const activeToken = reg!.token;
+      const title =
+        resolution.graphObject?.label
+        ?? resolution.fallback?.ref.label
+        ?? resolution.locator
+        ?? "Related object";
+      const next: LeasedActiveProjection = {
+        surfaceToken: activeToken,
+        projection: {
+          kind: "content",
+          key: resolution.refType ?? resolution.graphNodeId ?? "plan-reference",
+          size: contentSize(resolution),
+          title,
+          glanceOnly: false,
+        },
+      };
+      leasedActiveRef.current = next;
+      setLeasedActive(next);
+      setLeasedPlanReference({ surfaceToken: activeToken, resolution });
+      setLeasedPlanProjectionState({ surfaceToken: activeToken, state: projectionState });
     },
     [currentSurfaceToken],
   );
 
   const expandContent = useCallback(() => {
-    ((capturedToken: symbol | undefined) => {
-      const reg = surfaceRegistrationRef.current;
-      if (!surfaceTokenGuard(capturedToken, reg)) return;
-      const activeToken = reg!.token;
-      setLeasedActive((current) => {
-        if (!current || current.surfaceToken !== activeToken || current.projection.kind !== "content") {
-          return current;
-        }
-        const next: LeasedActiveProjection = {
-          surfaceToken: activeToken,
-          projection: { ...current.projection, size: "wide", glanceOnly: false },
-        };
-        leasedActiveRef.current = next;
-        return next;
-      });
-    })(currentSurfaceToken ?? undefined);
+    const capturedToken = currentSurfaceToken;
+    const reg = surfaceRegistrationRef.current;
+    if (!surfaceTokenGuard(capturedToken, reg)) return;
+    const activeToken = reg!.token;
+    setLeasedActive((current) => {
+      if (!current || current.surfaceToken !== activeToken || current.projection.kind !== "content") {
+        return current;
+      }
+      const next: LeasedActiveProjection = {
+        surfaceToken: activeToken,
+        projection: { ...current.projection, size: "wide", glanceOnly: false },
+      };
+      leasedActiveRef.current = next;
+      return next;
+    });
   }, [currentSurfaceToken]);
 
-  const registerPlanReferenceBinding = useCallback((binding: PlanReferenceProjectionBinding) => {
-    const surfaceToken = surfaceRegistrationRef.current?.token;
-    if (!surfaceToken) return () => undefined;
-    const token = Symbol("plan-reference-binding");
-    const registration: BindingRegistration<PlanReferenceProjectionBinding> = {
-      surfaceToken,
-      token,
-      value: binding,
-    };
-    planReferenceRegistrationRef.current = registration;
-    setPlanReferenceRegistration(registration);
-    return () => {
-      if (planReferenceRegistrationRef.current?.token === token) {
-        planReferenceRegistrationRef.current = null;
+  // Registrars capture the surface lease they were supplied under. A stale
+  // registrar invoked after a new surface publication no-ops, so a Plan
+  // binding can never be stamped onto an Ingest lease (or vice versa).
+  const registerPlanReferenceBinding = useCallback(
+    (binding: PlanReferenceProjectionBinding) => {
+      const capturedToken = currentSurfaceToken;
+      if (!capturedToken || surfaceRegistrationRef.current?.token !== capturedToken) {
+        return () => undefined;
       }
-      setPlanReferenceRegistration((current) => (current?.token === token ? null : current));
-    };
-  }, []);
+      const token = Symbol("plan-reference-binding");
+      const registration: BindingRegistration<PlanReferenceProjectionBinding> = {
+        surfaceToken: capturedToken,
+        token,
+        value: binding,
+      };
+      planReferenceRegistrationRef.current = registration;
+      setPlanReferenceRegistration(registration);
+      return () => {
+        if (planReferenceRegistrationRef.current?.token === token) {
+          planReferenceRegistrationRef.current = null;
+        }
+        setPlanReferenceRegistration((current) => (current?.token === token ? null : current));
+      };
+    },
+    [currentSurfaceToken],
+  );
 
   const registerToolProjectionPayload = useCallback(
     <K extends RegisterableToolProjectionId>(toolId: K, payload: ToolProjectionPayloadMap[K]) => {
       if (toolId !== GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID) {
         return () => undefined;
       }
-      const surfaceToken = surfaceRegistrationRef.current?.token;
-      if (!surfaceToken) return () => undefined;
+      const capturedToken = currentSurfaceToken;
+      if (!capturedToken || surfaceRegistrationRef.current?.token !== capturedToken) {
+        return () => undefined;
+      }
       const token = Symbol(`tool-payload:${toolId}`);
       const typedPayload = payload as GraphReviewDiagnosticsProjectionPayload;
       const registration: BindingRegistration<GraphReviewDiagnosticsProjectionPayload> = {
-        surfaceToken,
+        surfaceToken: capturedToken,
         token,
         value: typedPayload,
       };
@@ -350,7 +384,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         setDiagnosticsRegistration((current) => (current?.token === token ? null : current));
       };
     },
-    [],
+    [currentSurfaceToken],
   );
 
   const planReferenceBinding = useMemo((): PlanReferenceProjectionBinding | null => {
@@ -562,6 +596,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     planReferenceBinding,
     graphReviewDiagnosticsPayload,
     publishProjectionSurface,
+    updateProjectionSurfaceConfig,
     openTool,
     openContentFromChip,
     openPlanReferenceResolution,
@@ -614,6 +649,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     switchThread,
     threadSummaries,
     updateActiveTurn,
+    updateProjectionSurfaceConfig,
     updateThread,
     updateTurnFreshness,
   ]);

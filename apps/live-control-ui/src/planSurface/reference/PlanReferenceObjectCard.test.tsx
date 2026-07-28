@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ReactElement } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
@@ -159,13 +159,13 @@ function PlanReferenceProjectionHarness({
     openPlanReferenceResolution,
     planReferenceBinding,
   } = useProjection();
-  const seeded = useRef(false);
 
+  // Seed only once the surface lease is live: a callback captured before
+  // publication is a permanent no-op, so retry until the seed lands.
   useEffect(() => {
-    if (seeded.current) return;
-    seeded.current = true;
+    if (activePlanReference) return;
     openPlanReferenceResolution(initialResolution, initialResolution.graphProjectionState ?? "ready");
-  }, [initialResolution, openPlanReferenceResolution]);
+  }, [activePlanReference, initialResolution, openPlanReferenceResolution]);
 
   if (!activePlanReference) {
     return <p>Seeding projection…</p>;

@@ -126,6 +126,11 @@ export interface AgentInteractionProjectionState {
 
 export interface AgentInteractionProjectionActions {
   publishProjectionSurface: (publication: ProjectionSurfacePublication | null) => () => void;
+  /**
+   * Same-identity config update on the current surface lease. No-op unless the
+   * publication identity matches the current registration; never unbinds.
+   */
+  updateProjectionSurfaceConfig: (publication: ProjectionSurfacePublication) => void;
   openTool: (toolId: string) => void;
   openContentFromChip: (
     ref: RunbookReferenceAttrs,
