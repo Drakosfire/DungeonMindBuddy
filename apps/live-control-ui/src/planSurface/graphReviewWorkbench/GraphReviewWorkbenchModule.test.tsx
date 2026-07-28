@@ -10,6 +10,7 @@ import type {
 import type { PlanContextDescriptor } from "../types";
 import { GraphReviewLiveStateProvider, useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
+import { catalogRunBindingKey } from "./graphReviewCommittedAuthority";
 
 const context: PlanContextDescriptor = {
   campaignId: "longmont-c2",
@@ -569,10 +570,15 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
           sessionId="session-23"
           liveRun={null}
           committedBinding={{
-            kind: "catalog",
+            kind: "catalog_run",
+            key: catalogRunBindingKey({
+              runId: liveRunId,
+              campaignId: "longmont-c2",
+              sessionId: "session-23",
+            }),
+            runId: liveRunId,
             campaignId: "longmont-c2",
             sessionId: "session-23",
-            liveRunId,
           }}
           compare={null}
           compareStatus="idle"
@@ -611,10 +617,15 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
           sessionId="session-23"
           liveRun={null}
           committedBinding={{
-            kind: "catalog",
+            kind: "catalog_run",
+            key: catalogRunBindingKey({
+              runId: "run-a",
+              campaignId: "longmont-c2",
+              sessionId: "session-23",
+            }),
+            runId: "run-a",
             campaignId: "longmont-c2",
             sessionId: "session-23",
-            liveRunId: "run-a",
           }}
           compare={null}
           compareStatus="idle"
@@ -666,10 +677,15 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
           sessionId="session-23"
           liveRun={null}
           committedBinding={{
-            kind: "catalog",
+            kind: "catalog_run",
+            key: catalogRunBindingKey({
+              runId: "run-a",
+              campaignId: "longmont-c2",
+              sessionId: "session-23",
+            }),
+            runId: "run-a",
             campaignId: "longmont-c2",
             sessionId: "session-23",
-            liveRunId: "run-a",
           }}
           compare={null}
           compareStatus="idle"
@@ -699,5 +715,68 @@ describe("GraphReviewWorkbenchModule committed authority binding", () => {
     expect(screen.getByTestId("probe-selected")).toHaveTextContent("object-1");
     // Durable second response wins; stale first must not leave conflicting UI.
     expect(screen.queryByText("Stale Label")).toBeNull();
+  });
+
+  it("discards deferred run-A projection after switching committedBinding to run B", async () => {
+    let resolveA!: (value: WorldGraphProjection) => void;
+    const deferredA = new Promise<WorldGraphProjection>((resolve) => {
+      resolveA = resolve;
+    });
+    const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
+    postSpy.mockReturnValueOnce(deferredA);
+
+    function BindingHost({ runId }: { runId: string }) {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-23"
+          liveRun={null}
+          committedBinding={{
+            kind: "catalog_run",
+            key: catalogRunBindingKey({
+              runId,
+              campaignId: "longmont-c2",
+              sessionId: "session-23",
+            }),
+            runId,
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    const { rerender } = render(<BindingHost runId="run-a" />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("loading"),
+    );
+    expect(postSpy).toHaveBeenCalledTimes(1);
+
+    // Switch binding while run-A projection is still in flight.
+    rerender(<BindingHost runId="run-b" />);
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+    expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
+
+    resolveA(committedProjection("Run A Only Label", "rev:run-a"));
+
+    // Allow any late resolution microtasks to flush; authority must stay clear of A.
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+    expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
+    expect(screen.queryByText("Run A Only Label")).toBeNull();
+    expect(postSpy).toHaveBeenCalledTimes(1);
   });
 });

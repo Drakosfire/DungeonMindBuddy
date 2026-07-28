@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
@@ -44,7 +44,10 @@ vi.mock("../../api/liveApi", async () => {
   };
 });
 
-function committedProjection(): WorldGraphProjection {
+function committedProjection(
+  overrides: Partial<WorldGraphProjection["snapshot"]> = {},
+  nodeOverrides: Partial<WorldGraphProjection["nodes"][number]> = {},
+): WorldGraphProjection {
   return {
     schema: "dmb_world_graph_projection_v1",
     snapshot: {
@@ -55,6 +58,7 @@ function committedProjection(): WorldGraphProjection {
       isHead: true,
       focus: { kind: "none", sessionId: null },
       admissibility: "gm",
+      ...overrides,
     },
     summary: {
       nodeCount: 1,
@@ -78,6 +82,7 @@ function committedProjection(): WorldGraphProjection {
         suggestedExpansions: [],
         evidenceRefIds: [],
         sourceArtifactIds: [],
+        ...nodeOverrides,
       },
     ],
     relationships: [],
@@ -162,5 +167,78 @@ describe("GraphReviewCommittedProjectionPanel", () => {
     );
     screen.getByTestId("graph-review-committed-projection-retry").click();
     expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("shows headRevisionId and isHead as metadata even when isHead is false", () => {
+    renderGraphReviewLiveHarness({
+      children: (
+        <GraphReviewCommittedProjectionPanel
+          phase="ready"
+          receipt={receipt()}
+          projection={committedProjection({
+            isHead: false,
+            headRevisionId: "rev:head-moved",
+          })}
+          selectedObjectId="object-1"
+          affectedObjectIds={["object-1"]}
+          error={null}
+          onRetry={async () => undefined}
+          onSelectObjectId={() => undefined}
+        />
+      ),
+    });
+
+    expect(screen.getByTestId("graph-review-committed-is-head")).toHaveTextContent("no");
+    expect(screen.getByTestId("graph-review-committed-head-revision")).toHaveTextContent(
+      "rev:head-moved",
+    );
+    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+  });
+
+  it("keeps source card visible on unresolved exact relationship target", async () => {
+    const onSelectObjectId = vi.fn();
+    renderGraphReviewLiveHarness({
+      children: (
+        <GraphReviewCommittedProjectionPanel
+          phase="ready"
+          receipt={receipt()}
+          projection={committedProjection(
+            {},
+            {
+              adjacency: [
+                {
+                  edgeId: "edge-missing",
+                  nodeId: "missing-target",
+                  label: "Missing Ally",
+                  kind: "npc",
+                  predicate: "allied_with",
+                  direction: "out",
+                  anchoredToFocusSession: true,
+                  sourceDomains: ["recap"],
+                  evidenceRefIds: [],
+                  sessionIds: ["session-25"],
+                },
+              ],
+            },
+          )}
+          selectedObjectId="object-1"
+          affectedObjectIds={["object-1"]}
+          error={null}
+          onRetry={async () => undefined}
+          onSelectObjectId={onSelectObjectId}
+        />
+      ),
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Open related object .*Missing Ally/i }),
+    );
+
+    expect(
+      screen.getByTestId("graph-review-committed-unresolved-target"),
+    ).toHaveTextContent("missing-target");
+    expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(onSelectObjectId).not.toHaveBeenCalled();
   });
 });

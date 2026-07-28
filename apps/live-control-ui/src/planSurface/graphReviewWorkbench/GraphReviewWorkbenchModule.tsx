@@ -37,7 +37,11 @@ import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProjectionPanel";
-import type { GraphReviewCommittedBinding } from "./graphReviewCommittedAuthority";
+import {
+  catalogRunBindingKey,
+  exactRunBindingKey,
+  type GraphReviewCommittedBinding,
+} from "./graphReviewCommittedAuthority";
 import { GraphReviewDiagnosticsProjectionBinding } from "./GraphReviewDiagnosticsProjectionBinding";
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
@@ -740,26 +744,47 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
 
   const committedBinding = useMemo<GraphReviewCommittedBinding | null>(() => {
     if (hasExactRunLoad && exactRun?.run_id) {
+      const sourceArtifactId =
+        exactRun.source_artifact_id?.trim()
+        || exactHandoff?.sourceArtifactId?.trim()
+        || "";
+      if (!sourceArtifactId) return null;
+      const campaignId =
+        (exactRunCampaignId ?? exactRun.campaign_id ?? "").trim() || null;
+      const sessionId = exactRun.session_id?.trim() || null;
       return {
-        kind: "exact",
-        extractionRunId: exactRun.run_id,
-        campaignId: exactRunCampaignId ?? "",
-        sessionId: exactRun?.session_id?.trim() || "",
+        kind: "exact_run",
+        key: exactRunBindingKey({
+          runId: exactRun.run_id,
+          sourceArtifactId,
+        }),
+        runId: exactRun.run_id,
+        sourceArtifactId,
+        campaignId,
+        sessionId,
       };
     }
     if (hasAppliedLoad && appliedLiveRun?.run_id) {
       return {
-        kind: "catalog",
+        kind: "catalog_run",
+        key: catalogRunBindingKey({
+          runId: appliedLiveRun.run_id,
+          campaignId: reviewCampaignId,
+          sessionId: reviewSessionId,
+        }),
+        runId: appliedLiveRun.run_id,
         campaignId: reviewCampaignId,
         sessionId: reviewSessionId,
-        liveRunId: appliedLiveRun.run_id,
       };
     }
     return null;
   }, [
     appliedLiveRun?.run_id,
+    exactHandoff?.sourceArtifactId,
+    exactRun?.campaign_id,
     exactRun?.run_id,
     exactRun?.session_id,
+    exactRun?.source_artifact_id,
     exactRunCampaignId,
     hasAppliedLoad,
     hasExactRunLoad,

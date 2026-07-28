@@ -14,6 +14,7 @@ import type {
   WorldGraphProjection,
 } from "../../api/types";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
+import { catalogRunBindingKey } from "./graphReviewCommittedAuthority";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { renderGraphReviewLiveHarness } from "./graphReviewLiveStateTestHarness";
 
@@ -508,10 +509,15 @@ describe("GraphReviewLiveProjectionPanel", () => {
       liveRun: baseRun,
       sessionId: "session-23",
       committedBinding: {
-        kind: "catalog",
+        kind: "catalog_run",
+        key: catalogRunBindingKey({
+          runId: "run-a",
+          campaignId: "longmont-c2",
+          sessionId: "session-23",
+        }),
+        runId: "run-a",
         campaignId: "longmont-c2",
         sessionId: "session-23",
-        liveRunId: "run-a",
       },
       children: <AdoptAndShow />,
     });

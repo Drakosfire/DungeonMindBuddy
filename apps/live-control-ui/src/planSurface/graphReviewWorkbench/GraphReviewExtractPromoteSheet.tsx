@@ -151,7 +151,7 @@ export function GraphReviewExtractPromoteSheet({
       setReloadError(null);
       try {
         // Provider owns receipt adoption, including campaignless fail-closed reads.
-        await adoptCommittedReceipt(nextReceipt);
+        await adoptCommittedReceipt(nextReceipt, prepared);
       } catch (error) {
         setReloadError(
           error instanceof Error
@@ -160,7 +160,7 @@ export function GraphReviewExtractPromoteSheet({
         );
       }
     },
-    [adoptCommittedReceipt],
+    [adoptCommittedReceipt, prepared],
   );
 
   const runConfirm = useCallback(

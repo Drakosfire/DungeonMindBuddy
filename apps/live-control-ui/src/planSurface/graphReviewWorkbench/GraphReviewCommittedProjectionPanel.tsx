@@ -59,6 +59,9 @@ export function GraphReviewCommittedProjectionPanel(
   const [selectedRelationshipId, setSelectedRelationshipId] = useState<
     string | null
   >(null);
+  const [unresolvedExactTargetId, setUnresolvedExactTargetId] = useState<
+    string | null
+  >(null);
   const [retrying, setRetrying] = useState(false);
 
   const nodeViews = useMemo(
@@ -69,13 +72,29 @@ export function GraphReviewCommittedProjectionPanel(
     ? resolveExactProjectedNode(nodeViews, selectedObjectId)
     : null;
 
+  const handleSelectObjectId = useCallback(
+    (objectId: string) => {
+      setUnresolvedExactTargetId(null);
+      onSelectObjectId(objectId);
+    },
+    [onSelectObjectId],
+  );
+
   const handleSelectRelationshipTarget = useCallback(
     (targetId: string) => {
       const trimmed = targetId.trim();
       setSelectedRelationshipId(trimmed || null);
-      if (trimmed && resolveExactProjectedNode(nodeViews, trimmed)) {
-        onSelectObjectId(trimmed);
+      if (!trimmed) {
+        setUnresolvedExactTargetId(null);
+        return;
       }
+      if (resolveExactProjectedNode(nodeViews, trimmed)) {
+        setUnresolvedExactTargetId(null);
+        onSelectObjectId(trimmed);
+        return;
+      }
+      // Keep the source card visible; never invent an alias/label fallback.
+      setUnresolvedExactTargetId(trimmed);
     },
     [nodeViews, onSelectObjectId],
   );
@@ -92,6 +111,10 @@ export function GraphReviewCommittedProjectionPanel(
   if (phase === "candidate") {
     return null;
   }
+
+  const snapshot = projection?.snapshot;
+  const headRevisionId = snapshot?.headRevisionId?.trim() || null;
+  const isHead = snapshot?.isHead;
 
   return (
     <section
@@ -128,6 +151,22 @@ export function GraphReviewCommittedProjectionPanel(
               <dt>Affected objects</dt>
               <dd>{affectedObjectIds.length ? affectedObjectIds.join(", ") : "—"}</dd>
             </div>
+            {headRevisionId ? (
+              <div>
+                <dt>Head revision</dt>
+                <dd data-testid="graph-review-committed-head-revision">
+                  {headRevisionId}
+                </dd>
+              </div>
+            ) : null}
+            {typeof isHead === "boolean" ? (
+              <div>
+                <dt>Is head</dt>
+                <dd data-testid="graph-review-committed-is-head">
+                  {isHead ? "yes" : "no"}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         ) : null}
       </header>
@@ -177,7 +216,7 @@ export function GraphReviewCommittedProjectionPanel(
                       data-present={present ? "true" : "false"}
                       disabled={!present}
                       onClick={() => {
-                        if (present) onSelectObjectId(objectId);
+                        if (present) handleSelectObjectId(objectId);
                       }}
                     >
                       {present
@@ -195,13 +234,25 @@ export function GraphReviewCommittedProjectionPanel(
           )}
 
           {activeNodeView ? (
-            <GraphObjectProjectionCard
-              mode="plan"
-              nodeView={activeNodeView}
-              onSelectRelationshipTarget={handleSelectRelationshipTarget}
-              selectedRelationshipId={selectedRelationshipId}
-              aria-label={`Committed object ${activeNodeView.label}`}
-            />
+            <>
+              <GraphObjectProjectionCard
+                mode="plan"
+                nodeView={activeNodeView}
+                onSelectRelationshipTarget={handleSelectRelationshipTarget}
+                selectedRelationshipId={selectedRelationshipId}
+                aria-label={`Committed object ${activeNodeView.label}`}
+              />
+              {unresolvedExactTargetId ? (
+                <p
+                  className="graph-preview-error"
+                  role="status"
+                  data-testid="graph-review-committed-unresolved-target"
+                >
+                  Exact relationship target {unresolvedExactTargetId} is not
+                  present in the pinned World Graph revision.
+                </p>
+              ) : null}
+            </>
           ) : selectedObjectId ? (
             <p className="graph-preview-error" role="status">
               Exact object {selectedObjectId} is not present in the pinned World

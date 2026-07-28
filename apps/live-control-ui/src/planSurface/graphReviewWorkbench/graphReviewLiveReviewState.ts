@@ -10,6 +10,7 @@ import {
 } from "../../api/liveApi";
 import type {
   ExtractPromoteConfirmReceipt,
+  ExtractPromotePrepareResponse,
   GoldGraphProjectionResponse,
   GraphGoldAuthoringCommitResponse,
   GraphGoldAuthoringVerifyCommitResponse,
@@ -21,6 +22,7 @@ import type {
   ManualReviewBedSummary,
   UnionSupergraphProjectionResponse,
   WorldGraphProjection,
+  WorldGraphProjectionRequest,
 } from "../../api/types";
 import { buildGraphReviewCommittedProjectionRequest } from "../../worldGraph/worldGraphSurfaceContext";
 import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
@@ -33,6 +35,17 @@ import {
   type GraphReviewCommittedBinding,
   type GraphReviewCommittedPhase,
 } from "./graphReviewCommittedAuthority";
+
+type CommittedPreparedIdentity = Pick<
+  ExtractPromotePrepareResponse,
+  | "proposalId"
+  | "proposalDigest"
+  | "parentRevisionId"
+  | "worldId"
+  | "runId"
+  | "campaignId"
+  | "sessionId"
+>;
 import { buildGraphReviewDeltaIndex } from "./graphReviewDeltaUtils";
 import { buildEvidenceSelectionForDelta } from "./graphReviewEvidenceSelectionUtils";
 import {
@@ -152,11 +165,15 @@ export function useGraphReviewLiveReviewState({
   const [committedError, setCommittedError] = useState<string | null>(null);
   const [committedBindingState, setCommittedBindingState] =
     useState<GraphReviewCommittedBinding | null>(null);
+  const [committedRequest, setCommittedRequest] =
+    useState<WorldGraphProjectionRequest | null>(null);
   const committedGenerationRef = useRef(0);
   const committedBindingRef = useRef<GraphReviewCommittedBinding | null>(
     committedBinding,
   );
   committedBindingRef.current = committedBinding;
+  const committedRequestRef = useRef<WorldGraphProjectionRequest | null>(null);
+  committedRequestRef.current = committedRequest;
   const previousCommittedBindingRef = useRef<GraphReviewCommittedBinding | null>(
     committedBinding,
   );
@@ -173,6 +190,7 @@ export function useGraphReviewLiveReviewState({
     setCommittedAffectedObjectIds([]);
     setCommittedSelectedObjectId(null);
     setCommittedError(null);
+    setCommittedRequest(null);
   }, []);
 
   useEffect(() => {
@@ -266,8 +284,16 @@ export function useGraphReviewLiveReviewState({
   }, [campaignId, sessionId]);
 
   const installCommittedAuthority = useCallback(
-    async (nextReceipt: ExtractPromoteConfirmReceipt): Promise<void> => {
-      const adoption = validateCommittedReceiptAdoption(nextReceipt);
+    async (
+      nextReceipt: ExtractPromoteConfirmReceipt,
+      prepared?: CommittedPreparedIdentity | null,
+      frozenRequest?: WorldGraphProjectionRequest | null,
+    ): Promise<void> => {
+      const adoption = validateCommittedReceiptAdoption(
+        nextReceipt,
+        prepared,
+        committedBindingRef.current,
+      );
       if (!adoption.ok) {
         setCommittedPhase("error");
         setCommittedError(adoption.reason);
@@ -283,16 +309,19 @@ export function useGraphReviewLiveReviewState({
         setCommittedBindingState(committedBindingRef.current);
         setCommittedProjection(null);
         setCommittedSelectedObjectId(null);
+        setCommittedRequest(null);
         setCommittedPhase("error");
         setCommittedError(reason);
         throw new Error(reason);
       }
 
-      const request = buildGraphReviewCommittedProjectionRequest({
-        campaignId: trimmedCampaign,
-        sessionId,
-        receipt: adoption.receipt,
-      });
+      const request =
+        frozenRequest
+        ?? buildGraphReviewCommittedProjectionRequest({
+          campaignId: trimmedCampaign,
+          sessionId,
+          receipt: adoption.receipt,
+        });
       if (!request) {
         const reason =
           "Committed receipt worldId is not admitted by the current campaign mapping.";
@@ -301,6 +330,7 @@ export function useGraphReviewLiveReviewState({
         setCommittedBindingState(committedBindingRef.current);
         setCommittedProjection(null);
         setCommittedSelectedObjectId(null);
+        setCommittedRequest(null);
         setCommittedPhase("error");
         setCommittedError(reason);
         throw new Error(reason);
@@ -310,6 +340,7 @@ export function useGraphReviewLiveReviewState({
       setCommittedReceipt(adoption.receipt);
       setCommittedAffectedObjectIds(adoption.affectedObjectIds);
       setCommittedBindingState(committedBindingRef.current);
+      setCommittedRequest(request);
       setCommittedPhase("loading");
       setCommittedError(null);
 
@@ -320,8 +351,10 @@ export function useGraphReviewLiveReviewState({
         const validated = validateCommittedProjectionResponse({
           projection: response,
           receipt: adoption.receipt,
+          request,
         });
         if (!validated.ok) {
+          // Preserve receipt + frozen request for retry; clear projection only.
           setCommittedProjection(null);
           setCommittedSelectedObjectId(null);
           setCommittedPhase("error");
@@ -346,6 +379,7 @@ export function useGraphReviewLiveReviewState({
       } catch (error) {
         if (generation !== committedGenerationRef.current) return;
         const message = friendlyProjectionError(error);
+        // Preserve receipt + frozen request on request/integrity failures for retry.
         setCommittedProjection(null);
         setCommittedSelectedObjectId(null);
         setCommittedPhase("error");
@@ -357,8 +391,11 @@ export function useGraphReviewLiveReviewState({
   );
 
   const adoptCommittedReceipt = useCallback(
-    async (nextReceipt: ExtractPromoteConfirmReceipt): Promise<void> => {
-      await installCommittedAuthority(nextReceipt);
+    async (
+      nextReceipt: ExtractPromoteConfirmReceipt,
+      prepared?: CommittedPreparedIdentity | null,
+    ): Promise<void> => {
+      await installCommittedAuthority(nextReceipt, prepared);
     },
     [installCommittedAuthority],
   );
@@ -367,7 +404,11 @@ export function useGraphReviewLiveReviewState({
     if (!committedReceipt) {
       throw new Error("No committed receipt is available to reload.");
     }
-    await installCommittedAuthority(committedReceipt);
+    await installCommittedAuthority(
+      committedReceipt,
+      null,
+      committedRequestRef.current,
+    );
   }, [committedReceipt, installCommittedAuthority]);
 
   const setCommittedSelectedObjectIdExact = useCallback(

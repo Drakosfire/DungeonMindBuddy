@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import type { ExtractPromoteConfirmReceipt, WorldGraphProjection } from "../../api/types";
+import type {
+  ExtractPromoteConfirmReceipt,
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
+} from "../../api/types";
 import {
+  catalogRunBindingKey,
   committedBindingsEqual,
+  exactRunBindingKey,
   isTerminalConfirmOutcome,
   normalizeAffectedObjectIds,
   selectFirstPresentCommittedObjectId,
@@ -32,6 +38,21 @@ function receipt(
   };
 }
 
+function request(
+  overrides: Partial<WorldGraphProjectionRequest> = {},
+): WorldGraphProjectionRequest {
+  return {
+    schema: "dmb_world_graph_projection_request_v1",
+    worldId: "eldyrwild",
+    campaignId: "longmont-c2",
+    scopeMode: "campaign",
+    focus: { kind: "none", sessionId: null },
+    admissibility: "gm",
+    revisionPin: "rev:committed",
+    ...overrides,
+  };
+}
+
 function projection(
   overrides: Partial<WorldGraphProjection> = {},
 ): WorldGraphProjection {
@@ -45,6 +66,7 @@ function projection(
       isHead: true,
       focus: { kind: "none", sessionId: null },
       admissibility: "gm",
+      scopeMode: "campaign",
     },
     summary: {
       nodeCount: 1,
@@ -94,7 +116,7 @@ describe("graphReviewCommittedAuthority", () => {
     ]);
   });
 
-  it("validates receipt adoption for terminal outcomes only", () => {
+  it("validates receipt adoption for terminal outcomes and prepared identity", () => {
     expect(validateCommittedReceiptAdoption(receipt()).ok).toBe(true);
     expect(
       validateCommittedReceiptAdoption({
@@ -103,13 +125,25 @@ describe("graphReviewCommittedAuthority", () => {
       }).ok,
     ).toBe(false);
     expect(validateCommittedReceiptAdoption(receipt({ worldId: "  " })).ok).toBe(false);
+    expect(
+      validateCommittedReceiptAdoption(receipt(), {
+        proposalId: "prop-other",
+        proposalDigest: "digest-a",
+        parentRevisionId: "rev:parent",
+        worldId: "eldyrwild",
+        runId: "run-a",
+        campaignId: "longmont-c2",
+        sessionId: "session-25",
+      }).ok,
+    ).toBe(false);
   });
 
-  it("validates committed projection world and revision identity", () => {
+  it("validates committed projection against frozen request identity", () => {
     expect(
       validateCommittedProjectionResponse({
         projection: projection(),
         receipt: receipt(),
+        request: request(),
       }),
     ).toEqual({ ok: true });
     expect(
@@ -121,8 +155,34 @@ describe("graphReviewCommittedAuthority", () => {
           },
         }),
         receipt: receipt(),
+        request: request(),
       }).ok,
     ).toBe(false);
+    expect(
+      validateCommittedProjectionResponse({
+        projection: projection({
+          snapshot: {
+            ...projection().snapshot,
+            campaignId: "longmont-c1",
+          },
+        }),
+        receipt: receipt(),
+        request: request(),
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateCommittedProjectionResponse({
+        projection: projection({
+          snapshot: {
+            ...projection().snapshot,
+            isHead: false,
+            headRevisionId: "rev:head-moved",
+          },
+        }),
+        receipt: receipt(),
+        request: request(),
+      }),
+    ).toEqual({ ok: true });
   });
 
   it("selects the first affected id present in the committed projection", () => {
@@ -140,17 +200,48 @@ describe("graphReviewCommittedAuthority", () => {
     ).toBeNull();
   });
 
-  it("compares catalog and exact bindings by identity", () => {
+  it("compares catalog and exact bindings by stable key identity", () => {
+    const catalogA = {
+      kind: "catalog_run" as const,
+      key: catalogRunBindingKey({
+        runId: "run-a",
+        campaignId: "c2",
+        sessionId: "s25",
+      }),
+      runId: "run-a",
+      campaignId: "c2",
+      sessionId: "s25",
+    };
+    expect(committedBindingsEqual(catalogA, { ...catalogA })).toBe(true);
+    expect(
+      committedBindingsEqual(catalogA, {
+        ...catalogA,
+        key: catalogRunBindingKey({
+          runId: "run-b",
+          campaignId: "c2",
+          sessionId: "s25",
+        }),
+        runId: "run-b",
+      }),
+    ).toBe(false);
     expect(
       committedBindingsEqual(
-        { kind: "catalog", campaignId: "c2", sessionId: "s25", liveRunId: "run-a" },
-        { kind: "catalog", campaignId: "c2", sessionId: "s25", liveRunId: "run-a" },
-      ),
-    ).toBe(true);
-    expect(
-      committedBindingsEqual(
-        { kind: "exact", extractionRunId: "er-1", campaignId: "c2", sessionId: "" },
-        { kind: "exact", extractionRunId: "er-2", campaignId: "c2", sessionId: "" },
+        {
+          kind: "exact_run",
+          key: exactRunBindingKey({ runId: "er-1", sourceArtifactId: "art-1" }),
+          runId: "er-1",
+          sourceArtifactId: "art-1",
+          campaignId: "c2",
+          sessionId: null,
+        },
+        {
+          kind: "exact_run",
+          key: exactRunBindingKey({ runId: "er-1", sourceArtifactId: "art-2" }),
+          runId: "er-1",
+          sourceArtifactId: "art-2",
+          campaignId: "c2",
+          sessionId: null,
+        },
       ),
     ).toBe(false);
   });
