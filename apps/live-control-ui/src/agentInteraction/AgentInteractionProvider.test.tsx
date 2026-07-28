@@ -873,8 +873,8 @@ describe("AgentInteractionProvider projection lease semantics", () => {
       });
     });
 
-    // projectionsEnabled is true (tools + context), but modes disagree — fail closed.
-    expect(result.current.projectionSurface?.projectionsEnabled).toBe(true);
+    // Canonical validation disables contradictory publications.
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
 
     act(() => {
       result.current.registerPlanReferenceBinding(makePlanBinding());
@@ -889,6 +889,34 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.planReferenceBinding).toBeNull();
     expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
     expect(result.current.activePlanReference).toBeNull();
+    expect(result.current.active).toBeNull();
+  });
+
+  it("clears an open tool when a same-identity update publishes a contradictory config with the same tool id", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    expect(result.current.active?.key).toBe("recap");
+
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: planIdentity,
+        config: {
+          id: "ingest",
+          label: "Mismatched",
+          context: planContext,
+          tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+          canvas: { documentId: FIXTURE_DOC_ID },
+          theme: {},
+        },
+      });
+    });
+
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
     expect(result.current.active).toBeNull();
   });
 

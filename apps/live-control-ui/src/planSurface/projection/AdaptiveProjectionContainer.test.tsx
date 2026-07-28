@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { getRecapArtifacts } from "../../api/liveApi";
@@ -9,7 +10,11 @@ import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import type { SurfaceConfig } from "../types";
 import { AdaptiveProjectionContainer } from "./AdaptiveProjectionContainer";
-import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
+import {
+  AgentInteractionProvider,
+  useAgentInteraction,
+} from "../../agentInteraction/AgentInteractionProvider";
+import { buildPlanSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
 import { useProjection } from "./projectionContext";
 
@@ -121,6 +126,91 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+  });
+
+  it("renders no Tools toggle for a contradictory identity/config publication", () => {
+    function ContradictoryPublisher() {
+      const { publishProjectionSurface } = useAgentInteraction();
+      useEffect(() => {
+        return publishProjectionSurface({
+          identity: { surfaceId: "plan", instanceKey: "plan\u001fcontradiction-ui" },
+          config: {
+            id: "ingest",
+            label: "Mismatched",
+            context: {
+              campaignId: "longmont-c2",
+              liveSession: 22,
+              ingestSession: 21,
+              headerLabel: "Ingest",
+            },
+            tools: [
+              { id: "recap", label: "Recap", size: "wide" },
+              { id: "ingest-recap", label: "Ingest Recap", size: "wide" },
+            ],
+            canvas: { documentId: null },
+            theme: {},
+          },
+        });
+      }, [publishProjectionSurface]);
+      return null;
+    }
+
+    render(
+      <AgentInteractionProvider>
+        <ContradictoryPublisher />
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProvider>,
+    );
+
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+    expect(document.querySelector("#plan-toolbox-drawer")).not.toBeInTheDocument();
+    expect(document.body).not.toHaveClass("plan-toolbox-open");
+  });
+
+  it("clears body-open state when a same-identity contradictory update retains the open tool id", async () => {
+    const user = userEvent.setup();
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+
+    render(
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+        <CaptureApi />
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await waitFor(() => {
+      expect(document.body).toHaveClass("plan-toolbox-open");
+    });
+    expect(hostApi!.active?.key).toBe("recap");
+
+    act(() => {
+      hostApi!.publishProjectionSurface({
+        identity: buildPlanSurfaceIdentity({
+          documentId: sessionDescriptor.planningDocument.documentId,
+          campaignId: sessionDescriptor.campaignId,
+          liveSession: surfaceConfig.context!.liveSession,
+          memorySession: sessionDescriptor.memorySession,
+        }),
+        config: {
+          id: "ingest",
+          label: "Mismatched",
+          context: surfaceConfig.context,
+          tools: [{ id: "recap", label: "Recap", size: "wide" }],
+          canvas: surfaceConfig.canvas,
+          theme: {},
+        },
+      });
+    });
+
+    expect(hostApi!.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(hostApi!.active).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+    expect(document.body).not.toHaveClass("plan-toolbox-open");
   });
 
   it("applies the active surface theme to the app-level drawer", async () => {

@@ -75,12 +75,18 @@ export function sameProjectionSurfaceIdentity(
 }
 
 /**
- * A publication with tools but no render context is invalid for opening
- * projections, yet still supersedes the previous surface identity.
- * Build empty-tools publications are valid and intentionally inactive.
+ * A publication enables projections only when:
+ * - identity.surfaceId agrees with config.id;
+ * - tools are present;
+ * - required render context exists.
+ *
+ * Tools without context, empty tools, or contradictory identity/config modes
+ * all yield disabled. An invalid publication may still supersede the previous
+ * surface identity so stale content cannot remain.
  */
 export function isProjectionSurfaceEnabled(publication: ProjectionSurfacePublication): boolean {
-  const { config } = publication;
+  const { identity, config } = publication;
+  if (identity.surfaceId !== config.id) return false;
   if (config.tools.length === 0) return false;
   return config.context !== null && config.context !== undefined;
 }

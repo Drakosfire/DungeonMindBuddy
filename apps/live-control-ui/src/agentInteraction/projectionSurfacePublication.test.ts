@@ -86,4 +86,25 @@ describe("projectionSurfacePublication", () => {
     };
     expect(isProjectionSurfaceEnabled(publication)).toBe(false);
   });
+
+  it("disables projections when identity.surfaceId and config.id contradict", () => {
+    const publication = {
+      identity: { surfaceId: "plan", instanceKey: '["plan","doc-1"]' },
+      config: {
+        id: "ingest" as const,
+        label: "Mismatched",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Ingest",
+        },
+        tools: [{ id: "ingest-recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+    expect(isProjectionSurfaceEnabled(publication)).toBe(false);
+    expect(validateProjectionSurfacePublication(publication).projectionsEnabled).toBe(false);
+  });
 });

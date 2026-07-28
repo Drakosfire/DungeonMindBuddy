@@ -91,13 +91,15 @@ function contentSize(resolution: PlanReferenceResolution): ProjectionSize {
 }
 
 function revalidateLeasedProjection(
-  config: SurfaceConfig,
+  validated: ValidatedProjectionSurface,
   leased: LeasedActiveProjection | null,
 ): LeasedActiveProjection | null {
   if (!leased) return null;
+  // Canonical disabled state clears every active projection, including tools
+  // whose IDs still appear in a contradictory or otherwise invalid config.
+  if (!validated.projectionsEnabled) return null;
+  const config = validated.publication.config;
   const { projection } = leased;
-  // No render context: nothing remains valid, including tools (§7.8).
-  if (!config.context) return null;
   if (projection.kind === "tool") {
     const tool = config.tools.find((entry) => entry.id === projection.key);
     if (!tool) return null;
@@ -189,11 +191,10 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       const next: SurfaceRegistration = { token: current.token, validated };
       surfaceRegistrationRef.current = next;
       setSurfaceRegistration(next);
-      const config = validated.publication.config;
-      const nextLeased = revalidateLeasedProjection(config, leasedActiveRef.current);
+      const nextLeased = revalidateLeasedProjection(validated, leasedActiveRef.current);
       leasedActiveRef.current = nextLeased;
       setLeasedActive(nextLeased);
-      if (!nextLeased || nextLeased.projection.kind !== "content" || !config.context) {
+      if (!nextLeased || nextLeased.projection.kind !== "content") {
         setLeasedPlanReference(null);
         setLeasedPlanProjectionState(null);
       }
