@@ -116,22 +116,28 @@ function revalidateLeasedProjection(
   return leased;
 }
 
-function currentSurfaceId(reg: SurfaceRegistration | null): string | null {
-  return reg?.validated?.publication.identity.surfaceId ?? null;
+/**
+ * Authorized Plan publication: projections enabled, identity/config modes agree
+ * as plan, and required render context is present.
+ */
+function isAuthorizedPlanPublication(reg: SurfaceRegistration | null): boolean {
+  const validated = reg?.validated;
+  if (!validated?.projectionsEnabled) return false;
+  const { identity, config } = validated.publication;
+  if (identity.surfaceId !== "plan" || config.id !== "plan") return false;
+  return config.context != null;
 }
 
-function isCurrentPlanSurface(reg: SurfaceRegistration | null): boolean {
-  return currentSurfaceId(reg) === "plan";
-}
-
-function isCurrentIngestSurface(reg: SurfaceRegistration | null): boolean {
-  return currentSurfaceId(reg) === "ingest";
-}
-
-function diagnosticsToolEnabled(reg: SurfaceRegistration | null): boolean {
-  const tools = reg?.validated?.publication.config.tools;
-  if (!tools) return false;
-  return tools.some((entry) => entry.id === GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID);
+/**
+ * Authorized diagnostics publication: projections enabled, identity/config modes
+ * agree as ingest, and the diagnostics tool is currently listed.
+ */
+function isAuthorizedDiagnosticsPublication(reg: SurfaceRegistration | null): boolean {
+  const validated = reg?.validated;
+  if (!validated?.projectionsEnabled) return false;
+  const { identity, config } = validated.publication;
+  if (identity.surfaceId !== "ingest" || config.id !== "ingest") return false;
+  return config.tools.some((entry) => entry.id === GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID);
 }
 
 export function AgentInteractionProvider({ children }: { children: ReactNode }) {
@@ -170,9 +176,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     setLeasedPlanProjectionState(null);
   }, []);
 
-  // Same-identity update: the surface lease continues, so its token, live
-  // callbacks, and dependency registrations are retained; latest config wins
-  // and the active lease is revalidated against it.
+  // Same-identity update: the surface lease continues, so its token and live
+  // callbacks are retained; latest config wins, the active lease is revalidated,
+  // and dependency registrations that are no longer authorized are cleared.
   const applySameIdentityConfigUpdate = useCallback(
     (validated: ValidatedProjectionSurface): boolean => {
       const current = surfaceRegistrationRef.current;
@@ -190,6 +196,15 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       if (!nextLeased || nextLeased.projection.kind !== "content" || !config.context) {
         setLeasedPlanReference(null);
         setLeasedPlanProjectionState(null);
+      }
+      // Invalid same-identity publications must not retain readable dependencies.
+      if (!isAuthorizedPlanPublication(next)) {
+        planReferenceRegistrationRef.current = null;
+        setPlanReferenceRegistration(null);
+      }
+      if (!isAuthorizedDiagnosticsPublication(next)) {
+        diagnosticsRegistrationRef.current = null;
+        setDiagnosticsRegistration(null);
       }
       return true;
     },
@@ -259,8 +274,10 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
       if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
+      const { identity, config } = reg!.validated.publication;
+      // Contradictory identity/config modes enable nothing.
+      if (identity.surfaceId !== config.id) return;
       const activeToken = reg!.token;
-      const config = reg!.validated.publication.config;
       const tool = config.tools.find((entry) => entry.id === toolId);
       if (!tool) return;
       const next: LeasedActiveProjection = {
@@ -289,10 +306,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     ) => {
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
-      // Plan-content actions require an exact current Plan surface, not merely
-      // any lease that happens to carry a non-null context (e.g. Ingest).
-      if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
-      if (!isCurrentPlanSurface(reg) || !reg!.validated.publication.config.context) return;
+      // Plan-content actions require an authorized Plan publication, not merely
+      // a matching surfaceId or a non-null context on another mode.
+      if (!surfaceTokenGuard(capturedToken, reg) || !isAuthorizedPlanPublication(reg)) return;
       const activeToken = reg!.token;
       const next: LeasedActiveProjection = {
         surfaceToken: activeToken,
@@ -319,8 +335,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     ) => {
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
-      if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
-      if (!isCurrentPlanSurface(reg) || !reg!.validated.publication.config.context) return;
+      if (!surfaceTokenGuard(capturedToken, reg) || !isAuthorizedPlanPublication(reg)) return;
       const activeToken = reg!.token;
       const title =
         resolution.graphObject?.label
@@ -348,7 +363,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   const expandContent = useCallback(() => {
     const capturedToken = currentSurfaceToken;
     const reg = surfaceRegistrationRef.current;
-    if (!surfaceTokenGuard(capturedToken, reg) || !isCurrentPlanSurface(reg)) return;
+    if (!surfaceTokenGuard(capturedToken, reg) || !isAuthorizedPlanPublication(reg)) return;
     const activeToken = reg!.token;
     setLeasedActive((current) => {
       if (!current || current.surfaceToken !== activeToken || current.projection.kind !== "content") {
@@ -364,13 +379,12 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   }, [currentSurfaceToken]);
 
   // Registrars capture the surface lease they were supplied under AND require
-  // the matching surface capability. Token equality alone is not enough: a
-  // freshly supplied Ingest registrar must still fail to stamp a Plan binding.
+  // an authorized capability on that lease. Token/surfaceId alone is not enough.
   const registerPlanReferenceBinding = useCallback(
     (binding: PlanReferenceProjectionBinding) => {
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
-      if (!capturedToken || reg?.token !== capturedToken || !isCurrentPlanSurface(reg)) {
+      if (!capturedToken || reg?.token !== capturedToken || !isAuthorizedPlanPublication(reg)) {
         return () => undefined;
       }
       const token = Symbol("plan-reference-binding");
@@ -401,8 +415,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       if (
         !capturedToken
         || reg?.token !== capturedToken
-        || !isCurrentIngestSurface(reg)
-        || !diagnosticsToolEnabled(reg)
+        || !isAuthorizedDiagnosticsPublication(reg)
       ) {
         return () => undefined;
       }
@@ -429,9 +442,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     const registration = planReferenceRegistration;
     const reg = surfaceRegistration;
     const surfaceToken = reg?.token;
-    // Derived access re-checks surface type, not only token equality.
+    // Derived access re-checks authorized Plan publication, not only token equality.
     if (!registration || !surfaceToken || registration.surfaceToken !== surfaceToken) return null;
-    if (!isCurrentPlanSurface(reg)) return null;
+    if (!isAuthorizedPlanPublication(reg)) return null;
     const { token, value: binding } = registration;
     return {
       resolverState: binding.resolverState,
@@ -440,14 +453,14 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         const current = planReferenceRegistrationRef.current;
         const live = surfaceRegistrationRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
-        if (!isCurrentPlanSurface(live) || live?.token !== surfaceToken) return;
+        if (!isAuthorizedPlanPublication(live) || live?.token !== surfaceToken) return;
         current.value.openResolvedReference(resolution, projectionState);
       },
       openTool: (toolId) => {
         const current = planReferenceRegistrationRef.current;
         const live = surfaceRegistrationRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
-        if (!isCurrentPlanSurface(live) || live?.token !== surfaceToken) return;
+        if (!isAuthorizedPlanPublication(live) || live?.token !== surfaceToken) return;
         current.value.openTool(toolId);
       },
     };
@@ -457,8 +470,12 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   const active = useMemo(() => {
     if (!leasedActive || !currentSurfaceToken || leasedActive.surfaceToken !== currentSurfaceToken) return null;
-    // Content projections are Plan-only; token equality alone must not surface them elsewhere.
-    if (leasedActive.projection.kind === "content" && !isCurrentPlanSurface(surfaceRegistration)) {
+    // Content projections are Plan-only under an authorized Plan publication.
+    if (leasedActive.projection.kind === "content" && !isAuthorizedPlanPublication(surfaceRegistration)) {
+      return null;
+    }
+    // Tools also require an enabled projection set (§7.8).
+    if (leasedActive.projection.kind === "tool" && !surfaceRegistration?.validated?.projectionsEnabled) {
       return null;
     }
     return leasedActive.projection;
@@ -468,8 +485,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     if (!leasedPlanReference || !currentSurfaceToken || leasedPlanReference.surfaceToken !== currentSurfaceToken) {
       return null;
     }
-    // Plan content is only readable under an exact Plan surface.
-    if (!isCurrentPlanSurface(surfaceRegistration)) return null;
+    if (!isAuthorizedPlanPublication(surfaceRegistration)) return null;
     return leasedPlanReference.resolution;
   }, [currentSurfaceToken, leasedPlanReference, surfaceRegistration]);
 
@@ -481,7 +497,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     ) {
       return null;
     }
-    if (!isCurrentPlanSurface(surfaceRegistration)) return null;
+    if (!isAuthorizedPlanPublication(surfaceRegistration)) return null;
     return leasedPlanProjectionState.state;
   }, [currentSurfaceToken, leasedPlanProjectionState, surfaceRegistration]);
 
@@ -490,8 +506,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     const reg = surfaceRegistration;
     const surfaceToken = reg?.token;
     if (!registration || !surfaceToken || registration.surfaceToken !== surfaceToken) return null;
-    // Diagnostics payloads are Ingest-only and require the enabled tool.
-    if (!isCurrentIngestSurface(reg) || !diagnosticsToolEnabled(reg)) return null;
+    if (!isAuthorizedDiagnosticsPublication(reg)) return null;
     return registration.value;
   }, [diagnosticsRegistration, surfaceRegistration]);
 

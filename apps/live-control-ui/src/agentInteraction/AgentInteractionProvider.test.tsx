@@ -797,6 +797,101 @@ describe("AgentInteractionProvider projection lease semantics", () => {
     expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
   });
 
+  it("clears Plan binding when a same-identity update disables projections and rejects fresh registration", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerPlanReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.planReferenceBinding).not.toBeNull();
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({ context: null, tools: [] }),
+      );
+    });
+
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.planReferenceBinding).toBeNull();
+
+    act(() => {
+      result.current.registerPlanReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.planReferenceBinding).toBeNull();
+  });
+
+  it("clears diagnostics payload when a same-identity update keeps the tool but loses context", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const payload = { selectedDeltaNodeId: "npc-a" } as GraphReviewDiagnosticsProjectionPayload;
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toEqual(payload);
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makeIngestPublication({}, {
+          context: null,
+          tools: [
+            { id: "ingest-recap", label: "Recap", size: "wide" as const },
+            { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" as const },
+          ],
+        }),
+      );
+    });
+
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+  });
+
+  it("fails closed when identity.surfaceId and config.id contradict", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: { surfaceId: "plan", instanceKey: "plan\u001fcontradiction" },
+        config: {
+          id: "ingest",
+          label: "Mismatched",
+          context: planContext,
+          tools: [
+            { id: "ingest-recap", label: "Recap", size: "wide" as const },
+            { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" as const },
+          ],
+          canvas: { documentId: null },
+          theme: {},
+        },
+      });
+    });
+
+    // projectionsEnabled is true (tools + context), but modes disagree — fail closed.
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(true);
+
+    act(() => {
+      result.current.registerPlanReferenceBinding(makePlanBinding());
+      result.current.registerToolProjectionPayload(
+        GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
+        {} as GraphReviewDiagnosticsProjectionPayload,
+      );
+      result.current.openPlanReferenceResolution(resolution);
+      result.current.openTool("ingest-recap");
+    });
+
+    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+    expect(result.current.activePlanReference).toBeNull();
+    expect(result.current.active).toBeNull();
+  });
+
   it("lets binder effects republish a Plan binding under a new Plan instance lease", () => {
     const { result } = renderHook(() => useAgentInteraction(), { wrapper });
     act(() => {
