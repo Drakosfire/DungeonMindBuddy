@@ -89,6 +89,10 @@ function OpenReferenceButton() {
 }
 
 describe("AdaptiveProjectionContainer content reference chrome", () => {
+  beforeEach(() => {
+    window.history.pushState({}, "", "/plan");
+  });
+
   it("renders no projection chrome when the app host is inactive", () => {
     render(
       <AgentInteractionProvider>
@@ -177,6 +181,50 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
     await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
     expect(await screen.findByRole("heading", { level: 4, name: "Bubbles the Float Goat" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Open related object/i })).not.toBeInTheDocument();
+  });
+
+  it("updates drawer size class and accessibility label when the same tool revises its metadata", async () => {
+    const user = userEvent.setup();
+    const revisedConfig: SurfaceConfig = {
+      ...surfaceConfig,
+      tools: [
+        { id: "recap", label: "Session Memory", size: "fullscreen" },
+        { id: "party-registry", label: "Party Registry", size: "wide" },
+        { id: "statblock", label: "Statblock", size: "wide" },
+      ],
+    };
+
+    const { rerender } = render(
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    await waitFor(() => {
+      expect(document.querySelector("#plan-toolbox-drawer")).toHaveAttribute(
+        "aria-label",
+        "Recap projection",
+      );
+    });
+    const drawer = document.querySelector("#plan-toolbox-drawer");
+    expect(drawer).toHaveClass("plan-projection-wide");
+    expect(screen.getByRole("button", { name: "Recap", pressed: true })).toBeInTheDocument();
+
+    rerender(
+      <AgentInteractionProjectionTestHost config={revisedConfig}>
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector("#plan-toolbox-drawer")).toHaveClass("plan-projection-fullscreen");
+    });
+    expect(document.querySelector("#plan-toolbox-drawer")).toHaveAttribute(
+      "aria-label",
+      "Session Memory projection",
+    );
+    expect(screen.getByRole("button", { name: "Session Memory", pressed: true })).toBeInTheDocument();
   });
 });
 

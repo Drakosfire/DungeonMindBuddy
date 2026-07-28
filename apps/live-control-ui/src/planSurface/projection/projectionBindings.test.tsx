@@ -50,12 +50,28 @@ const surfaceConfig: SurfaceConfig = {
   },
   tools: [
     { id: "recap", label: "Recap", size: "wide" },
-    { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" },
     { id: "statblock", label: "Statblock", size: "wide" },
   ],
   canvas: { documentId: sessionDescriptor.planningDocument.documentId },
   theme: {},
   sessionDescriptor,
+};
+
+const ingestSurfaceConfig: SurfaceConfig = {
+  id: "ingest",
+  label: "Ingest",
+  context: {
+    campaignId: "longmont-c2",
+    headerLabel: "Memory Ingest",
+    ingestSession: 21,
+    liveSession: 22,
+  },
+  tools: [
+    { id: "ingest-recap", label: "Ingest Recap", size: "wide" },
+    { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" },
+  ],
+  canvas: { documentId: null },
+  theme: {},
 };
 
 const bubblesNode: GraphProjectionNodeView = {
@@ -349,7 +365,7 @@ describe("projectionBindings sibling topology", () => {
   it("renders Graph Review diagnostics with container outside live-state provider", async () => {
     const user = userEvent.setup();
     render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
         <GraphReviewLiveStateProvider
           campaignId="longmont-c2"
           sessionId="session-21"
@@ -640,7 +656,7 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <AgentInteractionProjectionTestHost config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
         <ReplaceableDiagnosticsBinding />
         <OpenDiagnosticsButton />
         <AdaptiveProjectionContainer />

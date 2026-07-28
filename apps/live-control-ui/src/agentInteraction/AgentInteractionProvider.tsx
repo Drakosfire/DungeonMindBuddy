@@ -99,10 +99,39 @@ function revalidateLeasedProjection(
   // No render context: nothing remains valid, including tools (§7.8).
   if (!config.context) return null;
   if (projection.kind === "tool") {
-    if (!config.tools.some((entry) => entry.id === projection.key)) return null;
-    return leased;
+    const tool = config.tools.find((entry) => entry.id === projection.key);
+    if (!tool) return null;
+    // Same tool ID may still change label/size — rebuild from latest config
+    // while preserving the lease and exact tool ID.
+    return {
+      surfaceToken: leased.surfaceToken,
+      projection: {
+        kind: "tool",
+        key: tool.id,
+        size: tool.size,
+        title: tool.label,
+      },
+    };
   }
   return leased;
+}
+
+function currentSurfaceId(reg: SurfaceRegistration | null): string | null {
+  return reg?.validated?.publication.identity.surfaceId ?? null;
+}
+
+function isCurrentPlanSurface(reg: SurfaceRegistration | null): boolean {
+  return currentSurfaceId(reg) === "plan";
+}
+
+function isCurrentIngestSurface(reg: SurfaceRegistration | null): boolean {
+  return currentSurfaceId(reg) === "ingest";
+}
+
+function diagnosticsToolEnabled(reg: SurfaceRegistration | null): boolean {
+  const tools = reg?.validated?.publication.config.tools;
+  if (!tools) return false;
+  return tools.some((entry) => entry.id === GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID);
 }
 
 export function AgentInteractionProvider({ children }: { children: ReactNode }) {
@@ -260,8 +289,10 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     ) => {
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
+      // Plan-content actions require an exact current Plan surface, not merely
+      // any lease that happens to carry a non-null context (e.g. Ingest).
       if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
-      if (!reg!.validated.publication.config.context) return;
+      if (!isCurrentPlanSurface(reg) || !reg!.validated.publication.config.context) return;
       const activeToken = reg!.token;
       const next: LeasedActiveProjection = {
         surfaceToken: activeToken,
@@ -289,7 +320,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
       if (!surfaceTokenGuard(capturedToken, reg) || !reg!.validated?.projectionsEnabled) return;
-      if (!reg!.validated.publication.config.context) return;
+      if (!isCurrentPlanSurface(reg) || !reg!.validated.publication.config.context) return;
       const activeToken = reg!.token;
       const title =
         resolution.graphObject?.label
@@ -317,7 +348,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   const expandContent = useCallback(() => {
     const capturedToken = currentSurfaceToken;
     const reg = surfaceRegistrationRef.current;
-    if (!surfaceTokenGuard(capturedToken, reg)) return;
+    if (!surfaceTokenGuard(capturedToken, reg) || !isCurrentPlanSurface(reg)) return;
     const activeToken = reg!.token;
     setLeasedActive((current) => {
       if (!current || current.surfaceToken !== activeToken || current.projection.kind !== "content") {
@@ -332,13 +363,14 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     });
   }, [currentSurfaceToken]);
 
-  // Registrars capture the surface lease they were supplied under. A stale
-  // registrar invoked after a new surface publication no-ops, so a Plan
-  // binding can never be stamped onto an Ingest lease (or vice versa).
+  // Registrars capture the surface lease they were supplied under AND require
+  // the matching surface capability. Token equality alone is not enough: a
+  // freshly supplied Ingest registrar must still fail to stamp a Plan binding.
   const registerPlanReferenceBinding = useCallback(
     (binding: PlanReferenceProjectionBinding) => {
       const capturedToken = currentSurfaceToken;
-      if (!capturedToken || surfaceRegistrationRef.current?.token !== capturedToken) {
+      const reg = surfaceRegistrationRef.current;
+      if (!capturedToken || reg?.token !== capturedToken || !isCurrentPlanSurface(reg)) {
         return () => undefined;
       }
       const token = Symbol("plan-reference-binding");
@@ -365,7 +397,13 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
         return () => undefined;
       }
       const capturedToken = currentSurfaceToken;
-      if (!capturedToken || surfaceRegistrationRef.current?.token !== capturedToken) {
+      const reg = surfaceRegistrationRef.current;
+      if (
+        !capturedToken
+        || reg?.token !== capturedToken
+        || !isCurrentIngestSurface(reg)
+        || !diagnosticsToolEnabled(reg)
+      ) {
         return () => undefined;
       }
       const token = Symbol(`tool-payload:${toolId}`);
@@ -389,20 +427,27 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   const planReferenceBinding = useMemo((): PlanReferenceProjectionBinding | null => {
     const registration = planReferenceRegistration;
-    const surfaceToken = surfaceRegistrationRef.current?.token;
+    const reg = surfaceRegistration;
+    const surfaceToken = reg?.token;
+    // Derived access re-checks surface type, not only token equality.
     if (!registration || !surfaceToken || registration.surfaceToken !== surfaceToken) return null;
+    if (!isCurrentPlanSurface(reg)) return null;
     const { token, value: binding } = registration;
     return {
       resolverState: binding.resolverState,
       resolveRelationship: (relationship) => binding.resolveRelationship(relationship),
       openResolvedReference: (resolution, projectionState) => {
         const current = planReferenceRegistrationRef.current;
+        const live = surfaceRegistrationRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
+        if (!isCurrentPlanSurface(live) || live?.token !== surfaceToken) return;
         current.value.openResolvedReference(resolution, projectionState);
       },
       openTool: (toolId) => {
         const current = planReferenceRegistrationRef.current;
+        const live = surfaceRegistrationRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
+        if (!isCurrentPlanSurface(live) || live?.token !== surfaceToken) return;
         current.value.openTool(toolId);
       },
     };
@@ -412,15 +457,21 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   const active = useMemo(() => {
     if (!leasedActive || !currentSurfaceToken || leasedActive.surfaceToken !== currentSurfaceToken) return null;
+    // Content projections are Plan-only; token equality alone must not surface them elsewhere.
+    if (leasedActive.projection.kind === "content" && !isCurrentPlanSurface(surfaceRegistration)) {
+      return null;
+    }
     return leasedActive.projection;
-  }, [currentSurfaceToken, leasedActive]);
+  }, [currentSurfaceToken, leasedActive, surfaceRegistration]);
 
   const activePlanReference = useMemo(() => {
     if (!leasedPlanReference || !currentSurfaceToken || leasedPlanReference.surfaceToken !== currentSurfaceToken) {
       return null;
     }
+    // Plan content is only readable under an exact Plan surface.
+    if (!isCurrentPlanSurface(surfaceRegistration)) return null;
     return leasedPlanReference.resolution;
-  }, [currentSurfaceToken, leasedPlanReference]);
+  }, [currentSurfaceToken, leasedPlanReference, surfaceRegistration]);
 
   const planProjectionState = useMemo(() => {
     if (
@@ -430,13 +481,17 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     ) {
       return null;
     }
+    if (!isCurrentPlanSurface(surfaceRegistration)) return null;
     return leasedPlanProjectionState.state;
-  }, [currentSurfaceToken, leasedPlanProjectionState]);
+  }, [currentSurfaceToken, leasedPlanProjectionState, surfaceRegistration]);
 
   const graphReviewDiagnosticsPayload = useMemo(() => {
     const registration = diagnosticsRegistration;
-    const surfaceToken = surfaceRegistrationRef.current?.token;
+    const reg = surfaceRegistration;
+    const surfaceToken = reg?.token;
     if (!registration || !surfaceToken || registration.surfaceToken !== surfaceToken) return null;
+    // Diagnostics payloads are Ingest-only and require the enabled tool.
+    if (!isCurrentIngestSurface(reg) || !diagnosticsToolEnabled(reg)) return null;
     return registration.value;
   }, [diagnosticsRegistration, surfaceRegistration]);
 
