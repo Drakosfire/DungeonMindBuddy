@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ThreatDraftV1 } from "../../api/types";
 import type {
@@ -194,6 +194,140 @@ describe("statblockRevisionAttempt", () => {
     expect(actions.showResume).toBe(false);
     expect(actions.allowCreateNew).toBe(true);
     expect(actions.freezeReplaySource).toBe(false);
+  });
+
+  it("revisePanelActions allows resume for revise_busy and revise_history_full", () => {
+    const editorState = createEditorStateFromOutput(candidate.definition);
+    const draft = minimalDraft();
+    const built = buildReviseRequestFromWorkingCopy({
+      requestId: "req-busy",
+      draft,
+      editorState,
+      revisionInstructions: ["x"],
+      preserveElementKeys: true,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    for (const last_result of ["revise_busy", "revise_history_full"] as const) {
+      const actions = revisePanelActions({
+        schema: "dmb_sbw06_revise_attempt_v1",
+        draft_id: draft.draft_id,
+        source_candidate_id: "cand_a",
+        request_id: built.request.request_id,
+        raw_instructions: "x",
+        request: built.request,
+        last_result,
+        candidate_id: null,
+        created_at: new Date().toISOString(),
+      });
+      expect(actions.showResume).toBe(true);
+      expect(actions.showStartNew).toBe(false);
+      expect(actions.allowCreateNew).toBe(false);
+      expect(actions.freezeReplaySource).toBe(true);
+      expect(classifyReviseResult(last_result)).toBe("resume_same");
+    }
+  });
+
+  it("revisePanelActions offers retry local refresh while awaiting_local_refresh", () => {
+    const editorState = createEditorStateFromOutput(candidate.definition);
+    const draft = minimalDraft();
+    const built = buildReviseRequestFromWorkingCopy({
+      requestId: "req-refresh",
+      draft,
+      editorState,
+      revisionInstructions: ["x"],
+      preserveElementKeys: true,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const awaiting = markReviseAwaitingLocalRefresh(
+      {
+        schema: "dmb_sbw06_revise_attempt_v1",
+        draft_id: draft.draft_id,
+        source_candidate_id: "cand_a",
+        request_id: built.request.request_id,
+        raw_instructions: "x",
+        request: built.request,
+        last_result: null,
+        candidate_id: null,
+        created_at: new Date().toISOString(),
+      },
+      "cand_new",
+    );
+    const actions = revisePanelActions(awaiting);
+    expect(actions.awaitingLocalRefresh).toBe(true);
+    expect(actions.showRetryLocalRefresh).toBe(true);
+    expect(actions.showResume).toBe(false);
+  });
+
+  it("writeStoredReviseAttempt fails closed when sessionStorage rejects", () => {
+    const editorState = createEditorStateFromOutput(candidate.definition);
+    const draft = minimalDraft();
+    const built = buildReviseRequestFromWorkingCopy({
+      requestId: "req-store-fail",
+      draft,
+      editorState,
+      revisionInstructions: ["Buff"],
+      preserveElementKeys: true,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const attempt = {
+      schema: "dmb_sbw06_revise_attempt_v1" as const,
+      draft_id: draft.draft_id,
+      source_candidate_id: "cand_a",
+      request_id: built.request.request_id,
+      raw_instructions: "Buff",
+      request: built.request,
+      last_result: null,
+      candidate_id: null,
+      created_at: new Date().toISOString(),
+    };
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    expect(writeStoredReviseAttempt(attempt)).toBe(false);
+    setItem.mockRestore();
+  });
+
+  it("writeStoredReviseAttempt fails closed when readback is absent or body-mismatched", () => {
+    const editorState = createEditorStateFromOutput(candidate.definition);
+    const draft = minimalDraft();
+    const built = buildReviseRequestFromWorkingCopy({
+      requestId: "req-readback",
+      draft,
+      editorState,
+      revisionInstructions: ["Buff"],
+      preserveElementKeys: true,
+    });
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const attempt = {
+      schema: "dmb_sbw06_revise_attempt_v1" as const,
+      draft_id: draft.draft_id,
+      source_candidate_id: "cand_a",
+      request_id: built.request.request_id,
+      raw_instructions: "Buff",
+      request: built.request,
+      last_result: null,
+      candidate_id: null,
+      created_at: new Date().toISOString(),
+    };
+
+    const getItemAbsent = vi.spyOn(Storage.prototype, "getItem").mockReturnValue(null);
+    expect(writeStoredReviseAttempt(attempt)).toBe(false);
+    getItemAbsent.mockRestore();
+
+    const getItemCorrupt = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockReturnValue(JSON.stringify({ ...attempt, request_id: "tampered-id" }));
+    expect(writeStoredReviseAttempt(attempt)).toBe(false);
+    getItemCorrupt.mockRestore();
+
+    expect(writeStoredReviseAttempt(attempt)).toBe(true);
+    const stored = readStoredReviseAttempt(draft.draft_id);
+    expect(stored?.request_id).toBe(attempt.request_id);
+    expect(stored?.request).toEqual(attempt.request);
   });
 
   it("builds request from working copy snapshot and stateRevision", () => {

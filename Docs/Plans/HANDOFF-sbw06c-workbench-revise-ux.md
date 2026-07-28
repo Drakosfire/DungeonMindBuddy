@@ -1,21 +1,49 @@
 # HANDOFF — SBW06c Workbench Revise UX: Exact Working Copy, Stable Replay, Inspectable Proposal History
 
 **Created:** 2026-07-27
-**Status:** ACTIVE — dispatch exactly one implementation capability
+**Status:** ACTIVE — in review on PR `#439` (not merged)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06c-workbench-revise-ux.md`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Workstream:** Threat + Statblock Authoring and Projection
 **Slice:** `SBW06c`
 **Suggested branch:** `feat/sbw06c-workbench-revise`
 **Dispatch base / `#435` merge SHA:** `32eb1571f67b64c3b8c8ebd4d9fa9e6059eece05`
-**Branch tip at activation:** `ad41a558881e78b7afa8968809bff6ba2339b1ec` (`main`, contains `#435`)
-**Reviewed tip before merge:** `226f4a4d3cbe827179fcdcf2ee368f0d72cf3c26`
+**Rebased immutable base (`origin/main`):** `7700152417de29aa02a287c3894e7576bb102181`
+**PR head before latest review-fix commit:** `d578f999bb35efb3244ca604c96bcbb1667e861a` (rebased `fc6e223f`)
 **Normative contract:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md` §12
 **Immediate predecessor:** `SBW06b` — PR `#435`
-**Next Milestone B slice:** `SBW06d` — revise from exact accepted mechanics locator
+**Next Milestone B slice:** `SBW06d` — revise from exact accepted mechanics locator (requires post-merge re-anchor)
 **Parallel lane:** `SBW08` remains independently dispatchable
+**Existing PR:** `#439`
 
 > This slice turns the proven SBW06b backend into a dogfoodable operator loop. A GM submits the exact current editor working copy with explicit instructions, recovers the same operation after timeout or reload, and receives a new proposal without replacing the source candidate or saved mechanics.
+
+### Review-fix ledger (PR `#439`, post-rebase)
+
+| Finding | Status | Owning fix |
+| ------- | ------ | ---------- |
+| Storage write swallowed → POST without replay authority | Closed | `writeStoredReviseAttempt` returns boolean after setItem + getItem + validate + request_id/body equality; Workbench blocks POST on false |
+| `awaiting_local_refresh` dead end | Closed | `Finish loading revised proposal` runs draft GET → ref/lineage proof → typed candidate load → mark complete; zero revise POSTs |
+| `revise_busy` / `revise_history_full` terminalized | Closed | `classifyReviseResult` → `resume_same`; Resume sends exact stored body |
+| Accept/Save wrong draft identity / enabled without snapshot | Closed | Candidate-bound `createdDraft` + refreshed `threatDraft` precede Advanced fields; `draftAuthorityUnavailable` disables Accept/Save |
+| Proposal history hidden when candidate miss | Closed | `ProposalHistoryPanel` renders from `threatDraft` independently of `activeCandidate` |
+| Prior four findings (reconcile proof, race ownership, class-driven actions, Unicode) | Preserved | Regression suite retained through rebase |
+
+**Verification (2026-07-28):**
+
+```text
+npm --prefix apps/live-control-ui test -- --run \
+  src/api/liveApi.test.ts \
+  src/statblocks/revision/statblockRevisionAttempt.test.ts \
+  src/surface/modules/StatblockWorkbenchModule.test.tsx
+→ 161 passed / 0 failed
+
+typecheck: main baseline 34 diagnostics; PR head 33; PR adds no new diagnostics
+  (shared planSurface/graphReview failures; PR drops unused writeStoredAcceptOperationId on Workbench)
+npm run build: exit 2 on both main and PR for the same tsc -b baseline (vite assets not reached)
+Bounded discovery: none
+Real-provider dogfood: not run
+```
 
 ---
 

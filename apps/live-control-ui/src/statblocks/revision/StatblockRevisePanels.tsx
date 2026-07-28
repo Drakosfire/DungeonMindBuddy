@@ -89,9 +89,11 @@ export function ReviseWithAiPanel({
   onCreate,
   onResume,
   onStartNew,
+  onRetryLocalRefresh,
   revisePending,
   showResume,
   showStartNew,
+  showRetryLocalRefresh,
   disabled,
   createDisabled,
   statusMessage,
@@ -110,9 +112,11 @@ export function ReviseWithAiPanel({
   onCreate: () => void;
   onResume: () => void;
   onStartNew: () => void;
+  onRetryLocalRefresh?: () => void;
   revisePending: boolean;
   showResume: boolean;
   showStartNew: boolean;
+  showRetryLocalRefresh?: boolean;
   disabled: boolean;
   createDisabled?: boolean;
   statusMessage: string | null;
@@ -187,6 +191,16 @@ export function ReviseWithAiPanel({
             data-testid="revise-resume-same"
           >
             Resume same revise
+          </button>
+        ) : null}
+        {showRetryLocalRefresh === true && onRetryLocalRefresh ? (
+          <button
+            type="button"
+            onClick={onRetryLocalRefresh}
+            disabled={revisePending}
+            data-testid="revise-retry-local-refresh"
+          >
+            Finish loading revised proposal
           </button>
         ) : null}
         {showStartNew ? (

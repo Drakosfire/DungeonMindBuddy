@@ -2,10 +2,10 @@
 
 **Status:** ACTIVE SLICE / IMPLEMENTATION
 **Date:** 2026-07-27
-**PR base / repository tip:** `32eb1571` on `main` (`#435` SBW06b merge)
+**PR base / repository tip:** `77001524` on `main` (SBW06c rebase integration; contains `#435` / `32eb1571`)
 **Logical SBW predecessor:** `#435` / `32eb1571` — SBW06b MERGED
-**This PR / active focus:** `SBW06c` — Workbench revise UX (exact working copy + stable replay + proposal history)
-**Next dispatch after this PR merges:** `SBW06d` (revise from exact accepted mechanics locator)
+**This PR / active focus:** `SBW06c` — Workbench revise UX (exact working copy + stable replay + proposal history) — PR `#439`
+**Next dispatch after this PR merges:** `SBW06d` (revise from exact accepted mechanics locator; re-anchor required)
 **Verification debt:** SBW04 `#397` real-candidate live proof remains unchecked (HANDOFF-sbw04 minimal live proof).
 
 **Design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
