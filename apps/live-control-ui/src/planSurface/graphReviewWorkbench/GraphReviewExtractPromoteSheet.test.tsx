@@ -15,7 +15,10 @@ import type { PlanContextDescriptor } from "../types";
 import { ProjectionProvider } from "../projection/projectionContext";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
-import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
+import {
+  GraphReviewLiveStateProvider,
+  useGraphReviewLiveState,
+} from "./GraphReviewLiveStateContext";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 
 vi.mock("../../api/liveApi", async () => {
@@ -608,6 +611,89 @@ describe("GraphReviewExtractPromoteSheet", () => {
     resolveRefresh();
     await waitFor(() => expect(onCatalogRefresh).toHaveBeenCalledTimes(1));
   });
+
+  it("clears confirmInFlight when the sheet unmounts during terminal adoption", async () => {
+    let resolveProjection!: (value: Awaited<ReturnType<typeof postWorldGraphProjection>>) => void;
+    const deferredProjection = new Promise<Awaited<ReturnType<typeof postWorldGraphProjection>>>(
+      (resolve) => {
+        resolveProjection = resolve;
+      },
+    );
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
+      confirmReceipt({ affectedObjectIds: ["object-1"] }),
+    );
+    vi.mocked(postWorldGraphProjection).mockReturnValue(deferredProjection);
+
+    function InFlightHarness() {
+      const [inFlight, setInFlight] = useState(false);
+      const { committedPhase } = useGraphReviewLiveState();
+      return (
+        <>
+          <span data-testid="confirm-in-flight">{inFlight ? "yes" : "no"}</span>
+          {committedPhase === "candidate" ? (
+            <GraphReviewExtractPromoteSheet
+              prepared={prepareResponse()}
+              onClose={() => undefined}
+              onConfirmInFlightChange={setInFlight}
+            />
+          ) : (
+            <span data-testid="sheet-replaced-by-committed">replaced</span>
+          )}
+        </>
+      );
+    }
+
+    renderWithLiveRun(baseRun(), <InFlightHarness />);
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("sheet-replaced-by-committed")).toBeInTheDocument();
+      // Unmount cleanup must clear parent in-flight; otherwise run cleanup/selection stays blocked.
+      expect(screen.getByTestId("confirm-in-flight")).toHaveTextContent("no");
+    });
+
+    resolveProjection({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev:committed",
+        headRevisionId: "rev:committed",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-25", campaignId: "longmont-c2" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "object-1",
+          label: "Hesta Ironroot",
+          kind: "npc",
+          role: "character",
+          aliases: [],
+          sourceDomains: [],
+          anchoredToFocusSession: true,
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+  });
 });
 
 describe("GraphReviewSessionToolbar", () => {
@@ -799,5 +885,60 @@ describe("GraphReviewSessionToolbar", () => {
       ).toBeInTheDocument();
     });
     expect(screen.queryByTestId("graph-review-review-and-merge")).toBeNull();
+  });
+
+  it("preserves terminal receipt when prepared/binding adoption validation fails and keeps prepare hidden", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
+      confirmReceipt({
+        proposalDigest: "digest-mismatch",
+        affectedObjectIds: ["object-1"],
+      }),
+    );
+    vi.mocked(postWorldGraphProjection).mockClear();
+
+    function AuthorityProbe() {
+      const { committedPhase, committedReceipt, committedError } = useGraphReviewLiveState();
+      return (
+        <>
+          <span data-testid="committed-phase">{committedPhase}</span>
+          <span data-testid="committed-has-receipt">
+            {committedReceipt ? "yes" : "no"}
+          </span>
+          <span data-testid="committed-error">{committedError ?? ""}</span>
+        </>
+      );
+    }
+
+    renderWithLiveRun(
+      baseRun(),
+      <>
+        <AuthorityProbe />
+        <GraphReviewSessionToolbar />
+        <GraphReviewExtractPromoteSheet
+          prepared={prepareResponse()}
+          onClose={() => undefined}
+        />
+      </>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-review-and-merge")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("committed-has-receipt")).toHaveTextContent("yes");
+      expect(screen.getByTestId("committed-phase")).toHaveTextContent("error");
+    });
+    expect(screen.getByTestId("committed-error")).toHaveTextContent(
+      /proposalDigest does not match the prepared proposal/i,
+    );
+    expect(postWorldGraphProjection).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId("graph-review-committed-prepare-suppressed"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-review-and-merge")).toBeNull();
+    expect(screen.queryByTestId("graph-review-extract-promote-merge-cta")).toBeNull();
+    expect(screen.queryByTestId("graph-review-extract-promote-retry-exact-confirm")).toBeNull();
   });
 });

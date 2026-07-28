@@ -28,6 +28,7 @@ import { buildGraphReviewCommittedProjectionRequest } from "../../worldGraph/wor
 import { useGraphReviewAuthorDraftWorkflow } from "./useGraphReviewAuthorDraftWorkflow";
 import {
   committedBindingsEqual,
+  isTerminalConfirmOutcome,
   normalizeAffectedObjectIds,
   selectFirstPresentCommittedObjectId,
   validateCommittedProjectionResponse,
@@ -295,6 +296,23 @@ export function useGraphReviewLiveReviewState({
         committedBindingRef.current,
       );
       if (!adoption.ok) {
+        // Terminal publication already happened. Preserve the receipt so
+        // prepare/confirm cannot reopen for this binding even when
+        // prepared/binding integrity checks fail closed.
+        if (nextReceipt && isTerminalConfirmOutcome(nextReceipt.outcome)) {
+          const affectedObjectIds = normalizeAffectedObjectIds(
+            nextReceipt.affectedObjectIds ?? [],
+          );
+          setCommittedReceipt({
+            ...nextReceipt,
+            affectedObjectIds,
+          });
+          setCommittedAffectedObjectIds(affectedObjectIds);
+          setCommittedBindingState(committedBindingRef.current);
+        }
+        setCommittedProjection(null);
+        setCommittedSelectedObjectId(null);
+        setCommittedRequest(null);
         setCommittedPhase("error");
         setCommittedError(adoption.reason);
         throw new Error(adoption.reason);

@@ -125,6 +125,11 @@ export function GraphReviewExtractPromoteSheet({
 
   useEffect(() => {
     onConfirmInFlightChange?.(confirming);
+    return () => {
+      // Parent may replace this sheet mid-adoption (committed authority takes
+      // over). Always clear in-flight so run cleanup / selection is not stuck.
+      onConfirmInFlightChange?.(false);
+    };
   }, [confirming, onConfirmInFlightChange]);
 
   const effectiveSelectedIds = useMemo(() => {
