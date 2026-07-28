@@ -1,7 +1,7 @@
 # HANDOFF — SBW04 Shared semantic statblock renderer and read-only candidate workbench
 
 **Created:** 2026-07-22  
-**Status:** IMPLEMENTING — `feat/sbw04-semantic-renderer`; base includes Milestone B bite-schedule docs.  
+**Status:** MERGED `#397` — live-provider proof debt remains open (see roadmap `R0-A` / SBW04 notes).  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw04-semantic-renderer-candidate-workbench.md`  
 **Workstream:** `SBW04`  
 **Repository:** `Drakosfire/DungeonMindBuddy`

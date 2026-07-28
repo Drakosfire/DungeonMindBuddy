@@ -17,8 +17,8 @@
 
 **Merge SHA:** `32eb1571f67b64c3b8c8ebd4d9fa9e6059eece05`
 **Reviewed tip before merge:** `226f4a4d3cbe827179fcdcf2ee368f0d72cf3c26`
-**Next Milestone B slice:** `SBW06c` — Workbench revise UX ([`HANDOFF-sbw06c-workbench-revise-ux.md`](HANDOFF-sbw06c-workbench-revise-ux.md))
-**Parallel work that remains independently dispatchable:** `SBW08` — World Graph external-resource/binding contract
+**Named successor (merged):** `SBW06c` — PR `#439` / `ff553bd81fc82e65d92ddbd1d05af5fc03f1adc7`
+**Current sequencing:** reboot dogfood `R0-A` / `R0-B`, then re-anchor later slices from [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md) — do not treat `SBW08` as independently ahead of `MAGIC-D2`
 
 > The dogfood pause has ended. This slice completes the backend product boundary intentionally deferred by SBW06a: a revise operation that has produced and cached a candidate becomes ordinary product success only after one lineage-bearing candidate ref is visible on the ThreatDraft and the revise journal is durably reconciled.
 
