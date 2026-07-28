@@ -4,6 +4,7 @@ import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/wor
 import {
   admitBuildDocumentScope,
   buildBuildWorldGraphProjectionRequest,
+  buildGraphReviewCommittedProjectionRequest,
   buildWorldGraphRecapProjectionRequest,
   getWorldIdForCampaign,
 } from "./worldGraphSurfaceContext";
@@ -46,6 +47,48 @@ describe("worldGraphSurfaceContext", () => {
       admissibility: "gm",
       revisionPin: session23WorldGraphRecapFixture.snapshot.revisionId,
     });
+  });
+
+  it("buildGraphReviewCommittedProjectionRequest uses receipt.worldId and revisionPin", () => {
+    expect(
+      buildGraphReviewCommittedProjectionRequest({
+        campaignId: "longmont-c2",
+        sessionId: "session-25",
+        receipt: {
+          worldId: "eldyrwild",
+          committedRevisionId: "rev:committed",
+        },
+      }),
+    ).toEqual({
+      schema: "dmb_world_graph_projection_request_v1",
+      worldId: "eldyrwild",
+      campaignId: "longmont-c2",
+      scopeMode: "campaign",
+      focus: {
+        kind: "session",
+        sessionId: "session-25",
+        campaignId: "longmont-c2",
+      },
+      admissibility: "gm",
+      revisionPin: "rev:committed",
+    });
+  });
+
+  it("buildGraphReviewCommittedProjectionRequest fails closed on unknown or mismatched world mapping", () => {
+    expect(
+      buildGraphReviewCommittedProjectionRequest({
+        campaignId: "unknown-campaign",
+        sessionId: null,
+        receipt: { worldId: "eldyrwild", committedRevisionId: "rev:committed" },
+      }),
+    ).toBeNull();
+    expect(
+      buildGraphReviewCommittedProjectionRequest({
+        campaignId: "longmont-c2",
+        sessionId: null,
+        receipt: { worldId: "other-world", committedRevisionId: "rev:committed" },
+      }),
+    ).toBeNull();
   });
 
   it("admitBuildDocumentScope accepts campaign-scoped and world-scoped documents", () => {

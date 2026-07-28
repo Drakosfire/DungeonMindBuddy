@@ -48,6 +48,38 @@ export function buildBuildWorldGraphProjectionRequest(input: {
   };
 }
 
+/**
+ * Post-confirm Graph Review exact read.
+ * Uses receipt.worldId (no remapping). Fail closed when campaign map is missing
+ * or disagrees with the receipt world.
+ */
+export function buildGraphReviewCommittedProjectionRequest(input: {
+  campaignId: string;
+  sessionId?: string | null;
+  receipt: { worldId: string; committedRevisionId: string };
+}): WorldGraphProjectionRequest | null {
+  const campaignId = input.campaignId.trim();
+  const receiptWorldId = input.receipt.worldId.trim();
+  const committedRevisionId = input.receipt.committedRevisionId.trim();
+  if (!campaignId || !receiptWorldId || !committedRevisionId) return null;
+
+  const mappedWorldId = getWorldIdForCampaign(campaignId);
+  if (!mappedWorldId || mappedWorldId !== receiptWorldId) return null;
+
+  const sessionId = input.sessionId?.trim() || "";
+  return {
+    schema: "dmb_world_graph_projection_request_v1",
+    worldId: receiptWorldId,
+    campaignId,
+    scopeMode: "campaign",
+    focus: sessionId
+      ? { kind: "session", sessionId, campaignId }
+      : { kind: "none", sessionId: null },
+    admissibility: "gm",
+    revisionPin: committedRevisionId,
+  };
+}
+
 export function admitBuildDocumentScope(input: {
   documentCampaignId: string | null | undefined;
   incomingCampaignId: string;
