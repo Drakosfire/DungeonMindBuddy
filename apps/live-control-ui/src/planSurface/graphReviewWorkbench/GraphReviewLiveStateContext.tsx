@@ -2,6 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 import type { GoldReviewCompareResponse, GraphIngestRunSummary } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
+import type { GraphReviewCommittedBinding } from "./graphReviewCommittedAuthority";
 import {
   useGraphReviewLiveReviewState,
   type GraphReviewLiveReviewState,
@@ -41,6 +42,7 @@ export interface GraphReviewLiveStateProviderProps
   compareError: string | null;
   selection: GoldReviewSelection | null;
   onSelectSelection: (selection: GoldReviewSelection) => void;
+  committedBinding?: GraphReviewCommittedBinding | null;
   children: ReactNode;
 }
 
