@@ -50,6 +50,8 @@ class DurableAssertionSupport(BaseModel):
     """
     per_contribution_source_artifact_ids: dict[str, list[str]] = Field(default_factory=dict)
     """Exact source-artifact lineage each active contribution asserted at merge time."""
+    per_contribution_assertion_ids: dict[str, str] = Field(default_factory=dict)
+    """Original assertion_id contributed by each active contribution (first-wins edge maps)."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 

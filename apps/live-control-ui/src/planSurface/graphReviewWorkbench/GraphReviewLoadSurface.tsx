@@ -28,14 +28,11 @@ export function GraphReviewLoadSurface({
   sessions,
   draftCampaignId,
   draftSessionId,
-  draftManifestPath,
   draftSession,
-  draftLiveRun,
   onClose,
   onLoad,
   onCampaignSelect,
   onSessionSelect,
-  onManifestSelect,
 }: GraphReviewLoadSurfaceProps) {
   useEffect(() => {
     if (!open) return;
@@ -48,10 +45,7 @@ export function GraphReviewLoadSurface({
 
   if (!open) return null;
 
-  const canLoad =
-    Boolean(draftSession) &&
-    hasCatalogReviewableRun(draftSession!) &&
-    Boolean(draftLiveRun?.preview_union_available);
+  const canLoad = Boolean(draftSession) && hasCatalogReviewableRun(draftSession!);
 
   return (
     <div
@@ -70,7 +64,9 @@ export function GraphReviewLoadSurface({
         <header className="graph-review-projected-interaction-header">
           <div>
             <p className="plan-surface-kicker">Load session</p>
-            <h3 id="graph-review-load-surface-title">Choose campaign, session, and run</h3>
+            <h3 id="graph-review-load-surface-title">
+              Choose campaign and World Graph session
+            </h3>
           </div>
           <button type="button" aria-label="Close load dialog" onClick={onClose}>
             Close
@@ -81,13 +77,11 @@ export function GraphReviewLoadSurface({
           sessions={sessions}
           selectedCampaignId={draftCampaignId}
           selectedSessionId={draftSessionId}
-          selectedManifestPath={draftManifestPath}
           onCampaignSelect={onCampaignSelect}
           onSessionSelect={onSessionSelect}
-          onManifestSelect={onManifestSelect}
         />
 
-        <GraphReviewLoadLaneSummary session={draftSession} liveRun={draftLiveRun} />
+        <GraphReviewLoadLaneSummary session={draftSession} liveRun={null} />
 
         <div className="graph-review-load-surface-actions">
           <button type="button" onClick={onClose}>

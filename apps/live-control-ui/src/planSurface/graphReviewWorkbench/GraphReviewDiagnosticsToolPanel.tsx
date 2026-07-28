@@ -27,7 +27,6 @@ export function GraphReviewDiagnosticsToolPanel({
   const {
     campaignId,
     sessionId,
-    liveRun,
     projection,
     projectionStatus,
     compareStatus,
@@ -60,10 +59,10 @@ export function GraphReviewDiagnosticsToolPanel({
     selectedVariantInventoryRow,
   } = payload;
 
-  if (projectionStatus !== "ready" || !projection || !liveRun) {
+  if (projectionStatus !== "ready" || !projection) {
     return (
       <p className="plan-projection-empty">
-        Select a live run with a projection to inspect diagnostics.
+        Load a World Graph session with a projection to inspect diagnostics.
       </p>
     );
   }

@@ -415,7 +415,7 @@ describe("GraphReviewAuthorNodePanel", () => {
 
     expect(
       screen.getByText(
-        "Load an ingested session to author graph nodes from the projected recap.",
+        "Load a World Graph session to author graph nodes from the projected recap.",
       ),
     ).toBeInTheDocument();
   });

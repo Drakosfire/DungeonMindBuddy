@@ -117,11 +117,13 @@ export function GraphReviewAuthorDraftWorkspace() {
     setRailFraction(nextFraction);
   }, []);
 
-  if (!projection || !liveRun) {
+  if (!projection) {
     return null;
   }
 
   const readerFraction = 1 - railFraction;
+  const browseKey = `${campaignId}:${sessionId}:world-graph`;
+  const sourceArtifactPath = liveRun?.manifest_path ?? null;
 
   return (
     <section
@@ -138,12 +140,16 @@ export function GraphReviewAuthorDraftWorkspace() {
       >
         <div className="graph-review-author-draft-reader-pane">
           <GraphReviewAuthoringReader
-            key={`${campaignId}:${sessionId}:${liveRun.manifest_path}`}
+            key={
+              liveRun
+                ? `${campaignId}:${sessionId}:${liveRun.manifest_path}`
+                : browseKey
+            }
             campaignId={campaignId}
             sessionId={sessionId}
             graphId={projection.graph_id}
             laneRole="live"
-            sourceArtifactPath={liveRun.manifest_path}
+            sourceArtifactPath={sourceArtifactPath}
             markdown={projection.markdown ?? FALLBACK_MARKDOWN}
             nodeViews={projection.node_views}
             sourceSpans={paragraphSourceSpans}

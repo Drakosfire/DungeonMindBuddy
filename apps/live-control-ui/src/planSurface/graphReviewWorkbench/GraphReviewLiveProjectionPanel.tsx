@@ -2,7 +2,7 @@ import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { GraphReviewProjectedInteractionSurface } from "./GraphReviewProjectedInteractionSurface";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
-const FALLBACK_MARKDOWN = `# Projection unavailable\n\nThe selected live run did not return projected recap Markdown.`;
+const FALLBACK_MARKDOWN = `# Projection unavailable\n\nThe selected World Graph session did not return projected recap Markdown.`;
 
 function metadataValue(value: string | null | undefined): string {
   return value && value.trim() ? value : "—";
@@ -43,14 +43,17 @@ export function GraphReviewLiveProjectionPanel() {
     setProjectedInteractionOpen(true);
   };
 
+  const projectionReady = projectionStatus === "ready" && Boolean(projection);
+  const laneSubtitle = liveRun ? runIdentity : "World Graph · committed session";
+
   return (
     <section
       className={`graph-review-live-projection-panel${hasGold ? "" : " graph-review-live-only-projection-panel"}`}
-      aria-label={hasGold ? "Gold and live source projections" : "Ingested recap projection"}
+      aria-label={hasGold ? "Gold and live source projections" : "World Graph recap projection"}
     >
       {projectionStatus === "idle" ? (
         <p className="graph-review-live-projection-status">
-          Select a live graph-ingest run to render its source projection.
+          Load a World Graph session to render its recap projection.
         </p>
       ) : null}
 
@@ -95,20 +98,20 @@ export function GraphReviewLiveProjectionPanel() {
 
       {projectionStatus === "loading" ? (
         <p className="graph-review-live-projection-status" role="status">
-          Loading selected live lane projection…
+          Loading World Graph recap projection…
         </p>
       ) : null}
 
-      {projectionStatus === "error" && liveRun ? (
+      {projectionStatus === "error" ? (
         <div className="graph-review-error" role="alert">
           <p>
-            {projectionError ?? "Failed to load selected live lane projection."}
+            {projectionError ?? "Failed to load World Graph recap projection."}
           </p>
-          <p>Selected run: {runIdentity}</p>
+          {liveRun ? <p>Selected run: {runIdentity}</p> : null}
         </div>
       ) : null}
 
-      {projectionStatus === "ready" && projection && liveRun ? (
+      {projectionReady ? (
         <>
           {hasGold && goldProjectionStatus === "loading" ? (
             <p className="graph-review-live-projection-status" role="status">
@@ -153,12 +156,12 @@ export function GraphReviewLiveProjectionPanel() {
             ) : null}
             <GraphReviewProjectionLane
               laneRole="live"
-              title={hasGold ? "Live Run · read-only" : "Ingested recap"}
-              subtitle={runIdentity}
-              markdown={projection.markdown ?? FALLBACK_MARKDOWN}
-              nodeViews={projection.node_views}
+              title={hasGold ? "World Graph · read-only" : "World Graph recap"}
+              subtitle={laneSubtitle}
+              markdown={projection!.markdown ?? FALLBACK_MARKDOWN}
+              nodeViews={projection!.node_views}
               sourceSpans={paragraphSourceSpans}
-              mentionsCount={projection.mentions.length}
+              mentionsCount={projection!.mentions.length}
               deltaIndex={deltaIndex}
               activeObject={activeLaneObject}
               onActiveObjectChange={setActiveLaneObject}

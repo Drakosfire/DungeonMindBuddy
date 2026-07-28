@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -15,6 +15,11 @@ from apps.live_control_server.services.world_graph_projection import (
 )
 from apps.live_control_server.services.world_graph_recap_projection import (
     build_world_graph_recap_projection_payload,
+)
+from apps.live_control_server.services.world_graph_sessions import (
+    DEFAULT_WORLD_ID,
+    WorldGraphSessionsResponse,
+    list_world_graph_sessions,
 )
 from graph_memory.projection.world_projection import (
     WorldGraphProjection,
@@ -87,6 +92,18 @@ def _reject_query_params(request: Request) -> None:
                 )
             ],
         )
+
+
+@router.get("/sessions", response_model=WorldGraphSessionsResponse)
+def get_world_graph_sessions(
+    world_id: Annotated[str, Query()] = DEFAULT_WORLD_ID,
+    campaign_id: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    """Browse catalog: sessions present in active World Graph contributions."""
+    return list_world_graph_sessions(
+        world_id=world_id,
+        campaign_id=campaign_id,
+    ).model_dump(mode="json")
 
 
 @router.post("/projection", response_model=WorldGraphProjection)

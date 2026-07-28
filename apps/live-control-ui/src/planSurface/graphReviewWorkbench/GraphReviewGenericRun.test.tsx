@@ -471,50 +471,23 @@ describe("GraphReviewGenericRun", () => {
   });
 
   it("Load recap clears exact-run mode and removes handoff query params", async () => {
-    const sessionRun = {
-      manifest_path: "artifacts/run-a/manifest.json",
-      run_dir: "artifacts/run-a",
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      status: "preview_union_store_ready",
-      updated_at: null,
-      created_at: null,
-      preview_union_store_path: "artifacts/run-a/preview-union.json",
-      preview_union_store_valid: true,
-      node_count: 2,
-      edge_count: 1,
-      evidence_ref_count: 1,
-      next_actions: [],
-      run_id: "run-a",
-      run_label: "Run A",
-      generated_at: null,
-      model_id: null,
-      model_provider: null,
-      extraction_profile: "baseline",
-      extraction_mode: null,
-      vocabulary_mode: "node",
-      runner_options_summary: {},
-      diagnostics_summary: {},
-      preview_union_available: true,
-    };
-    vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-      schema_version: "dmb_graph_ingest_run_registry_v1",
+    vi.spyOn(liveApi, "getWorldGraphSessions").mockResolvedValue({
+      schema_version: "dmb_world_graph_sessions_v1",
       version: "0.1",
-      runs: [sessionRun],
-    });
-    vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
-      schema_version: "dmb_graph_gold_review_sessions_v1",
-      version: "0.1",
+      world_id: "eldyrwild",
+      head_revision_id: "rev:test",
       sessions: [
         {
+          world_id: "eldyrwild",
+          campaign_id: "longmont-c2",
           session_id: "session-23",
           session_number: 23,
-          campaign_id: "longmont-c2",
-          gold_fixture_id: "gold-23",
-          gold_manifest_path: "m23",
-          gold_graph_path: "g23",
-          gold_counts: { nodes: 2, edges: 1, evidence_refs: 1, beats: 0 },
-          available_runs: [sessionRun],
+          contribution_count: 1,
+          contribution_ids: ["contribution:test"],
+          source_artifact_ids: ["artifact:recap:longmont-c2:session-23"],
+          head_revision_id: "rev:test",
+          recap_available: true,
+          browseable: true,
         },
       ],
     });
@@ -526,65 +499,37 @@ describe("GraphReviewGenericRun", () => {
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
     vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
     mockExactRunReviewPackage();
-    vi.spyOn(liveApi, "getGoldReviewCompare").mockResolvedValue({
-      schema_version: "dmb_graph_gold_review_compare_v1",
-      version: "0.1",
-      session_id: "session-23",
-      campaign_id: "longmont-c2",
-      gold_fixture_id: "gold-23",
-      gold_manifest_path: "m23",
-      gold_graph_path: "g23",
-      live_run: null,
-      comparison: {
-        scores: {
-          node_recall: 0,
-          edge_recall: 0,
-          beat_recall: 0,
-          proposed_write_recall: 0,
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+      schema: "dmb_world_graph_recap_projection_v1",
+      campaignId: "longmont-c2",
+      sessionId: "session-23",
+      graphId: "graph-a",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev:test",
+        headRevisionId: "rev:test",
+        isHead: true,
+        focus: {
+          kind: "session",
+          sessionId: "session-23",
+          campaignId: "longmont-c2",
         },
-        coverage: {
-          missing_gold_nodes: [],
-          gold_nodes_total: 0,
-          candidate_nodes_total: 0,
-          matched_nodes: [],
-        },
-        soft_misses: [],
+        admissibility: "gm",
+        scopeMode: "campaign",
       },
-      object_index: { gold: {}, live: {} },
-      match_pairs: {},
-    });
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      graph_id: "graph-a",
       markdown: "Recap prose after load",
       focus: {
-        focus_session_id: "session-23",
-        focused_evidence_ref_ids: [],
-        focused_edge_ids: [],
-        focused_node_ids: [],
+        focusSessionId: "session-23",
+        focusedEvidenceRefIds: [],
+        focusedEdgeIds: [],
+        focusedNodeIds: [],
       },
-      node_views: {},
-      source_spans: [],
+      nodeViews: {},
+      sourceSpans: [],
       mentions: [],
-    });
-    vi.spyOn(liveApi, "getGoldGraphProjection").mockResolvedValue({
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      graph_id: "gold-graph",
-      markdown: "Gold prose",
-      focus: {
-        focus_session_id: "session-23",
-        focused_evidence_ref_ids: [],
-        focused_edge_ids: [],
-        focused_node_ids: [],
-      },
-      node_views: {},
-      source_spans: [],
-      mentions: [],
-      source_kind: "gold_fixture",
-      gold_fixture_id: "gold-23",
-      gold_fixture_relpath: "gold/session-23.json",
+      diagnostics: [],
+      trustBoundary: { canTrust: [], cannotTrust: [] },
     });
 
     render(<GraphReviewWorkbenchModule context={context} />);

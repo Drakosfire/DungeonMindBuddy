@@ -2443,6 +2443,27 @@ export interface WorldGraphProjectionTrustBoundary {
   cannotTrust: string[];
 }
 
+export interface WorldGraphSessionSummary {
+  world_id: string;
+  campaign_id: string;
+  session_id: string;
+  session_number: number | null;
+  contribution_count: number;
+  contribution_ids: string[];
+  source_artifact_ids: string[];
+  head_revision_id: string | null;
+  recap_available: boolean;
+  browseable: boolean;
+}
+
+export interface WorldGraphSessionsResponse {
+  schema_version: "dmb_world_graph_sessions_v1";
+  version: string;
+  world_id: string;
+  head_revision_id: string | null;
+  sessions: WorldGraphSessionSummary[];
+}
+
 export interface WorldGraphRecapProjection {
   schema: "dmb_world_graph_recap_projection_v1";
   campaignId: string;

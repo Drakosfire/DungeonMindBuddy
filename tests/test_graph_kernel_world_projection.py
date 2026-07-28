@@ -1018,6 +1018,160 @@ def test_multi_source_semantic_divergence_fails_integrity(
     assert exc_info.value.code == "projection_integrity_error"
 
 
+def test_first_wins_mapped_divergent_assertion_projects(
+    tmp_path: Path,
+    loaded_bundle,
+) -> None:
+    """Shadow contribution may keep a different assertion_id + semantics.
+
+    First-wins maps record the shadow under the survivor support id via
+    ``per_contribution_assertion_ids``; projection must use the map for
+    provenance lookup and keep the survivor semantic payload.
+    """
+    _initialize(tmp_path, loaded_bundle)
+    assertion = next(
+        attribute
+        for attribute in kernel.project_world_graph(tmp_path, _request()).attributes
+        if attribute.subject_node_id == TRIPOD_ID
+        and (attribute.label or attribute.predicate) == "battlefield_role"
+    )
+    original_text = assertion.text_value
+
+    shadow_evidence = "evidence:test:first-wins-shadow"
+    shadow_path = (
+        tmp_path
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "contributions"
+        / f"{DUP_DIVERGENT_CONTRIBUTION_ID.replace(':', '__')}.json"
+    )
+    original = _load_tripod_contribution_json(tmp_path)
+    duplicate = deepcopy(original)
+    duplicate["contribution_id"] = DUP_DIVERGENT_CONTRIBUTION_ID
+    duplicate["source_artifact_id"] = DUP_SOURCE_ARTIFACT_ID
+    duplicate["source_revision_id"] = "first-wins-shadow"
+    survivor_item = next(
+        item
+        for item in original["accepted_assertions"]
+        if item["assertion_id"] == assertion.assertion_id
+    )
+    shadow = deepcopy(survivor_item)
+    shadow["contribution_id"] = DUP_DIVERGENT_CONTRIBUTION_ID
+    shadow["evidence_ref_ids"] = [shadow_evidence]
+    shadow["source_artifact_id"] = DUP_SOURCE_ARTIFACT_ID
+    shadow["value"] = {
+        **survivor_item["value"],
+        "text": "First-wins shadow battlefield role",
+        "source_domains": ["statblock"],
+        "source_domain": "statblock",
+        "source_artifact_id": DUP_SOURCE_ARTIFACT_ID,
+        "evidence_ref_ids": [shadow_evidence],
+        "evidence": [
+            {
+                "evidence_ref_id": shadow_evidence,
+                "locator": "jsonptr:/accepted_assertions/0",
+                "source_artifact_id": DUP_SOURCE_ARTIFACT_ID,
+                "source_domain": "statblock",
+            }
+        ],
+        "source_artifacts": [
+            {
+                "campaign_id": CAMPAIGN_ID,
+                "source_artifact_id": DUP_SOURCE_ARTIFACT_ID,
+                "source_domain": "statblock",
+                "uri": "graph-data://test/first-wins-shadow",
+            }
+        ],
+    }
+    shadow["assertion_id"] = kernel.compute_assertion_id(
+        assertion_kind=shadow["assertion_kind"],
+        subject_node_id=shadow.get("subject_node_id"),
+        target_node_id=shadow.get("target_node_id"),
+        predicate=shadow.get("predicate"),
+        label=shadow.get("label"),
+        value=shadow.get("value"),
+        campaign_scope=shadow.get("campaign_scope"),
+        temporal_scope=shadow.get("temporal_scope"),
+        epistemic_kind=shadow.get("epistemic_kind"),
+        visibility=shadow.get("visibility"),
+    )
+    shadow_assertion_id = shadow["assertion_id"]
+    assert shadow_assertion_id != assertion.assertion_id
+    duplicate["accepted_assertions"] = [shadow]
+    shadow_path.write_text(json.dumps(duplicate, indent=2), encoding="utf-8")
+
+    _head, _revision, store = kernel.open_current_world_graph(tmp_path, WORLD_ID)
+    support = dict(store.assertion_support[assertion.assertion_id])
+    support["active_contribution_ids"] = sorted(
+        {
+            *support["active_contribution_ids"],
+            DUP_DIVERGENT_CONTRIBUTION_ID,
+        }
+    )
+    support["evidence_ref_ids"] = sorted(
+        {
+            *support.get("evidence_ref_ids", []),
+            shadow_evidence,
+        }
+    )
+    support["source_artifact_ids"] = sorted(
+        {
+            *support.get("source_artifact_ids", []),
+            DUP_SOURCE_ARTIFACT_ID,
+        }
+    )
+    support["per_contribution_evidence_ref_ids"] = {
+        **support.get("per_contribution_evidence_ref_ids", {}),
+        DUP_DIVERGENT_CONTRIBUTION_ID: [shadow_evidence],
+    }
+    support["per_contribution_source_artifact_ids"] = {
+        **support.get("per_contribution_source_artifact_ids", {}),
+        DUP_DIVERGENT_CONTRIBUTION_ID: [DUP_SOURCE_ARTIFACT_ID],
+    }
+    support["per_contribution_assertion_ids"] = {
+        contribution_id: (
+            shadow_assertion_id
+            if contribution_id == DUP_DIVERGENT_CONTRIBUTION_ID
+            else assertion.assertion_id
+        )
+        for contribution_id in support["active_contribution_ids"]
+    }
+    store.assertion_support[assertion.assertion_id] = support
+    store.evidence[shadow_evidence] = UnionSupergraphEvidence(
+        evidence_ref_id=shadow_evidence,
+        source_artifact_id=DUP_SOURCE_ARTIFACT_ID,
+        source_domain="statblock",
+        evidence_role="contribution_support",
+        can_open_source=True,
+        can_highlight_span=False,
+        locator="jsonptr:/accepted_assertions/0",
+    )
+    if DUP_SOURCE_ARTIFACT_ID not in store.source_artifacts:
+        store.source_artifacts[DUP_SOURCE_ARTIFACT_ID] = UnionSupergraphSourceArtifact(
+            source_artifact_id=DUP_SOURCE_ARTIFACT_ID,
+            source_domain="statblock",
+            campaign_id=CAMPAIGN_ID,
+            uri="graph-data://test/first-wins-shadow",
+        )
+    kernel.publish_world_revision(
+        tmp_path,
+        WORLD_ID,
+        store,
+        operation_ids=["op:test-first-wins-mapped-divergence"],
+    )
+
+    projection = kernel.project_world_graph(tmp_path, _request())
+    battlefield = next(
+        item
+        for item in projection.attributes
+        if item.assertion_id == assertion.assertion_id
+    )
+    assert battlefield.text_value == original_text
+    assert DUP_DIVERGENT_CONTRIBUTION_ID in battlefield.active_contribution_ids
+    assert shadow_evidence in battlefield.evidence_ref_ids
+
+
 def test_retracted_edge_supporter_keeps_node_cards_aligned_with_relationship(
     tmp_path: Path,
     loaded_bundle,

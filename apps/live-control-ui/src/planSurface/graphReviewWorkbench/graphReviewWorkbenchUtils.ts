@@ -2,6 +2,7 @@ import type {
   GoldReviewSessionSummary,
   GraphIngestRunSummary,
   GraphReviewLane,
+  WorldGraphSessionSummary,
 } from "../../api/types";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import { goldReviewSessionLabel } from "../sessionCampaignContext";
@@ -13,6 +14,11 @@ export interface GraphReviewCatalogSession {
   availableRuns: GraphIngestRunSummary[];
   hasGold: boolean;
   hasReviewableRun: boolean;
+  /** World Graph browse row — Load recap uses this, not ingest runs. */
+  browseable: boolean;
+  recapAvailable: boolean;
+  contributionCount: number;
+  headRevisionId: string | null;
   goldFixtureId: string | null;
   goldManifestPath: string | null;
   goldGraphPath: string | null;
@@ -48,7 +54,38 @@ export function formatCompactAppliedLoadLabel(
 export function hasCatalogReviewableRun(
   session: GraphReviewCatalogSession,
 ): boolean {
+  if (session.browseable && session.recapAvailable) return true;
   return session.availableRuns.some((run) => run.preview_union_available);
+}
+
+export function buildWorldGraphBrowseCatalog(
+  sessions: WorldGraphSessionSummary[],
+): GraphReviewCatalogSession[] {
+  return sessions
+    .map((session) => ({
+      campaignId: session.campaign_id,
+      sessionId: session.session_id,
+      sessionNumber: session.session_number ?? parseSessionNumber(session.session_id),
+      availableRuns: [] as GraphIngestRunSummary[],
+      hasGold: false,
+      hasReviewableRun: session.browseable && session.recap_available,
+      browseable: session.browseable,
+      recapAvailable: session.recap_available,
+      contributionCount: session.contribution_count,
+      headRevisionId: session.head_revision_id,
+      goldFixtureId: null,
+      goldManifestPath: null,
+      goldGraphPath: null,
+      goldCounts: {},
+    }))
+    .sort((left, right) => {
+      const campaignCompare = left.campaignId.localeCompare(right.campaignId);
+      if (campaignCompare !== 0) return campaignCompare;
+      const leftNumber = left.sessionNumber ?? Number.MAX_SAFE_INTEGER;
+      const rightNumber = right.sessionNumber ?? Number.MAX_SAFE_INTEGER;
+      if (leftNumber !== rightNumber) return leftNumber - rightNumber;
+      return left.sessionId.localeCompare(right.sessionId);
+    });
 }
 
 export function buildGraphReviewCatalog(
@@ -69,6 +106,10 @@ export function buildGraphReviewCatalog(
       hasReviewableRun: goldSession.available_runs.some(
         (run) => run.preview_union_available,
       ),
+      browseable: false,
+      recapAvailable: false,
+      contributionCount: 0,
+      headRevisionId: null,
       goldFixtureId: goldSession.gold_fixture_id,
       goldManifestPath: goldSession.gold_manifest_path,
       goldGraphPath: goldSession.gold_graph_path,
@@ -97,6 +138,10 @@ export function buildGraphReviewCatalog(
       availableRuns: [ingestRun],
       hasGold: false,
       hasReviewableRun: ingestRun.preview_union_available,
+      browseable: false,
+      recapAvailable: false,
+      contributionCount: 0,
+      headRevisionId: null,
       goldFixtureId: null,
       goldManifestPath: null,
       goldGraphPath: null,

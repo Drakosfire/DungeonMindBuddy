@@ -4,10 +4,9 @@ import {
   getExtractionRun,
   getExtractionRunStatus,
   getGoldReviewCompare,
-  getGoldReviewSessions,
-  getGraphIngestRuns,
   getManualReviewBed,
   getManualReviewBeds,
+  getWorldGraphSessions,
   LiveApiError,
 } from "../../api/liveApi";
 import type {
@@ -46,15 +45,15 @@ import {
   writeAppliedSelectionToUrl,
 } from "./graphReviewAppliedSelection";
 import {
-  buildGraphReviewCatalog,
+  buildWorldGraphBrowseCatalog,
   catalogSessionToGoldLane,
   catalogSessionsForReviewCampaign,
   type GraphReviewCatalogSession,
   formatCompactAppliedLoadLabel,
   graphIngestRunToLane,
   GRAPH_REVIEW_RUNS_CHANGED_EVENT,
+  hasCatalogReviewableRun,
   pickDefaultCatalogSession,
-  pickDefaultWorkbenchRun,
 } from "./graphReviewWorkbenchUtils";
 import { manualVariantToLaneView } from "./graphReviewVariantReferenceUtils";
 import {
@@ -66,6 +65,7 @@ import type {
   GraphReviewExactRunHandoff,
   GraphReviewExactRunLineage,
 } from "./graphReviewRunSelection";
+import { getWorldIdForCampaign } from "../../worldGraph/worldGraphSurfaceContext";
 
 interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
@@ -83,14 +83,11 @@ function buildDefaultDraft(
     requestedSessionId,
     fallbackSessionId,
   );
-  if (!session) return null;
-  const run = pickDefaultWorkbenchRun(
-    session.availableRuns.filter((entry) => entry.preview_union_available),
-  );
+  if (!session || !hasCatalogReviewableRun(session)) return null;
   return {
     campaignId,
     sessionId: session.sessionId,
-    manifestPath: run?.manifest_path ?? null,
+    manifestPath: null,
   };
 }
 
@@ -102,26 +99,11 @@ function resolveSelectionAgainstCatalog(
   const campaignSessions = catalogSessionsForReviewCampaign(sessions, selection.campaignId);
   const session =
     campaignSessions.find((entry) => entry.sessionId === selection.sessionId) ?? null;
-  if (!session) return null;
-  const previewRuns = session.availableRuns.filter((run) => run.preview_union_available);
-  if (selection.manifestPath) {
-    const exact =
-      previewRuns.find((run) => run.manifest_path === selection.manifestPath) ??
-      session.availableRuns.find((run) => run.manifest_path === selection.manifestPath);
-    if (exact) {
-      return {
-        campaignId: selection.campaignId,
-        sessionId: selection.sessionId,
-        manifestPath: exact.manifest_path,
-      };
-    }
-  }
-  const fallbackRun = pickDefaultWorkbenchRun(previewRuns);
-  if (!fallbackRun) return null;
+  if (!session || !hasCatalogReviewableRun(session)) return null;
   return {
     campaignId: selection.campaignId,
     sessionId: selection.sessionId,
-    manifestPath: fallbackRun.manifest_path,
+    manifestPath: null,
   };
 }
 
@@ -130,12 +112,12 @@ function persistAppliedSelection(selection: GraphReviewAppliedSelection): void {
   writeAppliedSelectionToStorage(selection);
 }
 
-async function loadGraphReviewCatalog(): Promise<GraphReviewCatalogSession[]> {
-  const [runsResponse, goldResponse] = await Promise.all([
-    getGraphIngestRuns({ requirePreviewUnionStore: true }),
-    getGoldReviewSessions(),
-  ]);
-  return buildGraphReviewCatalog(runsResponse.runs, goldResponse.sessions);
+async function loadGraphReviewCatalog(
+  campaignId: string,
+): Promise<GraphReviewCatalogSession[]> {
+  const worldId = getWorldIdForCampaign(campaignId) ?? "eldyrwild";
+  const response = await getWorldGraphSessions({ worldId });
+  return buildWorldGraphBrowseCatalog(response.sessions);
 }
 
 export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModuleProps) {
@@ -267,8 +249,8 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     // Load → URL update → dep change cycle cannot flash the empty state.
     setSessionsError(null);
     try {
-      const catalog = await loadGraphReviewCatalog();
       const initialCampaignId = resolveInitialReviewCampaignId(context.campaignId);
+      const catalog = await loadGraphReviewCatalog(initialCampaignId);
       setCatalogSessions(catalog);
 
       const persistedHint = resolvePersistedAppliedSelection();
@@ -608,30 +590,20 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     );
     setDraftCampaignId(campaignId);
     setDraftSessionId(nextSession?.sessionId ?? "");
-    setDraftManifestPath(
-      pickDefaultWorkbenchRun(
-        (nextSession?.availableRuns ?? []).filter((run) => run.preview_union_available),
-      )?.manifest_path ?? null,
-    );
+    setDraftManifestPath(null);
   };
 
   const handleDraftSessionSelect = (sessionId: string) => {
-    const session =
-      draftCampaignSessions.find((item) => item.sessionId === sessionId) ?? null;
     setDraftSessionId(sessionId);
-    setDraftManifestPath(
-      pickDefaultWorkbenchRun(
-        (session?.availableRuns ?? []).filter((run) => run.preview_union_available),
-      )?.manifest_path ?? null,
-    );
+    setDraftManifestPath(null);
   };
 
   const handleApplyLoad = () => {
-    if (!draftSession || !draftLiveRun) return;
+    if (!draftSession || !hasCatalogReviewableRun(draftSession)) return;
     const nextApplied: GraphReviewAppliedSelection = {
       campaignId: draftCampaignId,
       sessionId: draftSession.sessionId,
-      manifestPath: draftLiveRun.manifest_path,
+      manifestPath: null,
     };
     // Loading a recap supersedes exact-run mode: clear handoff identity from
     // state and the URL so the module renders the selected recap immediately.
@@ -725,7 +697,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     );
   }
 
-  const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
+  const hasAppliedLoad = Boolean(
+    appliedSelection && appliedSession && hasCatalogReviewableRun(appliedSession),
+  );
+  const browseApplied = hasAppliedLoad && !appliedLiveRun;
   const hasExactRunLoad = Boolean(exactHandoff && exactRunStatus === "ready" && exactRun);
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
@@ -750,11 +725,12 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         campaignId={reviewCampaignId}
         sessionId={reviewSessionId}
         liveRun={hasAppliedLoad ? appliedLiveRun : null}
-        hasGold={hasAppliedLoad ? Boolean(appliedSession?.hasGold) : false}
-        compare={hasAppliedLoad ? compare : null}
-        compareStatus={hasAppliedLoad ? compareStatus : "idle"}
-        compareError={hasAppliedLoad ? compareError : null}
-        goldLane={hasAppliedLoad ? goldLane : null}
+        browseApplied={browseApplied}
+        hasGold={false}
+        compare={null}
+        compareStatus="idle"
+        compareError={null}
+        goldLane={null}
         liveLane={hasAppliedLoad ? liveLane : null}
         manualBeds={manualBeds}
         manualBedsStatus={manualBedsStatus}
@@ -856,12 +832,13 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
               chrome={
                 !hasCatalogSessions ? (
                   <p className="plan-projection-empty">
-                    No preview-ready graph runs are available yet. Use Ingest Recap in the toolbox to
-                    paste a recap, run extraction, and materialize a preview graph.
+                    No World Graph sessions are available yet. Merge session
+                    contributions into the World Graph head, then Load recap.
                   </p>
                 ) : !hasAppliedLoad ? (
                   <p className="plan-projection-empty graph-review-load-empty">
-                    Load an ingested session to review extracted objects in recap prose.
+                    Load a World Graph session to review committed objects in
+                    recap prose.
                   </p>
                 ) : (
                   <GraphReviewSessionToolbar />

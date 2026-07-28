@@ -1,6 +1,4 @@
-import type { GraphIngestRunSummary } from "../../api/types";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
-import { GraphGoldReviewRunPicker } from "../graphGoldReview/GraphGoldReviewRunPicker";
 import {
   catalogSessionLabel,
   catalogSessionsForReviewCampaign,
@@ -12,10 +10,8 @@ interface GraphReviewLanePickerProps {
   sessions: GraphReviewCatalogSession[];
   selectedCampaignId: string;
   selectedSessionId: string;
-  selectedManifestPath: string | null;
   onCampaignSelect: (campaignId: string) => void;
   onSessionSelect: (sessionId: string) => void;
-  onManifestSelect: (manifestPath: string | null) => void;
 }
 
 function reviewableSessionLabel(
@@ -30,10 +26,8 @@ export function GraphReviewLanePicker({
   sessions,
   selectedCampaignId,
   selectedSessionId,
-  selectedManifestPath,
   onCampaignSelect,
   onSessionSelect,
-  onManifestSelect,
 }: GraphReviewLanePickerProps) {
   const campaignSessions = catalogSessionsForReviewCampaign(
     sessions,
@@ -59,7 +53,7 @@ export function GraphReviewLanePicker({
       <div
         className="graph-gold-review-session-picker"
         role="tablist"
-        aria-label="Ingested sessions"
+        aria-label="World Graph sessions"
       >
         {campaignSessions.map((session) => {
           const active = session.sessionId === selectedSessionId;
@@ -80,7 +74,9 @@ export function GraphReviewLanePicker({
               title={
                 reviewable
                   ? undefined
-                  : "This session has no reviewable projection."
+                  : session.browseable
+                    ? "This session is in the World Graph but has no corpus recap yet."
+                    : "This session is not available for Load recap."
               }
             >
               {catalogSessionLabel(session)}
@@ -91,20 +87,17 @@ export function GraphReviewLanePicker({
       </div>
       {!selectedHasProjection ? (
         <p className="graph-review-unavailable-state" role="status">
-          This session has no reviewable projection. This source does not have a
-          loaded recap/projection yet.
+          This session is not browseable from the World Graph yet.
           {reviewableLabel
-            ? ` Choose ${reviewableLabel} to review available graph projections.`
-            : " No available graph projections were found for this campaign."}
+            ? ` Choose ${reviewableLabel} to open a contributed session.`
+            : " No contributed sessions with corpus recaps were found for this campaign."}
         </p>
-      ) : null}
-      <GraphGoldReviewRunPicker
-        runs={(selectedSession?.availableRuns ?? []).filter(
-          (run: GraphIngestRunSummary) => run.preview_union_available,
-        )}
-        selectedManifestPath={selectedManifestPath}
-        onSelect={onManifestSelect}
-      />
+      ) : (
+        <p className="graph-gold-review-note" role="status">
+          Load opens the committed World Graph session lens (not an ingest-run
+          preview).
+        </p>
+      )}
     </section>
   );
 }

@@ -137,7 +137,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
 
     expect(
       screen.getByText(
-        "Select a live graph-ingest run to render its source projection.",
+        "Load a World Graph session to render its recap projection.",
       ),
     ).toBeInTheDocument();
     expect(getUnionSupergraphProjection).not.toHaveBeenCalled();
@@ -213,7 +213,7 @@ describe("GraphReviewLiveProjectionPanel", () => {
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
     expect(getGoldGraphProjection).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("Ingested recap projection")).toBeInTheDocument();
+    expect(screen.getByLabelText("World Graph recap projection")).toBeInTheDocument();
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Live run prose")).toBeInTheDocument();
   });

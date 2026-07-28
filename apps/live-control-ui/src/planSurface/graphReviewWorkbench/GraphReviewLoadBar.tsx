@@ -20,7 +20,7 @@ export function GraphReviewLoadBar({
         </>
       ) : (
         <>
-          <p>Load an ingested session to review extracted objects in recap prose.</p>
+          <p>Load a World Graph session to review committed objects in recap prose.</p>
           <button type="button" onClick={onOpenLoad}>
             Load session
           </button>

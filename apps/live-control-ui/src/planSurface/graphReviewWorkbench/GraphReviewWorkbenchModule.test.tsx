@@ -13,55 +13,111 @@ const context: PlanContextDescriptor = {
   headerLabel: "Ingest",
 };
 
-const sessionWithRun = {
+const worldSession = {
+  world_id: "eldyrwild",
+  campaign_id: "longmont-c2",
   session_id: "session-23",
   session_number: 23,
-  campaign_id: "longmont-c2",
-  gold_fixture_id: "gold-23",
-  gold_manifest_path: "m23",
-  gold_graph_path: "g23",
-  gold_counts: { nodes: 2, edges: 1, evidence_refs: 1, beats: 0 },
-  available_runs: [
-    {
-      manifest_path: "artifacts/run-a/manifest.json",
-      run_dir: "artifacts/run-a",
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      status: "preview_union_store_ready",
-      updated_at: null,
-      created_at: null,
-      preview_union_store_path: "artifacts/run-a/preview-union.json",
-      preview_union_store_valid: true,
-      node_count: 2,
-      edge_count: 1,
-      evidence_ref_count: 1,
-      next_actions: [],
-      run_id: "run-a",
-      run_label: "Run A",
-      generated_at: null,
-      model_id: null,
-      model_provider: null,
-      extraction_profile: "baseline",
-      extraction_mode: null,
-      vocabulary_mode: "node",
-      runner_options_summary: {},
-      diagnostics_summary: {},
-      preview_union_available: true,
-    },
-  ],
+  contribution_count: 2,
+  contribution_ids: ["contribution:test-a", "contribution:test-b"],
+  source_artifact_ids: ["artifact:recap:longmont-c2:session-23"],
+  head_revision_id: "rev:test",
+  recap_available: true,
+  browseable: true,
 };
 
-function mockWorkbenchApis() {
-  vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-    schema_version: "dmb_graph_ingest_run_registry_v1",
+function nodeView(nodeId: string, label: string, role: string, summary: string) {
+  return {
+    nodeId,
+    label,
+    kind: "npc",
+    role,
+    summary,
+    aliases: [] as string[],
+    sourceDomains: [] as string[],
+    evidenceBadges: [] as [],
+    adjacency: [] as [],
+    suggestedExpansions: [] as [],
+    anchoredToFocusSession: true,
+    campaignScope: "longmont-c2",
+    evidenceRefIds: [] as string[],
+    sourceArtifactIds: [] as string[],
+  };
+}
+
+function mockRecapProjection(overrides: {
+  campaignId?: string;
+  sessionId?: string;
+} = {}) {
+  const campaignId = overrides.campaignId ?? "longmont-c2";
+  const sessionId = overrides.sessionId ?? "session-23";
+  return {
+    schema: "dmb_world_graph_recap_projection_v1" as const,
+    campaignId,
+    sessionId,
+    graphId: "graph-a",
+    snapshot: {
+      worldId: "eldyrwild",
+      campaignId,
+      revisionId: "rev:test",
+      headRevisionId: "rev:test",
+      isHead: true,
+      focus: { kind: "session" as const, sessionId, campaignId },
+      admissibility: "gm",
+      scopeMode: "campaign" as const,
+    },
+    markdown: "[Alden](dmb-node:alden) watched [Bera](dmb-node:bera).",
+    focus: {
+      focusSessionId: sessionId,
+      focusedEvidenceRefIds: [],
+      focusedEdgeIds: [],
+      focusedNodeIds: ["alden", "bera"],
+    },
+    nodeViews: {
+      alden: nodeView("alden", "Alden", "gate warden", "Alden guards the western gate."),
+      bera: nodeView("bera", "Bera", "scout", "Bera scouts the old road."),
+    },
+    sourceSpans: [],
+    mentions: [
+      {
+        mentionId: "m-alden",
+        nodeId: "alden",
+        label: "Alden",
+        startOffset: 0,
+        endOffset: 5,
+        evidenceRefIds: [],
+      },
+      {
+        mentionId: "m-bera",
+        nodeId: "bera",
+        label: "Bera",
+        startOffset: 14,
+        endOffset: 18,
+        evidenceRefIds: [],
+      },
+    ],
+    diagnostics: [],
+    trustBoundary: { canTrust: [], cannotTrust: [] },
+  };
+}
+
+function mockWorkbenchApis(
+  sessions: Array<typeof worldSession> = [worldSession],
+) {
+  vi.spyOn(liveApi, "getWorldGraphSessions").mockResolvedValue({
+    schema_version: "dmb_world_graph_sessions_v1",
     version: "0.1",
-    runs: sessionWithRun.available_runs,
+    world_id: "eldyrwild",
+    head_revision_id: "rev:test",
+    sessions,
   });
-  vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
-    schema_version: "dmb_graph_gold_review_sessions_v1",
-    version: "0.1",
-    sessions: [sessionWithRun],
-  });
+  vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockImplementation(
+    async (request) =>
+      mockRecapProjection({
+        campaignId: request.campaignId,
+        sessionId: request.focus.sessionId ?? "session-23",
+      }),
+  );
   vi.spyOn(liveApi, "getManualReviewBeds").mockResolvedValue({
     schema_version: "dmb_graph_manual_review_beds_v1",
     version: "0.1",
@@ -93,61 +149,6 @@ function mockWorkbenchApis() {
     },
     object_index: { gold: {}, live: {} },
     match_pairs: {},
-  });
-  vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-    campaign_id: "longmont-c2",
-    session_id: "session-23",
-    graph_id: "graph-a",
-    markdown: "[Alden](dmb-node:alden) watched [Bera](dmb-node:bera).",
-    focus: {
-      focus_session_id: "session-23",
-      focused_evidence_ref_ids: [],
-      focused_edge_ids: [],
-      focused_node_ids: [],
-    },
-    node_views: {
-      alden: {
-        node_id: "alden",
-        label: "Alden",
-        kind: "npc",
-        role: "gate warden",
-        summary: "Alden guards the western gate.",
-        aliases: [],
-        source_domains: [],
-        evidence_badges: [],
-        adjacency: [],
-      },
-      bera: {
-        node_id: "bera",
-        label: "Bera",
-        kind: "npc",
-        role: "scout",
-        summary: "Bera scouts the old road.",
-        aliases: [],
-        source_domains: [],
-        evidence_badges: [],
-        adjacency: [],
-      },
-    },
-    source_spans: [],
-    mentions: [
-      {
-        mention_id: "m-alden",
-        node_id: "alden",
-        label: "Alden",
-        start_offset: 0,
-        end_offset: 5,
-        anchor_status: "anchored",
-      },
-      {
-        mention_id: "m-bera",
-        node_id: "bera",
-        label: "Bera",
-        start_offset: 14,
-        end_offset: 18,
-        anchor_status: "anchored",
-      },
-    ],
   });
   vi.spyOn(liveApi, "getGoldGraphProjection").mockResolvedValue({
     campaign_id: "longmont-c2",
@@ -190,7 +191,7 @@ describe("GraphReviewWorkbenchModule", () => {
     );
 
     expect(
-      screen.getByText(/Load an ingested session to review extracted objects/i),
+      screen.getByText(/Load a World Graph session to review committed objects/i),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("graph-projection-reader")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
@@ -225,6 +226,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
     expect(screen.getByText("Session 23 · longmont-c2")).toBeInTheDocument();
     expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
+    expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalled();
   });
 
   it("loads prose after choosing a session in the load dialog", async () => {
@@ -245,7 +247,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
     expect(window.location.search).toContain("session=session-23");
     expect(window.location.search).toContain("campaign=longmont-c2");
-    expect(window.location.search).toContain("run=artifacts%2Frun-a%2Fmanifest.json");
+    expect(window.location.search).not.toContain("run=");
   });
 
   it("keeps the loaded graph after a remount that simulates browser refresh", async () => {
@@ -271,7 +273,7 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByTestId("graph-projection-reader")).toBeInTheDocument(),
     );
     expect(screen.getByText("Session 23 · longmont-c2")).toBeInTheDocument();
-    expect(window.location.search).toContain("run=artifacts%2Frun-a%2Fmanifest.json");
+    expect(window.location.search).not.toContain("run=");
   });
 
   it("opens toolbox with Ingest Recap and Diagnostics tools", async () => {
@@ -368,24 +370,15 @@ describe("GraphReviewWorkbenchModule", () => {
       "/ingest?session=session-23&tool=graph-review-diagnostics",
     );
 
-    vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-      schema_version: "dmb_graph_ingest_run_registry_v1",
-      version: "0.1",
-      runs: sessionWithRun.available_runs,
-    });
-    vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
-      schema_version: "dmb_graph_gold_review_sessions_v1",
-      version: "0.1",
-      sessions: [
-        sessionWithRun,
-        {
-          ...sessionWithRun,
-          session_id: "session-22",
-          session_number: 22,
-          available_runs: sessionWithRun.available_runs,
-        },
-      ],
-    });
+    mockWorkbenchApis([
+      worldSession,
+      {
+        ...worldSession,
+        session_id: "session-22",
+        session_number: 22,
+        source_artifact_ids: ["artifact:recap:longmont-c2:session-22"],
+      },
+    ]);
 
     render(<GraphReviewWorkbenchModule context={context} />);
 
@@ -403,25 +396,17 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(window.location.search).toContain("tool=graph-review-diagnostics");
   });
 
-  it("loads a run-only session without calling gold compare", async () => {
-    const user = userEvent.setup();
-    const runOnlySession = {
-      ...sessionWithRun.available_runs[0],
-      campaign_id: "longmont-c1",
-      session_id: "session-2",
-      run_label: "C1S2 run",
-    };
-    vi.spyOn(liveApi, "getGraphIngestRuns").mockResolvedValue({
-      schema_version: "dmb_graph_ingest_run_registry_v1",
-      version: "0.1",
-      runs: [runOnlySession],
-    });
-    vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
-      schema_version: "dmb_graph_gold_review_sessions_v1",
-      version: "0.1",
-      sessions: [],
-    });
+  it("loads a browse session without calling gold compare", async () => {
     const compareSpy = vi.spyOn(liveApi, "getGoldReviewCompare");
+    mockWorkbenchApis([
+      {
+        ...worldSession,
+        campaign_id: "longmont-c1",
+        session_id: "session-2",
+        session_number: 2,
+        source_artifact_ids: ["artifact:recap:longmont-c1:session-2"],
+      },
+    ]);
 
     window.history.replaceState({}, "", "/ingest?session=session-2&campaign=longmont-c1");
     render(

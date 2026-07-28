@@ -2,45 +2,23 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
+import type { GraphReviewCatalogSession } from "./graphReviewWorkbenchUtils";
 
-const sessionWithRun = {
+const browseSession: GraphReviewCatalogSession = {
   campaignId: "longmont-c2",
   sessionId: "session-23",
   sessionNumber: 23,
-  hasGold: true,
+  hasGold: false,
   hasReviewableRun: true,
-  goldFixtureId: "gold-23",
-  goldManifestPath: "m23",
-  goldGraphPath: "g23",
-  goldCounts: { nodes: 2, edges: 1, evidence_refs: 1, beats: 0 },
-  availableRuns: [
-    {
-      manifest_path: "artifacts/run-a/manifest.json",
-      run_dir: "artifacts/run-a",
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      status: "preview_union_store_ready",
-      updated_at: null,
-      created_at: null,
-      preview_union_store_path: "artifacts/run-a/preview-union.json",
-      preview_union_store_valid: true,
-      node_count: 2,
-      edge_count: 1,
-      evidence_ref_count: 1,
-      next_actions: [],
-      run_id: "run-a",
-      run_label: "Run A",
-      generated_at: null,
-      model_id: null,
-      model_provider: null,
-      extraction_profile: "baseline",
-      extraction_mode: null,
-      vocabulary_mode: "node",
-      runner_options_summary: {},
-      diagnostics_summary: {},
-      preview_union_available: true,
-    },
-  ],
+  browseable: true,
+  recapAvailable: true,
+  contributionCount: 2,
+  headRevisionId: "rev:test",
+  goldFixtureId: null,
+  goldManifestPath: null,
+  goldGraphPath: null,
+  goldCounts: {},
+  availableRuns: [],
 };
 
 describe("GraphReviewLoadSurface", () => {
@@ -48,12 +26,12 @@ describe("GraphReviewLoadSurface", () => {
     render(
       <GraphReviewLoadSurface
         open
-        sessions={[sessionWithRun]}
+        sessions={[browseSession]}
         draftCampaignId="longmont-c2"
         draftSessionId="session-23"
-        draftManifestPath="artifacts/run-a/manifest.json"
-        draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.availableRuns[0]}
+        draftManifestPath={null}
+        draftSession={browseSession}
+        draftLiveRun={null}
         onClose={vi.fn()}
         onLoad={vi.fn()}
         onCampaignSelect={vi.fn()}
@@ -63,10 +41,12 @@ describe("GraphReviewLoadSurface", () => {
     );
 
     expect(
-      screen.getByRole("dialog", { name: "Choose campaign, session, and run" }),
+      screen.getByRole("dialog", {
+        name: "Choose campaign and World Graph session",
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Gold \(expected\):/)).toBeInTheDocument();
-    expect(screen.getByText(/Live \(ingested\):/)).toBeInTheDocument();
+    expect(screen.getByText(/World Graph:/)).toBeInTheDocument();
+    expect(screen.getByText(/2 contributions · recap available/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load" })).toBeEnabled();
   });
 
@@ -75,12 +55,12 @@ describe("GraphReviewLoadSurface", () => {
     render(
       <GraphReviewLoadSurface
         open
-        sessions={[sessionWithRun]}
+        sessions={[browseSession]}
         draftCampaignId="longmont-c2"
         draftSessionId="session-23"
-        draftManifestPath="artifacts/run-a/manifest.json"
-        draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.availableRuns[0]}
+        draftManifestPath={null}
+        draftSession={browseSession}
+        draftLiveRun={null}
         onClose={vi.fn()}
         onLoad={onLoad}
         onCampaignSelect={vi.fn()}
@@ -97,12 +77,12 @@ describe("GraphReviewLoadSurface", () => {
     render(
       <GraphReviewLoadSurface
         open={false}
-        sessions={[sessionWithRun]}
+        sessions={[browseSession]}
         draftCampaignId="longmont-c2"
         draftSessionId="session-23"
-        draftManifestPath="artifacts/run-a/manifest.json"
-        draftSession={sessionWithRun}
-        draftLiveRun={sessionWithRun.availableRuns[0]}
+        draftManifestPath={null}
+        draftSession={browseSession}
+        draftLiveRun={null}
         onClose={vi.fn()}
         onLoad={vi.fn()}
         onCampaignSelect={vi.fn()}
@@ -112,7 +92,9 @@ describe("GraphReviewLoadSurface", () => {
     );
 
     expect(
-      screen.queryByRole("dialog", { name: "Choose session and live run" }),
+      screen.queryByRole("dialog", {
+        name: "Choose campaign and World Graph session",
+      }),
     ).not.toBeInTheDocument();
   });
 });

@@ -86,10 +86,10 @@ export function GraphReviewSessionToolbar() {
       return "Merge confirmation is in progress.";
     }
     if (projectionStatus !== "ready" || !projection) {
-      return "Load a preview-ready run first.";
+      return "Load a World Graph session first.";
     }
     if (!liveRun?.run_id || !liveRun.run_id.trim()) {
-      return "Selected run is missing a server run id.";
+      return "Browse Load is read-only World Graph memory. Open an exact ExtractionRun to Review & merge.";
     }
     if (liveRun.promotable !== true) {
       return liveRun.promotable_reason?.trim() || "Selected run is not promotable.";

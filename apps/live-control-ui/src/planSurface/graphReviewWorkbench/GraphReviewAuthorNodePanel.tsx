@@ -4,13 +4,10 @@ import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 export function authorNodeProjectionReady(args: {
   projectionStatus: string;
   projection: unknown;
-  liveRun: unknown;
+  /** @deprecated Browse Load has no ingest run; ignored when projection is ready. */
+  liveRun?: unknown;
 }): boolean {
-  return (
-    args.projectionStatus === "ready" &&
-    Boolean(args.projection) &&
-    Boolean(args.liveRun)
-  );
+  return args.projectionStatus === "ready" && Boolean(args.projection);
 }
 
 export function GraphReviewAuthorNodePanel({
@@ -54,7 +51,7 @@ export function GraphReviewAuthorNodePanel({
       className="plan-projection-empty graph-review-author-node-empty"
       data-testid="graph-review-author-node-empty"
     >
-      <p>Load an ingested session to author graph nodes from the projected recap.</p>
+      <p>Load a World Graph session to author graph nodes from the projected recap.</p>
       {onRequestLoad ? (
         <button type="button" onClick={onRequestLoad}>
           Load recap

@@ -8,7 +8,9 @@ describe("GraphReviewLoadBar", () => {
     render(<GraphReviewLoadBar loaded={false} summaryLabel={null} onOpenLoad={vi.fn()} />);
 
     expect(
-      screen.getByText("Load an ingested session to review extracted objects in recap prose."),
+      screen.getByText(
+        "Load a World Graph session to review committed objects in recap prose.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load session" })).toBeInTheDocument();
   });

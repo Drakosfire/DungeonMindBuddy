@@ -824,6 +824,24 @@ def _object_campaign_scope(state: Mapping[str, Any] | None) -> str | None:
     return text
 
 
+def _source_assertion_id_for_contribution(
+    support: DurableAssertionSupport,
+    contribution_id: str,
+) -> str:
+    """Resolve the contribution-local assertion id for a support record.
+
+    First-wins edge maps keep later observations under the survivor support id
+    while recording each contribution's original assertion id in
+    ``per_contribution_assertion_ids``.
+    """
+    mapped = getattr(support, "per_contribution_assertion_ids", None) or {}
+    if isinstance(mapped, dict):
+        mapped_id = mapped.get(contribution_id)
+        if isinstance(mapped_id, str) and mapped_id.strip():
+            return mapped_id.strip()
+    return support.assertion_id
+
+
 def _collect_assertion_provenance_from_contributions(
     root: Path,
     world_id: str,
@@ -864,9 +882,12 @@ def _collect_assertion_provenance_from_contributions(
         )
     for contribution_id in support.active_contribution_ids:
         contribution = _load_validated_contribution(root, world_id, contribution_id)
+        source_assertion_id = _source_assertion_id_for_contribution(
+            support, contribution_id
+        )
         matched_candidate: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
-            if candidate.assertion_id != support.assertion_id:
+            if candidate.assertion_id != source_assertion_id:
                 continue
             matched_candidate = candidate
             break
@@ -875,6 +896,7 @@ def _collect_assertion_provenance_from_contributions(
                 "Active contribution does not contain the supported assertion.",
                 detail=(
                     f"assertion_id={support.assertion_id!r} "
+                    f"source_assertion_id={source_assertion_id!r} "
                     f"contribution_id={contribution_id!r}"
                 ),
             )
@@ -963,10 +985,13 @@ def _resolve_assertion_from_support(
 
     for contribution_id in support.active_contribution_ids:
         contribution = _load_validated_contribution(root, world_id, contribution_id)
+        source_assertion_id = _source_assertion_id_for_contribution(
+            support, contribution_id
+        )
 
         matched: GraphContributionAssertion | None = None
         for candidate in contribution.accepted_assertions:
-            if candidate.assertion_id == support.assertion_id:
+            if candidate.assertion_id == source_assertion_id:
                 matched = candidate
                 break
         if matched is None:
@@ -974,6 +999,7 @@ def _resolve_assertion_from_support(
                 f"Assertion {support.assertion_id!r} not found in active contribution.",
                 detail=(
                     f"assertion_id={support.assertion_id!r} "
+                    f"source_assertion_id={source_assertion_id!r} "
                     f"contribution_id={contribution_id!r}"
                 ),
             )
@@ -987,20 +1013,58 @@ def _resolve_assertion_from_support(
 
     unique_fingerprints = {fingerprint for fingerprint in fingerprints.values()}
     if len(unique_fingerprints) > 1:
-        raise WorldGraphProjectionError(
-            f"Assertion {support.assertion_id!r} has semantically divergent active copies.",
-            code="projection_integrity_error",
-            status_code=409,
-            diagnostics=[
-                _diagnostic(
-                    "semantic_assertion_divergence",
-                    (
-                        f"Active contributions disagree on semantic fields for "
-                        f"assertion {support.assertion_id!r}."
-                    ),
+        mapped = getattr(support, "per_contribution_assertion_ids", None) or {}
+        survivor_ids = [
+            contribution_id
+            for contribution_id, assertion in assertions_by_contribution.items()
+            if assertion.assertion_id == support.assertion_id
+            or (
+                isinstance(mapped, dict)
+                and mapped.get(contribution_id) == support.assertion_id
+            )
+        ]
+        # First-wins edge maps may attach later divergent observations as
+        # provenance-only shadows under the survivor support assertion_id.
+        if survivor_ids and isinstance(mapped, dict) and mapped:
+            survivor_fingerprints = {
+                fingerprints[contribution_id] for contribution_id in survivor_ids
+            }
+            if len(survivor_fingerprints) == 1:
+                assertions_by_contribution = {
+                    contribution_id: assertion
+                    for contribution_id, assertion in assertions_by_contribution.items()
+                    if contribution_id in survivor_ids
+                }
+            else:
+                raise WorldGraphProjectionError(
+                    f"Assertion {support.assertion_id!r} has semantically divergent active copies.",
+                    code="projection_integrity_error",
+                    status_code=409,
+                    diagnostics=[
+                        _diagnostic(
+                            "semantic_assertion_divergence",
+                            (
+                                f"Active contributions disagree on semantic fields for "
+                                f"assertion {support.assertion_id!r}."
+                            ),
+                        )
+                    ],
                 )
-            ],
-        )
+        else:
+            raise WorldGraphProjectionError(
+                f"Assertion {support.assertion_id!r} has semantically divergent active copies.",
+                code="projection_integrity_error",
+                status_code=409,
+                diagnostics=[
+                    _diagnostic(
+                        "semantic_assertion_divergence",
+                        (
+                            f"Active contributions disagree on semantic fields for "
+                            f"assertion {support.assertion_id!r}."
+                        ),
+                    )
+                ],
+            )
 
     representative_contribution_id = min(assertions_by_contribution)
     assertion = assertions_by_contribution[representative_contribution_id]

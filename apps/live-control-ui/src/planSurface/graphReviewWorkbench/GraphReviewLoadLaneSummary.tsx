@@ -22,20 +22,20 @@ export function GraphReviewLoadLaneSummary({
       aria-label="Selected lane summary"
     >
       <p>
-        <strong>Gold (expected):</strong>{" "}
-        {session?.hasGold
-          ? `${catalogSessionLabel(session)} · ${session.goldFixtureId ?? "gold fixture"}`
-          : session
-            ? "No gold fixture — live review only"
-            : "Choose a session."}
+        <strong>Session:</strong>{" "}
+        {session
+          ? `${catalogSessionLabel(session)} · ${session.campaignId}`
+          : "Choose a session."}
       </p>
       <p>
-        <strong>Live (ingested):</strong>{" "}
-        {liveRun
-          ? liveLane?.label ?? liveRun.run_label ?? "Selected live run"
-          : session
-            ? "Choose a preview-ready live run."
-            : "Choose a session first."}
+        <strong>World Graph:</strong>{" "}
+        {session?.browseable
+          ? session.recapAvailable
+            ? `${session.contributionCount} contribution${session.contributionCount === 1 ? "" : "s"} · recap available`
+            : `${session.contributionCount} contribution${session.contributionCount === 1 ? "" : "s"} · corpus recap missing`
+          : liveRun
+            ? liveLane?.label ?? liveRun.run_label ?? "Selected live run"
+            : "No contributed session selected."}
       </p>
     </section>
   );

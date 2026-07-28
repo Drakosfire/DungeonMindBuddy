@@ -69,10 +69,12 @@ describe("GraphReviewDiagnosticsToolPanel", () => {
     );
   });
 
-  it("renders the select-a-live-run empty state from a supplied idle payload", () => {
+  it("renders the select-a-session empty state from a supplied idle payload", () => {
     render(<GraphReviewDiagnosticsToolPanel payload={emptyPayload()} />);
     expect(
-      screen.getByText(/Select a live run with a projection to inspect diagnostics/i),
+      screen.getByText(
+        /Load a World Graph session with a projection to inspect diagnostics/i,
+      ),
     ).toBeInTheDocument();
   });
 

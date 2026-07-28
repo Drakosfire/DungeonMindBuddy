@@ -91,6 +91,7 @@ import type {
   WorldGraphProjection,
   WorldGraphProjectionRequest,
   WorldGraphRecapProjection,
+  WorldGraphSessionsResponse,
   WorldGraphSourceAnchorReadRequest,
   WorldGraphSourceAnchorReadResponse,
   PartyRegistrySurfaceResponse,
@@ -388,6 +389,17 @@ export interface GoldReviewCompareQuery {
 
 export async function getGoldReviewSessions(): Promise<GoldReviewSessionsResponse> {
   return apiFetch<GoldReviewSessionsResponse>("/api/live/graph-preview/gold-review/sessions");
+}
+
+export async function getWorldGraphSessions(query: {
+  worldId?: string;
+  campaignId?: string;
+} = {}): Promise<WorldGraphSessionsResponse> {
+  const params = new URLSearchParams();
+  if (query.worldId) params.set("world_id", query.worldId);
+  if (query.campaignId) params.set("campaign_id", query.campaignId);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<WorldGraphSessionsResponse>(`/api/live/world-graph/sessions${suffix}`);
 }
 
 export async function getGoldReviewCompare(query: GoldReviewCompareQuery): Promise<GoldReviewCompareResponse> {
