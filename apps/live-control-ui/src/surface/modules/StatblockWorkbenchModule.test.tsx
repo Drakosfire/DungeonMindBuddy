@@ -4015,6 +4015,93 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
     });
 
+    it("does not leak draft A revision instructions into draft B", async () => {
+      const draftB = "11111111-1111-4111-8111-111111111133";
+      const candB = "cand_draft_b";
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+
+      // Persist an unresolved attempt for draft A with distinctive instructions.
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => ({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_busy",
+        request_id: body.request_id,
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      }));
+      const aInstructions = "Draft A only — raise AC and add legendary resistance";
+      await user.type(screen.getByTestId("revise-instructions"), aInstructions);
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(readStoredReviseAttempt(DRAFT_ID)?.raw_instructions).toBe(aInstructions));
+
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        ...activeResponse,
+        candidate_id: candB,
+        candidate: { ...candidate, candidate_id: candB },
+        source_draft_id: draftB,
+        source_draft_version: 1,
+        source_draft_name: "Draft B Threat",
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          draft_id: draftB,
+          version: 1,
+          name: "Draft B Threat",
+          candidate_refs: [
+            {
+              candidate_id: candB,
+              generated_from_draft_version: 1,
+              request_id: "gen-req-b",
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+          ],
+        }),
+      );
+      await user.clear(screen.getByPlaceholderText("cand_…"));
+      await user.type(screen.getByPlaceholderText("cand_…"), candB);
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      await waitFor(() =>
+        expect((screen.getByTestId("revise-instructions") as HTMLTextAreaElement).value).toBe(""),
+      );
+      expect(screen.getByTestId("revise-instructions")).not.toHaveProperty("value", aInstructions);
+
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        async (_draftId, body) => ({
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "revise_claimed",
+          request_id: body.request_id,
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        }),
+      );
+      const bInstructions = "Draft B instructions only";
+      await user.type(screen.getByTestId("revise-instructions"), bInstructions);
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(reviseSpy).toHaveBeenCalledTimes(1));
+      expect(reviseSpy.mock.calls[0][0]).toBe(draftB);
+      expect(reviseSpy.mock.calls[0][1].revision_instructions).toEqual([bInstructions]);
+      expect(reviseSpy.mock.calls[0][1].revision_instructions.join("\n")).not.toContain("Draft A only");
+
+      // Reopen draft A — stored attempt instructions recover.
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
+      await user.clear(screen.getByPlaceholderText("cand_…"));
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      await waitFor(() =>
+        expect((screen.getByTestId("revise-instructions") as HTMLTextAreaElement).value).toBe(
+          aInstructions,
+        ),
+      );
+      expect(readStoredReviseAttempt(DRAFT_ID)?.raw_instructions).toBe(aInstructions);
+    });
+
     it("Start another threat clears proposal history and ignores late draft refresh", async () => {
       const user = await loadWithDraft();
       await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());

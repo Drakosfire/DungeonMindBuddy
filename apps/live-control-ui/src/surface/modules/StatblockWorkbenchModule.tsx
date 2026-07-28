@@ -1960,6 +1960,7 @@ export function StatblockWorkbenchModule() {
     setDraftSnapshotError(null);
     setDraftSnapshotUnavailable(false);
     setReviseAttempt(null);
+    setReviseInstructionsRaw("");
     setReviseStatusMessage(null);
     setReviseError(null);
     setRevisePending(false);
@@ -2021,9 +2022,7 @@ export function StatblockWorkbenchModule() {
       });
       const storedAttempt = readStoredReviseAttempt(trimmed);
       setReviseAttempt(storedAttempt);
-      if (storedAttempt?.raw_instructions) {
-        setReviseInstructionsRaw(storedAttempt.raw_instructions);
-      }
+      setReviseInstructionsRaw(storedAttempt?.raw_instructions ?? "");
     } catch (error) {
       if (
         generation !== draftSnapshotGenerationRef.current ||
