@@ -491,6 +491,123 @@ describe("GraphReviewExtractPromoteSheet", () => {
       expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
     });
   });
+
+  it("keeps receipt phase when post-commit projection fails; reload retries projection only", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
+      confirmReceipt({ affectedObjectIds: ["object-1"] }),
+    );
+    vi.mocked(postWorldGraphProjection).mockRejectedValue(
+      new Error("projection unavailable"),
+    );
+
+    renderSheet();
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByTestId("graph-review-extract-promote-retry-exact-confirm"),
+    ).toBeNull();
+    expect(
+      screen.getByTestId("graph-review-extract-promote-reload-revision"),
+    ).toBeInTheDocument();
+    expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("graph-review-extract-promote-reload-error"),
+      ).toBeInTheDocument();
+    });
+    const projectionCallsAfterConfirm = vi.mocked(postWorldGraphProjection).mock.calls.length;
+    expect(projectionCallsAfterConfirm).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-reload-revision"));
+    await waitFor(() => {
+      expect(vi.mocked(postWorldGraphProjection).mock.calls.length).toBeGreaterThan(
+        projectionCallsAfterConfirm,
+      );
+    });
+    expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByTestId("graph-review-extract-promote-retry-exact-confirm"),
+    ).toBeNull();
+    expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+  });
+
+  it("adopts committed authority before catalog refresh", async () => {
+    const order: string[] = [];
+    let resolveRefresh!: () => void;
+    const refreshGate = new Promise<void>((resolve) => {
+      resolveRefresh = resolve;
+    });
+
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
+      confirmReceipt({ affectedObjectIds: ["object-1"] }),
+    );
+    vi.mocked(postWorldGraphProjection).mockImplementation(async () => {
+      order.push("adopt");
+      return {
+        schema: "dmb_world_graph_projection_v1",
+        snapshot: {
+          worldId: "eldyrwild",
+          campaignId: "longmont-c2",
+          revisionId: "rev:committed",
+          headRevisionId: "rev:committed",
+          isHead: true,
+          focus: { kind: "session", sessionId: "session-25", campaignId: "longmont-c2" },
+          admissibility: "gm",
+        },
+        summary: {
+          nodeCount: 1,
+          relationshipCount: 0,
+          attributeCount: 0,
+          evidenceCount: 0,
+          sourceArtifactCount: 0,
+          projectionTruncated: false,
+        },
+        nodes: [
+          {
+            nodeId: "object-1",
+            label: "Hesta Ironroot",
+            kind: "npc",
+            role: "character",
+            aliases: [],
+            sourceDomains: [],
+            anchoredToFocusSession: true,
+            evidenceBadges: [],
+            adjacency: [],
+            suggestedExpansions: [],
+            evidenceRefIds: [],
+            sourceArtifactIds: [],
+          },
+        ],
+        relationships: [],
+        attributes: [],
+        evidence: [],
+        sourceArtifacts: [],
+        diagnostics: [],
+      };
+    });
+    const onCatalogRefresh = vi.fn(async () => {
+      order.push("refresh");
+      await refreshGate;
+    });
+
+    renderSheet(prepareResponse(), { onCatalogRefresh });
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(order).toContain("adopt");
+      expect(order).toContain("refresh");
+    });
+    expect(order.indexOf("adopt")).toBeLessThan(order.indexOf("refresh"));
+    expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    // Adoption already completed while refresh is still gated.
+    expect(postWorldGraphProjection).toHaveBeenCalled();
+
+    resolveRefresh();
+    await waitFor(() => expect(onCatalogRefresh).toHaveBeenCalledTimes(1));
+  });
 });
 
 describe("GraphReviewSessionToolbar", () => {

@@ -39,8 +39,14 @@ export function catalogRunBindingKey(input: {
 export function exactRunBindingKey(input: {
   runId: string;
   sourceArtifactId: string;
+  campaignId: string | null;
+  sessionId: string | null;
 }): string {
-  return `exact_run:${input.runId}:${input.sourceArtifactId}`;
+  return `exact_run:${input.runId}:${input.sourceArtifactId}:${input.campaignId ?? ""}:${input.sessionId ?? ""}`;
+}
+
+function nullNormalizedScope(value: string | null | undefined): string {
+  return value?.trim() ?? "";
 }
 
 export const TERMINAL_CONFIRM_OUTCOMES = [
@@ -162,13 +168,35 @@ export function validateCommittedReceiptAdoption(
         errorKind: "integrity_mismatch",
       };
     }
-    const preparedRunId = prepared.runId?.trim() || "";
-    if (preparedRunId && binding?.runId && preparedRunId !== binding.runId) {
-      return {
-        ok: false,
-        reason: "Prepared runId does not match the current review binding.",
-        errorKind: "integrity_mismatch",
-      };
+    if (binding) {
+      const preparedRunId = prepared.runId?.trim() || "";
+      if (preparedRunId && preparedRunId !== binding.runId) {
+        return {
+          ok: false,
+          reason: "Prepared runId does not match the current review binding.",
+          errorKind: "integrity_mismatch",
+        };
+      }
+      if (
+        nullNormalizedScope(prepared.campaignId)
+        !== nullNormalizedScope(binding.campaignId)
+      ) {
+        return {
+          ok: false,
+          reason: "Prepared campaignId does not match the current review binding.",
+          errorKind: "integrity_mismatch",
+        };
+      }
+      if (
+        nullNormalizedScope(prepared.sessionId)
+        !== nullNormalizedScope(binding.sessionId)
+      ) {
+        return {
+          ok: false,
+          reason: "Prepared sessionId does not match the current review binding.",
+          errorKind: "integrity_mismatch",
+        };
+      }
     }
   }
 

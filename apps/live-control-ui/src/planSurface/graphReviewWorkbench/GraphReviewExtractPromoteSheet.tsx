@@ -168,20 +168,13 @@ export function GraphReviewExtractPromoteSheet({
       setConfirmPhase("confirming");
       setConfirmError(null);
       setReloadError(null);
+
+      let nextReceipt: ExtractPromoteConfirmReceipt;
       try {
-        const nextReceipt = await confirmExtractPromote({
+        nextReceipt = await confirmExtractPromote({
           reviewPackage: prepared.reviewPackage,
           assertionIds,
         });
-        setReceipt(nextReceipt);
-        setConfirmPhase("receipt");
-        try {
-          await onCatalogRefresh();
-        } catch {
-          // Catalog refresh failure must not erase receipt.
-        }
-        // Terminal outcomes including published_audit_degraded auto-load committed authority.
-        await adoptTerminalReceipt(nextReceipt);
       } catch (error) {
         if (error instanceof ExtractPromoteApiError) {
           setConfirmPhase("pre_commit_error");
@@ -194,6 +187,30 @@ export function GraphReviewExtractPromoteSheet({
             ? error.message
             : "Confirm result is unknown due to a network error.",
         );
+        return;
+      }
+
+      // Terminal receipt is authoritative immediately — never leave this phase.
+      setReceipt(nextReceipt);
+      setConfirmPhase("receipt");
+
+      // Adopt before catalog refresh so a refresh-driven binding change cannot
+      // race ahead of freezing committed authority for the current binding.
+      try {
+        await adoptTerminalReceipt(nextReceipt);
+      } catch (error) {
+        // adoptTerminalReceipt already catches; never flip phase away from receipt.
+        setReloadError(
+          error instanceof Error
+            ? error.message
+            : "Failed to reload committed World Graph revision.",
+        );
+      }
+
+      try {
+        await onCatalogRefresh();
+      } catch {
+        // Catalog refresh failure must not erase receipt.
       }
     },
     [adoptTerminalReceipt, onCatalogRefresh, prepared.reviewPackage],
@@ -396,7 +413,7 @@ export function GraphReviewExtractPromoteSheet({
           </button>
         ) : null}
 
-        {confirmPhase === "unknown_result" ? (
+        {confirmPhase === "unknown_result" && !hasTerminalReceipt ? (
           <button
             type="button"
             className="primary"

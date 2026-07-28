@@ -228,7 +228,12 @@ describe("graphReviewCommittedAuthority", () => {
       committedBindingsEqual(
         {
           kind: "exact_run",
-          key: exactRunBindingKey({ runId: "er-1", sourceArtifactId: "art-1" }),
+          key: exactRunBindingKey({
+            runId: "er-1",
+            sourceArtifactId: "art-1",
+            campaignId: "c2",
+            sessionId: null,
+          }),
           runId: "er-1",
           sourceArtifactId: "art-1",
           campaignId: "c2",
@@ -236,7 +241,12 @@ describe("graphReviewCommittedAuthority", () => {
         },
         {
           kind: "exact_run",
-          key: exactRunBindingKey({ runId: "er-1", sourceArtifactId: "art-2" }),
+          key: exactRunBindingKey({
+            runId: "er-1",
+            sourceArtifactId: "art-2",
+            campaignId: "c2",
+            sessionId: null,
+          }),
           runId: "er-1",
           sourceArtifactId: "art-2",
           campaignId: "c2",
@@ -244,5 +254,88 @@ describe("graphReviewCommittedAuthority", () => {
         },
       ),
     ).toBe(false);
+  });
+
+  it("includes campaign and session scope in exact-run binding keys", () => {
+    const base = {
+      runId: "er-1",
+      sourceArtifactId: "art-1",
+      campaignId: "c2",
+      sessionId: "s25",
+    };
+    expect(exactRunBindingKey(base)).toBe("exact_run:er-1:art-1:c2:s25");
+    expect(
+      exactRunBindingKey({ ...base, sessionId: "s26" }),
+    ).not.toBe(exactRunBindingKey(base));
+    expect(
+      exactRunBindingKey({ ...base, campaignId: "c3" }),
+    ).not.toBe(exactRunBindingKey(base));
+    expect(
+      exactRunBindingKey({ ...base, campaignId: null, sessionId: null }),
+    ).toBe("exact_run:er-1:art-1::");
+  });
+
+  it("rejects prepared campaign/session mismatch against the review binding", () => {
+    const prepared = {
+      proposalId: "prop-1",
+      proposalDigest: "digest-a",
+      parentRevisionId: "rev:parent",
+      worldId: "eldyrwild",
+      runId: "er-1",
+      campaignId: "longmont-c2",
+      sessionId: "session-25",
+    };
+    const binding = {
+      kind: "exact_run" as const,
+      key: exactRunBindingKey({
+        runId: "er-1",
+        sourceArtifactId: "art-1",
+        campaignId: "longmont-c2",
+        sessionId: "session-25",
+      }),
+      runId: "er-1",
+      sourceArtifactId: "art-1",
+      campaignId: "longmont-c2",
+      sessionId: "session-25",
+    };
+    expect(validateCommittedReceiptAdoption(receipt(), prepared, binding).ok).toBe(true);
+    expect(
+      validateCommittedReceiptAdoption(
+        receipt(),
+        { ...prepared, campaignId: "other-campaign" },
+        binding,
+      ),
+    ).toMatchObject({ ok: false, errorKind: "integrity_mismatch" });
+    expect(
+      validateCommittedReceiptAdoption(
+        receipt(),
+        { ...prepared, sessionId: "session-other" },
+        binding,
+      ),
+    ).toMatchObject({ ok: false, errorKind: "integrity_mismatch" });
+    expect(
+      validateCommittedReceiptAdoption(
+        receipt(),
+        { ...prepared, campaignId: "  longmont-c2  ", sessionId: " session-25 " },
+        binding,
+      ).ok,
+    ).toBe(true);
+    expect(
+      validateCommittedReceiptAdoption(
+        receipt(),
+        { ...prepared, campaignId: null, sessionId: null },
+        {
+          ...binding,
+          key: exactRunBindingKey({
+            runId: "er-1",
+            sourceArtifactId: "art-1",
+            campaignId: null,
+            sessionId: null,
+          }),
+          campaignId: null,
+          sessionId: null,
+        },
+      ).ok,
+    ).toBe(true);
   });
 });
