@@ -106,7 +106,7 @@ export function GraphReviewExtractPromoteSheet({
   onConfirmInFlightChange,
   onCatalogRefresh = defaultCatalogRefresh,
 }: GraphReviewExtractPromoteSheetProps) {
-  const { reloadCommittedWorldProjection, selectDurableObjectIds } =
+  const { adoptCommittedReceipt, reloadCommittedAuthority } =
     useGraphReviewLiveState();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
@@ -146,24 +146,12 @@ export function GraphReviewExtractPromoteSheet({
     );
   };
 
-  const applyCommittedRevision = useCallback(
+  const adoptTerminalReceipt = useCallback(
     async (nextReceipt: ExtractPromoteConfirmReceipt) => {
       setReloadError(null);
-      // Campaignless sealed proposals cannot be re-read through a campaign lens.
-      // Preserve the receipt and report degraded read — never substitute a campaign.
-      const preparedCampaign = (prepared.campaignId ?? "").trim();
-      if (!preparedCampaign) {
-        setReloadError(
-          "Committed revision preserved; campaignless exact runs cannot be reloaded through a campaign projection lens (degraded read).",
-        );
-        return;
-      }
       try {
-        await reloadCommittedWorldProjection(
-          nextReceipt.committedRevisionId,
-          nextReceipt.worldId,
-        );
-        selectDurableObjectIds(nextReceipt.affectedObjectIds);
+        // Provider owns receipt adoption, including campaignless fail-closed reads.
+        await adoptCommittedReceipt(nextReceipt);
       } catch (error) {
         setReloadError(
           error instanceof Error
@@ -172,7 +160,7 @@ export function GraphReviewExtractPromoteSheet({
         );
       }
     },
-    [prepared.campaignId, reloadCommittedWorldProjection, selectDurableObjectIds],
+    [adoptCommittedReceipt],
   );
 
   const runConfirm = useCallback(
@@ -192,9 +180,8 @@ export function GraphReviewExtractPromoteSheet({
         } catch {
           // Catalog refresh failure must not erase receipt.
         }
-        if (nextReceipt.outcome !== "published_audit_degraded") {
-          await applyCommittedRevision(nextReceipt);
-        }
+        // Terminal outcomes including published_audit_degraded auto-load committed authority.
+        await adoptTerminalReceipt(nextReceipt);
       } catch (error) {
         if (error instanceof ExtractPromoteApiError) {
           setConfirmPhase("pre_commit_error");
@@ -209,7 +196,7 @@ export function GraphReviewExtractPromoteSheet({
         );
       }
     },
-    [applyCommittedRevision, onCatalogRefresh, prepared.reviewPackage],
+    [adoptTerminalReceipt, onCatalogRefresh, prepared.reviewPackage],
   );
 
   const onMergeClick = () => {
@@ -232,7 +219,14 @@ export function GraphReviewExtractPromoteSheet({
     setReloadingRevision(true);
     setReloadError(null);
     try {
-      await applyCommittedRevision(receipt);
+      // Retry loads committed authority only — never re-confirm.
+      await reloadCommittedAuthority();
+    } catch (error) {
+      setReloadError(
+        error instanceof Error
+          ? error.message
+          : "Failed to reload committed World Graph revision.",
+      );
     } finally {
       setReloadingRevision(false);
     }
@@ -414,21 +408,7 @@ export function GraphReviewExtractPromoteSheet({
           </button>
         ) : null}
 
-        {receipt?.outcome === "published_audit_degraded" ? (
-          <button
-            type="button"
-            className="secondary"
-            data-testid="graph-review-extract-promote-reload-revision"
-            disabled={reloadingRevision}
-            onClick={() => void onReloadCommittedRevision()}
-          >
-            {reloadingRevision ? "Reloading…" : "Reload committed revision"}
-          </button>
-        ) : null}
-
-        {receipt &&
-        receipt.outcome !== "published_audit_degraded" &&
-        reloadError ? (
+        {receipt ? (
           <button
             type="button"
             className="secondary"

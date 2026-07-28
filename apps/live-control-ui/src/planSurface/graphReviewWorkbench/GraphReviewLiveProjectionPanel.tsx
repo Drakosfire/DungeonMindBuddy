@@ -1,5 +1,6 @@
 import { GraphReviewProjectionLane } from "./GraphReviewProjectionLane";
 import { GraphReviewProjectedInteractionSurface } from "./GraphReviewProjectedInteractionSurface";
+import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProjectionPanel";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
 const FALLBACK_MARKDOWN = `# Projection unavailable\n\nThe selected live run did not return projected recap Markdown.`;
@@ -31,6 +32,7 @@ export function GraphReviewLiveProjectionPanel() {
     setProjectedInteractionOpen,
     setSelectedEvidenceDeltaId,
     runIdentity,
+    committedPhase,
   } = useGraphReviewLiveState();
 
   const openInspectDialog = (selection: {
@@ -42,6 +44,10 @@ export function GraphReviewLiveProjectionPanel() {
     setSelectedDeltaNodeId(selection.nodeId);
     setProjectedInteractionOpen(true);
   };
+
+  if (committedPhase !== "candidate") {
+    return <GraphReviewCommittedProjectionPanel />;
+  }
 
   return (
     <section
