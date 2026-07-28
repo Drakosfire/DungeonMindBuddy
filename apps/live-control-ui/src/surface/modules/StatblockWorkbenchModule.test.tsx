@@ -3710,5 +3710,226 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.queryByTestId("revise-resume-same")).toBeNull();
       expect(screen.getByTestId("revise-create-proposal")).not.toBeDisabled();
     });
+
+    it("does not POST revise when sessionStorage cannot persist replay authority", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "reconciled",
+        request_id: "should-not-send",
+        candidate_id: "cand_x",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      const originalSetItem = Storage.prototype.setItem;
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+        this: Storage,
+        key: string,
+        value: string,
+      ) {
+        if (String(key).includes("dmb.sbw06.reviseAttempt:")) {
+          throw new Error("QuotaExceededError");
+        }
+        return originalSetItem.call(this, key, value);
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Storage fail");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      expect(screen.getByTestId("revise-error").textContent).toMatch(/session storage/i);
+      expect(reviseSpy).not.toHaveBeenCalled();
+    });
+
+    it("Retry local refresh completes awaiting attempt without re-POSTing revise", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      let lastReviseRequestId = "";
+      const reviseSpy = vi
+        .spyOn(liveApi, "reviseThreatDraftCandidate")
+        .mockImplementation(async (_draftId, body) => {
+          lastReviseRequestId = body.request_id;
+          return {
+            schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+            result: "reconciled",
+            request_id: body.request_id,
+            candidate_id: "cand_retry_refresh",
+            request_digest: `sha256:${"a".repeat(64)}`,
+            source_definition_digest: `sha256:${"b".repeat(64)}`,
+            instruction_options_digest: `sha256:${"c".repeat(64)}`,
+          };
+        });
+      vi.spyOn(liveApi, "getThreatDraft").mockImplementation(async () =>
+        threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_retry_refresh",
+              generated_from_draft_version: 2,
+              request_id: lastReviseRequestId || "pending",
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: {
+                schema: "dmb_candidate_lineage_v1",
+                revise_request_id: lastReviseRequestId || "pending",
+                source_origin_kind: "edited_working_copy",
+                instruction_options_digest: `sha256:${"c".repeat(64)}`,
+                created_at: "2026-01-02T00:00:00Z",
+                edited_working_copy: {
+                  draft_id: DRAFT_ID,
+                  source_draft_version: 2,
+                  editor_state_revision: "1",
+                  source_definition_digest: `sha256:${"b".repeat(64)}`,
+                },
+              },
+            },
+          ],
+        }),
+      );
+      let failLoad = true;
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === "cand_retry_refresh") {
+          if (failLoad) {
+            return {
+              schema: "dmb_statblock_candidate_read_v1",
+              candidate_id: id,
+              status: "missing",
+              candidate: null,
+            };
+          }
+          return {
+            ...activeWithDraft(),
+            candidate_id: id,
+            candidate: { ...candidate, candidate_id: id },
+          };
+        }
+        return activeWithDraft();
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Retry refresh path");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-retry-local-refresh")).toBeTruthy());
+      expect(readStoredReviseAttempt(DRAFT_ID)?.awaiting_local_refresh).toBe(true);
+      expect(reviseSpy).toHaveBeenCalledTimes(1);
+      failLoad = false;
+      await user.click(screen.getByTestId("revise-retry-local-refresh"));
+      await waitFor(() => expect(screen.getByText("Revised proposal ready.")).toBeTruthy());
+      expect(reviseSpy).toHaveBeenCalledTimes(1);
+      expect(readStoredReviseAttempt(DRAFT_ID)?.awaiting_local_refresh).toBe(false);
+      expect(readStoredReviseAttempt(DRAFT_ID)?.last_result).toBe("reconciled");
+    });
+
+    it("revise_busy offers Resume same revise", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_busy",
+        request_id: "busy",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Busy path");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-resume-same")).toBeTruthy());
+      expect(screen.queryByTestId("revise-start-new")).toBeNull();
+    });
+
+    it("keeps proposal history visible when selected candidate is unavailable", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_fixture1",
+              generated_from_draft_version: 1,
+              request_id: "gen-req-1",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+            {
+              candidate_id: "cand_expired",
+              generated_from_draft_version: 2,
+              request_id: "gen-req-2",
+              created_at: "2026-01-02T00:00:00Z",
+              status: "expired",
+              lineage: null,
+            },
+          ],
+        }),
+      );
+      await user.click(screen.getByTestId("refresh-proposal-history"));
+      await waitFor(() =>
+        expect(screen.getByTestId("proposal-history-row-cand_expired")).toBeTruthy(),
+      );
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        schema: "dmb_statblock_candidate_read_v1",
+        candidate_id: "cand_expired",
+        status: "expired",
+        candidate: null,
+        failure_category: "downstream_expired",
+        failure_message: "expired",
+      });
+      await user.click(
+        screen.getByTestId("proposal-history-row-cand_expired").querySelector("button")!,
+      );
+      await waitFor(() => expect(screen.queryByTestId("candidate-view-modes")).toBeNull());
+      expect(screen.getByTestId("proposal-history-panel")).toBeTruthy();
+      expect(screen.getByTestId("proposal-history-row-cand_fixture1")).toBeTruthy();
+    });
+
+    it("Accept/Save uses candidate-bound draft over stale Advanced fields", async () => {
+      const otherDraft = "11111111-1111-4111-8111-111111111122";
+      const user = userEvent.setup();
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: DRAFT_ID,
+        operation_id: "op_bound_accept",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_bound",
+          revision_id: "rev_bound",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      // Stale Advanced recovery fields must not override candidate-bound draft identity.
+      const draftInput = screen.getByPlaceholderText("td_…");
+      await user.clear(draftInput);
+      await user.type(draftInput, otherDraft);
+      const versionInputs = screen.getAllByDisplayValue("2");
+      const versionInput =
+        versionInputs.find((el) => (el as HTMLInputElement).type === "number" || el.tagName === "INPUT") ??
+        versionInputs[0];
+      await user.clear(versionInput);
+      await user.type(versionInput, "9");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await waitFor(() => expect(acceptSpy).toHaveBeenCalledTimes(1));
+      expect(acceptSpy.mock.calls[0][0]).toBe(DRAFT_ID);
+      expect(acceptSpy.mock.calls[0][1].expected_draft_version).toBe(2);
+    });
+
+    it("disables Accept/Save when ThreatDraft snapshot is unavailable", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(liveApi, "getThreatDraft").mockRejectedValue(new Error("draft gone"));
+      await user.click(screen.getByTestId("refresh-proposal-history"));
+      await waitFor(() => expect(screen.getByTestId("draft-snapshot-unavailable")).toBeTruthy());
+      await validateWorkingCopy(user);
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
+    });
   });
 });

@@ -39,6 +39,8 @@ export interface RevisePanelActions {
   allowCreateNew: boolean;
   freezeReplaySource: boolean;
   awaitingLocalRefresh: boolean;
+  /** Re-run draft proof + candidate load without re-POSTing revise. */
+  showRetryLocalRefresh: boolean;
 }
 
 export type ReviseResultClass =
@@ -220,11 +222,24 @@ export function readStoredReviseAttempt(draftId: string): StoredReviseAttemptV1 
   }
 }
 
-export function writeStoredReviseAttempt(attempt: StoredReviseAttemptV1): void {
+/**
+ * Persist exact revise replay authority and prove readback before any caller POSTs.
+ * Returns false on quota, disabled storage, serialization, or readback mismatch.
+ */
+export function writeStoredReviseAttempt(attempt: StoredReviseAttemptV1): boolean {
   try {
-    sessionStorage.setItem(reviseAttemptStorageKey(attempt.draft_id), JSON.stringify(attempt));
+    const key = reviseAttemptStorageKey(attempt.draft_id);
+    const serialized = JSON.stringify(attempt);
+    sessionStorage.setItem(key, serialized);
+    const raw = sessionStorage.getItem(key);
+    if (raw == null) return false;
+    const validated = validateStoredReviseAttempt(JSON.parse(raw) as unknown, attempt.draft_id);
+    if (!validated) return false;
+    if (validated.request_id !== attempt.request_id) return false;
+    if (JSON.stringify(validated.request) !== JSON.stringify(attempt.request)) return false;
+    return true;
   } catch {
-    /* quota / private mode */
+    return false;
   }
 }
 
@@ -324,6 +339,8 @@ export function classifyReviseResult(result: ReviseResultLabel): ReviseResultCla
       return "terminal_new_allowed";
     case "revise_busy":
     case "revise_history_full":
+      // Preclaim admission outcomes: retain exact attempt and permit exact retry.
+      return "resume_same";
     case "revise_input_conflict":
     case "revise_integrity_conflict":
       return "blocked_diagnostics";
@@ -423,6 +440,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
     allowCreateNew: true,
     freezeReplaySource: false,
     awaitingLocalRefresh: false,
+    showRetryLocalRefresh: false,
   };
   if (!attempt) {
     return completedDefault;
@@ -437,6 +455,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
       allowCreateNew: false,
       freezeReplaySource: true,
       awaitingLocalRefresh: true,
+      showRetryLocalRefresh: true,
     };
   }
   if (attempt.ui_preclaim === "stale_version" || attempt.ui_preclaim === "http_422") {
@@ -446,6 +465,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
       allowCreateNew: true,
       freezeReplaySource: false,
       awaitingLocalRefresh: false,
+      showRetryLocalRefresh: false,
     };
   }
   if (attempt.last_result == null) {
@@ -455,6 +475,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
       allowCreateNew: false,
       freezeReplaySource: true,
       awaitingLocalRefresh: false,
+      showRetryLocalRefresh: false,
     };
   }
   const klass = classifyReviseResult(attempt.last_result);
@@ -465,6 +486,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
       allowCreateNew: false,
       freezeReplaySource: true,
       awaitingLocalRefresh: false,
+      showRetryLocalRefresh: false,
     };
   }
   if (klass === "terminal_new_allowed") {
@@ -474,6 +496,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
       allowCreateNew: false,
       freezeReplaySource: true,
       awaitingLocalRefresh: false,
+      showRetryLocalRefresh: false,
     };
   }
   if (attempt.last_result === "revise_blocked") {
@@ -483,6 +506,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
       allowCreateNew: true,
       freezeReplaySource: false,
       awaitingLocalRefresh: false,
+      showRetryLocalRefresh: false,
     };
   }
   if (
@@ -495,6 +519,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
       allowCreateNew: false,
       freezeReplaySource: true,
       awaitingLocalRefresh: false,
+      showRetryLocalRefresh: false,
     };
   }
   return {
@@ -503,6 +528,7 @@ export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): Revis
     allowCreateNew: false,
     freezeReplaySource: true,
     awaitingLocalRefresh: false,
+    showRetryLocalRefresh: false,
   };
 }
 
