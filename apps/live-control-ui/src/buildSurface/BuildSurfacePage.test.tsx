@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { BuildSurfacePage } from "./BuildSurfacePage";
@@ -12,6 +13,15 @@ function renderBuildPage() {
     <AgentInteractionProvider>
       <BuildSurfacePage />
     </AgentInteractionProvider>,
+  );
+}
+
+function BuildProjectionProbe() {
+  const { projectionSurface } = useAgentInteraction();
+  return (
+    <p data-testid="build-projection-enabled">
+      {projectionSurface?.projectionsEnabled ? "enabled" : "inactive"}
+    </p>
   );
 }
 
@@ -36,8 +46,15 @@ describe("BuildSurfacePage", () => {
   });
 
   it("does not create a document on mount without documentId", () => {
-    renderBuildPage();
+    render(
+      <AgentInteractionProvider>
+        <BuildSurfacePage />
+        <BuildProjectionProbe />
+      </AgentInteractionProvider>,
+    );
     expect(screen.getByTestId("build-new-source-form")).toBeInTheDocument();
+    expect(screen.getByTestId("build-projection-enabled")).toHaveTextContent("inactive");
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
   });
 

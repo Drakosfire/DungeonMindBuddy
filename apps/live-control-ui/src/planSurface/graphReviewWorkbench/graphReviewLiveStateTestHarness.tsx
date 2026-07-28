@@ -4,7 +4,7 @@ import { render, type RenderResult } from "@testing-library/react";
 import type { GraphIngestRunSummary } from "../../api/types";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import type { PlanContextDescriptor } from "../types";
-import { ProjectionProvider } from "../projection/projectionContext";
+import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import type { GraphReviewCommittedBinding } from "./graphReviewCommittedAuthority";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 
@@ -36,7 +36,7 @@ export function renderGraphReviewLiveHarness({
 }: RenderGraphReviewLiveHarnessOptions): RenderResult {
   const config = createIngestSurfaceConfig(context);
   return render(
-    <ProjectionProvider config={config}>
+    <AgentInteractionProjectionTestHost config={config}>
       <GraphReviewLiveStateProvider
         campaignId={campaignId}
         sessionId={sessionId}
@@ -51,7 +51,7 @@ export function renderGraphReviewLiveHarness({
       >
         {children}
       </GraphReviewLiveStateProvider>
-    </ProjectionProvider>,
+    </AgentInteractionProjectionTestHost>,
   );
 }
 

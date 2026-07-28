@@ -1,11 +1,19 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 
 import type { LiveQueryResponse } from "../api/types";
+import type { PlanReferenceResolution } from "../planSurface/reference/graphAwareReferenceResolver";
+import type {
+  GraphReviewDiagnosticsProjectionPayload,
+  PlanReferenceProjectionBinding,
+} from "../planSurface/projection/projectionBindings";
+import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "../planSurface/projection/projectionBindings";
+import type { SurfaceConfig } from "../planSurface/types";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { activeThreadStorageKey, createAgentInteractionThread, persistAgentThread, threadStorageKey } from "./agentInteractionStorage";
 import { FIXTURE_DOC_ID } from "../planSurface/config/planSessionDescriptor";
+import type { ProjectionSurfacePublication } from "./projectionSurfacePublication";
 import { useAgentInteraction } from "./useAgentInteraction";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -242,5 +250,832 @@ describe("AgentInteractionProvider", () => {
     });
 
     expect(result.current.scope?.sessionNumber).toBeNull();
+  });
+
+  it("publishes projection surface with token-safe cleanup", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const publication = {
+      identity: { surfaceId: "build", instanceKey: "build\u001f__new_source__" },
+      config: {
+        id: "build" as const,
+        label: "Build",
+        context: null,
+        tools: [],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+
+    let cleanup: (() => void) | undefined;
+    act(() => {
+      cleanup = result.current.publishProjectionSurface(publication);
+    });
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+
+    act(() => {
+      cleanup?.();
+    });
+    expect(result.current.projectionSurface).toBeNull();
+  });
+
+  it("rejects stale openTool after surface replacement before rerender", () => {
+    const planPublication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001ftest" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const buildPublication = {
+      identity: { surfaceId: "build", instanceKey: "build\u001f__new_source__" },
+      config: {
+        id: "build" as const,
+        label: "Build",
+        context: null,
+        tools: [],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(planPublication);
+    });
+    const staleOpenTool = result.current.openTool;
+    act(() => {
+      result.current.publishProjectionSurface(buildPublication);
+      staleOpenTool("recap");
+    });
+    expect(result.current.active).toBeNull();
+  });
+
+  it("rejects stale close after surface replacement before rerender", () => {
+    const planPublication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fclose-test" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const ingestPublication = {
+      identity: { surfaceId: "ingest", instanceKey: "ingest\u001fclose-test" },
+      config: {
+        id: "ingest" as const,
+        label: "Ingest",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Ingest",
+        },
+        tools: [{ id: "ingest-recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(planPublication);
+      result.current.openTool("recap");
+    });
+    const staleClose = result.current.close;
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    act(() => {
+      result.current.openTool("ingest-recap");
+    });
+    act(() => {
+      staleClose();
+    });
+    expect(result.current.active?.key).toBe("ingest-recap");
+  });
+
+  it("does not persist projection opens to localStorage", () => {
+    const publication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fpersist-test" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(publication);
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    const keys = Object.keys(localStorage);
+    expect(keys.some((key) => key.includes("projection"))).toBe(false);
+    expect(result.current.active?.key).toBe("recap");
+  });
+});
+
+describe("AgentInteractionProvider projection lease semantics", () => {
+  const planIdentity = { surfaceId: "plan", instanceKey: "plan\u001flease-test" };
+  const planContext = {
+    campaignId: "longmont-c2",
+    liveSession: 22,
+    ingestSession: 21,
+    headerLabel: "Plan",
+  };
+
+  function makePlanPublication(
+    configOverrides: Partial<SurfaceConfig> = {},
+    identityOverrides: Partial<ProjectionSurfacePublication["identity"]> = {},
+  ): ProjectionSurfacePublication {
+    return {
+      identity: { ...planIdentity, ...identityOverrides },
+      config: {
+        id: "plan",
+        label: "Plan",
+        context: planContext,
+        tools: [
+          { id: "recap", label: "Recap", size: "wide" as const },
+          { id: "statblock", label: "Statblock", size: "wide" as const },
+        ],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+        ...configOverrides,
+      },
+    };
+  }
+
+  const ingestPublication: ProjectionSurfacePublication = {
+    identity: { surfaceId: "ingest", instanceKey: "ingest\u001flease-test" },
+    config: {
+      id: "ingest",
+      label: "Ingest",
+      context: planContext,
+      tools: [
+        { id: "ingest-recap", label: "Recap", size: "wide" as const },
+        { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" as const },
+      ],
+      canvas: { documentId: null },
+      theme: {},
+    },
+  };
+
+  function makeIngestPublication(
+    identityOverrides: Partial<ProjectionSurfacePublication["identity"]> = {},
+    configOverrides: Partial<SurfaceConfig> = {},
+  ): ProjectionSurfacePublication {
+    return {
+      identity: {
+        surfaceId: "ingest",
+        instanceKey: "ingest\u001flease-test",
+        ...identityOverrides,
+      },
+      config: {
+        ...ingestPublication.config,
+        ...configOverrides,
+      },
+    };
+  }
+
+  const buildPublication: ProjectionSurfacePublication = {
+    identity: { surfaceId: "build", instanceKey: "build\u001flease-test" },
+    config: {
+      id: "build",
+      label: "Build",
+      context: null,
+      tools: [],
+      canvas: { documentId: null },
+      theme: {},
+    },
+  };
+
+  const resolution: PlanReferenceResolution = {
+    kind: "graph-node",
+    locator: "dmb-node:creature:bubbles",
+    refType: "creature",
+    refId: "creature:bubbles",
+    graphObject: null,
+    graphNodeId: "creature:bubbles",
+    fallback: null,
+    source: "world-graph",
+    graphProjectionState: "ready",
+  };
+
+  function makePlanBinding(): PlanReferenceProjectionBinding {
+    return {
+      resolverState: "ready",
+      resolveRelationship: vi.fn(async () => resolution),
+      openResolvedReference: vi.fn(),
+      openTool: vi.fn(),
+    };
+  }
+
+  it("preserves an open tool across a same-identity config update", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    expect(result.current.active?.key).toBe("recap");
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({ label: "Plan (revised)", theme: { themeId: "mireward" } }),
+      );
+    });
+
+    expect(result.current.active?.key).toBe("recap");
+    expect(result.current.projectionSurface?.publication.config.label).toBe("Plan (revised)");
+    expect(result.current.projectionSurface?.publication.config.theme.themeId).toBe("mireward");
+  });
+
+  it("clears the active tool when a same-identity update removes it", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    expect(result.current.active?.key).toBe("recap");
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({ tools: [{ id: "statblock", label: "Statblock", size: "wide" as const }] }),
+      );
+    });
+
+    expect(result.current.active).toBeNull();
+  });
+
+  it("rebuilds active tool label and size when a same-identity update revises the matching tool", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    expect(result.current.active).toEqual({
+      kind: "tool",
+      key: "recap",
+      size: "wide",
+      title: "Recap",
+    });
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({
+          tools: [
+            { id: "recap", label: "Session Memory", size: "fullscreen" as const },
+            { id: "statblock", label: "Statblock", size: "wide" as const },
+          ],
+        }),
+      );
+    });
+
+    expect(result.current.active).toEqual({
+      kind: "tool",
+      key: "recap",
+      size: "fullscreen",
+      title: "Session Memory",
+    });
+  });
+
+  it("preserves valid Plan content across a same-identity update", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.openPlanReferenceResolution(resolution);
+    });
+    expect(result.current.active?.kind).toBe("content");
+    expect(result.current.activePlanReference?.locator).toBe(resolution.locator);
+
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication({ label: "Plan (revised)" }));
+    });
+
+    expect(result.current.active?.kind).toBe("content");
+    expect(result.current.activePlanReference?.locator).toBe(resolution.locator);
+    expect(result.current.planProjectionState).toBe("ready");
+  });
+
+  it("invalidates Plan content when a same-identity update drops the render context", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.openPlanReferenceResolution(resolution);
+    });
+    expect(result.current.active?.kind).toBe("content");
+
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication({ context: null, tools: [] }));
+    });
+
+    expect(result.current.active).toBeNull();
+    expect(result.current.activePlanReference).toBeNull();
+    expect(result.current.planProjectionState).toBeNull();
+  });
+
+  it("keeps pre-publication callbacks as permanent no-ops after a surface publishes", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const staleOpenTool = result.current.openTool;
+    const staleOpenContentFromChip = result.current.openContentFromChip;
+    const staleOpenPlanReferenceResolution = result.current.openPlanReferenceResolution;
+    const staleExpandContent = result.current.expandContent;
+    const staleClose = result.current.close;
+
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      staleOpenTool("recap");
+      staleOpenContentFromChip(
+        { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
+        resolution,
+      );
+      staleOpenPlanReferenceResolution(resolution);
+      staleExpandContent();
+      staleClose();
+    });
+
+    expect(result.current.active).toBeNull();
+    expect(result.current.activePlanReference).toBeNull();
+
+    act(() => {
+      result.current.openTool("recap");
+    });
+    expect(result.current.active?.key).toBe("recap");
+  });
+
+  it("blocks a stale Plan registrar invoked after Ingest publication before rerender", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    const staleRegister = result.current.registerPlanReferenceBinding;
+
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+      staleRegister(makePlanBinding());
+    });
+
+    expect(result.current.planReferenceBinding).toBeNull();
+  });
+
+  it("blocks a stale Plan registrar invoked after Ingest publication has rendered", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    const staleRegister = result.current.registerPlanReferenceBinding;
+
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    act(() => {
+      staleRegister(makePlanBinding());
+    });
+
+    expect(result.current.planReferenceBinding).toBeNull();
+  });
+
+  it("blocks a stale diagnostics registrar invoked after Plan publication, before and after rerender", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    const staleRegisterPreRerender = result.current.registerToolProjectionPayload;
+    const payload = {} as GraphReviewDiagnosticsProjectionPayload;
+
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+      staleRegisterPreRerender(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    const staleRegisterPostRerender = staleRegisterPreRerender;
+    act(() => {
+      staleRegisterPostRerender(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+  });
+
+  it("blocks a stale diagnostics registrar invoked after Build publication, before and after rerender", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    const staleRegister = result.current.registerToolProjectionPayload;
+    const payload = {} as GraphReviewDiagnosticsProjectionPayload;
+
+    act(() => {
+      result.current.publishProjectionSurface(buildPublication);
+      staleRegister(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      staleRegister(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+  });
+
+  it("rejects Plan-content actions under an exact current Ingest lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+
+    act(() => {
+      result.current.openContentFromChip(
+        { refType: "creature", refId: "creature:bubbles", label: "Bubbles" } as never,
+        resolution,
+      );
+      result.current.openPlanReferenceResolution(resolution);
+      result.current.expandContent();
+    });
+
+    expect(result.current.active).toBeNull();
+    expect(result.current.activePlanReference).toBeNull();
+  });
+
+  it("rejects a freshly supplied Plan registrar under an exact current Ingest lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+
+    act(() => {
+      result.current.registerPlanReferenceBinding(makePlanBinding());
+    });
+
+    expect(result.current.planReferenceBinding).toBeNull();
+  });
+
+  it("rejects a freshly supplied diagnostics registrar under an exact current Plan lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+
+    act(() => {
+      result.current.registerToolProjectionPayload(
+        GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
+        {} as GraphReviewDiagnosticsProjectionPayload,
+      );
+    });
+
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+  });
+
+  it("rejects a freshly supplied diagnostics registrar under an exact current Build lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(buildPublication);
+    });
+
+    act(() => {
+      result.current.registerToolProjectionPayload(
+        GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
+        {} as GraphReviewDiagnosticsProjectionPayload,
+      );
+    });
+
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+  });
+
+  it("rejects diagnostics registration on Ingest when the diagnostics tool is not enabled", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(
+        makeIngestPublication({}, {
+          tools: [{ id: "ingest-recap", label: "Recap", size: "wide" as const }],
+        }),
+      );
+    });
+
+    act(() => {
+      result.current.registerToolProjectionPayload(
+        GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
+        {} as GraphReviewDiagnosticsProjectionPayload,
+      );
+    });
+
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+  });
+
+  it("clears Plan binding when a same-identity update disables projections and rejects fresh registration", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.registerPlanReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.planReferenceBinding).not.toBeNull();
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({ context: null, tools: [] }),
+      );
+    });
+
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.planReferenceBinding).toBeNull();
+
+    act(() => {
+      result.current.registerPlanReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.planReferenceBinding).toBeNull();
+  });
+
+  it("clears diagnostics payload when a same-identity update keeps the tool but loses context", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const payload = { selectedDeltaNodeId: "npc-a" } as GraphReviewDiagnosticsProjectionPayload;
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toEqual(payload);
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makeIngestPublication({}, {
+          context: null,
+          tools: [
+            { id: "ingest-recap", label: "Recap", size: "wide" as const },
+            { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" as const },
+          ],
+        }),
+      );
+    });
+
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+  });
+
+  it("fails closed when identity.surfaceId and config.id contradict", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: { surfaceId: "plan", instanceKey: "plan\u001fcontradiction" },
+        config: {
+          id: "ingest",
+          label: "Mismatched",
+          context: planContext,
+          tools: [
+            { id: "ingest-recap", label: "Recap", size: "wide" as const },
+            { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" as const },
+          ],
+          canvas: { documentId: null },
+          theme: {},
+        },
+      });
+    });
+
+    // Canonical validation disables contradictory publications.
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+
+    act(() => {
+      result.current.registerPlanReferenceBinding(makePlanBinding());
+      result.current.registerToolProjectionPayload(
+        GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
+        {} as GraphReviewDiagnosticsProjectionPayload,
+      );
+      result.current.openPlanReferenceResolution(resolution);
+      result.current.openTool("ingest-recap");
+    });
+
+    expect(result.current.planReferenceBinding).toBeNull();
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+    expect(result.current.activePlanReference).toBeNull();
+    expect(result.current.active).toBeNull();
+  });
+
+  it("clears an open tool when a same-identity update publishes a contradictory config with the same tool id", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(makePlanPublication());
+    });
+    act(() => {
+      result.current.openTool("recap");
+    });
+    expect(result.current.active?.key).toBe("recap");
+
+    act(() => {
+      result.current.publishProjectionSurface({
+        identity: planIdentity,
+        config: {
+          id: "ingest",
+          label: "Mismatched",
+          context: planContext,
+          tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+          canvas: { documentId: FIXTURE_DOC_ID },
+          theme: {},
+        },
+      });
+    });
+
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+    expect(result.current.active).toBeNull();
+  });
+
+  it("lets binder effects republish a Plan binding under a new Plan instance lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({}, { instanceKey: "plan\u001finstance-a" }),
+      );
+    });
+    let cleanup: (() => void) | undefined;
+    act(() => {
+      cleanup = result.current.registerPlanReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.planReferenceBinding).not.toBeNull();
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makePlanPublication({}, { instanceKey: "plan\u001finstance-b" }),
+      );
+    });
+    expect(result.current.planReferenceBinding).toBeNull();
+
+    // The binder re-runs because the registrar identity changed with the lease.
+    act(() => {
+      cleanup?.();
+      cleanup = result.current.registerPlanReferenceBinding(makePlanBinding());
+    });
+    expect(result.current.planReferenceBinding).not.toBeNull();
+  });
+
+  it("lets binder effects republish diagnostics under a new Ingest instance lease", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const payloadA = { selectedDeltaNodeId: "a" } as GraphReviewDiagnosticsProjectionPayload;
+    const payloadB = { selectedDeltaNodeId: "b" } as GraphReviewDiagnosticsProjectionPayload;
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makeIngestPublication({ instanceKey: "ingest\u001finstance-a" }),
+      );
+    });
+    let cleanup: (() => void) | undefined;
+    act(() => {
+      cleanup = result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payloadA);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toEqual(payloadA);
+
+    act(() => {
+      result.current.publishProjectionSurface(
+        makeIngestPublication({ instanceKey: "ingest\u001finstance-b" }),
+      );
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toBeNull();
+
+    act(() => {
+      cleanup?.();
+      cleanup = result.current.registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payloadB);
+    });
+    expect(result.current.graphReviewDiagnosticsPayload).toEqual(payloadB);
+  });
+
+  function PublisherPatternHarness({ config }: { config: SurfaceConfig }) {
+    const { publishProjectionSurface, updateProjectionSurfaceConfig } = useAgentInteraction();
+    const publication = useMemo<ProjectionSurfacePublication>(
+      () => ({ identity: planIdentity, config }),
+      [config],
+    );
+    const publicationInstanceKey = publication.identity.instanceKey;
+    const publicationRef = useRef(publication);
+    publicationRef.current = publication;
+    useEffect(() => {
+      return publishProjectionSurface(publicationRef.current);
+    }, [publicationInstanceKey, publishProjectionSurface]);
+    useEffect(() => {
+      updateProjectionSurfaceConfig(publication);
+    }, [publication, updateProjectionSurfaceConfig]);
+    return null;
+  }
+
+  function LeaseProbe() {
+    const { active, projectionSurface } = useAgentInteraction();
+    return (
+      <p data-testid="lease-probe">
+        {active ? `${active.kind}:${active.key}` : "none"}|{projectionSurface?.publication.config.label ?? "none"}
+      </p>
+    );
+  }
+
+  it("publisher pattern: a config-only republish preserves the open tool without an intervening unbind", () => {
+    const baseConfig: SurfaceConfig = makePlanPublication().config;
+    const revisedConfig: SurfaceConfig = { ...baseConfig, label: "Plan (revised)" };
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+
+    const { rerender, getByTestId } = render(
+      <AgentInteractionProvider>
+        <PublisherPatternHarness config={baseConfig} />
+        <LeaseProbe />
+        <CaptureApi />
+      </AgentInteractionProvider>,
+    );
+    act(() => {
+      hostApi!.openTool("recap");
+    });
+    expect(getByTestId("lease-probe").textContent).toBe("tool:recap|Plan");
+
+    rerender(
+      <AgentInteractionProvider>
+        <PublisherPatternHarness config={revisedConfig} />
+        <LeaseProbe />
+        <CaptureApi />
+      </AgentInteractionProvider>,
+    );
+
+    expect(getByTestId("lease-probe").textContent).toBe("tool:recap|Plan (revised)");
+  });
+
+  it("publisher pattern: an identity change still clears the open projection", () => {
+    const baseConfig: SurfaceConfig = makePlanPublication().config;
+    let hostApi: ReturnType<typeof useAgentInteraction> | null = null;
+    function CaptureApi() {
+      hostApi = useAgentInteraction();
+      return null;
+    }
+
+    function IdentitySwitchHarness({ config, identity }: { config: SurfaceConfig; identity: ProjectionSurfacePublication["identity"] }) {
+      const { publishProjectionSurface } = useAgentInteraction();
+      useEffect(() => {
+        return publishProjectionSurface({ identity, config });
+      }, [identity, config, publishProjectionSurface]);
+      return null;
+    }
+
+    const { rerender, getByTestId } = render(
+      <AgentInteractionProvider>
+        <IdentitySwitchHarness config={baseConfig} identity={planIdentity} />
+        <LeaseProbe />
+        <CaptureApi />
+      </AgentInteractionProvider>,
+    );
+    act(() => {
+      hostApi!.openTool("recap");
+    });
+    expect(getByTestId("lease-probe").textContent).toBe("tool:recap|Plan");
+
+    rerender(
+      <AgentInteractionProvider>
+        <IdentitySwitchHarness
+          config={baseConfig}
+          identity={{ surfaceId: "plan", instanceKey: "plan\u001fother-document" }}
+        />
+        <LeaseProbe />
+        <CaptureApi />
+      </AgentInteractionProvider>,
+    );
+
+    expect(getByTestId("lease-probe").textContent).toBe("none|Plan");
   });
 });

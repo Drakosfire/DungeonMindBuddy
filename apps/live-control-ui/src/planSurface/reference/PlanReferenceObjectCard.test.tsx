@@ -4,13 +4,14 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ReactElement } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { PlanReferenceProjectionBinding } from "../projection/projectionBindings";
-import { ProjectionProvider, useProjection } from "../projection/projectionContext";
+import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
+import { useProjection } from "../projection/projectionContext";
 import type { SurfaceConfig } from "../types";
 import { PlanReferenceObjectCard } from "./PlanReferenceObjectCard";
 import { PlanReferenceProjectionBinding as PlanReferenceProjectionBindingMount } from "./PlanReferenceProjectionBinding";
@@ -158,13 +159,13 @@ function PlanReferenceProjectionHarness({
     openPlanReferenceResolution,
     planReferenceBinding,
   } = useProjection();
-  const seeded = useRef(false);
 
+  // Seed only once the surface lease is live: a callback captured before
+  // publication is a permanent no-op, so retry until the seed lands.
   useEffect(() => {
-    if (seeded.current) return;
-    seeded.current = true;
+    if (activePlanReference) return;
     openPlanReferenceResolution(initialResolution, initialResolution.graphProjectionState ?? "ready");
-  }, [initialResolution, openPlanReferenceResolution]);
+  }, [activePlanReference, initialResolution, openPlanReferenceResolution]);
 
   if (!activePlanReference) {
     return <p>Seeding projection…</p>;
@@ -183,12 +184,12 @@ function PlanReferenceProjectionHarness({
 
 function renderHarness(initialResolution: PlanReferenceResolution) {
   return render(
-    <ProjectionProvider config={surfaceConfig}>
+    <AgentInteractionProjectionTestHost config={surfaceConfig}>
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
         <PlanReferenceProjectionBindingMount />
         <PlanReferenceProjectionHarness initialResolution={initialResolution} />
       </PlanGraphReferenceResolverProvider>
-    </ProjectionProvider>,
+    </AgentInteractionProjectionTestHost>,
   );
 }
 
@@ -206,12 +207,12 @@ function renderWithLiveBinding(card: ReactElement) {
   }
 
   return render(
-    <ProjectionProvider config={surfaceConfig}>
+    <AgentInteractionProjectionTestHost config={surfaceConfig}>
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
         <PlanReferenceProjectionBindingMount />
         <BoundCard />
       </PlanGraphReferenceResolverProvider>
-    </ProjectionProvider>,
+    </AgentInteractionProjectionTestHost>,
   );
 }
 

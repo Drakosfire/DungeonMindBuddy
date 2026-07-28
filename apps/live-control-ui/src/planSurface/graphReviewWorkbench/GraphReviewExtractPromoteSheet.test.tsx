@@ -12,7 +12,7 @@ import type {
 } from "../../api/types";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import type { PlanContextDescriptor } from "../types";
-import { ProjectionProvider } from "../projection/projectionContext";
+import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import {
@@ -206,7 +206,7 @@ function confirmReceipt(
 function renderWithLiveRun(liveRun: GraphIngestRunSummary, children: ReactNode) {
   const config = createIngestSurfaceConfig(planContext);
   return render(
-    <ProjectionProvider config={config}>
+    <AgentInteractionProjectionTestHost config={config}>
       <GraphReviewLiveStateProvider
         campaignId="longmont-c2"
         sessionId="session-25"
@@ -220,7 +220,7 @@ function renderWithLiveRun(liveRun: GraphIngestRunSummary, children: ReactNode) 
       >
         {children}
       </GraphReviewLiveStateProvider>
-    </ProjectionProvider>,
+    </AgentInteractionProjectionTestHost>,
   );
 }
 
@@ -328,7 +328,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
 
     const config = createIngestSurfaceConfig(planContext);
     render(
-      <ProjectionProvider config={config}>
+      <AgentInteractionProjectionTestHost config={config}>
         <GraphReviewLiveStateProvider
           campaignId=""
           sessionId=""
@@ -345,7 +345,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
             onClose={() => undefined}
           />
         </GraphReviewLiveStateProvider>
-      </ProjectionProvider>,
+      </AgentInteractionProjectionTestHost>,
     );
     fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
 
@@ -747,7 +747,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
       }
 
       return (
-        <ProjectionProvider config={createIngestSurfaceConfig(planContext)}>
+        <AgentInteractionProjectionTestHost config={createIngestSurfaceConfig(planContext)}>
           <GraphReviewLiveStateProvider
             campaignId="longmont-c2"
             sessionId="session-25"
@@ -788,7 +788,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
               />
             )}
           </GraphReviewLiveStateProvider>
-        </ProjectionProvider>
+        </AgentInteractionProjectionTestHost>
       );
     }
 
@@ -901,7 +901,7 @@ describe("GraphReviewSessionToolbar", () => {
           >
             Switch
           </button>
-          <ProjectionProvider config={createIngestSurfaceConfig(planContext)}>
+          <AgentInteractionProjectionTestHost config={createIngestSurfaceConfig(planContext)}>
             <GraphReviewLiveStateProvider
               campaignId="longmont-c2"
               sessionId="session-25"
@@ -915,7 +915,7 @@ describe("GraphReviewSessionToolbar", () => {
             >
               <GraphReviewSessionToolbar />
             </GraphReviewLiveStateProvider>
-          </ProjectionProvider>
+          </AgentInteractionProjectionTestHost>
         </>
       );
     }

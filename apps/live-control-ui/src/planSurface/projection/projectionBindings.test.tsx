@@ -11,13 +11,14 @@ import { PlanReferenceProjectionBinding } from "../reference/PlanReferenceProjec
 import { PlanGraphLensProvider } from "../PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import type { SurfaceConfig } from "../types";
-import { AdaptiveProjectionContainer } from "./AdaptiveProjectionContainer";
 import {
   GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID,
   type GraphReviewDiagnosticsProjectionPayload,
   type PlanReferenceProjectionBinding as PlanBinding,
 } from "./projectionBindings";
-import { ProjectionProvider, useProjection } from "./projectionContext";
+import { AdaptiveProjectionContainer } from "./AdaptiveProjectionContainer";
+import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
+import { useProjection } from "./projectionContext";
 import { GraphReviewLiveStateProvider } from "../graphReviewWorkbench/GraphReviewLiveStateContext";
 import { GraphReviewDiagnosticsProjectionBinding } from "../graphReviewWorkbench/GraphReviewDiagnosticsProjectionBinding";
 import { buildEvidenceSelectionForDelta } from "../graphReviewWorkbench/graphReviewEvidenceSelectionUtils";
@@ -49,12 +50,28 @@ const surfaceConfig: SurfaceConfig = {
   },
   tools: [
     { id: "recap", label: "Recap", size: "wide" },
-    { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" },
     { id: "statblock", label: "Statblock", size: "wide" },
   ],
   canvas: { documentId: sessionDescriptor.planningDocument.documentId },
   theme: {},
   sessionDescriptor,
+};
+
+const ingestSurfaceConfig: SurfaceConfig = {
+  id: "ingest",
+  label: "Ingest",
+  context: {
+    campaignId: "longmont-c2",
+    headerLabel: "Memory Ingest",
+    ingestSession: 21,
+    liveSession: 22,
+  },
+  tools: [
+    { id: "ingest-recap", label: "Ingest Recap", size: "wide" },
+    { id: GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, label: "Diagnostics", size: "wide" },
+  ],
+  canvas: { documentId: null },
+  theme: {},
 };
 
 const bubblesNode: GraphProjectionNodeView = {
@@ -317,15 +334,15 @@ describe("projectionBindings sibling topology", () => {
     const user = userEvent.setup();
 
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <PlanGraphLensProvider planCampaignId={sessionDescriptor.campaignId}>
           <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
             <PlanReferenceProjectionBinding />
           </PlanGraphReferenceResolverProvider>
         </PlanGraphLensProvider>
         <OpenReferenceButton />
-        <AdaptiveProjectionContainer config={surfaceConfig} />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
@@ -348,7 +365,7 @@ describe("projectionBindings sibling topology", () => {
   it("renders Graph Review diagnostics with container outside live-state provider", async () => {
     const user = userEvent.setup();
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
         <GraphReviewLiveStateProvider
           campaignId="longmont-c2"
           sessionId="session-21"
@@ -363,8 +380,8 @@ describe("projectionBindings sibling topology", () => {
           <GraphReviewDiagnosticsProjectionBinding />
         </GraphReviewLiveStateProvider>
         <OpenDiagnosticsButton />
-        <AdaptiveProjectionContainer config={surfaceConfig} />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Open Diagnostics" }));
@@ -402,11 +419,11 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <ControllablePlanBinding />
         <OpenReferenceButton />
-        <AdaptiveProjectionContainer config={surfaceConfig} />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
@@ -441,9 +458,10 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <Registrar />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await waitFor(() => {
@@ -497,9 +515,10 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <Registrar />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await waitFor(() => {
@@ -545,9 +564,10 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <Registrar />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await waitFor(() => {
@@ -636,11 +656,11 @@ describe("projectionBindings sibling topology", () => {
     }
 
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={ingestSurfaceConfig}>
         <ReplaceableDiagnosticsBinding />
         <OpenDiagnosticsButton />
-        <AdaptiveProjectionContainer config={surfaceConfig} />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Open Diagnostics" }));

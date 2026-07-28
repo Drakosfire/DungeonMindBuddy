@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "../projection/projectionBindings";
 import { useProjection } from "../projection/projectionContext";
@@ -6,14 +6,13 @@ import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
 /**
  * Publishes the diagnostics fields consumed by GraphReviewDiagnosticsToolPanel.
- * Must mount under GraphReviewLiveStateProvider and ProjectionProvider.
+ * Must mount under GraphReviewLiveStateProvider and the app projection host.
  */
 export function GraphReviewDiagnosticsProjectionBinding() {
-  const { registerToolProjectionPayload } = useProjection();
+  const { projectionSurface, registerToolProjectionPayload } = useProjection();
   const live = useGraphReviewLiveState();
-
-  useEffect(() => {
-    return registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, {
+  const payload = useMemo(
+    () => ({
       campaignId: live.campaignId,
       sessionId: live.sessionId,
       liveRun: live.liveRun,
@@ -47,8 +46,47 @@ export function GraphReviewDiagnosticsProjectionBinding() {
       selectedVariantInventoryRowId: live.selectedVariantInventoryRowId,
       setSelectedVariantInventoryRowId: live.setSelectedVariantInventoryRowId,
       selectedVariantInventoryRow: live.selectedVariantInventoryRow,
-    });
-  }, [live, registerToolProjectionPayload]);
+    }),
+    [
+      live.campaignId,
+      live.sessionId,
+      live.liveRun,
+      live.projection,
+      live.projectionStatus,
+      live.compareStatus,
+      live.compare,
+      live.compareError,
+      live.selection,
+      live.onSelectSelection,
+      live.deltaIndex,
+      live.sourceSpanDeltaIndex,
+      live.selectedDeltaNodeId,
+      live.setSelectedEvidenceDeltaId,
+      live.selectedEvidenceDeltaId,
+      live.selectedSourceSpanId,
+      live.setSelectedSourceSpanId,
+      live.evidenceSelection,
+      live.evidenceDiff,
+      live.evidenceStatus,
+      live.evidenceError,
+      live.manualBeds,
+      live.manualBedsStatus,
+      live.manualBedsError,
+      live.selectedManualBed,
+      live.selectedVariantLaneView,
+      live.selectedManualVariant,
+      live.onSelectManualBedId,
+      live.onSelectManualVariantName,
+      live.variantInventoryIndex,
+      live.selectedVariantInventoryRowId,
+      live.setSelectedVariantInventoryRowId,
+      live.selectedVariantInventoryRow,
+    ],
+  );
+
+  useEffect(() => {
+    return registerToolProjectionPayload(GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID, payload);
+  }, [payload, projectionSurface, registerToolProjectionPayload]);
 
   return null;
 }

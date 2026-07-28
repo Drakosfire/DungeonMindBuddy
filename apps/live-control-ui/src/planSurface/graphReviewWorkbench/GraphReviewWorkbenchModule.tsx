@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getExtractionRun,
@@ -26,8 +26,8 @@ import type { ExactRunReviewPackage, ExtractPromotePrepareResponse } from "../..
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
-import { AdaptiveProjectionContainer } from "../projection/AdaptiveProjectionContainer";
-import { ProjectionProvider } from "../projection/projectionContext";
+import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
+import { buildIngestSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
 import type { PlanContextDescriptor } from "../types";
 import { resolveInitialReviewCampaignId } from "../sessionCampaignContext";
 import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";
@@ -149,6 +149,24 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
   const toolboxConfig = useMemo(() => createIngestSurfaceConfig(context), [context]);
+  const { publishProjectionSurface, updateProjectionSurfaceConfig } = useAgentInteraction();
+
+  // Identity registration and same-identity config updates are separate
+  // operations: a config-only change must not unbind the surface lease.
+  const projectionPublication = useMemo(
+    () => ({
+      identity: buildIngestSurfaceIdentity({
+        campaignId: context.campaignId,
+        liveSession: context.liveSession,
+        ingestSession: context.ingestSession,
+      }),
+      config: toolboxConfig,
+    }),
+    [context.campaignId, context.ingestSession, context.liveSession, toolboxConfig],
+  );
+  const projectionInstanceKey = projectionPublication.identity.instanceKey;
+  const projectionPublicationRef = useRef(projectionPublication);
+  projectionPublicationRef.current = projectionPublication;
   const [exactHandoff, setExactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
     parseGraphReviewRunHandoff(
       typeof window !== "undefined" ? window.location.search : "",
@@ -162,6 +180,19 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [catalogSessions, setCatalogSessions] = useState<GraphReviewCatalogSession[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionsLoaded) {
+      return publishProjectionSurface(null);
+    }
+    return publishProjectionSurface(projectionPublicationRef.current);
+  }, [projectionInstanceKey, publishProjectionSurface, sessionsLoaded]);
+
+  useEffect(() => {
+    if (!sessionsLoaded) return;
+    updateProjectionSurfaceConfig(projectionPublication);
+  }, [projectionPublication, sessionsLoaded, updateProjectionSurfaceConfig]);
+
   const [catalogRefreshToken, setCatalogRefreshToken] = useState(0);
   const [appliedSelection, setAppliedSelection] = useState<GraphReviewAppliedSelection | null>(
     null,
@@ -809,8 +840,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   }
 
   return (
-    <ProjectionProvider config={toolboxConfig}>
-      <GraphReviewLiveStateProvider
+    <GraphReviewLiveStateProvider
         campaignId={reviewCampaignId}
         sessionId={reviewSessionId}
         liveRun={hasAppliedLoad ? appliedLiveRun : null}
@@ -904,8 +934,6 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
             />
           )}
 
-          <AdaptiveProjectionContainer config={toolboxConfig} />
-
           <GraphReviewLoadSurface
             open={loadDialogOpen}
             sessions={catalogSessions}
@@ -922,7 +950,6 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           />
         </div>
       </GraphReviewLiveStateProvider>
-    </ProjectionProvider>
   );
 }
 
