@@ -23,6 +23,8 @@ import {
   validateStoredReviseAttempt,
   writeCandidateWorkingCopy,
   writeStoredReviseAttempt,
+  isExpectedDraftVersionMismatch409,
+  reviseResponseMatchesAttempt,
 } from "./statblockRevisionAttempt";
 
 const candidate = fixture as GeneratedStatblockCandidateV1;
@@ -464,5 +466,35 @@ describe("statblockRevisionAttempt", () => {
     });
     expect(proveReconciledRefOnDraft(draft, "cand_new", "req-1")?.candidate_id).toBe("cand_new");
     expect(proveReconciledRefOnDraft(draft, "cand_new", "req-other")).toBeNull();
+  });
+
+  it("only expected_version mismatch 409 authorizes preclaim rebuild", () => {
+    expect(isExpectedDraftVersionMismatch409(409, "expected_version mismatch")).toBe(true);
+    expect(isExpectedDraftVersionMismatch409(409, "  expected_version mismatch  ")).toBe(true);
+    expect(isExpectedDraftVersionMismatch409(409, "version mismatch")).toBe(false);
+    expect(
+      isExpectedDraftVersionMismatch409(
+        409,
+        "candidate.candidate_id does not match revise operation",
+      ),
+    ).toBe(false);
+    expect(
+      isExpectedDraftVersionMismatch409(
+        409,
+        "candidate generation_receipt.request_id does not match revise operation",
+      ),
+    ).toBe(false);
+    expect(
+      isExpectedDraftVersionMismatch409(
+        409,
+        "candidate generation_receipt.source_definition_digest does not match revise operation",
+      ),
+    ).toBe(false);
+    expect(isExpectedDraftVersionMismatch409(422, "expected_version mismatch")).toBe(false);
+  });
+
+  it("reviseResponseMatchesAttempt requires exact request_id equality", () => {
+    expect(reviseResponseMatchesAttempt("req-a", "req-a")).toBe(true);
+    expect(reviseResponseMatchesAttempt("req-a", "req-b")).toBe(false);
   });
 });

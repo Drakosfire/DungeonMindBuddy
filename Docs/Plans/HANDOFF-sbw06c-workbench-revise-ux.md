@@ -29,6 +29,9 @@
 | Accept/Save wrong draft identity / enabled without snapshot | Closed | Candidate-bound `createdDraft` + refreshed `threatDraft` precede Advanced fields; `draftAuthorityUnavailable` disables Accept/Save |
 | Proposal history hidden when candidate miss | Closed | `ProposalHistoryPanel` renders from `threatDraft` independently of `activeCandidate` |
 | Prior four findings (reconcile proof, race ownership, class-driven actions, Unicode) | Preserved | Regression suite retained through rebase |
+| Stale ThreatDraft survives draft exit / unknown-draft load | Closed | `clearThreatDraftAuthority` on Start another threat, unknown-draft candidate loads, and cross-draft identity; invalidates revise/draft-fetch generations |
+| Every HTTP 409 treated as stale version | Closed | Only exact `expected_version mismatch` detail uses preclaim rebuild; integrity 409s retain attempt and Resume |
+| Response `request_id` not verified | Closed | `reviseResponseMatchesAttempt` before classify/mutate; mismatch retains stored attempt |
 
 **Verification (2026-07-28):**
 

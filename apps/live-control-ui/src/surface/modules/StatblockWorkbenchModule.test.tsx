@@ -3331,14 +3331,16 @@ describe("StatblockWorkbenchModule", () => {
       await waitFor(() => {
         expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy();
       });
-      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
-        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
-        result: "revise_claimed",
-        request_id: "ignored",
-        request_digest: `sha256:${"a".repeat(64)}`,
-        source_definition_digest: `sha256:${"b".repeat(64)}`,
-        instruction_options_digest: `sha256:${"c".repeat(64)}`,
-      });
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        async (_draftId, body) => ({
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "revise_claimed",
+          request_id: body.request_id,
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        }),
+      );
       await user.clear(screen.getByLabelText("Creature name"));
       await user.type(screen.getByLabelText("Creature name"), "Edited Brute Name");
       await user.type(screen.getByTestId("revise-instructions"), "Increase AC");
@@ -3456,14 +3458,14 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.getByTestId("revise-instructions")).toHaveProperty("value", "Add reach");
       const firstUuid = uuidSpy.mock.results[0]?.value;
       uuidSpy.mockClear();
-      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => ({
         schema: "dmb_revise_candidate_from_edited_definition_response_v1",
         result: "revise_claimed",
-        request_id: "resume",
+        request_id: body.request_id,
         request_digest: `sha256:${"a".repeat(64)}`,
         source_definition_digest: `sha256:${"b".repeat(64)}`,
         instruction_options_digest: `sha256:${"c".repeat(64)}`,
-      });
+      }));
       await user.click(screen.getByTestId("revise-resume-same"));
       await waitFor(() => expect(liveApi.reviseThreatDraftCandidate).toHaveBeenCalled());
       expect(uuidSpy).not.toHaveBeenCalled();
@@ -3564,7 +3566,7 @@ describe("StatblockWorkbenchModule", () => {
       resolveRevise({
         schema: "dmb_revise_candidate_from_edited_definition_response_v1",
         result: "revise_claimed",
-        request_id: "x",
+        request_id: reviseSpy.mock.calls[0][1].request_id,
         request_digest: `sha256:${"a".repeat(64)}`,
         source_definition_digest: `sha256:${"b".repeat(64)}`,
         instruction_options_digest: `sha256:${"c".repeat(64)}`,
@@ -3707,31 +3709,51 @@ describe("StatblockWorkbenchModule", () => {
     it("terminal_failure shows Start new and hides Resume", async () => {
       const user = await loadWithDraft();
       await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
-      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => ({
         schema: "dmb_revise_candidate_from_edited_definition_response_v1",
         result: "terminal_failure",
-        request_id: "term",
+        request_id: body.request_id,
         request_digest: `sha256:${"a".repeat(64)}`,
         source_definition_digest: `sha256:${"b".repeat(64)}`,
         instruction_options_digest: `sha256:${"c".repeat(64)}`,
-      });
+      }));
       await user.type(screen.getByTestId("revise-instructions"), "Fail path");
       await user.click(screen.getByTestId("revise-create-proposal"));
       await waitFor(() => expect(screen.getByTestId("revise-start-new")).toBeTruthy());
       expect(screen.queryByTestId("revise-resume-same")).toBeNull();
     });
 
-    it("HTTP 409 preclaim allows create rebuild without resume", async () => {
+    it("HTTP 409 expected_version mismatch allows create rebuild without resume", async () => {
       const user = await loadWithDraft();
       await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
       vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(
-        new liveApi.LiveApiError("version mismatch", 409),
+        new liveApi.LiveApiError("expected_version mismatch", 409),
       );
       await user.type(screen.getByTestId("revise-instructions"), "Stale draft");
       await user.click(screen.getByTestId("revise-create-proposal"));
       await waitFor(() => expect(readStoredReviseAttempt(DRAFT_ID)?.ui_preclaim).toBe("stale_version"));
       expect(screen.queryByTestId("revise-resume-same")).toBeNull();
       expect(screen.getByTestId("revise-create-proposal")).not.toBeDisabled();
+    });
+
+    it("HTTP 409 integrity conflict retains attempt and does not authorize a new request id", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(
+        new liveApi.LiveApiError(
+          "candidate generation_receipt.request_id does not match revise operation",
+          409,
+        ),
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "Integrity conflict");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      const stored = readStoredReviseAttempt(DRAFT_ID);
+      expect(stored?.ui_preclaim == null || stored?.ui_preclaim === null).toBe(true);
+      expect(stored?.last_result).toBeNull();
+      expect(screen.getByTestId("revise-resume-same")).toBeTruthy();
+      expect(screen.queryByTestId("revise-start-new")).toBeNull();
+      expect(screen.getByTestId("revise-create-proposal")).toBeDisabled();
     });
 
     it("HTTP 422 preclaim allows create rebuild without resume", async () => {
@@ -3856,14 +3878,14 @@ describe("StatblockWorkbenchModule", () => {
     it("revise_busy offers Resume same revise", async () => {
       const user = await loadWithDraft();
       await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
-      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => ({
         schema: "dmb_revise_candidate_from_edited_definition_response_v1",
         result: "revise_busy",
-        request_id: "busy",
+        request_id: body.request_id,
         request_digest: `sha256:${"a".repeat(64)}`,
         source_definition_digest: `sha256:${"b".repeat(64)}`,
         instruction_options_digest: `sha256:${"c".repeat(64)}`,
-      });
+      }));
       await user.type(screen.getByTestId("revise-instructions"), "Busy path");
       await user.click(screen.getByTestId("revise-create-proposal"));
       await waitFor(() => expect(screen.getByTestId("revise-resume-same")).toBeTruthy());
@@ -3873,14 +3895,16 @@ describe("StatblockWorkbenchModule", () => {
     it("revise_history_full offers Resume same revise without minting a new request id", async () => {
       const user = await loadWithDraft();
       await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
-      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
-        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
-        result: "revise_history_full",
-        request_id: "full",
-        request_digest: `sha256:${"a".repeat(64)}`,
-        source_definition_digest: `sha256:${"b".repeat(64)}`,
-        instruction_options_digest: `sha256:${"c".repeat(64)}`,
-      });
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        async (_draftId, body) => ({
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "revise_history_full",
+          request_id: body.request_id,
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        }),
+      );
       await user.type(screen.getByTestId("revise-instructions"), "History full path");
       await user.click(screen.getByTestId("revise-create-proposal"));
       await waitFor(() => expect(screen.getByTestId("revise-resume-same")).toBeTruthy());
@@ -3989,6 +4013,65 @@ describe("StatblockWorkbenchModule", () => {
       await waitFor(() => expect(screen.getByTestId("draft-snapshot-unavailable")).toBeTruthy());
       await validateWorkingCopy(user);
       expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
+    });
+
+    it("Start another threat clears proposal history and ignores late draft refresh", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      let resolveLateDraft!: (value: import("../../api/types").ThreatDraftV1) => void;
+      vi.spyOn(liveApi, "getThreatDraft").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveLateDraft = resolve;
+          }),
+      );
+      await user.click(screen.getByTestId("refresh-proposal-history"));
+      await user.click(screen.getByTestId("start-another-threat"));
+      expect(screen.queryByTestId("proposal-history-panel")).toBeNull();
+      expect(screen.queryByTestId("revise-with-ai-panel")).toBeNull();
+      resolveLateDraft(threatDraftFixture());
+      await waitFor(() => expect(screen.queryByTestId("proposal-history-panel")).toBeNull());
+    });
+
+    it("clears ThreatDraft authority when loading a candidate without source-draft identity", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        ...activeResponse,
+        candidate_id: "cand_orphan",
+        candidate: { ...candidate, candidate_id: "cand_orphan" },
+        source_draft_id: null,
+        source_draft_version: null,
+        source_draft_name: null,
+      });
+      await user.clear(screen.getByPlaceholderText("cand_…"));
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_orphan");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      expect(screen.queryByTestId("proposal-history-panel")).toBeNull();
+      expect(screen.queryByTestId("revise-with-ai-panel")).toBeNull();
+    });
+
+    it("mismatched revise response request_id does not mutate the stored attempt", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "terminal_failure",
+        request_id: "not-the-attempt-id",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Identity check");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      expect(screen.getByTestId("revise-error").textContent).toMatch(/identity mismatch/i);
+      const stored = readStoredReviseAttempt(DRAFT_ID);
+      expect(stored?.last_result).toBeNull();
+      expect(stored?.request_id).not.toBe("not-the-attempt-id");
+      expect(screen.queryByTestId("revise-start-new")).toBeNull();
+      expect(screen.getByTestId("revise-resume-same")).toBeTruthy();
     });
   });
 });

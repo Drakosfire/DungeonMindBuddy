@@ -55,6 +55,7 @@ import {
 import {
   buildReviseRequestFromWorkingCopy,
   classifyReviseResult,
+  isExpectedDraftVersionMismatch409,
   markReviseAttemptCompleted,
   markReviseAwaitingLocalRefresh,
   markRevisePreclaimRebuild,
@@ -64,6 +65,7 @@ import {
   readStoredReviseAttempt,
   reviseAttemptStorageKey,
   revisePanelActions,
+  reviseResponseMatchesAttempt,
   updateReviseAttemptResult,
   writeCandidateWorkingCopy,
   writeStoredReviseAttempt,
@@ -1931,6 +1933,8 @@ export function StatblockWorkbenchModule() {
   const draftSnapshotGenerationRef = useRef(0);
   const reviseInFlightRef = useRef(false);
   const ownedDraftSnapshotIdRef = useRef<string>("");
+  /** Mirrors threatDraft for load/clear paths that must not close over stale React state. */
+  const threatDraftRef = useRef<ThreatDraftV1 | null>(null);
   /** Synchronous duplicate-submit guard for create-and-generate. */
   const createAndGenerateInFlightRef = useRef(false);
   const editorStateRef = useRef<StatblockEditorState | null>(null);
@@ -1940,8 +1944,39 @@ export function StatblockWorkbenchModule() {
   editorStateRef.current = editorState;
   editorEpochRef.current = editorEpoch;
   createdDraftRef.current = createdDraft;
+  threatDraftRef.current = threatDraft;
+
+  /**
+   * Quarantine ThreatDraft/revise authority so late draft/revise responses and
+   * stale proposal history cannot survive draft exit or unknown-draft loads.
+   */
+  const clearThreatDraftAuthority = useCallback(() => {
+    draftSnapshotGenerationRef.current += 1;
+    reviseOpGenerationRef.current += 1;
+    ownedDraftSnapshotIdRef.current = "";
+    threatDraftRef.current = null;
+    setThreatDraft(null);
+    setDraftSnapshotPending(false);
+    setDraftSnapshotError(null);
+    setDraftSnapshotUnavailable(false);
+    setReviseAttempt(null);
+    setReviseStatusMessage(null);
+    setReviseError(null);
+    setRevisePending(false);
+    reviseInFlightRef.current = false;
+  }, []);
 
   const applyCreatedDraftIdentity = useCallback((identity: CreatedDraftIdentity) => {
+    const priorSnapshotId =
+      threatDraftRef.current?.draft_id || ownedDraftSnapshotIdRef.current || null;
+    const priorCreatedId = createdDraftRef.current?.draft_id ?? null;
+    if (
+      (priorSnapshotId && priorSnapshotId !== identity.draft_id) ||
+      (priorCreatedId && priorCreatedId !== identity.draft_id)
+    ) {
+      // Cross-draft switch: drop the previous draft's snapshot/revise authority immediately.
+      clearThreatDraftAuthority();
+    }
     const hadSameDraft = createdDraftRef.current?.draft_id === identity.draft_id;
     createdDraftRef.current = identity;
     setCreatedDraft(identity);
@@ -1960,7 +1995,7 @@ export function StatblockWorkbenchModule() {
       return String(identity.version);
     });
     setCreatePhase((prev) => (prev === "idle" ? "draft_created" : prev));
-  }, []);
+  }, [clearThreatDraftAuthority]);
 
   const refreshThreatDraftSnapshot = useCallback(async (draftId: string) => {
     const trimmed = draftId.trim();
@@ -2212,6 +2247,8 @@ export function StatblockWorkbenchModule() {
               void refreshThreatDraftSnapshot(draftIdentity.draft_id);
             }
           } else {
+            // Unknown-draft candidate: quarantine any prior ThreatDraft/revise authority.
+            clearThreatDraftAuthority();
             createdDraftRef.current = null;
             setCreatedDraft(null);
             setDraftIdInput("");
@@ -2244,7 +2281,7 @@ export function StatblockWorkbenchModule() {
         return false;
       }
     },
-    [applyCreatedDraftIdentity, beginCandidateOp, bumpEditorEpoch, invalidateValidationOwnership, isCurrentCandidateOp, persistActiveCandidateWorkingCopy, refreshThreatDraftSnapshot],
+    [applyCreatedDraftIdentity, beginCandidateOp, bumpEditorEpoch, clearThreatDraftAuthority, invalidateValidationOwnership, isCurrentCandidateOp, persistActiveCandidateWorkingCopy, refreshThreatDraftSnapshot],
   );
 
   // One-time session restore. Do not depend on loadCandidate identity — that callback
@@ -2336,6 +2373,13 @@ export function StatblockWorkbenchModule() {
     ) => {
       if (generation !== reviseOpGenerationRef.current) return;
 
+      if (!reviseResponseMatchesAttempt(response.request_id, attempt.request_id)) {
+        setReviseError(
+          "Revise response identity mismatch — retaining the exact stored attempt; resume same revise.",
+        );
+        return;
+      }
+
       if (response.result === "reconciled" && response.candidate_id) {
         const awaiting = markReviseAwaitingLocalRefresh(attempt, response.candidate_id);
         writeStoredReviseAttempt(awaiting);
@@ -2410,7 +2454,10 @@ export function StatblockWorkbenchModule() {
         await handleReviseResponse(generation, draftId, attempt, response, reviseCandidateOpId);
       } catch (error) {
         if (generation !== reviseOpGenerationRef.current) return;
-        if (error instanceof LiveApiError && error.status === 409) {
+        if (
+          error instanceof LiveApiError &&
+          isExpectedDraftVersionMismatch409(error.status, error.message)
+        ) {
           setReviseStatusMessage("Draft version changed — refresh the draft and retry explicitly.");
           void refreshThreatDraftSnapshot(draftId);
           const preclaimed = markRevisePreclaimRebuild(attempt, "stale_version");
@@ -2421,6 +2468,13 @@ export function StatblockWorkbenchModule() {
           const preclaimed = markRevisePreclaimRebuild(attempt, "http_422");
           writeStoredReviseAttempt(preclaimed);
           setReviseAttempt(preclaimed);
+        } else if (error instanceof LiveApiError && error.status === 409) {
+          // Integrity / unknown 409 — fail closed; do not authorize a replacement request ID.
+          setReviseError(
+            `Revision conflict (${error.message}) — retaining the exact stored attempt; resume same revise.`,
+          );
+          writeStoredReviseAttempt(attempt);
+          setReviseAttempt(attempt);
         } else {
           setReviseError(
             error instanceof Error
@@ -2704,6 +2758,7 @@ export function StatblockWorkbenchModule() {
     beginCandidateOp();
     createAndGenerateInFlightRef.current = false;
     clearStoredWorkbenchJoin();
+    clearThreatDraftAuthority();
     setCreateForm(DEFAULT_CREATE_FORM);
     setCreatedDraft(null);
     createdDraftRef.current = null;

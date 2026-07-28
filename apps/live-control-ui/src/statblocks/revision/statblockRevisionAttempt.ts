@@ -433,6 +433,24 @@ export function markRevisePreclaimRebuild(
   };
 }
 
+/**
+ * Only the Buddy claim-time expected_draft_version mismatch may authorize a
+ * replacement request ID. Integrity 409s (candidate id / receipt / digest) must
+ * fail closed and retain the exact stored attempt.
+ */
+export function isExpectedDraftVersionMismatch409(status: number, detail: string): boolean {
+  if (status !== 409) return false;
+  return detail.trim() === "expected_version mismatch";
+}
+
+/** Response body must address the exact stored revise attempt before classification. */
+export function reviseResponseMatchesAttempt(
+  responseRequestId: string,
+  attemptRequestId: string,
+): boolean {
+  return responseRequestId === attemptRequestId;
+}
+
 export function revisePanelActions(attempt: StoredReviseAttemptV1 | null): RevisePanelActions {
   const completedDefault: RevisePanelActions = {
     showResume: false,
