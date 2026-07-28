@@ -7,6 +7,19 @@ import type {
   LiveQueryCitation,
   LiveQueryResponse,
 } from "../api/types";
+import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
+import type { PlanGraphProjectionState, PlanReferenceResolution } from "../planSurface/reference/graphAwareReferenceResolver";
+import type {
+  GraphReviewDiagnosticsProjectionPayload,
+  PlanReferenceProjectionBinding,
+  RegisterableToolProjectionId,
+  ToolProjectionPayloadMap,
+} from "../planSurface/projection/projectionBindings";
+import type { ActiveProjection, ProjectionSize } from "../planSurface/types";
+import type {
+  ProjectionSurfacePublication,
+  ValidatedProjectionSurface,
+} from "./projectionSurfacePublication";
 
 export type AgentInteractionSurfaceId = "plan" | "play" | "build" | string;
 
@@ -102,7 +115,42 @@ export interface AgentInteractionActions {
   updateActiveTurn: (turnId: string) => void;
 }
 
-export interface AgentInteractionContextValue extends AgentInteractionProviderState, AgentInteractionActions {
+export interface AgentInteractionProjectionState {
+  projectionSurface: ValidatedProjectionSurface | null;
+  active: ActiveProjection | null;
+  activePlanReference: PlanReferenceResolution | null;
+  planProjectionState: PlanGraphProjectionState | null;
+  planReferenceBinding: PlanReferenceProjectionBinding | null;
+  graphReviewDiagnosticsPayload: GraphReviewDiagnosticsProjectionPayload | null;
+}
+
+export interface AgentInteractionProjectionActions {
+  publishProjectionSurface: (publication: ProjectionSurfacePublication | null) => () => void;
+  openTool: (toolId: string) => void;
+  openContentFromChip: (
+    ref: RunbookReferenceAttrs,
+    resolution: PlanReferenceResolution,
+    glanceOnly?: boolean,
+    projectionState?: PlanGraphProjectionState | null,
+  ) => void;
+  openPlanReferenceResolution: (
+    resolution: PlanReferenceResolution,
+    projectionState?: PlanGraphProjectionState | null,
+  ) => void;
+  expandContent: () => void;
+  close: () => void;
+  registerPlanReferenceBinding: (binding: PlanReferenceProjectionBinding) => () => void;
+  registerToolProjectionPayload: <K extends RegisterableToolProjectionId>(
+    toolId: K,
+    payload: ToolProjectionPayloadMap[K],
+  ) => () => void;
+}
+
+export interface AgentInteractionContextValue
+  extends AgentInteractionProviderState,
+    AgentInteractionActions,
+    AgentInteractionProjectionState,
+    AgentInteractionProjectionActions {
   scope: AgentInteractionScope | null;
   activeThread: AgentInteractionThread | null;
   turns: AgentInteractionTurn[];
@@ -111,6 +159,8 @@ export interface AgentInteractionContextValue extends AgentInteractionProviderSt
   appendResponseTurn: (question: string, response: LiveQueryResponse) => AgentInteractionThread;
   updateTurnFreshness: (turnId: string, freshness: CitationFreshnessCheckResult) => AgentInteractionThread | null;
 }
+
+export type { ProjectionSize };
 
 export type AgentInteractionEvidenceSnapshot = AgentEvidenceSnapshot;
 export type AgentInteractionCitation = LiveQueryCitation;

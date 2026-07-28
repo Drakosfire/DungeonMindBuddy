@@ -3,7 +3,7 @@ document_id: dmb-plan-shared-markdown-canvas-build-first
 title: Shared Markdown Canvas — Build-First Execution Plan
 document_class: implementation_plan
 status: active
-version: 1.3
+version: 1.4
 created_at: "2026-07-26"
 updated_at: "2026-07-27"
 design: ../Design/DESIGN-shared-markdown-canvas-surface-composition.md
@@ -43,10 +43,9 @@ Convergence
 Executable next (Lane 1):
 
 ```text
-R10a-deps ACTIVE — see HANDOFF-r10a-deps-projection-host-dependency-extraction.md
-  → R10a app-scoped lift into AgentInteractionProvider
-    → MC-02a remaining neutral graph-reference extraction
-      → MC-02b Build enables shared reference capabilities
+R10a ACTIVE — see HANDOFF-r10a-app-scoped-projection-host-lift.md
+  → MC-02a remaining neutral graph-reference extraction
+    → MC-02b Build enables shared reference capabilities
 ```
 
 Lane 2 remains independently executable: BLD inspection-truth defect.
@@ -100,7 +99,7 @@ not replace:
 |---|---|---|
 | Build editor | Shared `MarkdownCanvasSession` + `MarkdownCanvas` on `/build` | Enable shared graph-reference capabilities (MC-02b) after R10a-deps/R10a/MC-02a |
 | Build extraction | Toolbar consumes `committed_clean` envelope | Stay-on-Build summary/inspector after MC-02b + BLD; handoff becomes secondary |
-| Projection host | Plan mounts container inside `PlanGraphLensProvider` + `PlanGraphReferenceResolverProvider`; Graph Review mounts container inside `GraphReviewLiveStateProvider`; each also mounts its own `ProjectionProvider` | **R10a-deps** then **R10a** into `AgentInteractionProvider` |
+| Projection host | R10a-deps landed (typed bindings; route-local ownership remains) | **R10a** singular host in `AgentInteractionProvider` |
 | Plan Edit / refs | Plan-local search, chip runtime, projection open | **MC-02a** neutral contracts; Plan characterized consumer |
 | Build graph interaction | Starter `#dmb-ref` chips render; no Edit dock / projection glance | MC-02b Build lens + docked search + shared glance |
 | Node authoring | Graph Review Author Draft | MC-03 design gate |
@@ -111,8 +110,8 @@ not replace:
 | Slice | Status | Mission | Must remain false |
 |---|---|---|---|
 | MC-01 | **DONE** (PR #426) | Shared canvas session/view + Build migration + admitted extraction envelope | — |
-| R10a-deps | **ACTIVE** — [`HANDOFF-r10a-deps-projection-host-dependency-extraction.md`](./HANDOFF-r10a-deps-projection-host-dependency-extraction.md) | Projected Plan/Ingest content stops requiring route-local hooks; explicit payloads or app-registered deps | Container lift; Build enablement; bottom-pane redesign |
-| R10a | QUEUED | Singular projection registry/state/container owned by `AgentInteractionProvider` above route switch; typed surface publication; Plan interaction-equivalent | Build graph enablement; bottom-pane redesign; localStorage Phase A; sibling ProjectionProvider |
+| R10a-deps | **DONE** (PR #438) — [`HANDOFF-r10a-deps-projection-host-dependency-extraction.md`](./HANDOFF-r10a-deps-projection-host-dependency-extraction.md) | Projected Plan/Ingest content stops requiring route-local hooks; explicit payloads or app-registered deps | Container lift; Build enablement; bottom-pane redesign |
+| R10a | **ACTIVE** — [`HANDOFF-r10a-app-scoped-projection-host-lift.md`](./HANDOFF-r10a-app-scoped-projection-host-lift.md) | Singular projection registry/state/container owned by `AgentInteractionProvider` above route switch; typed surface publication; Plan interaction-equivalent | Build graph enablement; bottom-pane redesign; localStorage Phase A; sibling ProjectionProvider |
 | MC-02a | QUEUED | Remaining surface-neutral `reference_render` / `reference_insert_existing` / `reference_project`; Plan unchanged as consumer | Build enablement; extraction inspector; MC-03 |
 | MC-02b | QUEUED | Build enables those three capabilities via Build lens + app-scoped host | Extraction candidates; dispositions; PlanGraphLoadPanel; node create |
 | BLD inspection truth | **NEXT (Lane 2)** | Truthful inspection readiness vs `reviewable`; structured diagnostics | New Build panel; weakened evidence validation; waiting on MC-02* |
@@ -121,30 +120,16 @@ not replace:
 | Candidate Find existing | QUEUED | Candidate seeds shared search; operator selects; insert reference | Implicit candidate→node mapping; MC-03 create |
 | MC-03 | DESIGN GATE | One reusable node-authoring capability | Canvas-owned graph writes; Build-local copy of Author Draft |
 
-## Path A lock — why R10a is not yet executable
+## Path A lock — R10a-deps predecessor (DONE)
 
-Today’s topology (main):
+Path A required projection-host dependency extraction before the app-level lift.
+R10a-deps (PR #438) landed that contract: projected Plan/Graph Review renderers
+consume typed registered bindings rather than route-local provider ancestry.
 
-- Plan mounts `AdaptiveProjectionContainer` **inside**
-  `PlanGraphLensProvider` and `PlanGraphReferenceResolverProvider`. Content
-  renderers call `usePlanGraphReferenceResolver` (including relationship
-  navigation).
-- Graph Review mounts its container **inside** `GraphReviewLiveStateProvider`.
-  Diagnostics projections call `useGraphReviewLiveState`.
-- `ProjectionProvider` requires a non-null `SurfaceConfig`; `openTool` closes
-  over that config; the container reads `config.tools` /
-  `config.context.campaignId` and passes Plan-shaped config into renderers.
-- Build has labels/constants only — no real `SurfaceConfig`, and
-  `SurfaceConfig.context` is still a mandatory `PlanContextDescriptor`.
-
-Hoisting the container above the route subtree without prior dependency extraction
-would break those hooks, force hidden route-local containers (falsifying
-“one host”), or smuggle MC-02a contract work into R10a under a false name.
-
-**Chosen path (Path A):** extract projection-host dependencies first, then lift,
-then finish reference-capability extraction, then enable Build. Path B (expand
-R10a to own the entire dependency + publication rewrite in one slice) is
-explicitly **not** chosen — it would overload R10a and blur the MC-02a boundary.
+R10a now owns the singular-host lift into `AgentInteractionProvider` with
+tokenized nullable surface publication. Path B (expanding R10a to absorb the
+entire dependency + publication rewrite in one slice) remains explicitly not
+chosen.
 
 ## R10a-deps — Projection-host dependency extraction
 

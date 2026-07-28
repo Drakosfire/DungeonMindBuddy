@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ReferenceResolution } from "../reference/referenceResolver";
-import { ProjectionProvider } from "../projection/projectionContext";
+import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import type { SurfaceConfig, PlanSessionDescriptor } from "../types";
 import { SelectedObjectCard } from "./SelectedObjectCard";
 
@@ -56,9 +56,9 @@ function renderCard(
     : surfaceConfig.sessionDescriptor;
 
   return render(
-    <ProjectionProvider config={surfaceConfig}>
+    <AgentInteractionProjectionTestHost config={surfaceConfig}>
       <SelectedObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />
-    </ProjectionProvider>,
+    </AgentInteractionProjectionTestHost>,
   );
 }
 

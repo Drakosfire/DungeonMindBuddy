@@ -8,7 +8,8 @@ import type {
   WorldGraphProjection,
   WorldGraphProjectionNodeView,
 } from "../../api/types";
-import { ProjectionProvider, useProjection } from "../projection/projectionContext";
+import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
+import { useProjection } from "../projection/projectionContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { GraphObjectDogfoodPanel } from "./GraphObjectDogfoodPanel";
@@ -202,10 +203,10 @@ function ActiveTitleProbe() {
 function renderPanel() {
   return render(
     <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
         <ActiveTitleProbe />
-      </ProjectionProvider>
+      </AgentInteractionProjectionTestHost>
     </PlanGraphReferenceResolverProvider>,
   );
 }
@@ -253,10 +254,10 @@ describe("GraphObjectDogfoodPanel", () => {
 
     render(
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-        <ProjectionProvider config={surfaceConfig}>
+        <AgentInteractionProjectionTestHost config={surfaceConfig}>
           <SeedRelatedView />
           <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
-        </ProjectionProvider>
+        </AgentInteractionProjectionTestHost>
       </PlanGraphReferenceResolverProvider>,
     );
 
@@ -387,10 +388,10 @@ describe("GraphObjectDogfoodPanel relationship traversal handoff", () => {
 
     render(
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
-        <ProjectionProvider config={surfaceConfig}>
+        <AgentInteractionProjectionTestHost config={surfaceConfig}>
           <SeedRelatedView />
           <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
-        </ProjectionProvider>
+        </AgentInteractionProjectionTestHost>
       </PlanGraphReferenceResolverProvider>,
     );
 

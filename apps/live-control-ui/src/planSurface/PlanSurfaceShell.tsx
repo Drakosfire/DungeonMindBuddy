@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 
+import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
+import { buildPlanSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import type { AppChromeTools } from "../chrome/AppChrome";
 import type { PlanViewProjection } from "../api/types";
 import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
@@ -9,8 +11,6 @@ import { dogfoodModeFromLocation } from "./dogfood/planDogfoodState";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { resolvePlanningDocument } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
-import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
-import { ProjectionProvider } from "./projection/projectionContext";
 import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
@@ -64,6 +64,23 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     () => (planningDocument ? createPlanSurfaceConfig(planView, planningDocument, locationSearch) : null),
     [locationSearch, planView, planningDocument],
   );
+  const { publishProjectionSurface } = useAgentInteraction();
+
+  useEffect(() => {
+    if (documentLoadStatus !== "ready" || !config) {
+      return publishProjectionSurface(null);
+    }
+    return publishProjectionSurface({
+      identity: buildPlanSurfaceIdentity({
+        documentId: config.sessionDescriptor.planningDocument.documentId,
+        campaignId: config.sessionDescriptor.campaignId,
+        liveSession: config.context.liveSession,
+        memorySession: config.sessionDescriptor.memorySession,
+      }),
+      config,
+    });
+  }, [config, documentLoadStatus, publishProjectionSurface]);
+
   const [saveStatusLabel, setSaveStatusLabel] = useState("Local draft · not yet saved to Markdown");
   const dogfoodMode = dogfoodModeFromLocation();
 
@@ -86,9 +103,8 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
 
   return (
     <EditCapabilityProvider>
-      <ProjectionProvider config={config}>
-        <PlanGraphLensProvider planCampaignId={config.sessionDescriptor.campaignId}>
-          <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
+      <PlanGraphLensProvider planCampaignId={config.sessionDescriptor.campaignId}>
+        <PlanGraphReferenceResolverProvider sessionDescriptor={config.sessionDescriptor}>
           <PlanReferenceProjectionBinding />
           <div
             className="plan-surface-root"
@@ -112,13 +128,11 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
                   onPlanningDocumentCommitted={setPlanningDocument}
                 />
               </div>
-              <AdaptiveProjectionContainer config={config} />
             </div>
             <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
           </div>
-          </PlanGraphReferenceResolverProvider>
-        </PlanGraphLensProvider>
-      </ProjectionProvider>
+        </PlanGraphReferenceResolverProvider>
+      </PlanGraphLensProvider>
     </EditCapabilityProvider>
   );
 }

@@ -1,17 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 
 import { getRecapArtifacts } from "../../api/liveApi";
+import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import { useProjection, projectionContainerClass } from "./projectionContext";
 import { renderContentProjection, renderToolProjection } from "./projectionRegistry";
-import type { SurfaceConfig } from "../types";
 import {
   filterNumericRecapArtifactRecords,
   sortRecapArtifactRecords,
 } from "../graphPreview/recapSessionLabels";
-
-interface AdaptiveProjectionContainerProps {
-  config: SurfaceConfig;
-}
 
 function requestedToolFromLocation(): string | null {
   if (typeof window === "undefined") return null;
@@ -35,7 +31,8 @@ const SESSION_AWARE_TOOLS = new Set([
   "party-registry",
 ]);
 
-export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContainerProps) {
+export function AdaptiveProjectionContainer() {
+  const { projectionSurface } = useAgentInteraction();
   const {
     active,
     activePlanReference,
@@ -46,24 +43,82 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
     planReferenceBinding,
     graphReviewDiagnosticsPayload,
   } = useProjection();
+
+  const config = projectionSurface?.publication.config ?? null;
+  const projectionsEnabled = projectionSurface?.projectionsEnabled ?? false;
+
+  if (!config || !projectionsEnabled || config.tools.length === 0 || !config.context) {
+    return null;
+  }
+
+  return (
+    <AdaptiveProjectionContainerInner
+      config={config}
+      active={active}
+      activePlanReference={activePlanReference}
+      close={close}
+      expandContent={expandContent}
+      openTool={openTool}
+      planProjectionState={planProjectionState}
+      planReferenceBinding={planReferenceBinding}
+      graphReviewDiagnosticsPayload={graphReviewDiagnosticsPayload}
+    />
+  );
+}
+
+interface AdaptiveProjectionContainerInnerProps {
+  config: NonNullable<ReturnType<typeof useAgentInteraction>["projectionSurface"]>["publication"]["config"];
+  active: ReturnType<typeof useProjection>["active"];
+  activePlanReference: ReturnType<typeof useProjection>["activePlanReference"];
+  close: () => void;
+  expandContent: () => void;
+  openTool: (toolId: string) => void;
+  planProjectionState: ReturnType<typeof useProjection>["planProjectionState"];
+  planReferenceBinding: ReturnType<typeof useProjection>["planReferenceBinding"];
+  graphReviewDiagnosticsPayload: ReturnType<typeof useProjection>["graphReviewDiagnosticsPayload"];
+}
+
+function AdaptiveProjectionContainerInner({
+  config,
+  active,
+  activePlanReference,
+  close,
+  expandContent,
+  openTool,
+  planProjectionState,
+  planReferenceBinding,
+  graphReviewDiagnosticsPayload,
+}: AdaptiveProjectionContainerInnerProps) {
   const isOpen = Boolean(active);
   const activeToolId = active?.kind === "tool" ? active.key : null;
   const firstToolId = config.tools[0]?.id;
-  const [latestIngestedSessionId, setLatestIngestedSessionId] = useState<string | null>(null);
+  const campaignKey = config.context!.campaignId;
+  const [latestIngestedSessionByCampaign, setLatestIngestedSessionByCampaign] = useState<
+    Record<string, string | null>
+  >({});
+
+  useEffect(() => {
+    setLatestIngestedSessionByCampaign((current) => {
+      if (campaignKey in current) return current;
+      return { ...current, [campaignKey]: null };
+    });
+  }, [campaignKey]);
+
+  const latestIngestedSessionId = latestIngestedSessionByCampaign[campaignKey] ?? null;
 
   const resolveLatestIngestedSessionId = useCallback(async () => {
     if (latestIngestedSessionId) return latestIngestedSessionId;
     try {
-      const response = await getRecapArtifacts(config.context.campaignId);
+      const response = await getRecapArtifacts(config.context!.campaignId);
       const records = sortRecapArtifactRecords(filterNumericRecapArtifactRecords(response.records));
       const sessionId = records.at(-1)?.session_id ?? null;
-      setLatestIngestedSessionId(sessionId);
+      setLatestIngestedSessionByCampaign((current) => ({ ...current, [campaignKey]: sessionId }));
       return sessionId;
     } catch {
-      setLatestIngestedSessionId(null);
+      setLatestIngestedSessionByCampaign((current) => ({ ...current, [campaignKey]: null }));
       return null;
     }
-  }, [config.context.campaignId, latestIngestedSessionId]);
+  }, [campaignKey, config.context, latestIngestedSessionId]);
 
   const openToolFromNav = useCallback(
     async (toolId: string) => {
@@ -110,8 +165,6 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
   }, [close, isOpen]);
 
   const containerClass = projectionContainerClass(active?.size);
-  // Reference glances must leave the canvas interactive so chips stay clickable
-  // while a card is open. Modal backdrop stays for tool projections only.
   const showModalBackdrop = isOpen && active?.kind === "tool";
   const rootClass = [
     "plan-toolbox",
@@ -122,8 +175,14 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
     .filter(Boolean)
     .join(" ");
 
+  const themeStyle = (config.theme.tokens ?? {}) as CSSProperties;
+
   return (
-    <div className={rootClass}>
+    <div
+      className={rootClass}
+      style={themeStyle}
+      data-md-theme={config.theme.themeId}
+    >
       <button
         type="button"
         className="plan-toolbox-toggle"
@@ -148,7 +207,6 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
         <header className="plan-projection-header">
           <div>
             <p className="plan-surface-kicker">{active?.kind === "content" ? "Reference" : "Command Board"}</p>
-            {/* Content references keep the object name on the card only — no duplicate header title. */}
             <h2>{active?.kind === "content" ? "Reference" : "Toolbox"}</h2>
           </div>
           <div className="plan-projection-header-actions">
@@ -181,7 +239,7 @@ export function AdaptiveProjectionContainer({ config }: AdaptiveProjectionContai
         </nav>
         <div className="plan-projection-body">
           {!active ? null : active.kind === "tool" ? (
-            renderToolProjection(active.key, config.context, {
+            renderToolProjection(active.key, config.context!, {
               graphReviewDiagnosticsPayload,
             })
           ) : activePlanReference ? (

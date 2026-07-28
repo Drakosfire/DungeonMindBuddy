@@ -8,7 +8,9 @@ import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import type { SurfaceConfig } from "../types";
 import { AdaptiveProjectionContainer } from "./AdaptiveProjectionContainer";
-import { ProjectionProvider, useProjection } from "./projectionContext";
+import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
+import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
+import { useProjection } from "./projectionContext";
 
 vi.mock("../../api/liveApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api/liveApi")>();
@@ -86,13 +88,65 @@ function OpenReferenceButton() {
 }
 
 describe("AdaptiveProjectionContainer content reference chrome", () => {
+  it("renders no projection chrome when the app host is inactive", () => {
+    render(
+      <AgentInteractionProvider>
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProvider>,
+    );
+
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+    expect(document.body).not.toHaveClass("plan-toolbox-open");
+  });
+
+  it("renders no projection chrome for Build's empty-tools publication", () => {
+    const buildConfig: SurfaceConfig = {
+      id: "build",
+      label: "Build",
+      context: null,
+      tools: [],
+      canvas: { documentId: null },
+      theme: {},
+    };
+
+    render(
+      <AgentInteractionProjectionTestHost config={buildConfig}>
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
+  });
+
+  it("applies the active surface theme to the app-level drawer", async () => {
+    const user = userEvent.setup();
+    const themedConfig: SurfaceConfig = {
+      ...surfaceConfig,
+      theme: {
+        themeId: "mireward",
+        tokens: { "--projection-accent": "red" },
+      },
+    };
+
+    render(
+      <AgentInteractionProjectionTestHost config={themedConfig}>
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Tools" }));
+    const toolbox = document.querySelector(".plan-toolbox");
+    expect(toolbox).toHaveAttribute("data-md-theme", "mireward");
+    expect(toolbox).toHaveStyle({ "--projection-accent": "red" });
+  });
+
   it("hides toolbox tool nav and uses Reference header without duplicating the object title", async () => {
     const user = userEvent.setup();
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <OpenReferenceButton />
-        <AdaptiveProjectionContainer config={surfaceConfig} />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Open Bubbles" }));
@@ -113,10 +167,10 @@ describe("AdaptiveProjectionContainer content reference chrome", () => {
   it("renders content without a Plan binding and does not crash", async () => {
     const user = userEvent.setup();
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <OpenReferenceButton />
-        <AdaptiveProjectionContainer config={surfaceConfig} />
-      </ProjectionProvider>,
+        <AdaptiveProjectionContainer />
+      </AgentInteractionProjectionTestHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Open Bubbles" }));

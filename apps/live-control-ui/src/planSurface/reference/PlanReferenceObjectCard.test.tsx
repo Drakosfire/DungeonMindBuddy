@@ -10,7 +10,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { PlanReferenceProjectionBinding } from "../projection/projectionBindings";
-import { ProjectionProvider, useProjection } from "../projection/projectionContext";
+import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
+import { useProjection } from "../projection/projectionContext";
 import type { SurfaceConfig } from "../types";
 import { PlanReferenceObjectCard } from "./PlanReferenceObjectCard";
 import { PlanReferenceProjectionBinding as PlanReferenceProjectionBindingMount } from "./PlanReferenceProjectionBinding";
@@ -183,12 +184,12 @@ function PlanReferenceProjectionHarness({
 
 function renderHarness(initialResolution: PlanReferenceResolution) {
   return render(
-    <ProjectionProvider config={surfaceConfig}>
+    <AgentInteractionProjectionTestHost config={surfaceConfig}>
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
         <PlanReferenceProjectionBindingMount />
         <PlanReferenceProjectionHarness initialResolution={initialResolution} />
       </PlanGraphReferenceResolverProvider>
-    </ProjectionProvider>,
+    </AgentInteractionProjectionTestHost>,
   );
 }
 
@@ -206,12 +207,12 @@ function renderWithLiveBinding(card: ReactElement) {
   }
 
   return render(
-    <ProjectionProvider config={surfaceConfig}>
+    <AgentInteractionProjectionTestHost config={surfaceConfig}>
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
         <PlanReferenceProjectionBindingMount />
         <BoundCard />
       </PlanGraphReferenceResolverProvider>
-    </ProjectionProvider>,
+    </AgentInteractionProjectionTestHost>,
   );
 }
 

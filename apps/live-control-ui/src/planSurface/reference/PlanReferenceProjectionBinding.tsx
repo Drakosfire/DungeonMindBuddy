@@ -5,7 +5,7 @@ import { useProjection } from "../projection/projectionContext";
 
 /**
  * Adapts route-local Plan resolver/projection actions into a typed projection binding.
- * Must mount under PlanGraphReferenceResolverProvider and ProjectionProvider.
+ * Must mount under PlanGraphReferenceResolverProvider and the app projection host.
  */
 export function PlanReferenceProjectionBinding() {
   const { registerPlanReferenceBinding, openPlanReferenceResolution, openTool } = useProjection();

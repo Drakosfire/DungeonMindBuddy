@@ -5,6 +5,8 @@ import type {
   WorldbuildingAuthorityState,
   WorldbuildingVisibilityState,
 } from "../api/types";
+import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
+import { createBuildSurfacePublication } from "../agentInteraction/projectionSurfacePublication";
 import { AppChrome } from "../chrome/AppChrome";
 import { MarkdownCanvasSessionProvider } from "../markdownCanvas/MarkdownCanvasSession";
 import { useWorkspaceDocumentUrlSelection } from "../workspaceDocument/useWorkspaceDocumentUrlSelection";
@@ -42,6 +44,7 @@ const DEFAULT_FORM: NewSourceFormState = {
 export function BuildSurfacePage() {
   const documentId = useWorkspaceDocumentUrlSelection();
   const graphPointer = parseBuildGraphPointerFromLocation();
+  const { publishProjectionSurface } = useAgentInteraction();
   const [form, setForm] = useState<NewSourceFormState>(() => ({
     ...DEFAULT_FORM,
     campaignId: graphPointer?.campaignId ?? DEFAULT_FORM.campaignId,
@@ -79,6 +82,12 @@ export function BuildSurfacePage() {
         : { ...current, campaignId: graphPointer.campaignId },
     );
   }, [documentId, graphPointer?.campaignId]);
+
+  useEffect(() => {
+    return publishProjectionSurface(
+      createBuildSurfacePublication({ documentId, label: BUILD_SURFACE_LABEL }),
+    );
+  }, [documentId, publishProjectionSurface]);
 
   useEffect(() => {
     if (documentId) return;

@@ -50,13 +50,14 @@ import {
   AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
 } from "./components/agentInteractionHistory";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
-import { ProjectionProvider } from "./projection/projectionContext";
+import { AgentInteractionProjectionTestHost } from "./projection/projectionTestHost";
 import * as liveApi from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 
@@ -135,6 +136,7 @@ function PlanSurfaceTestHarness() {
       <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
         <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
       </AppChrome>
+      <AdaptiveProjectionContainer />
     </AgentInteractionProvider>
   );
 }
@@ -1770,7 +1772,7 @@ describe("PlanSurfaceShell", () => {
 
     render(
       <EditCapabilityProvider>
-        <ProjectionProvider config={config}>
+        <AgentInteractionProjectionTestHost config={config}>
           <PlanGraphLensProvider planCampaignId={sessionDescriptor.campaignId}>
             <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
               <PlanSurfaceCanvas
@@ -1781,7 +1783,7 @@ describe("PlanSurfaceShell", () => {
               />
             </PlanGraphReferenceResolverProvider>
           </PlanGraphLensProvider>
-        </ProjectionProvider>
+        </AgentInteractionProjectionTestHost>
       </EditCapabilityProvider>,
     );
 
@@ -1878,7 +1880,7 @@ describe("PlanSurfaceShell", () => {
 
     render(
       <EditCapabilityProvider>
-        <ProjectionProvider config={config}>
+        <AgentInteractionProjectionTestHost config={config}>
           <PlanGraphLensProvider planCampaignId={sessionDescriptor.campaignId}>
             <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
               <PlanSurfaceCanvas
@@ -1889,7 +1891,7 @@ describe("PlanSurfaceShell", () => {
               />
             </PlanGraphReferenceResolverProvider>
           </PlanGraphLensProvider>
-        </ProjectionProvider>
+        </AgentInteractionProjectionTestHost>
       </EditCapabilityProvider>,
     );
 

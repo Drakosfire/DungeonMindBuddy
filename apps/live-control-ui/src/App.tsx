@@ -12,6 +12,7 @@ import type {
   SurfaceModuleDefinition,
 } from "./api/types";
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
+import { AdaptiveProjectionContainer } from "./planSurface/projection/AdaptiveProjectionContainer";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
 import { InspectorPane, type InspectorPaneState } from "./surface/InspectorPane";
@@ -240,5 +241,10 @@ export function App() {
   } else {
     content = <LiveControlApp />;
   }
-  return <AgentInteractionProvider>{content}</AgentInteractionProvider>;
+  return (
+    <AgentInteractionProvider>
+      {content}
+      <AdaptiveProjectionContainer />
+    </AgentInteractionProvider>
+  );
 }

@@ -63,15 +63,17 @@ export interface PlanSessionDescriptor {
 export interface SurfaceConfig {
   id: SurfaceMode;
   label: string;
-  context: PlanContextDescriptor;
+  /** Null for non-consuming surfaces (Build empty-tools host publication). */
+  context: PlanContextDescriptor | null;
   sessionDescriptor?: PlanSessionDescriptor;
   tools: SurfaceToolConfig[];
   canvas: SurfaceCanvasConfig;
   theme: SurfaceThemeConfig;
 }
 
-export interface PlanSurfaceConfig extends Omit<SurfaceConfig, "id" | "sessionDescriptor"> {
+export interface PlanSurfaceConfig extends Omit<SurfaceConfig, "id" | "sessionDescriptor" | "context"> {
   id: "plan";
+  context: PlanContextDescriptor;
   sessionDescriptor: PlanSessionDescriptor;
 }
 

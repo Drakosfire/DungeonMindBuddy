@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
-import { ProjectionProvider, useProjection } from "./projectionContext";
+import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
+import { useProjection } from "./projectionContext";
 import type { SurfaceConfig } from "../types";
 import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 
@@ -75,9 +76,9 @@ describe("projectionContext", () => {
   it("opens plan reference resolution into content projection", async () => {
     const user = userEvent.setup();
     render(
-      <ProjectionProvider config={surfaceConfig}>
+      <AgentInteractionProjectionTestHost config={surfaceConfig}>
         <Probe />
-      </ProjectionProvider>,
+      </AgentInteractionProjectionTestHost>,
     );
 
     await user.click(screen.getByRole("button", { name: "Open graph node" }));

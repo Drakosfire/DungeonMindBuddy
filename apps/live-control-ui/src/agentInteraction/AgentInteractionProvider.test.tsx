@@ -243,4 +243,150 @@ describe("AgentInteractionProvider", () => {
 
     expect(result.current.scope?.sessionNumber).toBeNull();
   });
+
+  it("publishes projection surface with token-safe cleanup", () => {
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    const publication = {
+      identity: { surfaceId: "build", instanceKey: "build\u001f__new_source__" },
+      config: {
+        id: "build" as const,
+        label: "Build",
+        context: null,
+        tools: [],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+
+    let cleanup: (() => void) | undefined;
+    act(() => {
+      cleanup = result.current.publishProjectionSurface(publication);
+    });
+    expect(result.current.projectionSurface?.projectionsEnabled).toBe(false);
+
+    act(() => {
+      cleanup?.();
+    });
+    expect(result.current.projectionSurface).toBeNull();
+  });
+
+  it("rejects stale openTool after surface replacement before rerender", () => {
+    const planPublication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001ftest" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const buildPublication = {
+      identity: { surfaceId: "build", instanceKey: "build\u001f__new_source__" },
+      config: {
+        id: "build" as const,
+        label: "Build",
+        context: null,
+        tools: [],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(planPublication);
+    });
+    const staleOpenTool = result.current.openTool;
+    act(() => {
+      result.current.publishProjectionSurface(buildPublication);
+      staleOpenTool("recap");
+    });
+    expect(result.current.active).toBeNull();
+  });
+
+  it("rejects stale close after surface replacement before rerender", () => {
+    const planPublication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fclose-test" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const ingestPublication = {
+      identity: { surfaceId: "ingest", instanceKey: "ingest\u001fclose-test" },
+      config: {
+        id: "ingest" as const,
+        label: "Ingest",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Ingest",
+        },
+        tools: [{ id: "ingest-recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: null },
+        theme: {},
+      },
+    };
+
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(planPublication);
+      result.current.openTool("recap");
+    });
+    const staleClose = result.current.close;
+    act(() => {
+      result.current.publishProjectionSurface(ingestPublication);
+    });
+    act(() => {
+      result.current.openTool("ingest-recap");
+    });
+    act(() => {
+      staleClose();
+    });
+    expect(result.current.active?.key).toBe("ingest-recap");
+  });
+
+  it("does not persist projection opens to localStorage", () => {
+    const publication = {
+      identity: { surfaceId: "plan", instanceKey: "plan\u001fpersist-test" },
+      config: {
+        id: "plan" as const,
+        label: "Plan",
+        context: {
+          campaignId: "longmont-c2",
+          liveSession: 22,
+          ingestSession: 21,
+          headerLabel: "Plan",
+        },
+        tools: [{ id: "recap", label: "Recap", size: "wide" as const }],
+        canvas: { documentId: FIXTURE_DOC_ID },
+        theme: {},
+      },
+    };
+    const { result } = renderHook(() => useAgentInteraction(), { wrapper });
+    act(() => {
+      result.current.publishProjectionSurface(publication);
+      result.current.openTool("recap");
+    });
+    const keys = Object.keys(localStorage);
+    expect(keys.some((key) => key.includes("projection"))).toBe(false);
+    expect(result.current.active?.key).toBe("recap");
+  });
 });
