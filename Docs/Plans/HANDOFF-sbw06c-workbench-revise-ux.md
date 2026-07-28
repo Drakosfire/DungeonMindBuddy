@@ -10,6 +10,7 @@
 **Dispatch base / `#435` merge SHA:** `32eb1571f67b64c3b8c8ebd4d9fa9e6059eece05`
 **Rebased immutable base (`origin/main`):** `7700152417de29aa02a287c3894e7576bb102181`
 **PR head before latest review-fix commit:** `d578f999bb35efb3244ca604c96bcbb1667e861a` (rebased `fc6e223f`)
+**Latest head (review-fix + rebase):** `9eb0b34ea1250a224d0d498f82dadebcdc0e78a0`
 **Normative contract:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md` §12
 **Immediate predecessor:** `SBW06b` — PR `#435`
 **Next Milestone B slice:** `SBW06d` — revise from exact accepted mechanics locator (requires post-merge re-anchor)
