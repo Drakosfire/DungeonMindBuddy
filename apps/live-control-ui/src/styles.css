@@ -2529,3 +2529,42 @@ button:disabled {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 0.78rem;
 }
+
+/* PR380C committed World Graph panel */
+.graph-review-committed-projection-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.graph-review-committed-projection-header h3 {
+  margin: 0.25rem 0 0;
+}
+
+.graph-review-committed-object-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+}
+
+.graph-review-committed-object-button {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: inherit;
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+}
+
+.graph-review-committed-object-button.is-active {
+  border-color: rgba(120, 180, 255, 0.8);
+}
+
+.graph-review-committed-object-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

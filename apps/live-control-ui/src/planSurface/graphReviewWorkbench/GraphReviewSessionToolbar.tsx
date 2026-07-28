@@ -29,8 +29,13 @@ function promoteErrorMessage(error: unknown): string {
   return "Failed to prepare promotion.";
 }
 
-export function GraphReviewSessionToolbar() {
-  const { projection, projectionStatus, liveRun } = useGraphReviewLiveState();
+export function GraphReviewSessionToolbar({
+  onConfirmInFlightChange,
+}: {
+  onConfirmInFlightChange?: (inFlight: boolean) => void;
+} = {}) {
+  const { projection, projectionStatus, liveRun, committedPhase, committedReceipt } =
+    useGraphReviewLiveState();
   const [worldInitialized, setWorldInitialized] = useState(false);
   const [worldStatusError, setWorldStatusError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
@@ -41,6 +46,16 @@ export function GraphReviewSessionToolbar() {
   const liveRunIdRef = useRef<string | null>(liveRun?.run_id?.trim() || null);
 
   liveRunIdRef.current = liveRun?.run_id?.trim() || null;
+  const hasTerminalCommittedReceipt =
+    committedPhase !== "candidate" && committedReceipt != null;
+
+  const handleConfirmInFlightChange = useCallback(
+    (inFlight: boolean) => {
+      setConfirmInFlight(inFlight);
+      onConfirmInFlightChange?.(inFlight);
+    },
+    [onConfirmInFlightChange],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -73,15 +88,26 @@ export function GraphReviewSessionToolbar() {
   }, [confirmInFlight, liveRun?.run_id, liveRun?.manifest_path]);
 
   const canReviewAndMerge = useMemo(() => {
+    if (hasTerminalCommittedReceipt) return false;
     if (projectionStatus !== "ready" || !projection) return false;
     if (!liveRun?.run_id || !liveRun.run_id.trim()) return false;
     if (liveRun.promotable !== true) return false;
     if (!worldInitialized) return false;
     if (confirmInFlight) return false;
     return true;
-  }, [confirmInFlight, liveRun, projection, projectionStatus, worldInitialized]);
+  }, [
+    confirmInFlight,
+    hasTerminalCommittedReceipt,
+    liveRun,
+    projection,
+    projectionStatus,
+    worldInitialized,
+  ]);
 
   const disabledReason = useMemo(() => {
+    if (hasTerminalCommittedReceipt) {
+      return "Committed World Graph authority is active for this binding. Reload the committed revision instead of preparing again.";
+    }
     if (confirmInFlight) {
       return "Merge confirmation is in progress.";
     }
@@ -101,11 +127,19 @@ export function GraphReviewSessionToolbar() {
       return "World Graph is not initialized.";
     }
     return null;
-  }, [confirmInFlight, liveRun, projection, projectionStatus, worldInitialized, worldStatusError]);
+  }, [
+    confirmInFlight,
+    hasTerminalCommittedReceipt,
+    liveRun,
+    projection,
+    projectionStatus,
+    worldInitialized,
+    worldStatusError,
+  ]);
 
   const onReviewAndMerge = useCallback(async () => {
     const runId = liveRun?.run_id?.trim();
-    if (!runId || preparing || confirmInFlight) return;
+    if (!runId || preparing || confirmInFlight || hasTerminalCommittedReceipt) return;
     const generation = prepareGenerationRef.current;
     setPreparing(true);
     setPrepareError(null);
@@ -132,29 +166,42 @@ export function GraphReviewSessionToolbar() {
         setPreparing(false);
       }
     }
-  }, [confirmInFlight, liveRun?.run_id, preparing]);
+  }, [confirmInFlight, hasTerminalCommittedReceipt, liveRun?.run_id, preparing]);
 
   if (projectionStatus !== "ready" || !projection) {
-    return null;
+    if (committedPhase === "candidate") {
+      return null;
+    }
   }
 
   return (
     <div className="graph-review-session-toolbar-stack">
-      <div className="graph-review-session-toolbar" aria-label="Loaded session status">
-        <GraphAuthoredOverlaySummary summary={projection.authored_overlay} variant="compact" />
-        <div className="graph-review-extract-promote-actions">
-          <button
-            type="button"
-            className="primary"
-            disabled={!canReviewAndMerge || preparing}
-            title={disabledReason ?? "Prepare a governed promotion proposal"}
-            data-testid="graph-review-review-and-merge"
-            onClick={() => void onReviewAndMerge()}
-          >
-            {preparing ? "Preparing…" : "Review & merge"}
-          </button>
+      {projectionStatus === "ready" && projection ? (
+        <div className="graph-review-session-toolbar" aria-label="Loaded session status">
+          <GraphAuthoredOverlaySummary summary={projection.authored_overlay} variant="compact" />
+          <div className="graph-review-extract-promote-actions">
+            {!hasTerminalCommittedReceipt ? (
+              <button
+                type="button"
+                className="primary"
+                disabled={!canReviewAndMerge || preparing}
+                title={disabledReason ?? "Prepare a governed promotion proposal"}
+                data-testid="graph-review-review-and-merge"
+                onClick={() => void onReviewAndMerge()}
+              >
+                {preparing ? "Preparing…" : "Review & merge"}
+              </button>
+            ) : (
+              <p
+                className="module-muted"
+                data-testid="graph-review-committed-prepare-suppressed"
+              >
+                Prepare/confirm hidden while committed World Graph authority is active.
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
       {prepareError ? (
         <p
           className="graph-review-extract-promote-error"
@@ -164,7 +211,7 @@ export function GraphReviewSessionToolbar() {
           {prepareError}
         </p>
       ) : null}
-      {prepared ? (
+      {prepared && !hasTerminalCommittedReceipt ? (
         <GraphReviewExtractPromoteSheet
           key={prepared.proposalDigest}
           prepared={prepared}
@@ -172,7 +219,7 @@ export function GraphReviewSessionToolbar() {
             if (confirmInFlight) return;
             setPrepared(null);
           }}
-          onConfirmInFlightChange={setConfirmInFlight}
+          onConfirmInFlightChange={handleConfirmInFlightChange}
         />
       ) : null}
     </div>

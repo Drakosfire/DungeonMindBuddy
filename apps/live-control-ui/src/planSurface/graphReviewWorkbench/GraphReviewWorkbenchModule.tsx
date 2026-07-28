@@ -35,6 +35,13 @@ import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 import { GraphReviewLoadSurface } from "./GraphReviewLoadSurface";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
+import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
+import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProjectionPanel";
+import {
+  catalogRunBindingKey,
+  exactRunBindingKey,
+  type GraphReviewCommittedBinding,
+} from "./graphReviewCommittedAuthority";
 import { GraphReviewDiagnosticsProjectionBinding } from "./GraphReviewDiagnosticsProjectionBinding";
 import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
@@ -185,6 +192,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   const [exactPreparing, setExactPreparing] = useState(false);
   const [exactPrepareError, setExactPrepareError] = useState<string | null>(null);
   const [exactConfirmInFlight, setExactConfirmInFlight] = useState(false);
+  const [catalogConfirmInFlight, setCatalogConfirmInFlight] = useState(false);
   const [exactReview, setExactReview] = useState<ExactRunReviewPackage | null>(null);
   const [exactReviewStatus, setExactReviewStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
@@ -578,7 +586,10 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     void loadCompare();
   }, [loadCompare, sessionsLoaded]);
 
+  const loadBlockedByConfirm = catalogConfirmInFlight || exactConfirmInFlight;
+
   const openLoadDialog = () => {
+    if (loadBlockedByConfirm) return;
     if (appliedSelection) {
       setDraftCampaignId(appliedSelection.campaignId);
       setDraftSessionId(appliedSelection.sessionId);
@@ -627,6 +638,7 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
   };
 
   const handleApplyLoad = () => {
+    if (loadBlockedByConfirm) return;
     if (!draftSession || !draftLiveRun) return;
     const nextApplied: GraphReviewAppliedSelection = {
       campaignId: draftCampaignId,
@@ -716,15 +728,6 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     }
   }, [exactConfirmInFlight, exactHandoff, exactPreparing, exactRunPromotable]);
 
-  if (!sessionsLoaded && !exactHandoff) {
-    return (
-      <div className="graph-review-workbench-root">
-        <GraphReviewWorkbenchHeader loaded={false} sessionLabel={null} onOpenLoad={() => undefined} />
-        <p className="plan-projection-empty">Loading graph review sessions…</p>
-      </div>
-    );
-  }
-
   const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
   const hasExactRunLoad = Boolean(exactHandoff && exactRunStatus === "ready" && exactRun);
   const hasCatalogSessions = catalogSessions.length > 0 || Boolean(sessionsError);
@@ -744,12 +747,74 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
     ? exactRun?.session_id?.trim() || ""
     : appliedSession?.sessionId || draftSessionId || fallbackSessionId;
 
+  const committedBinding = useMemo<GraphReviewCommittedBinding | null>(() => {
+    if (hasExactRunLoad && exactRun?.run_id) {
+      const sourceArtifactId =
+        exactRun.source_artifact_id?.trim()
+        || exactHandoff?.sourceArtifactId?.trim()
+        || "";
+      if (!sourceArtifactId) return null;
+      const campaignId =
+        (exactRunCampaignId ?? exactRun.campaign_id ?? "").trim() || null;
+      const sessionId = exactRun.session_id?.trim() || null;
+      return {
+        kind: "exact_run",
+        key: exactRunBindingKey({
+          runId: exactRun.run_id,
+          sourceArtifactId,
+          campaignId,
+          sessionId,
+        }),
+        runId: exactRun.run_id,
+        sourceArtifactId,
+        campaignId,
+        sessionId,
+      };
+    }
+    if (hasAppliedLoad && appliedLiveRun?.run_id) {
+      return {
+        kind: "catalog_run",
+        key: catalogRunBindingKey({
+          runId: appliedLiveRun.run_id,
+          campaignId: reviewCampaignId,
+          sessionId: reviewSessionId,
+        }),
+        runId: appliedLiveRun.run_id,
+        campaignId: reviewCampaignId,
+        sessionId: reviewSessionId,
+      };
+    }
+    return null;
+  }, [
+    appliedLiveRun?.run_id,
+    exactHandoff?.sourceArtifactId,
+    exactRun?.campaign_id,
+    exactRun?.run_id,
+    exactRun?.session_id,
+    exactRun?.source_artifact_id,
+    exactRunCampaignId,
+    hasAppliedLoad,
+    hasExactRunLoad,
+    reviewCampaignId,
+    reviewSessionId,
+  ]);
+
+  if (!sessionsLoaded && !exactHandoff) {
+    return (
+      <div className="graph-review-workbench-root">
+        <GraphReviewWorkbenchHeader loaded={false} sessionLabel={null} onOpenLoad={() => undefined} />
+        <p className="plan-projection-empty">Loading graph review sessions…</p>
+      </div>
+    );
+  }
+
   return (
     <ProjectionProvider config={toolboxConfig}>
       <GraphReviewLiveStateProvider
         campaignId={reviewCampaignId}
         sessionId={reviewSessionId}
         liveRun={hasAppliedLoad ? appliedLiveRun : null}
+        committedBinding={committedBinding}
         hasGold={hasAppliedLoad ? Boolean(appliedSession?.hasGold) : false}
         compare={hasAppliedLoad ? compare : null}
         compareStatus={hasAppliedLoad ? compareStatus : "idle"}
@@ -777,6 +842,12 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
             loaded={hasAppliedLoad || hasExactRunLoad}
             sessionLabel={loadBarSummary}
             onOpenLoad={openLoadDialog}
+            loadDisabled={loadBlockedByConfirm}
+            loadDisabledReason={
+              loadBlockedByConfirm
+                ? "Merge confirmation is in progress."
+                : null
+            }
             exactRun={exactRunSummary}
           />
 
@@ -791,65 +862,25 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
           ) : null}
 
           {hasExactRunLoad ? (
-            <div
-              className="graph-review-exact-run-panel"
-              data-testid="graph-review-exact-run-panel"
-            >
-              <p>
-                Bound to exact ExtractionRun <code>{exactRun!.run_id}</code>. Prepare uses
-                runId-only server resolution; no latest-run fallback.
-              </p>
-              {exactReviewStatus === "loading" ? (
-                <p className="plan-projection-empty">Loading source evidence…</p>
-              ) : null}
-              {exactReviewError ? (
-                <p className="graph-review-error" data-testid="graph-review-exact-run-review-error">
-                  {exactReviewError}
-                </p>
-              ) : null}
-              {exactReview ? <GraphReviewExactRunProjection review={exactReview} /> : null}
-              {!exactRunReviewable ? (
-                <p data-testid="graph-review-exact-run-unreviewable">
-                  Run status is <code>{exactRun!.status}</code> and is not reviewable for
-                  promotion.
-                </p>
-              ) : !exactRunPromotable ? (
-                <p data-testid="graph-review-exact-run-not-promotable">
-                  {exactRunNonPromotableReason
-                    ?? "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."}
-                </p>
-              ) : exactReviewStatus === "error" ? null : (
-                <div className="graph-review-extract-promote-actions">
-                  <button
-                    type="button"
-                    className="primary"
-                    data-testid="graph-review-exact-run-prepare"
-                    disabled={
-                      exactPreparing ||
-                      exactConfirmInFlight ||
-                      exactReviewStatus !== "ready" ||
-                      !exactReview
-                    }
-                    onClick={() => {
-                      void onPrepareExactRun();
-                    }}
-                  >
-                    {exactPreparing ? "Preparing…" : "Review & merge"}
-                  </button>
-                  {exactPrepareError ? (
-                    <p className="graph-review-error">{exactPrepareError}</p>
-                  ) : null}
-                </div>
-              )}
-              {exactPrepared ? (
-                <GraphReviewExtractPromoteSheet
-                  prepared={exactPrepared}
-                  onClose={() => setExactPrepared(null)}
-                  onConfirmInFlightChange={setExactConfirmInFlight}
-                  onCatalogRefresh={refreshCatalog}
-                />
-              ) : null}
-            </div>
+            <GraphReviewExactRunBranch
+              exactRun={exactRun!}
+              exactReview={exactReview}
+              exactReviewStatus={exactReviewStatus}
+              exactReviewError={exactReviewError}
+              exactRunReviewable={exactRunReviewable}
+              exactRunPromotable={exactRunPromotable}
+              exactRunNonPromotableReason={exactRunNonPromotableReason}
+              exactPreparing={exactPreparing}
+              exactConfirmInFlight={exactConfirmInFlight}
+              exactPrepareError={exactPrepareError}
+              exactPrepared={exactPrepared}
+              onPrepare={() => {
+                void onPrepareExactRun();
+              }}
+              onClosePrepared={() => setExactPrepared(null)}
+              onConfirmInFlightChange={setExactConfirmInFlight}
+              onCatalogRefresh={refreshCatalog}
+            />
           ) : (
             <GraphReviewAuthorNodeHost
               onRequestLoad={openLoadDialog}
@@ -864,7 +895,9 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
                     Load an ingested session to review extracted objects in recap prose.
                   </p>
                 ) : (
-                  <GraphReviewSessionToolbar />
+                  <GraphReviewSessionToolbar
+                    onConfirmInFlightChange={setCatalogConfirmInFlight}
+                  />
                 )
               }
               projection={hasAppliedLoad ? <GraphReviewLiveProjectionPanel /> : null}
@@ -890,5 +923,131 @@ export function GraphReviewWorkbenchModule({ context }: GraphReviewWorkbenchModu
         </div>
       </GraphReviewLiveStateProvider>
     </ProjectionProvider>
+  );
+}
+
+function GraphReviewExactRunBranch(props: {
+  exactRun: ExtractionRunRecord;
+  exactReview: ExactRunReviewPackage | null;
+  exactReviewStatus: "idle" | "loading" | "ready" | "error";
+  exactReviewError: string | null;
+  exactRunReviewable: boolean;
+  exactRunPromotable: boolean;
+  exactRunNonPromotableReason: string | null;
+  exactPreparing: boolean;
+  exactConfirmInFlight: boolean;
+  exactPrepareError: string | null;
+  exactPrepared: ExtractPromotePrepareResponse | null;
+  onPrepare: () => void;
+  onClosePrepared: () => void;
+  onConfirmInFlightChange: (inFlight: boolean) => void;
+  onCatalogRefresh: () => void | Promise<void>;
+}) {
+  const { committedPhase } = useGraphReviewLiveState();
+
+  // After terminal receipt for this binding, committed projection is the only
+  // primary result — never exact-run candidate source/assertions.
+  if (committedPhase !== "candidate") {
+    return (
+      <div
+        className="graph-review-exact-run-panel"
+        data-testid="graph-review-exact-run-panel"
+        data-committed-primary="true"
+      >
+        <GraphReviewCommittedProjectionPanel />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="graph-review-exact-run-panel"
+      data-testid="graph-review-exact-run-panel"
+    >
+      <p>
+        Bound to exact ExtractionRun <code>{props.exactRun.run_id}</code>. Prepare uses
+        runId-only server resolution; no latest-run fallback.
+      </p>
+      {props.exactReviewStatus === "loading" ? (
+        <p className="plan-projection-empty">Loading source evidence…</p>
+      ) : null}
+      {props.exactReviewError ? (
+        <p className="graph-review-error" data-testid="graph-review-exact-run-review-error">
+          {props.exactReviewError}
+        </p>
+      ) : null}
+      {props.exactReview ? <GraphReviewExactRunProjection review={props.exactReview} /> : null}
+      {!props.exactRunReviewable ? (
+        <p data-testid="graph-review-exact-run-unreviewable">
+          Run status is <code>{props.exactRun.status}</code> and is not reviewable for
+          promotion.
+        </p>
+      ) : !props.exactRunPromotable ? (
+        <p data-testid="graph-review-exact-run-not-promotable">
+          {props.exactRunNonPromotableReason
+            ?? "This ExtractionRun is inspect-only and cannot be prepared for World Graph merge."}
+        </p>
+      ) : props.exactReviewStatus === "error" ? null : (
+        <GraphReviewExactRunPromoteChrome
+          exactPreparing={props.exactPreparing}
+          exactConfirmInFlight={props.exactConfirmInFlight}
+          exactReviewReady={props.exactReviewStatus === "ready" && Boolean(props.exactReview)}
+          exactPrepareError={props.exactPrepareError}
+          onPrepare={props.onPrepare}
+        />
+      )}
+      {props.exactPrepared ? (
+        <GraphReviewExtractPromoteSheet
+          prepared={props.exactPrepared}
+          onClose={props.onClosePrepared}
+          onConfirmInFlightChange={props.onConfirmInFlightChange}
+          onCatalogRefresh={props.onCatalogRefresh}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function GraphReviewExactRunPromoteChrome(props: {
+  exactPreparing: boolean;
+  exactConfirmInFlight: boolean;
+  exactReviewReady: boolean;
+  exactPrepareError: string | null;
+  onPrepare: () => void;
+}) {
+  const { committedPhase, committedReceipt } = useGraphReviewLiveState();
+  const hasTerminalCommittedReceipt =
+    committedPhase !== "candidate" && committedReceipt != null;
+
+  if (hasTerminalCommittedReceipt) {
+    return (
+      <p
+        className="module-muted"
+        data-testid="graph-review-exact-run-prepare-suppressed"
+      >
+        Prepare/confirm hidden while committed World Graph authority is active.
+      </p>
+    );
+  }
+
+  return (
+    <div className="graph-review-extract-promote-actions">
+      <button
+        type="button"
+        className="primary"
+        data-testid="graph-review-exact-run-prepare"
+        disabled={
+          props.exactPreparing ||
+          props.exactConfirmInFlight ||
+          !props.exactReviewReady
+        }
+        onClick={props.onPrepare}
+      >
+        {props.exactPreparing ? "Preparing…" : "Review & merge"}
+      </button>
+      {props.exactPrepareError ? (
+        <p className="graph-review-error">{props.exactPrepareError}</p>
+      ) : null}
+    </div>
   );
 }

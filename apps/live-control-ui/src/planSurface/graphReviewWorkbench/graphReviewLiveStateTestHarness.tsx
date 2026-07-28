@@ -5,6 +5,7 @@ import type { GraphIngestRunSummary } from "../../api/types";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import type { PlanContextDescriptor } from "../types";
 import { ProjectionProvider } from "../projection/projectionContext";
+import type { GraphReviewCommittedBinding } from "./graphReviewCommittedAuthority";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 
 const defaultContext: PlanContextDescriptor = {
@@ -19,6 +20,7 @@ export interface RenderGraphReviewLiveHarnessOptions {
   sessionId?: string;
   liveRun?: GraphIngestRunSummary | null;
   hasGold?: boolean;
+  committedBinding?: GraphReviewCommittedBinding | null;
   context?: PlanContextDescriptor;
   children: ReactNode;
 }
@@ -28,6 +30,7 @@ export function renderGraphReviewLiveHarness({
   sessionId = "session-23",
   liveRun = null,
   hasGold = false,
+  committedBinding = null,
   context = defaultContext,
   children,
 }: RenderGraphReviewLiveHarnessOptions): RenderResult {
@@ -38,6 +41,7 @@ export function renderGraphReviewLiveHarness({
         campaignId={campaignId}
         sessionId={sessionId}
         liveRun={liveRun}
+        committedBinding={committedBinding}
         hasGold={hasGold}
         compare={null}
         compareStatus="idle"

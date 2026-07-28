@@ -2,9 +2,23 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as extractPromoteApi from "../../api/extractPromoteApi";
 import * as liveApi from "../../api/liveApi";
+import type {
+  ExtractPromoteConfirmReceipt,
+  WorldGraphProjection,
+} from "../../api/types";
 import type { PlanContextDescriptor } from "../types";
+import { GraphReviewLiveStateProvider, useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
+import {
+  catalogRunBindingKey,
+  exactRunBindingKey,
+} from "./graphReviewCommittedAuthority";
+import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
+import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProjectionPanel";
+import { ProjectionProvider } from "../projection/projectionContext";
+import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 
 const context: PlanContextDescriptor = {
   campaignId: "longmont-c2",
@@ -438,3 +452,711 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
   });
 });
+
+describe("GraphReviewWorkbenchModule committed authority binding", () => {
+  function committedProjection(
+    label: string,
+    revisionId = "rev:committed",
+  ): WorldGraphProjection {
+    return {
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId,
+        headRevisionId: revisionId,
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-23", campaignId: "longmont-c2" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "object-1",
+          label,
+          kind: "npc",
+          role: "character",
+          aliases: [],
+          sourceDomains: [],
+          anchoredToFocusSession: true,
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    };
+  }
+
+  const receipt: ExtractPromoteConfirmReceipt = {
+    schema: "dmb_extract_promote_confirm_v2",
+    outcome: "committed",
+    worldId: "eldyrwild",
+    proposalId: "prop-1",
+    proposalDigest: "digest-a",
+    parentRevisionId: "rev:parent",
+    committedRevisionId: "rev:committed",
+    headAdvanced: true,
+    selectedAssertionIds: ["a-1"],
+    acceptedAssertionIds: ["a-1"],
+    affectedObjectIds: ["object-1"],
+    appliedAssertionCount: 1,
+    auditStatus: "ok",
+    warnings: [],
+  };
+
+  function CommittedProbe() {
+    const {
+      adoptCommittedReceipt,
+      committedPhase,
+      committedReceipt,
+      committedSelectedObjectId,
+    } = useGraphReviewLiveState();
+    return (
+      <div>
+        <button
+          type="button"
+          data-testid="probe-adopt"
+          onClick={() => {
+            void adoptCommittedReceipt(receipt);
+          }}
+        >
+          Adopt
+        </button>
+        <span data-testid="probe-phase">{committedPhase}</span>
+        <span data-testid="probe-receipt">
+          {committedReceipt?.committedRevisionId ?? "none"}
+        </span>
+        <span data-testid="probe-selected">
+          {committedSelectedObjectId ?? "none"}
+        </span>
+      </div>
+    );
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("clears committed authority when catalog binding identity changes", async () => {
+    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+      campaign_id: "longmont-c2",
+      session_id: "session-23",
+      graph_id: "graph-a",
+      markdown: "# Candidate",
+      focus: {
+        focus_session_id: "session-23",
+        focused_evidence_ref_ids: [],
+        focused_edge_ids: [],
+        focused_node_ids: [],
+      },
+      node_views: {},
+      source_spans: [],
+      mentions: [],
+    });
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
+      committedProjection("Hesta Ironroot"),
+    );
+
+    function BindingHost({ liveRunId }: { liveRunId: string }) {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-23"
+          liveRun={null}
+          committedBinding={{
+            kind: "catalog_run",
+            key: catalogRunBindingKey({
+              runId: liveRunId,
+              campaignId: "longmont-c2",
+              sessionId: "session-23",
+            }),
+            runId: liveRunId,
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    const { rerender } = render(<BindingHost liveRunId="run-a" />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
+
+    rerender(<BindingHost liveRunId="run-b" />);
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+  });
+
+  it("preserves committed authority on same-binding refresh remount", async () => {
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
+      committedProjection("Hesta Ironroot"),
+    );
+
+    function BindingHost() {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-23"
+          liveRun={null}
+          committedBinding={{
+            kind: "catalog_run",
+            key: catalogRunBindingKey({
+              runId: "run-a",
+              campaignId: "longmont-c2",
+              sessionId: "session-23",
+            }),
+            runId: "run-a",
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    const first = render(<BindingHost />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+    first.unmount();
+
+    // Same binding remount starts candidate; preservation is owned by not clearing
+    // while the binding identity is unchanged during an in-tree refresh.
+    const second = render(<BindingHost />);
+    expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate");
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+    second.rerender(<BindingHost />);
+    expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready");
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
+  });
+
+  it("suppresses stale deferred committed loads via generation counter", async () => {
+    let resolveFirst!: (value: WorldGraphProjection) => void;
+    let resolveSecond!: (value: WorldGraphProjection) => void;
+    const firstDeferred = new Promise<WorldGraphProjection>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondDeferred = new Promise<WorldGraphProjection>((resolve) => {
+      resolveSecond = resolve;
+    });
+    const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
+    postSpy.mockReturnValueOnce(firstDeferred).mockReturnValueOnce(secondDeferred);
+
+    function BindingHost() {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-23"
+          liveRun={null}
+          committedBinding={{
+            kind: "catalog_run",
+            key: catalogRunBindingKey({
+              runId: "run-a",
+              campaignId: "longmont-c2",
+              sessionId: "session-23",
+            }),
+            runId: "run-a",
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    render(<BindingHost />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("loading"),
+    );
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(2));
+
+    resolveFirst(committedProjection("Stale Label", "rev:committed"));
+    resolveSecond(committedProjection("Hesta Ironroot", "rev:committed"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+    expect(screen.getByTestId("probe-selected")).toHaveTextContent("object-1");
+    // Durable second response wins; stale first must not leave conflicting UI.
+    expect(screen.queryByText("Stale Label")).toBeNull();
+  });
+
+  it("discards deferred run-A projection after switching committedBinding to run B", async () => {
+    let resolveA!: (value: WorldGraphProjection) => void;
+    const deferredA = new Promise<WorldGraphProjection>((resolve) => {
+      resolveA = resolve;
+    });
+    const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
+    postSpy.mockReturnValueOnce(deferredA);
+
+    function BindingHost({ runId }: { runId: string }) {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-23"
+          liveRun={null}
+          committedBinding={{
+            kind: "catalog_run",
+            key: catalogRunBindingKey({
+              runId,
+              campaignId: "longmont-c2",
+              sessionId: "session-23",
+            }),
+            runId,
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    const { rerender } = render(<BindingHost runId="run-a" />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("loading"),
+    );
+    expect(postSpy).toHaveBeenCalledTimes(1);
+
+    // Switch binding while run-A projection is still in flight.
+    rerender(<BindingHost runId="run-b" />);
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+    expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
+
+    resolveA(committedProjection("Run A Only Label", "rev:run-a"));
+
+    // Allow any late resolution microtasks to flush; authority must stay clear of A.
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+    expect(screen.getByTestId("probe-selected")).toHaveTextContent("none");
+    expect(screen.queryByText("Run A Only Label")).toBeNull();
+    expect(postSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears committed authority when exact-run session scope changes for same run+artifact", async () => {
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) => ({
+      ...committedProjection("Hesta Ironroot"),
+      snapshot: {
+        ...committedProjection("Hesta Ironroot").snapshot,
+        campaignId: request.campaignId,
+        revisionId: request.revisionPin ?? "rev:committed",
+        headRevisionId: request.revisionPin ?? "rev:committed",
+        focus: request.focus,
+        scopeMode: request.scopeMode,
+      },
+    }));
+
+    function ExactBindingHost({ sessionId }: { sessionId: string | null }) {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId={sessionId ?? ""}
+          liveRun={null}
+          committedBinding={{
+            kind: "exact_run",
+            key: exactRunBindingKey({
+              runId: "er-1",
+              sourceArtifactId: "art-1",
+              campaignId: "longmont-c2",
+              sessionId,
+            }),
+            runId: "er-1",
+            sourceArtifactId: "art-1",
+            campaignId: "longmont-c2",
+            sessionId,
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    const { rerender } = render(<ExactBindingHost sessionId="session-22" />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+
+    rerender(<ExactBindingHost sessionId="session-23" />);
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+  });
+
+  it("hides exact-run candidate prose and assertions after committed authority is adopted", async () => {
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) => ({
+      ...committedProjection("Hesta Ironroot"),
+      snapshot: {
+        ...committedProjection("Hesta Ironroot").snapshot,
+        campaignId: request.campaignId,
+        revisionId: request.revisionPin ?? "rev:committed",
+        headRevisionId: request.revisionPin ?? "rev:committed",
+        focus: request.focus,
+        scopeMode: request.scopeMode,
+      },
+    }));
+
+    const exactReview = {
+      schema: "dmb_extract_promote_exact_run_review_v1" as const,
+      runId: "er-1",
+      sourceDomain: "recap",
+      sourceArtifactId: "art-1",
+      sourceRevisionId: "sha256:abc",
+      campaignId: "longmont-c2",
+      sessionId: "session-22",
+      sourceProse: "# Candidate exact-run source prose that must disappear",
+      assertions: [
+        {
+          assertionId: "a-candidate",
+          kind: "object" as const,
+          label: "Candidate Exact Assertion",
+          summary: "Must not remain primary after adopt",
+          evidence: [],
+        },
+      ],
+      diagnostics: [],
+      promotable: true,
+      promotableReason: null,
+    };
+
+    function ExactSurfaceHost() {
+      const { committedPhase, adoptCommittedReceipt } = useGraphReviewLiveState();
+      return (
+        <div data-testid="graph-review-exact-run-panel">
+          <button
+            type="button"
+            data-testid="probe-adopt"
+            onClick={() => {
+              void adoptCommittedReceipt(receipt);
+            }}
+          >
+            Adopt
+          </button>
+          {committedPhase !== "candidate" ? (
+            <GraphReviewCommittedProjectionPanel />
+          ) : (
+            <GraphReviewExactRunProjection review={exactReview} />
+          )}
+        </div>
+      );
+    }
+
+    const config = createIngestSurfaceConfig(context);
+    render(
+      <ProjectionProvider config={config}>
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-22"
+          liveRun={null}
+          committedBinding={{
+            kind: "exact_run",
+            key: exactRunBindingKey({
+              runId: "er-1",
+              sourceArtifactId: "art-1",
+              campaignId: "longmont-c2",
+              sessionId: "session-22",
+            }),
+            runId: "er-1",
+            sourceArtifactId: "art-1",
+            campaignId: "longmont-c2",
+            sessionId: "session-22",
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <ExactSurfaceHost />
+        </GraphReviewLiveStateProvider>
+      </ProjectionProvider>,
+    );
+
+    expect(screen.getByTestId("graph-review-exact-run-source-prose")).toHaveTextContent(
+      /Candidate exact-run source prose/,
+    );
+    expect(screen.getByTestId("graph-review-exact-run-assertions")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("graph-review-exact-run-assertion-a-candidate"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-committed-projection-panel")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("graph-review-exact-run-source-prose")).toBeNull();
+    expect(screen.queryByTestId("graph-review-exact-run-assertions")).toBeNull();
+    expect(
+      screen.queryByTestId("graph-review-exact-run-assertion-a-candidate"),
+    ).toBeNull();
+    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+  });
+});
+
+describe("GraphReviewWorkbenchModule exact-run primary after confirm", () => {
+  beforeEach(() => {
+    mockWorkbenchApis();
+    window.sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState({}, "", "/");
+    window.sessionStorage.clear();
+  });
+
+  it("removes exact-run source/assertions as primary after terminal confirm adopt", async () => {
+    const recapRun = {
+      schema_version: "dmb_extraction_run_v1" as const,
+      version: "1.0",
+      run_id: "extraction-run-recap-1",
+      source_artifact_id: "artifact:recap:longmont-c2:session-22:abcdef123456",
+      source_domain: "recap",
+      status: "reviewable" as const,
+      campaign_id: "longmont-c2",
+      session_id: "session-22",
+      profile_id: "recap_extraction_v0@0.1",
+      components: {
+        candidate_graph: {
+          kind: "candidate_graph",
+          uri: "out/graph_memory/runs/extraction/recap1/candidate_graph.json",
+          exists: true,
+        },
+      },
+    };
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?extractionRunId=extraction-run-recap-1"
+        + "&sourceArtifactId=artifact:recap:longmont-c2:session-22:abcdef123456"
+        + "&documentId=doc-1&revision=3",
+    );
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(recapRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue({
+      schema_version: "dmb_extraction_run_status_v1",
+      run: recapRun,
+      source_artifact_id: recapRun.source_artifact_id,
+      document_id: "doc-1",
+      document_revision: 3,
+      source_content_sha256: "sha256:abc",
+      graph_review_handoff: {
+        href:
+          "/ingest?extractionRunId=extraction-run-recap-1"
+          + "&sourceArtifactId=artifact:recap:longmont-c2:session-22:abcdef123456"
+          + "&documentId=doc-1&revision=3",
+        extraction_run_id: recapRun.run_id,
+        source_artifact_id: recapRun.source_artifact_id,
+        document_id: "doc-1",
+        document_revision: 3,
+      },
+    });
+    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue({
+      schema: "dmb_extract_promote_exact_run_review_v1",
+      runId: recapRun.run_id,
+      sourceDomain: "recap",
+      sourceArtifactId: recapRun.source_artifact_id,
+      sourceRevisionId: "sha256:abc",
+      campaignId: "longmont-c2",
+      sessionId: "session-22",
+      sourceProse: "# Exact-run candidate prose must leave after confirm",
+      assertions: [
+        {
+          assertionId: "a-exact",
+          kind: "object",
+          label: "Exact Candidate Object",
+          summary: "candidate",
+          evidence: [],
+        },
+      ],
+      diagnostics: [],
+      promotable: true,
+      promotableReason: null,
+    });
+    vi.spyOn(extractPromoteApi, "prepareExtractPromote").mockResolvedValue({
+      schema: "dmb_extract_promote_prepare_v1",
+      proposalId: "prop-1",
+      proposalDigest: "digest-a",
+      parentRevisionId: "rev:parent",
+      worldId: "eldyrwild",
+      acceptedProposalsCount: 1,
+      unresolvedMentionsCount: 0,
+      rejectedAssertionsCount: 0,
+      reviewPackage: { schema: "dmb_extract_promote_proposal_v1" },
+      reviewItems: [
+        {
+          assertionId: "a-exact",
+          sliceQualifiedId: "0:source_extraction::a-exact",
+          kind: "object",
+          label: "Exact Candidate Object",
+          action: "create",
+          identityOutcome: "created_new",
+          summary: "Create new object",
+          warnings: [],
+          selectable: true,
+          selectedByDefault: true,
+          dependsOnAssertionIds: [],
+          dependsOnSliceQualifiedIds: [],
+        },
+      ],
+      reviewSummary: {
+        newObjectCount: 1,
+        connectExistingCount: 0,
+        relationshipCount: 0,
+        unresolvedMentionCount: 0,
+        rejectedAssertionCount: 0,
+      },
+      runId: recapRun.run_id,
+      campaignId: "longmont-c2",
+      sessionId: "session-22",
+    });
+    vi.spyOn(extractPromoteApi, "confirmExtractPromote").mockResolvedValue({
+      schema: "dmb_extract_promote_confirm_v2",
+      outcome: "committed",
+      worldId: "eldyrwild",
+      proposalId: "prop-1",
+      proposalDigest: "digest-a",
+      parentRevisionId: "rev:parent",
+      committedRevisionId: "rev:committed",
+      headAdvanced: true,
+      selectedAssertionIds: ["a-exact"],
+      acceptedAssertionIds: ["a-exact"],
+      affectedObjectIds: ["object-1"],
+      appliedAssertionCount: 1,
+      auditStatus: "ok",
+      warnings: [],
+    });
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) => ({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: request.worldId,
+        campaignId: request.campaignId,
+        revisionId: request.revisionPin ?? "rev:committed",
+        headRevisionId: request.revisionPin ?? "rev:committed",
+        isHead: true,
+        focus: request.focus,
+        admissibility: "gm",
+        scopeMode: request.scopeMode,
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "object-1",
+          label: "Hesta Ironroot",
+          kind: "npc",
+          role: "character",
+          aliases: [],
+          sourceDomains: [],
+          anchoredToFocusSession: true,
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    }));
+
+    render(<GraphReviewWorkbenchModule context={context} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-exact-run-source-prose")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByTestId("graph-review-exact-run-assertion-a-exact"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("graph-review-exact-run-prepare"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-merge-cta")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-committed-projection-panel")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("graph-review-exact-run-panel")).toHaveAttribute(
+      "data-committed-primary",
+      "true",
+    );
+    expect(screen.queryByTestId("graph-review-exact-run-source-prose")).toBeNull();
+    expect(screen.queryByTestId("graph-review-exact-run-assertions")).toBeNull();
+    expect(
+      screen.queryByTestId("graph-review-exact-run-assertion-a-exact"),
+    ).toBeNull();
+    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+  });
+});
+
