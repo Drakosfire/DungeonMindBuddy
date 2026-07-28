@@ -97,4 +97,47 @@ describe("projectionRequestCache", () => {
     expect(recapLoader).toHaveBeenCalledTimes(1);
     expect(projectionRequestCacheStats().settled).toBe(2);
   });
+
+  it("does not let a pre-invalidation in-flight completion poison settled or remove the replacement", async () => {
+    const request = { worldId: "eldyrwild", campaignId: "longmont-c1" };
+    let resolveA!: (value: string) => void;
+    let resolveB!: (value: string) => void;
+    const loaderA = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveA = resolve;
+        }),
+    );
+    const loaderB = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveB = resolve;
+        }),
+    );
+
+    const pendingA = withProjectionRequestCache("projection", request, loaderA);
+    expect(loaderA).toHaveBeenCalledTimes(1);
+    expect(projectionRequestCacheStats().inFlight).toBe(1);
+
+    window.dispatchEvent(new Event(WORLD_GRAPH_REVISION_COMMITTED_EVENT));
+    expect(projectionRequestCacheStats()).toEqual({ settled: 0, inFlight: 0 });
+
+    const pendingB = withProjectionRequestCache("projection", request, loaderB);
+    expect(loaderB).toHaveBeenCalledTimes(1);
+    expect(projectionRequestCacheStats().inFlight).toBe(1);
+
+    resolveA("stale-n");
+    await expect(pendingA).resolves.toBe("stale-n");
+    expect(projectionRequestCacheStats()).toEqual({ settled: 0, inFlight: 1 });
+
+    resolveB("fresh-n1");
+    await expect(pendingB).resolves.toBe("fresh-n1");
+    expect(projectionRequestCacheStats()).toEqual({ settled: 1, inFlight: 0 });
+
+    const loaderC = vi.fn(async () => "should-not-run");
+    await expect(
+      withProjectionRequestCache("projection", request, loaderC),
+    ).resolves.toBe("fresh-n1");
+    expect(loaderC).not.toHaveBeenCalled();
+  });
 });

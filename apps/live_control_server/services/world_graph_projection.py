@@ -63,8 +63,9 @@ def _map_kernel_error(exc: kernel.WorldGraphProjectionError) -> WorldGraphProjec
 def _service_cache_enabled() -> bool:
     """Process cache for live UI warm loads.
 
-    Default on for the live server. Contribution-ledger fingerprinting ensures
-    contribution-file mutations miss the cache.
+    Default on for the live server. Cache keys fingerprint the contribution
+    ledger plus integrity-checked head/revision payloads so warm hits cannot
+    hide projection_integrity_error failures.
     """
     raw = (os.environ.get("DMB_WORLD_GRAPH_PROJECTION_CACHE") or "1").strip().lower()
     return raw not in {"0", "false", "no", "off"}

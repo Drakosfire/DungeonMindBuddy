@@ -28,6 +28,8 @@ const inFlight = new Map<string, InFlightEntry<unknown>>();
 let ttlMs = DEFAULT_TTL_MS;
 let maxEntries = DEFAULT_MAX_ENTRIES;
 let revisionListenerBound = false;
+/** Bumped on every invalidation so older in-flight completions cannot repopulate. */
+let cacheGeneration = 0;
 
 function ensureRevisionInvalidation(): void {
   if (revisionListenerBound || typeof window === "undefined") return;
@@ -48,6 +50,7 @@ export function projectionRequestCacheKey(
 export function clearProjectionRequestCache(): void {
   settled.clear();
   inFlight.clear();
+  cacheGeneration += 1;
 }
 
 /** Test/harness knobs. */
@@ -82,6 +85,13 @@ function enforceMaxEntries(): void {
   }
 }
 
+function deleteInFlightIfCurrent<T>(key: string, promise: Promise<T>): void {
+  const current = inFlight.get(key) as InFlightEntry<T> | undefined;
+  if (current?.promise === promise) {
+    inFlight.delete(key);
+  }
+}
+
 /**
  * Return a cached value, coalesce with an in-flight fetch, or run `loader`.
  */
@@ -108,15 +118,18 @@ export async function withProjectionRequestCache<T>(
     return pending.promise;
   }
 
+  const generation = cacheGeneration;
   const promise = loader()
     .then((value) => {
-      settled.set(key, { value, expiresAt: Date.now() + ttlMs });
-      enforceMaxEntries();
-      inFlight.delete(key);
+      if (generation === cacheGeneration) {
+        settled.set(key, { value, expiresAt: Date.now() + ttlMs });
+        enforceMaxEntries();
+      }
+      deleteInFlightIfCurrent(key, promise);
       return value;
     })
     .catch((error) => {
-      inFlight.delete(key);
+      deleteInFlightIfCurrent(key, promise);
       throw error;
     });
 

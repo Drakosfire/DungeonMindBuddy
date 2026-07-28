@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -228,4 +229,100 @@ def test_service_cache_keys_revision_pin_separately(
     stats = projection_cache_stats()
     assert pinned is head_projection
     assert stats["hits"] >= 1
+    clear_projection_cache()
+
+
+def _revision_graph_path(root: Path, revision_id: str) -> Path:
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "revisions"
+        / revision_id
+        / "graph.json"
+    )
+
+
+def _revision_manifest_path(root: Path, revision_id: str) -> Path:
+    return (
+        root
+        / "graph_memory"
+        / "worlds"
+        / WORLD_ID
+        / "revisions"
+        / revision_id
+        / "revision.json"
+    )
+
+
+def _head_path(root: Path) -> Path:
+    return root / "graph_memory" / "worlds" / WORLD_ID / "head.json"
+
+
+def test_service_cache_cannot_hide_graph_payload_integrity_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Warm hit must not survive graph.json mutation under a stable revision id."""
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    warm = project_world_graph(_request(), root=tmp_path)
+    hits_before = projection_cache_stats()["hits"]
+    graph_path = _revision_graph_path(tmp_path, warm.snapshot.revision_id)
+    graph_path.write_text("{not-valid-json", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
+        project_world_graph(_request(), root=tmp_path)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert exc_info.value.status_code == 409
+    assert projection_cache_stats()["hits"] == hits_before
+    clear_projection_cache()
+
+
+def test_service_cache_cannot_hide_revision_manifest_integrity_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    warm = project_world_graph(_request(), root=tmp_path)
+    hits_before = projection_cache_stats()["hits"]
+    manifest_path = _revision_manifest_path(tmp_path, warm.snapshot.revision_id)
+    manifest_path.write_text("{not-valid-json", encoding="utf-8")
+
+    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
+        project_world_graph(_request(), root=tmp_path)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert exc_info.value.status_code == 409
+    assert projection_cache_stats()["hits"] == hits_before
+    clear_projection_cache()
+
+
+def test_service_cache_cannot_hide_head_integrity_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Integrity-relevant head mutation must miss cache even when head still parses."""
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    project_world_graph(_request(), root=tmp_path)
+    hits_before = projection_cache_stats()["hits"]
+    head_path = _head_path(tmp_path)
+    head_payload = json.loads(head_path.read_text(encoding="utf-8"))
+    # Keep head_revision_id stable so a revision-id-only key would still hit.
+    head_payload["world_id"] = "tampered-world"
+    head_path.write_text(
+        json.dumps(head_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
+        project_world_graph(_request(), root=tmp_path)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert exc_info.value.status_code == 409
+    assert projection_cache_stats()["hits"] == hits_before
     clear_projection_cache()

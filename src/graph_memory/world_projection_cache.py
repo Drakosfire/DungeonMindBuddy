@@ -1,9 +1,10 @@
 """Optional process-local World Graph projection cache.
 
 NOT wired into the kernel by default. Projection integrity tests may mutate
-contribution ledger bytes under an existing revision id; caching only on
-revision id would hide those failures. Callers that opt in must include a
-ledger fingerprint (contribution index mtime/size) in the cache key.
+contribution ledger bytes or revision payloads under an existing revision id;
+caching only on revision id would hide those failures. Callers that opt in
+must fingerprint every integrity-checked input (contribution ledger, head.json,
+selected revision graph.json + revision.json) in the cache key.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ class CacheKey:
     campaign_id: str
     revision_id: str
     head_revision_id: str
-    ledger_fingerprint: str
+    source_fingerprint: str
     focus_kind: str
     focus_session_id: str
     focus_campaign_id: str
@@ -119,6 +120,13 @@ def _world_dir(root: Path, world_id: str) -> Path:
     return root / "graph_memory" / "worlds" / world_id
 
 
+def _file_fingerprint(path: Path) -> str:
+    if path.is_file():
+        st = path.stat()
+        return f"{st.st_mtime_ns}:{st.st_size}"
+    return "missing"
+
+
 def ledger_fingerprint(root: Path, world_id: str) -> str:
     """Fingerprint contribution index + contributions directory for cache keys."""
     world_dir = _world_dir(root, world_id)
@@ -145,22 +153,50 @@ def ledger_fingerprint(root: Path, world_id: str) -> str:
     return "|".join(parts)
 
 
+def source_fingerprint(root: Path, world_id: str, revision_id: str) -> str:
+    """Fingerprint every integrity-checked input the projection path validates.
+
+    Warm hits must miss when head.json, the selected revision's graph.json /
+    revision.json, or the contribution ledger change under a stable revision id.
+    Otherwise the service would return a cached projection instead of the
+    kernel's projection_integrity_error.
+    """
+    world_dir = _world_dir(root, world_id)
+    revision_dir = world_dir / "revisions" / revision_id
+    return "|".join(
+        [
+            f"ledger:{ledger_fingerprint(root, world_id)}",
+            f"head:{_file_fingerprint(world_dir / 'head.json')}",
+            f"graph:{_file_fingerprint(revision_dir / 'graph.json')}",
+            f"rev:{_file_fingerprint(revision_dir / 'revision.json')}",
+        ]
+    )
+
+
 def make_projection_cache_key(
     root: Path,
     request: WorldGraphProjectionRequest,
     *,
     revision_id: str,
     head_revision_id: str,
+    source_fp: str | None = None,
     ledger_fp: str | None = None,
 ) -> CacheKey:
     focus = request.focus
+    # ``ledger_fp`` retained as a deprecated alias for callers/tests that still
+    # pass contribution-only fingerprints; prefer ``source_fp``.
+    fingerprint = source_fp
+    if fingerprint is None and ledger_fp is not None:
+        fingerprint = ledger_fp
+    if fingerprint is None:
+        fingerprint = source_fingerprint(root, request.world_id, revision_id)
     return CacheKey(
         root=str(root.resolve()),
         world_id=request.world_id,
         campaign_id=request.campaign_id,
         revision_id=revision_id,
         head_revision_id=head_revision_id,
-        ledger_fingerprint=ledger_fp or ledger_fingerprint(root, request.world_id),
+        source_fingerprint=fingerprint,
         focus_kind=focus.kind,
         focus_session_id=str(focus.session_id or ""),
         focus_campaign_id=str(getattr(focus, "campaign_id", None) or ""),
@@ -186,4 +222,5 @@ __all__ = [
     "make_projection_cache_key",
     "projection_cache_stats",
     "put_cached_projection",
+    "source_fingerprint",
 ]
