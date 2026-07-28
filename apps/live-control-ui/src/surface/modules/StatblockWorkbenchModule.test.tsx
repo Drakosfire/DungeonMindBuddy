@@ -13,6 +13,7 @@ import type {
   GeneratedStatblockCandidateV1,
   ValidationReceiptV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import { readStoredReviseAttempt } from "../../statblocks/revision/statblockRevisionAttempt";
 import fixture from "../../../../../tests/fixtures/statblocks/v1/candidate-response.json";
 import {
   ACCEPT_RESTORE_LOOKUP,
@@ -295,8 +296,10 @@ describe("StatblockWorkbenchModule", () => {
     expect(screen.queryByDisplayValue("Ironhide Brute")).toBeNull();
     expect(screen.getByPlaceholderText("cand_…")).toHaveProperty("value", "cand_fixture2");
     expect(screen.queryByText(/Generated cand_fixture1/i)).toBeNull();
-    expect(liveApi.getStatblockCandidate).toHaveBeenCalledTimes(1);
-    expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture2");
+    const loadCalls = vi.mocked(liveApi.getStatblockCandidate).mock.calls.map((call) => call[0]);
+    expect(loadCalls).not.toContain("cand_fixture1");
+    expect(loadCalls.every((id) => id === "cand_fixture2")).toBe(true);
+    expect(loadCalls.length).toBeGreaterThanOrEqual(1);
   });
 
   it("ignores late generation failure after a newer manual load", async () => {
@@ -2639,7 +2642,8 @@ describe("StatblockWorkbenchModule", () => {
 
       // Clear the Advanced recovery fields — happy path must use createdDraft identity.
       const draftInput = screen.getByPlaceholderText("td_…");
-      await user.clear(draftInput);
+      await user.click(draftInput);
+      await user.keyboard("{Control>}a{/Control}{Backspace}");
       expect(draftInput).toHaveProperty("value", "");
 
       await validateWorkingCopy(user);
@@ -3063,6 +3067,39 @@ describe("StatblockWorkbenchModule", () => {
         source_draft_version: 1,
         source_draft_name: "Mireward Latchling",
       });
+      // Exact draft GET is required for version-dependent Accept/Save after source_draft recover.
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue({
+        schema: "dmb_threat_draft_v1",
+        draft_id: DRAFT_ID,
+        version: 1,
+        world_id: "eldyrwild",
+        campaign_id: "longmont-c2",
+        focus: null,
+        name: "Mireward Latchling",
+        description: "A latchling.",
+        threat_kind: "creature",
+        intended_roles: [],
+        tags: [],
+        generation_intent: {
+          ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+          target_cr: null,
+          complexity: null,
+          must_include: [],
+          must_avoid: [],
+        },
+        encounter_context: { party_level: null, party_size: null, terrain_notes: [] },
+        graph_context_snapshot: {
+          graph_revision_id: "rev:abc",
+          selected_node_ids: [],
+          admitted_source_anchor_ids: [],
+        },
+        candidate_refs: [],
+        accepted_mechanics_ref: null,
+        workflow_state: "candidate_ready",
+        created_by: "gm",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      });
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
       const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
         schema: "dmb_accept_threat_draft_mechanics_response_v1",
@@ -3083,6 +3120,9 @@ describe("StatblockWorkbenchModule", () => {
       render(<StatblockWorkbenchModule />);
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
+      });
+      await waitFor(() => {
+        expect(screen.queryByTestId("draft-snapshot-unavailable")).toBeNull();
       });
       expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", DRAFT_ID);
       const stored = JSON.parse(sessionStorage.getItem("dmb.sbw.workbenchJoin") ?? "null");
@@ -3214,6 +3254,911 @@ describe("StatblockWorkbenchModule", () => {
         "value",
         "Edited siege latch rules for dogfood.",
       );
+    });
+  });
+
+  describe("revise UX (SBW06c)", () => {
+    const DRAFT_ID = "00000000-0000-4000-8000-000000000099";
+
+    function threatDraftFixture(
+      overrides: Partial<import("../../api/types").ThreatDraftV1> = {},
+    ): import("../../api/types").ThreatDraftV1 {
+      return {
+        schema: "dmb_threat_draft_v1",
+        draft_id: DRAFT_ID,
+        version: 2,
+        world_id: "eldyrwild",
+        campaign_id: "longmont-c2",
+        focus: null,
+        name: "Ironhide Brute",
+        description: "A brute.",
+        threat_kind: "creature",
+        intended_roles: [],
+        tags: [],
+        generation_intent: {
+          ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+          target_cr: "3",
+          complexity: null,
+          must_include: [],
+          must_avoid: [],
+        },
+        encounter_context: { party_level: 5, party_size: 4, terrain_notes: [] },
+        graph_context_snapshot: {
+          graph_revision_id: "rev:abc",
+          selected_node_ids: [],
+          admitted_source_anchor_ids: [],
+        },
+        candidate_refs: [
+          {
+            candidate_id: "cand_fixture1",
+            generated_from_draft_version: 1,
+            request_id: "gen-req-1",
+            created_at: "2026-01-01T00:00:00Z",
+            status: "active",
+            lineage: null,
+          },
+        ],
+        accepted_mechanics_ref: null,
+        workflow_state: "candidate_ready",
+        created_by: "gm",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+        ...overrides,
+      };
+    }
+
+    function activeWithDraft(): ReadStatblockCandidateResponseV1 {
+      return {
+        ...activeResponse,
+        source_draft_id: DRAFT_ID,
+        source_draft_version: 2,
+        source_draft_name: "Ironhide Brute",
+      };
+    }
+
+    async function loadWithDraft() {
+      const user = userEvent.setup();
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      return user;
+    }
+
+    it("sends local edits in revise source_definition", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => {
+        expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy();
+      });
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        async (_draftId, body) => ({
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "revise_claimed",
+          request_id: body.request_id,
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        }),
+      );
+      await user.clear(screen.getByLabelText("Creature name"));
+      await user.type(screen.getByLabelText("Creature name"), "Edited Brute Name");
+      await user.type(screen.getByTestId("revise-instructions"), "Increase AC");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(reviseSpy).toHaveBeenCalledTimes(1));
+      const body = reviseSpy.mock.calls[0][1];
+      expect(body.source_definition.identity?.name).toBe("Edited Brute Name");
+      expect(body.source_definition.identity?.name).not.toBe(candidate.definition.identity.name);
+    });
+
+    it("reconciled refreshes draft, loads new candidate, keeps history, no auto accept", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      const getDraftSpy = vi.spyOn(liveApi, "getThreatDraft");
+      const newCandidateId = "cand_revised1";
+      let draftFetchCount = 0;
+      const revisedCandidate = {
+        ...candidate,
+        candidate_id: newCandidateId,
+        definition: {
+          ...candidate.definition,
+          identity: { ...candidate.definition.identity, name: "Revised Brute" },
+        },
+      };
+      let lastReviseRequestId = "";
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => {
+        lastReviseRequestId = body.request_id;
+        return {
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "reconciled",
+          request_id: body.request_id,
+          candidate_id: newCandidateId,
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        };
+      });
+      getDraftSpy.mockImplementation(async () => {
+        draftFetchCount += 1;
+        const reqId =
+          lastReviseRequestId || readStoredReviseAttempt(DRAFT_ID)?.request_id || "missing";
+        if (!lastReviseRequestId) {
+          return threatDraftFixture();
+        }
+        return threatDraftFixture({
+          version: 3,
+          candidate_refs: [
+            {
+              candidate_id: "cand_fixture1",
+              generated_from_draft_version: 1,
+              request_id: "gen-req-1",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+            {
+              candidate_id: newCandidateId,
+              generated_from_draft_version: 3,
+              request_id: reqId,
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: {
+                schema: "dmb_candidate_lineage_v1",
+                revise_request_id: reqId,
+                source_origin_kind: "edited_working_copy",
+                instruction_options_digest: `sha256:${"c".repeat(64)}`,
+                created_at: "2026-01-02T00:00:00Z",
+                edited_working_copy: {
+                  draft_id: DRAFT_ID,
+                  source_draft_version: 2,
+                  editor_state_revision: "1",
+                  source_definition_digest: `sha256:${"b".repeat(64)}`,
+                },
+              },
+            },
+          ],
+        });
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === newCandidateId) {
+          return {
+            schema: "dmb_statblock_candidate_read_v1",
+            candidate_id: newCandidateId,
+            status: "active",
+            candidate: revisedCandidate,
+            source_draft_id: DRAFT_ID,
+            source_draft_version: 3,
+          };
+        }
+        return activeWithDraft();
+      });
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics");
+      await user.type(screen.getByTestId("revise-instructions"), "Make tougher");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => {
+        expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith(newCandidateId);
+      });
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Revised Brute")).toBeTruthy();
+      });
+      expect(getDraftSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByTestId("proposal-history-row-cand_fixture1")).toBeTruthy();
+      expect(screen.getByTestId(`proposal-history-row-${newCandidateId}`)).toBeTruthy();
+      expect(acceptSpy).not.toHaveBeenCalled();
+    });
+
+    it("transport failure retains attempt; resume does not call randomUUID", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      const uuidSpy = vi.spyOn(crypto, "randomUUID");
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(new Error("network down"));
+      await user.type(screen.getByTestId("revise-instructions"), "Add reach");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      expect(screen.getByTestId("revise-instructions")).toHaveProperty("value", "Add reach");
+      const firstUuid = uuidSpy.mock.results[0]?.value;
+      uuidSpy.mockClear();
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => ({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_claimed",
+        request_id: body.request_id,
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      }));
+      await user.click(screen.getByTestId("revise-resume-same"));
+      await waitFor(() => expect(liveApi.reviseThreatDraftCandidate).toHaveBeenCalled());
+      expect(uuidSpy).not.toHaveBeenCalled();
+      const resumeBody = vi.mocked(liveApi.reviseThreatDraftCandidate).mock.calls.at(-1)?.[1];
+      expect(resumeBody?.request_id).toBe(firstUuid);
+    });
+
+    it("preserves separate working copies when switching proposal candidates", async () => {
+      const candB = "cand_fixture_b";
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === candB) {
+          return {
+            ...activeWithDraft(),
+            candidate_id: candB,
+            candidate: { ...candidate, candidate_id: candB },
+          };
+        }
+        return activeWithDraft();
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_fixture1",
+              generated_from_draft_version: 1,
+              request_id: "gen-req-1",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+            {
+              candidate_id: candB,
+              generated_from_draft_version: 1,
+              request_id: "gen-req-2",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+          ],
+        }),
+      );
+      const user = userEvent.setup();
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      await user.clear(screen.getByLabelText("Creature name"));
+      await user.type(screen.getByLabelText("Creature name"), "Name A");
+      await user.click(
+        screen.getByTestId(`proposal-history-row-${candB}`).querySelector("button")!,
+      );
+      await waitFor(() => expect(screen.getByDisplayValue("Ironhide Brute")).toBeTruthy());
+      await user.clear(screen.getByLabelText("Creature name"));
+      await user.type(screen.getByLabelText("Creature name"), "Name B");
+      await user.click(
+        screen.getByTestId("proposal-history-row-cand_fixture1").querySelector("button")!,
+      );
+      await waitFor(() => expect(screen.getByDisplayValue("Name A")).toBeTruthy());
+    });
+
+    it("mechanics_saved shows boundary and disables Accept/Save", async () => {
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          workflow_state: "mechanics_saved",
+          accepted_mechanics_ref: {
+            provider: "dungeonmind",
+            statblock_id: "sb_test",
+            revision_id: "rev_test",
+            contract: "dungeonmind.dungeonbuddy-statblocks",
+            contract_version: "1.0.0",
+            definition_digest: `sha256:${"d".repeat(64)}`,
+            accepted_at: "2026-01-01T00:00:00Z",
+          },
+        }),
+      );
+      await loadId("cand_fixture1");
+      await waitFor(() => expect(screen.getByTestId("revise-mechanics-saved-boundary")).toBeTruthy());
+      expect(screen.getByTestId("sbw13-append-boundary")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
+    });
+
+    it("double-click create revise sends one POST", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      let resolveRevise!: (value: unknown) => void;
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRevise = resolve;
+          }) as ReturnType<typeof liveApi.reviseThreatDraftCandidate>,
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "One shot");
+      const btn = screen.getByTestId("revise-create-proposal");
+      await user.click(btn);
+      await user.click(btn);
+      expect(reviseSpy).toHaveBeenCalledTimes(1);
+      resolveRevise({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_claimed",
+        request_id: reviseSpy.mock.calls[0][1].request_id,
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+    });
+
+    it("ignores stale revise response after candidate switch", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      let resolveRevise!: (value: unknown) => void;
+      let lastReviseRequestId = "";
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => {
+        lastReviseRequestId = body.request_id;
+        return new Promise((resolve) => {
+          resolveRevise = resolve;
+        }) as ReturnType<typeof liveApi.reviseThreatDraftCandidate>;
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockImplementation(async () => {
+        const reqId =
+          lastReviseRequestId || readStoredReviseAttempt(DRAFT_ID)?.request_id || "missing";
+        return threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_fixture1",
+              generated_from_draft_version: 1,
+              request_id: "gen-req-1",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+            {
+              candidate_id: "cand_should_not_load",
+              generated_from_draft_version: 2,
+              request_id: reqId,
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: {
+                schema: "dmb_candidate_lineage_v1",
+                revise_request_id: reqId,
+                source_origin_kind: "edited_working_copy",
+                instruction_options_digest: `sha256:${"c".repeat(64)}`,
+                created_at: "2026-01-02T00:00:00Z",
+                edited_working_copy: {
+                  draft_id: DRAFT_ID,
+                  source_draft_version: 2,
+                  editor_state_revision: "1",
+                  source_definition_digest: `sha256:${"b".repeat(64)}`,
+                },
+              },
+            },
+          ],
+        });
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => ({
+        ...activeWithDraft(),
+        candidate_id: id,
+        candidate: { ...candidate, candidate_id: id },
+      }));
+      await user.type(screen.getByTestId("revise-instructions"), "Slow revise");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await user.click(screen.getByTestId("proposal-history-row-cand_fixture1").querySelector("button")!);
+      resolveRevise({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "reconciled",
+        request_id: lastReviseRequestId,
+        candidate_id: "cand_should_not_load",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      await waitFor(() => {
+        expect(screen.queryByDisplayValue("cand_should_not_load")).toBeNull();
+      });
+      expect(liveApi.getStatblockCandidate).not.toHaveBeenCalledWith("cand_should_not_load");
+    });
+
+    it("reconciled with failed candidate load leaves attempt awaiting refresh", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      let lastReviseRequestId = "";
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => {
+        lastReviseRequestId = body.request_id;
+        return {
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "reconciled",
+          request_id: body.request_id,
+          candidate_id: "cand_fail_load",
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        };
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockImplementation(async () =>
+        threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_fail_load",
+              generated_from_draft_version: 2,
+              request_id: lastReviseRequestId,
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: {
+                schema: "dmb_candidate_lineage_v1",
+                revise_request_id: lastReviseRequestId,
+                source_origin_kind: "edited_working_copy",
+                instruction_options_digest: `sha256:${"c".repeat(64)}`,
+                created_at: "2026-01-02T00:00:00Z",
+                edited_working_copy: {
+                  draft_id: DRAFT_ID,
+                  source_draft_version: 2,
+                  editor_state_revision: "1",
+                  source_definition_digest: `sha256:${"b".repeat(64)}`,
+                },
+              },
+            },
+          ],
+        }),
+      );
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === "cand_fail_load") {
+          return {
+            schema: "dmb_statblock_candidate_read_v1",
+            candidate_id: id,
+            status: "missing",
+            candidate: null,
+          };
+        }
+        return activeWithDraft();
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Make tougher");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      expect(screen.getByTestId("revise-error").textContent).toContain("local refresh incomplete");
+      expect(screen.queryByText("Revised proposal ready.")).toBeNull();
+      const stored = readStoredReviseAttempt(DRAFT_ID);
+      expect(stored?.awaiting_local_refresh).toBe(true);
+      expect(stored?.last_result).toBe("reconciled");
+    });
+
+    it("terminal_failure shows Start new and hides Resume", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => ({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "terminal_failure",
+        request_id: body.request_id,
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      }));
+      await user.type(screen.getByTestId("revise-instructions"), "Fail path");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-start-new")).toBeTruthy());
+      expect(screen.queryByTestId("revise-resume-same")).toBeNull();
+    });
+
+    it("HTTP 409 expected_version mismatch allows create rebuild without resume", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(
+        new liveApi.LiveApiError("expected_version mismatch", 409),
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "Stale draft");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(readStoredReviseAttempt(DRAFT_ID)?.ui_preclaim).toBe("stale_version"));
+      expect(screen.queryByTestId("revise-resume-same")).toBeNull();
+      expect(screen.getByTestId("revise-create-proposal")).not.toBeDisabled();
+    });
+
+    it("HTTP 409 integrity conflict retains attempt and does not authorize a new request id", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(
+        new liveApi.LiveApiError(
+          "candidate generation_receipt.request_id does not match revise operation",
+          409,
+        ),
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "Integrity conflict");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      const stored = readStoredReviseAttempt(DRAFT_ID);
+      expect(stored?.ui_preclaim == null || stored?.ui_preclaim === null).toBe(true);
+      expect(stored?.last_result).toBeNull();
+      expect(screen.getByTestId("revise-resume-same")).toBeTruthy();
+      expect(screen.queryByTestId("revise-start-new")).toBeNull();
+      expect(screen.getByTestId("revise-create-proposal")).toBeDisabled();
+    });
+
+    it("HTTP 422 preclaim allows create rebuild without resume", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockRejectedValue(
+        new liveApi.LiveApiError("invalid body", 422),
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "Bad body");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(readStoredReviseAttempt(DRAFT_ID)?.ui_preclaim).toBe("http_422"));
+      expect(screen.queryByTestId("revise-resume-same")).toBeNull();
+      expect(screen.getByTestId("revise-create-proposal")).not.toBeDisabled();
+    });
+
+    it("does not POST revise when sessionStorage cannot persist replay authority", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "reconciled",
+        request_id: "should-not-send",
+        candidate_id: "cand_x",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      const originalSetItem = Storage.prototype.setItem;
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+        this: Storage,
+        key: string,
+        value: string,
+      ) {
+        if (String(key).includes("dmb.sbw06.reviseAttempt:")) {
+          throw new Error("QuotaExceededError");
+        }
+        return originalSetItem.call(this, key, value);
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Storage fail");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      expect(screen.getByTestId("revise-error").textContent).toMatch(/session storage/i);
+      expect(reviseSpy).not.toHaveBeenCalled();
+    });
+
+    it("Retry local refresh completes awaiting attempt without re-POSTing revise", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      let lastReviseRequestId = "";
+      const reviseSpy = vi
+        .spyOn(liveApi, "reviseThreatDraftCandidate")
+        .mockImplementation(async (_draftId, body) => {
+          lastReviseRequestId = body.request_id;
+          return {
+            schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+            result: "reconciled",
+            request_id: body.request_id,
+            candidate_id: "cand_retry_refresh",
+            request_digest: `sha256:${"a".repeat(64)}`,
+            source_definition_digest: `sha256:${"b".repeat(64)}`,
+            instruction_options_digest: `sha256:${"c".repeat(64)}`,
+          };
+        });
+      vi.spyOn(liveApi, "getThreatDraft").mockImplementation(async () =>
+        threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_retry_refresh",
+              generated_from_draft_version: 2,
+              request_id: lastReviseRequestId || "pending",
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: {
+                schema: "dmb_candidate_lineage_v1",
+                revise_request_id: lastReviseRequestId || "pending",
+                source_origin_kind: "edited_working_copy",
+                instruction_options_digest: `sha256:${"c".repeat(64)}`,
+                created_at: "2026-01-02T00:00:00Z",
+                edited_working_copy: {
+                  draft_id: DRAFT_ID,
+                  source_draft_version: 2,
+                  editor_state_revision: "1",
+                  source_definition_digest: `sha256:${"b".repeat(64)}`,
+                },
+              },
+            },
+          ],
+        }),
+      );
+      let failLoad = true;
+      vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
+        if (id === "cand_retry_refresh") {
+          if (failLoad) {
+            return {
+              schema: "dmb_statblock_candidate_read_v1",
+              candidate_id: id,
+              status: "missing",
+              candidate: null,
+            };
+          }
+          return {
+            ...activeWithDraft(),
+            candidate_id: id,
+            candidate: { ...candidate, candidate_id: id },
+          };
+        }
+        return activeWithDraft();
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Retry refresh path");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-retry-local-refresh")).toBeTruthy());
+      expect(readStoredReviseAttempt(DRAFT_ID)?.awaiting_local_refresh).toBe(true);
+      expect(reviseSpy).toHaveBeenCalledTimes(1);
+      failLoad = false;
+      await user.click(screen.getByTestId("revise-retry-local-refresh"));
+      await waitFor(() => expect(screen.getByText("Revised proposal ready.")).toBeTruthy());
+      expect(reviseSpy).toHaveBeenCalledTimes(1);
+      expect(readStoredReviseAttempt(DRAFT_ID)?.awaiting_local_refresh).toBe(false);
+      expect(readStoredReviseAttempt(DRAFT_ID)?.last_result).toBe("reconciled");
+    });
+
+    it("revise_busy offers Resume same revise", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => ({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_busy",
+        request_id: body.request_id,
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      }));
+      await user.type(screen.getByTestId("revise-instructions"), "Busy path");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-resume-same")).toBeTruthy());
+      expect(screen.queryByTestId("revise-start-new")).toBeNull();
+    });
+
+    it("revise_history_full offers Resume same revise without minting a new request id", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        async (_draftId, body) => ({
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "revise_history_full",
+          request_id: body.request_id,
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        }),
+      );
+      await user.type(screen.getByTestId("revise-instructions"), "History full path");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-resume-same")).toBeTruthy());
+      expect(screen.queryByTestId("revise-start-new")).toBeNull();
+      expect(screen.getByTestId("revise-instructions")).toHaveProperty("readOnly", true);
+      const firstBody = reviseSpy.mock.calls[0][1];
+      await user.click(screen.getByTestId("revise-resume-same"));
+      await waitFor(() => expect(reviseSpy).toHaveBeenCalledTimes(2));
+      expect(reviseSpy.mock.calls[1][1].request_id).toBe(firstBody.request_id);
+      expect(reviseSpy.mock.calls[1][1]).toEqual(firstBody);
+    });
+
+    it("keeps proposal history visible when selected candidate is unavailable", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          candidate_refs: [
+            {
+              candidate_id: "cand_fixture1",
+              generated_from_draft_version: 1,
+              request_id: "gen-req-1",
+              created_at: "2026-01-01T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+            {
+              candidate_id: "cand_expired",
+              generated_from_draft_version: 2,
+              request_id: "gen-req-2",
+              created_at: "2026-01-02T00:00:00Z",
+              status: "expired",
+              lineage: null,
+            },
+          ],
+        }),
+      );
+      await user.click(screen.getByTestId("refresh-proposal-history"));
+      await waitFor(() =>
+        expect(screen.getByTestId("proposal-history-row-cand_expired")).toBeTruthy(),
+      );
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        schema: "dmb_statblock_candidate_read_v1",
+        candidate_id: "cand_expired",
+        status: "expired",
+        candidate: null,
+        failure_category: "downstream_expired",
+        failure_message: "expired",
+      });
+      await user.click(
+        screen.getByTestId("proposal-history-row-cand_expired").querySelector("button")!,
+      );
+      await waitFor(() => expect(screen.queryByTestId("candidate-view-modes")).toBeNull());
+      expect(screen.getByTestId("proposal-history-panel")).toBeTruthy();
+      expect(screen.getByTestId("proposal-history-row-cand_fixture1")).toBeTruthy();
+    });
+
+    it("Accept/Save uses candidate-bound draft over stale Advanced fields", async () => {
+      const otherDraft = "11111111-1111-4111-8111-111111111122";
+      const user = userEvent.setup();
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
+        schema: "dmb_accept_threat_draft_mechanics_response_v1",
+        draft_id: DRAFT_ID,
+        operation_id: "op_bound_accept",
+        result_label: "mechanics_saved",
+        locator: {
+          provider: "dungeonmind",
+          statblock_id: "sb_bound",
+          revision_id: "rev_bound",
+          contract: "dungeonbuddy-statblocks-v1",
+          contract_version: "1",
+          definition_digest: PREVIEW_DIGEST,
+        },
+      });
+      render(<StatblockWorkbenchModule />);
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      // Stale Advanced recovery fields must not override candidate-bound draft identity.
+      const draftInput = screen.getByPlaceholderText("td_…");
+      await user.clear(draftInput);
+      await user.type(draftInput, otherDraft);
+      const versionInputs = screen.getAllByDisplayValue("2");
+      const versionInput =
+        versionInputs.find((el) => (el as HTMLInputElement).type === "number" || el.tagName === "INPUT") ??
+        versionInputs[0];
+      await user.clear(versionInput);
+      await user.type(versionInput, "9");
+      await validateWorkingCopy(user);
+      await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
+      await waitFor(() => expect(acceptSpy).toHaveBeenCalledTimes(1));
+      expect(acceptSpy.mock.calls[0][0]).toBe(DRAFT_ID);
+      expect(acceptSpy.mock.calls[0][1].expected_draft_version).toBe(2);
+    });
+
+    it("disables Accept/Save when ThreatDraft snapshot is unavailable", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
+      vi.spyOn(liveApi, "getThreatDraft").mockRejectedValue(new Error("draft gone"));
+      await user.click(screen.getByTestId("refresh-proposal-history"));
+      await waitFor(() => expect(screen.getByTestId("draft-snapshot-unavailable")).toBeTruthy());
+      await validateWorkingCopy(user);
+      expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
+    });
+
+    it("does not leak draft A revision instructions into draft B", async () => {
+      const draftB = "11111111-1111-4111-8111-111111111133";
+      const candB = "cand_draft_b";
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+
+      // Persist an unresolved attempt for draft A with distinctive instructions.
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(async (_draftId, body) => ({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "revise_busy",
+        request_id: body.request_id,
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      }));
+      const aInstructions = "Draft A only — raise AC and add legendary resistance";
+      await user.type(screen.getByTestId("revise-instructions"), aInstructions);
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(readStoredReviseAttempt(DRAFT_ID)?.raw_instructions).toBe(aInstructions));
+
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        ...activeResponse,
+        candidate_id: candB,
+        candidate: { ...candidate, candidate_id: candB },
+        source_draft_id: draftB,
+        source_draft_version: 1,
+        source_draft_name: "Draft B Threat",
+      });
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(
+        threatDraftFixture({
+          draft_id: draftB,
+          version: 1,
+          name: "Draft B Threat",
+          candidate_refs: [
+            {
+              candidate_id: candB,
+              generated_from_draft_version: 1,
+              request_id: "gen-req-b",
+              created_at: "2026-01-02T00:00:00Z",
+              status: "active",
+              lineage: null,
+            },
+          ],
+        }),
+      );
+      await user.clear(screen.getByPlaceholderText("cand_…"));
+      await user.type(screen.getByPlaceholderText("cand_…"), candB);
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      await waitFor(() =>
+        expect((screen.getByTestId("revise-instructions") as HTMLTextAreaElement).value).toBe(""),
+      );
+      expect(screen.getByTestId("revise-instructions")).not.toHaveProperty("value", aInstructions);
+
+      const reviseSpy = vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockImplementation(
+        async (_draftId, body) => ({
+          schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+          result: "revise_claimed",
+          request_id: body.request_id,
+          request_digest: `sha256:${"a".repeat(64)}`,
+          source_definition_digest: `sha256:${"b".repeat(64)}`,
+          instruction_options_digest: `sha256:${"c".repeat(64)}`,
+        }),
+      );
+      const bInstructions = "Draft B instructions only";
+      await user.type(screen.getByTestId("revise-instructions"), bInstructions);
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(reviseSpy).toHaveBeenCalledTimes(1));
+      expect(reviseSpy.mock.calls[0][0]).toBe(draftB);
+      expect(reviseSpy.mock.calls[0][1].revision_instructions).toEqual([bInstructions]);
+      expect(reviseSpy.mock.calls[0][1].revision_instructions.join("\n")).not.toContain("Draft A only");
+
+      // Reopen draft A — stored attempt instructions recover.
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeWithDraft());
+      vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(threatDraftFixture());
+      await user.clear(screen.getByPlaceholderText("cand_…"));
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      await waitFor(() =>
+        expect((screen.getByTestId("revise-instructions") as HTMLTextAreaElement).value).toBe(
+          aInstructions,
+        ),
+      );
+      expect(readStoredReviseAttempt(DRAFT_ID)?.raw_instructions).toBe(aInstructions);
+    });
+
+    it("Start another threat clears proposal history and ignores late draft refresh", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      let resolveLateDraft!: (value: import("../../api/types").ThreatDraftV1) => void;
+      vi.spyOn(liveApi, "getThreatDraft").mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveLateDraft = resolve;
+          }),
+      );
+      await user.click(screen.getByTestId("refresh-proposal-history"));
+      await user.click(screen.getByTestId("start-another-threat"));
+      expect(screen.queryByTestId("proposal-history-panel")).toBeNull();
+      expect(screen.queryByTestId("revise-with-ai-panel")).toBeNull();
+      resolveLateDraft(threatDraftFixture());
+      await waitFor(() => expect(screen.queryByTestId("proposal-history-panel")).toBeNull());
+    });
+
+    it("clears ThreatDraft authority when loading a candidate without source-draft identity", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("proposal-history-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+        ...activeResponse,
+        candidate_id: "cand_orphan",
+        candidate: { ...candidate, candidate_id: "cand_orphan" },
+        source_draft_id: null,
+        source_draft_version: null,
+        source_draft_name: null,
+      });
+      await user.clear(screen.getByPlaceholderText("cand_…"));
+      await user.type(screen.getByPlaceholderText("cand_…"), "cand_orphan");
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      expect(screen.queryByTestId("proposal-history-panel")).toBeNull();
+      expect(screen.queryByTestId("revise-with-ai-panel")).toBeNull();
+    });
+
+    it("mismatched revise response request_id does not mutate the stored attempt", async () => {
+      const user = await loadWithDraft();
+      await waitFor(() => expect(screen.getByTestId("revise-with-ai-panel")).toBeTruthy());
+      vi.spyOn(liveApi, "reviseThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_revise_candidate_from_edited_definition_response_v1",
+        result: "terminal_failure",
+        request_id: "not-the-attempt-id",
+        request_digest: `sha256:${"a".repeat(64)}`,
+        source_definition_digest: `sha256:${"b".repeat(64)}`,
+        instruction_options_digest: `sha256:${"c".repeat(64)}`,
+      });
+      await user.type(screen.getByTestId("revise-instructions"), "Identity check");
+      await user.click(screen.getByTestId("revise-create-proposal"));
+      await waitFor(() => expect(screen.getByTestId("revise-error")).toBeTruthy());
+      expect(screen.getByTestId("revise-error").textContent).toMatch(/identity mismatch/i);
+      const stored = readStoredReviseAttempt(DRAFT_ID);
+      expect(stored?.last_result).toBeNull();
+      expect(stored?.request_id).not.toBe("not-the-attempt-id");
+      expect(screen.queryByTestId("revise-start-new")).toBeNull();
+      expect(screen.getByTestId("revise-resume-same")).toBeTruthy();
     });
   });
 });

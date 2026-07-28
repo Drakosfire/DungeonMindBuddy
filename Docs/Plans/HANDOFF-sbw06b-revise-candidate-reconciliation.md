@@ -1,7 +1,7 @@
 # HANDOFF — SBW06b Revise Candidate Reconciliation: Lineage-on-Ref + Atomic Source Status
 
 **Created:** 2026-07-27
-**Status:** ACTIVE — dispatch exactly one implementation capability.
+**Status:** MERGED `#435` / `32eb1571f67b64c3b8c8ebd4d9fa9e6059eece05` (2026-07-27)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06b-revise-candidate-reconciliation.md`
 **Implementation base:** `13b2e25856db945d67bfd0e6dcfae8b7c1446f63`
 **Suggested branch:** `feat/sbw06b-reconcile-lineage`
@@ -15,7 +15,9 @@
 * `SBW06a` — PR `#417`, merge `8a73b10185e0e4b5c84bca92c2b1f3e0deda9432`
 * Dogfood Gate A — PR `#425`, merge `13b2e25856db945d67bfd0e6dcfae8b7c1446f63`
 
-**Next Milestone B slice:** `SBW06c` — Workbench revise UX
+**Merge SHA:** `32eb1571f67b64c3b8c8ebd4d9fa9e6059eece05`
+**Reviewed tip before merge:** `226f4a4d3cbe827179fcdcf2ee368f0d72cf3c26`
+**Next Milestone B slice:** `SBW06c` — Workbench revise UX ([`HANDOFF-sbw06c-workbench-revise-ux.md`](HANDOFF-sbw06c-workbench-revise-ux.md))
 **Parallel work that remains independently dispatchable:** `SBW08` — World Graph external-resource/binding contract
 
 > The dogfood pause has ended. This slice completes the backend product boundary intentionally deferred by SBW06a: a revise operation that has produced and cached a candidate becomes ordinary product success only after one lineage-bearing candidate ref is visible on the ThreatDraft and the revise journal is durably reconciled.

@@ -2,10 +2,10 @@
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP
 **Date:** 2026-07-27
-**PR base / repository tip:** `13b2e258` on `main` (`#425` Dogfood Gate A merge)
-**Logical SBW predecessor:** `#425` / `13b2e258` — Dogfood Gate A MERGED
-**This PR / active focus:** `SBW06b` — revise candidate reconciliation (lineage-on-ref + atomic source status)
-**Next dispatch after this PR merges:** `SBW06c` (Workbench revise UX)
+**PR base / repository tip:** `77001524` on `main` (SBW06c rebase integration; contains `#435` / `32eb1571`)
+**Logical SBW predecessor:** `#435` / `32eb1571` — SBW06b MERGED
+**This PR / active focus:** `SBW06c` — Workbench revise UX (exact working copy + stable replay + proposal history) — PR `#439`
+**Next dispatch after this PR merges:** `SBW06d` (revise from exact accepted mechanics locator; re-anchor required)
 
 
 **Product/integration design:** [`../Design/DESIGN-threat-statblock-authoring-projection-workflow.md`](../Design/DESIGN-threat-statblock-authoring-projection-workflow.md)
@@ -66,7 +66,7 @@ Workstream IDs are stable design identifiers. GitHub PR numbers are assigned whe
 | `SBW03` | MERGED `#388` (`889acf96`, 2026-07-23) | One exact draft version generates one typed candidate; failure preserves the draft. Operation-authority durability journal with Server durable-code terminality. |
 | `SBW04` | MERGED `#397` (`40ea5234`, 2026-07-23) | Shared semantic renderer + read-only candidate review workbench; normal UI stops using mock/corpus-first generation. **Verification debt:** real-candidate live proof from the SBW04 handoff remains unchecked. |
 | `SBW05` | MERGED — `SBW05a` `#398`; `SBW05b` `#402`; `SBW05c` `#404` / `427a357b` | Complete-definition typed editing and editor-preview validation. |
-| `SBW06` | IN PROGRESS — contract MERGED `#413`; `06a` MERGED `#417`; Gate A MERGED `#425`; **`06b` ACTIVE**; next `06c` | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
+| `SBW06` | IN PROGRESS — contract MERGED `#413`; `06a` MERGED `#417`; Gate A MERGED `#425`; `06b` MERGED `#435` / `32eb1571`; **`06c` ACTIVE**; next `06d` | Revise/regenerate candidate lineage without mutating drafts or revisions silently. |
 | `SBW07` | COMPLETE — `07-contract` `#405`; `07a` `#406`; `07b` `#407`; `07c` `#409` / `455daf49` | Save accepted mechanics as an immutable logical statblock/revision; draft becomes `mechanics_saved`. |
 | `SBW08` | PRE-DESIGNED / PARALLEL | Typed external-resource node + `ThreatStatblockBinding` edge state in Kernel/projection contracts; no product write yet. |
 | `SBW09` | PRE-DESIGNED | Preview/confirm Threat + exact binding publication with recoverable partial completion. |
@@ -198,8 +198,8 @@ SBW04 (Milestone A gate)
 | `SBW06-contract` | Revise journal choice + lineage/status transition table (docs only) | Reviewer can approve/reject the table alone | MERGED `#413` |
 | `SBW06a` | Revise from edited `source_definition` | New `candidate_id`; source unchanged; failure retains edits/instructions; §12.11 gate closed | MERGED `#417` / `8a73b101` |
 | `Dogfood Gate A` | Context-aware ThreatDraft create-and-generate in Workbench | Exact returned draft ID/version drives generation; no placeholder provenance | MERGED `#425` / `13b2e258` |
-| `SBW06b` | Candidate-ref status + lineage persistence | Explicit transitions; no in-place candidate mutation | **THIS PR** |
-| `SBW06c` | Revise UI | New candidate + inspect prior; timeout retains instructions | After `SBW06b` |
+| `SBW06b` | Candidate-ref status + lineage persistence | Explicit transitions; no in-place candidate mutation | MERGED `#435` / `32eb1571` |
+| `SBW06c` | Revise UI | New candidate + inspect prior; timeout retains instructions | **THIS PR** |
 | `SBW06d` | Revise from accepted `source_locator` | Exact IDs/digest; no latest fallback | After `SBW06c` |
 
 ### Milestone C — World Graph publication
