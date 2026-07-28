@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 import graph_memory.kernel as kernel
+import graph_memory.world_projection_cache as cache_module
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
     project_world_graph,
@@ -26,6 +27,7 @@ from graph_memory.projection.world_projection import (
     WorldGraphProjectionRequest,
 )
 from graph_memory.world_projection_cache import (
+    ProjectionSourceUnavailableError,
     clear_projection_cache,
     make_projection_cache_key,
     projection_cache_stats,
@@ -370,6 +372,101 @@ def test_service_cache_cannot_hide_head_revision_corruption_for_pinned_request(
     assert exc_info.value.code == "projection_integrity_error"
     assert exc_info.value.status_code == 409
     assert projection_cache_stats()["hits"] == hits_before
+    clear_projection_cache()
+
+
+def test_service_cache_skips_insert_when_head_moves_during_projection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A projection must not be cached under a pre-projection source state.
+
+    Simulates the pinned-request race: the pre-key is computed for head B, the
+    head moves (here: rolls back to the pinned revision A) before the kernel
+    reads the world, and the kernel returns pinned revision A with
+    headRevisionId=A. The stale head-B key must not capture that projection —
+    otherwise a later rollback to B would hit it and serve is_head /
+    headRevisionId metadata that does not correspond to the key.
+    """
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+    revisions_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "revisions"
+    pinned = next(
+        path.name
+        for path in sorted(revisions_dir.iterdir())
+        if path.is_dir() and path.name != head.head_revision_id
+    )
+    pinned_request = WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        revision_pin=pinned,
+    )
+
+    head_path = _head_path(tmp_path)
+    original_head = json.loads(head_path.read_text(encoding="utf-8"))
+    real_project = kernel.project_world_graph
+
+    def _move_head_then_project(root: Path, request: WorldGraphProjectionRequest):
+        moved = {**original_head, "head_revision_id": pinned}
+        head_path.write_text(
+            json.dumps(moved, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return real_project(root, request)
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.world_graph_projection.kernel.project_world_graph",
+        _move_head_then_project,
+    )
+
+    projection = project_world_graph(pinned_request, root=tmp_path)
+
+    assert projection.snapshot.revision_id == pinned
+    assert projection.snapshot.head_revision_id == pinned
+    assert projection.snapshot.is_head is True
+    stats = projection_cache_stats()
+    assert stats["size"] == 0
+    assert stats["hits"] == 0
+    clear_projection_cache()
+
+
+def test_service_cache_bypasses_transiently_unreadable_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A transient read failure must bypass the cache, not poison it.
+
+    An unreadable integrity-checked input raises ProjectionSourceUnavailableError
+    during key computation; the service must fall back to an uncached kernel
+    call and must not insert anything under sentinel fingerprints. Once the
+    failure clears, caching resumes normally.
+    """
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    real_digest = cache_module._file_digest
+    injected = iter([True])
+
+    def _flaky_digest(path: Path) -> str:
+        if next(injected, False):
+            raise ProjectionSourceUnavailableError(f"injected transient: {path}")
+        return real_digest(path)
+
+    monkeypatch.setattr(cache_module, "_file_digest", _flaky_digest)
+
+    bypassed = project_world_graph(_request(), root=tmp_path)
+    assert bypassed.snapshot.revision_id
+    stats = projection_cache_stats()
+    assert stats["size"] == 0
+    assert stats["hits"] == 0
+
+    second = project_world_graph(_request(), root=tmp_path)
+    assert projection_cache_stats()["size"] == 1
+    third = project_world_graph(_request(), root=tmp_path)
+    assert third is second
+    assert projection_cache_stats()["hits"] == 1
     clear_projection_cache()
 
 

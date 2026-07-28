@@ -97,8 +97,25 @@ def project_world_graph(
                 cache_key = None
 
         projection = kernel.project_world_graph(graph_root, request)
-        if cache_key is not None and projection.snapshot.revision_id == cache_key.revision_id:
-            put_cached_projection(cache_key, projection)
+        if cache_key is not None:
+            # Insert only when the source state observed after projection still
+            # matches the pre-projection key. cache_key was fingerprinted
+            # *before* the kernel read the world: a head move (or any ledger /
+            # payload mutation) in between would otherwise cache a projection
+            # whose snapshot.head_revision_id / is_head do not correspond to
+            # the key. Recomputing the full key from the snapshot covers both
+            # the revision ids and every digested input.
+            try:
+                post_key = make_projection_cache_key(
+                    graph_root,
+                    request,
+                    revision_id=projection.snapshot.revision_id,
+                    head_revision_id=projection.snapshot.head_revision_id,
+                )
+            except Exception:
+                post_key = None
+            if post_key is not None and post_key == cache_key:
+                put_cached_projection(post_key, projection)
         return projection
     except kernel.WorldGraphProjectionError as exc:
         raise _map_kernel_error(exc) from None

@@ -10,6 +10,16 @@ validates the head's target revision even for pinned requests). Fingerprints
 are content digests — aggregate metadata (file count, newest mtime) cannot
 detect a contribution-file rename, which the kernel treats as an integrity
 failure when the id-derived record path goes missing.
+
+Two further fail-closed rules:
+
+- A missing or unreadable fingerprinted input raises
+  ``ProjectionSourceUnavailableError``; callers must treat that as "bypass the
+  cache" rather than caching under sentinel fingerprints.
+- Insertion must be gated by recomputing the key from the projection snapshot
+  after the kernel read (post_key == pre_key). The key reflects source state
+  observed *before* projection; a head move or payload mutation between
+  fingerprinting and the kernel read must not be cached under the stale key.
 """
 
 from __future__ import annotations
@@ -130,18 +140,30 @@ def _world_dir(root: Path, world_id: str) -> Path:
     return root / "graph_memory" / "worlds" / world_id
 
 
+class ProjectionSourceUnavailableError(RuntimeError):
+    """A fingerprinted source file is missing or unreadable.
+
+    Callers must treat this as "bypass the cache": an integrity-checked input
+    that cannot be read must never produce cacheable sentinel fingerprints.
+    """
+
+
 def _file_digest(path: Path) -> str:
-    """sha256 of file bytes; ``missing`` / ``unreadable`` markers otherwise."""
+    """sha256 of file bytes.
+
+    Raises ProjectionSourceUnavailableError when the file is missing or cannot
+    be read.
+    """
     if not path.is_file():
-        return "missing"
+        raise ProjectionSourceUnavailableError(f"source file missing: {path}")
     try:
         digest = hashlib.sha256()
         with path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(65536), b""):
                 digest.update(chunk)
         return digest.hexdigest()
-    except OSError:
-        return "unreadable"
+    except OSError as exc:
+        raise ProjectionSourceUnavailableError(f"source file unreadable: {path}") from exc
 
 
 def ledger_fingerprint(root: Path, world_id: str) -> str:
@@ -156,14 +178,15 @@ def ledger_fingerprint(root: Path, world_id: str) -> str:
     world_dir = _world_dir(root, world_id)
     parts = [f"idx:{_file_digest(world_dir / 'contribution_index.json')}"]
     contrib_dir = world_dir / "contributions"
-    if contrib_dir.is_dir():
-        entries = ",".join(
-            f"{path.name}:{_file_digest(path)}"
-            for path in sorted(contrib_dir.glob("*.json"), key=lambda p: p.name)
+    if not contrib_dir.is_dir():
+        raise ProjectionSourceUnavailableError(
+            f"contributions directory missing: {contrib_dir}"
         )
-        parts.append(f"files:[{entries}]")
-    else:
-        parts.append("files:missing")
+    entries = ",".join(
+        f"{path.name}:{_file_digest(path)}"
+        for path in sorted(contrib_dir.glob("*.json"), key=lambda p: p.name)
+    )
+    parts.append(f"files:[{entries}]")
     return "|".join(parts)
 
 
@@ -184,6 +207,10 @@ def source_fingerprint(
     trusts it), so a pinned key that fingerprints only the pinned revision
     could serve a warm hit where the kernel would raise
     ``projection_integrity_error``.
+
+    Raises ProjectionSourceUnavailableError if any input is missing or
+    unreadable — callers must treat that as a cache bypass, not a cacheable
+    state.
     """
     for candidate in (revision_id, head_revision_id):
         if not _REVISION_ID_RE.fullmatch(candidate):
@@ -251,6 +278,7 @@ def put_cached_projection(key: CacheKey, projection: WorldGraphProjection) -> No
 
 __all__ = [
     "CacheKey",
+    "ProjectionSourceUnavailableError",
     "clear_projection_cache",
     "get_cached_projection",
     "ledger_fingerprint",
