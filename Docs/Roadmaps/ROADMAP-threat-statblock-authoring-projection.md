@@ -60,14 +60,15 @@ Synthetic fixtures prove boundaries. They do not substitute for these product ga
 
 ### Current gaps that block the magic moment
 
-- Workbench draft creation records a graph revision but does not yet capture selected graph nodes and admitted source anchors from a real Hermes investigation.
-- The first full unioned-graph query-to-description experience has not been recorded as a blocking product proof.
-- Real-provider and current consumer-contract compatibility must be proven end to end; checked-in Buddy contracts may lag the current Server shape.
+- Workbench draft creation records a `graph_revision_id` but always sends empty `selected_node_ids` / `admitted_source_anchor_ids` — there is no Hermes investigation → ThreatDraft provenance path yet.
+- The first full unioned-graph query-to-description experience has not been recorded as a blocking product proof (`R0-B`).
+- Real-provider and current consumer-contract compatibility must be proven end to end (`R0-A`); checked-in Buddy contracts may lag the current Server shape.
+- ThreatDraft **list/get/update APIs exist** on the live-control server, but the Workbench has no browse/reopen library UI and `liveApi` has no list client — reload dogfood still needs Advanced recovery or remembered IDs.
 - Saved mechanics are not yet published as a governed Threat + exact binding.
 - The roadmap has no implemented generic placement contract.
 - Plan, Build, and Ingest do not yet share one object capability path for placement.
-- The live combat roster is server-backed, but it is not graph- or exact-revision-backed. Current combat state remains standalone JSON with legacy artifact/path references.
-- The existing generated Statblock View is tied to the older corpus-promotion lifecycle and does not provide the new accepted-revision-to-combat path.
+- The live combat roster is server-backed (`CombatRosterModule` → `combat/current_combat.json`), but it is not graph- or exact-revision-backed. Entity identity remains legacy artifact/path/title shaped; the corpus-promotion Statblock View can still add-to-combat on that legacy path.
+- The new accepted-revision lifecycle has no exact-revision → live combat insertion/reload/drilldown path.
 
 ## 4. Reboot gates before new broad implementation
 

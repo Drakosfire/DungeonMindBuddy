@@ -56,7 +56,7 @@ Required deletion owner:
 | `SBW06d` | PRE-DESIGNED; RE-ANCHOR REQUIRED | Revise from exact accepted mechanics locator. | No latest fallback; dispatch only after R0 observations. |
 | `AOW01` | NEW; CONTRACT FIRST | Grounded authored-object context envelope. | Exact revision/nodes/source anchors survive handoff. |
 | `AOW02` | NEW | Hermes “Develop as Threat” creates/opens exact ThreatDraft. | Enables `MAGIC-D1`. |
-| `AUTHORING-LIBRARY` | DECOMPOSE | Browse/reopen/update real ThreatDrafts and accepted mechanics; local recovery as separate slice if needed. | Required for honest reload dogfood. |
+| `AUTHORING-LIBRARY` | DECOMPOSE | Browse/reopen/update real ThreatDrafts and accepted mechanics; local recovery as separate slice if needed. | Backend `GET /api/live/threat-drafts` list already exists; Workbench + `liveApi` list client and accepted-mechanics library UI do not. Required for honest reload dogfood. |
 
 ## 4. Graph publication queue
 
@@ -89,10 +89,11 @@ Current truth:
 
 - the original static Mireward page is a harness, not the product;
 - a live server-backed `CombatRosterModule` exists;
-- current combat persists to standalone `combat/current_combat.json` state;
-- combat entity statblock identity remains legacy artifact/title/path shaped;
+- current combat persists to standalone `combat/current_combat.json` state (with automatic backups);
+- combat entity statblock identity remains legacy `statblock_path` / `statblock_artifact_id` / `statblock_title` shaped;
 - exact graph Threat + binding + accepted revision is not authoritative;
-- the old Statblock View is corpus-promotion-based and does not provide the new lifecycle path.
+- the old Statblock View still offers add-to-combat for corpus-promotion / generated artifacts, but that is not the new Workbench → accepted-revision path;
+- exact-revision insertion, reload, and mechanics drilldown from the new lifecycle remain absent.
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|

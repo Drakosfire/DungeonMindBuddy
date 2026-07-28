@@ -217,13 +217,13 @@ The user-authored or user-approved description is the creative input to the gene
 
 The original Mireward static combat page remains a useful interaction sketch, but it is not the current product boundary.
 
-A server-backed `CombatRosterModule` now exists in `apps/live-control-ui` and persists current combat through the live-control server. However:
+A server-backed `CombatRosterModule` now exists in `apps/live-control-ui` and persists current combat through the live-control server (`combat/current_combat.json` plus automatic backups). However:
 
 - current combat is still a standalone combat JSON store;
-- combat entities carry legacy source, title, artifact, or path-shaped statblock references;
-- the roster does not resolve a graph Threat plus exact accepted statblock revision as authoritative input;
-- the old generated Statblock View remains corpus-promotion-oriented and its add-to-combat action is disabled;
-- there is no complete exact-revision insertion, reload, and drilldown path from the new statblock lifecycle.
+- `CombatEntity` identity remains legacy-shaped (`statblock_path`, `statblock_artifact_id`, `statblock_title`, corpus fingerprint, and `source` enum values such as `corpus` / `generated_pending` / `manual` / `imported`);
+- the roster does not resolve a graph Threat plus exact accepted statblock revision (`statblock_id` / `revision_id` / digest) or an `ObjectPlacement` as authoritative input;
+- the old generated Statblock View still offers add-to-combat, but only for the corpus-promotion / generated-artifact path — that path is not the new ThreatDraft → accepted-revision lifecycle;
+- there is no complete exact-revision insertion, reload, and drilldown path from the new Workbench / SBW07 accepted-mechanics lifecycle into the live roster.
 
 Therefore combat completion requires both:
 

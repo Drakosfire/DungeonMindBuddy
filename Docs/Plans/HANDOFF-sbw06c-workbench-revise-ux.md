@@ -1,21 +1,18 @@
 # HANDOFF — SBW06c Workbench Revise UX: Exact Working Copy, Stable Replay, Inspectable Proposal History
 
 **Created:** 2026-07-27
-**Status:** ACTIVE — in review on PR `#439` (not merged)
+**Status:** MERGED `#439` / `ff553bd81fc82e65d92ddbd1d05af5fc03f1adc7` (2026-07-28)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06c-workbench-revise-ux.md`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Workstream:** Threat + Statblock Authoring and Projection
 **Slice:** `SBW06c`
 **Suggested branch:** `feat/sbw06c-workbench-revise`
 **Dispatch base / `#435` merge SHA:** `32eb1571f67b64c3b8c8ebd4d9fa9e6059eece05`
-**Rebased immutable base (`origin/main`):** `7700152417de29aa02a287c3894e7576bb102181`
-**PR head before latest review-fix commit:** `d578f999bb35efb3244ca604c96bcbb1667e861a` (rebased `fc6e223f`)
-**Latest head (review-fix + rebase):** `9511ef5882b2629b750da3fb70eb948ab09fd635`
+**Merge SHA:** `ff553bd81fc82e65d92ddbd1d05af5fc03f1adc7`
 **Normative contract:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md` §12
 **Immediate predecessor:** `SBW06b` — PR `#435`
-**Next Milestone B slice:** `SBW06d` — revise from exact accepted mechanics locator (requires post-merge re-anchor)
-**Parallel lane:** `SBW08` remains independently dispatchable
-**Existing PR:** `#439`
+**Post-merge sequencing authority:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md) — run `R0-A` / `R0-B` before re-anchoring `SBW06d`; `SBW08` is no longer an independent parallel lane ahead of `MAGIC-D2`
+**Existing PR:** `#439` (merged)
 
 > This slice turns the proven SBW06b backend into a dogfoodable operator loop. A GM submits the exact current editor working copy with explicit instructions, recovers the same operation after timeout or reload, and receives a new proposal without replacing the source candidate or saved mechanics.
 
@@ -28,6 +25,10 @@
 | `revise_busy` / `revise_history_full` terminalized | Closed | `classifyReviseResult` → `resume_same`; Resume sends exact stored body |
 | Accept/Save wrong draft identity / enabled without snapshot | Closed | Candidate-bound `createdDraft` + refreshed `threatDraft` precede Advanced fields; `draftAuthorityUnavailable` disables Accept/Save |
 | Proposal history hidden when candidate miss | Closed | `ProposalHistoryPanel` renders from `threatDraft` independently of `activeCandidate` |
+
+### Post-merge authority (2026-07-28)
+
+`#439` merged at `ff553bd8`. Sequencing no longer advances automatically to `SBW06d`. The magic-moment roadmap requires recorded `R0-A` and `R0-B` dogfood before any new SBW06d / AOW / graph-publication handoff is re-anchored. Historical §3 text below describes the pre-merge activation sync and is retained as implementation history.
 | Prior four findings (reconcile proof, race ownership, class-driven actions, Unicode) | Preserved | Regression suite retained through rebase |
 | Stale ThreatDraft survives draft exit / unknown-draft load | Closed | `clearThreatDraftAuthority` on Start another threat, unknown-draft candidate loads, and cross-draft identity; invalidates revise/draft-fetch generations |
 | Every HTTP 409 treated as stale version | Closed | Only exact `expected_version mismatch` detail uses preclaim rebuild; integrity 409s retain attempt and Resume |

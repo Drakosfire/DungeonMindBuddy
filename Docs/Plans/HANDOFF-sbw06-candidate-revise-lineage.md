@@ -1,16 +1,17 @@
 # HANDOFF — SBW06 Candidate revise/regenerate and lineage
 
 **Created:** 2026-07-22
-**Updated:** 2026-07-27 — `#435` SBW06b MERGED (`32eb1571`); `SBW06c` ACTIVE
-**Status:** `SBW06c` — ACTIVE (Workbench revise UX)
+**Updated:** 2026-07-28 — `#439` SBW06c MERGED (`ff553bd8`); magic-moment roadmap reanchor
+**Status:** `SBW06a–c` MERGED; `SBW06d` blocked on reboot gates `R0-A` / `R0-B`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw06-candidate-revise-lineage.md`
 **Workstream:** `SBW06`
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**PR base / repository tip:** `32eb1571` on `main` (`#435` SBW06b merge)
-**Logical SBW predecessor:** `#435` / `32eb1571f67b64c3b8c8ebd4d9fa9e6059eece05` — SBW06b MERGED
-**This PR:** `SBW06c` — Workbench revise UX
-**Next after this PR merges:** `SBW06d` (revise from exact accepted mechanics locator)
-**Active bite handoff:** [`HANDOFF-sbw06c-workbench-revise-ux.md`](HANDOFF-sbw06c-workbench-revise-ux.md)
+**Repository tip at reanchor:** `ff553bd81fc82e65d92ddbd1d05af5fc03f1adc7` on `main` (`#439` SBW06c merge)
+**Logical SBW predecessor:** `#439` / `ff553bd81fc82e65d92ddbd1d05af5fc03f1adc7` — SBW06c MERGED
+**Completed through:** `SBW06c` — Workbench revise UX
+**Next after reboot dogfood:** re-anchor `SBW06d` (revise from exact accepted mechanics locator) only after `R0-A` / `R0-B` reports exist
+**Sequencing authority:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md) + [`PR-TRACKER-threat-statblock-authoring-projection.md`](PR-TRACKER-threat-statblock-authoring-projection.md)
+**Merged bite handoff:** [`HANDOFF-sbw06c-workbench-revise-ux.md`](HANDOFF-sbw06c-workbench-revise-ux.md)
 
 > Dispatch one capability across a contract PR plus four code PRs: create a new candidate proposal from an exact source and preserve lineage. Do not persist mechanics, compare accepted revisions, update graph bindings, or generate media.
 
@@ -21,8 +22,8 @@
 | `SBW06-contract` | MERGED `#413` | Doc-only: freeze §12 revise authority tables | Docs only; no implementation | All code |
 | `SBW06a` | MERGED `#417` / `8a73b101` | Exact edited `source_definition` adapter + revise journal | Client + revision service + tests | Status UI, accepted-revision source, ThreatDraft lineage attach as ordinary success |
 | `SBW06b` | MERGED `#435` / `32eb1571` | Durable candidate ref with embedded `CandidateLineageV1`, status transitions | Draft store/ref transitions + tests implementing frozen §12.8 | UI, accepted-revision revise |
-| `SBW06c` | **THIS PR** | Workbench revise UX | Workbench + liveApi | Accepted-revision source, compare, append |
-| `SBW06d` | after `SBW06c` | Exact accepted `source_locator` revise | Service/route/UI using SBW07 locators | Graph, SBW13 append, compare, media |
+| `SBW06c` | MERGED `#439` / `ff553bd8` | Workbench revise UX | Workbench + liveApi | Accepted-revision source, compare, append |
+| `SBW06d` | after `R0-A` / `R0-B` (re-anchor required) | Exact accepted `source_locator` revise | Service/route/UI using SBW07 locators | Graph, SBW13 append, compare, media |
 
 **Why after SBW07:** accepted-revision source needs exact locators; revise durability is deferred until first mechanics save is proven (SBW03 / SBW07b–c lesson).
 
