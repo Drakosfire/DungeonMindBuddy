@@ -112,6 +112,7 @@ import type {
   StatblockIntegrationReadinessV1,
 } from "./types";
 import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/hermesConversationHistory";
+import { withProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 const defaultUnionSupergraphPreviewSource =
@@ -491,19 +492,23 @@ export async function getUnionSupergraphProjection(
 export async function postWorldGraphProjection(
   request: WorldGraphProjectionRequest,
 ): Promise<WorldGraphProjection> {
-  return apiFetch<WorldGraphProjection>("/api/live/world-graph/projection", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
+  return withProjectionRequestCache("projection", request, () =>
+    apiFetch<WorldGraphProjection>("/api/live/world-graph/projection", {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
+  );
 }
 
 export async function postWorldGraphRecapProjection(
   request: WorldGraphProjectionRequest,
 ): Promise<WorldGraphRecapProjection> {
-  return apiFetch<WorldGraphRecapProjection>("/api/live/world-graph/recap-projection", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
+  return withProjectionRequestCache("recap-projection", request, () =>
+    apiFetch<WorldGraphRecapProjection>("/api/live/world-graph/recap-projection", {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
+  );
 }
 
 export async function getDefaultUnionSupergraphProjection(
