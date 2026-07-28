@@ -183,7 +183,7 @@ def test_service_cache_misses_after_ledger_fingerprint_change(
     first = project_world_graph(_request(), root=tmp_path)
     contrib_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "contributions"
     assert contrib_dir.is_dir()
-    # Fingerprint includes contribution file count + newest mtime; adding a file
+    # Fingerprint digests every contribution filename + bytes; adding a file
     # must miss the warm cache without mutating the contribution index JSON.
     (contrib_dir / "contribution:cache-bust-probe.json").write_text("{}\n", encoding="utf-8")
 
@@ -319,6 +319,85 @@ def test_service_cache_cannot_hide_head_integrity_failure(
         json.dumps(head_payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
+        project_world_graph(_request(), root=tmp_path)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert exc_info.value.status_code == 409
+    assert projection_cache_stats()["hits"] == hits_before
+    clear_projection_cache()
+
+
+def test_service_cache_cannot_hide_head_revision_corruption_for_pinned_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pinned warm hit must not survive corruption of the head's target revision.
+
+    The kernel validates head.head_revision_id even for pinned requests
+    (headRevisionId / isHead metadata trusts it), so a cache key that
+    fingerprints only the pinned revision would return the cached projection
+    where the kernel would raise projection_integrity_error.
+    """
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+    revisions_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "revisions"
+    # Initialization publishes a revision chain; pick any provably historical
+    # revision rather than assuming an ordering of content-addressed ids.
+    pinned = next(
+        path.name
+        for path in sorted(revisions_dir.iterdir())
+        if path.is_dir() and path.name != head.head_revision_id
+    )
+    pinned_request = WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        revision_pin=pinned,
+    )
+
+    warm = project_world_graph(pinned_request, root=tmp_path)
+    assert warm.snapshot.revision_id == pinned
+    hits_before = projection_cache_stats()["hits"]
+    # Corrupt the head's target revision while leaving head.json unchanged.
+    _revision_graph_path(tmp_path, head.head_revision_id).write_text(
+        "{not-valid-json", encoding="utf-8"
+    )
+
+    with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
+        project_world_graph(pinned_request, root=tmp_path)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert exc_info.value.status_code == 409
+    assert projection_cache_stats()["hits"] == hits_before
+    clear_projection_cache()
+
+
+def test_service_cache_cannot_hide_contribution_rename(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Renaming a referenced contribution file must miss the warm cache.
+
+    os.rename preserves both the file count and every file mtime, so an
+    aggregate count + newest-mtime fingerprint stays stable; the kernel still
+    fails integrity when the id-derived record path goes missing.
+    """
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    project_world_graph(_request(), root=tmp_path)
+    hits_before = projection_cache_stats()["hits"]
+    contrib_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "contributions"
+    referenced = sorted(contrib_dir.glob("*.json"))
+    assert referenced
+    metadata_before = (len(referenced), max(p.stat().st_mtime_ns for p in referenced))
+    renamed = referenced[0].with_name("contribution__renamed_under_stable_metadata.json")
+    referenced[0].rename(renamed)
+    after = sorted(contrib_dir.glob("*.json"))
+    # Prove the rename kept aggregate metadata stable: a count + newest-mtime
+    # fingerprint would not have detected it.
+    assert (len(after), max(p.stat().st_mtime_ns for p in after)) == metadata_before
 
     with pytest.raises(WorldGraphProjectionServiceError) as exc_info:
         project_world_graph(_request(), root=tmp_path)

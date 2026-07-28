@@ -3,12 +3,18 @@
 NOT wired into the kernel by default. Projection integrity tests may mutate
 contribution ledger bytes or revision payloads under an existing revision id;
 caching only on revision id would hide those failures. Callers that opt in
-must fingerprint every integrity-checked input (contribution ledger, head.json,
-selected revision graph.json + revision.json) in the cache key.
+must fingerprint every integrity-checked input in the cache key: the
+contribution ledger, head.json, and the graph.json / revision.json payloads of
+the selected revision *and* of the revision referenced by head (the kernel
+validates the head's target revision even for pinned requests). Fingerprints
+are content digests — aggregate metadata (file count, newest mtime) cannot
+detect a contribution-file rename, which the kernel treats as an integrity
+failure when the id-derived record path goes missing.
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 import threading
 import time
@@ -24,6 +30,10 @@ from graph_memory.projection.world_projection import (
 _DEFAULT_MAX_ENTRIES = 16
 _DEFAULT_TTL_S = 120.0
 _WORLD_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
+# Mirror of world_supergraph.paths._REVISION_ID_RE (the kernel boundary forbids
+# importing it here). Guards digest paths against traversal from an unvalidated
+# request revision_pin, which the service reads before the kernel rejects it.
+_REVISION_ID_RE = re.compile(r"^rev:[a-f0-9]{16,64}$")
 
 
 @dataclass(frozen=True)
@@ -120,57 +130,77 @@ def _world_dir(root: Path, world_id: str) -> Path:
     return root / "graph_memory" / "worlds" / world_id
 
 
-def _file_fingerprint(path: Path) -> str:
-    if path.is_file():
-        st = path.stat()
-        return f"{st.st_mtime_ns}:{st.st_size}"
-    return "missing"
+def _file_digest(path: Path) -> str:
+    """sha256 of file bytes; ``missing`` / ``unreadable`` markers otherwise."""
+    if not path.is_file():
+        return "missing"
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(65536), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return "unreadable"
 
 
 def ledger_fingerprint(root: Path, world_id: str) -> str:
-    """Fingerprint contribution index + contributions directory for cache keys."""
+    """Content fingerprint of the contribution index + contributions directory.
+
+    Sorted ``filename:sha256`` pairs so renames, rewrites, additions, and
+    deletions all change the fingerprint. The kernel loads contribution records
+    from id-derived paths and fails integrity when a referenced record is
+    missing; a count + newest-mtime aggregate survives ``os.rename`` and would
+    let a warm hit hide that failure.
+    """
     world_dir = _world_dir(root, world_id)
-    index_path = world_dir / "contribution_index.json"
+    parts = [f"idx:{_file_digest(world_dir / 'contribution_index.json')}"]
     contrib_dir = world_dir / "contributions"
-    parts: list[str] = []
-    if index_path.is_file():
-        st = index_path.stat()
-        parts.append(f"idx:{st.st_mtime_ns}:{st.st_size}")
-    else:
-        parts.append("idx:missing")
     if contrib_dir.is_dir():
-        # Cheap directory fingerprint: count + newest mtime.
-        newest = 0
-        count = 0
-        for path in contrib_dir.glob("*.json"):
-            count += 1
-            mtime = path.stat().st_mtime_ns
-            if mtime > newest:
-                newest = mtime
-        parts.append(f"files:{count}:{newest}")
+        entries = ",".join(
+            f"{path.name}:{_file_digest(path)}"
+            for path in sorted(contrib_dir.glob("*.json"), key=lambda p: p.name)
+        )
+        parts.append(f"files:[{entries}]")
     else:
         parts.append("files:missing")
     return "|".join(parts)
 
 
-def source_fingerprint(root: Path, world_id: str, revision_id: str) -> str:
-    """Fingerprint every integrity-checked input the projection path validates.
+def source_fingerprint(
+    root: Path,
+    world_id: str,
+    revision_id: str,
+    *,
+    head_revision_id: str,
+) -> str:
+    """Digest every integrity-checked input the projection path validates.
 
-    Warm hits must miss when head.json, the selected revision's graph.json /
-    revision.json, or the contribution ledger change under a stable revision id.
-    Otherwise the service would return a cached projection instead of the
-    kernel's projection_integrity_error.
+    Warm hits must miss when head.json, the contribution ledger, or the
+    selected revision's graph.json / revision.json change under a stable
+    revision id — and, for pinned requests, also when the *head* revision's
+    payloads change. The kernel validates the head's target revision even for
+    pinned requests (response metadata such as ``headRevisionId`` / ``isHead``
+    trusts it), so a pinned key that fingerprints only the pinned revision
+    could serve a warm hit where the kernel would raise
+    ``projection_integrity_error``.
     """
+    for candidate in (revision_id, head_revision_id):
+        if not _REVISION_ID_RE.fullmatch(candidate):
+            raise ValueError(f"invalid revision_id: {candidate!r}")
     world_dir = _world_dir(root, world_id)
     revision_dir = world_dir / "revisions" / revision_id
-    return "|".join(
-        [
-            f"ledger:{ledger_fingerprint(root, world_id)}",
-            f"head:{_file_fingerprint(world_dir / 'head.json')}",
-            f"graph:{_file_fingerprint(revision_dir / 'graph.json')}",
-            f"rev:{_file_fingerprint(revision_dir / 'revision.json')}",
-        ]
-    )
+    parts = [
+        f"ledger:{ledger_fingerprint(root, world_id)}",
+        f"head:{_file_digest(world_dir / 'head.json')}",
+        f"graph:{_file_digest(revision_dir / 'graph.json')}",
+        f"rev:{_file_digest(revision_dir / 'revision.json')}",
+    ]
+    if head_revision_id != revision_id:
+        head_revision_dir = world_dir / "revisions" / head_revision_id
+        parts.append(f"headgraph:{_file_digest(head_revision_dir / 'graph.json')}")
+        parts.append(f"headrev:{_file_digest(head_revision_dir / 'revision.json')}")
+    return "|".join(parts)
 
 
 def make_projection_cache_key(
@@ -189,7 +219,12 @@ def make_projection_cache_key(
     if fingerprint is None and ledger_fp is not None:
         fingerprint = ledger_fp
     if fingerprint is None:
-        fingerprint = source_fingerprint(root, request.world_id, revision_id)
+        fingerprint = source_fingerprint(
+            root,
+            request.world_id,
+            revision_id,
+            head_revision_id=head_revision_id,
+        )
     return CacheKey(
         root=str(root.resolve()),
         world_id=request.world_id,
