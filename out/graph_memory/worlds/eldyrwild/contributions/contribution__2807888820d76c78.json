@@ -1,0 +1,3498 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7cd140cdbdebed02",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Thraxx",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "npc:thraxx",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Thraxx"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:006"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "kind": "npc",
+        "role": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A massive Bugbear who becomes a new ally of the party after some fast talking with the owner of the Grit and Grime; he fights with a massive mechanical arm."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:61dbc8fa9a68bad7",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Thraxx",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:thraxx",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Thraxx"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:006"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "kind": "group",
+        "role": "group",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A massive bugbear ally encountered at the Grit and Grime who joins the party for the warehouse assault."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:de7b8e6ba73842db",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "old dusty ladder",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:old_dusty_ladder",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "old dusty ladder"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:003"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A ladder in the tunnel that leads up to a trapdoor."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:dd1e30df9bccbcc3",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Grit and Grime",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:grit_and_grime",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Grit and Grime"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A warehouse turned club for goblins, hobgoblins, and bugbears."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2801b0312ecfbf7c",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Grit and Grime",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:grit_and_grime",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Grit and Grime"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          }
+        ],
+        "kind": "party",
+        "role": "party",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A warehouse-turned club serving as a gathering place for goblins, hobgoblins, and bugbears."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:932e8c3b16d43a1b",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Grit and Grime",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:grit_and_grime",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Grit and Grime"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A warehouse converted into a club where the group discovers a large party of goblins, hobgoblins, and bugbears."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7b9967e69f1a85e5",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "the last warehouse",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:last_warehouse",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "the last warehouse"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The final warehouse reached through the tunnel after leaving the Grit and Grime."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:d746df0e42229a71",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "chilled warehouse",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:chilled_warehouse",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "chilled warehouse"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A cold warehouse containing rows of meat and hostile creatures."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3d2d3859ab44b4d4",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Meat Mounds",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:meat_mounds",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Meat Mounds"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "kind": "faction",
+        "role": "faction",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A group of meat-based creatures present in the chilled warehouse."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e36b2a2f54de5f35",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Abhorrent Meat Wings",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:abhorrent_meat_wings",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Abhorrent Meat Wings"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          }
+        ],
+        "kind": "faction",
+        "role": "faction",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Winged meat creatures encountered in the warehouse battle."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:100d1dbac364a3ef",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Goblins, Hobgoblins and Bugbears",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:goblins_hobgoblins_bugbears",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Goblins, Hobgoblins and Bugbears"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          }
+        ],
+        "kind": "faction",
+        "role": "faction",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The local monster population associated with the warehouses and the Grit and Grime club."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:ac4d9302431ba7cb",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "portable battering ram",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:portable_battering_ram",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "portable battering ram"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A portable ram used by the party and Thraxx to shatter a block trapping Bonogo."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:40bdecf3df4910af",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "crowbar",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:crowbar",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "crowbar"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:005"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A crowbar used in an attempt to lift the massive block trapping Bonogo."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c09604419f229b08",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "oil and a torch",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:oil_and_torch",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "oil and a torch"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "An improvised fire source used by Baergrom during the battle."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a4866840ddebf028",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "massive mechanical arm",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:massive_mechanical_arm",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "massive mechanical arm"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Thraxx\u2019s mechanical arm, used as a powerful weapon against winged creatures."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:23230436f4dc7216",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "old dusty ladder and trap door",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:ladder_and_trapdoor",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "old dusty ladder and trap door"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:003"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A ladder leading up to a trap door that provides access to the club and later the warehouse above."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2cdeb277c7f33b66",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "broken bottles",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:broken_bottles",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "broken bottles"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:005"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Debris on the ground from which a goo/gas begins to creep up during the trap."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7fa20ad3ca1361c9",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "alcohol",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:alcohol",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "alcohol"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Alcohol thrown across the battlefield by Karsemine while she fights."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:4c4f0d7eef66671c",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Last warehouses near the water wheel",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:mystery:last-warehouse-near-water-wheel",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Last warehouses near the water wheel"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The party is pursuing the final known warehouses in the water-wheel area, which are implied to be a remaining objective and a likely source of danger or discovery."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:66ecdc527390a19b",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Grit and Grime warehouse club",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:mystery:grit-and-grime-club",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Grit and Grime warehouse club"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A warehouse has been transformed into a club hosting goblins, hobgoblins, and bugbears, suggesting a social cover or faction hub with unclear motives."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:d3b56dca88a1ce58",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bonogo trapped by blocks and rising goo/gas",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:mystery:bonogo-trap-blocks-and-goo",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Bonogo trapped by blocks and rising goo/gas"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:005"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A second trap pins Bonogo between massive blocks while a noxious substance rises from broken bottles, requiring teamwork and improvised magic to escape."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2dd5abe8de48ce0a",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Thraxx joins as a new ally",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:mystery:thraxx-ally",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Thraxx joins as a new ally"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:006"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A massive bugbear named Thraxx becomes an ally after Stafl negotiates with the owner, changing the party's available support in the warehouse fight."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:35d1617bce9ce996",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Final warehouse filled with cultists and meat creatures",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:mystery:last-warehouse-chilling-food-and-cultists",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Final warehouse filled with cultists and meat creatures"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The last warehouse contains rows of meat, cultists, meat mounds, and winged meat creatures, indicating an occult or biological threat tied to the warehouse chain."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:1a4e4ac2908c402f",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Battle effects: charm spread and sprite killed",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:mystery:party-charms-and-sprite-death",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Battle effects: charm spread and sprite killed"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "During the fight, multiple party members become charmed and Ephanna's sprite is killed, suggesting a hostile influence affecting allies and familiars/summons."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:1f0666cc35507c13",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Ephanna",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:party-registry:longmont-c1",
+      "source_revision_id": "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+      "subject_node_id": "pc:ephanna",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "source_ref_id": "source-ref:artifact:party-registry:longmont-c1",
+            "source_span_ref_id": "artifact:party-registry:longmont-c1:standing"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:003"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "extract_node_id": "node:ephanna",
+        "kind": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
+          },
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "party_registry",
+          "recap"
+        ],
+        "summary": "Deterministic party context anchor"
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:65e8780678c84b3a",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Bonogo",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:party-registry:longmont-c1",
+      "source_revision_id": "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "source_ref_id": "source-ref:artifact:party-registry:longmont-c1",
+            "source_span_ref_id": "artifact:party-registry:longmont-c1:standing"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:003"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:005"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "extract_node_id": "node:bonogo",
+        "kind": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
+          },
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "party_registry",
+          "recap"
+        ],
+        "summary": "Deterministic party context anchor"
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:fa122af5e1631f85",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Caelynn",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:party-registry:longmont-c1",
+      "source_revision_id": "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "source_ref_id": "source-ref:artifact:party-registry:longmont-c1",
+            "source_span_ref_id": "artifact:party-registry:longmont-c1:standing"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:005"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "extract_node_id": "node:caelynn",
+        "kind": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
+          },
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "party_registry",
+          "recap"
+        ],
+        "summary": "Deterministic party context anchor"
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c35211435d314ad3",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Stafl",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:party-registry:longmont-c1",
+      "source_revision_id": "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "source_ref_id": "source-ref:artifact:party-registry:longmont-c1",
+            "source_span_ref_id": "artifact:party-registry:longmont-c1:standing"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:003"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:006"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "extract_node_id": "node:stafl",
+        "kind": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
+          },
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "party_registry",
+          "recap"
+        ],
+        "summary": "Deterministic party context anchor"
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:deb8b2cc7f4fb2d8",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Karsemine",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:party-registry:longmont-c1",
+      "source_revision_id": "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "source_ref_id": "source-ref:artifact:party-registry:longmont-c1",
+            "source_span_ref_id": "artifact:party-registry:longmont-c1:standing"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:005"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "extract_node_id": "node:karsemine",
+        "kind": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
+          },
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "party_registry",
+          "recap"
+        ],
+        "summary": "Deterministic party context anchor"
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7b7c53be54cb4f07",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Baergrom",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:party-registry:longmont-c1",
+      "source_revision_id": "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+      "subject_node_id": "pc:baergrom",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:party-registry:longmont-c1:artifact:party-registry:longmont-c1:standing",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "source_ref_id": "source-ref:artifact:party-registry:longmont-c1",
+            "source_span_ref_id": "artifact:party-registry:longmont-c1:standing"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:005",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:005"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "extract_node_id": "node:baergrom",
+        "kind": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
+            "source_artifact_id": "artifact:party-registry:longmont-c1",
+            "source_domain": "party_registry",
+            "uri": "repo://corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
+          },
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "party_registry",
+          "recap"
+        ],
+        "summary": "Deterministic party context anchor"
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:cf731e55875aad91",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "last few known warehouses near the water wheel",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:warehouse",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          }
+        ],
+        "extract_node_id": "loc:last_known_warehouses_near_water_wheel",
+        "kind": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A warehouse area near the water wheel that the group travels to in search of the last known warehouses."
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:243699f28c15690a",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "the tunnels",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:the_tunnels",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:003"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "extract_node_id": "loc:tunnels",
+        "kind": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Underground tunnel route used by the party to move between warehouses and related trapdoors."
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6ed7e7e761f60919",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "trap door",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:trapdoor",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:003"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "extract_node_id": "loc:trap_door",
+        "kind": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A trap door accessed from the tunnel that opens into the warehouse/party spaces above."
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a9e7404a6d765289",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Cultists",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:cultists_of_longmont",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          }
+        ],
+        "extract_node_id": "node:cultists",
+        "kind": "faction",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Hostile cultist presence encountered in the chilled warehouse alongside meat-related monstrosities."
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:0b9b4c07995753a5",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "health potion",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "item_health_potions",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          }
+        ],
+        "extract_node_id": "node:session10:item:health_potion",
+        "kind": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A healing potion used by Baergrom on Caelynn during the fight."
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:342d9dabd121326a",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "contains",
+      "predicate": "contains",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:warehouse",
+      "target_node_id": "node:goblins_hobgoblins_bugbears",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:warehouse:contains:node:goblins_hobgoblins_bugbears",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          }
+        ],
+        "predicate": "contains",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:642620de9e4f3a94",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "travels_to",
+      "predicate": "travels_to",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": "loc:the_tunnels",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:bonogo:travels_to:loc:the_tunnels",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          }
+        ],
+        "predicate": "travels_to",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6eacb2020a5f2a94",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "leads_to",
+      "predicate": "leads_to",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:old_dusty_ladder",
+      "target_node_id": "node:trapdoor",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc:old_dusty_ladder:leads_to:node:trapdoor",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:003",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:003"
+          }
+        ],
+        "predicate": "leads_to",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a7da35962e62b9de",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "leads_to",
+      "predicate": "leads_to",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:trapdoor",
+      "target_node_id": "loc:grit_and_grime",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:trapdoor:leads_to:loc:grit_and_grime",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          }
+        ],
+        "predicate": "leads_to",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:0709d42687e4763c",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "contains",
+      "predicate": "contains",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:grit_and_grime",
+      "target_node_id": "node:goblins_hobgoblins_bugbears",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          }
+        ],
+        "predicate": "contains",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:8e6963c26830a5ec",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "contains",
+      "predicate": "contains",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:grit_and_grime",
+      "target_node_id": "node:goblins_hobgoblins_bugbears",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc:grit_and_grime:contains:node:goblins_hobgoblins_bugbears",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:004",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:004"
+          }
+        ],
+        "predicate": "contains",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:ae3801a01c60b15c",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "recruits_for",
+      "predicate": "recruits_for",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": "node:thraxx",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:stafl:recruits_for:node:thraxx",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:006",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:006"
+          }
+        ],
+        "predicate": "recruits_for",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2e402b8f9d3f37d1",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "carries",
+      "predicate": "carries",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:thraxx",
+      "target_node_id": "node:session10:item:portable_battering_ram",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:thraxx:carries:node:session10:item:portable_battering_ram",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "predicate": "carries",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2d19564e007a9634",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "same_as",
+      "predicate": "same_as",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:last_warehouse",
+      "target_node_id": "loc:chilled_warehouse",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc:last_warehouse:same_as:loc:chilled_warehouse",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "predicate": "same_as",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:fab4d47d3d133f5d",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "contains",
+      "predicate": "contains",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:chilled_warehouse",
+      "target_node_id": "node:cultists_of_longmont",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc:chilled_warehouse:contains:node:cultists_of_longmont",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "predicate": "contains",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:ed3a360f61ecbce6",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "contains",
+      "predicate": "contains",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:chilled_warehouse",
+      "target_node_id": "node:meat_mounds",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc:chilled_warehouse:contains:node:meat_mounds",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "predicate": "contains",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:d0a3baab3217dc71",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "contains",
+      "predicate": "contains",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "loc:chilled_warehouse",
+      "target_node_id": "node:abhorrent_meat_wings",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc:chilled_warehouse:contains:node:abhorrent_meat_wings",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:007",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:007"
+          }
+        ],
+        "predicate": "contains",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:8c9b42ffe1ca642e",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "attacks",
+      "predicate": "attacks",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": "node:cultists_of_longmont",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:bonogo:attacks:node:cultists_of_longmont",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          }
+        ],
+        "predicate": "attacks",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2093c7e476cbf0e2",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "attacks",
+      "predicate": "attacks",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": "node:cultists_of_longmont",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:stafl:attacks:node:cultists_of_longmont",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          }
+        ],
+        "predicate": "attacks",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:545904c96a94de6c",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "attacks",
+      "predicate": "attacks",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": "node:cultists_of_longmont",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:karsemine:attacks:node:cultists_of_longmont",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          }
+        ],
+        "predicate": "attacks",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:38d752dab43a0c47",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "attacks",
+      "predicate": "attacks",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:thraxx",
+      "target_node_id": "node:abhorrent_meat_wings",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:thraxx:attacks:node:abhorrent_meat_wings",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          }
+        ],
+        "predicate": "attacks",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:877ecf64ea12d6af",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "attacks",
+      "predicate": "attacks",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:oil_and_torch",
+      "target_node_id": "node:abhorrent_meat_wings",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:session10:item:oil_and_torch:attacks:node:abhorrent_meat_wings",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:008",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:008"
+          }
+        ],
+        "predicate": "attacks",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:25166be43c17a123",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "carries",
+      "predicate": "carries",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "pc:baergrom",
+      "target_node_id": "item_health_potions",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:baergrom:carries:item_health_potions",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          }
+        ],
+        "predicate": "carries",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:134135a4f3a2487b",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "serves",
+      "predicate": "serves",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "pc:baergrom",
+      "target_node_id": "pc:caelynn",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:baergrom:serves:pc:caelynn",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:009",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:009"
+          }
+        ],
+        "predicate": "serves",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:499e3ca0d50d4195",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "attacks",
+      "predicate": "attacks",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": "pc:caelynn",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:pc:bonogo:attacks:pc:caelynn",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "predicate": "attacks",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:76f4871a09656395",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "attacks",
+      "predicate": "attacks",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:thraxx",
+      "target_node_id": "pc:karsemine",
+      "temporal_scope": {
+        "session_id": "session-10"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:thraxx:attacks:pc:karsemine",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "predicate": "attacks",
+        "session_ids": [
+          "session-10"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "extract-identity-gate",
+  "campaign_scope": "longmont-c1",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:2807888820d76c78",
+  "diagnostics": [
+    "accepted_for_merge:56",
+    "contribution_slices_merged:2",
+    "parent_revision_id:rev:0d262a5e5360b884c5906b0c71e61f8d",
+    "selection_digest:3eb2c3b6f96f1568e619f1cb349e7baaaa79684ca16ee65b97ebaed6ff41d340",
+    "cross_slice_assertion_provenance_unioned:assertion:7b7c53be54cb4f07:from_slice:1:source_extraction:incoming_artifact:artifact:recap:longmont-c1:session-10:incoming_revision:sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+    "cross_slice_assertion_provenance_unioned:assertion:65e8780678c84b3a:from_slice:1:source_extraction:incoming_artifact:artifact:recap:longmont-c1:session-10:incoming_revision:sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+    "cross_slice_assertion_provenance_unioned:assertion:fa122af5e1631f85:from_slice:1:source_extraction:incoming_artifact:artifact:recap:longmont-c1:session-10:incoming_revision:sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+    "cross_slice_assertion_provenance_unioned:assertion:1f0666cc35507c13:from_slice:1:source_extraction:incoming_artifact:artifact:recap:longmont-c1:session-10:incoming_revision:sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+    "cross_slice_assertion_provenance_unioned:assertion:deb8b2cc7f4fb2d8:from_slice:1:source_extraction:incoming_artifact:artifact:recap:longmont-c1:session-10:incoming_revision:sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+    "cross_slice_assertion_provenance_unioned:assertion:c35211435d314ad3:from_slice:1:source_extraction:incoming_artifact:artifact:recap:longmont-c1:session-10:incoming_revision:sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+    "proposal_digest:7899616c160eab22c64a324160a6516bab73b46f0bf2a3ced469a68e1c034124",
+    "unresolved_mention:node:session10:item:sprite:blocked_collision",
+    "identity_blocked_collision_kept_contribution_level"
+  ],
+  "extraction_profile": "current_default",
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-22T02:33:40Z",
+  "rejected_assertions": [
+    {
+      "acceptance_state": "rejected",
+      "assertion_id": "assertion:cc40735a2ee5daa1",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:2807888820d76c78",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+        "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "blocked_collision",
+      "label": "Sprite",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+      "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+      "subject_node_id": "node:session10:item:sprite",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Sprite"
+        ],
+        "approval_state": "candidate",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:002",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:002"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-10:session-10:recap:paragraph:010",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-10",
+            "source_span_ref_id": "session-10:recap:paragraph:010"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+            "session_id": "session-10",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-10/20260722T023048Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Ephanna\u2019s sprite companion, which helps guide the party through the tunnels and is later killed."
+      },
+      "visibility": "gm"
+    }
+  ],
+  "source_artifact_id": "artifact:recap:longmont-c1:session-10",
+  "source_kind": "source_extraction",
+  "source_revision_id": "sha256:04e6b145f64e4c2788f1afbb8a820b9be1222039471e343419bf247fbc6b96bf",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [
+    {
+      "aliases": [
+        "Sprite"
+      ],
+      "candidate_node_ids": [
+        "node:sprite"
+      ],
+      "diagnostics": [
+        "Cross-kind collision: candidate kind='item' conflicts with existing 'creature' node node:sprite ('Sprite')"
+      ],
+      "evidence_ref_ids": [
+        "session-10:recap:paragraph:002",
+        "session-10:recap:paragraph:010"
+      ],
+      "identity_resolution_outcome": "blocked_collision",
+      "label": "Sprite",
+      "mention_id": "node:session10:item:sprite",
+      "object_kind": "item"
+    }
+  ],
+  "world_id": "eldyrwild"
+}

@@ -1,0 +1,2215 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:ba83e9f3a0a4da7b",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "wizard's tower basement",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_001",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "wizard's tower basement"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The basement area of the wizard's tower that the group cleared during the session."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2e92439142968354",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:002",
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "well",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_002",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "well"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:002",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:002"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A well associated with the tower area where corpses contained mystery potions and a giant centipede emerged."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:67a1ff80a81a4146",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "hidden alchemy room",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_003",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "hidden alchemy room"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:004"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A concealed room behind a wall in the tower basement containing healing potions, alchemical tools, and ingredients."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a8c8521617afd051",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "hidden alchemy room",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_hidden_alchemy_room",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "hidden alchemy room"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:004"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A secret room revealed by bashing down a wall, used to stash gear with Glowkindle's permission."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:537a16f4dc23a3ad",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "River's Edge Pub",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_005",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "River's Edge Pub"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A pub in Stone Bridge mentioned as a potential place to visit to say hi to Grishna."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:9948dafe705ae53b",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "the Wizard's Tower",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_006",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "the Wizard's Tower"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The larger wizard's tower that may contain more unexplored material beyond the basement."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:f445fea3486c6e34",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "basement",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_007",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "basement"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:004"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:005"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A basement area referenced in the context of clearing rats and negotiating storage access."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:8311681a14c81f9b",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "the group",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "group_the_group",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "the group"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:005"
+          }
+        ],
+        "kind": "group",
+        "role": "group",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The adventuring collective that cleared the tower basement, earned payment, and decided to stay together."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:174cc214bb97281b",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "sack of gems",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_gems_sack",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "sack of gems"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A sack containing gems recovered after clearing the wizard's tower basement."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:b820377bf7f3988d",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "mystery potions",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_mystery_potions",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "mystery potions"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Unidentified potions found on corpses in the well."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a35d317d9e9f845c",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "healing potions",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_healing_potions",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "healing potions"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A room full of healing potions discovered behind a wall in the wizard's tower basement."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:9ccf0c9991475107",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "alchemical tools",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_alchemical_tools",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "alchemical tools"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Tools found in the hidden alchemy room, alongside other alchemical supplies."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:ac04e78236785e11",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "alchemical ingredients",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_alchemical_ingredients",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "alchemical ingredients"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Ingredients found in the hidden alchemy room, described as ancient and incredible in design."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a601e955d2d17acc",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Hidden alchemy room in the wizard\u2019s tower basement",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "mn-001",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Hidden alchemy room in the wizard\u2019s tower basement"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A concealed room was revealed by bashing down a wall; it contains healing potions plus ancient, incredible alchemical tools and ingredients, but the group does not know how to use them yet."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e7e3ad5898d023db",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Mystery potions found on corpses in the well",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "mn-002",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Mystery potions found on corpses in the well"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Several unidentified potions were recovered from corpses in the well; their purpose and effects remain unclear."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:8bbc168770413217",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Possibility that the Wizard\u2019s Tower has more to uncover",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "mn-003",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Possibility that the Wizard\u2019s Tower has more to uncover"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The recap explicitly raises the question of whether there is more to the Wizard's Tower, leaving future exploration unresolved."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e8048b82355a1246",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Decision point: future work from Glowkindle",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "mn-004",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Decision point: future work from Glowkindle"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The party is undecided about whether to ask Glowkindle for more work, indicating an unresolved next step and potential ongoing relationship."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:10542f03abc165fa",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Decision point: return to Stone Bridge and River's Edge Pub",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "mn-005",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Decision point: return to Stone Bridge and River's Edge Pub"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The party may head back to Stone Bridge to see Grishna at the River's Edge Pub, but this remains unresolved."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:af6c32cfafb4d099",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Ancient and incredible design of the hidden tools and ingredients",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "mn-006",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Ancient and incredible design of the hidden tools and ingredients"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The alchemical supplies are described as ancient and incredible, hinting at unusual provenance or significance beyond ordinary adventuring loot."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:5377e6d1e6956295",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Grishna",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "node:grishna",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "extract_node_id": "npc_grishna",
+        "kind": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A named non-party NPC associated with the River's Edge Pub in Stone Bridge, mentioned as someone the group may visit."
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:b038edd00807eb08",
+      "assertion_kind": "attribute",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": null,
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "resolved_existing",
+      "label": "Stone Bridge",
+      "predicate": "session_observation",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "loc:stone_bridge",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "extract_node_id": "location_004",
+        "kind": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A named town or place the group considers returning to, likely associated with River's Edge Pub."
+      },
+      "visibility": null
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2af7c144aa3674ab",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "in the wizard's tower basement",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_003",
+      "target_node_id": "location_001",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:location_003:located_in:location_001",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c19f49093176f03d",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "associated with the tower basement",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_002",
+      "target_node_id": "location_001",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:location_002:located_in:location_001",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:911160966a81c250",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "in Stone Bridge",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_005",
+      "target_node_id": "loc:stone_bridge",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:location_005:located_in:loc:stone_bridge",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:eef89433fa0122c1",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "basement of the wizard's tower",
+      "predicate": "part_of",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "location_007",
+      "target_node_id": "location_001",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:location_007:part_of:location_001",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "predicate": "part_of",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c3fdbf62ed1361f2",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "the hidden alchemy room",
+      "predicate": "same_as",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_hidden_alchemy_room",
+      "target_node_id": "location_003",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:item_session2_hidden_alchemy_room:same_as:location_003",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:004"
+          }
+        ],
+        "predicate": "same_as",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:cddcffa7bee71464",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "found in the basement",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_gems_sack",
+      "target_node_id": "location_001",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:item_session2_gems_sack:located_in:location_001",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:4f0f61429d8e5c15",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "on corpses in the well",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_mystery_potions",
+      "target_node_id": "location_002",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:item_session2_mystery_potions:located_in:location_002",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e94fd5380e5e5bc5",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "in the hidden alchemy room",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_healing_potions",
+      "target_node_id": "location_003",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:item_session2_healing_potions:located_in:location_003",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e03d37d656eea515",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "in the hidden alchemy room",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_alchemical_tools",
+      "target_node_id": "location_003",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:item_session2_alchemical_tools:located_in:location_003",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:48b67275922790c9",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "in the hidden alchemy room",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "item_session2_alchemical_ingredients",
+      "target_node_id": "location_003",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:item_session2_alchemical_ingredients:located_in:location_003",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:003",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:003"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:0c128de237b0d238",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "stash gear in the hidden alchemy room",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "group_the_group",
+      "target_node_id": "location_003",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_the_group:located_in:location_003",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:004"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2c6d31ae71be39cb",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "clearing rats out of basements",
+      "predicate": "participates_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "group_the_group",
+      "target_node_id": "location_007",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_the_group:participates_in:location_007",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:005",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:005"
+          }
+        ],
+        "predicate": "participates_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:644c0c91410ab754",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "more to the Wizard's Tower",
+      "predicate": "knows_about",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "group_the_group",
+      "target_node_id": "mn-003",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_the_group:knows_about:mn-003",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "predicate": "knows_about",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:545521419efee940",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "ask Glowkindle for more work",
+      "predicate": "pursues",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "group_the_group",
+      "target_node_id": "mn-004",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_the_group:pursues:mn-004",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "predicate": "pursues",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:4b3a37ff97404eaf",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "head back to Stone Bridge and the pub",
+      "predicate": "pursues",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "group_the_group",
+      "target_node_id": "mn-005",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_the_group:pursues:mn-005",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "predicate": "pursues",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:dee2d0adf67dfc1e",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "at the River's Edge Pub",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "node:grishna",
+      "target_node_id": "location_005",
+      "temporal_scope": {
+        "session_id": "session-2"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:node:grishna:located_in:location_005",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-2"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "extract-identity-gate",
+  "campaign_scope": "longmont-c1",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:728ad4422e4b079f",
+  "diagnostics": [
+    "accepted_for_merge:37",
+    "contribution_slices_merged:1",
+    "parent_revision_id:rev:6e77db49095af2bbd93431564f0b202f",
+    "selection_digest:98e906a765d54961ab09a92dd502ecc92bd0fcadb0d25df50301894f88161015",
+    "proposal_digest:69d7179d6ce5a79754d747c47deca1ab0f01d26139ab0c0c413b984d2a0a6aaf",
+    "unresolved_mention:npc_glowkindle:blocked_collision",
+    "identity_blocked_collision_kept_contribution_level",
+    "unresolved_mention:faction_glowkindle:blocked_collision",
+    "identity_blocked_collision_kept_contribution_level"
+  ],
+  "extraction_profile": "current_default",
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-21T20:41:48Z",
+  "rejected_assertions": [
+    {
+      "acceptance_state": "rejected",
+      "assertion_id": "assertion:c830855c015ebbd6",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "blocked_collision",
+      "label": "Glowkindle",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "npc_glowkindle",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Glowkindle"
+        ],
+        "approval_state": "candidate",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:004"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "kind": "npc",
+        "role": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A named non-party NPC who negotiated with the group for use of the hidden alchemy room and may offer more work."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "rejected",
+      "assertion_id": "assertion:f57057679202166f",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:728ad4422e4b079f",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+        "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "blocked_collision",
+      "label": "Glowkindle",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+      "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+      "subject_node_id": "faction_glowkindle",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Glowkindle"
+        ],
+        "approval_state": "candidate",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:004",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:004"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-2:session-2:recap:paragraph:006",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-2",
+            "source_span_ref_id": "session-2:recap:paragraph:006"
+          }
+        ],
+        "kind": "faction",
+        "role": "faction",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+            "session_id": "session-2",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-2/20260706T023949Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A collective or entity that negotiated with the group over use of the hidden alchemy room and may offer more work."
+      },
+      "visibility": "gm"
+    }
+  ],
+  "source_artifact_id": "artifact:recap:longmont-c1:session-2",
+  "source_kind": "source_extraction",
+  "source_revision_id": "sha256:9f0e7dfa6bfcc47c60ea446d1f0ff0e6bf727c45c9e6e575eadba01c1ea513be",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [
+    {
+      "aliases": [
+        "Glowkindle"
+      ],
+      "candidate_node_ids": [
+        "organization_glowkindle"
+      ],
+      "diagnostics": [
+        "Cross-kind collision: candidate kind='npc' conflicts with existing 'party' node organization_glowkindle ('Glowkindle')"
+      ],
+      "evidence_ref_ids": [
+        "session-2:recap:paragraph:004",
+        "session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "blocked_collision",
+      "label": "Glowkindle",
+      "mention_id": "npc_glowkindle",
+      "object_kind": "npc"
+    },
+    {
+      "aliases": [
+        "Glowkindle"
+      ],
+      "candidate_node_ids": [
+        "organization_glowkindle",
+        "npc_glowkindle"
+      ],
+      "diagnostics": [
+        "Cross-kind collision: candidate kind='faction' conflicts with existing 'party' node organization_glowkindle ('Glowkindle')",
+        "Cross-kind collision: candidate kind='faction' conflicts with existing 'npc' node npc_glowkindle ('Glowkindle')"
+      ],
+      "evidence_ref_ids": [
+        "session-2:recap:paragraph:004",
+        "session-2:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "blocked_collision",
+      "label": "Glowkindle",
+      "mention_id": "faction_glowkindle",
+      "object_kind": "faction"
+    }
+  ],
+  "world_id": "eldyrwild"
+}

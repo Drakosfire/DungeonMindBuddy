@@ -1,0 +1,4420 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:40f1b1b8b21a3234",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Pippa",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_pippa",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Pippa"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "npc",
+        "role": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A bright and talkative gnome obsessed with crafting and understanding beer; she arrives with Bubbles and later panics when Bubbles is missing."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:87c7f00a58847340",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bubbles the Float Goat",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_bubbles",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Bubbles the Float Goat"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:010"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "npc",
+        "role": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Pippa\u2019s float goat companion/animal, stranded during the flood and later rescued."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:4e13ef0637390136",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bubbles the Float Goat",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_012",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Bubbles the Float Goat"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Pippa\u2019s goat, a central rescue target during the flood."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:27f4989992b33606",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Kirfan",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_kirfan",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Kirfan"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:005"
+          }
+        ],
+        "kind": "npc",
+        "role": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A named person who was helping pull debris from the broken structure from upriver."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6cce0f25943bcafe",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Grishna",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_grishna",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Grishna"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:006"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "npc",
+        "role": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A local person associated with the pub; gave beer and board, and was bragged to about the party\u2019s adventures."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:8581a887a38126b8",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "patrons",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_patrons",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "patrons"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "npc",
+        "role": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Unnamed pub patrons present in the River\u2019s Edge Pub during the evening gathering."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:083d22b242e221ca",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "patrons",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_patrons",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "patrons"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "group",
+        "role": "group",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The unspecified patrons inside the River\u2019s Edge Pub during the evening storm scene."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:d433542d751f0b0e",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "another bard",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_another_bard",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "another bard"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "npc",
+        "role": "npc",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "An unnamed bard at the River\u2019s Edge Pub who jammed with Stafl."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c31292ddf584a272",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Stone Bridge",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_1",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Stone Bridge"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Named settlement where the party arrives, stays at the pub, and later is described as a place they have saved."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a3c70ef9865f6e7a",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "River's Edge Pub",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_2",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "River's Edge Pub"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Pub in Stone Bridge where the crew gathers before and during the storm, and where townsfolk shelter on high ground."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:8b91bef044888a14",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "River\u2019s Edge Pub",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "organization_rivers_edge_pub",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "River\u2019s Edge Pub"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "kind": "party",
+        "role": "party",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The pub in Stone Bridge where the party unloaded beer, drank, played music, and sheltered during the flood."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:56b08686ddd74710",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "river\u2019s edge pub",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_016",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "river\u2019s edge pub"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The pub where the party rested and where the flood crisis intensified."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:c86ee3f0e62c68b7",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "river",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_3",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "river"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:021"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The unnamed river that the party travels along and that floods during the storm."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:30b8c5dc167181ab",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "dock",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_4",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "dock"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:021"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A dock on the river used as a landing point and as a place where the party attempts rescue."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:cf41423be0c30b27",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "barge",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_5",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "barge"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:021"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "River barge used to travel to Stone Bridge and unload beer."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:48e0d009620960fc",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "the bank",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_6",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "the bank"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:021"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Riverbank area used as the route for pursuit during the flood."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:d217c447ee155774",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "rock",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_7",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "rock"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:010"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "River rock where Bubbles is found during the flood rescue."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e31d165e23597c31",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "upriver",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_8",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "upriver"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:005"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Upstream area referenced as the origin of debris and the unnamed town upriver."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:f141e2598c0aeb14",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Upriver town",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_9",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Upriver town"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:005"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Unnamed town upriver mentioned as needing a name."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:ad8da513a93fcb3a",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Wizard\u2019s Tower Brewery",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_10",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Wizard\u2019s Tower Brewery"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:007",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:007"
+          }
+        ],
+        "kind": "location",
+        "role": "location",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Named brewery adventure location mentioned in the retelling/song."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3184f846112f4cec",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Stone Bridge townfolk",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "faction_stone_bridge_townfolk",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Stone Bridge townfolk"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "kind": "faction",
+        "role": "faction",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The local townsfolk of Stone Bridge who helped respond to the flood and gathered at the pub on high ground."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:65218c99a18dfb39",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "evening crew at the River\u2019s Edge Pub",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_river_edge_pub_evening_crew",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "evening crew at the River\u2019s Edge Pub"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "group",
+        "role": "group",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The group of patrons and regulars present at the River\u2019s Edge Pub during the storm, including Grishna and another bard."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6e5cecd58a2c4175",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Stone Bridge dock and barge travel party",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_stone_bridge_dock_barge_travel_party",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Stone Bridge dock and barge travel party"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          }
+        ],
+        "kind": "group",
+        "role": "group",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The group of adventurers and companions traveling by barge and dock to Stone Bridge with Pippa and Bubbles."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:742a68198406471f",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "town support with nets across the bridge flow ways",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_town_support_bridge_nets",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "town support with nets across the bridge flow ways"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:014"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "group",
+        "role": "group",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The organized local response that set nets across the river and bridge flow ways to help during the flood."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e75de4b4fbe91e72",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "heroes of Stone Bridge",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_heroes_of_stone_bridge",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "heroes of Stone Bridge"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "kind": "group",
+        "role": "group",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The adventuring party as recognized locals after rescuing the town and Bubbles during the flood."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:54a1ab8ebabd9dbd",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:002"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "mysterious artifact",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_001",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "mysterious artifact"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:002",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:002"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "An unnamed artifact mentioned as part of the adventure hook."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:0254c83957031bce",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "broken structure debris",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_002",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "broken structure debris"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:005"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Debris from a broken structure pulled up from upriver."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a0aaa17225829c0d",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "beer",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_003",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "beer"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:006"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Beer received as compensation and later unloaded at Stone Bridge."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6bebf4b561105742",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "board",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_004",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "board"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:006"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Board game or board mentioned as part of compensation from Grishna."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3df67577e22e7d37",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "song",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_005",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "song"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:007",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:007"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "An incredible song performed to woo the town in the retelling of the brewery adventure."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a58164743c5c74ce",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:015",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "mage hand",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_006",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "mage hand"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:010"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:015",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:015"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A magical hand used to lasso Bubbles and interact with the goat during the flood."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2542add8e44d4a1a",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:011",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "ice",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_007",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "ice"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:011",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:011"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Ice used to freeze the base of a rock and create a platform during the rescue."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:8db73da8c8ddaa8b",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:012",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "rope",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_008",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "rope"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:012",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:012"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A rope used in the rescue effort; it was lost in the flood."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:d4593404351fc92f",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "nets",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_009",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "nets"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:014"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:021"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Nets dropped across the bridge flow ways to help with the flood response."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:47bbba99e2fb969a",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:015",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "lasso",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_010",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "lasso"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:015",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:015"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A lasso made for reaching Bubbles during the rescue."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:1e415da1b7bf6213",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "wagon full of kegs",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_011",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "wagon full of kegs"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Pippa\u2019s wagon loaded with kegs and used for travel to Stone Bridge."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7752661e7e29dfe9",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "dock and barge",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_013",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "dock and barge"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "River travel conveyance mentioned on the way downriver to Stone Bridge."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e9fada26dbc0abf8",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "dinghy",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_014",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "dinghy"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:021"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A small boat cut loose to pursue Bonogo downstream."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:476ef2463a8329a8",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "net with light cast on it",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_015",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "net with light cast on it"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:021"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A net prepared for the river pursuit and rescue response."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:4ea89b8768493bee",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "pub roof",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_017",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "pub roof"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The roof that the rain hammered during the storm."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:4cd1cf84704f9472",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "broken lead",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_018",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "broken lead"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A broken lead attached to Bubbles during the flood."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:29f675580fc6d04c",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "corner beams of a roof",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "item_019",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "corner beams of a roof"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          }
+        ],
+        "kind": "item",
+        "role": "item",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The submerged structure revealed when the stuck net was pulled up."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:66e2e517934ed293",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:002"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "mysterious artifact mentioned as adventure hook",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "mystery-001",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "mysterious artifact mentioned as adventure hook"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:002",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:002"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "A mysterious artifact is introduced as the adventure hook, but no details about its nature, origin, or current location are provided in the recap."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:4bc99ae825b585fb",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:002",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:008"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "unseasonable torrential rains and flooding",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "mystery-002",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "unseasonable torrential rains and flooding"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:002",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:002"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:008",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:008"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "An extreme storm brings unseasonable torrential rains and widespread flooding, but the cause of the weather is not explained in the recap."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2c1aa66484b28d6d",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "broken structure and roof beams found upriver",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "mystery-003",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "broken structure and roof beams found upriver"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:005"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "The party recovers debris from a broken structure upriver; the recap notes uncertainty about the river and upriver town naming, leaving the source of the structure unresolved."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7a3a54826c6c1bf1",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bubbles becomes panicked and bites the mage hand",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "mystery-004",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Bubbles becomes panicked and bites the mage hand"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:010"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Bubbles, the Float Goat, reacts with panic during rescue attempts and bites the conjured mage hand; the recap does not explain why Bubbles is so frightened or whether something else triggered the behavior."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:27f911641e022549",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:012",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bonogo swept downstream during flood rescue",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "mystery-005",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Bonogo swept downstream during flood rescue"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:012",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:012"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:021",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:021"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Bonogo is carried away by the flooding river after diving in to help; he is later rescued, but the intervening experience and route are not fully detailed."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:ce69cf2d7d4a06fa",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Pippa's broken lead and panic at the pub",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "mystery-006",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Pippa's broken lead and panic at the pub"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "Pippa appears panicked after discovering a broken lead and losing track of Bubbles, but the exact sequence of events around the lead failure is unclear in the recap."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:1e7f9dd34f01ed24",
+      "assertion_kind": "node",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Mirathorn festival as next destination",
+      "predicate": null,
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "mystery-007",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Mirathorn festival as next destination"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "kind": "mystery",
+        "role": "mystery",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ],
+        "summary": "After the Stone Bridge crisis, the party discusses Mirathorn and a festival there as a possible next lead, but no specifics are given about the festival or why it matters."
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:a14b1f4141ff26bb",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Pippa travels with Bubbles",
+      "predicate": "travels_to",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_pippa",
+      "target_node_id": "npc_bubbles",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_pippa:travels_to:npc_bubbles",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          }
+        ],
+        "predicate": "travels_to",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:38e2ae4ce7c09fe7",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bubbles is on the rock",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_bubbles",
+      "target_node_id": "loc_7",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_bubbles:located_in:loc_7",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:010",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:010"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:957d060f5e55f740",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Pippa arrives at Stone Bridge",
+      "predicate": "travels_to",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_pippa",
+      "target_node_id": "loc_1",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_pippa:travels_to:loc_1",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "predicate": "travels_to",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:765a8e80857eff83",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "River's Edge Pub is in Stone Bridge",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_2",
+      "target_node_id": "loc_1",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc_2:located_in:loc_1",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:926f2979b58e6980",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "pub organization corresponds to the pub location",
+      "predicate": "same_as",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "organization_rivers_edge_pub",
+      "target_node_id": "loc_2",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:organization_rivers_edge_pub:same_as:loc_2",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "predicate": "same_as",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:dbd1b4aa436d04ae",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "dock is on the river",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_4",
+      "target_node_id": "loc_3",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc_4:located_in:loc_3",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:17f576c55c3ffba3",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "barge is on the river",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_5",
+      "target_node_id": "loc_3",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc_5:located_in:loc_3",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:5c07c0ec7742d541",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "upriver is relative to the river",
+      "predicate": "north_of",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_8",
+      "target_node_id": "loc_3",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc_8:north_of:loc_3",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:005"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          }
+        ],
+        "predicate": "north_of",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:d89cb877324bcb11",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "upriver town is in upriver",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_9",
+      "target_node_id": "loc_8",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc_9:located_in:loc_8",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:005"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:84c1c259a8636779",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:007"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Wizard's Tower Brewery adventure is retold in song",
+      "predicate": "objective_of",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "loc_10",
+      "target_node_id": "item_005",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:loc_10:objective_of:item_005",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:007",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:007"
+          }
+        ],
+        "predicate": "objective_of",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:3de58ff1e0122c3d",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Kirfan works on broken structure debris",
+      "predicate": "works_with",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_kirfan",
+      "target_node_id": "item_002",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_kirfan:works_with:item_002",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:005",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:005"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          }
+        ],
+        "predicate": "works_with",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:1b8f3fa2c126a177",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Grishna gives beer",
+      "predicate": "carries",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_grishna",
+      "target_node_id": "item_003",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_grishna:carries:item_003",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:006"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "predicate": "carries",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:6b46a0386173e179",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Grishna gives board",
+      "predicate": "carries",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_grishna",
+      "target_node_id": "item_004",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_grishna:carries:item_004",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:006",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:006"
+          }
+        ],
+        "predicate": "carries",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:86c43927764d72f1",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "another bard present with evening crew",
+      "predicate": "part_of_group",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_another_bard",
+      "target_node_id": "group_river_edge_pub_evening_crew",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_another_bard:part_of_group:group_river_edge_pub_evening_crew",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "predicate": "part_of_group",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:cda2b182cdf2a792",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "patrons are part of evening crew",
+      "predicate": "part_of_group",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_patrons",
+      "target_node_id": "group_river_edge_pub_evening_crew",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_patrons:part_of_group:group_river_edge_pub_evening_crew",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "predicate": "part_of_group",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:e8f06ae266d45c22",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "patrons are part of evening crew",
+      "predicate": "part_of_group",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_patrons",
+      "target_node_id": "group_river_edge_pub_evening_crew",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_patrons:part_of_group:group_river_edge_pub_evening_crew",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "predicate": "part_of_group",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:7d5b3d995a5e278f",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "travel party goes to Stone Bridge",
+      "predicate": "travels_to",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_stone_bridge_dock_barge_travel_party",
+      "target_node_id": "loc_1",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_stone_bridge_dock_barge_travel_party:travels_to:loc_1",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "predicate": "travels_to",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:60013eaacf2bf2c5",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "town support sets nets across the river",
+      "predicate": "within",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_town_support_bridge_nets",
+      "target_node_id": "loc_3",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_town_support_bridge_nets:within:loc_3",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:014"
+          }
+        ],
+        "predicate": "within",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:073768cbd2c5f520",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "town support uses nets",
+      "predicate": "possesses",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_town_support_bridge_nets",
+      "target_node_id": "item_009",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_town_support_bridge_nets:possesses:item_009",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:014"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "predicate": "possesses",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:2d68582a59639580",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "town support is Stone Bridge townfolk",
+      "predicate": "same_as",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_town_support_bridge_nets",
+      "target_node_id": "faction_stone_bridge_townfolk",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_town_support_bridge_nets:same_as:faction_stone_bridge_townfolk",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:014",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:014"
+          }
+        ],
+        "predicate": "same_as",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:45ca7dba1a4caf20",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "heroes are of Stone Bridge",
+      "predicate": "located_in",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "group_heroes_of_stone_bridge",
+      "target_node_id": "loc_1",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:group_heroes_of_stone_bridge:located_in:loc_1",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "predicate": "located_in",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:9c0cf460502bc423",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Pippa is at the pub during the crisis",
+      "predicate": "present_at",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_pippa",
+      "target_node_id": "loc_2",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_pippa:present_at:loc_2",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          }
+        ],
+        "predicate": "present_at",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:ffc4d8dba95f1b72",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bubbles is associated with the pub rescue scene",
+      "predicate": "present_at",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_bubbles",
+      "target_node_id": "loc_2",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_bubbles:present_at:loc_2",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:020",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:020"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:022",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:022"
+          }
+        ],
+        "predicate": "present_at",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    },
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:54b0b01852ebee64",
+      "assertion_kind": "edge",
+      "campaign_scope": "longmont-c1",
+      "contribution_id": "contribution:75014e3c91e17fa3",
+      "epistemic_kind": "source_derived_candidate",
+      "evidence_ref_ids": [
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+        "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Bubbles belongs to Pippa",
+      "predicate": "belongs_to",
+      "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+      "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+      "subject_node_id": "npc_bubbles",
+      "target_node_id": "npc_pippa",
+      "temporal_scope": {
+        "session_id": "session-3"
+      },
+      "value": {
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "direction": "outbound",
+        "edge_id": "edge:npc_bubbles:belongs_to:npc_pippa",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:017",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:017"
+          },
+          {
+            "evidence_ref_id": "evidence:artifact:recap:longmont-c1:session-3:session-3:recap:paragraph:018",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "source_ref_id": "source-ref:artifact:recap:longmont-c1:session-3",
+            "source_span_ref_id": "session-3:recap:paragraph:018"
+          }
+        ],
+        "predicate": "belongs_to",
+        "session_ids": [
+          "session-3"
+        ],
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c1",
+            "content_sha256": "4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+            "session_id": "session-3",
+            "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+            "source_domain": "recap",
+            "uri": "repo://out/graph_memory/runs/longmont-c1/session-3/20260718T221738Z/normalized_recap_source.md"
+          }
+        ],
+        "source_domains": [
+          "recap"
+        ]
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": "extract-identity-gate",
+  "campaign_scope": "longmont-c1",
+  "candidate_assertions": [],
+  "contribution_id": "contribution:75014e3c91e17fa3",
+  "diagnostics": [
+    "accepted_for_merge:73",
+    "parent_revision_id:rev:156f1669954543da611e06ba8ae365a5",
+    "selection_digest:a7e9f9aef5541674e88f93e9fcee46eae1b23132e6860ad923c55d3583c47ec6",
+    "proposal_digest:e8a6b7a72d724fcf9af11b6f79a0102117ed0ec4f56ac2294d3c4e712f617cad",
+    "merge_failed:refusing node assertion that disagrees with an already-active correction-sensitive fingerprint for 'loc_1': existing='assertion:799d450d8bd3f4ac' new='assertion:c31292ddf584a272'"
+  ],
+  "extraction_profile": "current_default",
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-18T22:20:25Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "artifact:recap:longmont-c1:session-3",
+  "source_kind": "source_extraction",
+  "source_revision_id": "sha256:4bf9af0ca38f99e41fee48df1b881c1094568a9d02baa1644b27e42bb65ed107",
+  "status": "failed",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

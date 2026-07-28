@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-07-13T14:10:28Z",
+  "graph_payload_path": "revisions/rev:fd3e0a2b96a7a5919a02a8905e73f7b9/graph.json",
+  "graph_payload_sha256": "a0fdda92e3b3135798daeede0a24022b88abee9012625bf265c97e9b1b56e2fe",
+  "graph_schema": "dmb_union_supergraph_store_v0",
+  "operation_ids": [
+    "world-init:eldyrwild:eldyrwild-longmont-c2-initial-v1:empty-baseline"
+  ],
+  "parent_revision_id": null,
+  "revision_id": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
+  "status": "published",
+  "world_id": "eldyrwild"
+}

@@ -1,0 +1,13 @@
+{
+  "created_at": "2026-07-19T06:14:59Z",
+  "graph_payload_path": "revisions/rev:fccd0ed2727f0e98dbe57623b0f56c67/graph.json",
+  "graph_payload_sha256": "7b1e1c327da93a19b8cdae0cf1ccd2403e47c8e2ba7d95d6c4182b177f52b22c",
+  "graph_schema": "dmb_union_supergraph_store_v0",
+  "operation_ids": [
+    "contribution:75a840a4d69d9a4f"
+  ],
+  "parent_revision_id": "rev:156f1669954543da611e06ba8ae365a5",
+  "revision_id": "rev:fccd0ed2727f0e98dbe57623b0f56c67",
+  "status": "published",
+  "world_id": "eldyrwild"
+}

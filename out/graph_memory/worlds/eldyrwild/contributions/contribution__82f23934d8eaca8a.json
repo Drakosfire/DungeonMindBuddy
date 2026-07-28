@@ -1,0 +1,69 @@
+{
+  "accepted_assertions": [
+    {
+      "acceptance_state": "accepted",
+      "assertion_id": "assertion:1c2b36207a4e7f71",
+      "assertion_kind": "node",
+      "campaign_scope": null,
+      "contribution_id": "contribution:82f23934d8eaca8a",
+      "epistemic_kind": "fact",
+      "evidence_ref_ids": [
+        "evidence:corpus:worldbuilding:mirathorn"
+      ],
+      "identity_resolution_outcome": "created_new",
+      "label": "Mirathorn",
+      "predicate": null,
+      "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
+      "source_revision_id": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+      "subject_node_id": "location:mirathorn",
+      "target_node_id": null,
+      "temporal_scope": null,
+      "value": {
+        "aliases": [
+          "Mirathorn"
+        ],
+        "approval_state": "accepted",
+        "canon_state": "canonical",
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:corpus:worldbuilding:mirathorn",
+            "locator": "heading:The City of Mirathorn",
+            "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
+            "source_domain": "worldbuilding"
+          }
+        ],
+        "kind": "location",
+        "role": "city",
+        "source_artifacts": [
+          {
+            "campaign_id": "longmont-c2",
+            "content_sha256": "70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+            "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
+            "source_domain": "worldbuilding",
+            "uri": "repo://corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md"
+          }
+        ],
+        "source_domains": [
+          "worldbuilding"
+        ]
+      },
+      "visibility": "gm"
+    }
+  ],
+  "authored_by": null,
+  "campaign_scope": null,
+  "candidate_assertions": [],
+  "contribution_id": "contribution:82f23934d8eaca8a",
+  "diagnostics": [],
+  "extraction_profile": "pr006c-approved-bundle-v1",
+  "identity_decision_ids": [],
+  "produced_at": "2026-07-11T00:00:00Z",
+  "rejected_assertions": [],
+  "source_artifact_id": "corpus:eldyrwild:mirathorn-city",
+  "source_kind": "manual_import",
+  "source_revision_id": "sha256:70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "unresolved_mentions": [],
+  "world_id": "eldyrwild"
+}

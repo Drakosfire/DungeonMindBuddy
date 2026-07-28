@@ -1,0 +1,59 @@
+{
+  "accepted_assertion_count": 30,
+  "actor": "gm",
+  "approval_attestation": {
+    "approved_bundle_merge_sha": "f69c69f271c427209860d902636347b70fea5920",
+    "bundle_digest": "c8eb7e6ca7e735c40822cb1e6835f9949f2cd915b57f5704e7b4daeb72cf2fca",
+    "bundle_id": "eldyrwild-longmont-c2-initial-v1"
+  },
+  "assertion_support_count": 26,
+  "baseline_revision_id": "rev:fd3e0a2b96a7a5919a02a8905e73f7b9",
+  "campaign_id": "longmont-c2",
+  "contribution_integrity_ok": true,
+  "created_at": "2026-07-13T14:10:29Z",
+  "edge_count": 11,
+  "evidence_count": 30,
+  "focus_session_id": "session-23",
+  "identity_decision_ids": [],
+  "initial_head_revision_id": "rev:8356c358675a7eb801101f1a49dcdccc",
+  "node_count": 12,
+  "ordered_contributions": [
+    {
+      "contribution_id": "contribution:82f23934d8eaca8a",
+      "payload_sha256": "b79b6427ff59d602054857fd29cf4661743c8351bef03a4f1bc0b68511293df8"
+    },
+    {
+      "contribution_id": "contribution:43782369bd717d32",
+      "payload_sha256": "5a2471a885b90d3fc56c3fa03b17578b3394cf12dfd58726ed9b500bfe4c3f12"
+    },
+    {
+      "contribution_id": "contribution:33d7cdb0ff623f28",
+      "payload_sha256": "f2071f5dce89bb0ad21a1dc360ccdb63a51e70153b01eb550769c0722fd8a0f0"
+    },
+    {
+      "contribution_id": "contribution:c086a0b72324ff16",
+      "payload_sha256": "fbd50ed5ed524bd3d74a0c6f2107d67a7c71944fde43dfda4f4ae014a5d6ffd7"
+    },
+    {
+      "contribution_id": "contribution:1227841724520c18",
+      "payload_sha256": "0d67c425a24dc6441f578e23cf125b37998bb6beadfb0a3477b8ff810a37006e"
+    },
+    {
+      "contribution_id": "contribution:022187fdefdf4557",
+      "payload_sha256": "c32656f797e903744d3cbfcaabf884b20ed9748296fad0196813d49c92aeef78"
+    }
+  ],
+  "plan_binding_verified": true,
+  "plan_digest": "98a120f69bc30ee9d20c1bb67262cf78a5951adcd54c5a5cc5b9411ebddf5163",
+  "rebuild_equivalent": true,
+  "schema": "dmb_world_initialization_receipt_v1",
+  "source_artifact_count": 6,
+  "source_domains": [
+    "manual_seed",
+    "recap",
+    "statblock",
+    "worldbuilding"
+  ],
+  "world_id": "eldyrwild",
+  "world_integrity_ok": true
+}
