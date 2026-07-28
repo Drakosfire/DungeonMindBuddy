@@ -3,7 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
+import type {
+  ExtractPromoteConfirmReceipt,
+  WorldGraphProjection,
+} from "../../api/types";
 import type { PlanContextDescriptor } from "../types";
+import { GraphReviewLiveStateProvider, useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
 
 const context: PlanContextDescriptor = {
@@ -436,5 +441,263 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.getByText("Session 2 · longmont-c1")).toBeInTheDocument();
     expect(compareSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("GraphReviewWorkbenchModule committed authority binding", () => {
+  function committedProjection(
+    label: string,
+    revisionId = "rev:committed",
+  ): WorldGraphProjection {
+    return {
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId,
+        headRevisionId: revisionId,
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-23", campaignId: "longmont-c2" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "object-1",
+          label,
+          kind: "npc",
+          role: "character",
+          aliases: [],
+          sourceDomains: [],
+          anchoredToFocusSession: true,
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    };
+  }
+
+  const receipt: ExtractPromoteConfirmReceipt = {
+    schema: "dmb_extract_promote_confirm_v2",
+    outcome: "committed",
+    worldId: "eldyrwild",
+    proposalId: "prop-1",
+    proposalDigest: "digest-a",
+    parentRevisionId: "rev:parent",
+    committedRevisionId: "rev:committed",
+    headAdvanced: true,
+    selectedAssertionIds: ["a-1"],
+    acceptedAssertionIds: ["a-1"],
+    affectedObjectIds: ["object-1"],
+    appliedAssertionCount: 1,
+    auditStatus: "ok",
+    warnings: [],
+  };
+
+  function CommittedProbe() {
+    const {
+      adoptCommittedReceipt,
+      committedPhase,
+      committedReceipt,
+      committedSelectedObjectId,
+    } = useGraphReviewLiveState();
+    return (
+      <div>
+        <button
+          type="button"
+          data-testid="probe-adopt"
+          onClick={() => {
+            void adoptCommittedReceipt(receipt);
+          }}
+        >
+          Adopt
+        </button>
+        <span data-testid="probe-phase">{committedPhase}</span>
+        <span data-testid="probe-receipt">
+          {committedReceipt?.committedRevisionId ?? "none"}
+        </span>
+        <span data-testid="probe-selected">
+          {committedSelectedObjectId ?? "none"}
+        </span>
+      </div>
+    );
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("clears committed authority when catalog binding identity changes", async () => {
+    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
+      campaign_id: "longmont-c2",
+      session_id: "session-23",
+      graph_id: "graph-a",
+      markdown: "# Candidate",
+      focus: {
+        focus_session_id: "session-23",
+        focused_evidence_ref_ids: [],
+        focused_edge_ids: [],
+        focused_node_ids: [],
+      },
+      node_views: {},
+      source_spans: [],
+      mentions: [],
+    });
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
+      committedProjection("Hesta Ironroot"),
+    );
+
+    function BindingHost({ liveRunId }: { liveRunId: string }) {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-23"
+          liveRun={null}
+          committedBinding={{
+            kind: "catalog",
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+            liveRunId,
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    const { rerender } = render(<BindingHost liveRunId="run-a" />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
+
+    rerender(<BindingHost liveRunId="run-b" />);
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate"),
+    );
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("none");
+  });
+
+  it("preserves committed authority on same-binding refresh remount", async () => {
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
+      committedProjection("Hesta Ironroot"),
+    );
+
+    function BindingHost() {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-23"
+          liveRun={null}
+          committedBinding={{
+            kind: "catalog",
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+            liveRunId: "run-a",
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    const first = render(<BindingHost />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+    first.unmount();
+
+    // Same binding remount starts candidate; preservation is owned by not clearing
+    // while the binding identity is unchanged during an in-tree refresh.
+    const second = render(<BindingHost />);
+    expect(screen.getByTestId("probe-phase")).toHaveTextContent("candidate");
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+    second.rerender(<BindingHost />);
+    expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready");
+    expect(screen.getByTestId("probe-receipt")).toHaveTextContent("rev:committed");
+  });
+
+  it("suppresses stale deferred committed loads via generation counter", async () => {
+    let resolveFirst!: (value: WorldGraphProjection) => void;
+    let resolveSecond!: (value: WorldGraphProjection) => void;
+    const firstDeferred = new Promise<WorldGraphProjection>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const secondDeferred = new Promise<WorldGraphProjection>((resolve) => {
+      resolveSecond = resolve;
+    });
+    const postSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
+    postSpy.mockReturnValueOnce(firstDeferred).mockReturnValueOnce(secondDeferred);
+
+    function BindingHost() {
+      return (
+        <GraphReviewLiveStateProvider
+          campaignId="longmont-c2"
+          sessionId="session-23"
+          liveRun={null}
+          committedBinding={{
+            kind: "catalog",
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+            liveRunId: "run-a",
+          }}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <CommittedProbe />
+        </GraphReviewLiveStateProvider>
+      );
+    }
+
+    render(<BindingHost />);
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("loading"),
+    );
+    fireEvent.click(screen.getByTestId("probe-adopt"));
+    await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(2));
+
+    resolveFirst(committedProjection("Stale Label", "rev:committed"));
+    resolveSecond(committedProjection("Hesta Ironroot", "rev:committed"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("probe-phase")).toHaveTextContent("ready"),
+    );
+    expect(screen.getByTestId("probe-selected")).toHaveTextContent("object-1");
+    // Durable second response wins; stale first must not leave conflicting UI.
+    expect(screen.queryByText("Stale Label")).toBeNull();
   });
 });

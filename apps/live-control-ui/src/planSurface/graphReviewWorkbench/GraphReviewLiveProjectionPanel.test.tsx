@@ -4,13 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getGoldGraphProjection,
   getUnionSupergraphProjection,
+  postWorldGraphProjection,
   resolveGraphReviewExistingObjectCandidates,
 } from "../../api/liveApi";
 import type {
+  ExtractPromoteConfirmReceipt,
   GraphIngestRunSummary,
   UnionSupergraphProjectionResponse,
+  WorldGraphProjection,
 } from "../../api/types";
 import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
+import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { renderGraphReviewLiveHarness } from "./graphReviewLiveStateTestHarness";
 
 vi.mock("../../api/liveApi", async () => {
@@ -22,6 +26,7 @@ vi.mock("../../api/liveApi", async () => {
     ...actual,
     getGoldGraphProjection: vi.fn(),
     getUnionSupergraphProjection: vi.fn(),
+    postWorldGraphProjection: vi.fn(),
     resolveGraphReviewExistingObjectCandidates: vi.fn(),
   };
 });
@@ -400,5 +405,128 @@ describe("GraphReviewLiveProjectionPanel", () => {
       ),
     );
     expect(screen.getByRole("alert")).toHaveTextContent("Selected run: Run A");
+  });
+
+  it("switches from candidate projection to committed panel after receipt adoption", async () => {
+    const candidateProjection: UnionSupergraphProjectionResponse = {
+      ...projection,
+      node_views: {
+        "object-1": {
+          node_id: "object-1",
+          label: "Candidate Hesta",
+          kind: "npc",
+          role: "character",
+          summary: "candidate",
+          evidence_ref_ids: [],
+          edge_ids: [],
+          beat_ids: [],
+          source_span_ids: [],
+        },
+      },
+    };
+    vi.mocked(getUnionSupergraphProjection).mockResolvedValue(candidateProjection);
+
+    const committed: WorldGraphProjection = {
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev:committed",
+        headRevisionId: "rev:committed",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-23", campaignId: "longmont-c2" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "object-1",
+          label: "Hesta Ironroot",
+          kind: "npc",
+          role: "character",
+          aliases: [],
+          sourceDomains: [],
+          anchoredToFocusSession: true,
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    };
+    vi.mocked(postWorldGraphProjection).mockResolvedValue(committed);
+
+    const receipt: ExtractPromoteConfirmReceipt = {
+      schema: "dmb_extract_promote_confirm_v2",
+      outcome: "committed",
+      worldId: "eldyrwild",
+      proposalId: "prop-1",
+      proposalDigest: "digest-a",
+      parentRevisionId: "rev:parent",
+      committedRevisionId: "rev:committed",
+      headAdvanced: true,
+      selectedAssertionIds: ["a-1"],
+      acceptedAssertionIds: ["a-1"],
+      affectedObjectIds: ["object-1"],
+      appliedAssertionCount: 1,
+      auditStatus: "ok",
+      warnings: [],
+    };
+
+    function AdoptAndShow() {
+      const { adoptCommittedReceipt } = useGraphReviewLiveState();
+      return (
+        <>
+          <button
+            type="button"
+            data-testid="adopt-receipt"
+            onClick={() => {
+              void adoptCommittedReceipt(receipt);
+            }}
+          >
+            Adopt
+          </button>
+          <GraphReviewLiveProjectionPanel />
+        </>
+      );
+    }
+
+    renderGraphReviewLiveHarness({
+      liveRun: baseRun,
+      sessionId: "session-23",
+      committedBinding: {
+        kind: "catalog",
+        campaignId: "longmont-c2",
+        sessionId: "session-23",
+        liveRunId: "run-a",
+      },
+      children: <AdoptAndShow />,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-projection-layout")).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId("adopt-receipt"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-committed-projection-panel")).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Candidate Hesta")).toBeNull();
+    expect(screen.queryByTestId("graph-review-projection-layout")).toBeNull();
   });
 });

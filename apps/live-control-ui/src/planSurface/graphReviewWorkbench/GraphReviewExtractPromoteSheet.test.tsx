@@ -14,6 +14,7 @@ import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import type { PlanContextDescriptor } from "../types";
 import { ProjectionProvider } from "../projection/projectionContext";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
+import { GraphReviewLiveProjectionPanel } from "./GraphReviewLiveProjectionPanel";
 import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 
@@ -60,6 +61,17 @@ const projection: UnionSupergraphProjectionResponse = {
     focused_node_ids: [],
   },
   node_views: {
+    "object-1": {
+      node_id: "object-1",
+      label: "Candidate Hesta",
+      kind: "npc",
+      role: "character",
+      summary: "Apothecary candidate",
+      evidence_ref_ids: [],
+      edge_ids: [],
+      beat_ids: [],
+      source_span_ids: [],
+    },
     "obj-hesta": {
       node_id: "obj-hesta",
       label: "Hesta",
@@ -229,7 +241,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
         revisionId: "rev:committed",
         headRevisionId: "rev:committed",
         isHead: true,
-        focus: { kind: "session", sessionId: "session-25" },
+        focus: { kind: "session", sessionId: "session-25", campaignId: "longmont-c2" },
         admissibility: "gm",
       },
       summary: {
@@ -240,7 +252,22 @@ describe("GraphReviewExtractPromoteSheet", () => {
         sourceArtifactCount: 0,
         projectionTruncated: false,
       },
-      nodes: [],
+      nodes: [
+        {
+          nodeId: "object-1",
+          label: "Hesta Ironroot",
+          kind: "npc",
+          role: "character",
+          aliases: ["Hesta"],
+          sourceDomains: ["recap"],
+          anchoredToFocusSession: true,
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
       relationships: [],
       attributes: [],
       evidence: [],
@@ -295,7 +322,27 @@ describe("GraphReviewExtractPromoteSheet", () => {
     vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(confirmReceipt());
     vi.mocked(postWorldGraphProjection).mockClear();
 
-    renderSheet(prepareResponse({ campaignId: null, sessionId: null }));
+    const config = createIngestSurfaceConfig(planContext);
+    render(
+      <ProjectionProvider config={config}>
+        <GraphReviewLiveStateProvider
+          campaignId=""
+          sessionId=""
+          liveRun={baseRun()}
+          hasGold={false}
+          compare={null}
+          compareStatus="idle"
+          compareError={null}
+          selection={null}
+          onSelectSelection={() => undefined}
+        >
+          <GraphReviewExtractPromoteSheet
+            prepared={prepareResponse({ campaignId: null, sessionId: null })}
+            onClose={() => undefined}
+          />
+        </GraphReviewLiveStateProvider>
+      </ProjectionProvider>,
+    );
     fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
 
     await waitFor(() => {
@@ -359,6 +406,7 @@ describe("GraphReviewExtractPromoteSheet", () => {
         outcome: "published_audit_degraded",
         auditStatus: "degraded",
         warnings: ["Audit publish degraded."],
+        affectedObjectIds: ["object-1"],
       }),
     );
 
@@ -376,6 +424,58 @@ describe("GraphReviewExtractPromoteSheet", () => {
     expect(
       screen.getByTestId("graph-review-extract-promote-reload-revision"),
     ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(postWorldGraphProjection).toHaveBeenCalled();
+    });
+  });
+
+  it("post-confirm shows durable World Graph label over conflicting candidate label", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
+      confirmReceipt({ affectedObjectIds: ["object-1"] }),
+    );
+
+    renderWithLiveRun(
+      baseRun(),
+      <>
+        <GraphReviewExtractPromoteSheet
+          prepared={prepareResponse()}
+          onClose={() => undefined}
+        />
+        <GraphReviewLiveProjectionPanel />
+      </>,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-committed-projection-panel")).toBeInTheDocument();
+    });
+    expect(screen.getAllByText("Hesta Ironroot").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Candidate Hesta")).toBeNull();
+  });
+
+  it("reload after terminal receipt reloads committed authority without re-confirming", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
+      confirmReceipt({ affectedObjectIds: ["object-1"] }),
+    );
+
+    renderSheet();
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-review-extract-promote-receipt")).toBeInTheDocument();
+    });
+    expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
+    const projectionCallsAfterConfirm = vi.mocked(postWorldGraphProjection).mock.calls.length;
+    expect(projectionCallsAfterConfirm).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-reload-revision"));
+    await waitFor(() => {
+      expect(vi.mocked(postWorldGraphProjection).mock.calls.length).toBeGreaterThan(
+        projectionCallsAfterConfirm,
+      );
+    });
+    expect(extractPromoteApi.confirmExtractPromote).toHaveBeenCalledTimes(1);
   });
 
   it("preserves receipt when catalog refresh fails", async () => {
@@ -512,5 +612,75 @@ describe("GraphReviewSessionToolbar", () => {
     expect(
       screen.getByRole("checkbox", { name: "Select Hesta —works_at→ Apothecary" }),
     ).toBeInTheDocument();
+  });
+
+  it("hides prepare after a terminal committed receipt for the binding", async () => {
+    vi.mocked(extractPromoteApi.confirmExtractPromote).mockResolvedValue(
+      confirmReceipt({ affectedObjectIds: ["object-1"] }),
+    );
+    vi.mocked(postWorldGraphProjection).mockResolvedValue({
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev:committed",
+        headRevisionId: "rev:committed",
+        isHead: true,
+        focus: { kind: "session", sessionId: "session-25", campaignId: "longmont-c2" },
+        admissibility: "gm",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [
+        {
+          nodeId: "object-1",
+          label: "Hesta Ironroot",
+          kind: "npc",
+          role: "character",
+          aliases: [],
+          sourceDomains: [],
+          anchoredToFocusSession: true,
+          evidenceBadges: [],
+          adjacency: [],
+          suggestedExpansions: [],
+          evidenceRefIds: [],
+          sourceArtifactIds: [],
+        },
+      ],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    });
+
+    renderWithLiveRun(
+      baseRun(),
+      <>
+        <GraphReviewSessionToolbar />
+        <GraphReviewExtractPromoteSheet
+          prepared={prepareResponse()}
+          onClose={() => undefined}
+        />
+      </>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("graph-review-review-and-merge")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("graph-review-extract-promote-merge-cta"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("graph-review-committed-prepare-suppressed"),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("graph-review-review-and-merge")).toBeNull();
   });
 });
