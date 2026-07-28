@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { clearProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
 import {
   activateStatblockRetrieval,
   addGeneratedStatblockToCombat,
@@ -62,6 +63,7 @@ function mockJsonResponse(payload: unknown): Response {
 
 describe("liveApi artifact/capability helpers", () => {
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -747,10 +749,12 @@ describe("liveApi artifact/capability helpers", () => {
 
 describe("liveApi World Graph error preservation", () => {
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
   it("preserves World Graph error code and diagnostics on LiveApiError", async () => {
+    clearProjectionRequestCache();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
       status: 409,
@@ -799,6 +803,7 @@ describe("liveApi World Graph error preservation", () => {
 
 describe("liveApi postLiveQuery Hermes serializer", () => {
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -925,6 +930,7 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
 
 describe("liveApi postWorldGraphSourceAnchorRead", () => {
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -974,6 +980,7 @@ describe("liveApi postWorldGraphSourceAnchorRead", () => {
 
 describe("liveApi citation source helper", () => {
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 
@@ -1122,6 +1129,7 @@ describe("liveApi workspace worldbuilding contracts", () => {
 
 describe("liveApi PR380B World Graph recap client", () => {
   afterEach(() => {
+    clearProjectionRequestCache();
     vi.restoreAllMocks();
   });
 

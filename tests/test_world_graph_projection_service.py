@@ -24,6 +24,11 @@ from graph_memory.projection.world_projection import (
     PROJECTION_REQUEST_SCHEMA,
     WorldGraphProjectionRequest,
 )
+from graph_memory.world_projection_cache import (
+    clear_projection_cache,
+    make_projection_cache_key,
+    projection_cache_stats,
+)
 
 BUNDLE_PATH = Path(
     "graph_data/approved_contribution_bundles/eldyrwild-longmont-c2-initial-v1"
@@ -106,3 +111,121 @@ def test_service_maps_kernel_errors(tmp_path: Path) -> None:
         project_world_graph(_request(), root=tmp_path)
     assert exc_info.value.code == "world_graph_unavailable"
     assert exc_info.value.status_code == 404
+
+
+def test_service_caches_warm_projection_hits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    first = project_world_graph(_request(), root=tmp_path)
+    stats_after_first = projection_cache_stats()
+    second = project_world_graph(_request(), root=tmp_path)
+    stats_after_second = projection_cache_stats()
+
+    assert first.snapshot.revision_id == second.snapshot.revision_id
+    assert first is second
+    assert stats_after_first["misses"] >= 1
+    assert stats_after_second["hits"] >= 1
+    clear_projection_cache()
+
+
+def test_service_cache_disabled_by_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", "0")
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    first = project_world_graph(_request(), root=tmp_path)
+    second = project_world_graph(_request(), root=tmp_path)
+    stats = projection_cache_stats()
+
+    assert first.snapshot.revision_id == second.snapshot.revision_id
+    assert first is not second
+    assert stats["hits"] == 0
+    assert stats["size"] == 0
+    clear_projection_cache()
+
+
+def test_service_cache_skips_query_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    request = WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        query_text="Glowkindle",
+    )
+    first = project_world_graph(request, root=tmp_path)
+    second = project_world_graph(request, root=tmp_path)
+    stats = projection_cache_stats()
+
+    assert first.snapshot.revision_id == second.snapshot.revision_id
+    assert first is not second
+    assert stats["hits"] == 0
+    assert stats["size"] == 0
+    clear_projection_cache()
+
+
+def test_service_cache_misses_after_ledger_fingerprint_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+
+    first = project_world_graph(_request(), root=tmp_path)
+    contrib_dir = tmp_path / "graph_memory" / "worlds" / WORLD_ID / "contributions"
+    assert contrib_dir.is_dir()
+    # Fingerprint includes contribution file count + newest mtime; adding a file
+    # must miss the warm cache without mutating the contribution index JSON.
+    (contrib_dir / "contribution:cache-bust-probe.json").write_text("{}\n", encoding="utf-8")
+
+    second = project_world_graph(_request(), root=tmp_path)
+    stats = projection_cache_stats()
+
+    assert first.snapshot.revision_id == second.snapshot.revision_id
+    assert first is not second
+    assert stats["misses"] >= 2
+    clear_projection_cache()
+
+
+def test_service_cache_keys_revision_pin_separately(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("DMB_WORLD_GRAPH_PROJECTION_CACHE", raising=False)
+    clear_projection_cache()
+    _initialize(tmp_path)
+    head = kernel.open_world_graph_head(tmp_path, WORLD_ID)
+
+    head_projection = project_world_graph(_request(), root=tmp_path)
+    pinned_request = WorldGraphProjectionRequest(
+        schema=PROJECTION_REQUEST_SCHEMA,
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        revision_pin=head.head_revision_id,
+    )
+    pinned_key = make_projection_cache_key(
+        tmp_path,
+        pinned_request,
+        revision_id=head.head_revision_id,
+        head_revision_id=head.head_revision_id,
+    )
+    head_key = make_projection_cache_key(
+        tmp_path,
+        _request(),
+        revision_id=head.head_revision_id,
+        head_revision_id=head.head_revision_id,
+    )
+    assert pinned_key == head_key
+
+    pinned = project_world_graph(pinned_request, root=tmp_path)
+    stats = projection_cache_stats()
+    assert pinned is head_projection
+    assert stats["hits"] >= 1
+    clear_projection_cache()
