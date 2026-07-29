@@ -591,3 +591,142 @@ def test_digest_mismatch_on_case(tmp_path: Path) -> None:
     with pytest.raises(TemporalShadowExtractionError) as exc:
         load_temporal_shadow_extraction_case(bad_path, repo_root=REPO_ROOT)
     assert exc.value.code == "digest_mismatch"
+
+
+def test_not_applicable_ungrounded_phrase_rejected() -> None:
+    case, contribution, gold, packets = _load_case_bundle()
+    batch = _gold_to_model_batch(gold)
+    for item in batch["annotations"]:
+        if item["interpretation_status"] == "not_applicable":
+            item["diagnostics"] = ["valid explanation without fiction-time boundary"]
+            item["source_phrase"] = "this fabricated quote is not in evidence"
+            break
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        ground_and_convert_model_batch(
+            raw_batch=batch,
+            contribution=contribution,
+            case=case,
+            packets=packets,
+            model_id="fake-model",
+            prompt_version=TEMPORAL_SHADOW_PROMPT_VERSION,
+        )
+    assert exc.value.code == "grounding_failure"
+
+
+def test_run_manifest_is_complete_sealed_record(tmp_path: Path) -> None:
+    _case, contribution, gold, _packets = _load_case_bundle()
+    client = FakeTemporalShadowExtractionClient(_gold_to_model_batch(gold))
+    run = run_temporal_shadow_extraction(
+        CASE_PATH,
+        tmp_path / "sealed",
+        client=client,
+        model_id="fake-model",
+        repo_root=REPO_ROOT,
+    )
+    manifest = json.loads((tmp_path / "sealed/run-manifest.json").read_text())
+    required = {
+        "run_id",
+        "case_id",
+        "case_digest",
+        "repository_sha",
+        "overlay_id",
+        "base_contribution_id",
+        "base_contribution_source_payload_sha256",
+        "selected_assertion_ids",
+        "source_artifacts",
+        "comparison_verdict",
+        "evaluation_verdict",
+        "preview_verdict",
+        "model_id",
+        "prompt_version",
+        "executed_prompt_version",
+        "provider_response_id",
+        "input_tokens",
+        "output_tokens",
+        "elapsed_ms",
+    }
+    assert required.issubset(manifest.keys())
+    assert manifest["case_id"] == "tl01b-temporal-shadow-cohort-v1"
+    assert len(manifest["case_digest"]) == 64
+    assert manifest["repository_sha"]
+    assert manifest["base_contribution_id"] == contribution.contribution_id
+    assert len(manifest["base_contribution_source_payload_sha256"]) == 64
+    assert set(manifest["selected_assertion_ids"]) == set(_case.selected_assertion_ids)
+    assert manifest["source_artifacts"]
+    assert all("source_artifact_id" in a and "content_sha256" in a for a in manifest["source_artifacts"])
+    assert manifest["preview_verdict"] in {"complete", "partial", "failed"}
+    assert manifest["comparison_verdict"] == run.comparison_verdict
+    assert manifest["evaluation_verdict"] == run.evaluation_verdict
+    assert (tmp_path / "sealed/overlay.json").is_file()
+    assert (tmp_path / "sealed/preview.json").is_file()
+    assert (tmp_path / "sealed/comparison.json").is_file()
+
+
+class _FailingProviderClient:
+    def __init__(self, code: str, *, response_id: str | None = None) -> None:
+        self._code = code
+        self._response_id = response_id
+
+    def extract_annotations(
+        self,
+        *,
+        instructions: str,
+        user_content: str,
+        model_id: str,
+    ) -> tuple[dict[str, Any], Any]:
+        _ = (instructions, user_content, model_id)
+        raise TemporalShadowExtractionError(
+            f"forced {self._code}",
+            code=self._code,
+            diagnostics=[f"forced {self._code}"],
+            provider_response_id=self._response_id,
+        )
+
+
+def _assert_provider_failure_artifact(
+    tmp_path: Path, *, code: str, response_id: str | None
+) -> None:
+    out = tmp_path / code
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        run_temporal_shadow_extraction(
+            CASE_PATH,
+            out,
+            client=_FailingProviderClient(code, response_id=response_id),
+            model_id="fake-model",
+            repo_root=REPO_ROOT,
+        )
+    assert exc.value.code == code
+    failure_path = out / "failure-manifest.json"
+    assert failure_path.is_file()
+    failure = json.loads(failure_path.read_text())
+    assert failure["failure_code"] == code
+    assert failure["case_id"] == "tl01b-temporal-shadow-cohort-v1"
+    assert len(failure["case_digest"]) == 64
+    assert failure["base_contribution_id"]
+    assert len(failure["base_contribution_source_payload_sha256"]) == 64
+    assert failure["model_id"]
+    assert failure["executed_prompt_version"] == TEMPORAL_SHADOW_PROMPT_VERSION
+    assert failure["diagnostics"]
+    assert failure["provider_response_id"] == response_id
+    assert not (out / "overlay.json").exists()
+    assert not (out / "preview.json").exists()
+    assert not (out / "comparison.json").exists()
+    assert not (out / "run-manifest.json").exists()
+
+
+def test_provider_refusal_writes_failure_manifest(tmp_path: Path) -> None:
+    _assert_provider_failure_artifact(
+        tmp_path, code="provider_refusal", response_id="resp_refused"
+    )
+
+
+def test_provider_incomplete_writes_failure_manifest(tmp_path: Path) -> None:
+    _assert_provider_failure_artifact(
+        tmp_path, code="provider_incomplete", response_id="resp_incomplete"
+    )
+
+
+def test_provider_api_error_writes_failure_manifest(tmp_path: Path) -> None:
+    _assert_provider_failure_artifact(
+        tmp_path, code="provider_error", response_id=None
+    )

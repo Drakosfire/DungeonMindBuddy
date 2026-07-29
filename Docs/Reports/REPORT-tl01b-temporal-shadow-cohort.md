@@ -1,6 +1,6 @@
 # REPORT — TL01B temporal shadow cohort
 
-**Status:** Live provider run completed (post semantic-comparator fix)  
+**Status:** Live provider run completed (post grounding/manifest/failure-artifact fixes)  
 **Repository SHA (implementation base):** `d6ea4959c9bcc2f113ef50d912629864c1a1c04b`  
 **Evaluation verdict:** `ITERATE_PROMPT`
 
@@ -27,48 +27,49 @@
 | Base contribution ID | `contribution:8408dabc602b750f` |
 | Model | `gpt-5.4-mini` |
 | Prompt version (executed) | `tl01b-v1` |
-| Provider response ID | `resp_0a6675d8572b4db4006a6a6d3f2f208193b46c09a6bc7b51ec` |
+| Provider response ID | `resp_084f02c116c4cd98006a6a887d47d4819596bdb375f0cc36f3` |
 | Selected assertions | 6 |
-| Overlay ID | `temporal-overlay:bf373a6dfad16df2` |
-| Run ID | `temporal-shadow-run:7bab9f6b9bddcca9` |
+| Overlay ID | `temporal-overlay:e985d830e8461a3f` |
+| Run ID | `temporal-shadow-run:522390fed3fe62f8` |
 | Preview verdict | `complete` |
 | Comparison verdict | `fail` |
 | Evaluation verdict | `ITERATE_PROMPT` |
 | Input tokens | 3525 |
-| Output tokens | 893 |
-| Elapsed ms | ~5154 |
+| Output tokens | 846 |
+| Elapsed ms | ~4882 |
 | Cost | not reported by client |
 
 Artifacts (local, not committed): `evals/graph_memory_layer/artifacts/temporal_shadow_cohort/live-run/`
 
 ## Metrics (live vs gold, semantic comparator)
 
-Comparison ignores annotation ID, producer identity, diagnostic wording, source-phrase wording, and extraction confidence. Equality uses interpretation status, occurrence/valid-time payloads, and normalized evidence selection.
-
 | Metric | Count |
 | --- | ---: |
 | Exact match | 1 |
 | Wrong temporal value (same status) | 3 |
 | Wrong temporal lane | 0 |
-| Unsafe over-resolution | 2 |
+| Unsafe over-resolution | 1 |
 | Safe under-resolution | 0 |
-| Other status mismatch | 0 |
+| Other status mismatch | 1 |
 | Missing / extra | 0 / 0 |
+
+Expanded phrase grounding (every non-null `source_phrase`, including `not_applicable`) did not reject this provider batch; the run completed to overlay/preview/comparison.
 
 ## Strengths
 
-- Infrastructure completed end-to-end: sealed digests → owned spans → Responses API strict schema → TL01 overlay → preview.
+- Sealed digests → owned spans → Responses API strict schema → TL01 overlay → preview.
 - Target set exact; no foreign-evidence or missing-target failures.
-- Preview verdict `complete` (no skipped unresolved schemas).
-- Semantic comparator no longer mislabels metadata/ID drift as temporal error (prior contaminated 0/6 exact matches).
-- One true `exact_match` on a `not_applicable` negative-provenance row.
+- Preview verdict `complete`.
+- Run manifest now seals repository SHA, case/base digests, selected IDs, artifact digests, provider ID, tokens, and verdicts.
+- One true `exact_match` on a `not_applicable` row.
 
 ## Failure modes
 
-- Three resolved rows with same status but wrong temporal value.
-- Two **unsafe over-resolutions**: gold `not_applicable`/`ambiguous` predicted as `resolved`.
+- Three resolved rows with wrong temporal value.
+- One **unsafe over-resolution**: gold `ambiguous` predicted as `resolved`.
+- One status mismatch (`not_applicable` → `unresolved`).
 - Model quality still insufficient for TL02.
 
 ## Next decision
 
-**`ITERATE_PROMPT`** — evidence binding, gold binding, and TL01 assembly are sound; model quality is not ready for participant-role / projected-occurrence work. Do not cut over authoritative temporal production. Prefer a narrow prompt/schema-clarification slice before TL02.
+**`ITERATE_PROMPT`** — evaluator contracts (semantic compare, grounding, gold binding, failure artifacts, sealed manifest) are sound; model quality is not ready for participant-role / projected-occurrence work.

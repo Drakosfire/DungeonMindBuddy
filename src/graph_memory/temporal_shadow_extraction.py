@@ -68,11 +68,13 @@ class TemporalShadowExtractionError(Exception):
         code: str,
         diagnostics: list[str] | None = None,
         affected_assertion_id: str | None = None,
+        provider_response_id: str | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.diagnostics = list(diagnostics or [message])
         self.affected_assertion_id = affected_assertion_id
+        self.provider_response_id = provider_response_id
 
 
 class _CaseModel(BaseModel):
@@ -184,6 +186,11 @@ class TemporalShadowComparisonV1(_CaseModel):
     rows: list[TemporalShadowComparisonRowV1] = Field(default_factory=list)
 
 
+class TemporalShadowSourceArtifactDigestV1(_CaseModel):
+    source_artifact_id: str
+    content_sha256: str
+
+
 class TemporalShadowExtractionRunV1(_CaseModel):
     schema_: Literal["dmb_temporal_shadow_extraction_run_v1"] = Field(
         default=TEMPORAL_SHADOW_EXTRACTION_RUN_SCHEMA,
@@ -191,13 +198,42 @@ class TemporalShadowExtractionRunV1(_CaseModel):
     )
     run_id: str
     case_id: str
+    case_digest: str
+    repository_sha: str
     overlay_id: str
     base_contribution_id: str
+    base_contribution_source_payload_sha256: str
+    selected_assertion_ids: list[str]
+    source_artifacts: list[TemporalShadowSourceArtifactDigestV1]
     comparison_verdict: ComparisonVerdict
     evaluation_verdict: EvaluationVerdict
+    preview_verdict: str
     model_id: str
     prompt_version: str
     executed_prompt_version: str
+    provider_response_id: str
+    input_tokens: int
+    output_tokens: int
+    elapsed_ms: float
+
+
+TEMPORAL_SHADOW_FAILURE_MANIFEST_SCHEMA = "dmb_temporal_shadow_extraction_failure_v1"
+
+
+class TemporalShadowExtractionFailureV1(_CaseModel):
+    schema_: Literal["dmb_temporal_shadow_extraction_failure_v1"] = Field(
+        default=TEMPORAL_SHADOW_FAILURE_MANIFEST_SCHEMA,
+        alias="schema",
+    )
+    case_id: str
+    case_digest: str
+    base_contribution_id: str
+    base_contribution_source_payload_sha256: str
+    model_id: str
+    executed_prompt_version: str
+    failure_code: str
+    diagnostics: list[str] = Field(default_factory=list)
+    provider_response_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -719,11 +755,13 @@ class OpenAITemporalShadowExtractionClient:
             ) from exc
         response = call.response
         elapsed_ms = call.elapsed_ms
+        response_id = str(getattr(response, "id", "") or "") or None
         refusal = getattr(response, "refusal", None)
         if refusal:
             raise TemporalShadowExtractionError(
                 f"model refused: {refusal}",
                 code="provider_refusal",
+                provider_response_id=response_id,
             )
         if getattr(response, "status", None) == "incomplete":
             raw = getattr(response, "output_text", None) or response.model_dump_json()
@@ -731,12 +769,14 @@ class OpenAITemporalShadowExtractionClient:
                 "model response incomplete",
                 code="provider_incomplete",
                 diagnostics=[str(raw)[:2000]],
+                provider_response_id=response_id,
             )
         raw_text = (getattr(response, "output_text", None) or "").strip()
         if not raw_text:
             raise TemporalShadowExtractionError(
                 "model response missing output_text",
                 code="provider_error",
+                provider_response_id=response_id,
             )
         try:
             parsed = json.loads(raw_text)
@@ -881,18 +921,27 @@ def _require_grounded_source_phrase(
     *,
     item: TemporalModelAnnotationTransportV1,
     packets: dict[str, dict[str, Any]],
+    required: bool,
 ) -> None:
     phrase = item.source_phrase
-    if phrase is None or not phrase.strip():
+    if phrase is None:
+        if required:
+            raise TemporalShadowExtractionError(
+                "resolved annotation requires nonblank source_phrase",
+                code="grounding_failure",
+                affected_assertion_id=item.base_assertion_id,
+            )
+        return
+    if not phrase.strip():
         raise TemporalShadowExtractionError(
-            "resolved annotation requires nonblank source_phrase",
+            "source_phrase must be nonblank when supplied",
             code="grounding_failure",
             affected_assertion_id=item.base_assertion_id,
         )
     normalized_phrase = _normalize_ws(phrase)
     if not normalized_phrase:
         raise TemporalShadowExtractionError(
-            "resolved annotation requires nonblank source_phrase",
+            "source_phrase must be nonblank when supplied",
             code="grounding_failure",
             affected_assertion_id=item.base_assertion_id,
         )
@@ -979,36 +1028,21 @@ def ground_and_convert_model_batch(
                 )
 
         if item.interpretation_status == "resolved":
-            _require_grounded_source_phrase(item=item, packets=packets)
-        elif item.interpretation_status == "not_applicable":
-            cleaned = [d.strip() for d in item.diagnostics if isinstance(d, str)]
-            if not any(cleaned):
-                raise TemporalShadowExtractionError(
-                    "not_applicable annotation requires a nonblank explanation",
-                    code="grounding_failure",
-                    affected_assertion_id=item.base_assertion_id,
-                )
-        elif item.source_phrase is not None:
-            normalized_phrase = _normalize_ws(item.source_phrase)
-            if normalized_phrase:
-                found = False
-                for evidence_id in item.evidence_ref_ids:
-                    snippet = packets[item.base_assertion_id]["evidence_snippets"]
-                    text = next(
-                        s["preview_snippet"]
-                        for s in snippet
-                        if s["evidence_ref_id"] == evidence_id
-                    )
-                    if normalized_phrase in _normalize_ws(text):
-                        found = True
-                        break
-                if not found:
+            _require_grounded_source_phrase(
+                item=item, packets=packets, required=True
+            )
+        else:
+            if item.interpretation_status == "not_applicable":
+                cleaned = [d.strip() for d in item.diagnostics if isinstance(d, str)]
+                if not any(cleaned):
                     raise TemporalShadowExtractionError(
-                        "source_phrase not found verbatim in cited snippets",
+                        "not_applicable annotation requires a nonblank explanation",
                         code="grounding_failure",
                         affected_assertion_id=item.base_assertion_id,
-                        diagnostics=[f"source_phrase={item.source_phrase!r}"],
                     )
+            _require_grounded_source_phrase(
+                item=item, packets=packets, required=False
+            )
 
         try:
             annotations.append(
@@ -1226,6 +1260,84 @@ def compare_temporal_overlays(
     )
 
 
+def _repository_sha(*, repo_root: Path) -> str:
+    import subprocess
+
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return completed.stdout.strip() or "unknown"
+
+
+def _bounded_diagnostics(diagnostics: list[str], *, limit: int = 8) -> list[str]:
+    bounded: list[str] = []
+    for item in diagnostics[:limit]:
+        text = item if len(item) <= 500 else item[:497] + "..."
+        bounded.append(text)
+    return bounded
+
+
+def _write_provider_failure_manifest(
+    *,
+    out: Path,
+    case: TemporalShadowExtractionCaseV1,
+    contribution: GraphContribution,
+    case_digest: str,
+    model_id: str,
+    executed_prompt_version: str,
+    error: TemporalShadowExtractionError,
+    provider_response_id: str | None = None,
+) -> TemporalShadowExtractionFailureV1:
+    failure = TemporalShadowExtractionFailureV1(
+        case_id=case.case_id,
+        case_digest=case_digest,
+        base_contribution_id=contribution.contribution_id,
+        base_contribution_source_payload_sha256=compute_contribution_source_payload_sha256(
+            contribution
+        ),
+        model_id=model_id,
+        executed_prompt_version=executed_prompt_version,
+        failure_code=error.code,
+        diagnostics=_bounded_diagnostics(list(error.diagnostics)),
+        provider_response_id=provider_response_id,
+    )
+    (out / "failure-manifest.json").write_text(
+        json.dumps(failure.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return failure
+
+
+def _source_artifact_digests(
+    case: TemporalShadowExtractionCaseV1,
+) -> list[TemporalShadowSourceArtifactDigestV1]:
+    seen: dict[str, str] = {}
+    for entry in case.evidence_registry:
+        prior = seen.get(entry.source_artifact_id)
+        if prior is None:
+            seen[entry.source_artifact_id] = entry.content_sha256
+        elif prior != entry.content_sha256:
+            raise TemporalShadowExtractionError(
+                "Conflicting source artifact digests in case registry",
+                code="invalid_case",
+                diagnostics=[f"source_artifact_id={entry.source_artifact_id!r}"],
+            )
+    return [
+        TemporalShadowSourceArtifactDigestV1(
+            source_artifact_id=artifact_id,
+            content_sha256=digest,
+        )
+        for artifact_id, digest in sorted(seen.items())
+    ]
+
+
 def run_temporal_shadow_extraction(
     case_path: Path | str,
     output_dir: Path | str,
@@ -1252,15 +1364,31 @@ def run_temporal_shadow_extraction(
         case.prompt_version
     )
     active_client = client or OpenAITemporalShadowExtractionClient()
+    case_digest = _file_sha256(Path(case_path))
+    base_digest = compute_contribution_source_payload_sha256(contribution)
 
     user_content = render_temporal_shadow_user_content(
         packets, case.selected_assertion_ids
     )
-    raw_batch, provider_meta = active_client.extract_annotations(
-        instructions=instructions,
-        user_content=user_content,
-        model_id=resolved_model,
-    )
+    try:
+        raw_batch, provider_meta = active_client.extract_annotations(
+            instructions=instructions,
+            user_content=user_content,
+            model_id=resolved_model,
+        )
+    except TemporalShadowExtractionError as exc:
+        if exc.code in {"provider_refusal", "provider_incomplete", "provider_error"}:
+            _write_provider_failure_manifest(
+                out=out,
+                case=case,
+                contribution=contribution,
+                case_digest=case_digest,
+                model_id=resolved_model,
+                executed_prompt_version=executed_prompt_version,
+                error=exc,
+                provider_response_id=exc.provider_response_id,
+            )
+        raise
 
     annotations = ground_and_convert_model_batch(
         raw_batch=raw_batch,
@@ -1289,7 +1417,6 @@ def run_temporal_shadow_extraction(
     gold_overlay = load_bound_gold_overlay(case, contribution, repo_root=root)
     comparison = compare_temporal_overlays(parsed_overlay, gold_overlay)
 
-    case_digest = _file_sha256(Path(case_path))
     run_id = compute_temporal_shadow_run_id(
         case_id=case.case_id,
         case_digest=case_digest,
@@ -1300,13 +1427,23 @@ def run_temporal_shadow_extraction(
     run = TemporalShadowExtractionRunV1(
         run_id=run_id,
         case_id=case.case_id,
+        case_digest=case_digest,
+        repository_sha=_repository_sha(repo_root=root),
         overlay_id=parsed_overlay.overlay_id,
         base_contribution_id=contribution.contribution_id,
+        base_contribution_source_payload_sha256=base_digest,
+        selected_assertion_ids=list(case.selected_assertion_ids),
+        source_artifacts=_source_artifact_digests(case),
         comparison_verdict=comparison.verdict,
         evaluation_verdict=comparison.evaluation_verdict,
+        preview_verdict=preview.verdict,
         model_id=resolved_model,
         prompt_version=executed_prompt_version,
         executed_prompt_version=executed_prompt_version,
+        provider_response_id=provider_meta.response_id,
+        input_tokens=provider_meta.input_tokens,
+        output_tokens=provider_meta.output_tokens,
+        elapsed_ms=provider_meta.elapsed_ms,
     )
 
     (out / "run-manifest.json").write_text(
@@ -1357,6 +1494,7 @@ __all__ = [
     "TemporalShadowExtractionCaseV1",
     "TemporalShadowExtractionClient",
     "TemporalShadowExtractionError",
+    "TemporalShadowExtractionFailureV1",
     "TemporalShadowExtractionRunV1",
     "TEMPORAL_SHADOW_SYSTEM_INSTRUCTIONS",
     "assemble_temporal_overlay",

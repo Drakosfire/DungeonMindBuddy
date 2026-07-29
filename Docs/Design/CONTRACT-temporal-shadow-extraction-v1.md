@@ -78,9 +78,10 @@ After transport validation:
 1. Target set must equal `selected_assertion_ids` exactly (no duplicates)
 2. Every `evidence_ref_id` must be owned by the target assertion and present in the packet
 3. `resolved` requires a nonblank `source_phrase` that appears verbatim in a cited snippet (whitespace-normalized)
-4. `not_applicable` requires a nonblank diagnostic explanation
-5. Convert transport → `TemporalAssertionAnnotationV1` via TL00 temporal models
-6. Any violation → `TemporalShadowExtractionError` (no silent repair)
+4. When `source_phrase` is non-null for any status (including `not_applicable`), it must be grounded the same way
+5. `not_applicable` requires a nonblank diagnostic explanation
+6. Convert transport → `TemporalAssertionAnnotationV1` via TL00 temporal models
+7. Any violation → `TemporalShadowExtractionError` (no silent repair)
 
 Stable `annotation_id` via `compute_temporal_annotation_id` → `temporal-annotation:{16hex}`
 (includes `case_id`, `model_id`, and executed `prompt_version`).
