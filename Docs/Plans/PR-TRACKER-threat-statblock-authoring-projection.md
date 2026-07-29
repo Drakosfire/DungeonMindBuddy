@@ -2,12 +2,14 @@
 
 **Status:** ACTIVE REANCHORED TRACKER  
 **Date:** 2026-07-28  
-**Repository anchor:** `main` at `ff553bd81fc82e65d92ddbd1d05af5fc03f1adc7`  
+**Repository anchor:** `main` at `0f6f48ed6502a9a4e69b57f351ae9c795da54694`  
 **Latest completed PR:** `#439` — `SBW06c` Workbench revise UX  
-**Immediate authority:** run and record `R0-A` and `R0-B`; then re-anchor the smallest required implementation slice  
+**Immediate authority:** restore the real provider and re-run `R0-A`; keep `R0-B` blocked until strict authoritative Graph V1 projection is restored  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
-**Dogfood runbook:** [`../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md`](../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md)
+**Dogfood runbook:** [`../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md`](../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md)  
+**Re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-28.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-28.md)  
+**Current R0-A report:** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-28.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-28.md) — `BLOCKED_DEPENDENCY`
 
 This tracker is the sequencing authority for the Threat + Statblock magic-moment workstream. It does not override unrelated Campaign Supergraph or Hermes cleanup sequencing.
 
@@ -43,20 +45,20 @@ Required deletion owner:
 | `SBW05a–c` | COMPLETE `#398`, `#402`, `#404` | Complete-definition editing and validation. |
 | `SBW07 contract/a–c` | COMPLETE `#405–#409` | Immutable accepted mechanics persistence. |
 | `SBW06 contract/a` | MERGED `#413`, `#417` | Revise contract and revise from edited definition. |
-| `Dogfood Gate A` | MERGED `#425` | Context-aware draft create/generate Workbench entry. |
+| `Dogfood Gate A` | MERGED `#425` | Context-aware draft create/generate Workbench entry. Historical partial proof only: create succeeded; real-provider generate was unavailable. |
 | `SBW06b` | MERGED `#435` | Candidate-ref status and lineage persistence. |
-| `SBW06c` | MERGED `#439` | Workbench revise UX, prior proposal inspection, stable retry behavior. |
+| `SBW06c` | MERGED `#439` | Workbench revise UX, prior proposal inspection, stable retry behavior. Real-provider dogfood was not run. |
 
 ## 3. Reboot queue
 
 | ID | Type | Mission | Exit / next action |
 |---|---|---|---|
-| `R0-A` | DOGFOOD / CONTRACT AUDIT | Prove current real-provider create→generate→edit→validate→revise→accept→reload. | If pass, record result. If fail, dispatch narrow contract-sync/provider slice. |
-| `R0-B` | DOGFOOD / HERMES AUDIT | Prove broad query across admitted unioned graph/source context and produce editable grounded Threat description. | If pass, record exact context envelope needs. If fail, dispatch smallest retrieval/agent gap. |
+| `R0-A` | `BLOCKED_DEPENDENCY` / DOGFOOD / CONTRACT AUDIT | Prove current real-provider create→generate→edit→validate→revise→accept→reload. | Current agent could not reach the operator runtime/provider. Start configured DMS + Live Control, re-run through the normal Workbench, and replace the blocked report with actual product evidence. No implementation slice is selected yet. |
+| `R0-B` | `BLOCKED_DEPENDENCY` / DOGFOOD / HERMES AUDIT | Prove broad query across admitted unioned graph/source context and produce editable grounded Threat description. | Do not attempt until the separate Graph V1 lane supplies an authoritative strictly projectable graph head. PR `#444` is open/non-mergeable and advertises forbidden first-wins tolerance. |
 | `SBW06d` | PRE-DESIGNED; RE-ANCHOR REQUIRED | Revise from exact accepted mechanics locator. | No latest fallback; dispatch only after R0 observations. |
 | `AOW01` | NEW; CONTRACT FIRST | Grounded authored-object context envelope. | Exact revision/nodes/source anchors survive handoff. |
 | `AOW02` | NEW | Hermes “Develop as Threat” creates/opens exact ThreatDraft. | Enables `MAGIC-D1`. |
-| `AUTHORING-LIBRARY` | DECOMPOSE | Browse/reopen/update real ThreatDrafts and accepted mechanics; local recovery as separate slice if needed. | Backend `GET /api/live/threat-drafts` list already exists; Workbench + `liveApi` list client and accepted-mechanics library UI do not. Required for honest reload dogfood. |
+| `AUTHORING-LIBRARY` | DECOMPOSE | Browse/reopen/update real ThreatDrafts and accepted mechanics; local recovery as separate slice if needed. | Backend `GET /api/live/threat-drafts` list already exists; Workbench + `liveApi` ThreatDraft list/update clients and accepted-mechanics library UI do not. Record the actual R0-A reopening friction before dispatch. |
 
 ## 4. Graph publication queue
 
@@ -118,30 +120,34 @@ Current truth:
 
 ## 8. Dogfood gate ledger
 
-| Gate | Capability proved | Blocks |
-|---|---|---|
-| `R0-A` | Existing real statblock dependency path actually works. | `SBW06d` and broad statblock continuation. |
-| `R0-B` | Hermes can investigate the admitted unioned graph and author grounded prose. | `AOW01–02`. |
-| `MAGIC-D1` | Query → grounded description → durable ThreatDraft handoff. | Full authoring continuation. |
-| `MAGIC-D2` | Grounded draft → accepted immutable statblock revision. | Graph publication. |
-| `MAGIC-D3` | Accepted revision → governed reusable Threat + binding. | Placement. |
-| `MAGIC-D4` | Same Threat placed from Ingest, Build, and Plan. | Combat integration. |
-| `MAGIC-D5` | Exact graph-backed Threat/placement imported into live combat and reloaded. | Core completion. |
-| `AOW05` gate | Item lifecycle reuses the architecture. | General architecture completion. |
+| Gate | Current status | Capability proved | Blocks |
+|---|---|---|---|
+| `R0-A` | `BLOCKED_DEPENDENCY` | Existing real statblock dependency path actually works. | `SBW06d` and broad statblock continuation. |
+| `R0-B` | `BLOCKED_DEPENDENCY` | Hermes can investigate the admitted unioned graph and author grounded prose. | `AOW01–02`. |
+| `MAGIC-D1` | DOGFOOD REQUIRED | Query → grounded description → durable ThreatDraft handoff. | Full authoring continuation. |
+| `MAGIC-D2` | DOGFOOD REQUIRED | Grounded draft → accepted immutable statblock revision. | Graph publication. |
+| `MAGIC-D3` | BLOCKED_DEPENDENCY | Accepted revision → governed reusable Threat + binding. | Placement. |
+| `MAGIC-D4` | BLOCKED_DEPENDENCY | Same Threat placed from Ingest, Build, and Plan. | Combat integration. |
+| `MAGIC-D5` | BLOCKED_DEPENDENCY | Exact graph-backed Threat/placement imported into live combat and reloaded. | Core completion. |
+| `AOW05` gate | DEFERRED | Item lifecycle reuses the architecture. | General architecture completion. |
 
 ## 9. Immediate next dispatch logic
 
 ```text
-merge this docs sync
-→ run R0-A and R0-B
-→ write dogfood reports
-→ classify misses
-→ dispatch the smallest enabling slice
+restore and verify the real DungeonMindServer
+→ re-run R0-A through the normal Workbench
+→ replace the blocked report with exact identities and product observations
+→ independently restore strict Graph V1 projection
+→ run R0-B through Hermes
+→ classify the earliest real miss
+→ dispatch exactly one smallest enabling slice
 ```
 
 Expected branches after the gates:
 
 - provider/contract mismatch found → narrow consumer contract-sync slice;
+- real mechanics path works but normal reopening remains opaque-ID recovery → smallest ThreatDraft browse/reopen client + Workbench library slice;
+- local in-progress edits are destroyed by dependency failure → separate local recovery slice;
 - Hermes cannot search the required admitted union → narrow retrieval/tooling slice;
 - Hermes can answer but cannot preserve context → `AOW01`;
 - exact accepted revision revise is the next isolated gap → re-anchor `SBW06d`;
