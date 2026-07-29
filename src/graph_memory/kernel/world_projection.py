@@ -19,6 +19,7 @@ from graph_memory.kernel.contributions import (
     explicit_assertion_source_artifact_ids,
     semantic_assertion_value,
 )
+from graph_memory.kernel.temporal import temporal_core_semantic_payload
 from graph_memory.kernel.world_graph import (
     WorldGraphIntegrityError,
     WorldGraphNotFoundError,
@@ -395,6 +396,10 @@ def _node_core_semantic_fingerprint(
     provide distinct spellings for the same node without being contradictory.
     All remaining semantic fields still must agree; a label/kind/role
     correction must supersede the older contribution rather than coexist.
+
+    Temporal source/observation stamps (legacy ``session_id`` or V1
+    ``source_time``) are excluded via ``temporal_core_semantic_payload``;
+    occurrence and valid time remain correction-sensitive.
     """
     value = dict(semantic_assertion_value(assertion.value))
     value.pop("aliases", None)
@@ -408,7 +413,7 @@ def _node_core_semantic_fingerprint(
         assertion.epistemic_kind,
         assertion.visibility,
         assertion.campaign_scope,
-        _canonicalize_json_value(assertion.temporal_scope),
+        _canonicalize_json_value(temporal_core_semantic_payload(assertion.temporal_scope)),
     )
 
 
@@ -417,17 +422,16 @@ def _edge_core_semantic_fingerprint(
 ) -> tuple[Any, ...]:
     """Fingerprint correction-sensitive edge semantics, excluding session stamps.
 
-    ``value.session_ids`` and ``temporal_scope.session_id`` are additive
+    ``value.session_ids`` and temporal source/observation stamps (legacy
+    ``temporal_scope.session_id`` or V1 ``source_time``) are additive
     observation provenance for the same edge (e.g. standing party membership
     re-attested on a later session promote). They must not fail projection when
     endpoints, predicate, label, and other core semantics agree. Other
-    ``temporal_scope`` qualifiers (e.g. ``as_of``) still participate in the
-    fingerprint.
+    ``temporal_scope`` qualifiers (e.g. ``as_of``) and V1 occurrence/valid time
+    still participate in the fingerprint via ``temporal_core_semantic_payload``.
     """
     value = dict(semantic_assertion_value(assertion.value))
     value.pop("session_ids", None)
-    temporal_scope = dict(assertion.temporal_scope or {})
-    temporal_scope.pop("session_id", None)
     return (
         assertion.assertion_kind,
         assertion.subject_node_id,
@@ -438,7 +442,7 @@ def _edge_core_semantic_fingerprint(
         assertion.epistemic_kind,
         assertion.visibility,
         assertion.campaign_scope,
-        _canonicalize_json_value(temporal_scope or None),
+        _canonicalize_json_value(temporal_core_semantic_payload(assertion.temporal_scope)),
     )
 
 

@@ -5,6 +5,14 @@ from __future__ import annotations
 import pytest
 
 import graph_memory.kernel as kernel
+from graph_memory.kernel.temporal import (
+    TEMPORAL_ENVELOPE_SCHEMA,
+    TemporalEnvelopeV1,
+    TemporalIntervalV1,
+    TemporalPointExtentV1,
+    TemporalPointV1,
+    serialize_temporal_envelope,
+)
 from graph_memory.kernel.world_projection import (
     WorldGraphProjectionError,
     _assert_active_edge_assertions_agree,
@@ -44,6 +52,14 @@ def _edge_assertion(
     )
 
 
+def _session_point(session_id: str) -> TemporalPointV1:
+    return TemporalPointV1(
+        kind="session",
+        session_id=session_id,
+        certainty="explicit",
+    )
+
+
 def test_edge_fingerprint_ignores_value_session_ids_and_temporal_session_id() -> None:
     first = _edge_assertion(
         session_ids=["session-1"],
@@ -63,6 +79,77 @@ def test_edge_fingerprint_disagrees_on_other_temporal_scope_fields() -> None:
     )
     second = _edge_assertion(
         temporal_scope={"session_id": "session-2", "as_of": "T2"},
+    )
+    assert _edge_core_semantic_fingerprint(first) != _edge_core_semantic_fingerprint(second)
+    with pytest.raises(WorldGraphProjectionError, match="Active edge assertions disagree"):
+        _assert_active_edge_assertions_agree([first, second], graph_object_id=EDGE_ID)
+
+
+def test_edge_fingerprint_ignores_v1_source_time_only() -> None:
+    first = _edge_assertion(
+        temporal_scope=serialize_temporal_envelope(
+            TemporalEnvelopeV1(
+                schema=TEMPORAL_ENVELOPE_SCHEMA,
+                source_time=_session_point("session-1"),
+            )
+        )
+    )
+    second = _edge_assertion(
+        temporal_scope=serialize_temporal_envelope(
+            TemporalEnvelopeV1(
+                schema=TEMPORAL_ENVELOPE_SCHEMA,
+                source_time=_session_point("session-2"),
+            )
+        )
+    )
+    assert _edge_core_semantic_fingerprint(first) == _edge_core_semantic_fingerprint(second)
+    _assert_active_edge_assertions_agree([first, second], graph_object_id=EDGE_ID)
+
+
+def test_edge_fingerprint_disagrees_on_v1_occurrence_time() -> None:
+    first = _edge_assertion(
+        temporal_scope=serialize_temporal_envelope(
+            TemporalEnvelopeV1(
+                schema=TEMPORAL_ENVELOPE_SCHEMA,
+                occurrence_time=TemporalPointExtentV1(
+                    kind="point",
+                    point=_session_point("session-1"),
+                ),
+            )
+        )
+    )
+    second = _edge_assertion(
+        temporal_scope=serialize_temporal_envelope(
+            TemporalEnvelopeV1(
+                schema=TEMPORAL_ENVELOPE_SCHEMA,
+                occurrence_time=TemporalPointExtentV1(
+                    kind="point",
+                    point=_session_point("session-2"),
+                ),
+            )
+        )
+    )
+    assert _edge_core_semantic_fingerprint(first) != _edge_core_semantic_fingerprint(second)
+    with pytest.raises(WorldGraphProjectionError, match="Active edge assertions disagree"):
+        _assert_active_edge_assertions_agree([first, second], graph_object_id=EDGE_ID)
+
+
+def test_edge_fingerprint_disagrees_on_v1_valid_time() -> None:
+    first = _edge_assertion(
+        temporal_scope=serialize_temporal_envelope(
+            TemporalEnvelopeV1(
+                schema=TEMPORAL_ENVELOPE_SCHEMA,
+                valid_time=TemporalIntervalV1(start=_session_point("session-1")),
+            )
+        )
+    )
+    second = _edge_assertion(
+        temporal_scope=serialize_temporal_envelope(
+            TemporalEnvelopeV1(
+                schema=TEMPORAL_ENVELOPE_SCHEMA,
+                valid_time=TemporalIntervalV1(start=_session_point("session-2")),
+            )
+        )
     )
     assert _edge_core_semantic_fingerprint(first) != _edge_core_semantic_fingerprint(second)
     with pytest.raises(WorldGraphProjectionError, match="Active edge assertions disagree"):
