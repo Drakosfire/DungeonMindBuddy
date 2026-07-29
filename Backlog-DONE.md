@@ -7,10 +7,16 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Main-lane Graph V1 projection recovery (Baergrom→Caelynn) — captured 2026-07-28, done 2026-07-28
+**Context:** Projection 409 on active-edge semantic disagreement after stale-field rebuild. Sole fingerprint-disagreeing edge was `edge:pc:baergrom:serves:pc:caelynn` (heal/revive events packaged as durable `serves`).
+**Insight:** Governed supersede of parent contributions (reject unsupported edge assertion; keep other accepts) + rebuild publish restores projectability without first-wins tolerance or temporal modeling.
+**Action (done):** Supersedes → `contribution:d3d244474789879c` / `contribution:4c89cbbf15da5d10`; head `rev:a3262c8102f61f490e11444d9fc28068`; projection 200; strict fingerprint tests still pass. Report: `Docs/Reports/REPORT-main-graph-v1-projection-repair.md`.
+**Refs:** HANDOFF-main-graph-v1-projection-recovery-dogfood.md; investigation report
+
 ## [DONE] Restored Eldyrwild graph head migrated past stale support field — captured 2026-07-28, done 2026-07-28
 **Context:** Restored world graph (transfer PR `15794992`) carried 889 `assertion_support` entries with a stale `per_contribution_assertion_ids` key that current strict `DurableAssertionSupport` (`src/graph_memory/evidence/assertion_support.py`) forbids → `projection_internal_error` on every projection.
 **Insight:** Editing `graph.json` in place breaks content-addressing (hash + revision-id integrity). Durable fix is replay, not mutation.
-**Action (done):** `kernel.rebuild_from_contributions(root, world_id='eldyrwild', publish=True)` replayed contributions → new clean head `rev:5017a20164555f11d4508f67661058f1` (parent `rev:2a72ef7a…`), node/edge counts identical (432/344), stale keys gone, integrity verified. A separate, still-open issue (active-edge semantic disagreement) is tracked in active `Backlog.md` as `[READY]`.
+**Action (done):** `kernel.rebuild_from_contributions(root, world_id='eldyrwild', publish=True)` replayed contributions → new clean head `rev:5017a20164555f11d4508f67661058f1` (parent `rev:2a72ef7a…`), node/edge counts identical (432/344), stale keys gone, integrity verified. Projection-blocking edge disagreement was a separate follow-on (now also DONE above).
 **Refs:** head.json; `out/graph_memory/worlds/eldyrwild/contribution_rebuild/latest.json`; stale backup `graph.json.bak-20260728T184837` (deletable after verification window)
 
 ## [DONE] Shed hub-README graph identity (A+B) — captured 2026-07-27, done 2026-07-27
