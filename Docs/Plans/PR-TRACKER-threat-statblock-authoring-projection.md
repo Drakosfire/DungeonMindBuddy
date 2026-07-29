@@ -1,15 +1,17 @@
 # PR Tracker — Grounded Threat + Statblock Magic Moment
 
 **Status:** ACTIVE REANCHORED TRACKER  
-**Date:** 2026-07-28  
-**Repository anchor:** `main` at `0f6f48ed6502a9a4e69b57f351ae9c795da54694`  
-**Latest completed PR:** `#439` — `SBW06c` Workbench revise UX  
-**Immediate authority:** restore the real provider and re-run `R0-A`; keep `R0-B` blocked until strict authoritative Graph V1 projection is restored  
+**Date:** 2026-07-29  
+**Repository anchor:** `main` at `9174dd5e99b3acf20f4d81858bff4a563f65ae97`  
+**Latest completed workstream PR:** `#447` — blocked-gate re-anchor and report sync  
+**Immediate authority:** `R0-A` is `FAIL_PRODUCT`; dispatch the Server diagnostics contract, then its Buddy consumer successor and re-run. `R0-B` is ready for product dogfood on repaired strict Graph V1 head `rev:a3262c8102f61f490e11444d9fc28068`.  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Dogfood runbook:** [`../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md`](../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md)  
 **Re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-28.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-28.md)  
-**Current R0-A report:** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-28.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-28.md) — `BLOCKED_DEPENDENCY`
+**Current R0-A report:** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md) — `FAIL_PRODUCT`  
+**Prior environment-only R0-A report:** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-28.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-28.md) — historical `BLOCKED_DEPENDENCY`  
+**Next handoff:** [`HANDOFF-dms-generation-validation-diagnostics.md`](HANDOFF-dms-generation-validation-diagnostics.md)
 
 This tracker is the sequencing authority for the Threat + Statblock magic-moment workstream. It does not override unrelated Campaign Supergraph or Hermes cleanup sequencing.
 
@@ -23,6 +25,7 @@ This tracker is the sequencing authority for the Threat + Statblock magic-moment
 6. Saved mechanics, graph publication, placement, and runtime activation remain distinct states.
 7. Pre-designed SBW handoffs must be re-anchored to current paths, contracts, fixtures, and base SHA before dispatch.
 8. Every runtime slice names the dogfood gate it enables and the predecessor behavior it removes.
+9. Provider-output validation failures must become inspectable before prompt tuning, schema relaxation, or automatic repair is authorized.
 
 Required demolition declaration:
 
@@ -45,20 +48,42 @@ Required deletion owner:
 | `SBW05a–c` | COMPLETE `#398`, `#402`, `#404` | Complete-definition editing and validation. |
 | `SBW07 contract/a–c` | COMPLETE `#405–#409` | Immutable accepted mechanics persistence. |
 | `SBW06 contract/a` | MERGED `#413`, `#417` | Revise contract and revise from edited definition. |
-| `Dogfood Gate A` | MERGED `#425` | Context-aware draft create/generate Workbench entry. Historical partial proof only: create succeeded; real-provider generate was unavailable. |
+| `Dogfood Gate A` | MERGED `#425` | Context-aware draft create/generate Workbench entry. Historical partial proof only. |
 | `SBW06b` | MERGED `#435` | Candidate-ref status and lineage persistence. |
-| `SBW06c` | MERGED `#439` | Workbench revise UX, prior proposal inspection, stable retry behavior. Real-provider dogfood was not run. |
+| `SBW06c` | MERGED `#439` | Workbench revise UX, prior proposal inspection, stable retry behavior. |
+| Magic-moment re-anchor | MERGED `#446`, `#447` | Product lifecycle, dogfood gates, reports, and current sequencing authority. |
+| Graph V1 projection recovery | RECORDED `686ccb7e` | Governed supersede + rebuild restored strict projectability on `rev:a3262c8102f61f490e11444d9fc28068`; first-wins tolerance not used. |
 
 ## 3. Reboot queue
 
-| ID | Type | Mission | Exit / next action |
+| ID | Type / status | Mission | Exit / next action |
 |---|---|---|---|
-| `R0-A` | `BLOCKED_DEPENDENCY` / DOGFOOD / CONTRACT AUDIT | Prove current real-provider create→generate→edit→validate→revise→accept→reload. | Current agent could not reach the operator runtime/provider. Start configured DMS + Live Control, re-run through the normal Workbench, and replace the blocked report with actual product evidence. No implementation slice is selected yet. |
-| `R0-B` | `BLOCKED_DEPENDENCY` / DOGFOOD / HERMES AUDIT | Prove broad query across admitted unioned graph/source context and produce editable grounded Threat description. | Do not attempt until the separate Graph V1 lane supplies an authoritative strictly projectable graph head. PR `#444` is open/non-mergeable and advertises forbidden first-wins tolerance. |
-| `SBW06d` | PRE-DESIGNED; RE-ANCHOR REQUIRED | Revise from exact accepted mechanics locator. | No latest fallback; dispatch only after R0 observations. |
+| `R0-A` | `FAIL_PRODUCT` / DOGFOOD | Prove current real-provider create→generate→edit→validate→revise→accept→reload. | Mireward Latchling reached the provider but failed before candidate creation with generic `Generated definition failed validation`. Implement diagnostics sequence, then re-run from the real Workbench. |
+| `DMS-VAL-01` | **DISPATCH READY** / SERVER CONTRACT | Return and durably replay bounded typed diagnostics for `definition_invalid`, distinguishing schema parsing from domain validation without raw provider output. | Implement in `Drakosfire/DungeonMindServer` from `2c7d2566...`; exact handoff linked above. |
+| `BUDDY-VAL-01` | NAMED SUCCESSOR | Preserve the Server diagnostic packet in Buddy generation responses and render it in the Workbench with exact draft/request authority retained. | Dispatch only after the Server packet is published and fixtures/generated contracts are available. |
+| `R0-B` | `DOGFOOD_READY` / HERMES AUDIT | Prove broad query across admitted unioned graph/source context and produce editable grounded Threat description. | Run on strict repaired Graph V1 head `rev:a3262c8102f61f490e11444d9fc28068`; record exact retrieval session, selected nodes, anchors, and gaps. |
+| `SBW06d` | PRE-DESIGNED; RE-ANCHOR REQUIRED | Revise from exact accepted mechanics locator. | No latest fallback; remains downstream of successful candidate generation and R0 observations. |
 | `AOW01` | NEW; CONTRACT FIRST | Grounded authored-object context envelope. | Exact revision/nodes/source anchors survive handoff. |
 | `AOW02` | NEW | Hermes “Develop as Threat” creates/opens exact ThreatDraft. | Enables `MAGIC-D1`. |
-| `AUTHORING-LIBRARY` | DECOMPOSE | Browse/reopen/update real ThreatDrafts and accepted mechanics; local recovery as separate slice if needed. | Backend `GET /api/live/threat-drafts` list already exists; Workbench + `liveApi` ThreatDraft list/update clients and accepted-mechanics library UI do not. Record the actual R0-A reopening friction before dispatch. |
+| `AUTHORING-LIBRARY` | DECOMPOSE | Browse/reopen/update real ThreatDrafts and accepted mechanics; local recovery separately if needed. | Do not dispatch ahead of the generation blocker. Backend list/get/update exist; Workbench clients/library remain absent. |
+
+### Current failure-chain truth
+
+```text
+Workbench request
+→ real DungeonMindServer provider call
+→ provider returns a payload
+→ Server either cannot parse StatblockDefinitionV1
+   OR domain validator returns invalid
+→ both become definition_invalid
+→ HTTP maps both to validation_failed + generic message
+→ durable failed operation stores kind/message only
+→ Buddy drops transport details and returns failure_message
+→ Workbench cannot show an actionable issue
+→ no candidate exists
+```
+
+The first implementation sequence repairs observability and replay truth. It does not yet claim that invalid output will be repaired automatically.
 
 ## 4. Graph publication queue
 
@@ -91,11 +116,10 @@ Current truth:
 
 - the original static Mireward page is a harness, not the product;
 - a live server-backed `CombatRosterModule` exists;
-- current combat persists to standalone `combat/current_combat.json` state (with automatic backups);
-- combat entity statblock identity remains legacy `statblock_path` / `statblock_artifact_id` / `statblock_title` shaped;
+- current combat persists to standalone `combat/current_combat.json` state with backups;
+- combat identity remains legacy path/artifact/title shaped;
 - exact graph Threat + binding + accepted revision is not authoritative;
-- the old Statblock View still offers add-to-combat for corpus-promotion / generated artifacts, but that is not the new Workbench → accepted-revision path;
-- exact-revision insertion, reload, and mechanics drilldown from the new lifecycle remain absent.
+- exact-revision insertion, reload, and mechanics drilldown remain absent.
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
@@ -122,10 +146,10 @@ Current truth:
 
 | Gate | Current status | Capability proved | Blocks |
 |---|---|---|---|
-| `R0-A` | `BLOCKED_DEPENDENCY` | Existing real statblock dependency path actually works. | `SBW06d` and broad statblock continuation. |
-| `R0-B` | `BLOCKED_DEPENDENCY` | Hermes can investigate the admitted unioned graph and author grounded prose. | `AOW01–02`. |
+| `R0-A` | `FAIL_PRODUCT` | Existing real statblock path works end to end. | `SBW06d`, authoring continuation, `MAGIC-D2`. |
+| `R0-B` | `DOGFOOD_READY` | Hermes can investigate the admitted unioned graph and author grounded prose. | `AOW01–02`. |
 | `MAGIC-D1` | DOGFOOD REQUIRED | Query → grounded description → durable ThreatDraft handoff. | Full authoring continuation. |
-| `MAGIC-D2` | DOGFOOD REQUIRED | Grounded draft → accepted immutable statblock revision. | Graph publication. |
+| `MAGIC-D2` | BLOCKED BY `R0-A` | Grounded draft → accepted immutable statblock revision. | Graph publication. |
 | `MAGIC-D3` | BLOCKED_DEPENDENCY | Accepted revision → governed reusable Threat + binding. | Placement. |
 | `MAGIC-D4` | BLOCKED_DEPENDENCY | Same Threat placed from Ingest, Build, and Plan. | Combat integration. |
 | `MAGIC-D5` | BLOCKED_DEPENDENCY | Exact graph-backed Threat/placement imported into live combat and reloaded. | Core completion. |
@@ -134,24 +158,23 @@ Current truth:
 ## 9. Immediate next dispatch logic
 
 ```text
-restore and verify the real DungeonMindServer
-→ re-run R0-A through the normal Workbench
-→ replace the blocked report with exact identities and product observations
-→ independently restore strict Graph V1 projection
-→ run R0-B through Hermes
-→ classify the earliest real miss
-→ dispatch exactly one smallest enabling slice
+dispatch DMS-VAL-01
+→ publish stable diagnostic packet + durable replay
+→ dispatch BUDDY-VAL-01 consumer/rendering
+→ re-run Mireward Latchling R0-A from the normal Workbench
+→ use the diagnostics to decide whether prompt tuning or bounded repair is justified
+→ independently run R0-B on repaired strict Graph V1 head
+→ dispatch the next earliest blocker, not the next old SBW number
 ```
 
-Expected branches after the gates:
+Expected branches after the rerun:
 
-- provider/contract mismatch found → narrow consumer contract-sync slice;
-- real mechanics path works but normal reopening remains opaque-ID recovery → smallest ThreatDraft browse/reopen client + Workbench library slice;
+- repeated deterministic provider-output defects → narrow prompt/schema or bounded repair slice supported by captured issues;
+- candidate generation succeeds but normal reopening remains opaque-ID recovery → smallest ThreatDraft browse/reopen slice;
 - local in-progress edits are destroyed by dependency failure → separate local recovery slice;
-- Hermes cannot search the required admitted union → narrow retrieval/tooling slice;
+- Hermes cannot search the repaired admitted union → narrow retrieval/tooling slice;
 - Hermes can answer but cannot preserve context → `AOW01`;
-- exact accepted revision revise is the next isolated gap → re-anchor `SBW06d`;
-- multiple gaps found → sequence them by the earliest blocked dogfood gate, not by the old SBW numbering alone.
+- exact accepted-revision revise is the next isolated gap → re-anchor `SBW06d`.
 
 ## 10. PR body requirements
 
