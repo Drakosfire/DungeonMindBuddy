@@ -7,6 +7,12 @@ Archive of completed (`DONE`) and dropped (`DROPPED`) entries previously in `Bac
 
 Sort newest → oldest within each status.
 
+## [DONE] Restored Eldyrwild graph head migrated past stale support field — captured 2026-07-28, done 2026-07-28
+**Context:** Restored world graph (transfer PR `15794992`) carried 889 `assertion_support` entries with a stale `per_contribution_assertion_ids` key that current strict `DurableAssertionSupport` (`src/graph_memory/evidence/assertion_support.py`) forbids → `projection_internal_error` on every projection.
+**Insight:** Editing `graph.json` in place breaks content-addressing (hash + revision-id integrity). Durable fix is replay, not mutation.
+**Action (done):** `kernel.rebuild_from_contributions(root, world_id='eldyrwild', publish=True)` replayed contributions → new clean head `rev:5017a20164555f11d4508f67661058f1` (parent `rev:2a72ef7a…`), node/edge counts identical (432/344), stale keys gone, integrity verified. A separate, still-open issue (active-edge semantic disagreement) is tracked in active `Backlog.md` as `[READY]`.
+**Refs:** head.json; `out/graph_memory/worlds/eldyrwild/contribution_rebuild/latest.json`; stale backup `graph.json.bak-20260728T184837` (deletable after verification window)
+
 ## [DONE] Shed hub-README graph identity (A+B) — captured 2026-07-27, done 2026-07-27
 **Context:** Graph Review load failed with `path does not exist: Longmont Campaign/.../PCs/baergrom/README.md`. Preview union stamped corpus-relative hub paths as openable `source_artifacts` URIs; verified snapshot required them under the repo root.
 **Insight:** Hub README paths are documentation location, not graph identity and not openable projection sources. Identity is `corpus_ref` type+ref_id; worldbuilding provenance uses `fixture://corpus-ref/…` with `can_open_source=False`. Legacy worldbuilding URIs are skipped in the path assert so old runs still load.
