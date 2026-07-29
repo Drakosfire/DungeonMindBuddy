@@ -4,6 +4,7 @@
   "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_cohort/base-contribution.json",
   "base_contribution_sha256": "c85e4a3cf2357063c7d98e05eb5be15115b9cf5ed0c49566973303950011cc40",
   "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_cohort/gold-overlay.json",
+  "gold_overlay_sha256": "593e726c2249cc162c6c6aaa54d2b7cf7d6452e7ca02cf0364c620c03085a8b4",
   "selected_assertion_ids": [
     "assertion:033de7c2063119b5",
     "assertion:a027cc13edc1ac7c",

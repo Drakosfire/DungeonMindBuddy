@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -14,6 +13,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from src.llm.api_client import DungeonMindApiClient
 from graph_memory.extraction.category_candidate_graph_extractor import (
     resolve_category_graph_model,
 )
@@ -109,6 +109,7 @@ class TemporalShadowExtractionCaseV1(_CaseModel):
     base_contribution_path: str
     base_contribution_sha256: str
     gold_overlay_path: str
+    gold_overlay_sha256: str
     selected_assertion_ids: list[str]
     evidence_registry: list[EvidenceRegistryEntryV1]
     snippet_max_chars: int = 2000
@@ -121,6 +122,13 @@ class TemporalShadowExtractionCaseV1(_CaseModel):
             raise ValueError("selected_assertion_ids must be non-empty")
         if len(set(value)) != len(value):
             raise ValueError("selected_assertion_ids must be unique")
+        return value
+
+    @field_validator("base_contribution_sha256", "gold_overlay_sha256", mode="after")
+    @classmethod
+    def _sha_fields(cls, value: str) -> str:
+        if not _SHA256_RE.match(value):
+            raise ValueError("digest fields must be lowercase hex sha256")
         return value
 
 
@@ -136,6 +144,7 @@ ComparisonClassification = Literal[
     "exact_match",
     "safe_under_resolution",
     "unsafe_over_resolution",
+    "wrong_temporal_lane",
     "status_mismatch",
     "semantic_mismatch",
     "wrong_temporal_value",
@@ -157,6 +166,7 @@ class TemporalShadowComparisonMetricsV1(_CaseModel):
     exact_match_count: int
     safe_under_resolution_count: int = 0
     unsafe_over_resolution_count: int = 0
+    wrong_temporal_lane_count: int = 0
     status_mismatch_count: int
     semantic_mismatch_count: int
     missing_prediction_count: int
@@ -179,12 +189,15 @@ class TemporalShadowExtractionRunV1(_CaseModel):
         default=TEMPORAL_SHADOW_EXTRACTION_RUN_SCHEMA,
         alias="schema",
     )
+    run_id: str
     case_id: str
     overlay_id: str
     base_contribution_id: str
     comparison_verdict: ComparisonVerdict
+    evaluation_verdict: EvaluationVerdict
     model_id: str
     prompt_version: str
+    executed_prompt_version: str
 
 
 @dataclass(frozen=True)
@@ -336,6 +349,43 @@ def load_temporal_shadow_extraction_case(
             )
 
     registry_ids = {entry.evidence_ref_id for entry in case.evidence_registry}
+    if len(registry_ids) != len(case.evidence_registry):
+        seen: set[str] = set()
+        dupes: list[str] = []
+        for entry in case.evidence_registry:
+            if entry.evidence_ref_id in seen:
+                dupes.append(entry.evidence_ref_id)
+            seen.add(entry.evidence_ref_id)
+        raise TemporalShadowExtractionError(
+            "Duplicate evidence_ref_id in evidence registry",
+            code="invalid_case",
+            diagnostics=[f"duplicates={sorted(set(dupes))!r}"],
+        )
+
+    artifact_defs: dict[str, tuple[str, str, str, str, str, str, str | None]] = {}
+    for entry in case.evidence_registry:
+        fingerprint = (
+            entry.source_artifact_path,
+            entry.content_sha256,
+            entry.source_ref_id,
+            entry.artifact_kind,
+            entry.evidence_role,
+            entry.visibility_state,
+            entry.label,
+        )
+        prior = artifact_defs.get(entry.source_artifact_id)
+        if prior is not None and prior != fingerprint:
+            raise TemporalShadowExtractionError(
+                "Conflicting source artifact definitions for same source_artifact_id",
+                code="invalid_case",
+                diagnostics=[
+                    f"source_artifact_id={entry.source_artifact_id!r}",
+                    f"prior={prior!r}",
+                    f"current={fingerprint!r}",
+                ],
+            )
+        artifact_defs[entry.source_artifact_id] = fingerprint
+
     for assertion_id in case.selected_assertion_ids:
         assertion = base_by_id[assertion_id]
         owned = set(explicit_assertion_evidence_ref_ids(assertion))
@@ -375,7 +425,98 @@ def load_temporal_shadow_extraction_case(
             f"Missing gold overlay: {case.gold_overlay_path}",
             code="invalid_case",
         )
+    actual_gold_sha = _file_sha256(gold_path)
+    if actual_gold_sha != case.gold_overlay_sha256:
+        raise TemporalShadowExtractionError(
+            "gold_overlay_sha256 mismatch",
+            code="digest_mismatch",
+            diagnostics=[
+                f"expected={case.gold_overlay_sha256!r}",
+                f"actual={actual_gold_sha!r}",
+            ],
+        )
+
+    resolve_prompt_instructions(case.prompt_version)
+    load_bound_gold_overlay(case, contribution, repo_root=repo_root)
     return case
+
+
+def resolve_prompt_instructions(prompt_version: str) -> tuple[str, str]:
+    """Return (instructions, executed_prompt_version) or fail closed."""
+    if prompt_version != TEMPORAL_SHADOW_PROMPT_VERSION:
+        raise TemporalShadowExtractionError(
+            f"Unsupported prompt_version: {prompt_version!r}",
+            code="unsupported_prompt_version",
+            diagnostics=[
+                f"supported={TEMPORAL_SHADOW_PROMPT_VERSION!r}",
+                f"declared={prompt_version!r}",
+            ],
+        )
+    return TEMPORAL_SHADOW_SYSTEM_INSTRUCTIONS, TEMPORAL_SHADOW_PROMPT_VERSION
+
+
+def load_bound_gold_overlay(
+    case: TemporalShadowExtractionCaseV1,
+    contribution: GraphContribution,
+    *,
+    repo_root: Path,
+) -> TemporalAnnotationOverlayV1:
+    gold_path = _resolve_repo_relative(case.gold_overlay_path, repo_root=repo_root)
+    try:
+        gold = load_temporal_annotation_overlay(
+            json.loads(gold_path.read_text(encoding="utf-8"))
+        )
+    except TemporalShadowBuildError as exc:
+        raise TemporalShadowExtractionError(
+            f"Invalid gold overlay: {exc}",
+            code="invalid_gold_overlay",
+            diagnostics=list(exc.diagnostics),
+        ) from exc
+
+    if gold.producer.kind != "human_gold":
+        raise TemporalShadowExtractionError(
+            'Gold overlay producer.kind must be "human_gold"',
+            code="invalid_gold_overlay",
+            diagnostics=[f"producer.kind={gold.producer.kind!r}"],
+        )
+
+    if gold.base_contribution_id != contribution.contribution_id:
+        raise TemporalShadowExtractionError(
+            "Gold overlay base_contribution_id mismatch",
+            code="invalid_gold_overlay",
+            diagnostics=[
+                f"expected={contribution.contribution_id!r}",
+                f"actual={gold.base_contribution_id!r}",
+            ],
+        )
+
+    expected_digest = compute_contribution_source_payload_sha256(contribution)
+    if gold.base_contribution_source_payload_sha256 != expected_digest:
+        raise TemporalShadowExtractionError(
+            "Gold overlay source-payload digest mismatch",
+            code="invalid_gold_overlay",
+            diagnostics=[
+                f"expected={expected_digest!r}",
+                f"actual={gold.base_contribution_source_payload_sha256!r}",
+            ],
+        )
+
+    gold_targets = [ann.base_assertion_id for ann in gold.annotations]
+    if len(gold_targets) != len(set(gold_targets)):
+        raise TemporalShadowExtractionError(
+            "Gold overlay has duplicate assertion targets",
+            code="invalid_gold_overlay",
+        )
+    if set(gold_targets) != set(case.selected_assertion_ids):
+        raise TemporalShadowExtractionError(
+            "Gold overlay targets must exactly equal selected_assertion_ids",
+            code="invalid_gold_overlay",
+            diagnostics=[
+                f"expected={sorted(case.selected_assertion_ids)!r}",
+                f"actual={sorted(gold_targets)!r}",
+            ],
+        )
+    return gold
 
 
 def _load_contribution_for_case(
@@ -560,11 +701,12 @@ class OpenAITemporalShadowExtractionClient:
         model_id: str,
     ) -> tuple[dict[str, Any], ProviderMeta]:
         load_dungeonmindbuddy_dotenv()
-        client = OpenAI()
+        raw_client = OpenAI()
+        api_client = DungeonMindApiClient.wrap(raw_client)
         text_format = temporal_model_annotation_batch_text_format()
-        t0 = time.perf_counter()
         try:
-            response = client.responses.create(
+            call = api_client.responses_create(
+                action="temporal_shadow.extract_annotations",
                 model=model_id,
                 instructions=instructions,
                 input=[{"type": "message", "role": "user", "content": user_content}],
@@ -575,7 +717,8 @@ class OpenAITemporalShadowExtractionClient:
                 f"OpenAI responses.create failed: {exc}",
                 code="provider_error",
             ) from exc
-        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        response = call.response
+        elapsed_ms = call.elapsed_ms
         refusal = getattr(response, "refusal", None)
         if refusal:
             raise TemporalShadowExtractionError(
@@ -643,6 +786,9 @@ def _normalize_ws(text: str) -> str:
 
 def compute_temporal_annotation_id(
     *,
+    case_id: str,
+    model_id: str,
+    prompt_version: str,
     base_assertion_id: str,
     interpretation_status: str,
     occurrence_time: TemporalExtentV1 | None,
@@ -656,13 +802,16 @@ def compute_temporal_annotation_id(
 
     payload = {
         "base_assertion_id": base_assertion_id,
+        "case_id": case_id,
         "diagnostics": list(diagnostics),
         "evidence_ref_ids": sorted(evidence_ref_ids),
         "extraction_confidence": extraction_confidence,
         "interpretation_status": interpretation_status,
+        "model_id": model_id,
         "occurrence_time": (
             _extent_dump(occurrence_time) if occurrence_time is not None else None
         ),
+        "prompt_version": prompt_version,
         "source_phrase": source_phrase,
         "valid_time": _interval_dump(valid_time) if valid_time is not None else None,
     }
@@ -670,8 +819,31 @@ def compute_temporal_annotation_id(
     return f"temporal-annotation:{digest}"
 
 
+def compute_temporal_shadow_run_id(
+    *,
+    case_id: str,
+    case_digest: str,
+    model_id: str,
+    prompt_version: str,
+    validated_model_output: dict[str, Any],
+) -> str:
+    payload = {
+        "case_digest": case_digest,
+        "case_id": case_id,
+        "model_id": model_id,
+        "prompt_version": prompt_version,
+        "validated_model_output": validated_model_output,
+    }
+    digest = hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()[:16]
+    return f"temporal-shadow-run:{digest}"
+
+
 def _transport_to_annotation(
     item: TemporalModelAnnotationTransportV1,
+    *,
+    case_id: str,
+    model_id: str,
+    prompt_version: str,
 ) -> TemporalAssertionAnnotationV1:
     occurrence = (
         item.occurrence_time.to_temporal_extent_v1()
@@ -680,6 +852,9 @@ def _transport_to_annotation(
     )
     valid = item.valid_time.to_temporal_interval_v1() if item.valid_time is not None else None
     annotation_id = compute_temporal_annotation_id(
+        case_id=case_id,
+        model_id=model_id,
+        prompt_version=prompt_version,
         base_assertion_id=item.base_assertion_id,
         interpretation_status=item.interpretation_status,
         occurrence_time=occurrence,
@@ -702,12 +877,53 @@ def _transport_to_annotation(
     )
 
 
+def _require_grounded_source_phrase(
+    *,
+    item: TemporalModelAnnotationTransportV1,
+    packets: dict[str, dict[str, Any]],
+) -> None:
+    phrase = item.source_phrase
+    if phrase is None or not phrase.strip():
+        raise TemporalShadowExtractionError(
+            "resolved annotation requires nonblank source_phrase",
+            code="grounding_failure",
+            affected_assertion_id=item.base_assertion_id,
+        )
+    normalized_phrase = _normalize_ws(phrase)
+    if not normalized_phrase:
+        raise TemporalShadowExtractionError(
+            "resolved annotation requires nonblank source_phrase",
+            code="grounding_failure",
+            affected_assertion_id=item.base_assertion_id,
+        )
+    found = False
+    for evidence_id in item.evidence_ref_ids:
+        snippet_entries = packets[item.base_assertion_id]["evidence_snippets"]
+        text = next(
+            s["preview_snippet"]
+            for s in snippet_entries
+            if s["evidence_ref_id"] == evidence_id
+        )
+        if normalized_phrase in _normalize_ws(text):
+            found = True
+            break
+    if not found:
+        raise TemporalShadowExtractionError(
+            "source_phrase not found verbatim in cited snippets",
+            code="grounding_failure",
+            affected_assertion_id=item.base_assertion_id,
+            diagnostics=[f"source_phrase={phrase!r}"],
+        )
+
+
 def ground_and_convert_model_batch(
     *,
     raw_batch: dict[str, Any],
     contribution: GraphContribution,
     case: TemporalShadowExtractionCaseV1,
     packets: dict[str, dict[str, Any]],
+    model_id: str,
+    prompt_version: str,
 ) -> list[TemporalAssertionAnnotationV1]:
     try:
         batch = TemporalModelAnnotationBatchTransportV1.model_validate(raw_batch)
@@ -718,15 +934,21 @@ def ground_and_convert_model_batch(
             diagnostics=[str(exc)],
         ) from exc
 
-    predicted_ids = {item.base_assertion_id for item in batch.annotations}
+    predicted_ids = [item.base_assertion_id for item in batch.annotations]
+    if len(predicted_ids) != len(set(predicted_ids)):
+        raise TemporalShadowExtractionError(
+            "Model batch contains duplicate assertion targets",
+            code="target_set_mismatch",
+            diagnostics=[f"ids={predicted_ids!r}"],
+        )
     expected_ids = set(case.selected_assertion_ids)
-    if predicted_ids != expected_ids:
+    if set(predicted_ids) != expected_ids:
         raise TemporalShadowExtractionError(
             "Model batch target set mismatch",
             code="target_set_mismatch",
             diagnostics=[
                 f"expected={sorted(expected_ids)!r}",
-                f"actual={sorted(predicted_ids)!r}",
+                f"actual={sorted(set(predicted_ids))!r}",
             ],
         )
 
@@ -756,29 +978,47 @@ def ground_and_convert_model_batch(
                     affected_assertion_id=item.base_assertion_id,
                 )
 
-        if item.source_phrase is not None:
-            normalized_phrase = _normalize_ws(item.source_phrase)
-            found = False
-            for evidence_id in item.evidence_ref_ids:
-                snippet = packets[item.base_assertion_id]["evidence_snippets"]
-                text = next(
-                    s["preview_snippet"]
-                    for s in snippet
-                    if s["evidence_ref_id"] == evidence_id
-                )
-                if normalized_phrase in _normalize_ws(text):
-                    found = True
-                    break
-            if not found:
+        if item.interpretation_status == "resolved":
+            _require_grounded_source_phrase(item=item, packets=packets)
+        elif item.interpretation_status == "not_applicable":
+            cleaned = [d.strip() for d in item.diagnostics if isinstance(d, str)]
+            if not any(cleaned):
                 raise TemporalShadowExtractionError(
-                    "source_phrase not found verbatim in cited snippets",
+                    "not_applicable annotation requires a nonblank explanation",
                     code="grounding_failure",
                     affected_assertion_id=item.base_assertion_id,
-                    diagnostics=[f"source_phrase={item.source_phrase!r}"],
                 )
+        elif item.source_phrase is not None:
+            normalized_phrase = _normalize_ws(item.source_phrase)
+            if normalized_phrase:
+                found = False
+                for evidence_id in item.evidence_ref_ids:
+                    snippet = packets[item.base_assertion_id]["evidence_snippets"]
+                    text = next(
+                        s["preview_snippet"]
+                        for s in snippet
+                        if s["evidence_ref_id"] == evidence_id
+                    )
+                    if normalized_phrase in _normalize_ws(text):
+                        found = True
+                        break
+                if not found:
+                    raise TemporalShadowExtractionError(
+                        "source_phrase not found verbatim in cited snippets",
+                        code="grounding_failure",
+                        affected_assertion_id=item.base_assertion_id,
+                        diagnostics=[f"source_phrase={item.source_phrase!r}"],
+                    )
 
         try:
-            annotations.append(_transport_to_annotation(item))
+            annotations.append(
+                _transport_to_annotation(
+                    item,
+                    case_id=case.case_id,
+                    model_id=model_id,
+                    prompt_version=prompt_version,
+                )
+            )
         except (ValidationError, ValueError, TypeError) as exc:
             raise TemporalShadowExtractionError(
                 "Model temporal payload failed TL00 validation",
@@ -794,12 +1034,13 @@ def assemble_temporal_overlay(
     *,
     contribution: GraphContribution,
     annotations: list[TemporalAssertionAnnotationV1],
+    prompt_version: str,
 ) -> TemporalAnnotationOverlayV1:
     digest = compute_contribution_source_payload_sha256(contribution)
     producer = TemporalOverlayProducerV1(
         kind="model_shadow",
         name="temporal-shadow-extractor",
-        version=TEMPORAL_SHADOW_PROMPT_VERSION,
+        version=prompt_version,
     )
     overlay_id = compute_temporal_overlay_id(
         base_contribution_id=contribution.contribution_id,
@@ -823,10 +1064,30 @@ def assemble_temporal_overlay(
         ) from exc
 
 
-def _annotation_compare_payload(annotation: TemporalAssertionAnnotationV1) -> dict[str, Any]:
-    from graph_memory.temporal_shadow import _annotation_canonical_payload
+def _annotation_semantic_payload(annotation: TemporalAssertionAnnotationV1) -> dict[str, Any]:
+    from graph_memory.temporal_shadow import _extent_dump, _interval_dump
 
-    return _annotation_canonical_payload(annotation)
+    return {
+        "evidence_ref_ids": sorted(annotation.evidence_ref_ids),
+        "interpretation_status": annotation.interpretation_status,
+        "occurrence_time": (
+            _extent_dump(annotation.occurrence_time)
+            if annotation.occurrence_time is not None
+            else None
+        ),
+        "valid_time": (
+            _interval_dump(annotation.valid_time)
+            if annotation.valid_time is not None
+            else None
+        ),
+    }
+
+
+def _lane_signature(annotation: TemporalAssertionAnnotationV1) -> tuple[bool, bool]:
+    return (
+        annotation.occurrence_time is not None,
+        annotation.valid_time is not None,
+    )
 
 
 def compare_temporal_overlays(
@@ -839,7 +1100,7 @@ def compare_temporal_overlays(
 
     rows: list[TemporalShadowComparisonRowV1] = []
     exact = status_mismatch = semantic_mismatch = missing = extra = 0
-    safe_under = unsafe_over = 0
+    safe_under = unsafe_over = wrong_lane = 0
     conservative_statuses = {"ambiguous", "unresolved"}
     non_resolved_gold = {"ambiguous", "unresolved", "not_applicable"}
 
@@ -895,17 +1156,32 @@ def compare_temporal_overlays(
                 )
             )
             continue
-        if _annotation_compare_payload(gold_ann) != _annotation_compare_payload(pred_ann):
-            semantic_mismatch += 1
-            rows.append(
-                TemporalShadowComparisonRowV1(
-                    base_assertion_id=assertion_id,
-                    classification="wrong_temporal_value",
-                    gold_interpretation_status=gold_ann.interpretation_status,
-                    predicted_interpretation_status=pred_ann.interpretation_status,
-                    diagnostics=["canonical annotation payload differs"],
+        gold_semantic = _annotation_semantic_payload(gold_ann)
+        pred_semantic = _annotation_semantic_payload(pred_ann)
+        if gold_semantic != pred_semantic:
+            if _lane_signature(gold_ann) != _lane_signature(pred_ann):
+                wrong_lane += 1
+                semantic_mismatch += 1
+                rows.append(
+                    TemporalShadowComparisonRowV1(
+                        base_assertion_id=assertion_id,
+                        classification="wrong_temporal_lane",
+                        gold_interpretation_status=gold_ann.interpretation_status,
+                        predicted_interpretation_status=pred_ann.interpretation_status,
+                        diagnostics=["occurrence/valid-time lane presence differs"],
+                    )
                 )
-            )
+            else:
+                semantic_mismatch += 1
+                rows.append(
+                    TemporalShadowComparisonRowV1(
+                        base_assertion_id=assertion_id,
+                        classification="wrong_temporal_value",
+                        gold_interpretation_status=gold_ann.interpretation_status,
+                        predicted_interpretation_status=pred_ann.interpretation_status,
+                        diagnostics=["semantic temporal payload differs"],
+                    )
+                )
             continue
         exact += 1
         rows.append(
@@ -922,15 +1198,14 @@ def compare_temporal_overlays(
         exact_match_count=exact,
         safe_under_resolution_count=safe_under,
         unsafe_over_resolution_count=unsafe_over,
+        wrong_temporal_lane_count=wrong_lane,
         status_mismatch_count=status_mismatch,
         semantic_mismatch_count=semantic_mismatch,
         missing_prediction_count=missing,
         extra_prediction_count=extra,
     )
     if missing or extra or unsafe_over:
-        verdict: ComparisonVerdict = "fail" if (missing or extra or unsafe_over) else "partial"
-        if unsafe_over and not missing and not extra:
-            verdict = "fail"
+        verdict: ComparisonVerdict = "fail"
     elif status_mismatch or semantic_mismatch or safe_under:
         verdict = "partial"
     else:
@@ -938,12 +1213,8 @@ def compare_temporal_overlays(
 
     if unsafe_over or missing or extra:
         evaluation_verdict: EvaluationVerdict = "ITERATE_PROMPT"
-        if missing or extra:
-            evaluation_verdict = "ITERATE_PROMPT"
     elif exact == len(gold.annotations) and exact > 0:
         evaluation_verdict = "SAFE_FOR_NEXT_EXPERIMENT"
-    elif exact >= 2 and unsafe_over == 0:
-        evaluation_verdict = "ITERATE_PROMPT"
     else:
         evaluation_verdict = "ITERATE_PROMPT"
 
@@ -966,31 +1237,98 @@ def run_temporal_shadow_extraction(
 ) -> TemporalShadowExtractionRunV1:
     root = repo_root or Path(__file__).resolve().parents[2]
     out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-
-    manifest_path = out / "run-manifest.json"
-    if manifest_path.exists() and not overwrite:
+    if out.exists() and any(out.iterdir()) and not overwrite:
         raise TemporalShadowExtractionError(
-            f"Output exists (use overwrite=True): {manifest_path}",
+            f"Output directory is non-empty (use overwrite=True): {out}",
             code="invalid_case",
         )
+    out.mkdir(parents=True, exist_ok=True)
 
     case = load_temporal_shadow_extraction_case(case_path, repo_root=root)
     contribution = _load_contribution_for_case(case, repo_root=root)
     packets = build_assertion_evidence_packets(contribution, case, repo_root=root)
     resolved_model = resolve_category_graph_model(model_id)
+    instructions, executed_prompt_version = resolve_prompt_instructions(
+        case.prompt_version
+    )
     active_client = client or OpenAITemporalShadowExtractionClient()
 
     user_content = render_temporal_shadow_user_content(
         packets, case.selected_assertion_ids
     )
     raw_batch, provider_meta = active_client.extract_annotations(
-        instructions=TEMPORAL_SHADOW_SYSTEM_INSTRUCTIONS,
+        instructions=instructions,
         user_content=user_content,
         model_id=resolved_model,
     )
+
+    annotations = ground_and_convert_model_batch(
+        raw_batch=raw_batch,
+        contribution=contribution,
+        case=case,
+        packets=packets,
+        model_id=resolved_model,
+        prompt_version=executed_prompt_version,
+    )
+    overlay = assemble_temporal_overlay(
+        contribution=contribution,
+        annotations=annotations,
+        prompt_version=executed_prompt_version,
+    )
+    parsed_overlay = load_temporal_annotation_overlay(overlay.model_dump(by_alias=True))
+    try:
+        preview = build_temporal_shadow_preview(contribution, parsed_overlay)
+    except TemporalShadowBuildError as exc:
+        raise TemporalShadowExtractionError(
+            str(exc),
+            code="overlay_assembly_failed",
+            affected_assertion_id=exc.affected_assertion_id,
+            diagnostics=list(exc.diagnostics),
+        ) from exc
+
+    gold_overlay = load_bound_gold_overlay(case, contribution, repo_root=root)
+    comparison = compare_temporal_overlays(parsed_overlay, gold_overlay)
+
+    case_digest = _file_sha256(Path(case_path))
+    run_id = compute_temporal_shadow_run_id(
+        case_id=case.case_id,
+        case_digest=case_digest,
+        model_id=resolved_model,
+        prompt_version=executed_prompt_version,
+        validated_model_output=raw_batch,
+    )
+    run = TemporalShadowExtractionRunV1(
+        run_id=run_id,
+        case_id=case.case_id,
+        overlay_id=parsed_overlay.overlay_id,
+        base_contribution_id=contribution.contribution_id,
+        comparison_verdict=comparison.verdict,
+        evaluation_verdict=comparison.evaluation_verdict,
+        model_id=resolved_model,
+        prompt_version=executed_prompt_version,
+        executed_prompt_version=executed_prompt_version,
+    )
+
+    (out / "run-manifest.json").write_text(
+        json.dumps(run.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     (out / "model-output.json").write_text(
         json.dumps(raw_batch, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (out / "overlay.json").write_text(
+        json.dumps(parsed_overlay.model_dump(by_alias=True), indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+    (out / "preview.json").write_text(
+        json.dumps(preview.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (out / "comparison.json").write_text(
+        json.dumps(comparison.model_dump(by_alias=True), indent=2, sort_keys=True)
+        + "\n",
         encoding="utf-8",
     )
     (out / "provider-metadata.json").write_text(
@@ -1004,75 +1342,6 @@ def run_temporal_shadow_extraction(
             },
             indent=2,
             sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    annotations = ground_and_convert_model_batch(
-        raw_batch=raw_batch,
-        contribution=contribution,
-        case=case,
-        packets=packets,
-    )
-    overlay = assemble_temporal_overlay(
-        contribution=contribution, annotations=annotations
-    )
-    parsed_overlay = load_temporal_annotation_overlay(overlay.model_dump(by_alias=True))
-    try:
-        preview = build_temporal_shadow_preview(contribution, parsed_overlay)
-    except TemporalShadowBuildError as exc:
-        raise TemporalShadowExtractionError(
-            str(exc),
-            code="overlay_assembly_failed",
-            affected_assertion_id=exc.affected_assertion_id,
-            diagnostics=list(exc.diagnostics),
-        ) from exc
-
-    gold_path = _resolve_repo_relative(case.gold_overlay_path, repo_root=root)
-    gold_overlay = load_temporal_annotation_overlay(
-        json.loads(gold_path.read_text(encoding="utf-8"))
-    )
-    comparison = compare_temporal_overlays(parsed_overlay, gold_overlay)
-
-    run = TemporalShadowExtractionRunV1(
-        case_id=case.case_id,
-        overlay_id=parsed_overlay.overlay_id,
-        base_contribution_id=contribution.contribution_id,
-        comparison_verdict=comparison.verdict,
-        model_id=resolved_model,
-        prompt_version=case.prompt_version,
-    )
-
-    (out / "run-manifest.json").write_text(
-        json.dumps(run.model_dump(by_alias=True), indent=2) + "\n",
-        encoding="utf-8",
-    )
-    (out / "model-output.json").write_text(
-        json.dumps(raw_batch, indent=2) + "\n", encoding="utf-8"
-    )
-    (out / "overlay.json").write_text(
-        json.dumps(parsed_overlay.model_dump(by_alias=True), indent=2) + "\n",
-        encoding="utf-8",
-    )
-    (out / "preview.json").write_text(
-        json.dumps(preview.model_dump(by_alias=True), indent=2) + "\n",
-        encoding="utf-8",
-    )
-    (out / "comparison.json").write_text(
-        json.dumps(comparison.model_dump(by_alias=True), indent=2) + "\n",
-        encoding="utf-8",
-    )
-    (out / "provider-metadata.json").write_text(
-        json.dumps(
-            {
-                "response_id": provider_meta.response_id,
-                "model_id": provider_meta.model_id,
-                "input_tokens": provider_meta.input_tokens,
-                "output_tokens": provider_meta.output_tokens,
-                "elapsed_ms": provider_meta.elapsed_ms,
-            },
-            indent=2,
         )
         + "\n",
         encoding="utf-8",
@@ -1094,8 +1363,11 @@ __all__ = [
     "build_assertion_evidence_packets",
     "compare_temporal_overlays",
     "compute_temporal_annotation_id",
+    "compute_temporal_shadow_run_id",
     "ground_and_convert_model_batch",
+    "load_bound_gold_overlay",
     "load_temporal_shadow_extraction_case",
     "render_temporal_shadow_user_content",
+    "resolve_prompt_instructions",
     "run_temporal_shadow_extraction",
 ]

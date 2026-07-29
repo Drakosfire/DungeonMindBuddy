@@ -75,13 +75,22 @@ System rules (summary):
 
 After transport validation:
 
-1. Target set must equal `selected_assertion_ids` exactly
+1. Target set must equal `selected_assertion_ids` exactly (no duplicates)
 2. Every `evidence_ref_id` must be owned by the target assertion and present in the packet
-3. Non-null `source_phrase` must appear in cited snippets (whitespace-normalized)
-4. Convert transport → `TemporalAssertionAnnotationV1` via TL00 temporal models
-5. Any violation → `TemporalShadowExtractionError` (no silent repair)
+3. `resolved` requires a nonblank `source_phrase` that appears verbatim in a cited snippet (whitespace-normalized)
+4. `not_applicable` requires a nonblank diagnostic explanation
+5. Convert transport → `TemporalAssertionAnnotationV1` via TL00 temporal models
+6. Any violation → `TemporalShadowExtractionError` (no silent repair)
 
-Stable `annotation_id` via `compute_temporal_annotation_id` → `temporal-annotation:{16hex}`.
+Stable `annotation_id` via `compute_temporal_annotation_id` → `temporal-annotation:{16hex}`
+(includes `case_id`, `model_id`, and executed `prompt_version`).
+
+Sealed cases also require:
+
+- unique `evidence_ref_id` values (no last-wins remapping)
+- agreeing metadata for repeated `source_artifact_id` values
+- `gold_overlay_sha256` plus gold binding (`human_gold`, matching base contribution ID/digest, exact selected target set)
+- supported `prompt_version` only (`tl01b-v1`); run manifest records the executed version
 
 ## Overlay assembly
 
@@ -89,21 +98,32 @@ Producer:
 
 - `kind=model_shadow`
 - `name=temporal-shadow-extractor`
-- `version=tl01b-v1`
+- `version=<executed prompt version>`
 
 Then `compute_temporal_overlay_id`, `load_temporal_annotation_overlay`, `build_temporal_shadow_preview` (TL01).
 
 ## Comparison (`dmb_temporal_shadow_comparison_v1`)
 
+Semantic comparison only. Equality uses:
+
+- interpretation status
+- occurrence-time payload
+- valid-time payload
+- normalized (sorted) evidence selection
+
+Ignored for equality: annotation ID, producer identity, diagnostic wording, source-phrase wording, extraction confidence.
+
 Per-assertion classifications:
 
-- `exact_match`, `status_mismatch`, `semantic_mismatch`, `missing_prediction`, `extra_prediction`
+- `exact_match`, `safe_under_resolution`, `unsafe_over_resolution`, `wrong_temporal_lane`, `wrong_temporal_value`, `status_mismatch`, `semantic_mismatch`, `missing_prediction`, `extra_prediction`
 
 Verdict enum:
 
 - `pass` — all gold targets exact match
-- `partial` — mismatches without missing/extra targets
-- `fail` — missing or extra predictions
+- `partial` — mismatches without missing/extra/unsafe over-resolution
+- `fail` — missing/extra predictions or unsafe over-resolution
+
+Evaluation verdict separately encodes promotion readiness (`SAFE_FOR_NEXT_EXPERIMENT` / `ITERATE_PROMPT` / …).
 
 ## Run artifacts
 
