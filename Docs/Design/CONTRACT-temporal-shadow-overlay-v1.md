@@ -63,6 +63,10 @@ Candidate-only rules (fail closed):
 - Non-empty `candidate_assertions`.
 - Empty `accepted_assertions` and `rejected_assertions`.
 - Every row has `acceptance_state == "candidate"`.
+- Candidate `assertion_id` values are unique within the contribution.
+- Each candidate `assertion_id` matches `compute_assertion_id(...)` for that
+  row's semantic content (non-canonical IDs fail as
+  `invalid_base_contribution`).
 
 The builder never mutates the base contribution object.
 
@@ -72,8 +76,17 @@ The builder never mutates the base contribution object.
   base contribution.
 - At most one annotation per assertion (duplicate targets rejected at overlay
   validation).
+- Base contributions with duplicate candidate `assertion_id` values are
+  rejected (`invalid_base_contribution`). Assertion identity excludes
+  evidence provenance, so two semantically identical rows with different
+  evidence can share an ID — that shape is not shadow-safe.
 - `annotation_id` values must be unique within the overlay.
 - Missing targets raise `annotation_target_not_found`.
+
+`load_temporal_annotation_overlay` always revalidates, including when the
+caller already holds a `TemporalAnnotationOverlayV1` instance. Mutated
+models and `model_copy(update=...)` results cannot bypass overlay-ID,
+duplicate-target, evidence, or status validation.
 
 Overlay identity (`overlay_id`) is deterministic from canonical overlay
 content (base IDs, digest, producer, annotations sorted by
@@ -95,11 +108,12 @@ Evidence binding is about **lineage**, not about inventing temporal semantics.
 | Status | Semantic time in annotation | Requirements |
 | --- | --- | --- |
 | `resolved` | Required (`occurrence_time` and/or `valid_time`) | Normalized V1 extent/interval |
-| `ambiguous` | Forbidden | `source_phrase` + non-empty `diagnostics` |
-| `unresolved` | Forbidden | `source_phrase` and/or `diagnostics` |
+| `ambiguous` | Forbidden | `source_phrase` + non-empty non-blank `diagnostics` |
+| `unresolved` | Forbidden | `source_phrase` and/or non-blank `diagnostics` |
 | `not_applicable` | Forbidden | Explicit re-attestation that fiction time does not apply |
 
-Non-`resolved` statuses preserve extraction-facing metadata in row
+Diagnostic strings are trimmed; blank-only entries (e.g. `"   "`) are
+rejected. Non-`resolved` statuses preserve extraction-facing metadata in row
 diagnostics; they do not write `source_phrase` into `temporal_scope`.
 
 ## Source-time derivation
