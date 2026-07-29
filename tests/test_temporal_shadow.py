@@ -210,6 +210,43 @@ def test_overlay_rejects_stale_overlay_id() -> None:
     assert "invalid_overlay_id" in joined or "does not match canonical" in joined
 
 
+def test_load_revalidates_model_instance_with_stale_overlay_id() -> None:
+    contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
+    assertion = contribution.candidate_assertions[0]
+    overlay = _build_overlay(
+        contribution,
+        [_resolved_annotation(assertion, occurrence_time=_point_extent("session-20"))],
+    )
+    mutated = overlay.model_copy(update={"overlay_id": "temporal-overlay:deadbeefdeadbeef"})
+    with pytest.raises(TemporalShadowBuildError) as exc_info:
+        load_temporal_annotation_overlay(mutated)
+    assert exc_info.value.code == "invalid_overlay_id"
+    with pytest.raises(TemporalShadowBuildError) as build_exc:
+        build_temporal_shadow_preview(contribution, mutated)
+    assert build_exc.value.code == "invalid_overlay_id"
+
+
+def test_load_revalidates_model_instance_with_mutated_annotation() -> None:
+    contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
+    assertion = contribution.candidate_assertions[0]
+    overlay = _build_overlay(
+        contribution,
+        [_resolved_annotation(assertion, occurrence_time=_point_extent("session-20"))],
+    )
+    mutated_annotation = overlay.annotations[0].model_copy(
+        update={
+            "interpretation_status": "ambiguous",
+            "occurrence_time": None,
+            "source_phrase": None,
+            "diagnostics": [],
+        }
+    )
+    mutated = overlay.model_copy(update={"annotations": [mutated_annotation]})
+    with pytest.raises(TemporalShadowBuildError) as exc_info:
+        load_temporal_annotation_overlay(mutated)
+    assert exc_info.value.code == "invalid_temporal_annotation"
+
+
 def test_overlay_rejects_duplicate_assertion_targets() -> None:
     contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
     assertion = contribution.candidate_assertions[0]
@@ -273,6 +310,33 @@ def test_annotation_ambiguous_rejects_normalized_time_and_requires_metadata() ->
         )
 
 
+def test_annotation_ambiguous_rejects_blank_diagnostics() -> None:
+    contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
+    assertion = contribution.candidate_assertions[0]
+    with pytest.raises(ValidationError):
+        TemporalAssertionAnnotationV1(
+            annotation_id="ann-blank-diag",
+            base_assertion_id=assertion.assertion_id,
+            interpretation_status="ambiguous",
+            evidence_ref_ids=[EVIDENCE_A],
+            source_phrase="long ago",
+            diagnostics=["   "],
+        )
+
+
+def test_annotation_unresolved_rejects_blank_diagnostics_without_phrase() -> None:
+    contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
+    assertion = contribution.candidate_assertions[0]
+    with pytest.raises(ValidationError):
+        TemporalAssertionAnnotationV1(
+            annotation_id="ann-unresolved-blank",
+            base_assertion_id=assertion.assertion_id,
+            interpretation_status="unresolved",
+            evidence_ref_ids=[EVIDENCE_A],
+            diagnostics=[" "],
+        )
+
+
 def test_annotation_unresolved_and_not_applicable_reject_normalized_time() -> None:
     contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
     assertion = contribution.candidate_assertions[0]
@@ -297,25 +361,46 @@ def test_annotation_unresolved_and_not_applicable_reject_normalized_time() -> No
 def test_base_contribution_id_mismatch() -> None:
     contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
     assertion = contribution.candidate_assertions[0]
-    overlay = _build_overlay(
-        contribution,
-        [_resolved_annotation(assertion, occurrence_time=_point_extent("session-20"))],
+    annotations = [
+        _resolved_annotation(assertion, occurrence_time=_point_extent("session-20"))
+    ]
+    digest = compute_contribution_source_payload_sha256(contribution)
+    wrong_id = "contribution:wrong"
+    overlay = TemporalAnnotationOverlayV1(
+        overlay_id=compute_temporal_overlay_id(
+            base_contribution_id=wrong_id,
+            base_contribution_source_payload_sha256=digest,
+            producer=FIXTURE_PRODUCER,
+            annotations=annotations,
+        ),
+        base_contribution_id=wrong_id,
+        base_contribution_source_payload_sha256=digest,
+        producer=FIXTURE_PRODUCER,
+        annotations=annotations,
     )
-    bad = overlay.model_copy(update={"base_contribution_id": "contribution:wrong"})
-    _expect_build_error(contribution, bad, code="base_contribution_id_mismatch")
+    _expect_build_error(contribution, overlay, code="base_contribution_id_mismatch")
 
 
 def test_base_contribution_digest_mismatch() -> None:
     contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
     assertion = contribution.candidate_assertions[0]
-    overlay = _build_overlay(
-        contribution,
-        [_resolved_annotation(assertion, occurrence_time=_point_extent("session-20"))],
+    annotations = [
+        _resolved_annotation(assertion, occurrence_time=_point_extent("session-20"))
+    ]
+    wrong_digest = "0" * 64
+    overlay = TemporalAnnotationOverlayV1(
+        overlay_id=compute_temporal_overlay_id(
+            base_contribution_id=contribution.contribution_id,
+            base_contribution_source_payload_sha256=wrong_digest,
+            producer=FIXTURE_PRODUCER,
+            annotations=annotations,
+        ),
+        base_contribution_id=contribution.contribution_id,
+        base_contribution_source_payload_sha256=wrong_digest,
+        producer=FIXTURE_PRODUCER,
+        annotations=annotations,
     )
-    bad = overlay.model_copy(
-        update={"base_contribution_source_payload_sha256": "0" * 64},
-    )
-    _expect_build_error(contribution, bad, code="base_contribution_digest_mismatch")
+    _expect_build_error(contribution, overlay, code="base_contribution_digest_mismatch")
 
 
 def test_invalid_base_contribution_with_accepted_assertions() -> None:
@@ -360,6 +445,77 @@ def test_invalid_base_contribution_non_candidate_acceptance_state() -> None:
         campaign_scope=CAMPAIGN,
         candidate_assertions=[node],
     )
+    overlay = _build_overlay(contribution, [])
+    _expect_build_error(contribution, overlay, code="invalid_base_contribution")
+
+
+def test_invalid_base_rejects_duplicate_candidate_assertion_ids() -> None:
+    """Semantically identical rows with different evidence can share an ID."""
+    first = _candidate_assertion(
+        temporal_scope={"session_id": "session-12"},
+        evidence_ref_ids=[EVIDENCE_A],
+        session_id="session-12",
+    )
+    second = _candidate_assertion(
+        temporal_scope={"session_id": "session-12"},
+        evidence_ref_ids=[EVIDENCE_B],
+        session_id="session-12",
+    )
+    second = second.model_copy(
+        update={
+            "evidence_ref_ids": [EVIDENCE_B],
+            "value": _evidence_value(session_id="session-12", evidence_ref_id=EVIDENCE_B),
+        }
+    )
+    assert first.assertion_id == second.assertion_id
+    assert first.evidence_ref_ids != second.evidence_ref_ids
+    contribution = create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="source_extraction",
+        campaign_scope=CAMPAIGN,
+        candidate_assertions=[first, second],
+    )
+    # Re-assert after contribution rewrite that IDs remain duplicated.
+    assert (
+        contribution.candidate_assertions[0].assertion_id
+        == contribution.candidate_assertions[1].assertion_id
+    )
+    overlay = _build_overlay(contribution, [])
+    _expect_build_error(contribution, overlay, code="invalid_base_contribution")
+
+
+def test_invalid_base_rejects_noncanonical_assertion_id() -> None:
+    node = _candidate_assertion(temporal_scope={"session_id": "session-12"})
+    malformed = node.model_copy(update={"assertion_id": "assertion:not-canonical"})
+    contribution = create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="source_extraction",
+        campaign_scope=CAMPAIGN,
+        candidate_assertions=[malformed],
+    )
+    # create_graph_contribution may canonicalize — force non-canonical after create.
+    contribution = contribution.model_copy(
+        update={
+            "candidate_assertions": [
+                contribution.candidate_assertions[0].model_copy(
+                    update={"assertion_id": "assertion:not-canonical"}
+                )
+            ]
+        }
+    )
+    canonical = compute_assertion_id(
+        assertion_kind=contribution.candidate_assertions[0].assertion_kind,
+        subject_node_id=contribution.candidate_assertions[0].subject_node_id,
+        target_node_id=contribution.candidate_assertions[0].target_node_id,
+        predicate=contribution.candidate_assertions[0].predicate,
+        label=contribution.candidate_assertions[0].label,
+        value=contribution.candidate_assertions[0].value,
+        campaign_scope=contribution.candidate_assertions[0].campaign_scope,
+        temporal_scope=contribution.candidate_assertions[0].temporal_scope,
+        epistemic_kind=contribution.candidate_assertions[0].epistemic_kind,
+        visibility=contribution.candidate_assertions[0].visibility,
+    )
+    assert contribution.candidate_assertions[0].assertion_id != canonical
     overlay = _build_overlay(contribution, [])
     _expect_build_error(contribution, overlay, code="invalid_base_contribution")
 

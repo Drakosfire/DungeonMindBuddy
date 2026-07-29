@@ -143,6 +143,19 @@ class TemporalAssertionAnnotationV1(_ShadowModel):
             raise ValueError("annotation evidence_ref_ids must be unique")
         return cleaned
 
+    @field_validator("diagnostics", mode="after")
+    @classmethod
+    def _diagnostics_trimmed_nonblank(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                raise TypeError("diagnostics entries must be strings")
+            stripped = item.strip()
+            if not stripped:
+                raise ValueError("diagnostics entries must be non-blank after trim")
+            cleaned.append(stripped)
+        return cleaned
+
     @model_validator(mode="after")
     def _status_constraints(self) -> TemporalAssertionAnnotationV1:
         status = self.interpretation_status
@@ -366,9 +379,15 @@ def compute_temporal_overlay_id(
 def load_temporal_annotation_overlay(
     payload: dict[str, Any] | TemporalAnnotationOverlayV1,
 ) -> TemporalAnnotationOverlayV1:
-    """Parse and validate a TemporalAnnotationOverlayV1 payload."""
+    """Parse and revalidate a TemporalAnnotationOverlayV1 payload.
+
+    Always re-runs model validation — including when the caller already holds a
+    ``TemporalAnnotationOverlayV1`` instance — so mutated models or
+    ``model_copy(update=...)`` results cannot bypass overlay-ID, duplicate-
+    target, evidence, or status checks.
+    """
     if isinstance(payload, TemporalAnnotationOverlayV1):
-        return payload
+        payload = payload.model_dump(mode="json", by_alias=True)
     try:
         return TemporalAnnotationOverlayV1.model_validate(payload)
     except ValidationError as exc:
@@ -626,6 +645,8 @@ def _validate_candidate_only_base(contribution: GraphContribution) -> None:
             "Base contribution must not contain rejected_assertions",
             code="invalid_base_contribution",
         )
+
+    seen_assertion_ids: set[str] = set()
     for assertion in contribution.candidate_assertions:
         if assertion.acceptance_state != "candidate":
             raise TemporalShadowBuildError(
@@ -633,6 +654,36 @@ def _validate_candidate_only_base(contribution: GraphContribution) -> None:
                 code="invalid_base_contribution",
                 affected_assertion_id=assertion.assertion_id,
                 diagnostics=[f"acceptance_state={assertion.acceptance_state!r}"],
+            )
+        if assertion.assertion_id in seen_assertion_ids:
+            raise TemporalShadowBuildError(
+                "Base contribution contains duplicate candidate assertion_id values",
+                code="invalid_base_contribution",
+                affected_assertion_id=assertion.assertion_id,
+                diagnostics=[
+                    "assertion targeting requires unique candidate assertion_id values"
+                ],
+            )
+        seen_assertion_ids.add(assertion.assertion_id)
+
+        canonical_id = compute_assertion_id(
+            assertion_kind=assertion.assertion_kind,
+            subject_node_id=assertion.subject_node_id,
+            target_node_id=assertion.target_node_id,
+            predicate=assertion.predicate,
+            label=assertion.label,
+            value=assertion.value,
+            campaign_scope=assertion.campaign_scope,
+            temporal_scope=assertion.temporal_scope,
+            epistemic_kind=assertion.epistemic_kind,
+            visibility=assertion.visibility,
+        )
+        if assertion.assertion_id != canonical_id:
+            raise TemporalShadowBuildError(
+                "Candidate assertion_id is not canonical for its semantic content",
+                code="invalid_base_contribution",
+                affected_assertion_id=assertion.assertion_id,
+                diagnostics=[f"canonical_assertion_id={canonical_id!r}"],
             )
 
 
