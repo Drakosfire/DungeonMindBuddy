@@ -23,6 +23,7 @@ from graph_memory.kernel.temporal import (
     temporal_source_payload,
 )
 from graph_memory.kernel.world_projection import (
+    WorldGraphProjectionError,
     _edge_core_semantic_fingerprint,
     _node_core_semantic_fingerprint,
 )
@@ -180,6 +181,67 @@ def test_textual_and_unknown_point_validation() -> None:
             kind="unknown",
             session_id="session-1",
             certainty="unknown",
+        )
+
+
+def test_cross_kind_fields_rejected() -> None:
+    """Point kinds must not accept contradictory cross-kind fields."""
+    with pytest.raises(ValidationError):
+        TemporalPointV1(
+            kind="session",
+            session_id="session-1",
+            value="204-Firstfrost-3",
+            certainty="explicit",
+        )
+    with pytest.raises(ValidationError):
+        TemporalPointV1(
+            kind="session",
+            session_id="session-1",
+            calendar_id="eldyrwild-common",
+            certainty="explicit",
+        )
+    with pytest.raises(ValidationError):
+        TemporalPointV1(
+            kind="session",
+            session_id="session-1",
+            relation="during",
+            certainty="explicit",
+        )
+    with pytest.raises(ValidationError):
+        TemporalPointV1(
+            kind="campaign_date",
+            value="204-Firstfrost-3",
+            session_id="session-1",
+            certainty="explicit",
+        )
+    with pytest.raises(ValidationError):
+        TemporalPointV1(
+            kind="textual",
+            raw_expression="during her childhood",
+            session_id="session-1",
+            certainty="unknown",
+        )
+    with pytest.raises(ValidationError):
+        TemporalPointV1(
+            kind="textual",
+            raw_expression="during her childhood",
+            value="204-Firstfrost-3",
+            certainty="unknown",
+        )
+    with pytest.raises(ValidationError):
+        TemporalPointV1(
+            kind="unknown",
+            relation="before",
+            anchor_ref="event:x",
+            certainty="unknown",
+        )
+    with pytest.raises(ValidationError):
+        TemporalPointV1(
+            kind="relative",
+            relation="before",
+            anchor_ref="event:x",
+            session_id="session-1",
+            certainty="inferred",
         )
 
 
@@ -426,6 +488,53 @@ def test_legacy_as_of_remains_correction_sensitive() -> None:
     assert temporal_core_semantic_payload(
         {"session_id": "session-1", "as_of": "T1"}
     ) == {"as_of": "T1"}
+
+
+def test_unknown_schema_keeps_session_id_correction_sensitive() -> None:
+    """Explicit unrecognized schema tags must not receive the observation strip."""
+    first_payload = {
+        "schema": "dmb_temporal_envelope_v2",
+        "session_id": "session-1",
+        "occurrence": "A",
+    }
+    second_payload = {
+        "schema": "dmb_temporal_envelope_v2",
+        "session_id": "session-2",
+        "occurrence": "A",
+    }
+    assert temporal_core_semantic_payload(first_payload) == first_payload
+    assert temporal_core_semantic_payload(second_payload) == second_payload
+    first = _edge_assertion(temporal_scope=first_payload)
+    second = _edge_assertion(temporal_scope=second_payload)
+    assert _edge_core_semantic_fingerprint(first) != _edge_core_semantic_fingerprint(
+        second
+    )
+
+
+def test_malformed_v1_fingerprint_raises_projection_integrity_409() -> None:
+    malformed = {
+        "schema": TEMPORAL_ENVELOPE_SCHEMA,
+        "source_time": None,
+        "occurrence_time": None,
+        "valid_time": None,
+    }
+    with pytest.raises(TemporalScopeValidationError):
+        temporal_core_semantic_payload(malformed)
+
+    edge = _edge_assertion(temporal_scope=malformed)
+    with pytest.raises(WorldGraphProjectionError) as exc_info:
+        _edge_core_semantic_fingerprint(edge)
+    assert exc_info.value.code == "projection_integrity_error"
+    assert exc_info.value.status_code == 409
+    assert any(
+        d.code == "malformed_temporal_envelope" for d in exc_info.value.diagnostics
+    )
+
+    node = _node_assertion(temporal_scope=malformed)
+    with pytest.raises(WorldGraphProjectionError) as node_exc:
+        _node_core_semantic_fingerprint(node)
+    assert node_exc.value.code == "projection_integrity_error"
+    assert node_exc.value.status_code == 409
 
 
 # ---------------------------------------------------------------------------

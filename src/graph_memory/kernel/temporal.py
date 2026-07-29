@@ -112,12 +112,22 @@ class TemporalPointV1(_TemporalModel):
     @model_validator(mode="after")
     def _validate_kind_requirements(self) -> TemporalPointV1:
         kind = self.kind
+        # Kind-exclusive fields: reject contradictory cross-kind payloads so
+        # serialization cannot leave future consumers to pick an authority.
         if kind == "session":
             if self.session_id is None:
                 raise ValueError('kind="session" requires session_id')
+            self._reject_forbidden_fields(
+                ("value", "calendar_id", "relation", "anchor_ref"),
+                kind=kind,
+            )
         elif kind == "campaign_date":
             if self.value is None:
                 raise ValueError('kind="campaign_date" requires value')
+            self._reject_forbidden_fields(
+                ("session_id", "relation", "anchor_ref"),
+                kind=kind,
+            )
         elif kind == "relative":
             has_structured = self.relation is not None and self.anchor_ref is not None
             has_raw = self.raw_expression is not None
@@ -125,17 +135,36 @@ class TemporalPointV1(_TemporalModel):
                 raise ValueError(
                     'kind="relative" requires relation+anchor_ref or raw_expression'
                 )
+            self._reject_forbidden_fields(
+                ("session_id", "value", "calendar_id"),
+                kind=kind,
+            )
         elif kind == "textual":
             if self.raw_expression is None:
                 raise ValueError('kind="textual" requires raw_expression')
+            self._reject_forbidden_fields(
+                ("session_id", "value", "calendar_id", "relation", "anchor_ref"),
+                kind=kind,
+            )
         elif kind == "unknown":
-            if self.session_id is not None or self.value is not None:
-                raise ValueError(
-                    'kind="unknown" must not invent session_id or campaign_date value'
-                )
-            if self.calendar_id is not None:
-                raise ValueError('kind="unknown" must not invent calendar_id')
+            self._reject_forbidden_fields(
+                ("session_id", "value", "calendar_id", "relation", "anchor_ref"),
+                kind=kind,
+            )
         return self
+
+    def _reject_forbidden_fields(
+        self,
+        forbidden: tuple[str, ...],
+        *,
+        kind: str,
+    ) -> None:
+        present = [name for name in forbidden if getattr(self, name) is not None]
+        if present:
+            raise ValueError(
+                f'kind={kind!r} forbids fields {present!r}; '
+                "remove cross-kind fields or change kind"
+            )
 
 
 class TemporalIntervalV1(_TemporalModel):
@@ -408,8 +437,11 @@ def temporal_core_semantic_payload(
     """Return correction-sensitive temporal payload for projection fingerprints.
 
     For V1 envelopes: occurrence_time and valid_time only (source_time excluded).
-    For legacy dictionaries: remove top-level session_id; preserve every other
-    legacy field exactly; return None when nothing remains.
+    For schema-less legacy dictionaries: remove top-level session_id; preserve
+    every other legacy field exactly; return None when nothing remains.
+    For explicit but unrecognized schema tags: return the full payload
+    unchanged (fail-closed — do not apply the observation-session strip; a
+    future schema may use session_id semantically).
     """
     if temporal_scope is None:
         return None
@@ -418,7 +450,8 @@ def temporal_core_semantic_payload(
         raise TypeError("temporal_scope must be a dict or None")
 
     raw = dict(temporal_scope)
-    if raw.get("schema") == TEMPORAL_ENVELOPE_SCHEMA:
+    schema_tag = raw.get("schema")
+    if schema_tag == TEMPORAL_ENVELOPE_SCHEMA:
         # Strict parse — malformed V1 must not silently participate as legacy.
         envelope = _parse_envelope_v1(raw)
         serialized = serialize_temporal_envelope(envelope)
@@ -429,7 +462,11 @@ def temporal_core_semantic_payload(
             payload["valid_time"] = serialized["valid_time"]
         return payload or None
 
-    # Legacy (including unrecognized schema tags): strip observation session only.
+    if schema_tag is not None:
+        # Explicit unknown schema: entire payload is correction-sensitive.
+        return raw
+
+    # Schema-less legacy: strip observation session only.
     remaining = {key: value for key, value in raw.items() if key != "session_id"}
     return remaining or None
 

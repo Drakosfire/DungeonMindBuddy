@@ -67,15 +67,17 @@ envelope.
 
 ## Supported point kinds
 
-| Kind | Required | Notes |
-| --- | --- | --- |
-| `session` | `session_id` | May include `campaign_id`, `raw_expression`, `certainty` |
-| `campaign_date` | `value` | Stores the date string; no calendar arithmetic |
-| `relative` | `relation`+`anchor_ref` **or** `raw_expression` | No invented numeric distance |
-| `textual` | `raw_expression` | Retain prose that cannot yet be normalized |
-| `unknown` | (optional `raw_expression` / `certainty`) | Must not invent session or calendar values |
+| Kind | Required | Allowed optional | Forbidden (cross-kind) |
+| --- | --- | --- | --- |
+| `session` | `session_id` | `campaign_id`, `raw_expression`, `certainty` | `value`, `calendar_id`, `relation`, `anchor_ref` |
+| `campaign_date` | `value` | `calendar_id`, `campaign_id`, `raw_expression`, `certainty` | `session_id`, `relation`, `anchor_ref` |
+| `relative` | `relation`+`anchor_ref` **or** `raw_expression` | `campaign_id`, `certainty` (and the other relative form) | `session_id`, `value`, `calendar_id` |
+| `textual` | `raw_expression` | `campaign_id`, `certainty` | `session_id`, `value`, `calendar_id`, `relation`, `anchor_ref` |
+| `unknown` | — | `raw_expression`, `campaign_id`, `certainty` | `session_id`, `value`, `calendar_id`, `relation`, `anchor_ref` |
 
-All optional strings must be null/absent or non-blank after trimming.
+All optional strings must be null/absent or non-blank after trimming. Cross-kind
+fields are rejected at validation so serialized envelopes leave a single
+authoritative field set per kind.
 
 Occurrence time uses a tagged extent: `{kind:"point", point}` or
 `{kind:"interval", start?, end?, raw_expression?}`.
@@ -96,7 +98,8 @@ identifiers and blank raw expressions are rejected.
 | `null` | `none` | No envelope |
 | `{"session_id":"session-12"}` | `legacy_session_observation` | Source-time session point only; occurrence/valid stay null |
 | `{"session_id":"session-12","as_of":"T1"}` | `legacy_unresolved` | Session → source time; `as_of` preserved under `unresolved_legacy_fields` |
-| Unknown legacy dict | `legacy_unresolved` | Raw fields preserved; no claimed occurrence/valid time |
+| Unknown legacy dict (no `schema`) | `legacy_unresolved` | Raw fields preserved; no claimed occurrence/valid time |
+| Explicit unrecognized `schema` tag | `legacy_unresolved` | Full payload preserved unresolved; no V1 claim |
 | `{"schema":"dmb_temporal_envelope_v1", ...}` | `temporal_envelope_v1` | Strict validate, or raise `TemporalScopeValidationError` |
 
 Malformed schema-tagged V1 is **never** reinterpreted as legacy.
@@ -119,11 +122,17 @@ Assertion identity and durable edge compatibility are not the same concept.
 ## Projection semantic behavior
 
 Both `_node_core_semantic_fingerprint` and `_edge_core_semantic_fingerprint`
-use `temporal_core_semantic_payload`:
+use `_temporal_core_semantic_for_fingerprint` (wraps
+`temporal_core_semantic_payload`):
 
 - V1: only `occurrence_time` and `valid_time` (source_time excluded).
-- Legacy: remove top-level `session_id`; preserve every other legacy field;
-  return null when nothing remains.
+- Schema-less legacy: remove top-level `session_id`; preserve every other
+  legacy field; return null when nothing remains.
+- Explicit unrecognized `schema` tag: return the **full** payload unchanged
+  (fail-closed — do not apply the observation-session strip; a future schema
+  may use `session_id` semantically).
+- Malformed schema-tagged V1: raise `WorldGraphProjectionError` with
+  `code=projection_integrity_error` and `status_code=409` (not a generic 500).
 
 Required agreement:
 
@@ -134,6 +143,7 @@ Required agreement:
 | Different V1 occurrence times | disagree |
 | Different V1 valid-time intervals | disagree |
 | Different legacy `as_of` (non-session) | disagree |
+| Same shape, different unrecognized schema `session_id` | disagree |
 
 **Known asymmetry (TL00):** write-time node refuse in `contribution_merge.py`
 still fingerprints full raw `temporal_scope`. Projection is the relaxed reader.
