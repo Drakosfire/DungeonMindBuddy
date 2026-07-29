@@ -247,6 +247,23 @@ def test_load_revalidates_model_instance_with_mutated_annotation() -> None:
     assert exc_info.value.code == "invalid_temporal_annotation"
 
 
+def test_load_rejects_nonserializable_model_copy_as_typed_error() -> None:
+    contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
+    assertion = contribution.candidate_assertions[0]
+    overlay = _build_overlay(
+        contribution,
+        [_resolved_annotation(assertion, occurrence_time=_point_extent("session-20"))],
+    )
+    corrupted = overlay.model_copy(update={"producer": object()})  # type: ignore[arg-type]
+    with pytest.raises(TemporalShadowBuildError) as load_exc:
+        load_temporal_annotation_overlay(corrupted)
+    assert load_exc.value.code == "invalid_temporal_annotation"
+    assert load_exc.value.diagnostics
+    with pytest.raises(TemporalShadowBuildError) as build_exc:
+        build_temporal_shadow_preview(contribution, corrupted)
+    assert build_exc.value.code == "invalid_temporal_annotation"
+
+
 def test_overlay_rejects_duplicate_assertion_targets() -> None:
     contribution = _contribution(_candidate_assertion(temporal_scope={"session_id": "session-12"}))
     assertion = contribution.candidate_assertions[0]

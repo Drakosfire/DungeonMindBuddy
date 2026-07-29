@@ -18,6 +18,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticSerializationError
 
 from graph_memory.kernel.contribution_models import (
     GraphContribution,
@@ -385,11 +386,20 @@ def load_temporal_annotation_overlay(
     ``TemporalAnnotationOverlayV1`` instance — so mutated models or
     ``model_copy(update=...)`` results cannot bypass overlay-ID, duplicate-
     target, evidence, or status checks.
+
+    Instance serialization and validation failures both surface as
+    ``TemporalShadowBuildError`` (never raw Pydantic serialization exceptions).
     """
-    if isinstance(payload, TemporalAnnotationOverlayV1):
-        payload = payload.model_dump(mode="json", by_alias=True)
     try:
+        if isinstance(payload, TemporalAnnotationOverlayV1):
+            payload = payload.model_dump(mode="json", by_alias=True)
         return TemporalAnnotationOverlayV1.model_validate(payload)
+    except PydanticSerializationError as exc:
+        raise TemporalShadowBuildError(
+            "Invalid temporal annotation overlay",
+            code="invalid_temporal_annotation",
+            diagnostics=[f"overlay serialization failed: {exc}"],
+        ) from exc
     except ValidationError as exc:
         diagnostics = [
             f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}"
