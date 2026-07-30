@@ -347,8 +347,10 @@ def compute_calibration_decision(
 
     total_grounding = sum(a.total_grounding_failures for a in candidate)
     if total_grounding > 0:
+        # Phrase/evidence grounding misses are prompt/model quality issues unless
+        # spans themselves are unusable (handled separately as evidence blockers).
         notes.append(f"candidate_grounding_failures={total_grounding}")
-        return "BLOCKED_BY_EVIDENCE", notes
+        return "ITERATE_PROMPT", notes
 
     total_wrong_value = sum(a.total_wrong_temporal_value for a in candidate)
     total_wrong_lane = sum(a.total_wrong_temporal_lane for a in candidate)
