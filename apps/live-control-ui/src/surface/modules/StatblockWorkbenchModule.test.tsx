@@ -2594,7 +2594,7 @@ describe("StatblockWorkbenchModule", () => {
 
       render(<StatblockWorkbenchModule />);
       await fillRequiredCreateFields(user);
-      await user.click(screen.getByText(/Optional generation and focus controls/i));
+      await user.click(screen.getByText(/Optional & advanced/i));
       await user.type(screen.getByTestId("create-threat-graph-revision"), GRAPH_HEAD);
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {

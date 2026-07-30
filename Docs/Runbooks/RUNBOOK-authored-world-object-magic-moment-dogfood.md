@@ -87,6 +87,9 @@ The smallest capability that should be dispatched next. Do not list broad wishli
 
 ## 4. `R0-A` protocol — Existing statblock dependency path
 
+**Start-here after projection recovery:** [`INSTRUCTIONS-reboot-dogfood-R0A-R0B.md`](INSTRUCTIONS-reboot-dogfood-R0A-R0B.md)  
+**Operator script (step-by-step):** [`SCRIPT-R0-A-statblock-live-dependency-proof.md`](SCRIPT-R0-A-statblock-live-dependency-proof.md)
+
 1. Start with a real nontrivial Threat concept.
 2. Create a ThreatDraft in the current Workbench.
 3. Generate through the real provider.
@@ -100,6 +103,8 @@ The smallest capability that should be dispatched next. Do not list broad wishli
 Pass only when the accepted exact identity and digest survive reload.
 
 ## 5. `R0-B` protocol — Deep unioned-graph question
+
+**Operator detail (how to ask / known non-failures):** [`INSTRUCTIONS-reboot-dogfood-R0A-R0B.md`](INSTRUCTIONS-reboot-dogfood-R0A-R0B.md) §4
 
 Choose a question that:
 

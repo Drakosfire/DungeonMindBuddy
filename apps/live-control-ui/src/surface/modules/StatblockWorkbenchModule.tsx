@@ -2909,22 +2909,15 @@ export function StatblockWorkbenchModule() {
     >
       <header className="statblock-workbench-header">
         <div>
-          <p className="eyebrow">Typed candidate review and mechanics accept</p>
           <h2 className="module-title">Statblock Workbench</h2>
-          <p className="module-muted">Create a threat, generate its candidate, then edit and accept mechanics.</p>
+          <p className="module-muted">
+            Paste a threat description, generate a candidate, then edit and accept mechanics. First
+            line becomes the name.
+          </p>
         </div>
-        <span className="badge">sbw06c-revise</span>
       </header>
 
       <section className="statblock-section statblock-create-section">
-        <h3>New threat — create and generate</h3>
-        <p className="module-muted">Paste a threat. First line becomes the name.</p>
-        <p className="statblock-create-context" data-testid="create-threat-context-binding">
-          Using {LIVE_CONTROL_CREATE_CONTEXT.world_id} · {LIVE_CONTROL_CREATE_CONTEXT.campaign_id} ·{" "}
-          {LIVE_CONTROL_CREATE_CONTEXT.ruleset.system} {LIVE_CONTROL_CREATE_CONTEXT.ruleset.edition} ·{" "}
-          {LIVE_CONTROL_CREATE_CONTEXT.threat_kind} · {LIVE_CONTROL_CREATE_CONTEXT.created_by} · graph
-          head resolved at create
-        </p>
         <form className="statblock-create-form" onSubmit={onCreateAndGenerate}>
           <label className="statblock-create-field">
             <span className="statblock-create-field-label">Description</span>
@@ -2937,8 +2930,19 @@ export function StatblockWorkbenchModule() {
             />
           </label>
           <details className="statblock-create-details">
-            <summary>Optional generation and focus controls</summary>
+            <summary>Optional &amp; advanced</summary>
             <div className="statblock-create-optional">
+              <p className="statblock-create-context" data-testid="create-threat-context-binding">
+                Defaults: {LIVE_CONTROL_CREATE_CONTEXT.world_id} ·{" "}
+                {LIVE_CONTROL_CREATE_CONTEXT.campaign_id} ·{" "}
+                {LIVE_CONTROL_CREATE_CONTEXT.ruleset.system}{" "}
+                {LIVE_CONTROL_CREATE_CONTEXT.ruleset.edition} ·{" "}
+                {LIVE_CONTROL_CREATE_CONTEXT.threat_kind} · {LIVE_CONTROL_CREATE_CONTEXT.created_by} ·
+                graph head resolved at create
+              </p>
+              <p className="module-muted" data-testid="create-threat-slice-badge">
+                Slice: sbw06c-revise
+              </p>
               <div className="statblock-create-optional-grid">
                 <label className="statblock-create-field">
                   <span className="statblock-create-field-label">Focus session</span>
