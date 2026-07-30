@@ -1,0 +1,36 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01e-temporal-shadow-holdout-v5-v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v5/base-contribution.json",
+  "base_contribution_sha256": "a723420872c25ab459e746aa706f845da6227b5dd9c86582a2555d62f236116a",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v5/gold-overlay.json",
+  "gold_overlay_sha256": "35b9728cb24af274151deb920e070a4e8aac9bfe4fa731631f242f5ef4b7e81e",
+  "selected_assertion_ids": [
+    "assertion:3696702ca1575aec",
+    "assertion:3a74f4ad24ab5c28"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v5:s13-authority",
+      "source_artifact_id": "source-artifact:s13-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+      "content_sha256": "3a1278d88978d28118494dfb881f5bc5f479fe1ffd88fb039fd8dfe52661e27f",
+      "source_ref_id": "source-ref:s13-recap",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 13 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v5:mirathorn-founded",
+      "source_artifact_id": "source-artifact:mirathorn-world-doc",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+      "content_sha256": "70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+      "source_ref_id": "source-ref:mirathorn-world-doc",
+      "start_line": 24,
+      "end_line": 24,
+      "label": "The City of Mirathorn.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01e-v1"
+}

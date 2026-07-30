@@ -1,0 +1,70 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:e3e2172eff1391fa",
+  "base_contribution_id": "contribution:1e7838cf5ef3de24",
+  "base_contribution_source_payload_sha256": "1555d496d18c2e80bcd6c7a8f81a58607ce47986d995dcc49121006703c018a6",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01e-holdout-v5",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v5a00000000000001",
+      "base_assertion_id": "assertion:3696702ca1575aec",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-13",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v5:s13-authority"
+      ],
+      "source_phrase": "the group to be added to the line of authority, reporting directly to Lysandra",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "explicit authority assignment establishes reporting relationship start at session-13"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v5b00000000000002",
+      "base_assertion_id": "assertion:3a74f4ad24ab5c28",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "Founded over 200 years ago by settlers fleeing the Lundayell Empire",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v5:mirathorn-founded"
+      ],
+      "source_phrase": "Founded over 200 years ago by settlers fleeing the Lundayell Empire",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "explicit historical textual time for founding event; no session metadata on world seed doc"
+      ]
+    }
+  ]
+}

@@ -313,3 +313,108 @@ def test_v4_non_resolved_gold_has_null_extents_and_nonblank_diagnostics() -> Non
             }:
                 assert ann["occurrence_time"] is None
                 assert ann["valid_time"] is None
+
+
+HOLDOUT_V5 = (
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v5"
+)
+
+HOLDOUT_V5_ROW_A_ASSERTION_ID = "assertion:3696702ca1575aec"
+HOLDOUT_V5_ROW_B_ASSERTION_ID = "assertion:3a74f4ad24ab5c28"
+
+ALL_PRIOR_COHORT_DIRS = (
+    *PRIOR_COHORT_DIRS,
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v4",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v4",
+)
+
+
+def test_holdout_v5_fixture_files_exist_with_expected_prompt_versions() -> None:
+    expected_files = (
+        "README.md",
+        "base-contribution.json",
+        "gold-overlay.json",
+        "temporal-case-tl01d.json",
+        "temporal-case-tl01e.json",
+    )
+    for name in expected_files:
+        assert (HOLDOUT_V5 / name).is_file(), name
+    tl01d = json.loads((HOLDOUT_V5 / "temporal-case-tl01d.json").read_text(encoding="utf-8"))
+    tl01e = json.loads((HOLDOUT_V5 / "temporal-case-tl01e.json").read_text(encoding="utf-8"))
+    assert tl01d["prompt_version"] == "tl01d-v1"
+    assert tl01e["prompt_version"] == "tl01e-v1"
+    assert tl01d["case_id"] == "tl01d-temporal-shadow-holdout-v5-v1"
+    assert tl01e["case_id"] == "tl01e-temporal-shadow-holdout-v5-v1"
+
+
+def test_v5_control_candidate_cases_are_exact_mirrors() -> None:
+    from evals.graph_memory_layer.temporal_shadow_prompt_calibration import (
+        validate_paired_case_equivalence,
+    )
+
+    validate_paired_case_equivalence(
+        baseline_case_path=HOLDOUT_V5 / "temporal-case-tl01d.json",
+        candidate_case_path=HOLDOUT_V5 / "temporal-case-tl01e.json",
+        repo_root=REPO_ROOT,
+        pair_name="temporal_shadow_holdout_v5",
+    )
+
+
+def test_holdout_v5_ids_disjoint_from_prior_cohorts() -> None:
+    new_assertions, new_evidence = _collect_ids(HOLDOUT_V5)
+    prior_assertions: set[str] = set()
+    prior_evidence: set[str] = set()
+    for folder in ALL_PRIOR_COHORT_DIRS:
+        if not folder.is_dir():
+            continue
+        a_ids, e_ids = _collect_ids(folder)
+        prior_assertions |= a_ids
+        prior_evidence |= e_ids
+    assert new_assertions.isdisjoint(prior_assertions)
+    assert new_evidence.isdisjoint(prior_evidence)
+
+
+def test_holdout_v5_row_a_gold_is_resolved_valid_time_authority() -> None:
+    gold = json.loads((HOLDOUT_V5 / "gold-overlay.json").read_text(encoding="utf-8"))
+    by_assertion = {ann["base_assertion_id"]: ann for ann in gold["annotations"]}
+    row_a = by_assertion[HOLDOUT_V5_ROW_A_ASSERTION_ID]
+    assert row_a["interpretation_status"] == "resolved"
+    assert row_a["occurrence_time"] is None
+    assert row_a["valid_time"] is not None
+    assert row_a["valid_time"]["end"] is None
+    start = row_a["valid_time"]["start"]
+    assert start["kind"] == "session"
+    assert start["session_id"] == "session-13"
+    assert start["campaign_id"] == "longmont-c2"
+    assert (
+        "the group to be added to the line of authority, reporting directly to Lysandra"
+        in row_a["source_phrase"]
+    )
+    assert any(str(d).strip() for d in row_a.get("diagnostics", []))
+
+
+def test_holdout_v5_row_b_gold_is_resolved_textual_founding_occurrence() -> None:
+    gold = json.loads((HOLDOUT_V5 / "gold-overlay.json").read_text(encoding="utf-8"))
+    by_assertion = {ann["base_assertion_id"]: ann for ann in gold["annotations"]}
+    row_b = by_assertion[HOLDOUT_V5_ROW_B_ASSERTION_ID]
+    assert row_b["interpretation_status"] == "resolved"
+    assert row_b["valid_time"] is None
+    occurrence = row_b["occurrence_time"]
+    assert occurrence is not None
+    assert occurrence["kind"] == "point"
+    point = occurrence["point"]
+    assert point["kind"] == "textual"
+    assert point["session_id"] is None
+    raw = point["raw_expression"]
+    assert "Founded" in raw
+    assert "200 years ago" in raw
+    assert any(str(d).strip() for d in row_b.get("diagnostics", []))
+
+
+def test_holdout_v5_readme_retires_v4_from_promotion_evidence() -> None:
+    readme = (HOLDOUT_V5 / "README.md").read_text(encoding="utf-8")
+    lowered = readme.lower()
+    assert "holdout v4" in lowered or "holdout_v4" in lowered
+    assert "retired" in lowered
+    assert "lysandra" in lowered
+    assert "shiny-rain" in lowered or "shiny rain" in lowered

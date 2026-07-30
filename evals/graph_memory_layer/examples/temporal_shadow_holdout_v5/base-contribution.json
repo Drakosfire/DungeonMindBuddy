@@ -1,0 +1,75 @@
+{
+  "contribution_id": "contribution:1e7838cf5ef3de24",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01e-holdout-v5",
+  "produced_at": "2026-07-30T12:00:00Z",
+  "campaign_scope": null,
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:3696702ca1575aec",
+      "assertion_kind": "edge",
+      "subject_node_id": "faction:questionable-company",
+      "target_node_id": "npc:lysandra",
+      "predicate": "reports_to",
+      "label": "Questionable Company reports directly to Lysandra",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v5:s13-authority",
+            "session_id": "session-13"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v5:s13-authority"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1e7838cf5ef3de24"
+    },
+    {
+      "assertion_id": "assertion:3a74f4ad24ab5c28",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:mirathorn",
+      "target_node_id": null,
+      "predicate": "founded",
+      "label": "Mirathorn was founded by settlers",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v5:mirathorn-founded"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v5:mirathorn-founded"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": null,
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:1e7838cf5ef3de24"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
