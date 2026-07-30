@@ -1156,35 +1156,133 @@ def _lane_signature(annotation: TemporalAssertionAnnotationV1) -> tuple[bool, bo
     )
 
 
-def _point_canonical(point: TemporalPointV1) -> dict[str, Any]:
-    return point.model_dump(mode="json", exclude_none=True)
+def _optional_ids_compatible(left: str | None, right: str | None) -> bool:
+    """None is compatible with any value; conflicting non-null values differ."""
+    if left is None or right is None:
+        return True
+    return left == right
 
 
-def _extent_contains_exact_point(
-    extent: TemporalExtentV1 | None, point: TemporalPointV1
+def _resolve_campaign_id(
+    campaign_id: str | None, *, assertion_campaign_id: str | None
+) -> str | None:
+    """Omit campaign → treat as the assertion campaign when available."""
+    if campaign_id is not None:
+        return campaign_id
+    return assertion_campaign_id
+
+
+def _campaigns_compatible(
+    left: str | None,
+    right: str | None,
+    *,
+    assertion_campaign_id: str | None,
+) -> bool:
+    return _optional_ids_compatible(
+        _resolve_campaign_id(left, assertion_campaign_id=assertion_campaign_id),
+        _resolve_campaign_id(right, assertion_campaign_id=assertion_campaign_id),
+    )
+
+
+def _temporal_points_same_identity(
+    left: TemporalPointV1,
+    right: TemporalPointV1,
+    *,
+    assertion_campaign_id: str | None = None,
+) -> bool:
+    """Kind-specific temporal identity for source-leakage detection.
+
+    Ignores extraction metadata (``certainty``, and ``raw_expression`` for kinds
+    where it is not the identity carrier). Omitted ``campaign_id`` is compatible
+    with the base assertion campaign; conflicting non-null campaigns differ.
+    """
+    if left.kind != right.kind:
+        return False
+    if not _campaigns_compatible(
+        left.campaign_id,
+        right.campaign_id,
+        assertion_campaign_id=assertion_campaign_id,
+    ):
+        return False
+
+    kind = left.kind
+    if kind == "session":
+        return left.session_id == right.session_id
+    if kind == "campaign_date":
+        if left.value != right.value:
+            return False
+        return _optional_ids_compatible(left.calendar_id, right.calendar_id)
+    if kind == "relative":
+        left_structured = left.relation is not None and left.anchor_ref is not None
+        right_structured = right.relation is not None and right.anchor_ref is not None
+        if left_structured and right_structured:
+            return (
+                left.relation == right.relation and left.anchor_ref == right.anchor_ref
+            )
+        if left.raw_expression is not None and right.raw_expression is not None:
+            return left.raw_expression == right.raw_expression
+        return False
+    if kind == "textual":
+        return left.raw_expression == right.raw_expression
+    if kind == "unknown":
+        if left.raw_expression is None and right.raw_expression is None:
+            return True
+        return left.raw_expression == right.raw_expression
+    return False
+
+
+def _extent_contains_source_point(
+    extent: TemporalExtentV1 | None,
+    point: TemporalPointV1,
+    *,
+    assertion_campaign_id: str | None,
 ) -> bool:
     if extent is None:
         return False
-    target = _point_canonical(point)
     if isinstance(extent, TemporalPointExtentV1):
-        return _point_canonical(extent.point) == target
+        return _temporal_points_same_identity(
+            extent.point,
+            point,
+            assertion_campaign_id=assertion_campaign_id,
+        )
     if isinstance(extent, TemporalIntervalExtentV1):
         for boundary in (extent.start, extent.end):
-            if boundary is not None and _point_canonical(boundary) == target:
+            if boundary is not None and _temporal_points_same_identity(
+                boundary,
+                point,
+                assertion_campaign_id=assertion_campaign_id,
+            ):
                 return True
     return False
 
 
-def _interval_contains_exact_point(
-    interval: TemporalIntervalV1 | None, point: TemporalPointV1
+def _interval_contains_source_point(
+    interval: TemporalIntervalV1 | None,
+    point: TemporalPointV1,
+    *,
+    assertion_campaign_id: str | None,
 ) -> bool:
     if interval is None:
         return False
-    target = _point_canonical(point)
     for boundary in (interval.start, interval.end):
-        if boundary is not None and _point_canonical(boundary) == target:
+        if boundary is not None and _temporal_points_same_identity(
+            boundary,
+            point,
+            assertion_campaign_id=assertion_campaign_id,
+        ):
             return True
     return False
+
+
+def _assertion_campaign_id(
+    contribution: GraphContribution | None, assertion_id: str
+) -> str | None:
+    if contribution is None:
+        return None
+    for assertion in contribution.candidate_assertions:
+        if assertion.assertion_id == assertion_id:
+            return assertion.campaign_scope
+    return None
 
 
 def _derive_comparison_source_time(
@@ -1331,12 +1429,33 @@ def compare_temporal_overlays(
                 affected_assertion_id=assertion_id,
             )
         source = source_times[assertion_id]
+        assertion_campaign = _assertion_campaign_id(base_contribution, assertion_id)
+        if assertion_campaign is None and source is not None:
+            # Mapping-only callers: treat the derived source campaign as the
+            # assertion campaign for omitted-campaign compatibility.
+            assertion_campaign = source.campaign_id
         if source is not None:
-            if _extent_contains_exact_point(pred_ann.occurrence_time, source):
-                if not _extent_contains_exact_point(gold_ann.occurrence_time, source):
+            if _extent_contains_source_point(
+                pred_ann.occurrence_time,
+                source,
+                assertion_campaign_id=assertion_campaign,
+            ):
+                if not _extent_contains_source_point(
+                    gold_ann.occurrence_time,
+                    source,
+                    assertion_campaign_id=assertion_campaign,
+                ):
                     source_to_occ_fp += 1
-            if _interval_contains_exact_point(pred_ann.valid_time, source):
-                if not _interval_contains_exact_point(gold_ann.valid_time, source):
+            if _interval_contains_source_point(
+                pred_ann.valid_time,
+                source,
+                assertion_campaign_id=assertion_campaign,
+            ):
+                if not _interval_contains_source_point(
+                    gold_ann.valid_time,
+                    source,
+                    assertion_campaign_id=assertion_campaign,
+                ):
                     source_to_valid_fp += 1
 
         if gold_ann.interpretation_status != pred_ann.interpretation_status:

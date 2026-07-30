@@ -120,8 +120,8 @@ Per-assertion classifications:
 
 Safety metrics (minimum):
 
-- `source_to_occurrence_false_positives` — predicted occurrence contains the assertion’s **derived source-time point** and gold does not contain that exact point (null gold, different session, relative/textual/campaign-date, or different interval boundary). Unrelated invented sessions are ordinary wrong values, not source leakage. Legitimate same-session occurrence matching gold is not leakage.
-- `source_to_valid_time_false_positives` — predicted valid interval uses the derived source-time point as start or end and gold does not use that exact point
+- `source_to_occurrence_false_positives` — predicted occurrence contains the assertion’s **derived source-time identity** and gold does not. Session identity compares `session_id` while ignoring `certainty` / `raw_expression`; omitted `campaign_id` is compatible with the assertion campaign, conflicting non-null campaigns differ. Equivalent kind-specific identity applies for `campaign_date`, `relative`, `textual`, and `unknown`. Unrelated invented sessions are ordinary wrong values, not source leakage. Legitimate same-session occurrence matching gold (including metadata-only differences) is not leakage.
+- `source_to_valid_time_false_positives` — predicted valid interval uses the derived source-time identity as start or end and gold does not
 - `unsupported_resolved_annotations` — resolved when gold is ambiguous/unresolved/not_applicable
 - `foreign_evidence_attempts` — fail-closed pre-overlay count of cited evidence IDs that are not both owned by the assertion (`explicit_assertion_evidence_ref_ids`) **and** present in that assertion’s prompt packet. Always `0` on successful comparisons; non-zero values appear only on `grounding_failure` manifests
 - `evidence_selection_mismatch_count` — predicted vs gold chose different assertion-owned evidence after normalization (not foreign evidence)

@@ -858,14 +858,21 @@ _LEAK_SOURCE = TemporalPointV1(
 )
 
 
-def _point_extent(session_id: str) -> TemporalPointExtentV1:
+def _point_extent(
+    session_id: str,
+    *,
+    campaign_id: str | None = "longmont-c2",
+    certainty: str = "explicit",
+    raw_expression: str | None = None,
+) -> TemporalPointExtentV1:
     return TemporalPointExtentV1(
         kind="point",
         point=TemporalPointV1(
             kind="session",
             session_id=session_id,
-            campaign_id="longmont-c2",
-            certainty="explicit",
+            campaign_id=campaign_id,
+            certainty=certainty,  # type: ignore[arg-type]
+            raw_expression=raw_expression,
         ),
     )
 
@@ -1054,6 +1061,134 @@ def test_a4_legitimate_same_session_occurrence_not_leakage() -> None:
     )
     assert comparison.metrics.source_to_occurrence_false_positives == 0
     assert comparison.metrics.exact_match_count == 1
+
+
+def test_a4b_same_session_with_metadata_differences_not_leakage() -> None:
+    """Gold and prediction share session identity despite certainty/campaign metadata."""
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                occurrence=_point_extent(
+                    "session-20",
+                    campaign_id="longmont-c2",
+                    certainty="explicit",
+                ),
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent(
+                    "session-20",
+                    campaign_id=None,
+                    certainty="inferred",
+                    raw_expression="session twenty",
+                ),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 0
+
+
+def test_a4c_copied_source_omitting_campaign_still_leakage() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                status="not_applicable",
+                source_phrase=None,
+                diagnostics=["no fiction-time boundary"],
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent(
+                    "session-20",
+                    campaign_id=None,
+                    certainty="inferred",
+                ),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 1
+
+
+def test_a4d_copied_source_with_different_certainty_still_leakage() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                occurrence=_point_extent("session-4"),
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent(
+                    "session-20",
+                    campaign_id="longmont-c2",
+                    certainty="approximate",
+                    raw_expression="around session 20",
+                ),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 1
+
+
+def test_a4e_conflicting_non_null_campaign_is_not_source_identity() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                status="not_applicable",
+                source_phrase=None,
+                diagnostics=["no fiction-time boundary"],
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent(
+                    "session-20",
+                    campaign_id="other-campaign",
+                    certainty="inferred",
+                ),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 0
+    assert comparison.rows[0].classification == "unsafe_over_resolution"
 
 
 def test_a5_valid_time_source_copying() -> None:
