@@ -1,0 +1,157 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:f181a2e6ee7a5f97",
+  "base_contribution_id": "contribution:358db0086a7b274d",
+  "base_contribution_source_payload_sha256": "c5e95b57d1fe8cc3bc3acf21b7be3a376f9bcdcf39a1dfb528b1275217d80a21",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01d-holdout-v3",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:69fd1287a11acc1c",
+      "base_assertion_id": "assertion:1d021fde1a4a821d",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-16",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s16-dust-devil"
+      ],
+      "source_phrase": "casting Dust Devil and striking two of the attacking Canopy Prowlers",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:343632f4e9291e35",
+      "base_assertion_id": "assertion:f04fce6d3accbc47",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-23",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s23-hunger"
+      ],
+      "source_phrase": "Ephanna casts Hunger of Hadar on a point in their path",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:af9ea04d101c1194",
+      "base_assertion_id": "assertion:c6d665dd7165ad05",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s2-glimmering-globe"
+      ],
+      "source_phrase": "Situated at the edge of Lake Mirathorn, the Glimmering Globe",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "static location topology; no fiction-time boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:862c0787e61f1a9c",
+      "base_assertion_id": "assertion:abbfa5871334b2e8",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s3-inn"
+      ],
+      "source_phrase": "The party heads back to the Inn",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "scene framing / location visit without assertion temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:64bac4897a6f6839",
+      "base_assertion_id": "assertion:a71ba5d0808acd83",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s2-seraphine-mention"
+      ],
+      "source_phrase": "a lithe Eleven Duelist named Seraphine \"Bladewind\" D\u2019Lorien",
+      "extraction_confidence": "low",
+      "diagnostics": [
+        "mention/identity listing without a safe fiction-time boundary for the named person"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:01eae8ee041638ef",
+      "base_assertion_id": "assertion:77a41b4fe502698d",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": "longmont-c2",
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "not long before the group arrived",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s23-messenger-before"
+      ],
+      "source_phrase": "not long before the group arrived",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "relative/incomplete historical time; do not invent session or campaign date"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a8925394cc6d7b29",
+      "base_assertion_id": "assertion:20341a3812cd8590",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s23-orik-mayor"
+      ],
+      "source_phrase": "As mayor, Orik Tane can easily command the room",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent-state re-attestation without start/end boundary"
+      ]
+    }
+  ]
+}

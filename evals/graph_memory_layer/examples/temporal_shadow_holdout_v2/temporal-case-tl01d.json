@@ -1,0 +1,102 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01d-temporal-shadow-holdout-v2-candidate",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v2/base-contribution.json",
+  "base_contribution_sha256": "71b2a934b1a497c14fbda8bfec7e63341e2f37eaf5cbc27de3111827561c25d6",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v2/gold-overlay.json",
+  "gold_overlay_sha256": "381ce74a747811b6970d41cc0ce61e026c6bada898f77e0bcf6f45f6001acfdd",
+  "selected_assertion_ids": [
+    "assertion:4fff984b71d26edb",
+    "assertion:bfb66504a03c6d50",
+    "assertion:f5fbde70b96bc687",
+    "assertion:5b0ac288735e0372",
+    "assertion:6108ee549096a48a",
+    "assertion:1f8580500f4fa97c",
+    "assertion:0f962497e9adf1f2",
+    "assertion:b042d6ef548a1ce0"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v2:s10-ale",
+      "source_artifact_id": "source-artifact:session-10---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+      "content_sha256": "8482ee1639ec1156689e0339ff40626ac3da9c50b71d165a656250c45e1e3e7d",
+      "source_ref_id": "source-ref:session-10---recap",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 10 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v2:s20-thunderwave",
+      "source_artifact_id": "source-artifact:session-20---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "content_sha256": "70f3983a0182f2a12651a301c29de8e709296edee699184cdf06cbd1a071fa35",
+      "source_ref_id": "source-ref:session-20---recap",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 20 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v2:s15-command",
+      "source_artifact_id": "source-artifact:session-15---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "content_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+      "source_ref_id": "source-ref:session-15---recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 15 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v2:s15-walls",
+      "source_artifact_id": "source-artifact:session-15---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "content_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+      "source_ref_id": "source-ref:session-15---recap",
+      "start_line": 20,
+      "end_line": 20,
+      "label": "Session 15 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v2:s19-inn",
+      "source_artifact_id": "source-artifact:session-19---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+      "content_sha256": "c5a033c25e53e5dd40ba751efafbd39b49c4f1aa9ed910142d70b20e8b3a4b7d",
+      "source_ref_id": "source-ref:session-19---recap",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 19 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v2:s10-hooded",
+      "source_artifact_id": "source-artifact:session-10---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 10 - Recap.md",
+      "content_sha256": "8482ee1639ec1156689e0339ff40626ac3da9c50b71d165a656250c45e1e3e7d",
+      "source_ref_id": "source-ref:session-10---recap",
+      "start_line": 22,
+      "end_line": 22,
+      "label": "Session 10 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v2:s15-forest-past",
+      "source_artifact_id": "source-artifact:session-15---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "content_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+      "source_ref_id": "source-ref:session-15---recap",
+      "start_line": 24,
+      "end_line": 24,
+      "label": "Session 15 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v2:s21-thanks-again",
+      "source_artifact_id": "source-artifact:session-21---drake-nest-mirathorn-call",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 21 - Drake Nest Mirathorn Call.md",
+      "content_sha256": "ad4ecd013dad92cdcb1a11d412c9f73adb446b15f2ce62cfc50a98358588423f",
+      "source_ref_id": "source-ref:session-21---drake-nest-mirathorn-call",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 21 - Drake Nest Mirathorn Call.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01d-v1"
+}

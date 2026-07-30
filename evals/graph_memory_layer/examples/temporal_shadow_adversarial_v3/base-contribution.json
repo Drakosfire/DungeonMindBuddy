@@ -1,0 +1,244 @@
+{
+  "contribution_id": "contribution:8a920a90920b1a90",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01d-temporal-shadow-adversarial-v3",
+  "produced_at": "2026-07-30T18:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:bf5ef8e00aed4f4a",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:nerys",
+      "target_node_id": "feature:ember-lock",
+      "predicate": "cracked",
+      "label": "Nerys cracked the ember lock (historical)",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-adv3:src-diff-occ",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:src-diff-occ"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8a920a90920b1a90"
+    },
+    {
+      "assertion_id": "assertion:c042ed2ad50da72c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:bram",
+      "target_node_id": null,
+      "predicate": "holds_quay_seal",
+      "label": "Bram first held the Saltspan quay seal (historical start)",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-adv3:src-diff-valid",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:src-diff-valid"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8a920a90920b1a90"
+    },
+    {
+      "assertion_id": "assertion:117ee12e98ad447f",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:vell",
+      "target_node_id": null,
+      "predicate": "relinquishes_keys",
+      "label": "Vell relinquishes the Saltspan keys",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-adv3:valid-end",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:valid-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8a920a90920b1a90"
+    },
+    {
+      "assertion_id": "assertion:6906453d55f7de4f",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:saltspan-quay",
+      "target_node_id": "feature:iron-warehouse",
+      "predicate": "contains",
+      "label": "Saltspan Quay contains the iron warehouse",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-adv3:structural",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:structural"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8a920a90920b1a90"
+    },
+    {
+      "assertion_id": "assertion:897ca8d636678e13",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:bram",
+      "target_node_id": "loc:pale-wardens-hall",
+      "predicate": "present_at",
+      "label": "Bram is present at the Pale Wardens' hall",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-adv3:scene",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:scene"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8a920a90920b1a90"
+    },
+    {
+      "assertion_id": "assertion:d9db4178d7482c78",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:nerys",
+      "target_node_id": "faction:pale-wardens",
+      "predicate": "rides_with",
+      "label": "Nerys rides with the Pale Wardens",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-adv3:reattest",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:reattest"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8a920a90920b1a90"
+    },
+    {
+      "assertion_id": "assertion:987a228f92411b84",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:corin-vale",
+      "target_node_id": null,
+      "predicate": "named_in_dossier",
+      "label": "Someone named Corin Vale is mentioned",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-adv3:ambiguous-id",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:ambiguous-id"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8a920a90920b1a90"
+    },
+    {
+      "assertion_id": "assertion:457195f08daaade1",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:saltspan-quay",
+      "target_node_id": null,
+      "predicate": "flooded",
+      "label": "Quay flooded many winters past",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-adv3:textual-hist",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:textual-hist"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8a920a90920b1a90"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

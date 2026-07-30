@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -219,6 +220,83 @@ def _spec(lane: str, cohort: str, repetition: int) -> calibration.CalibrationRun
     )
 
 
+def _case_copy_with_prompt_version(
+    source: Path,
+    dest: Path,
+    *,
+    prompt_version: str,
+    case_id: str | None = None,
+) -> Path:
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload["prompt_version"] = prompt_version
+    if case_id is not None:
+        payload["case_id"] = case_id
+    dest.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return dest
+
+
+def _baseline_adversarial_mirror(tmp_path: Path) -> Path:
+    """TL01B-prompt mirror of adversarial V2 (same base/gold/evidence)."""
+    return _case_copy_with_prompt_version(
+        ADVERSARIAL_CASE,
+        tmp_path / "temporal-case-tl01b-adversarial.json",
+        prompt_version="tl01b-v1",
+        case_id="tl01b-temporal-shadow-adversarial-v2-baseline",
+    )
+
+
+def _run_fake_calibration(
+    tmp_path: Path,
+    *,
+    repetitions: int = 1,
+    development_case: Path = DEVELOPMENT_CASE,
+    holdout_case: Path = HOLDOUT_CASE,
+    candidate_development_case: Path = CANDIDATE_DEVELOPMENT_CASE,
+    candidate_holdout_case: Path = CANDIDATE_HOLDOUT_CASE,
+    adversarial_case: Path = ADVERSARIAL_CASE,
+    baseline_adversarial_case: Path | None = None,
+    experiment_role: str = "promotion",
+    monkeypatch: pytest.MonkeyPatch | None = None,
+) -> Any:
+    def fake_repetition(
+        spec: calibration.CalibrationRunSpec, **kwargs: Any
+    ) -> calibration.RunOutcome:
+        run_dir = calibration._lane_run_dir(
+            output_dir=kwargs["output_dir"],
+            prompt_lane=spec.prompt_lane,
+            cohort=spec.cohort,
+            repetition=spec.repetition,
+        )
+        _write_success_run(run_dir, comparison=_comparison_payload())
+        return calibration.load_run_outcome(spec, run_dir)
+
+    if monkeypatch is not None:
+        monkeypatch.setattr(calibration, "run_calibration_repetition", fake_repetition)
+
+    kwargs: dict[str, Any] = dict(
+        development_case=development_case,
+        candidate_development_case=candidate_development_case,
+        holdout_case=holdout_case,
+        candidate_holdout_case=candidate_holdout_case,
+        adversarial_case=adversarial_case,
+        output_dir=tmp_path,
+        model_id="fake-model",
+        repetitions=repetitions,
+        experiment_role=experiment_role,
+        repo_root=REPO_ROOT,
+        skip_seal_verification=True,
+        fake=True,
+    )
+    if baseline_adversarial_case is not None:
+        kwargs["baseline_adversarial_case"] = baseline_adversarial_case
+
+    if monkeypatch is not None:
+        return calibration.run_prompt_calibration(**kwargs)
+
+    with patch.object(calibration, "run_calibration_repetition", fake_repetition):
+        return calibration.run_prompt_calibration(**kwargs)
+
+
 def test_baseline_and_candidate_outputs_separated(tmp_path: Path) -> None:
     baseline_dir = calibration._lane_run_dir(
         output_dir=tmp_path,
@@ -408,6 +486,7 @@ def test_holdout_seal_fields_recorded_in_aggregate(
         output_dir=tmp_path,
         model_id="fake-model",
         repetitions=1,
+        experiment_role="promotion",
         repo_root=REPO_ROOT,
         holdout_seal_commit_sha=holdout_seal_commit,
         skip_seal_verification=True,
@@ -631,6 +710,7 @@ def test_case_ids_populated_in_metrics_slice(
         output_dir=tmp_path,
         model_id="fake-model",
         repetitions=1,
+        experiment_role="promotion",
         repo_root=REPO_ROOT,
         skip_seal_verification=True,
         fake=True,
@@ -665,6 +745,7 @@ def test_run_prompt_calibration_writes_separate_lane_dirs(
         output_dir=tmp_path,
         model_id="fake-model",
         repetitions=2,
+        experiment_role="promotion",
         repo_root=REPO_ROOT,
         skip_seal_verification=True,
         fake=True,
@@ -689,6 +770,7 @@ def test_skip_seal_verification_requires_fake(tmp_path: Path) -> None:
             output_dir=tmp_path,
             model_id="fake-model",
             repetitions=1,
+            experiment_role="promotion",
             repo_root=REPO_ROOT,
             skip_seal_verification=True,
             fake=False,
@@ -867,6 +949,7 @@ def test_live_rejects_dirty_worktree(tmp_path: Path) -> None:
                 output_dir=tmp_path,
                 model_id="fake-model",
                 repetitions=1,
+                experiment_role="promotion",
                 repo_root=REPO_ROOT,
                 holdout_seal_commit_sha=KNOWN_HOLDOUT_SEAL_COMMIT,
                 adversarial_seal_commit_sha=KNOWN_HOLDOUT_SEAL_COMMIT,
@@ -990,6 +1073,7 @@ def test_fake_run_records_aggregate_build_and_provider_shas(tmp_path: Path) -> N
         output_dir=tmp_path,
         model_id="fake-model",
         repetitions=1,
+        experiment_role="promotion",
         repo_root=REPO_ROOT,
         skip_seal_verification=True,
         fake=True,
@@ -1122,4 +1206,348 @@ def test_aggregate_counts_invalid_model_output_as_model_output_failure(
     )
     assert decision == "ITERATE_PROMPT"
     assert any("model_output_failures" in note for note in diagnostics)
+
+
+def test_historical_tl01c_fake_run_derives_tl01c_candidate_version(
+    tmp_path: Path,
+) -> None:
+    aggregate = _run_fake_calibration(tmp_path)
+    assert aggregate.baseline_prompt_version == "tl01b-v1"
+    assert aggregate.candidate_prompt_version == "tl01c-v1"
+    candidate_slice = next(
+        slice_ for slice_ in aggregate.slices if slice_.prompt_lane == "candidate"
+    )
+    assert candidate_slice.prompt_version == "tl01c-v1"
+
+
+def test_mixed_candidate_prompt_versions_fail_before_provider(
+    tmp_path: Path,
+) -> None:
+    mixed_holdout = _case_copy_with_prompt_version(
+        CANDIDATE_HOLDOUT_CASE,
+        tmp_path / "candidate-holdout-tl01d.json",
+        prompt_version="tl01d-v1",
+        case_id="tl01d-temporal-shadow-holdout-v1",
+    )
+    with patch.object(calibration, "run_calibration_repetition") as mock_run:
+        with pytest.raises(
+            calibration.PromptVersionMismatchError,
+            match="candidate cases must share one prompt_version",
+        ):
+            calibration.run_prompt_calibration(
+                development_case=DEVELOPMENT_CASE,
+                candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+                holdout_case=HOLDOUT_CASE,
+                candidate_holdout_case=mixed_holdout,
+                adversarial_case=ADVERSARIAL_CASE,
+                output_dir=tmp_path,
+                model_id="fake-model",
+                repetitions=1,
+                experiment_role="promotion",
+                repo_root=REPO_ROOT,
+                skip_seal_verification=True,
+                fake=True,
+            )
+        mock_run.assert_not_called()
+
+
+def test_mixed_control_prompt_versions_fail_before_provider(
+    tmp_path: Path,
+) -> None:
+    mixed_holdout = _case_copy_with_prompt_version(
+        HOLDOUT_CASE,
+        tmp_path / "holdout-tl01c-control.json",
+        prompt_version="tl01c-v1",
+    )
+    with patch.object(calibration, "run_calibration_repetition") as mock_run:
+        with pytest.raises(
+            calibration.PromptVersionMismatchError,
+            match="control cases must share one prompt_version",
+        ):
+            calibration.run_prompt_calibration(
+                development_case=DEVELOPMENT_CASE,
+                candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+                holdout_case=mixed_holdout,
+                candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+                adversarial_case=ADVERSARIAL_CASE,
+                output_dir=tmp_path,
+                model_id="fake-model",
+                repetitions=1,
+                experiment_role="promotion",
+                repo_root=REPO_ROOT,
+                skip_seal_verification=True,
+                fake=True,
+            )
+        mock_run.assert_not_called()
+
+
+@patch.object(calibration, "run_calibration_repetition")
+def test_baseline_adversarial_adds_sixth_lane(
+    mock_repetition: Any, tmp_path: Path
+) -> None:
+    baseline_adv = _baseline_adversarial_mirror(tmp_path)
+
+    def side_effect(
+        spec: calibration.CalibrationRunSpec, **kwargs: Any
+    ) -> calibration.RunOutcome:
+        run_dir = calibration._lane_run_dir(
+            output_dir=kwargs["output_dir"],
+            prompt_lane=spec.prompt_lane,
+            cohort=spec.cohort,
+            repetition=spec.repetition,
+        )
+        _write_success_run(run_dir, comparison=_comparison_payload())
+        return calibration.load_run_outcome(spec, run_dir)
+
+    mock_repetition.side_effect = side_effect
+    calibration.run_prompt_calibration(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        baseline_adversarial_case=baseline_adv,
+        output_dir=tmp_path,
+        model_id="fake-model",
+        repetitions=2,
+        experiment_role="promotion",
+        repo_root=REPO_ROOT,
+        skip_seal_verification=True,
+        fake=True,
+    )
+    assert mock_repetition.call_count == 12
+    assert (
+        tmp_path / "calibration" / "baseline" / "adversarial" / "run-01"
+    ).is_dir()
+
+
+def test_aggregate_records_derived_prompt_versions(tmp_path: Path) -> None:
+    aggregate = _run_fake_calibration(tmp_path)
+    assert aggregate.baseline_prompt_version == "tl01b-v1"
+    assert aggregate.candidate_prompt_version == "tl01c-v1"
+    baseline_slice = next(
+        slice_ for slice_ in aggregate.slices if slice_.prompt_lane == "baseline"
+    )
+    assert baseline_slice.prompt_version == "tl01b-v1"
+
+
+def test_calibration_id_changes_when_candidate_prompt_version_changes(
+    tmp_path: Path,
+) -> None:
+    tl01d_dev = _case_copy_with_prompt_version(
+        CANDIDATE_DEVELOPMENT_CASE,
+        tmp_path / "dev-tl01d.json",
+        prompt_version="tl01d-v1",
+        case_id="tl01d-temporal-shadow-cohort-v1",
+    )
+    tl01d_holdout = _case_copy_with_prompt_version(
+        CANDIDATE_HOLDOUT_CASE,
+        tmp_path / "holdout-tl01d.json",
+        prompt_version="tl01d-v1",
+        case_id="tl01d-temporal-shadow-holdout-v1",
+    )
+    tl01d_adv = _case_copy_with_prompt_version(
+        ADVERSARIAL_CASE,
+        tmp_path / "adv-tl01d.json",
+        prompt_version="tl01d-v1",
+    )
+    tl01c_control_holdout = _case_copy_with_prompt_version(
+        HOLDOUT_CASE,
+        tmp_path / "holdout-tl01c-control.json",
+        prompt_version="tl01c-v1",
+        case_id="tl01c-temporal-shadow-holdout-v1-baseline",
+    )
+    aggregate_tl01c = _run_fake_calibration(tmp_path / "tl01c")
+    aggregate_tl01d = _run_fake_calibration(
+        tmp_path / "tl01d",
+        candidate_development_case=tl01d_dev,
+        candidate_holdout_case=tl01d_holdout,
+        adversarial_case=tl01d_adv,
+    )
+
+    tl01c_control_dev = _case_copy_with_prompt_version(
+        CANDIDATE_DEVELOPMENT_CASE,
+        tmp_path / "dev-tl01c-control.json",
+        prompt_version="tl01c-v1",
+        case_id="tl01c-temporal-shadow-cohort-v1",
+    )
+
+    def side_effect(
+        spec: calibration.CalibrationRunSpec, **kwargs: Any
+    ) -> calibration.RunOutcome:
+        run_dir = calibration._lane_run_dir(
+            output_dir=kwargs["output_dir"],
+            prompt_lane=spec.prompt_lane,
+            cohort=spec.cohort,
+            repetition=spec.repetition,
+        )
+        _write_success_run(run_dir, comparison=_comparison_payload())
+        return calibration.load_run_outcome(spec, run_dir)
+
+    with patch.object(calibration, "run_calibration_repetition", side_effect=side_effect):
+        aggregate_tl01d_control = calibration.run_prompt_calibration(
+            development_case=tl01c_control_dev,
+            candidate_development_case=tl01d_dev,
+            holdout_case=tl01c_control_holdout,
+            candidate_holdout_case=tl01d_holdout,
+            adversarial_case=tl01d_adv,
+            output_dir=tmp_path / "tl01d-control",
+            model_id="fake-model",
+            repetitions=1,
+            experiment_role="promotion",
+            repo_root=REPO_ROOT,
+            skip_seal_verification=True,
+            fake=True,
+        )
+    assert aggregate_tl01c.calibration_id != aggregate_tl01d.calibration_id
+    assert aggregate_tl01d.calibration_id != aggregate_tl01d_control.calibration_id
+    assert aggregate_tl01d.candidate_prompt_version == "tl01d-v1"
+    assert aggregate_tl01d_control.baseline_prompt_version == "tl01c-v1"
+
+
+def test_calibration_id_changes_when_control_adversarial_lane_enabled(
+    tmp_path: Path,
+) -> None:
+    without = _run_fake_calibration(tmp_path / "five-lane")
+    with_lane = _run_fake_calibration(
+        tmp_path / "six-lane",
+        baseline_adversarial_case=_baseline_adversarial_mirror(tmp_path),
+    )
+    assert without.control_adversarial_enabled is False
+    assert with_lane.control_adversarial_enabled is True
+    assert with_lane.control_adversarial_case_id is not None
+    assert without.calibration_id != with_lane.calibration_id
+    assert len(with_lane.run_matrix) == len(without.run_matrix) + 1
+
+
+def test_calibration_id_changes_when_experiment_role_changes(tmp_path: Path) -> None:
+    regression = _run_fake_calibration(
+        tmp_path / "regression",
+        experiment_role="observed_regression",
+    )
+    promotion = _run_fake_calibration(
+        tmp_path / "promotion",
+        experiment_role="promotion",
+    )
+    assert regression.experiment_role == "observed_regression"
+    assert promotion.experiment_role == "promotion"
+    assert regression.calibration_id != promotion.calibration_id
+
+
+def test_run_matrix_is_sorted_lane_cohort_case_identity(tmp_path: Path) -> None:
+    aggregate = _run_fake_calibration(
+        tmp_path,
+        baseline_adversarial_case=_baseline_adversarial_mirror(tmp_path),
+    )
+    tuples = [
+        (entry.prompt_lane, entry.cohort, entry.case_id) for entry in aggregate.run_matrix
+    ]
+    assert tuples == sorted(tuples)
+    assert ("baseline", "adversarial") in {
+        (entry.prompt_lane, entry.cohort) for entry in aggregate.run_matrix
+    }
+
+
+def test_holdout_v2_is_marked_retired_and_not_promotion_evidence() -> None:
+    readme = (
+        REPO_ROOT
+        / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v2/README.md"
+    ).read_text(encoding="utf-8")
+    assert "RETIRED" in readme
+    assert "invalid promotion evidence" in readme.lower()
+    assert "temporal_shadow_holdout_v3" in readme
+
+
+def test_holdout_v3_independence_and_gold_invariants() -> None:
+    holdout_v3 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v3"
+    base = json.loads((holdout_v3 / "base-contribution.json").read_text(encoding="utf-8"))
+    gold = json.loads((holdout_v3 / "gold-overlay.json").read_text(encoding="utf-8"))
+    assertion_ids = {a["assertion_id"] for a in base["candidate_assertions"]}
+    evidence_ids = {
+        evid
+        for a in base["candidate_assertions"]
+        for evid in a["evidence_ref_ids"]
+    }
+
+    prior_dirs = [
+        "temporal_shadow_cohort",
+        "temporal_shadow_holdout",
+        "temporal_shadow_holdout_v2",
+        "temporal_shadow_adversarial",
+        "temporal_shadow_adversarial_v2",
+        "temporal_shadow_adversarial_v3",
+    ]
+    prior_assertion_ids: set[str] = set()
+    prior_evidence_ids: set[str] = set()
+    for name in prior_dirs:
+        payload = json.loads(
+            (
+                REPO_ROOT
+                / "evals/graph_memory_layer/examples"
+                / name
+                / "base-contribution.json"
+            ).read_text(encoding="utf-8")
+        )
+        for assertion in payload["candidate_assertions"]:
+            prior_assertion_ids.add(assertion["assertion_id"])
+            prior_evidence_ids.update(assertion["evidence_ref_ids"])
+
+    assert assertion_ids.isdisjoint(prior_assertion_ids)
+    assert evidence_ids.isdisjoint(prior_evidence_ids)
+
+    by_id = {a["assertion_id"]: a for a in base["candidate_assertions"]}
+    statuses = {ann["base_assertion_id"]: ann for ann in gold["annotations"]}
+
+    reattest = next(
+        a for a in base["candidate_assertions"] if a["predicate"] == "is_mayor_of"
+    )
+    assert statuses[reattest["assertion_id"]]["interpretation_status"] == "not_applicable"
+    assert "re-attestation" in statuses[reattest["assertion_id"]]["diagnostics"][0]
+
+    ambiguous = next(
+        a for a in base["candidate_assertions"] if a["predicate"] == "named_in_roster"
+    )
+    amb = statuses[ambiguous["assertion_id"]]
+    assert amb["interpretation_status"] == "ambiguous"
+    assert amb["occurrence_time"] is None
+    assert amb["valid_time"] is None
+
+    textual = next(
+        a
+        for a in base["candidate_assertions"]
+        if a["predicate"] == "arrived_before_party"
+    )
+    text_ann = statuses[textual["assertion_id"]]
+    assert text_ann["interpretation_status"] == "resolved"
+    assert text_ann["occurrence_time"]["point"]["kind"] == "textual"
+    raw = text_ann["occurrence_time"]["point"]["raw_expression"]
+    assert raw == "not long before the group arrived"
+    assert raw == text_ann["source_phrase"]
+
+    forbidden = (
+        "Dessa",
+        "Orun",
+        "Caldrin",
+        "Lantern Court",
+        "Nerys",
+        "Saltspan",
+        "Corin Vale",
+        "thanks the group again",
+        "hooded figure watching",
+    )
+    blob = json.dumps(base) + json.dumps(gold)
+    for term in forbidden:
+        assert term not in blob
+
+    # Case hashes must match files on disk.
+    for case_name in ("temporal-case.json", "temporal-case-tl01d.json"):
+        case = json.loads((holdout_v3 / case_name).read_text(encoding="utf-8"))
+        assert case["base_contribution_sha256"] == hashlib.sha256(
+            (holdout_v3 / "base-contribution.json").read_bytes()
+        ).hexdigest()
+        assert case["gold_overlay_sha256"] == hashlib.sha256(
+            (holdout_v3 / "gold-overlay.json").read_bytes()
+        ).hexdigest()
+        assert set(case["selected_assertion_ids"]) == assertion_ids
+        _ = by_id  # silence unused if optimized away
 

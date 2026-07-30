@@ -1,0 +1,186 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:1034d325d67a32c4",
+  "base_contribution_id": "contribution:3f359a6e13e0f908",
+  "base_contribution_source_payload_sha256": "a17ded99fcf3f933324aae4fd7198651a6d6ad8247e1e9c69e47ab84735bec5c",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01d-holdout-v2",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:75ebd76e08a17002",
+      "base_assertion_id": "assertion:4fff984b71d26edb",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-10",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s10-ale"
+      ],
+      "source_phrase": "Bonogo strikes first, attacking the glass of ale",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:637e4e4432328e86",
+      "base_assertion_id": "assertion:bfb66504a03c6d50",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-20",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s20-thunderwave"
+      ],
+      "source_phrase": "casts a powerful Thunderwave spell, splitting the swarm",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:9daec779f59557b1",
+      "base_assertion_id": "assertion:f5fbde70b96bc687",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-15",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s15-command"
+      ],
+      "source_phrase": "Lysandra reminds the group that she is in command",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent command role starts in narrated episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:51453366a8bc2f3b",
+      "base_assertion_id": "assertion:5b0ac288735e0372",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s15-walls"
+      ],
+      "source_phrase": "the 10 foot thick walls",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "static structural city feature; no fiction-time boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:ec0cd93603e878a5",
+      "base_assertion_id": "assertion:6108ee549096a48a",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s19-inn"
+      ],
+      "source_phrase": "Back at the Mossford Inn",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "scene framing / location visit without assertion temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:208821c5515c2fa4",
+      "base_assertion_id": "assertion:1f8580500f4fa97c",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s10-hooded"
+      ],
+      "source_phrase": "a dark hooded figure watching from the stands",
+      "extraction_confidence": "low",
+      "diagnostics": [
+        "identity of watcher cannot be temporally fixed from snippet alone"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:e1113ee2791c3bfb",
+      "base_assertion_id": "assertion:0f962497e9adf1f2",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": "longmont-c2",
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "in the past",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s15-forest-past"
+      ],
+      "source_phrase": "a wandering forest destroying parts of Mirathorn in the past",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "relative/incomplete historical time; do not invent session or campaign date"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:13e41ab2e2e5f1b5",
+      "base_assertion_id": "assertion:b042d6ef548a1ce0",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s21-thanks-again"
+      ],
+      "source_phrase": "thanks the group again for taking him out of the forest",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "re-attestation without start/end boundary"
+      ]
+    }
+  ]
+}

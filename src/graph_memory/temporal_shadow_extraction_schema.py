@@ -389,6 +389,17 @@ class TemporalPromptCalibrationMetricsSliceV1(_TransportModel):
     cohort_aggregates: list[CalibrationCohortAggregateV1] = Field(default_factory=list)
 
 
+CalibrationExperimentRole = Literal["observed_regression", "promotion"]
+
+
+class CalibrationRunMatrixEntryV1(_TransportModel):
+    """One lane/cohort/case identity participating in a calibration aggregate."""
+
+    prompt_lane: Literal["baseline", "candidate"]
+    cohort: Literal["development", "holdout", "adversarial"]
+    case_id: str
+
+
 class TemporalPromptCalibrationAggregateV1(_TransportModel):
     """Cross-case prompt calibration aggregate for TL01C."""
 
@@ -409,10 +420,17 @@ class TemporalPromptCalibrationAggregateV1(_TransportModel):
     adversarial_gold_sha256: str | None = None
     adversarial_seal_commit_sha: str | None = None
     seals_verified: bool = False
+    baseline_prompt_version: str | None = None
+    candidate_prompt_version: str | None = None
     candidate_prompt_sha256: str
     baseline_prompt_sha256: str
     model_id: str
     repetitions: int
+    # Optional for frozen pre-TL01D aggregates; new runner always populates these.
+    experiment_role: CalibrationExperimentRole | None = None
+    run_matrix: list[CalibrationRunMatrixEntryV1] = Field(default_factory=list)
+    control_adversarial_enabled: bool = False
+    control_adversarial_case_id: str | None = None
     slices: list[TemporalPromptCalibrationMetricsSliceV1] = Field(default_factory=list)
     decision: CalibrationDecision = "ITERATE_PROMPT"
     diagnostics: list[str] = Field(default_factory=list)
@@ -422,7 +440,9 @@ __all__ = [
     "CalibrationAssertionStabilityV1",
     "CalibrationCohortAggregateV1",
     "CalibrationDecision",
+    "CalibrationExperimentRole",
     "CalibrationMetricDistributionV1",
+    "CalibrationRunMatrixEntryV1",
     "CalibrationRunRecordV1",
     "TEMPORAL_MODEL_ANNOTATION_BATCH_SCHEMA",
     "TEMPORAL_PROMPT_CALIBRATION_SCHEMA",
