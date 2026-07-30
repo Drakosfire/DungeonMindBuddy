@@ -1,0 +1,190 @@
+{
+  "contribution_id": "contribution:8408dabc602b750f",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01b-temporal-shadow-cohort",
+  "produced_at": "2026-07-29T20:44:17Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:033de7c2063119b5",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": "pc:caelynn",
+      "predicate": "revived",
+      "label": "Stafl revives Caelynn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01b:s7-revive",
+            "session_id": "session-7"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01b:s7-revive"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8408dabc602b750f"
+    },
+    {
+      "assertion_id": "assertion:a027cc13edc1ac7c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": null,
+      "predicate": "assigned_role",
+      "label": "Lysandra assigned to lead",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01b:s13-lead",
+            "session_id": "session-13"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01b:s13-lead"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8408dabc602b750f"
+    },
+    {
+      "assertion_id": "assertion:b2830e3195a3a692",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:ephanna",
+      "target_node_id": "creature:hybrid",
+      "predicate": "destroyed",
+      "label": "Hybrid monster destroyed",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01b:s24-destroy",
+            "session_id": "session-24"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01b:s24-destroy"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8408dabc602b750f"
+    },
+    {
+      "assertion_id": "assertion:4e24f0fa3c99d487",
+      "assertion_kind": "node",
+      "subject_node_id": "group:questionable-company",
+      "target_node_id": null,
+      "predicate": null,
+      "label": "Party at Copper and Quartz",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01b:s12-party",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01b:s12-party"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8408dabc602b750f"
+    },
+    {
+      "assertion_id": "assertion:a73b9dc9bdfaa72c",
+      "assertion_kind": "edge",
+      "subject_node_id": "location:mireward",
+      "target_node_id": "location:edge",
+      "predicate": "connected_by_road",
+      "label": "Road observation",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01b:s22-scope",
+            "session_id": "session-22"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01b:s22-scope"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": {
+        "session_id": "session-22"
+      },
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8408dabc602b750f"
+    },
+    {
+      "assertion_id": "assertion:a38de7f76f5f59e3",
+      "assertion_kind": "node",
+      "subject_node_id": "name:maelthor",
+      "target_node_id": null,
+      "predicate": null,
+      "label": "Maelthor password mention",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01b:s6-maelthor",
+            "session_id": "session-6"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01b:s6-maelthor"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:8408dabc602b750f"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

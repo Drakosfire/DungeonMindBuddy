@@ -1,0 +1,143 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:b71202b84b6ce092",
+  "base_contribution_id": "contribution:8408dabc602b750f",
+  "base_contribution_source_payload_sha256": "cea5313dd1eb140c686db1922d9e21092ceee5929b4e5d572f4ada65298d71d7",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01b-cohort",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:86e687663b2cba35",
+      "base_assertion_id": "assertion:033de7c2063119b5",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-7",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01b:s7-revive"
+      ],
+      "source_phrase": "reviving her all in one action",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "fiction event grounded in recap sentence"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:498b344600fa4cf4",
+      "base_assertion_id": "assertion:a027cc13edc1ac7c",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-13",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01b:s13-lead"
+      ],
+      "source_phrase": "assigned to lead the group",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "leadership assignment starts at council meeting"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:af8c5d4b8cf51292",
+      "base_assertion_id": "assertion:b2830e3195a3a692",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-24",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01b:s24-destroy"
+      ],
+      "source_phrase": "the monster is destroyed",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "explicit same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:98a2604768c2208c",
+      "base_assertion_id": "assertion:4e24f0fa3c99d487",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01b:s12-party"
+      ],
+      "source_phrase": "The Battle of the Bards By now the party is in full swing",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "scene framing without a single fiction event time"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:bd773d5b68f1f20c",
+      "base_assertion_id": "assertion:a73b9dc9bdfaa72c",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01b:s22-scope"
+      ],
+      "source_phrase": "The group turns their focus to the Reach",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "legacy session scope is source provenance only"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:2ac356c6a248eb10",
+      "base_assertion_id": "assertion:a38de7f76f5f59e3",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01b:s6-maelthor"
+      ],
+      "source_phrase": "speak the password: Maelthor",
+      "extraction_confidence": "low",
+      "diagnostics": [
+        "password cue vs historical name cannot be disambiguated from snippet alone"
+      ]
+    }
+  ]
+}

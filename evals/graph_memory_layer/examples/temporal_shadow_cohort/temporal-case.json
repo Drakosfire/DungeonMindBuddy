@@ -1,0 +1,80 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01b-temporal-shadow-cohort-v1",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_cohort/base-contribution.json",
+  "base_contribution_sha256": "c85e4a3cf2357063c7d98e05eb5be15115b9cf5ed0c49566973303950011cc40",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_cohort/gold-overlay.json",
+  "gold_overlay_sha256": "593e726c2249cc162c6c6aaa54d2b7cf7d6452e7ca02cf0364c620c03085a8b4",
+  "selected_assertion_ids": [
+    "assertion:033de7c2063119b5",
+    "assertion:a027cc13edc1ac7c",
+    "assertion:b2830e3195a3a692",
+    "assertion:4e24f0fa3c99d487",
+    "assertion:a73b9dc9bdfaa72c",
+    "assertion:a38de7f76f5f59e3"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01b:s7-revive",
+      "source_artifact_id": "source-artifact:s7-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 7 - Recap.md",
+      "content_sha256": "3944b26180b92c1b26525052b8f5c5786513be997a19683fbe2d31a066872319",
+      "source_ref_id": "source-ref:s7-recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 7 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01b:s13-lead",
+      "source_artifact_id": "source-artifact:s13-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 13 - Recap.md",
+      "content_sha256": "3a1278d88978d28118494dfb881f5bc5f479fe1ffd88fb039fd8dfe52661e27f",
+      "source_ref_id": "source-ref:s13-recap",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 13 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01b:s24-destroy",
+      "source_artifact_id": "source-artifact:s24-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md",
+      "content_sha256": "7fe085121d651f21211f8e58c3192159c4cfaf7b07ce9f78d02b4d082e5df8bc",
+      "source_ref_id": "source-ref:s24-recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 24 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01b:s12-party",
+      "source_artifact_id": "source-artifact:s12-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 12 - Recap.md",
+      "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+      "source_ref_id": "source-ref:s12-recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 12 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01b:s22-scope",
+      "source_artifact_id": "source-artifact:s22-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md",
+      "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "source_ref_id": "source-ref:s22-recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 22 - Mireward Road and Lysandro.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01b:s6-maelthor",
+      "source_artifact_id": "source-artifact:s6-recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 6 - Recap.md",
+      "content_sha256": "c4fe6d1592e97a550d250fb88bd914d239134868a48c3905ace8bb3162800b94",
+      "source_ref_id": "source-ref:s6-recap",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 6 - Recap.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01b-v1"
+}
