@@ -152,6 +152,8 @@ def _repository_sha(*, repo_root: Path) -> str:
                 ".",
                 ":(exclude)node_modules",
                 ":(exclude)node_modules/**",
+                ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration",
+                ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**",
             ],
             cwd=repo_root,
             check=True,
@@ -184,6 +186,8 @@ def _assert_clean_worktree_for_live(*, repo_root: Path, fake: bool) -> None:
             ".",
             ":(exclude)node_modules",
             ":(exclude)node_modules/**",
+            ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration",
+            ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**",
         )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise DirtyWorktreeError(
@@ -1188,6 +1192,7 @@ def run_calibration_repetition(
         if fake
         else None
     )
+    caught: TemporalShadowExtractionError | None = None
     try:
         run_temporal_shadow_extraction(
             spec.case_path,
@@ -1197,9 +1202,65 @@ def run_calibration_repetition(
             overwrite=True,
             repo_root=repo_root,
         )
-    except TemporalShadowExtractionError:
-        pass
+    except TemporalShadowExtractionError as exc:
+        caught = exc
+    _ensure_identity_failure_manifest(
+        run_dir=run_dir,
+        spec=spec,
+        model_id=model_id,
+        repo_root=repo_root,
+        error=caught,
+    )
     return load_run_outcome(spec, run_dir)
+
+
+def _ensure_identity_failure_manifest(
+    *,
+    run_dir: Path,
+    spec: CalibrationRunSpec,
+    model_id: str,
+    repo_root: Path,
+    error: TemporalShadowExtractionError | None,
+) -> None:
+    """Guarantee every repetition leaves a manifest with identity fields."""
+    if (run_dir / "run-manifest.json").is_file():
+        return
+    if (run_dir / "failure-manifest.json").is_file():
+        return
+    run_dir.mkdir(parents=True, exist_ok=True)
+    case = load_temporal_shadow_extraction_case(spec.case_path, repo_root=repo_root)
+    failure_code = error.code if error is not None else "unknown_failure"
+    diagnostics = list(error.diagnostics) if error is not None else [
+        f"missing_published_run_directory path={run_dir}"
+    ]
+    if error is not None:
+        diagnostics = _bounded_or_plain(diagnostics)
+    payload = {
+        "schema": "dmb_temporal_shadow_extraction_failure_v1",
+        "case_id": case.case_id,
+        "case_digest": _file_sha256(spec.case_path),
+        "model_id": model_id,
+        "executed_prompt_version": case.prompt_version,
+        "prompt_version": case.prompt_version,
+        "failure_code": failure_code,
+        "diagnostics": diagnostics[:8],
+        "repository_sha": _repository_sha(repo_root=repo_root),
+        "affected_assertion_id": (
+            error.affected_assertion_id if error is not None else None
+        ),
+    }
+    (run_dir / "failure-manifest.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _bounded_or_plain(diagnostics: list[str]) -> list[str]:
+    bounded: list[str] = []
+    for item in diagnostics[:8]:
+        text = item if len(item) <= 500 else item[:497] + "..."
+        bounded.append(text)
+    return bounded
 
 
 def run_prompt_calibration(

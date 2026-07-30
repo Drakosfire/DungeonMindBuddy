@@ -968,3 +968,31 @@ def test_fake_run_records_aggregate_build_and_provider_shas(tmp_path: Path) -> N
             assert cohort_agg.case_id == expected[key]
             assert cohort_agg.manifest_consistency_ok, cohort_agg.manifest_diagnostics
 
+
+def test_ensure_identity_failure_manifest_when_run_dir_empty(tmp_path: Path) -> None:
+    spec = calibration.CalibrationRunSpec(
+        "candidate",
+        "holdout",
+        CANDIDATE_HOLDOUT_CASE,
+        1,
+    )
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    calibration._ensure_identity_failure_manifest(
+        run_dir=run_dir,
+        spec=spec,
+        model_id="fake-model",
+        repo_root=REPO_ROOT,
+        error=None,
+    )
+    failure = json.loads((run_dir / "failure-manifest.json").read_text(encoding="utf-8"))
+    assert failure["case_id"] == "tl01c-temporal-shadow-holdout-v1"
+    assert failure["model_id"] == "fake-model"
+    assert failure["executed_prompt_version"] == "tl01c-v1"
+    assert failure["repository_sha"]
+    assert failure["failure_code"] == "unknown_failure"
+

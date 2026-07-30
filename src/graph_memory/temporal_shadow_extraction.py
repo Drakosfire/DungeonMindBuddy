@@ -1795,6 +1795,8 @@ def _repository_sha(*, repo_root: Path) -> str:
                 ".",
                 ":(exclude)node_modules",
                 ":(exclude)node_modules/**",
+                ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration",
+                ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**",
             ],
             cwd=repo_root,
             check=True,
