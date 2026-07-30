@@ -1,8 +1,11 @@
 # REPORT — TL01B temporal shadow cohort
 
-**Status:** Live provider run completed (post grounding/manifest/failure-artifact fixes)  
-**Repository SHA (implementation base):** `d6ea4959c9bcc2f113ef50d912629864c1a1c04b`  
+**Status:** Live provider run completed  
+**Live execution commit (manifest `repository_sha`):** `52eef8e84e71dce6fb501e0e713a34428226e34e`  
+**Implementation base (TL01 merge):** `d6ea4959c9bcc2f113ef50d912629864c1a1c04b`  
 **Evaluation verdict:** `ITERATE_PROMPT`
+
+The live-proof SHA above is copied from the generated `run-manifest.json` for this run. It is the clean repository HEAD that executed the provider call (not merely the original TL01 merge base).
 
 ## Cohort matrix
 
@@ -27,49 +30,71 @@
 | Base contribution ID | `contribution:8408dabc602b750f` |
 | Model | `gpt-5.4-mini` |
 | Prompt version (executed) | `tl01b-v1` |
-| Provider response ID | `resp_084f02c116c4cd98006a6a887d47d4819596bdb375f0cc36f3` |
+| Provider response ID | `resp_06f86ddaf15e3e3f006a6a9dcbe65c819393689fa66e3483bb` |
 | Selected assertions | 6 |
-| Overlay ID | `temporal-overlay:e985d830e8461a3f` |
-| Run ID | `temporal-shadow-run:522390fed3fe62f8` |
+| Overlay ID | `temporal-overlay:072b1eb5beac7b25` |
+| Run ID | `temporal-shadow-run:e830cac21f4e1924` |
 | Preview verdict | `complete` |
 | Comparison verdict | `fail` |
 | Evaluation verdict | `ITERATE_PROMPT` |
 | Input tokens | 3525 |
-| Output tokens | 846 |
-| Elapsed ms | ~4882 |
+| Output tokens | 863 |
+| Elapsed ms | ~6048 |
 | Cost | not reported by client |
 
-Artifacts (local, not committed): `evals/graph_memory_layer/artifacts/temporal_shadow_cohort/live-run/`
+Artifacts (local, gitignored): `evals/graph_memory_layer/artifacts/temporal_shadow_cohort/live-run/`
 
-## Metrics (live vs gold, semantic comparator)
+## Metrics (live vs gold)
+
+### Classification
 
 | Metric | Count |
 | --- | ---: |
-| Exact match | 1 |
-| Wrong temporal value (same status) | 3 |
+| Exact semantic match | 1 |
+| Resolved exact match | 0 |
+| Wrong temporal value | 3 |
 | Wrong temporal lane | 0 |
-| Unsafe over-resolution | 1 |
+| Unsafe over-resolution / unsupported resolved | 1 |
+| Status mismatch | 1 |
 | Safe under-resolution | 0 |
-| Other status mismatch | 1 |
 | Missing / extra | 0 / 0 |
 
-Expanded phrase grounding (every non-null `source_phrase`, including `not_applicable`) did not reject this provider batch; the run completed to overlay/preview/comparison.
+### Safety
+
+| Metric | Count |
+| --- | ---: |
+| Source→occurrence false positives | 0 |
+| Source→valid-time false positives | 0 |
+| Unsupported resolved annotations | 1 |
+| Foreign evidence attempts | 0 |
+| Ungrounded source phrases | 0 |
+| Invalid temporal payloads | 0 |
+
+### Quality
+
+| Metric | Value |
+| --- | --- |
+| Status accuracy | 0.667 (4/6) |
+| Exact semantic match count | 1 |
+| Resolved exact match count | 0 |
+| Ambiguous or unresolved (gold) | 1 |
+| Not-applicable accuracy | 0.5 (1/2) |
 
 ## Strengths
 
-- Sealed digests → owned spans → Responses API strict schema → TL01 overlay → preview.
-- Target set exact; no foreign-evidence or missing-target failures.
+- Atomic overwrite: success and failure directories no longer retain contradictory sibling artifacts.
+- Sealed run manifest records the exact execution commit SHA.
+- Safety metrics now separate unsupported over-resolution from ordinary wrong-value rows.
+- No source→occurrence or source→valid-time false positives in this provider batch.
 - Preview verdict `complete`.
-- Run manifest now seals repository SHA, case/base digests, selected IDs, artifact digests, provider ID, tokens, and verdicts.
-- One true `exact_match` on a `not_applicable` row.
 
 ## Failure modes
 
-- Three resolved rows with wrong temporal value.
-- One **unsafe over-resolution**: gold `ambiguous` predicted as `resolved`.
-- One status mismatch (`not_applicable` → `unresolved`).
+- Three resolved rows with wrong temporal value (same status/lane, different payload).
+- One unsupported resolved annotation (gold `ambiguous` → predicted `resolved`).
+- One status mismatch on a `not_applicable` gold row.
 - Model quality still insufficient for TL02.
 
 ## Next decision
 
-**`ITERATE_PROMPT`** — evaluator contracts (semantic compare, grounding, gold binding, failure artifacts, sealed manifest) are sound; model quality is not ready for participant-role / projected-occurrence work.
+**`ITERATE_PROMPT`** — evaluator contracts (atomic publish, safety/quality metrics, sealed SHA) are sound; model quality is not ready for participant-role / projected-occurrence work.
