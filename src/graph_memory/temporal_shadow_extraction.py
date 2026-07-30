@@ -1365,8 +1365,9 @@ def _repository_sha(*, repo_root: Path) -> str:
             text=True,
         )
         sha = completed.stdout.strip() or "unknown"
+        # Ignore untracked files (eval run dirs); only tracked dirtiness marks +dirty.
         dirty = subprocess.run(
-            ["git", "status", "--porcelain"],
+            ["git", "status", "--porcelain", "-uno"],
             cwd=repo_root,
             check=True,
             capture_output=True,
