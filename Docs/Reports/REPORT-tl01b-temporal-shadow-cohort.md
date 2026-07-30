@@ -1,8 +1,8 @@
 # REPORT — TL01B temporal shadow cohort
 
-**Status:** Live provider run completed  
-**Live execution commit (manifest `repository_sha`):** `52eef8e84e71dce6fb501e0e713a34428226e34e`  
-**Implementation base (TL01 merge):** `d6ea4959c9bcc2f113ef50d912629864c1a1c04b`  
+**Status:** Live provider run completed
+**Live execution commit (manifest `repository_sha`):** `52eef8e84e71dce6fb501e0e713a34428226e34e`
+**Implementation base (TL01 merge):** `d6ea4959c9bcc2f113ef50d912629864c1a1c04b`
 **Evaluation verdict:** `ITERATE_PROMPT`
 
 The live-proof SHA above is copied from the generated `run-manifest.json` for this run. It is the clean repository HEAD that executed the provider call (not merely the original TL01 merge base).
