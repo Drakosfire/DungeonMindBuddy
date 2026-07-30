@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -28,7 +29,13 @@ from graph_memory.kernel.contributions import (
     explicit_assertion_evidence_ref_ids,
     semantic_assertion_value,
 )
-from graph_memory.kernel.temporal import TemporalExtentV1, TemporalIntervalV1
+from graph_memory.kernel.temporal import (
+    TemporalExtentV1,
+    TemporalIntervalExtentV1,
+    TemporalIntervalV1,
+    TemporalPointExtentV1,
+    TemporalPointV1,
+)
 from graph_memory.source_span import (
     SourceArtifactText,
     SourceSpanRef,
@@ -45,6 +52,7 @@ from graph_memory.temporal_shadow import (
     TemporalShadowPreviewV1,
     build_temporal_shadow_preview,
     compute_temporal_overlay_id,
+    derive_assertion_source_time,
     load_temporal_annotation_overlay,
 )
 from graph_memory.temporal_shadow_extraction_schema import (
@@ -70,12 +78,14 @@ class TemporalShadowExtractionError(Exception):
         diagnostics: list[str] | None = None,
         affected_assertion_id: str | None = None,
         provider_response_id: str | None = None,
+        foreign_evidence_attempts: int = 0,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.diagnostics = list(diagnostics or [message])
         self.affected_assertion_id = affected_assertion_id
         self.provider_response_id = provider_response_id
+        self.foreign_evidence_attempts = int(foreign_evidence_attempts)
 
 
 class _CaseModel(BaseModel):
@@ -183,6 +193,8 @@ class TemporalShadowComparisonMetricsV1(_CaseModel):
     foreign_evidence_attempts: int = 0
     ungrounded_source_phrases: int = 0
     invalid_temporal_payloads: int = 0
+    # Evidence selection (owned evidence; not ownership violations)
+    evidence_selection_mismatch_count: int = 0
     # Quality
     status_accuracy: float = 0.0
     ambiguous_or_unresolved_count: int = 0
@@ -248,6 +260,8 @@ class TemporalShadowExtractionFailureV1(_CaseModel):
     failure_code: str
     diagnostics: list[str] = Field(default_factory=list)
     provider_response_id: str | None = None
+    affected_assertion_id: str | None = None
+    foreign_evidence_attempts: int = 0
 
 
 @dataclass(frozen=True)
@@ -1018,29 +1032,33 @@ def ground_and_convert_model_batch(
     base_by_id = {a.assertion_id: a for a in contribution.candidate_assertions}
     annotations: list[TemporalAssertionAnnotationV1] = []
 
+    foreign_attempts = 0
+    first_foreign_assertion: str | None = None
+    foreign_diagnostics: list[str] = []
     for item in batch.annotations:
         assertion = base_by_id[item.base_assertion_id]
         owned = set(explicit_assertion_evidence_ref_ids(assertion))
+        packet_snippets = packets[item.base_assertion_id]["evidence_snippets"]
+        packet_ids = {entry["evidence_ref_id"] for entry in packet_snippets}
         for evidence_id in item.evidence_ref_ids:
-            if evidence_id not in owned:
-                raise TemporalShadowExtractionError(
-                    "Annotation cites evidence not owned by assertion",
-                    code="grounding_failure",
-                    affected_assertion_id=item.base_assertion_id,
-                    diagnostics=[f"evidence_ref_id={evidence_id!r}"],
-                )
-            packet_snippets = packets[item.base_assertion_id]["evidence_snippets"]
-            snippet_by_id = {
-                entry["evidence_ref_id"]: entry["preview_snippet"]
-                for entry in packet_snippets
-            }
-            if evidence_id not in snippet_by_id:
-                raise TemporalShadowExtractionError(
-                    "Annotation cites evidence missing from packet",
-                    code="grounding_failure",
-                    affected_assertion_id=item.base_assertion_id,
+            if evidence_id not in owned or evidence_id not in packet_ids:
+                foreign_attempts += 1
+                if first_foreign_assertion is None:
+                    first_foreign_assertion = item.base_assertion_id
+                foreign_diagnostics.append(
+                    f"assertion={item.base_assertion_id!r} evidence_ref_id={evidence_id!r}"
                 )
 
+    if foreign_attempts:
+        raise TemporalShadowExtractionError(
+            "Annotation cites evidence not owned by assertion or missing from packet",
+            code="grounding_failure",
+            affected_assertion_id=first_foreign_assertion,
+            foreign_evidence_attempts=foreign_attempts,
+            diagnostics=_bounded_diagnostics(foreign_diagnostics),
+        )
+
+    for item in batch.annotations:
         if item.interpretation_status == "resolved":
             _require_grounded_source_phrase(
                 item=item, packets=packets, required=True
@@ -1138,33 +1156,116 @@ def _lane_signature(annotation: TemporalAssertionAnnotationV1) -> tuple[bool, bo
     )
 
 
-def _extent_contains_session(extent: Any) -> bool:
-    from graph_memory.kernel.temporal import TemporalIntervalExtentV1, TemporalPointExtentV1
+def _point_canonical(point: TemporalPointV1) -> dict[str, Any]:
+    return point.model_dump(mode="json", exclude_none=True)
 
+
+def _extent_contains_exact_point(
+    extent: TemporalExtentV1 | None, point: TemporalPointV1
+) -> bool:
     if extent is None:
         return False
+    target = _point_canonical(point)
     if isinstance(extent, TemporalPointExtentV1):
-        return extent.point.kind == "session"
+        return _point_canonical(extent.point) == target
     if isinstance(extent, TemporalIntervalExtentV1):
-        for point in (extent.start, extent.end):
-            if point is not None and point.kind == "session":
+        for boundary in (extent.start, extent.end):
+            if boundary is not None and _point_canonical(boundary) == target:
                 return True
     return False
 
 
-def _interval_contains_session(interval: Any) -> bool:
+def _interval_contains_exact_point(
+    interval: TemporalIntervalV1 | None, point: TemporalPointV1
+) -> bool:
     if interval is None:
         return False
-    for point in (interval.start, interval.end):
-        if point is not None and point.kind == "session":
+    target = _point_canonical(point)
+    for boundary in (interval.start, interval.end):
+        if boundary is not None and _point_canonical(boundary) == target:
             return True
     return False
+
+
+def _derive_comparison_source_time(
+    contribution: GraphContribution,
+    assertion_id: str,
+) -> TemporalPointV1 | None:
+    matches = [
+        assertion
+        for assertion in contribution.candidate_assertions
+        if assertion.assertion_id == assertion_id
+    ]
+    if not matches:
+        raise TemporalShadowExtractionError(
+            "Comparison target missing from base contribution",
+            code="comparison_source_time_failure",
+            affected_assertion_id=assertion_id,
+        )
+    if len(matches) > 1:
+        raise TemporalShadowExtractionError(
+            "Duplicate assertion_id in base contribution",
+            code="comparison_source_time_failure",
+            affected_assertion_id=assertion_id,
+        )
+    try:
+        source, derivation, diagnostics = derive_assertion_source_time(matches[0])
+    except TemporalShadowBuildError as exc:
+        raise TemporalShadowExtractionError(
+            "Cannot safely derive source time for comparison",
+            code="comparison_source_time_failure",
+            affected_assertion_id=assertion_id,
+            diagnostics=list(exc.diagnostics) or [str(exc)],
+        ) from exc
+    if derivation == "skipped":
+        raise TemporalShadowExtractionError(
+            "Source-time derivation skipped; cannot measure source leakage",
+            code="comparison_source_time_failure",
+            affected_assertion_id=assertion_id,
+            diagnostics=list(diagnostics),
+        )
+    return source
+
+
+def _build_assertion_source_time_map(
+    contribution: GraphContribution,
+    assertion_ids: set[str],
+) -> dict[str, TemporalPointV1 | None]:
+    return {
+        assertion_id: _derive_comparison_source_time(contribution, assertion_id)
+        for assertion_id in assertion_ids
+    }
 
 
 def compare_temporal_overlays(
     predicted: TemporalAnnotationOverlayV1,
     gold: TemporalAnnotationOverlayV1,
+    *,
+    base_contribution: GraphContribution | None = None,
+    assertion_source_times: Mapping[str, TemporalPointV1 | None] | None = None,
 ) -> TemporalShadowComparisonV1:
+    """Compare predicted vs gold using semantic temporal equality.
+
+    Source-leakage metrics require either ``base_contribution`` (preferred) or
+    an immutable ``assertion_source_times`` map derived via TL01
+    ``derive_assertion_source_time``. Do not invent source time from gold,
+    filenames, or model output.
+    """
+    if assertion_source_times is None:
+        if base_contribution is None:
+            raise TemporalShadowExtractionError(
+                "compare_temporal_overlays requires base_contribution or assertion_source_times",
+                code="comparison_source_time_failure",
+            )
+        all_ids_for_source = {
+            item.base_assertion_id for item in gold.annotations
+        } | {item.base_assertion_id for item in predicted.annotations}
+        source_times = _build_assertion_source_time_map(
+            base_contribution, all_ids_for_source
+        )
+    else:
+        source_times = dict(assertion_source_times)
+
     gold_by_id = {item.base_assertion_id: item for item in gold.annotations}
     predicted_by_id = {item.base_assertion_id: item for item in predicted.annotations}
     all_ids = sorted(set(gold_by_id) | set(predicted_by_id))
@@ -1176,7 +1277,7 @@ def compare_temporal_overlays(
     status_matches = 0
     comparable_status = 0
     source_to_occ_fp = source_to_valid_fp = unsupported_resolved = 0
-    foreign_evidence = 0
+    evidence_selection_mismatch = 0
     ambiguous_or_unresolved = 0
     not_applicable_gold = 0
     not_applicable_correct = 0
@@ -1220,18 +1321,23 @@ def compare_temporal_overlays(
         if gold_ann.interpretation_status == pred_ann.interpretation_status:
             status_matches += 1
 
-        gold_evidence = set(gold_ann.evidence_ref_ids)
-        pred_evidence = set(pred_ann.evidence_ref_ids)
-        if not pred_evidence.issubset(gold_evidence):
-            foreign_evidence += 1
+        if sorted(gold_ann.evidence_ref_ids) != sorted(pred_ann.evidence_ref_ids):
+            evidence_selection_mismatch += 1
 
-        # Source-session leakage: inventing session occurrence/valid when gold has none.
-        if pred_ann.occurrence_time is not None and gold_ann.occurrence_time is None:
-            if _extent_contains_session(pred_ann.occurrence_time):
-                source_to_occ_fp += 1
-        if pred_ann.valid_time is not None and gold_ann.valid_time is None:
-            if _interval_contains_session(pred_ann.valid_time):
-                source_to_valid_fp += 1
+        if assertion_id not in source_times:
+            raise TemporalShadowExtractionError(
+                "Missing derived source time for comparison target",
+                code="comparison_source_time_failure",
+                affected_assertion_id=assertion_id,
+            )
+        source = source_times[assertion_id]
+        if source is not None:
+            if _extent_contains_exact_point(pred_ann.occurrence_time, source):
+                if not _extent_contains_exact_point(gold_ann.occurrence_time, source):
+                    source_to_occ_fp += 1
+            if _interval_contains_exact_point(pred_ann.valid_time, source):
+                if not _interval_contains_exact_point(gold_ann.valid_time, source):
+                    source_to_valid_fp += 1
 
         if gold_ann.interpretation_status != pred_ann.interpretation_status:
             if (
@@ -1324,9 +1430,12 @@ def compare_temporal_overlays(
         source_to_occurrence_false_positives=source_to_occ_fp,
         source_to_valid_time_false_positives=source_to_valid_fp,
         unsupported_resolved_annotations=unsupported_resolved,
-        foreign_evidence_attempts=foreign_evidence,
+        # Successful comparisons only reach here after grounding; foreign
+        # evidence is a fail-closed precondition, always zero on success.
+        foreign_evidence_attempts=0,
         ungrounded_source_phrases=0,
         invalid_temporal_payloads=0,
+        evidence_selection_mismatch_count=evidence_selection_mismatch,
         status_accuracy=status_accuracy,
         ambiguous_or_unresolved_count=ambiguous_or_unresolved,
         not_applicable_accuracy=not_applicable_accuracy,
@@ -1451,6 +1560,8 @@ def _write_provider_failure_manifest(
         failure_code=error.code,
         diagnostics=_bounded_diagnostics(list(error.diagnostics)),
         provider_response_id=provider_response_id,
+        affected_assertion_id=error.affected_assertion_id,
+        foreign_evidence_attempts=error.foreign_evidence_attempts,
     )
     (out / "failure-manifest.json").write_text(
         json.dumps(failure.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
@@ -1538,14 +1649,30 @@ def run_temporal_shadow_extraction(
                 published = True
             raise
 
-        annotations = ground_and_convert_model_batch(
-            raw_batch=raw_batch,
-            contribution=contribution,
-            case=case,
-            packets=packets,
-            model_id=resolved_model,
-            prompt_version=executed_prompt_version,
-        )
+        try:
+            annotations = ground_and_convert_model_batch(
+                raw_batch=raw_batch,
+                contribution=contribution,
+                case=case,
+                packets=packets,
+                model_id=resolved_model,
+                prompt_version=executed_prompt_version,
+            )
+        except TemporalShadowExtractionError as exc:
+            if exc.code == "grounding_failure":
+                _write_provider_failure_manifest(
+                    out=staging,
+                    case=case,
+                    contribution=contribution,
+                    case_digest=case_digest,
+                    model_id=resolved_model,
+                    executed_prompt_version=executed_prompt_version,
+                    error=exc,
+                    provider_response_id=provider_meta.response_id,
+                )
+                _publish_run_directory(staging, out)
+                published = True
+            raise
         overlay = assemble_temporal_overlay(
             contribution=contribution,
             annotations=annotations,
@@ -1565,7 +1692,11 @@ def run_temporal_shadow_extraction(
             ) from exc
 
         gold_overlay = load_bound_gold_overlay(case, contribution, repo_root=root)
-        comparison = compare_temporal_overlays(parsed_overlay, gold_overlay)
+        comparison = compare_temporal_overlays(
+            parsed_overlay,
+            gold_overlay,
+            base_contribution=contribution,
+        )
 
         run_id = compute_temporal_shadow_run_id(
             case_id=case.case_id,

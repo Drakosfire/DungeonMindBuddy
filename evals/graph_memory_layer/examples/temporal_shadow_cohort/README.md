@@ -15,7 +15,11 @@ Sealed case fixtures for evidence-bound model shadow temporal extraction.
 
 ## Missing categories (corpus search)
 
-- **Relative-historical exile / "long ago"**: no suitable C2 recap span found; not included in this cohort.
+- **Source differs from occurrence** (source session N, gold occurrence at different normalized fictional time M): **not found** as a sealable C2 candidate assertion — see report stop conditions.
+- **Valid-time end / explicit transition**: **not found** as a sealable C2 candidate assertion — see report stop conditions.
+- **Relative-historical exile / "long ago"**: no suitable sealed C2 assertion included; Session 11 contains relative “30 years ago” prose but no matching sealed candidate assertion in this cohort.
+
+Synthetic unit regressions cover source-leakage and foreign-evidence metric paths even when live corpus categories are missing.
 
 ## Files
 

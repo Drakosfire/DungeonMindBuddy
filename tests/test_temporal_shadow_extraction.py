@@ -9,7 +9,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from graph_memory.kernel.temporal import TEMPORAL_ENVELOPE_SCHEMA
+from graph_memory.kernel.contributions import (
+    build_assertion,
+    create_graph_contribution,
+)
+from graph_memory.kernel.temporal import (
+    TEMPORAL_ENVELOPE_SCHEMA,
+    TemporalIntervalV1,
+    TemporalPointExtentV1,
+    TemporalPointV1,
+)
 from graph_memory.temporal_shadow_extraction import (
     FakeTemporalShadowExtractionClient,
     OpenAITemporalShadowExtractionClient,
@@ -29,6 +38,7 @@ from graph_memory.temporal_shadow_extraction_schema import (
     temporal_model_annotation_batch_text_format,
 )
 from graph_memory.temporal_shadow import (
+    TemporalAnnotationOverlayV1,
     TemporalAssertionAnnotationV1,
     TemporalOverlayProducerV1,
     compute_temporal_overlay_id,
@@ -210,7 +220,10 @@ def test_compare_ignores_metadata_differences() -> None:
         annotations=anns,
     )
     predicted = load_temporal_annotation_overlay(pred_payload)
-    comparison = compare_temporal_overlays(predicted, gold)
+    _case, contribution, _gold, _packets = _load_case_bundle()
+    comparison = compare_temporal_overlays(
+        predicted, gold, base_contribution=contribution
+    )
     assert comparison.metrics.exact_match_count == 6
     assert comparison.verdict == "pass"
     assert comparison.evaluation_verdict == "SAFE_FOR_NEXT_EXPERIMENT"
@@ -549,7 +562,10 @@ def test_compare_detects_status_mismatch() -> None:
         diagnostics=ann0["diagnostics"],
     )
     predicted_overlay = _rebuild_overlay_from_payload(pred_payload)
-    comparison = compare_temporal_overlays(predicted_overlay, gold)
+    _case, contribution, _g, _p = _load_case_bundle()
+    comparison = compare_temporal_overlays(
+        predicted_overlay, gold, base_contribution=contribution
+    )
     assert comparison.verdict in {"partial", "fail"}
     assert (
         comparison.metrics.status_mismatch_count
@@ -795,8 +811,10 @@ def test_overwrite_failure_then_success_replaces_artifacts(tmp_path: Path) -> No
 
 
 def test_comparison_includes_safety_and_quality_metrics() -> None:
-    _case, _contribution, gold, _packets = _load_case_bundle()
-    comparison = compare_temporal_overlays(gold, gold)
+    _case, contribution, gold, _packets = _load_case_bundle()
+    comparison = compare_temporal_overlays(
+        gold, gold, base_contribution=contribution
+    )
     metrics = comparison.metrics.model_dump()
     for key in (
         "source_to_occurrence_false_positives",
@@ -805,6 +823,7 @@ def test_comparison_includes_safety_and_quality_metrics() -> None:
         "foreign_evidence_attempts",
         "ungrounded_source_phrases",
         "invalid_temporal_payloads",
+        "evidence_selection_mismatch_count",
         "status_accuracy",
         "exact_semantic_match_count",
         "resolved_exact_match_count",
@@ -819,3 +838,457 @@ def test_comparison_includes_safety_and_quality_metrics() -> None:
     assert metrics["not_applicable_accuracy"] == 1.0
     assert metrics["source_to_occurrence_false_positives"] == 0
     assert metrics["unsupported_resolved_annotations"] == 0
+    assert metrics["foreign_evidence_attempts"] == 0
+    assert metrics["evidence_selection_mismatch_count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Source-leakage metrics (A) and evidence ownership (B)
+# ---------------------------------------------------------------------------
+
+
+_LEAK_ASSERTION = "assertion:tl01b-leak-fixture"
+_LEAK_EVIDENCE_A = "evidence:tl01b:leak-a"
+_LEAK_EVIDENCE_B = "evidence:tl01b:leak-b"
+_LEAK_SOURCE = TemporalPointV1(
+    kind="session",
+    session_id="session-20",
+    campaign_id="longmont-c2",
+    certainty="explicit",
+)
+
+
+def _point_extent(session_id: str) -> TemporalPointExtentV1:
+    return TemporalPointExtentV1(
+        kind="point",
+        point=TemporalPointV1(
+            kind="session",
+            session_id=session_id,
+            campaign_id="longmont-c2",
+            certainty="explicit",
+        ),
+    )
+
+
+def _relative_extent() -> TemporalPointExtentV1:
+    return TemporalPointExtentV1(
+        kind="point",
+        point=TemporalPointV1(
+            kind="relative",
+            relation="before",
+            anchor_ref="campaign_start",
+            raw_expression="twenty years before the campaign",
+            certainty="inferred",
+        ),
+    )
+
+
+def _valid_interval(
+    *, start_session: str | None = None, end_session: str | None = None
+) -> TemporalIntervalV1:
+    start = None
+    end = None
+    if start_session is not None:
+        start = TemporalPointV1(
+            kind="session",
+            session_id=start_session,
+            campaign_id="longmont-c2",
+            certainty="explicit",
+        )
+    if end_session is not None:
+        end = TemporalPointV1(
+            kind="session",
+            session_id=end_session,
+            campaign_id="longmont-c2",
+            certainty="explicit",
+        )
+    return TemporalIntervalV1(start=start, end=end)
+
+
+def _leak_annotation(
+    *,
+    annotation_id: str,
+    status: str = "resolved",
+    occurrence: TemporalPointExtentV1 | None = None,
+    valid: TemporalIntervalV1 | None = None,
+    evidence: list[str] | None = None,
+    source_phrase: str | None = "during the siege",
+    diagnostics: list[str] | None = None,
+) -> TemporalAssertionAnnotationV1:
+    return TemporalAssertionAnnotationV1(
+        annotation_id=annotation_id,
+        base_assertion_id=_LEAK_ASSERTION,
+        interpretation_status=status,  # type: ignore[arg-type]
+        occurrence_time=occurrence,
+        valid_time=valid,
+        evidence_ref_ids=list(evidence or [_LEAK_EVIDENCE_A]),
+        source_phrase=source_phrase,
+        extraction_confidence="high",
+        diagnostics=list(diagnostics or (["fixture"] if status != "resolved" else [])),
+    )
+
+
+def _leak_overlay(annotations: list[TemporalAssertionAnnotationV1]) -> Any:
+    producer = TemporalOverlayProducerV1(
+        kind="fixture", name="tl01b-leak-tests", version="1"
+    )
+    digest = "a" * 64
+    overlay_id = compute_temporal_overlay_id(
+        base_contribution_id="contribution:leak-fixture",
+        base_contribution_source_payload_sha256=digest,
+        producer=producer,
+        annotations=annotations,
+    )
+    return TemporalAnnotationOverlayV1(
+        overlay_id=overlay_id,
+        base_contribution_id="contribution:leak-fixture",
+        base_contribution_source_payload_sha256=digest,
+        producer=producer,
+        annotations=annotations,
+    )
+
+
+def test_a1_source_copied_into_absent_occurrence() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                status="not_applicable",
+                occurrence=None,
+                source_phrase=None,
+                diagnostics=["no fiction-time boundary"],
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent("session-20"),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 1
+
+
+def test_a2_source_copied_over_different_gold_occurrence() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                occurrence=_point_extent("session-4"),
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent("session-20"),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 1
+    assert comparison.metrics.semantic_mismatch_count == 1
+
+
+def test_a3_unrelated_invented_session_not_source_leakage() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                status="not_applicable",
+                source_phrase=None,
+                diagnostics=["no fiction-time boundary"],
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent("session-12"),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 0
+    assert comparison.rows[0].classification == "unsafe_over_resolution"
+
+
+def test_a4_legitimate_same_session_occurrence_not_leakage() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                occurrence=_point_extent("session-20"),
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent("session-20"),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 0
+    assert comparison.metrics.exact_match_count == 1
+
+
+def test_a5_valid_time_source_copying() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                valid=_valid_interval(start_session="session-5"),
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                valid=_valid_interval(start_session="session-20"),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_valid_time_false_positives == 1
+
+
+def test_a6_source_copy_over_relative_gold_occurrence() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                occurrence=_relative_extent(),
+                source_phrase="twenty years before the campaign",
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent("session-20"),
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.source_to_occurrence_false_positives == 1
+
+
+def test_a7_unsafely_derived_source_time_fails_closed() -> None:
+    assertion = build_assertion(
+        assertion_kind="node",
+        acceptance_state="candidate",
+        subject_node_id="npc:leak",
+        label="Unresolved temporal",
+        campaign_scope="longmont-c2",
+        value={"evidence": [{"evidence_ref_id": _LEAK_EVIDENCE_A, "session_id": "session-20"}]},
+        evidence_ref_ids=[_LEAK_EVIDENCE_A],
+        temporal_scope={"schema": "dmb_temporal_envelope_v99", "mystery": True},
+    )
+    # Force assertion_id used by overlays.
+    assertion = assertion.model_copy(update={"assertion_id": _LEAK_ASSERTION})
+    contribution = create_graph_contribution(
+        world_id="eldyrwild",
+        source_kind="source_extraction",
+        campaign_scope="longmont-c2",
+        candidate_assertions=[assertion],
+    )
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                status="not_applicable",
+                source_phrase=None,
+                diagnostics=["no fiction-time boundary"],
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent("session-20"),
+            )
+        ]
+    )
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        compare_temporal_overlays(
+            predicted, gold, base_contribution=contribution
+        )
+    assert exc.value.code == "comparison_source_time_failure"
+
+
+def test_b1_owned_alternative_evidence_is_selection_mismatch_not_foreign() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                occurrence=_point_extent("session-4"),
+                evidence=[_LEAK_EVIDENCE_A],
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent("session-4"),
+                evidence=[_LEAK_EVIDENCE_B],
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.foreign_evidence_attempts == 0
+    assert comparison.metrics.evidence_selection_mismatch_count == 1
+    assert comparison.rows[0].classification == "wrong_temporal_value"
+
+
+def test_b2_mixed_owned_and_foreign_evidence_fails_grounding(tmp_path: Path) -> None:
+    case, contribution, gold, packets = _load_case_bundle()
+    batch = _gold_to_model_batch(gold)
+    target = batch["annotations"][0]
+    owned = target["evidence_ref_ids"][0]
+    target["evidence_ref_ids"] = [owned, "evidence:tl01b:foreign-x"]
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        ground_and_convert_model_batch(
+            raw_batch=batch,
+            contribution=contribution,
+            case=case,
+            packets=packets,
+            model_id="fake-model",
+            prompt_version=TEMPORAL_SHADOW_PROMPT_VERSION,
+        )
+    assert exc.value.code == "grounding_failure"
+    assert exc.value.foreign_evidence_attempts == 1
+
+    class _ForeignClient(FakeTemporalShadowExtractionClient):
+        def __init__(self) -> None:
+            super().__init__(batch)
+
+    out = tmp_path / "foreign-run"
+    with pytest.raises(TemporalShadowExtractionError):
+        run_temporal_shadow_extraction(
+            CASE_PATH,
+            out,
+            client=_ForeignClient(),
+            model_id="fake-model",
+            repo_root=REPO_ROOT,
+        )
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["failure-manifest.json"]
+    failure = json.loads((out / "failure-manifest.json").read_text())
+    assert failure["failure_code"] == "grounding_failure"
+    assert failure["foreign_evidence_attempts"] == 1
+    assert failure["affected_assertion_id"]
+    assert not (out / "overlay.json").exists()
+    assert not (out / "preview.json").exists()
+    assert not (out / "comparison.json").exists()
+
+
+def test_b3_cross_assertion_evidence_is_foreign() -> None:
+    case, contribution, gold, packets = _load_case_bundle()
+    batch = _gold_to_model_batch(gold)
+    evidence_by_assertion = {
+        item["base_assertion_id"]: item["evidence_ref_ids"][0]
+        for item in batch["annotations"]
+    }
+    ids = list(evidence_by_assertion)
+    batch["annotations"][0]["evidence_ref_ids"] = [evidence_by_assertion[ids[1]]]
+    # Keep phrase grounded against the (now foreign) cited snippet by clearing phrase
+    # for non-resolved statuses; for resolved, use a phrase from the foreign snippet.
+    foreign_packet = packets[ids[1]]["evidence_snippets"][0]["preview_snippet"]
+    batch["annotations"][0]["source_phrase"] = foreign_packet.strip()[:40]
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        ground_and_convert_model_batch(
+            raw_batch=batch,
+            contribution=contribution,
+            case=case,
+            packets=packets,
+            model_id="fake-model",
+            prompt_version=TEMPORAL_SHADOW_PROMPT_VERSION,
+        )
+    assert exc.value.code == "grounding_failure"
+    assert exc.value.foreign_evidence_attempts == 1
+
+
+def test_b4_unknown_evidence_id_is_foreign() -> None:
+    case, contribution, gold, packets = _load_case_bundle()
+    batch = _gold_to_model_batch(gold)
+    batch["annotations"][0]["evidence_ref_ids"] = ["evidence:tl01b:does-not-exist"]
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        ground_and_convert_model_batch(
+            raw_batch=batch,
+            contribution=contribution,
+            case=case,
+            packets=packets,
+            model_id="fake-model",
+            prompt_version=TEMPORAL_SHADOW_PROMPT_VERSION,
+        )
+    assert exc.value.code == "grounding_failure"
+    assert exc.value.foreign_evidence_attempts == 1
+
+
+def test_b5_gold_subset_is_selection_mismatch_not_foreign() -> None:
+    gold = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000001",
+                occurrence=_point_extent("session-4"),
+                evidence=[_LEAK_EVIDENCE_A],
+            )
+        ]
+    )
+    predicted = _leak_overlay(
+        [
+            _leak_annotation(
+                annotation_id="temporal-annotation:0000000000000002",
+                occurrence=_point_extent("session-4"),
+                evidence=[_LEAK_EVIDENCE_A, _LEAK_EVIDENCE_B],
+            )
+        ]
+    )
+    comparison = compare_temporal_overlays(
+        predicted,
+        gold,
+        assertion_source_times={_LEAK_ASSERTION: _LEAK_SOURCE},
+    )
+    assert comparison.metrics.foreign_evidence_attempts == 0
+    assert comparison.metrics.evidence_selection_mismatch_count == 1
+

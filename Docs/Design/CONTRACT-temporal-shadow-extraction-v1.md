@@ -120,10 +120,11 @@ Per-assertion classifications:
 
 Safety metrics (minimum):
 
-- `source_to_occurrence_false_positives` — predicted session occurrence where gold has none
-- `source_to_valid_time_false_positives` — predicted session valid-time where gold has none
+- `source_to_occurrence_false_positives` — predicted occurrence contains the assertion’s **derived source-time point** and gold does not contain that exact point (null gold, different session, relative/textual/campaign-date, or different interval boundary). Unrelated invented sessions are ordinary wrong values, not source leakage. Legitimate same-session occurrence matching gold is not leakage.
+- `source_to_valid_time_false_positives` — predicted valid interval uses the derived source-time point as start or end and gold does not use that exact point
 - `unsupported_resolved_annotations` — resolved when gold is ambiguous/unresolved/not_applicable
-- `foreign_evidence_attempts` — predicted evidence not a subset of gold evidence for the assertion
+- `foreign_evidence_attempts` — fail-closed pre-overlay count of cited evidence IDs that are not both owned by the assertion (`explicit_assertion_evidence_ref_ids`) **and** present in that assertion’s prompt packet. Always `0` on successful comparisons; non-zero values appear only on `grounding_failure` manifests
+- `evidence_selection_mismatch_count` — predicted vs gold chose different assertion-owned evidence after normalization (not foreign evidence)
 - `ungrounded_source_phrases` / `invalid_temporal_payloads` — zero on successful comparisons (fail-closed before overlay)
 
 Quality metrics (minimum):
@@ -133,6 +134,8 @@ Quality metrics (minimum):
 - `safe_under_resolution_count`
 - `ambiguous_or_unresolved_count`
 - `not_applicable_accuracy`
+
+Comparator API: `compare_temporal_overlays(predicted, gold, *, base_contribution=...)` or an immutable `assertion_source_times` map. Source time is derived only through TL01 `derive_assertion_source_time`; skipped/unsafe derivation fails closed (`comparison_source_time_failure`).
 
 Verdict enum:
 
