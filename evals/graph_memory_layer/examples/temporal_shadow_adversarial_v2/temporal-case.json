@@ -1,0 +1,69 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01c-temporal-shadow-adversarial-v2",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/base-contribution.json",
+  "base_contribution_sha256": "759a4272eca13eda6161068760cb73e0322d35ec1a8f0a91d2f12880dcb43418",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/gold-overlay.json",
+  "gold_overlay_sha256": "5faed58e0e1262eda024096df4f843845a87e6d5462d420accaba4b10376ef9d",
+  "selected_assertion_ids": [
+    "assertion:80ab2f97e9399d23",
+    "assertion:9adb1fc11471c417",
+    "assertion:176650b913c1b469",
+    "assertion:7b251c1ef7fd9b59",
+    "assertion:57e6edbc69c271ec"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01c-adv2:src-diff-occ",
+      "source_artifact_id": "source-artifact:adv2-src-diff-occ",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/sources/source-diff-occurrence.md",
+      "content_sha256": "e22b68480e47214b15aa432827d72f696b5c444a4bb2654b23c7021b9298f321",
+      "source_ref_id": "source-ref:adv2-src-diff-occ",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "source-diff-occurrence.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-adv2:src-diff-valid",
+      "source_artifact_id": "source-artifact:adv2-src-diff-valid",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/sources/source-diff-valid.md",
+      "content_sha256": "9773ac6f80a21e221da8da636e7a9551b6d4187c3da411eae73d9a81996ed0e0",
+      "source_ref_id": "source-ref:adv2-src-diff-valid",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "source-diff-valid.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-adv2:valid-end",
+      "source_artifact_id": "source-artifact:adv2-valid-end",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/sources/valid-end.md",
+      "content_sha256": "019b2d2130823e59f36df77c21cee47311eeed92e4c83644953b7c74d13eb796",
+      "source_ref_id": "source-ref:adv2-valid-end",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "valid-end.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-adv2:reattest",
+      "source_artifact_id": "source-artifact:adv2-reattest",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/sources/reattest.md",
+      "content_sha256": "459beec685c198284d84944fe0f13e8ee70d256136eed1c1ef527bbb55b912c5",
+      "source_ref_id": "source-ref:adv2-reattest",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "reattest.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01c-adv2:amb-rel",
+      "source_artifact_id": "source-artifact:adv2-amb-rel",
+      "source_artifact_path": "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/sources/ambiguous-relative.md",
+      "content_sha256": "e5290881504c445d8368190e09dbc1938eac5109a6583106cd58695d0ed926bf",
+      "source_ref_id": "source-ref:adv2-amb-rel",
+      "start_line": 3,
+      "end_line": 3,
+      "label": "ambiguous-relative.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01c-v1"
+}

@@ -1,0 +1,129 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:3c18d51df3fa4a62",
+  "base_contribution_id": "contribution:cc76ade7320584ab",
+  "base_contribution_source_payload_sha256": "b09f02530d5c56f11a8c1f1c03b2684feacede692246480e50aa58570b8d6cc9",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01c-adversarial",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:057d6c1bb5738d45",
+      "base_assertion_id": "assertion:66f8bf3be5f1d779",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-4",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv:src-diff-occ"
+      ],
+      "source_phrase": "during Session 4",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "source session-20 differs from occurrence session-4"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:12fcd0783db99cea",
+      "base_assertion_id": "assertion:e0f52d35c04af74d",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-7",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv:src-diff-valid"
+      ],
+      "source_phrase": "in Session 7",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "source session-20 differs from valid-time start session-7"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:b9bb2ec77930a597",
+      "base_assertion_id": "assertion:a885e410022c5de3",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-20",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv:valid-end"
+      ],
+      "source_phrase": "Nera steps down as watch captain",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "valid-time end in narrated episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:645755f55b734696",
+      "base_assertion_id": "assertion:c367ffe7844950fa",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv:reattest"
+      ],
+      "source_phrase": "Mara again travels with the Red Company",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "re-attestation without start/end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:36c3bdb6cc8b9931",
+      "base_assertion_id": "assertion:bdd8a576bb7a27ce",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv:amb-rel"
+      ],
+      "source_phrase": "many winters ago",
+      "extraction_confidence": "low",
+      "diagnostics": [
+        "ambiguous relative history; do not invent campaign date"
+      ]
+    }
+  ]
+}

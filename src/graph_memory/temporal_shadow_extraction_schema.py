@@ -19,6 +19,16 @@ TEMPORAL_MODEL_ANNOTATION_BATCH_SCHEMA = "dmb_temporal_model_annotation_batch_v1
 TEMPORAL_SHADOW_COMPARISON_SCHEMA = "dmb_temporal_shadow_comparison_v1"
 TEMPORAL_SHADOW_EXTRACTION_RUN_SCHEMA = "dmb_temporal_shadow_extraction_run_v1"
 TEMPORAL_SHADOW_PROMPT_VERSION = "tl01b-v1"
+TEMPORAL_PROMPT_CALIBRATION_SCHEMA = "dmb_temporal_prompt_calibration_v1"
+
+CalibrationDecision = Literal[
+    "PROMPT_READY_FOR_BROADER_SHADOW",
+    "ITERATE_PROMPT",
+    "BLOCKED_BY_INPUT_REPRESENTATION",
+    "BLOCKED_BY_EVIDENCE",
+    "BLOCKED_BY_CONTRACT",
+    "PROVIDER_FAILURE",
+]
 
 InterpretationStatusTransport = Literal[
     "resolved",
@@ -286,8 +296,136 @@ class TemporalModelAnnotationBatchTransportV1(_TransportModel):
         return value
 
 
+class CalibrationMetricDistributionV1(_TransportModel):
+    min: float
+    median: float
+    max: float
+
+
+class CalibrationAssertionStabilityV1(_TransportModel):
+    base_assertion_id: str
+    classification_counts: dict[str, int] = Field(default_factory=dict)
+    status_counts: dict[str, int] = Field(default_factory=dict)
+    occurrence_normalized_counts: dict[str, int] = Field(default_factory=dict)
+    valid_time_normalized_counts: dict[str, int] = Field(default_factory=dict)
+    failure_counts: dict[str, int] = Field(default_factory=dict)
+
+
+class CalibrationRunRecordV1(_TransportModel):
+    """Per-repetition audit row — durable enough to regenerate report slices."""
+
+    prompt_lane: Literal["baseline", "candidate"]
+    cohort: Literal["development", "holdout", "adversarial"]
+    repetition: int
+    succeeded: bool
+    case_id: str | None = None
+    model_id: str | None = None
+    prompt_version: str | None = None
+    repository_sha: str | None = None
+    run_id: str | None = None
+    provider_response_id: str | None = None
+    failure_code: str | None = None
+    exact_match_count: int | None = None
+    resolved_exact_match_count: int | None = None
+    exact_occurrence_match_count: int | None = None
+    exact_valid_time_match_count: int | None = None
+    status_accuracy: float | None = None
+    not_applicable_accuracy: float | None = None
+    unsafe_over_resolution_count: int | None = None
+    source_to_occurrence_false_positives: int | None = None
+    source_to_valid_time_false_positives: int | None = None
+    evidence_selection_mismatch_count: int | None = None
+    manifest_consistent: bool = True
+    manifest_diagnostics: list[str] = Field(default_factory=list)
+
+
+class CalibrationCohortAggregateV1(_TransportModel):
+    prompt_lane: Literal["baseline", "candidate"]
+    cohort: Literal["development", "holdout", "adversarial"]
+    case_id: str | None = None
+    run_count: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    exact_match: CalibrationMetricDistributionV1 | None = None
+    resolved_exact_match: CalibrationMetricDistributionV1 | None = None
+    exact_occurrence_match: CalibrationMetricDistributionV1 | None = None
+    exact_valid_time_match: CalibrationMetricDistributionV1 | None = None
+    min_status_accuracy: float = 0.0
+    min_not_applicable_accuracy: float = 0.0
+    total_unsafe_over_resolution: int = 0
+    total_source_to_occurrence_false_positives: int = 0
+    total_source_to_valid_time_false_positives: int = 0
+    total_source_leakage_false_positives: int = 0
+    total_evidence_selection_mismatches: int = 0
+    total_evidence_or_case_failures: int = 0
+    total_provider_failures: int = 0
+    total_grounding_failures: int = 0
+    total_model_output_failures: int = 0
+    total_invalid_payloads: int = 0
+    total_wrong_temporal_value: int = 0
+    total_wrong_temporal_lane: int = 0
+    total_status_mismatch: int = 0
+    min_exact_match_ratio: float = 0.0
+    min_resolved_exact_ratio: float = 0.0
+    assertion_stability: list[CalibrationAssertionStabilityV1] = Field(
+        default_factory=list
+    )
+    run_records: list[CalibrationRunRecordV1] = Field(default_factory=list)
+    manifest_consistency_ok: bool = True
+    manifest_diagnostics: list[str] = Field(default_factory=list)
+
+
+class TemporalPromptCalibrationMetricsSliceV1(_TransportModel):
+    """Per-prompt-lane rollup across cohorts."""
+
+    prompt_lane: Literal["baseline", "candidate"]
+    prompt_version: str
+    prompt_sha256: str
+    case_ids: list[str] = Field(default_factory=list)
+    pass_count: int = 0
+    partial_count: int = 0
+    fail_count: int = 0
+    blocked_count: int = 0
+    cohort_aggregates: list[CalibrationCohortAggregateV1] = Field(default_factory=list)
+
+
+class TemporalPromptCalibrationAggregateV1(_TransportModel):
+    """Cross-case prompt calibration aggregate for TL01C."""
+
+    schema_: Literal["dmb_temporal_prompt_calibration_v1"] = Field(
+        default=TEMPORAL_PROMPT_CALIBRATION_SCHEMA,
+        alias="schema",
+    )
+    calibration_id: str
+    repository_sha: str
+    aggregate_build_sha: str
+    provider_run_repository_shas: list[str] = Field(default_factory=list)
+    holdout_case_sha256: str
+    holdout_base_sha256: str
+    holdout_gold_sha256: str
+    holdout_seal_commit_sha: str
+    adversarial_case_sha256: str | None = None
+    adversarial_base_sha256: str | None = None
+    adversarial_gold_sha256: str | None = None
+    adversarial_seal_commit_sha: str | None = None
+    seals_verified: bool = False
+    candidate_prompt_sha256: str
+    baseline_prompt_sha256: str
+    model_id: str
+    repetitions: int
+    slices: list[TemporalPromptCalibrationMetricsSliceV1] = Field(default_factory=list)
+    decision: CalibrationDecision = "ITERATE_PROMPT"
+    diagnostics: list[str] = Field(default_factory=list)
+
+
 __all__ = [
+    "CalibrationAssertionStabilityV1",
+    "CalibrationCohortAggregateV1",
+    "CalibrationDecision",
+    "CalibrationMetricDistributionV1",
+    "CalibrationRunRecordV1",
     "TEMPORAL_MODEL_ANNOTATION_BATCH_SCHEMA",
+    "TEMPORAL_PROMPT_CALIBRATION_SCHEMA",
     "TEMPORAL_SHADOW_COMPARISON_SCHEMA",
     "TEMPORAL_SHADOW_EXTRACTION_CASE_SCHEMA",
     "TEMPORAL_SHADOW_EXTRACTION_RUN_SCHEMA",
@@ -296,6 +434,8 @@ __all__ = [
     "TemporalModelAnnotationBatchTransportV1",
     "TemporalModelAnnotationTransportV1",
     "TemporalPointTransportV1",
+    "TemporalPromptCalibrationAggregateV1",
+    "TemporalPromptCalibrationMetricsSliceV1",
     "ValidTimeTransportV1",
     "temporal_model_annotation_batch_json_schema",
     "temporal_model_annotation_batch_text_format",

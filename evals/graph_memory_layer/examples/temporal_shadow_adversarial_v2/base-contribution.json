@@ -1,0 +1,160 @@
+{
+  "contribution_id": "contribution:9c0177a8af8d18a0",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01c-temporal-shadow-adversarial-v2",
+  "produced_at": "2026-07-30T00:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:80ab2f97e9399d23",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:jorin",
+      "target_node_id": "feature:frost-seal",
+      "predicate": "cracked",
+      "label": "Jorin cracked the frost seal (historical)",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-adv2:src-diff-occ",
+            "session_id": "session-18"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:src-diff-occ"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9c0177a8af8d18a0"
+    },
+    {
+      "assertion_id": "assertion:9adb1fc11471c417",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:pella",
+      "target_node_id": null,
+      "predicate": "holds_keys",
+      "label": "Pella first held the harbor keys (historical start)",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-adv2:src-diff-valid",
+            "session_id": "session-18"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:src-diff-valid"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9c0177a8af8d18a0"
+    },
+    {
+      "assertion_id": "assertion:176650b913c1b469",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:pella",
+      "target_node_id": null,
+      "predicate": "relinquishes_keys",
+      "label": "Pella relinquishes the harbor keys",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-adv2:valid-end",
+            "session_id": "session-18"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:valid-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9c0177a8af8d18a0"
+    },
+    {
+      "assertion_id": "assertion:7b251c1ef7fd9b59",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:tovin",
+      "target_node_id": "faction:ash-riders",
+      "predicate": "rides_with",
+      "label": "Tovin rides with the Ash Riders",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-adv2:reattest",
+            "session_id": "session-18"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:reattest"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9c0177a8af8d18a0"
+    },
+    {
+      "assertion_id": "assertion:57e6edbc69c271ec",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:quill-harbor-quay",
+      "target_node_id": null,
+      "predicate": "flooded",
+      "label": "Quay flooded countless seasons ago",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-adv2:amb-rel",
+            "session_id": "session-18"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:amb-rel"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:9c0177a8af8d18a0"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
