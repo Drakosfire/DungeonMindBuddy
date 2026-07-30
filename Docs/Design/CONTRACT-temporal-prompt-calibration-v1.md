@@ -196,7 +196,8 @@ The aggregate is the **durable source of truth** for report regeneration.
   - `total_evidence_or_case_failures` — case/evidence seam
   - `total_provider_failures`
   - `total_grounding_failures` — phrase grounding misses
-  - `total_invalid_payloads` — contract failures
+  - `total_model_output_failures` — schema-invalid / target-set model noncompliance
+  - `total_invalid_payloads` — true contract gaps (`overlay_assembly_failed`, `unsupported_prompt_version`)
 - Quality tallies: `total_wrong_temporal_value`, `total_wrong_temporal_lane`, `total_status_mismatch`
 - `assertion_stability` — classification, status, **occurrence_normalized_counts**, **valid_time_normalized_counts**, **failure_counts** (includes failed reps as `run_failed`)
 - `run_records` — per-repetition audit rows
@@ -207,11 +208,16 @@ The aggregate is the **durable source of truth** for report regeneration.
 | Code set | Aggregate bucket | Decision impact |
 | --- | --- | --- |
 | `provider_refusal`, `provider_incomplete`, `provider_error` | `total_provider_failures` | `PROVIDER_FAILURE` |
-| `invalid_model_output`, `overlay_assembly_failed`, `unsupported_prompt_version` | `total_invalid_payloads` | `BLOCKED_BY_CONTRACT` |
+| `overlay_assembly_failed`, `unsupported_prompt_version` | `total_invalid_payloads` | `BLOCKED_BY_CONTRACT` |
+| `invalid_model_output`, `target_set_mismatch` | `total_model_output_failures` | `ITERATE_PROMPT` |
 | `evidence_unresolved`, `digest_mismatch`, `invalid_case`, `invalid_gold_overlay` | `total_evidence_or_case_failures` | `BLOCKED_BY_EVIDENCE` |
 | `grounding_failure` | `total_grounding_failures` | `ITERATE_PROMPT` |
 
 Evidence selection mismatches are tracked in `total_evidence_selection_mismatches` separately from evidence/case failures.
+
+**Contract vs model-output:** `BLOCKED_BY_CONTRACT` is reserved for cases where the correct interpretation cannot be represented by the frozen TL00/TL01 contract or prompt registry. Schema-invalid model output against a representable answer (e.g. `ambiguous` with temporal extents, when null extents are valid) is `total_model_output_failures` → `ITERATE_PROMPT`.
+
+Post-provider failures (`invalid_model_output`, `target_set_mismatch`, `grounding_failure`, `overlay_assembly_failed`, evidence/case codes after a provider return) publish a typed `failure-manifest.json` that preserves `provider_response_id` and identity fields; success artifacts are not emitted.
 
 ## Decision thresholds
 
@@ -227,14 +233,15 @@ Encoded as named constants in `temporal_shadow_prompt_calibration.py` (`compute_
 | 4 | `ITERATE_PROMPT` | Any candidate `total_unsafe_over_resolution > 0` |
 | 5 | `ITERATE_PROMPT` | Any candidate `total_source_leakage_false_positives > 0` |
 | 6 | `ITERATE_PROMPT` | Any candidate `total_grounding_failures > 0` |
-| 7 | `BLOCKED_BY_INPUT_REPRESENTATION` | `total_wrong_temporal_value >= 2` with zero wrong lane and zero status mismatch |
-| 8 | `ITERATE_PROMPT` | Missing holdout/development aggregate, any failed run, any-cohort manifest inconsistency, or live provider-run revision ≠ `aggregate_build_sha` |
-| 9 | `PROMPT_READY_FOR_BROADER_SHADOW` | All READY thresholds met (holdout lane coverage uses `.min`, not `.max`) |
-| 10 | `ITERATE_PROMPT` | Default |
+| 7 | `ITERATE_PROMPT` | Any candidate `total_model_output_failures > 0` |
+| 8 | `BLOCKED_BY_INPUT_REPRESENTATION` | `total_wrong_temporal_value >= 2` with zero wrong lane and zero status mismatch |
+| 9 | `ITERATE_PROMPT` | Missing holdout/development aggregate, any failed run, any-cohort manifest inconsistency, or live provider-run revision ≠ `aggregate_build_sha` |
+| 10 | `PROMPT_READY_FOR_BROADER_SHADOW` | All READY thresholds met (holdout lane coverage uses `.min`, not `.max`) |
+| 11 | `ITERATE_PROMPT` | Default |
 
 Unsafe and source-leakage are evaluated **before** the input-representation heuristic.
 
-**Grounding phrase failures → `ITERATE_PROMPT`.** Evidence/case seam failures → `BLOCKED_BY_EVIDENCE`.
+**Grounding phrase failures → `ITERATE_PROMPT`.** Schema-invalid model output → `ITERATE_PROMPT`. Evidence/case seam failures → `BLOCKED_BY_EVIDENCE`. True contract gaps (`overlay_assembly_failed`, `unsupported_prompt_version`) → `BLOCKED_BY_CONTRACT`.
 
 ### READY constants
 

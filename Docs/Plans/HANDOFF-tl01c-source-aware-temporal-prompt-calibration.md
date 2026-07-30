@@ -635,7 +635,8 @@ The aggregate is the **durable source of truth** for report regeneration. Every 
 | `total_evidence_or_case_failures` | `evidence_unresolved`, `digest_mismatch`, `invalid_case`, `invalid_gold_overlay` |
 | `total_provider_failures` | Provider failure codes |
 | `total_grounding_failures` | `grounding_failure` code |
-| `total_invalid_payloads` | Contract failure codes |
+| `total_model_output_failures` | `invalid_model_output`, `target_set_mismatch` |
+| `total_invalid_payloads` | True contract gaps (`overlay_assembly_failed`, `unsupported_prompt_version`) |
 | `total_wrong_temporal_value` | Classification tally |
 | `total_wrong_temporal_lane` | Classification tally |
 | `total_status_mismatch` | Status mismatch tally |
@@ -702,20 +703,23 @@ Implemented in `compute_calibration_decision`. Evaluate **in this order**; first
 | 4 | `ITERATE_PROMPT` | Any candidate cohort `total_unsafe_over_resolution > 0` |
 | 5 | `ITERATE_PROMPT` | Any candidate cohort `total_source_leakage_false_positives > 0` |
 | 6 | `ITERATE_PROMPT` | Any candidate cohort `total_grounding_failures > 0` |
-| 7 | `BLOCKED_BY_INPUT_REPRESENTATION` | `total_wrong_temporal_value >= 2` AND `total_wrong_temporal_lane == 0` AND `total_status_mismatch == 0` (correct status/lane, wrong payload) |
-| 8 | `ITERATE_PROMPT` | Missing candidate holdout or development aggregate |
-| 9 | `ITERATE_PROMPT` | Any candidate cohort `failure_count > 0` |
-| 10 | `ITERATE_PROMPT` | Any cohort (baseline or candidate) `manifest_consistency_ok == false` |
-| 10b | `ITERATE_PROMPT` | Live: `provider_run_repository_shas != [aggregate_build_sha]` |
-| 11 | `PROMPT_READY_FOR_BROADER_SHADOW` | All READY thresholds met (below) |
-| 12 | `ITERATE_PROMPT` | Default — quality insufficient |
+| 7 | `ITERATE_PROMPT` | Any candidate cohort `total_model_output_failures > 0` |
+| 8 | `BLOCKED_BY_INPUT_REPRESENTATION` | `total_wrong_temporal_value >= 2` AND `total_wrong_temporal_lane == 0` AND `total_status_mismatch == 0` (correct status/lane, wrong payload) |
+| 9 | `ITERATE_PROMPT` | Missing candidate holdout or development aggregate |
+| 10 | `ITERATE_PROMPT` | Any candidate cohort `failure_count > 0` |
+| 11 | `ITERATE_PROMPT` | Any cohort (baseline or candidate) `manifest_consistency_ok == false` |
+| 11b | `ITERATE_PROMPT` | Live: `provider_run_repository_shas != [aggregate_build_sha]` |
+| 12 | `PROMPT_READY_FOR_BROADER_SHADOW` | All READY thresholds met (below) |
+| 13 | `ITERATE_PROMPT` | Default — quality insufficient |
 
 **Critical distinctions:**
 
 * **Grounding phrase failures** (`grounding_failure`) → `ITERATE_PROMPT`, not `BLOCKED_BY_EVIDENCE`.
+* **Schema-invalid model output** (`invalid_model_output`, `target_set_mismatch`) → `ITERATE_PROMPT` via `total_model_output_failures`, not `BLOCKED_BY_CONTRACT`. Reserve `BLOCKED_BY_CONTRACT` for cases where the correct interpretation cannot be represented by the frozen contract (`overlay_assembly_failed`, `unsupported_prompt_version`).
 * **Evidence/case seam failures** (`evidence_unresolved`, `digest_mismatch`, `invalid_case`, `invalid_gold_overlay`) → `BLOCKED_BY_EVIDENCE`.
 * **Evidence selection mismatches** are tracked separately; they contribute to quality signals but follow the general `ITERATE_PROMPT` path unless masked by higher-priority blocks.
 * **Unsafe and source-leakage** are evaluated **before** the input-representation heuristic.
+* **Post-provider typed failures** publish `failure-manifest.json` with `provider_response_id` and identity fields; no success artifacts.
 
 ### READY thresholds (code constants)
 
@@ -1083,7 +1087,7 @@ Repair source-span or case/evidence seam (`evidence_unresolved`, digest mismatch
 
 ### When decision is `BLOCKED_BY_CONTRACT`
 
-Write a contract decision before coding. Invalid payloads and unsupported prompt versions land here.
+Write a contract decision before coding. True contract gaps (`overlay_assembly_failed`, unsupported prompt versions) land here. Schema-invalid model output against a representable answer does **not** — that is `ITERATE_PROMPT`.
 
 ### When decision is `BLOCKED_BY_INPUT_REPRESENTATION`
 

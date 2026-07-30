@@ -44,8 +44,13 @@ CohortName = Literal["development", "holdout", "adversarial"]
 PROVIDER_FAILURE_CODES = frozenset(
     {"provider_refusal", "provider_incomplete", "provider_error"}
 )
+# True contract gaps: frozen schema/prompt registry cannot represent the needed answer.
 CONTRACT_FAILURE_CODES = frozenset(
-    {"invalid_model_output", "overlay_assembly_failed", "unsupported_prompt_version"}
+    {"overlay_assembly_failed", "unsupported_prompt_version"}
+)
+# Model/prompt noncompliance against a representable contract (e.g. ambiguous+extents).
+MODEL_OUTPUT_FAILURE_CODES = frozenset(
+    {"invalid_model_output", "target_set_mismatch"}
 )
 EVIDENCE_FAILURE_CODES = frozenset(
     {"evidence_unresolved", "digest_mismatch", "invalid_case", "invalid_gold_overlay"}
@@ -686,6 +691,7 @@ def aggregate_cohort_runs(
     total_evidence_or_case_failures = 0
     total_provider_failures = 0
     total_grounding_failures = 0
+    total_model_output_failures = 0
     total_invalid_payloads = 0
     total_wrong_value = 0
     total_wrong_lane = 0
@@ -841,6 +847,8 @@ def aggregate_cohort_runs(
                 total_provider_failures += 1
             elif code == GROUNDING_FAILURE_CODE:
                 total_grounding_failures += 1
+            elif code in MODEL_OUTPUT_FAILURE_CODES:
+                total_model_output_failures += 1
             elif code in CONTRACT_FAILURE_CODES:
                 total_invalid_payloads += 1
             elif code in EVIDENCE_FAILURE_CODES:
@@ -867,6 +875,8 @@ def aggregate_cohort_runs(
                     or None,
                     repository_sha=str(payload.get("repository_sha") or "") or None,
                     run_id=str(payload.get("run_id") or "") or None,
+                    provider_response_id=str(payload.get("provider_response_id") or "")
+                    or None,
                     failure_code=code,
                     manifest_consistent=consistent,
                     manifest_diagnostics=list(record_diags),
@@ -957,6 +967,7 @@ def aggregate_cohort_runs(
         total_evidence_or_case_failures=total_evidence_or_case_failures,
         total_provider_failures=total_provider_failures,
         total_grounding_failures=total_grounding_failures,
+        total_model_output_failures=total_model_output_failures,
         total_invalid_payloads=total_invalid_payloads,
         total_wrong_temporal_value=total_wrong_value,
         total_wrong_temporal_lane=total_wrong_lane,
@@ -1015,6 +1026,12 @@ def compute_calibration_decision(
         # Phrase grounding misses are prompt/model quality unless spans are unusable
         # (those land in evidence_or_case_failures → BLOCKED_BY_EVIDENCE above).
         notes.append(f"candidate_grounding_failures={total_grounding}")
+        return "ITERATE_PROMPT", notes
+
+    total_model_output = sum(a.total_model_output_failures for a in candidate)
+    if total_model_output > 0:
+        # Schema-invalid / target-set noncompliance against a representable contract.
+        notes.append(f"candidate_model_output_failures={total_model_output}")
         return "ITERATE_PROMPT", notes
 
     total_wrong_value = sum(a.total_wrong_temporal_value for a in candidate)
@@ -1271,6 +1288,9 @@ def _ensure_identity_failure_manifest(
         "failure_code": failure_code,
         "diagnostics": diagnostics[:8],
         "repository_sha": _repository_sha(repo_root=repo_root),
+        "provider_response_id": (
+            error.provider_response_id if error is not None else None
+        ),
         "affected_assertion_id": (
             error.affected_assertion_id if error is not None else None
         ),

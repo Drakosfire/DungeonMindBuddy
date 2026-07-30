@@ -72,6 +72,29 @@ TL01B_PACKET_VERSION = "tl01b-packet-v1"
 TL01C_PACKET_VERSION = "tl01c-packet-v1"
 _SUPPORTED_PACKET_VERSIONS = frozenset({TL01B_PACKET_VERSION, TL01C_PACKET_VERSION})
 
+# Failures raised from the provider client itself (may carry response_id on the error).
+_PROVIDER_CALL_FAILURE_CODES = frozenset(
+    {
+        "provider_refusal",
+        "provider_incomplete",
+        "provider_error",
+        "invalid_model_output",
+    }
+)
+# Failures after a successful provider return (response_id comes from ProviderMeta).
+_POST_PROVIDER_FAILURE_CODES = frozenset(
+    {
+        "invalid_model_output",
+        "target_set_mismatch",
+        "grounding_failure",
+        "overlay_assembly_failed",
+        "evidence_unresolved",
+        "digest_mismatch",
+        "invalid_case",
+        "invalid_gold_overlay",
+    }
+)
+
 
 class TemporalShadowExtractionError(Exception):
     def __init__(
@@ -1003,6 +1026,7 @@ class OpenAITemporalShadowExtractionClient:
                 f"invalid model JSON: {exc.msg}",
                 code="invalid_model_output",
                 diagnostics=[raw_text[:2000]],
+                provider_response_id=response_id,
             ) from exc
 
         input_tokens, output_tokens = _usage_from_response(response)
@@ -1949,7 +1973,7 @@ def run_temporal_shadow_extraction(
                 model_id=resolved_model,
             )
         except TemporalShadowExtractionError as exc:
-            if exc.code in {"provider_refusal", "provider_incomplete", "provider_error"}:
+            if exc.code in _PROVIDER_CALL_FAILURE_CODES:
                 _write_provider_failure_manifest(
                     out=staging,
                     case=case,
@@ -1974,8 +1998,109 @@ def run_temporal_shadow_extraction(
                 model_id=resolved_model,
                 prompt_version=executed_prompt_version,
             )
+            overlay = assemble_temporal_overlay(
+                contribution=contribution,
+                annotations=annotations,
+                prompt_version=executed_prompt_version,
+            )
+            parsed_overlay = load_temporal_annotation_overlay(
+                overlay.model_dump(by_alias=True)
+            )
+            try:
+                preview = build_temporal_shadow_preview(contribution, parsed_overlay)
+            except TemporalShadowBuildError as exc:
+                raise TemporalShadowExtractionError(
+                    str(exc),
+                    code="overlay_assembly_failed",
+                    affected_assertion_id=exc.affected_assertion_id,
+                    diagnostics=list(exc.diagnostics),
+                ) from exc
+
+            gold_overlay = load_bound_gold_overlay(case, contribution, repo_root=root)
+            comparison = compare_temporal_overlays(
+                parsed_overlay,
+                gold_overlay,
+                base_contribution=contribution,
+            )
+
+            run_id = compute_temporal_shadow_run_id(
+                case_id=case.case_id,
+                case_digest=case_digest,
+                model_id=resolved_model,
+                prompt_version=executed_prompt_version,
+                validated_model_output=raw_batch,
+            )
+            run = TemporalShadowExtractionRunV1(
+                run_id=run_id,
+                case_id=case.case_id,
+                case_digest=case_digest,
+                repository_sha=_repository_sha(repo_root=root),
+                overlay_id=parsed_overlay.overlay_id,
+                base_contribution_id=contribution.contribution_id,
+                base_contribution_source_payload_sha256=base_digest,
+                selected_assertion_ids=list(case.selected_assertion_ids),
+                source_artifacts=_source_artifact_digests(case),
+                comparison_verdict=comparison.verdict,
+                evaluation_verdict=comparison.evaluation_verdict,
+                preview_verdict=preview.verdict,
+                model_id=resolved_model,
+                prompt_version=executed_prompt_version,
+                executed_prompt_version=executed_prompt_version,
+                provider_response_id=provider_meta.response_id,
+                input_tokens=provider_meta.input_tokens,
+                output_tokens=provider_meta.output_tokens,
+                elapsed_ms=provider_meta.elapsed_ms,
+            )
+
+            # Write payload artifacts first; run-manifest last, then publish atomically.
+            (staging / "model-output.json").write_text(
+                json.dumps(raw_batch, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            (staging / "overlay.json").write_text(
+                json.dumps(
+                    parsed_overlay.model_dump(by_alias=True), indent=2, sort_keys=True
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (staging / "preview.json").write_text(
+                json.dumps(preview.model_dump(by_alias=True), indent=2, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+            (staging / "comparison.json").write_text(
+                json.dumps(
+                    comparison.model_dump(by_alias=True), indent=2, sort_keys=True
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (staging / "provider-metadata.json").write_text(
+                json.dumps(
+                    {
+                        "response_id": provider_meta.response_id,
+                        "model_id": provider_meta.model_id,
+                        "input_tokens": provider_meta.input_tokens,
+                        "output_tokens": provider_meta.output_tokens,
+                        "elapsed_ms": provider_meta.elapsed_ms,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (staging / "run-manifest.json").write_text(
+                json.dumps(run.model_dump(by_alias=True), indent=2, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+            _publish_run_directory(staging, out)
+            published = True
+            return run
         except TemporalShadowExtractionError as exc:
-            if exc.code == "grounding_failure":
+            if exc.code in _POST_PROVIDER_FAILURE_CODES:
                 _write_provider_failure_manifest(
                     out=staging,
                     case=case,
@@ -1984,110 +2109,13 @@ def run_temporal_shadow_extraction(
                     model_id=resolved_model,
                     executed_prompt_version=executed_prompt_version,
                     error=exc,
-                    provider_response_id=provider_meta.response_id,
+                    provider_response_id=provider_meta.response_id
+                    or exc.provider_response_id,
                     repository_sha=_repository_sha(repo_root=root),
                 )
                 _publish_run_directory(staging, out)
                 published = True
             raise
-        overlay = assemble_temporal_overlay(
-            contribution=contribution,
-            annotations=annotations,
-            prompt_version=executed_prompt_version,
-        )
-        parsed_overlay = load_temporal_annotation_overlay(
-            overlay.model_dump(by_alias=True)
-        )
-        try:
-            preview = build_temporal_shadow_preview(contribution, parsed_overlay)
-        except TemporalShadowBuildError as exc:
-            raise TemporalShadowExtractionError(
-                str(exc),
-                code="overlay_assembly_failed",
-                affected_assertion_id=exc.affected_assertion_id,
-                diagnostics=list(exc.diagnostics),
-            ) from exc
-
-        gold_overlay = load_bound_gold_overlay(case, contribution, repo_root=root)
-        comparison = compare_temporal_overlays(
-            parsed_overlay,
-            gold_overlay,
-            base_contribution=contribution,
-        )
-
-        run_id = compute_temporal_shadow_run_id(
-            case_id=case.case_id,
-            case_digest=case_digest,
-            model_id=resolved_model,
-            prompt_version=executed_prompt_version,
-            validated_model_output=raw_batch,
-        )
-        run = TemporalShadowExtractionRunV1(
-            run_id=run_id,
-            case_id=case.case_id,
-            case_digest=case_digest,
-            repository_sha=_repository_sha(repo_root=root),
-            overlay_id=parsed_overlay.overlay_id,
-            base_contribution_id=contribution.contribution_id,
-            base_contribution_source_payload_sha256=base_digest,
-            selected_assertion_ids=list(case.selected_assertion_ids),
-            source_artifacts=_source_artifact_digests(case),
-            comparison_verdict=comparison.verdict,
-            evaluation_verdict=comparison.evaluation_verdict,
-            preview_verdict=preview.verdict,
-            model_id=resolved_model,
-            prompt_version=executed_prompt_version,
-            executed_prompt_version=executed_prompt_version,
-            provider_response_id=provider_meta.response_id,
-            input_tokens=provider_meta.input_tokens,
-            output_tokens=provider_meta.output_tokens,
-            elapsed_ms=provider_meta.elapsed_ms,
-        )
-
-        # Write payload artifacts first; run-manifest last, then publish atomically.
-        (staging / "model-output.json").write_text(
-            json.dumps(raw_batch, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        (staging / "overlay.json").write_text(
-            json.dumps(
-                parsed_overlay.model_dump(by_alias=True), indent=2, sort_keys=True
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        (staging / "preview.json").write_text(
-            json.dumps(preview.model_dump(by_alias=True), indent=2, sort_keys=True)
-            + "\n",
-            encoding="utf-8",
-        )
-        (staging / "comparison.json").write_text(
-            json.dumps(comparison.model_dump(by_alias=True), indent=2, sort_keys=True)
-            + "\n",
-            encoding="utf-8",
-        )
-        (staging / "provider-metadata.json").write_text(
-            json.dumps(
-                {
-                    "response_id": provider_meta.response_id,
-                    "model_id": provider_meta.model_id,
-                    "input_tokens": provider_meta.input_tokens,
-                    "output_tokens": provider_meta.output_tokens,
-                    "elapsed_ms": provider_meta.elapsed_ms,
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        (staging / "run-manifest.json").write_text(
-            json.dumps(run.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        _publish_run_directory(staging, out)
-        published = True
-        return run
     finally:
         if not published and staging.exists():
             import shutil

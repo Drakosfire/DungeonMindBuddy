@@ -360,6 +360,7 @@ class CalibrationCohortAggregateV1(_TransportModel):
     total_evidence_or_case_failures: int = 0
     total_provider_failures: int = 0
     total_grounding_failures: int = 0
+    total_model_output_failures: int = 0
     total_invalid_payloads: int = 0
     total_wrong_temporal_value: int = 0
     total_wrong_temporal_lane: int = 0

@@ -1039,3 +1039,87 @@ def test_ensure_identity_failure_manifest_when_run_dir_empty(tmp_path: Path) -> 
     assert failure["repository_sha"]
     assert failure["failure_code"] == "unknown_failure"
 
+
+def test_invalid_model_output_routes_to_iterate_prompt_not_contract() -> None:
+    """Ambiguous+extents is model noncompliance; contract already represents the answer."""
+    aggregate = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="adversarial",
+        run_count=1,
+        failure_count=1,
+        total_model_output_failures=1,
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[aggregate],
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert any("model_output_failures" in note for note in diagnostics)
+    assert decision != "BLOCKED_BY_CONTRACT"
+
+
+def test_true_contract_gap_still_blocked_by_contract() -> None:
+    aggregate = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="development",
+        run_count=1,
+        failure_count=1,
+        total_invalid_payloads=1,
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[aggregate],
+    )
+    assert decision == "BLOCKED_BY_CONTRACT"
+    assert any("invalid_payloads" in note for note in diagnostics)
+
+
+def test_aggregate_counts_invalid_model_output_as_model_output_failure(
+    tmp_path: Path,
+) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="adversarial",
+        repetition=1,
+    )
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "failure-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema": "dmb_temporal_shadow_extraction_failure_v1",
+                "case_id": "tl01c-temporal-shadow-adversarial-v2",
+                "case_digest": "a" * 64,
+                "model_id": "fake-model",
+                "executed_prompt_version": "tl01c-v1",
+                "prompt_version": "tl01c-v1",
+                "failure_code": "invalid_model_output",
+                "diagnostics": ["ambiguous must not include occurrence_time"],
+                "repository_sha": "deadbeef",
+                "provider_response_id": "resp_preserved_123",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    outcome = calibration.load_run_outcome(
+        _spec("candidate", "adversarial", 1), run_dir
+    )
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="candidate",
+        cohort="adversarial",
+        outcomes=[outcome],
+        expected_case_id="tl01c-temporal-shadow-adversarial-v2",
+        expected_model_id="fake-model",
+        expected_prompt_version="tl01c-v1",
+        expected_repository_sha="deadbeef",
+    )
+    assert aggregate.total_model_output_failures == 1
+    assert aggregate.total_invalid_payloads == 0
+    assert aggregate.run_records[0].provider_response_id == "resp_preserved_123"
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[aggregate],
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert any("model_output_failures" in note for note in diagnostics)
+

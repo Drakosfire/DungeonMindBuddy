@@ -1427,3 +1427,76 @@ def test_b5_gold_subset_is_selection_mismatch_not_foreign() -> None:
     assert comparison.metrics.foreign_evidence_attempts == 0
     assert comparison.metrics.evidence_selection_mismatch_count == 1
 
+
+def test_ambiguous_with_extents_writes_failure_manifest_with_response_id(
+    tmp_path: Path,
+) -> None:
+    """Ambiguous + extents is representable as null extents — fail closed, keep response id."""
+    _case, _contribution, gold, _packets = _load_case_bundle()
+    batch = _gold_to_model_batch(gold)
+    ambiguous = next(
+        item
+        for item in batch["annotations"]
+        if item["interpretation_status"] == "ambiguous"
+    )
+    ambiguous["occurrence_time"] = _occurrence_point("session-4")
+    assert ambiguous["valid_time"] is None
+
+    class _AmbiguousExtentsClient(FakeTemporalShadowExtractionClient):
+        def __init__(self) -> None:
+            super().__init__(batch)
+
+    out = tmp_path / "ambiguous-extents"
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        run_temporal_shadow_extraction(
+            CASE_PATH,
+            out,
+            client=_AmbiguousExtentsClient(),
+            model_id="fake-model",
+            repo_root=REPO_ROOT,
+        )
+    assert exc.value.code == "invalid_model_output"
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["failure-manifest.json"]
+    failure = json.loads((out / "failure-manifest.json").read_text(encoding="utf-8"))
+    assert failure["failure_code"] == "invalid_model_output"
+    assert failure["provider_response_id"] == "fake-response"
+    assert failure["case_id"]
+    assert failure["model_id"] == "fake-model"
+    assert failure["executed_prompt_version"] == TEMPORAL_SHADOW_PROMPT_VERSION
+    assert failure["repository_sha"]
+    assert not (out / "overlay.json").exists()
+    assert not (out / "run-manifest.json").exists()
+
+
+def test_target_set_mismatch_writes_failure_manifest_with_response_id(
+    tmp_path: Path,
+) -> None:
+    """Another post-provider failure must preserve provider_response_id."""
+    _case, _contribution, gold, _packets = _load_case_bundle()
+    batch = _gold_to_model_batch(gold)
+    batch["annotations"] = batch["annotations"][:-1]
+
+    class _TargetMismatchClient(FakeTemporalShadowExtractionClient):
+        def __init__(self) -> None:
+            super().__init__(batch)
+
+    out = tmp_path / "target-mismatch"
+    with pytest.raises(TemporalShadowExtractionError) as exc:
+        run_temporal_shadow_extraction(
+            CASE_PATH,
+            out,
+            client=_TargetMismatchClient(),
+            model_id="fake-model",
+            repo_root=REPO_ROOT,
+        )
+    assert exc.value.code == "target_set_mismatch"
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["failure-manifest.json"]
+    failure = json.loads((out / "failure-manifest.json").read_text(encoding="utf-8"))
+    assert failure["failure_code"] == "target_set_mismatch"
+    assert failure["provider_response_id"] == "fake-response"
+    assert failure["repository_sha"]
+    assert not (out / "overlay.json").exists()
+    assert not (out / "comparison.json").exists()
+
