@@ -4,183 +4,167 @@
 
 **Calibration decision:** `ITERATE_PROMPT`
 
-Source-aware packet V2 + `tl01c-v1` materially improved development resolved exact matches (0 → 3) and median exact matches (1 → 4), but candidate runs still produce unsafe over-resolutions, source→occurrence leakage on some rows, and holdout not-applicable / ambiguous failures. One candidate holdout repetition failed phrase grounding (paraphrase, not truncated spans).
+Source-aware packet V2 + frozen `tl01c-v1` still improves development resolved exact matches (baseline 0 → candidate 3) and median exact matches (1 → 4), but candidate development/holdout runs retain unsafe over-resolution and source leakage. Decision diagnostic from durable aggregate: `candidate_unsafe_over_resolution=10`.
 
-Development improvements are **not** independent evidence. Holdout results are independent. Synthetic adversarial results are **not** canonical-corpus results.
+PR453 corrections applied before this report refresh:
+
+1. Independent adversarial cohort **V2** (no few-shot cast/template overlap).
+2. Holdout/adversarial seal fields separated and verified against commit ancestry + fixture blobs.
+3. `aggregate.json` regenerated as report source of truth.
+4. Baseline freeze tests use hardcoded instruction + V1 packet hashes.
+5. Full TL01C handoff checked in.
+
+Development improvements remain non-independent. Holdout is independent. Adversarial V2 is synthetic and independent of few-shots; not canonical corpus.
 
 ## Dependency and execution SHAs
 
-| Item | SHA |
+| Item | Value |
 | --- | --- |
 | PR #452 merge (dependency) | `6eeffe239c582f129f0c6bf167b0f6d6fc51f6c6` |
 | Holdout seal commit | `2c3be373fdaf6a713c4cae9c5ab75f9ffad5bc1d` |
-| Live execution commit (`aggregate.repository_sha`) | `8880a18b9a031da314171ccb393eb9b5bf6503f3` |
+| Adversarial V2 seal commit | `cd9463f254f86390bddd43081d1ba3f7de272383` |
+| Aggregate `repository_sha` (execution) | `cd9463f254f86390bddd43081d1ba3f7de272383` |
+| Calibration id | `temporal-prompt-calibration:bb7bf44b3fd41448` |
+
+## Seal digests (verified)
+
+| Field | SHA-256 / commit |
+| --- | --- |
+| `holdout_case_sha256` | `046d0e9cafaf27b54e32049e85aded72806976a814f15ad51b08b4a9fa078373` |
+| `holdout_base_sha256` | `d24ce74f614973b6eefce9b31c17e398e906ba4413a8138ce26a0fca03abcbe9` |
+| `holdout_gold_sha256` | `e8e62418b689eba5b2b19bf2c6b3581376e1dc72e4e15ca5fe9f6a5f9a8d947c` |
+| `holdout_seal_commit_sha` | `2c3be373fdaf6a713c4cae9c5ab75f9ffad5bc1d` |
+| `adversarial_case_sha256` | `dfdde4e9a6663b993a258e3e6ca23f7079977b0bfdf42dcb8ed11e44c042a8a2` |
+| `adversarial_base_sha256` | `759a4272eca13eda6161068760cb73e0322d35ec1a8f0a91d2f12880dcb43418` |
+| `adversarial_gold_sha256` | `5faed58e0e1262eda024096df4f843845a87e6d5462d420accaba4b10376ef9d` |
+| `adversarial_seal_commit_sha` | `cd9463f254f86390bddd43081d1ba3f7de272383` |
+
+Runner verified: seal commits exist; each is an ancestor of execution `HEAD`; case/base/gold/evidence blobs at the seal commit match executed worktree bytes.
 
 ## Frozen baseline
 
 | Field | Value |
 | --- | --- |
-| Prompt | `tl01b-v1` |
+| Prompt | `tl01b-v1` (immutable) |
 | Packet | `tl01b-packet-v1` |
-| Prompt SHA-256 | `c7606bb6a97f358dc275c5681f0c819e0db84da14d07e8f19ff56b870402bf51` |
+| Prompt SHA-256 (`compute_prompt_sha256`) | `c7606bb6a97f358dc275c5681f0c819e0db84da14d07e8f19ff56b870402bf51` |
+| Instructions SHA-256 (hardcoded freeze test) | `c036558b52b8a44e5358fb7f3062dbf9db5b7f5bf86cb7fa2d986e7fddd0ceec` |
+| V1 rendered packet SHA-256 (dev case) | `9925e9fb65c124a560cd231707b174139c5911e3f2eaab5d7088b001f80f8430` |
 | Evaluator | TL01B `compare_temporal_overlays` unchanged |
 
 ## Candidate prompt
 
 | Field | Value |
 | --- | --- |
-| Prompt | `tl01c-v1` |
+| Prompt | `tl01c-v1` (**frozen**; do not edit) |
 | Packet | `tl01c-packet-v1` |
 | Prompt SHA-256 | `86bd13a9b53210ca1229d2d9fb506e607715820ecc7510da7607cdc5e7b16df3` |
 
-Decision sequence: assertion proposition → temporal lane → provenance-only source reuse rules → conservative normalization → grounding. Six synthetic few-shots (Arin/Nera/Veyra/Mara/East Road/Vale/Tor/Red Company) only.
+Decision sequence unchanged. Few-shots remain Arin/Nera/Veyra/Mara family only; adversarial V2 must not reuse that cast.
 
 ## Source-aware packet change
 
-Packet V2 adds:
-
-```json
-"source_context": {
-  "source_time": { "... TL01 derive_assertion_source_time ..." },
-  "derivation": "evidence_session|legacy_session_scope|existing_v1_source_time|none",
-  "semantic_authority": "provenance_only"
-}
-```
-
-Derived exclusively through `derive_assertion_source_time`. No session parsing from evidence IDs or filenames. Unsafe/skipped derivation fails before provider call.
+Packet V2 adds `source_context` with `semantic_authority="provenance_only"`, derived only via TL01 `derive_assertion_source_time`.
 
 ## Development cohort
 
-Case: `tl01b-temporal-shadow-cohort-v1` (frozen base/gold/evidence). Candidate case selects `prompt_version=tl01c-v1` only.
+Case: `tl01b-temporal-shadow-cohort-v1` / candidate mirror `tl01c-temporal-shadow-cohort-v1`.
 
 | Metric | Baseline (`tl01b-v1`) | Candidate (`tl01c-v1`) |
 | --- | ---: | ---: |
-| Exact matches (runs) | 1, 1 (run-03 grounding fail) | 3, 4, 4 |
-| Median exact | 1 | 4 |
-| Resolved exact | 0, 0 | 3, 3, 3 |
-| Unsafe over-resolution | 1, 2 | 1, 1, 2 |
-| Source→occurrence FP | 0, 0 | 1, 1, 2 |
-| Source→valid-time FP | 0, 0 | 0, 0, 0 |
-| Status accuracy | 0.67, 0.67 | 0.50, 0.67, 0.67 |
-| Not-applicable accuracy | 0.50, 0.50 | 0.00, 0.50, 0.50 |
+| Exact matches (min/med/max) | 1 / 1 / 1 (1 grounding fail) | 3 / 4 / 4 |
+| Resolved exact (min/med/max) | 0 / 0 / 0 | 3 / 3 / 3 |
+| Unsafe over-resolution (total) | 3 | 4 |
+| Source→occurrence FP (total) | 0 | 4 |
+| Source→valid-time FP (total) | 0 | 0 |
+| Min status accuracy | 0.67 | 0.50 |
+| Success / failure reps | 2 / 1 | 3 / 0 |
 
-Best candidate development run (run-02): 4/6 exact including all three resolved gold rows; Maelthor still `unsafe_over_resolution`; road edge still status mismatch (`unresolved` vs `not_applicable`).
+## Holdout cohort
 
-## Holdout sealing
-
-| Field | Value |
-| --- | --- |
-| Case ID | `tl01c-temporal-shadow-holdout-v1` |
-| Assertions | 7 (no overlap with development IDs/evidence) |
-| Categories | same-source event ×2, valid-time start, structural, scene framing, ambiguous name, relative/incomplete historical |
-| Seal SHA | `2c3be373fdaf6a713c4cae9c5ab75f9ffad5bc1d` |
-| Prompt frozen before holdout execution | yes |
-
-## Canonical holdout
+Case: `tl01c-temporal-shadow-holdout-v1` (7 assertions; IDs/evidence disjoint from development).
 
 | Metric | Baseline | Candidate |
 | --- | ---: | ---: |
-| Exact matches | 0, 0, 0 | 3, 2 (run-03 grounding fail) |
-| Resolved exact | 0, 0, 0 | 3, 2 |
-| Unsafe over-resolution | 3, 3, 3 | 3, 3 |
-| Source→occurrence FP | 0, 0, 0 | 1, 1 |
-| Source→valid-time FP | 0, 0, 0 | 2, 3 |
+| Exact matches (min/med/max) | 0 / 0 / 0 | 2 / 2.5 / 3 |
+| Resolved exact (min/med/max) | 0 / 0 / 0 | 2 / 2.5 / 3 |
+| Unsafe over-resolution (total) | 9 | 6 |
+| Source→occurrence FP (total) | 0 | 2 |
+| Source→valid-time FP (total) | 0 | 5 |
 | Min status accuracy | 0.57 | 0.57 |
-| Not-applicable accuracy | 0.00 | 0.00 |
+| Success / failure reps | 3 / 0 | 2 / 1 (grounding) |
 
-Candidate recovers occurrence/valid-time rows that baseline never hits, but still resolves structural/scene/ambiguous rows unsafely and leaks source time into valid-time on some runs.
+## Synthetic adversarial V2 (independent)
 
-## Synthetic adversarial supplement
+Case: `tl01c-temporal-shadow-adversarial-v2`  
+Cast: Jorin / Pella / Tovin / Quill Harbor / frost seal / Ash Riders (wholly different from `tl01c-v1` few-shots).  
+V1 adversarial retained only as contaminated historical reference.
 
-Case: `tl01c-temporal-shadow-adversarial-v1` (candidate only; not merged into canonical metrics).
+| Run | Exact | Resolved exact | Unsafe | Src→occ FP | Src→valid FP | Status acc | NA acc |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 01 | 1 | 0 | 0 | 0 | 0 | 0.80 | 1.00 |
+| 02 | 1 | 0 | 0 | 0 | 0 | 0.80 | 1.00 |
+| 03 | 1 | 0 | 0 | 0 | 0 | 0.80 | 1.00 |
 
-| Run | Exact | Resolved exact | Unsafe | Src→occ FP | Status acc | NA acc |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 01 | 1 | 0 | 1 | 1 | 0.80 | 1.00 |
-| 02 | 1 | 0 | 1 | 0 | 0.80 | 1.00 |
-| 03 | 1 | 0 | 1 | 1 | 0.80 | 1.00 |
-
-Source-different and valid-time-end rows remain imperfect; re-attestation NA accuracy held at 1.0 across adversarial runs.
+Aggregate: success 3/3; unsafe 0; leakage 0; min status 0.80; exact min/med/max = 1.
 
 ## Repetition methodology
 
 - Model: `gpt-5.4-mini`
 - Repetitions: 3 per prompt×cohort pair
-- Pairs: baseline development, baseline holdout, candidate development, candidate holdout, candidate adversarial
+- Pairs: baseline development, baseline holdout, candidate development, candidate holdout, candidate adversarial V2
 - Artifacts: `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/live/calibration/` (gitignored)
+- Durable rollup: `.../calibration/aggregate.json` (`dmb_temporal_prompt_calibration_v1`)
 
-## Aggregate safety metrics
+## Aggregate safety metrics (candidate)
 
-Across successful **candidate** comparisons:
+From `aggregate.json` cohort totals:
 
-- Unsafe over-resolutions: present in every successful candidate cohort run
-- Source→occurrence false positives: present on development, holdout, and adversarial
-- Source→valid-time false positives: present on holdout
-- Grounding failures: 1 candidate holdout run (paraphrased phrase `discovers` vs snippet `discovering`)
-- Baseline development also had 1 grounding failure (overlong non-verbatim phrase)
+- Unsafe over-resolutions: 10 across development+holdout (adversarial V2: 0)
+- Source→occurrence FP: 6; source→valid-time FP: 5 (split fields present)
+- Grounding failures: 1 candidate holdout (phrase paraphrase)
+- Evidence/case failures: 0
+- Provider failures: 0 (`blocked_count` = 0)
 
 ## Aggregate quality metrics
 
-See development/holdout tables above. Candidate clears the development median-exact ≥4 and resolved-exact ≥2 bars on successful runs, but fails READY because unsafe/leakage/NA accuracy requirements are unmet.
+Candidate clears development median-exact ≥4 and resolved-exact ≥2 on successful runs, but fails READY: unsafe/leakage remain; holdout not-applicable accuracy remains 0.0 on successful holdout runs.
+
+Candidate slice `case_ids`: `tl01c-temporal-shadow-cohort-v1`, `tl01c-temporal-shadow-holdout-v1`, `tl01c-temporal-shadow-adversarial-v2`.
 
 ## Per-assertion stability
 
-### Candidate development
+Assertion stability in aggregate includes classification counts, predicted-status counts, normalized occurrence/valid-time value distributions, and `run_failed` failure counts when applicable.
 
-| Assertion | Dominant classifications |
-| --- | --- |
-| Stafl revives | exact_match (after packet V2) with occasional wrong_value on baseline |
-| Lysandra lead | exact_match on candidate |
-| Hybrid destroyed | exact_match on candidate |
-| Party scene | mixed exact / unsafe |
-| Road edge | status_mismatch / unresolved vs NA |
-| Maelthor password | unsafe_over_resolution (never safely ambiguous on candidate) |
+Dominant candidate development patterns unchanged: resolved event rows often exact; Maelthor-style ambiguous still unsafe; structural road edge still status-mismatched.
 
-### Candidate holdout
-
-Occurrence events (portal, Mother) often exact; professor relative row wrong_value; structural/scene/ambiguous frequently unsafe_over_resolution.
-
-## Normalized semantic diffs
-
-Example (holdout professor relative — `wrong_temporal_value`):
-
-```json
-{
-  "gold": {"occurrence_time": {"kind": "textual", "raw_expression": "left about 30 years ago"}},
-  "predicted": {"occurrence_time": {"kind": "textual", "raw_expression": "about 30 years ago"}}
-}
-```
-
-Example (adversarial source≠occurrence leakage elsewhere in the cohort): source_context `session-20` with gold occurrence `session-4`; some runs copy `session-20` into occurrence/valid time (counted in source-leakage metrics).
+Adversarial V2: exact≈1/5 with NA accuracy held; no unsafe over-resolution across three independent repetitions.
 
 ## Provider metadata
 
-All response IDs recorded under each run’s `provider-metadata.json`. Representative:
+Response IDs live in each run’s `provider-metadata.json` and `run_records` in aggregate. Adversarial V2:
 
-| Lane | Cohort | Run | Response ID |
-| --- | --- | --- | --- |
-| baseline | development | 01 | `resp_05b74b6c629b737b006a6acd1c4d7081908c17d9b7cfcc5015` |
-| candidate | development | 02 | `resp_013698df522b55da006a6acd852aa48190b9683948da52d521` |
-| candidate | holdout | 01 | `resp_0a295c72a0c9d32f006a6acd2bea408195aa6d8d4c2fb86d2d` |
-| candidate | adversarial | 01 | `resp_0f649c9c6f0cdafd006a6acd328bd48197ba5a30f7726849e7` |
+| Run | Response ID |
+| --- | --- |
+| 01 | `resp_07516d0d4067c8d1006a6b5055e1ac8193a20afdc5fd216531` |
+| 02 | `resp_0be32736306c2230006a6b505ac90881958f340192b834d799` |
+| 03 | `resp_0fdff6feaf3f04c2006a6b50800a1c819782c6812d68d8d97c` |
 
 ## Coverage limitations
 
-- Live corpus still lacks sealed source≠occurrence and valid-time-end cases (synthetic adversarial only).
-- Missing live categories remain missing live categories.
-- One baseline development and one candidate holdout repetition failed grounding (visible; not hidden).
+- Live corpus still thin on sealed source≠occurrence / valid-time-end cases (adversarial V2 covers synthetically, independently of few-shots).
+- One baseline development and one candidate holdout repetition failed grounding (visible in aggregate `run_records` / failure manifests).
 
 ## Calibration decision
 
 `ITERATE_PROMPT`
 
-Rationale:
+Rationale (aggregate diagnostics: `candidate_unsafe_over_resolution=10`):
 
-- Packet/prompt representation is sufficient to recover same-source resolved rows on development.
-- Safety is not yet READY: unsafe over-resolution and source leakage remain across candidate runs.
-- Ambiguous mention (Maelthor-style) is still resolved unsafely.
-- Holdout not-applicable accuracy is 0.0.
-- Do **not** edit `tl01c-v1` after holdout observation; next candidate needs a new version id.
+- Packet/prompt recovers same-source resolved rows on development.
+- Safety not READY: unsafe over-resolution and source leakage remain on development/holdout.
+- Adversarial V2 no longer measures few-shot recall; it shows 0 unsafe / 0 leakage at low exact-match quality.
+- Do **not** edit `tl01c-v1`; next candidate needs a new version id.
 
 ## Successor recommendation
 
