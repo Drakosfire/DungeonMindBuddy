@@ -54,7 +54,7 @@ Required deletion owner:
 | ID | Type | Mission | Exit / next action |
 |---|---|---|---|
 | `R0-A` | `BLOCKED_DEPENDENCY` / DOGFOOD / CONTRACT AUDIT | Prove current real-provider create→generate→edit→validate→revise→accept→reload. | Current agent could not reach the operator runtime/provider. Start configured DMS + Live Control, re-run through the normal Workbench, and replace the blocked report with actual product evidence. No implementation slice is selected yet. |
-| `R0-B` | `BLOCKED_DEPENDENCY` / DOGFOOD / HERMES AUDIT | Prove broad query across admitted unioned graph/source context and produce editable grounded Threat description. | Do not attempt until the separate Graph V1 lane supplies an authoritative strictly projectable graph head. PR `#444` is open/non-mergeable and advertises forbidden first-wins tolerance. |
+| `R0-B` | `IN_PROGRESS` / DOGFOOD / HERMES AUDIT | Prove broad query across admitted unioned graph/source context and produce editable grounded Threat description. | Live Hermes probes are now running and recorded in `Docs/Reports/MAGIC-MOMENT-R0-B-2026-07-30.md`. Complete exact revision/session/node/anchor capture and obtain the paste-ready Threat description before marking the gate. |
 | `SBW06d` | PRE-DESIGNED; RE-ANCHOR REQUIRED | Revise from exact accepted mechanics locator. | No latest fallback; dispatch only after R0 observations. |
 | `AOW01` | NEW; CONTRACT FIRST | Grounded authored-object context envelope. | Exact revision/nodes/source anchors survive handoff. |
 | `AOW02` | NEW | Hermes “Develop as Threat” creates/opens exact ThreatDraft. | Enables `MAGIC-D1`. |
@@ -123,7 +123,7 @@ Current truth:
 | Gate | Current status | Capability proved | Blocks |
 |---|---|---|---|
 | `R0-A` | `BLOCKED_DEPENDENCY` | Existing real statblock dependency path actually works. | `SBW06d` and broad statblock continuation. |
-| `R0-B` | `BLOCKED_DEPENDENCY` | Hermes can investigate the admitted unioned graph and author grounded prose. | `AOW01–02`. |
+| `R0-B` | `IN_PROGRESS` | Hermes has demonstrated multi-hop investigation and uncertainty honesty; the exact evidence package and paste-ready editable Threat description remain unproved. | `AOW01–02`. |
 | `MAGIC-D1` | DOGFOOD REQUIRED | Query → grounded description → durable ThreatDraft handoff. | Full authoring continuation. |
 | `MAGIC-D2` | DOGFOOD REQUIRED | Grounded draft → accepted immutable statblock revision. | Graph publication. |
 | `MAGIC-D3` | BLOCKED_DEPENDENCY | Accepted revision → governed reusable Threat + binding. | Placement. |
@@ -134,13 +134,11 @@ Current truth:
 ## 9. Immediate next dispatch logic
 
 ```text
-restore and verify the real DungeonMindServer
-→ re-run R0-A through the normal Workbench
-→ replace the blocked report with exact identities and product observations
-→ independently restore strict Graph V1 projection
-→ run R0-B through Hermes
-→ classify the earliest real miss
-→ dispatch exactly one smallest enabling slice
+complete R0-B evidence capture from the live Hermes session
+→ ask the bounded authoring follow-up
+→ record PASS / PASS_WITH_FRICTION / FAIL with exact artifacts
+→ re-anchor one smallest slice from observed friction
+→ dispatch only that slice
 ```
 
 Expected branches after the gates:

@@ -78,16 +78,15 @@ Short checklist (every step must be the **Workbench** path, not Statblock View):
 1. Open `http://127.0.0.1:5173/` → `/surface` → enable **Statblock Workbench**.
 2. Create a **real** C2/Eldyrwild ThreatDraft (nontrivial concept).
 3. **Create & generate** via real provider (readiness must be available).
-4. Edit ≥1 **mechanical** field (not name/flavor only).
+4. Edit ≥1 **dedicated numeric** combat field — primary AC, HP scalar, or ability score (not rename / `rules_text`-only; typed mechanics are out of scope for R0-A).
 5. **Validate working copy** — clean preview receipt.
-6. **Revise once** with explicit instructions; confirm proposal history.
-7. **Accept/Save mechanics** — capture `(statblock_id, revision_id, digest)`.
-8. Hard browser reload → reopen exact accepted identity.
-9. Write `Docs/Reports/MAGIC-MOMENT-R0-A-<YYYY-MM-DD>.md` from the runbook template.
+6. **Accept/Save mechanics** — capture `(statblock_id, revision_id, digest)`. (AI revise deferred — note `DEFERRED_REVISE_UX`.)
+7. Hard browser reload → reopen exact accepted identity.
+8. Write `Docs/Reports/MAGIC-MOMENT-R0-A-<YYYY-MM-DD>.md` from the runbook template.
 
 | Verdict | When |
 |---|---|
-| `PASS` | Full path + exact locator survives reload |
+| `PASS` | Hard path (no revise) + exact locator survives reload |
 | `PASS_WITH_FRICTION` | Works but reopen/browse is painful (likely **AUTHORING-LIBRARY**) |
 | `FAIL_PRODUCT` / `FAIL_ARCHITECTURE` | Workbench/contract wrong while provider is up |
 | `BLOCKED_DEPENDENCY` | DM `:7860` / auth / provider down |
