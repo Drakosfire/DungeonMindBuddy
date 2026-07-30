@@ -4,15 +4,13 @@
 
 **Promotion decision:** `ITERATE_PROMPT`
 
-Frozen candidate `tl01e-v1` was evaluated against frozen control `tl01d-v1` on identical packet V2 / renderer V2 / `gpt-5.4-mini`. All three matrices ran from one clean implementation SHA.
-
-TL01E fixed the two TL01D promotion blockers on the observed holdout V3 surface, but did not clear all hard gates across regression and fresh promotion cohorts.
+The V4 promotion holdout is retired as evidence because its Lysandra and shiny-rain gold rows were not semantically supported by their sources. Frozen `tl01e-v1` was not changed. A fresh two-row canonical V5 holdout was sealed and used for the replacement promotion run.
 
 | Matrix | Decision | Blocking diagnostics |
 | --- | --- | --- |
 | regression-current | `ITERATE_PROMPT` | `candidate_unsafe_over_resolution=3` |
 | regression-legacy | `ITERATE_PROMPT` | `candidate_unsafe_over_resolution=6` |
-| promotion | `ITERATE_PROMPT` | `candidate_grounding_failures=4` |
+| promotion V5 | `ITERATE_PROMPT` | `candidate_source_leakage=2` |
 
 ## Frozen identities
 
@@ -23,45 +21,53 @@ TL01E fixed the two TL01D promotion blockers on the observed holdout V3 surface,
 | Packet | `tl01c-packet-v1` |
 | Renderer | `render_temporal_shadow_user_content_v2` |
 | Model | `gpt-5.4-mini` |
-| Implementation / promotion seal SHA | `d566ff7a7ed1e202e399316140bde1375ea02ac2` |
+| V5 holdout seal / execution SHA | `0c9164070dcb12aebe2094f55a70d97a03b3567f` |
+| V4 adversarial seal SHA | `d566ff7a7ed1e202e399316140bde1375ea02ac2` |
 | Regression mirror seal SHA | `20804aadae40bf07183c8aac2dff555fb4959b79` |
 
 ## Aggregate artifacts
 
 * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/regression-current/calibration/aggregate.json` — `temporal-prompt-calibration:7753c40761aa7081`
 * `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/regression-legacy/calibration/aggregate.json` — `temporal-prompt-calibration:0e686bc114b9aed8`
-* `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/promotion/calibration/aggregate.json` — `temporal-prompt-calibration:8e76f7002d000418`
+* `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/promotion/calibration/aggregate.json` — retained V4 history; not current promotion evidence
+* `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/promotion-v5/calibration/aggregate.json` — `temporal-prompt-calibration:dd93aab21eb90981`
 
-## Current-failure regression (holdout V3 / adversarial V3)
+## Holdout V4 disposition
 
-Against the exact TL01D failure surface:
+V4 is preserved unchanged for historical traceability but is no longer promotion evidence:
 
-* Holdout V3 candidate: **3/3 successful**, status accuracy **1.0**, not_applicable accuracy **1.0**, grounding failures **0**, unsafe **0**.
-* Orik-style mayor restatement is exact `not_applicable` with null extents on all three repetitions.
-* Adversarial V3 candidate: **3/3 successful** and **0 grounding failures** (control still grounding-fails all three), but **unsafe_over_resolution=3** plus source-time leakage on historical/source-different rows.
-* Development candidate: 1/3 successful; 2 grounding failures from non-verbatim `source_phrase`.
+1. The Lysandra source observes an already-held new rank; it does not narrate an appointment or promotion.
+2. The shiny-rain assertion, predicate, label, and evidence disagree about whether the forest moved or merely needed to move.
 
-## Legacy regression
+Therefore the prior report's claim that TL01E over-abstained on those two canonical rows is withdrawn. The V4 aggregate remains useful only as a record of the superseded experiment.
 
-Development remains strong when grounding succeeds. Legacy holdout and adversarial still show unsafe over-resolution / grounding incompleteness under the stronger abstention wording. Decision remains `ITERATE_PROMPT`.
+## Replacement promotion (holdout V5 / adversarial V4)
 
-## Fresh promotion (holdout V4 / adversarial V4)
+V5 contains two independent canonical rows:
 
-* Adversarial V4 candidate: **3/3**, status **1.0**, not_applicable **1.0**, grounding **0**, unsafe **0**. Role restatement and `As <role>` patterns are correct.
-* Holdout V4 candidate: not_applicable accuracy **1.0** (mayor restatement held), but status mismatches on the Lysandra new-rank valid-start and shiny-rain textual rows (over-abstention to `not_applicable`), plus one grounding failure.
-* Development candidate: **3/3 grounding failures** (`source_phrase='connected_by_road'`).
+* An explicit Session 13 authority assignment for the Questionable Company's reporting relationship to Lysandra. Gold is a resolved persistent-state start at Session 13.
+* A canonical world-document founding event with an explicit historical phrase. Gold is a resolved textual occurrence with no invented session anchor.
+
+The candidate holdout lane completed **3/3** repetitions with **status accuracy 1.0** and **0 grounding failures**. The two remaining semantic findings are genuine candidate behavior:
+
+* The authority row used `occurrence_time=session-13` in **2/3** runs instead of `valid_time.start=session-13`, producing the aggregate's `candidate_source_leakage=2`.
+* The founding row was resolved textually in all three runs, but the model selected the shorter verb-plus-time expression rather than the sealed gold's longer source phrase, so exact temporal-value matching was **0/3**. This is a normalization-sensitivity finding, not a status mismatch.
+
+Adversarial V4 remained strong for the candidate: **3/3** successful, status accuracy **1.0**, not_applicable accuracy **1.0**, grounding failures **0**, and unsafe over-resolution **0**. The candidate development lane had one grounding failure in this run.
+
+## Regression results
+
+The two regression matrices were not rerun. Their executable inputs and prior aggregates remain valid:
+
+* Current-failure regression fixed the observed V3 mayor-restatement surface, while retaining unsafe source-different behavior.
+* Legacy regression still exposes unsafe over-resolution and grounding instability.
 
 ## Interpretation
 
-TL01E achieved its primary observed goals on holdout V3:
+The correction removes the unsupported V4 promotion claim, but TL01E is still not ready:
 
-1. Nonblank diagnostics / grounding completion on that batch.
-2. Persistent role restatement without inventing a valid-time start.
+1. Explicit persistent-state boundaries can still leak into the occurrence lane.
+2. Grounding and source-different adversarial behavior remain unstable.
+3. Textual temporal exactness needs a clearer minimal-expression convention before its exact-match gate is used as a promotion claim.
 
-It did not reach readiness because:
-
-1. Source-different adversarial leakage still produces unsafe classifications.
-2. Grounding completeness is not yet stable on development structural rows (`source_phrase` must be a verbatim evidence substring).
-3. Fresh holdout valid-start / textual rows were over-abstained.
-
-Do not weaken the grounding validator. Successor work should remain prompt-only inside TL01 (new version), or a separate constrained-output experiment if grounding incompleteness persists after semantic gates are green.
+Do not weaken the grounding validator or mutate `tl01e-v1`. Successor work should remain inside TL01, with any new prompt or textual-normalization experiment separately frozen and sealed.
