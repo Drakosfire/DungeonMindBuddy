@@ -1,4 +1,4 @@
-"""TL01C temporal prompt calibration runner."""
+"""Temporal prompt calibration runner (TL01C+)."""
 
 from __future__ import annotations
 
@@ -28,7 +28,6 @@ from graph_memory.temporal_shadow_extraction import (
     run_temporal_shadow_extraction,
 )
 from graph_memory.temporal_shadow_extraction_schema import (
-    TEMPORAL_SHADOW_PROMPT_VERSION,
     CalibrationAssertionStabilityV1,
     CalibrationCohortAggregateV1,
     CalibrationDecision,
@@ -112,6 +111,10 @@ class CohortSealError(ValueError):
 
 class PairedCaseError(ValueError):
     """Baseline/candidate paired cases are not equivalent fixtures."""
+
+
+class PromptVersionMismatchError(ValueError):
+    """Control or candidate cases disagree on prompt_version."""
 
 
 class DirtyWorktreeError(ValueError):
@@ -345,6 +348,45 @@ def verify_fixtures_tracked_at_commit(
         repo_root=repo_root,
         execution_commit_sha=commit,
     )
+
+
+def derive_prompt_versions_from_cases(
+    *,
+    control_case_paths: list[Path],
+    candidate_case_paths: list[Path],
+    repo_root: Path,
+) -> tuple[str, str]:
+    """Require uniform control/candidate prompt_version and control != candidate."""
+    control_versions: set[str] = set()
+    candidate_versions: set[str] = set()
+
+    for path in control_case_paths:
+        case = load_temporal_shadow_extraction_case(path, repo_root=repo_root)
+        control_versions.add(case.prompt_version)
+
+    for path in candidate_case_paths:
+        case = load_temporal_shadow_extraction_case(path, repo_root=repo_root)
+        candidate_versions.add(case.prompt_version)
+
+    if len(control_versions) != 1:
+        raise PromptVersionMismatchError(
+            "control cases must share one prompt_version "
+            f"(observed={sorted(control_versions)})"
+        )
+    if len(candidate_versions) != 1:
+        raise PromptVersionMismatchError(
+            "candidate cases must share one prompt_version "
+            f"(observed={sorted(candidate_versions)})"
+        )
+
+    baseline_prompt_version = next(iter(control_versions))
+    candidate_prompt_version = next(iter(candidate_versions))
+    if baseline_prompt_version == candidate_prompt_version:
+        raise PromptVersionMismatchError(
+            "control and candidate prompt_version must differ "
+            f"(both={baseline_prompt_version!r})"
+        )
+    return baseline_prompt_version, candidate_prompt_version
 
 
 def validate_paired_case_equivalence(
@@ -1322,6 +1364,7 @@ def run_prompt_calibration(
     repo_root: Path | None = None,
     holdout_seal_commit_sha: str | None = None,
     adversarial_seal_commit_sha: str | None = None,
+    baseline_adversarial_case: Path | None = None,
     skip_seal_verification: bool = False,
     fake: bool = False,
     fake_batches: dict[str, dict[str, Any]] | None = None,
@@ -1335,6 +1378,21 @@ def run_prompt_calibration(
 
     _assert_clean_worktree_for_live(repo_root=root, fake=fake)
     execution_sha = _repository_sha(repo_root=root)
+
+    control_case_paths = [development_case, holdout_case]
+    candidate_case_paths = [
+        candidate_development_case,
+        candidate_holdout_case,
+        adversarial_case,
+    ]
+    if baseline_adversarial_case is not None:
+        control_case_paths.append(baseline_adversarial_case)
+
+    baseline_prompt_version, candidate_prompt_version = derive_prompt_versions_from_cases(
+        control_case_paths=control_case_paths,
+        candidate_case_paths=candidate_case_paths,
+        repo_root=root,
+    )
 
     seals_verified = False
     if skip_seal_verification:
@@ -1398,6 +1456,12 @@ def run_prompt_calibration(
             commit_sha=execution_sha,
             repo_root=root,
         )
+        if baseline_adversarial_case is not None:
+            verify_fixtures_tracked_at_commit(
+                case_path=baseline_adversarial_case,
+                commit_sha=execution_sha,
+                repo_root=root,
+            )
         seals_verified = True
 
     # Paired baseline/candidate fixtures must share contribution/gold/assertions/evidence
@@ -1414,6 +1478,13 @@ def run_prompt_calibration(
         repo_root=root,
         pair_name="holdout",
     )
+    if baseline_adversarial_case is not None:
+        validate_paired_case_equivalence(
+            baseline_case_path=baseline_adversarial_case,
+            candidate_case_path=adversarial_case,
+            repo_root=root,
+            pair_name="adversarial",
+        )
 
     baseline_development = load_temporal_shadow_extraction_case(
         development_case, repo_root=root
@@ -1424,24 +1495,38 @@ def run_prompt_calibration(
     baseline_holdout = load_temporal_shadow_extraction_case(
         holdout_case, repo_root=root
     )
+    baseline_adversarial = (
+        load_temporal_shadow_extraction_case(baseline_adversarial_case, repo_root=root)
+        if baseline_adversarial_case is not None
+        else None
+    )
 
     run_specs: list[CalibrationRunSpec] = []
     for repetition in range(1, repetitions + 1):
-        run_specs.extend(
-            [
-                CalibrationRunSpec("baseline", "development", development_case, repetition),
-                CalibrationRunSpec("baseline", "holdout", holdout_case, repetition),
+        lane_specs = [
+            CalibrationRunSpec("baseline", "development", development_case, repetition),
+            CalibrationRunSpec("baseline", "holdout", holdout_case, repetition),
+            CalibrationRunSpec(
+                "candidate", "development", candidate_development_case, repetition
+            ),
+            CalibrationRunSpec(
+                "candidate", "holdout", candidate_holdout_case, repetition
+            ),
+            CalibrationRunSpec(
+                "candidate", "adversarial", adversarial_case, repetition
+            ),
+        ]
+        if baseline_adversarial_case is not None:
+            lane_specs.insert(
+                2,
                 CalibrationRunSpec(
-                    "candidate", "development", candidate_development_case, repetition
+                    "baseline",
+                    "adversarial",
+                    baseline_adversarial_case,
+                    repetition,
                 ),
-                CalibrationRunSpec(
-                    "candidate", "holdout", candidate_holdout_case, repetition
-                ),
-                CalibrationRunSpec(
-                    "candidate", "adversarial", adversarial_case, repetition
-                ),
-            ]
-        )
+            )
+        run_specs.extend(lane_specs)
 
     outcomes: list[RunOutcome] = []
     for spec in run_specs:
@@ -1456,20 +1541,23 @@ def run_prompt_calibration(
             )
         )
 
-    expected_prompt = {
-        ("baseline", "development"): TEMPORAL_SHADOW_PROMPT_VERSION,
-        ("baseline", "holdout"): TEMPORAL_SHADOW_PROMPT_VERSION,
-        ("candidate", "development"): "tl01c-v1",
-        ("candidate", "holdout"): "tl01c-v1",
-        ("candidate", "adversarial"): "tl01c-v1",
+    expected_prompt: dict[tuple[PromptLane, CohortName], str] = {
+        ("baseline", "development"): baseline_prompt_version,
+        ("baseline", "holdout"): baseline_prompt_version,
+        ("candidate", "development"): candidate_prompt_version,
+        ("candidate", "holdout"): candidate_prompt_version,
+        ("candidate", "adversarial"): candidate_prompt_version,
     }
-    expected_case = {
+    expected_case: dict[tuple[PromptLane, CohortName], str] = {
         ("baseline", "development"): baseline_development.case_id,
         ("baseline", "holdout"): baseline_holdout.case_id,
         ("candidate", "development"): candidate_development.case_id,
         ("candidate", "holdout"): holdout_seal.case_id,
         ("candidate", "adversarial"): adversarial_seal.case_id,
     }
+    if baseline_adversarial is not None:
+        expected_prompt[("baseline", "adversarial")] = baseline_prompt_version
+        expected_case[("baseline", "adversarial")] = baseline_adversarial.case_id
 
     cohort_groups: dict[tuple[PromptLane, CohortName], list[RunOutcome]] = defaultdict(
         list
@@ -1509,7 +1597,10 @@ def run_prompt_calibration(
     )
 
     calibration_id_payload = {
-        "candidate_prompt_sha256": compute_prompt_sha256("tl01c-v1"),
+        "baseline_prompt_version": baseline_prompt_version,
+        "candidate_prompt_version": candidate_prompt_version,
+        "baseline_prompt_sha256": compute_prompt_sha256(baseline_prompt_version),
+        "candidate_prompt_sha256": compute_prompt_sha256(candidate_prompt_version),
         "holdout_case_sha256": holdout_seal.case_sha256,
         "holdout_seal_commit_sha": holdout_seal.seal_commit_sha,
         "adversarial_case_sha256": adversarial_seal.case_sha256,
@@ -1538,19 +1629,21 @@ def run_prompt_calibration(
         adversarial_gold_sha256=adversarial_seal.gold_sha256,
         adversarial_seal_commit_sha=adversarial_seal.seal_commit_sha,
         seals_verified=seals_verified,
-        candidate_prompt_sha256=compute_prompt_sha256("tl01c-v1"),
-        baseline_prompt_sha256=compute_prompt_sha256(TEMPORAL_SHADOW_PROMPT_VERSION),
+        baseline_prompt_version=baseline_prompt_version,
+        candidate_prompt_version=candidate_prompt_version,
+        candidate_prompt_sha256=compute_prompt_sha256(candidate_prompt_version),
+        baseline_prompt_sha256=compute_prompt_sha256(baseline_prompt_version),
         model_id=model_id,
         repetitions=repetitions,
         slices=[
             _build_metrics_slice(
                 prompt_lane="baseline",
-                prompt_version=TEMPORAL_SHADOW_PROMPT_VERSION,
+                prompt_version=baseline_prompt_version,
                 cohort_aggregates=cohort_aggregates,
             ),
             _build_metrics_slice(
                 prompt_lane="candidate",
-                prompt_version="tl01c-v1",
+                prompt_version=candidate_prompt_version,
                 cohort_aggregates=cohort_aggregates,
             ),
         ],
@@ -1577,12 +1670,19 @@ def _load_fake_batches(path: Path | None) -> dict[str, dict[str, Any]] | None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run TL01C temporal prompt calibration")
+    parser = argparse.ArgumentParser(
+        description="Run temporal prompt calibration (baseline vs candidate)"
+    )
     parser.add_argument("--development-case", required=True)
     parser.add_argument("--candidate-development-case", required=True)
     parser.add_argument("--holdout-case", required=True)
     parser.add_argument("--candidate-holdout-case", required=True)
     parser.add_argument("--adversarial-case", required=True)
+    parser.add_argument(
+        "--baseline-adversarial-case",
+        default=None,
+        help="Optional baseline mirror of the adversarial cohort (adds baseline/adversarial lane)",
+    )
     parser.add_argument("--model-id", default="gpt-5.4-mini")
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument(
@@ -1632,6 +1732,11 @@ def main(argv: list[str] | None = None) -> int:
         repo_root=repo_root,
         holdout_seal_commit_sha=args.holdout_seal_commit,
         adversarial_seal_commit_sha=args.adversarial_seal_commit,
+        baseline_adversarial_case=(
+            Path(args.baseline_adversarial_case)
+            if args.baseline_adversarial_case
+            else None
+        ),
         skip_seal_verification=skip_seal,
         fake=args.fake,
         fake_batches=fake_batches,

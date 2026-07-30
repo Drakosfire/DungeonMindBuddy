@@ -409,6 +409,8 @@ class TemporalPromptCalibrationAggregateV1(_TransportModel):
     adversarial_gold_sha256: str | None = None
     adversarial_seal_commit_sha: str | None = None
     seals_verified: bool = False
+    baseline_prompt_version: str | None = None
+    candidate_prompt_version: str | None = None
     candidate_prompt_sha256: str
     baseline_prompt_sha256: str
     model_id: str
