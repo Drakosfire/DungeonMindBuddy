@@ -1,0 +1,27 @@
+{
+  "schema": "dmb_hermes_session_pointer_store_v1",
+  "bindings": {
+    "longmont-c2::agent-thread-9141c3a5-6677-4e70-bff6-a4d8ae847482": {
+      "schema": "dmb_hermes_session_pointer_binding_v1",
+      "pointer_id": "hptr-3bef6a0576d54a1eaf24bf92",
+      "agent_thread_id": "agent-thread-9141c3a5-6677-4e70-bff6-a4d8ae847482",
+      "campaign_id": "longmont-c2",
+      "hermes_session_id": "efa87c51-5174-4168-a8c0-cf695fc824fb",
+      "status": "active",
+      "created_at": "2026-07-29T03:45:07Z",
+      "updated_at": "2026-07-29T03:45:49Z",
+      "last_worker_pid": 13912
+    },
+    "longmont-c2::agent-thread-f899454e-cc7f-4e0f-98d4-0e0e3aa25fbb": {
+      "schema": "dmb_hermes_session_pointer_binding_v1",
+      "pointer_id": "hptr-69a45664f0054cd4a3b622d8",
+      "agent_thread_id": "agent-thread-f899454e-cc7f-4e0f-98d4-0e0e3aa25fbb",
+      "campaign_id": "longmont-c2",
+      "hermes_session_id": "96690477-c8ef-4953-8841-733e15ed8d31",
+      "status": "active",
+      "created_at": "2026-07-29T03:57:25Z",
+      "updated_at": "2026-07-29T04:02:16Z",
+      "last_worker_pid": 19378
+    }
+  }
+}

@@ -137,7 +137,8 @@
           "miss_effects": []
         },
         "tags": [],
-        "automation_support": "full"
+        "automation_support": "full",
+        "explains": []
       }
     ],
     "phases": [],

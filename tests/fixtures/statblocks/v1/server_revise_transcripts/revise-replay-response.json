@@ -131,7 +131,8 @@
           "miss_effects": []
         },
         "tags": [],
-        "automation_support": "full"
+        "automation_support": "full",
+        "explains": []
       }
     ],
     "phases": [],
@@ -144,25 +145,25 @@
   "validation_receipt": {
     "status": "valid",
     "mode": "generation_candidate",
-    "validator_version": "statblock-validator-v1.1+statblock-key-preservation-v1",
+    "validator_version": "statblock-validator-v1.2+statblock-key-preservation-v1",
     "canonicalizer_version": "statblock-canonicalizer-v1",
     "issues": [],
-    "definition_digest": "sha256:265da39c72a5275bfb81315034b972ddae4aca261a683fa9ecc70a4839e91c44",
+    "definition_digest": "sha256:935dc0dff1ac7cc8405836764469761a1d26e9e38dd74cd856b8a8a31f0fae51",
     "validated_at": "2026-01-01T12:00:00Z"
   },
   "generation_receipt": {
     "request_id": "fixture-revise-source-def-1",
     "provider": "fake",
     "model": "test-model",
-    "prompt_version": "statblock-generation-prompt-v1",
+    "prompt_version": "statblock-generation-prompt-v6",
     "schema_version": "statblock-openai-strict-compiler-v1",
-    "schema_fingerprint": "sha256:3714727d9c1966d77ed39a95ede9789e180305689be72bc7f63a5114d6bab37b",
+    "schema_fingerprint": "sha256:5e6ca302d6240c74845ae9734c21a0456eaa9d0165a895e2f372005b9a9fd9e9",
     "generated_at": "2026-01-01T12:00:00Z",
     "caller_scope": "dungeonbuddy",
-    "request_digest": "sha256:5092b1efd0a13aece7711bb470eefa36b2e1b8bebb06c8d583e0f30b8823128e",
+    "request_digest": "sha256:1a8de57d8112d126e55b44d939342454af50fdf2643ecc55e88942038a3ec8ba",
     "actor": "fixture",
     "source_description_digest": null,
-    "source_definition_digest": "sha256:265da39c72a5275bfb81315034b972ddae4aca261a683fa9ecc70a4839e91c44",
+    "source_definition_digest": "sha256:935dc0dff1ac7cc8405836764469761a1d26e9e38dd74cd856b8a8a31f0fae51",
     "source_locator": null,
     "provider_request_id": null,
     "provider_response_id": null,

@@ -87,19 +87,25 @@ The smallest capability that should be dispatched next. Do not list broad wishli
 
 ## 4. `R0-A` protocol — Existing statblock dependency path
 
+**Start-here after projection recovery:** [`INSTRUCTIONS-reboot-dogfood-R0A-R0B.md`](INSTRUCTIONS-reboot-dogfood-R0A-R0B.md)  
+**Operator script (step-by-step):** [`SCRIPT-R0-A-statblock-live-dependency-proof.md`](SCRIPT-R0-A-statblock-live-dependency-proof.md)
+
 1. Start with a real nontrivial Threat concept.
 2. Create a ThreatDraft in the current Workbench.
 3. Generate through the real provider.
-4. Edit at least one complete mechanic, not only the name or flavor text.
+4. Edit at least one dedicated numeric combat field (primary AC, HP scalar, or ability score) — not rename / `rules_text`-only. Typed mechanic fields (attack bonus, damage, save DC, speed) are out of R0-A scope until a later editor expansion.
 5. Validate the exact working definition.
-6. Revise once with explicit instructions.
-7. Accept one exact revision.
-8. Close/reload and reopen the exact accepted revision.
-9. Capture all provider, contract, and parse failures honestly.
+6. Accept one exact revision (edited generate candidate is enough).
+7. Close/reload and reopen the exact accepted revision.
+8. Capture all provider, contract, and parse failures honestly.
+
+**Deferred:** AI revise (`Revise with AI`) — SBW06c UX is operator-hostile; record `DEFERRED_REVISE_UX`. Not required for PASS. Re-include after revise UX cleanup (Backlog). `MAGIC-D2` still expects revise once that UX is usable.
 
 Pass only when the accepted exact identity and digest survive reload.
 
 ## 5. `R0-B` protocol — Deep unioned-graph question
+
+**Operator detail (how to ask / known non-failures):** [`INSTRUCTIONS-reboot-dogfood-R0A-R0B.md`](INSTRUCTIONS-reboot-dogfood-R0A-R0B.md) §4
 
 Choose a question that:
 

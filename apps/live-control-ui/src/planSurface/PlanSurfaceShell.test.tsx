@@ -50,6 +50,8 @@ import {
   AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
 } from "./components/agentInteractionHistory";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
+import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
 import { AdaptiveProjectionContainer } from "./projection/AdaptiveProjectionContainer";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
@@ -133,10 +135,13 @@ function PlanSurfaceTestHarness() {
 
   return (
     <AgentInteractionProvider>
-      <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-        <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-      </AppChrome>
-      <AdaptiveProjectionContainer />
+      <AskPluginSlotProvider>
+        <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+          <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
+        </AppChrome>
+        <AdaptiveProjectionContainer />
+        <AgentInteractionChrome />
+      </AskPluginSlotProvider>
     </AgentInteractionProvider>
   );
 }
@@ -222,7 +227,7 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByTestId("plan-memory-source")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Review memory" })).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Plan toolbox" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open drawer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open" })).toBeInTheDocument();
     // Docked Edit starts open; the side tab is hidden until the drawer closes.
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
@@ -270,10 +275,10 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
 
     expect(
-      await screen.findByRole("complementary", { name: "DungeonBuddy drawer" }),
+      await screen.findByRole("complementary", { name: "Ask DungeonBuddy" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Union · C1+C2 · no session focus")).toBeInTheDocument();
     expect(screen.getByLabelText("Question")).toBeInTheDocument();
@@ -335,7 +340,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     expect(screen.getByRole("heading", { name: "Legacy live thread" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "What do we know about Tripod?");
@@ -419,7 +424,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Is this still current?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -490,7 +495,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -540,7 +545,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "First question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -593,7 +598,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Who is Lysandro?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -645,7 +650,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
 
     await user.type(screen.getByLabelText("Question"), "Empty graph question?");
@@ -675,7 +680,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     expect(await screen.findByText("Initializing world graph context…")).toBeInTheDocument();
 
@@ -716,7 +721,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(projectionRequests).toHaveLength(0);
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(await screen.findByText("Validating session focus…")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "Stale focus during validation?");
     expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeDisabled();
@@ -769,7 +774,7 @@ describe("PlanSurfaceShell", () => {
     expect(projectionSpy).not.toHaveBeenCalled();
     expect(window.location.search).toMatch(/session=longmont-c2%3A40|session=longmont-c2:40/);
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(
       await screen.findByText(/Session focus validation unavailable/i),
     ).toBeInTheDocument();
@@ -842,7 +847,7 @@ describe("PlanSurfaceShell", () => {
     deferBundles = true;
     deferredResolvers = [];
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.click(screen.getByRole("checkbox", { name: /Longmont C1/i }));
 
     // Lens changed while override was valid: gate must engage before deferred bundles resolve.
@@ -910,7 +915,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What should I remember about the gate?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -947,7 +952,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What happened at the end of session 22?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -1027,7 +1032,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -1077,7 +1082,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
 
     await user.type(screen.getByLabelText("Question"), "First question?");
@@ -1144,7 +1149,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Session 24 inn prep");
     expect(screen.getByText("The inn has Mireward rumors.")).toBeInTheDocument();
 
@@ -1200,7 +1205,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Thread A question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -1254,7 +1259,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
@@ -1294,7 +1299,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
 
     for (let index = 1; index <= AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS; index += 1) {
@@ -1331,7 +1336,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     expect(screen.queryByRole("region", { name: "Thread getting long" })).not.toBeInTheDocument();
 
@@ -1359,7 +1364,7 @@ describe("PlanSurfaceShell", () => {
 
     const rendered = renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "Restore thread A?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -1377,7 +1382,7 @@ describe("PlanSurfaceShell", () => {
     rendered.unmount();
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(await screen.findByText("Answer for restore A")).toBeInTheDocument();
     await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
@@ -1397,7 +1402,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await openAgentConfig(user);
     await user.click(screen.getByRole("button", { name: "Prep threads" }));
@@ -1437,7 +1442,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What happened at bootstrap?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -1486,7 +1491,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Union · C1+C2 · no session focus");
     await user.type(screen.getByLabelText("Question"), "What carried over from prior sessions?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -2042,7 +2047,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(await screen.findByLabelText("Question")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -2051,6 +2056,7 @@ describe("PlanSurfaceShell", () => {
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
     await user.click(screen.getByText("Memory coverage diagnostics"));
+    expect(await screen.findByText(/bundle failed/i)).toBeInTheDocument();
     expect(document.querySelector(".plan-agent-diagnostics-drawer .plan-agent-error")).toBeTruthy();
     expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).includes("/api/live/query"))).toBe(true);
   });
@@ -2078,7 +2084,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), `${state} question?`);
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
@@ -2111,7 +2117,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Scope mismatch question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
@@ -2166,7 +2172,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("Stale session thread");
     await user.type(screen.getByLabelText("Question"), "Hermes graph question?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
@@ -2219,7 +2225,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -2275,7 +2281,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -2314,7 +2320,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
 
     expect(await screen.findAllByText("Saved graph answer.")).not.toHaveLength(0);
     expect(screen.getByRole("region", { name: "Graph evidence" })).toBeInTheDocument();
@@ -2342,7 +2348,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(
       screen.getByLabelText("Question"),
       "What do we know about Tripod Null-Calf at the North Gate?",
@@ -2405,7 +2411,7 @@ describe("PlanSurfaceShell", () => {
 
     const { unmount } = renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(
       screen.getByLabelText("Question"),
       "What do we know about Tripod Null-Calf at the North Gate?",
@@ -2475,7 +2481,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(await screen.findAllByText("Tripod stands at the North Gate.")).not.toHaveLength(0);
 
     await user.type(
@@ -2523,7 +2529,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Thread A turn 1?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await screen.findAllByText("Tripod stands at the North Gate.");
@@ -2588,7 +2594,7 @@ describe("PlanSurfaceShell", () => {
 
     renderPlanSurface();
     await waitForPlanSurfaceReady();
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
 
     expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent("Saved revision body.");
@@ -2609,7 +2615,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -2636,7 +2642,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
@@ -2659,7 +2665,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);
@@ -2692,7 +2698,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -2727,7 +2733,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
 
@@ -2769,7 +2775,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -2821,7 +2827,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -2891,7 +2897,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await user.click(await screen.findByRole("button", { name: "Open evidence" }));
@@ -2913,7 +2919,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     await user.type(screen.getByLabelText("Question"), "Where is Tripod?");
     await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
     await openAgentConfig(user);

@@ -15,13 +15,18 @@ Pass only when:
 
 ```text
 real provider generate
-→ edit a complete mechanic
+→ edit a dedicated numeric combat field (AC / HP / ability)
 → validate working copy
-→ revise once
 → accept exact revision
 → browser reload
 → reopen the same (statblock_id, revision_id, digest)
 ```
+
+**Deferred (not required for PASS):** AI revise (`Revise with AI`). The
+SBW06c panel is operator-hostile (IDs, Resume / Finish loading / Start new).
+Record `DEFERRED_REVISE_UX` in the report; do not soft-fail R0-A for skipping
+it. Re-include only after the revise UX cleanup lands (Backlog: *Workbench
+Revise-with-AI UX is operator-hostile*).
 
 Mocks, corpus-promotion Statblock View, or “generate failed but draft exists”
 do **not** count. Unavailable DungeonMind / provider → `BLOCKED_DEPENDENCY`.
@@ -33,7 +38,7 @@ R0-A needs:
 | Process | Default | Role |
 |---|---|---|
 | DungeonMindServer | `http://127.0.0.1:7860` (Buddy `.env` `DUNGEONMIND_STATBLOCKS_BASE_URL`) | Real generate / validate / accept downstream |
-| Buddy live-control API | `http://127.0.0.1:8000` | ThreatDraft, candidates, revise, accept orchestration |
+| Buddy live-control API | `http://127.0.0.1:8000` | ThreatDraft, candidates, validate, accept orchestration |
 | Live Control UI | `http://127.0.0.1:5173` | Workbench surface |
 
 ### 1.1 DungeonMindServer
@@ -145,17 +150,27 @@ If generate fails with downstream/auth/timeout: classify honestly
 (`BLOCKED_DEPENDENCY` vs product miss). Use **Retry generation (same draft)**
 only for the same attempt — do not mint a second draft to hide the failure.
 
-## 5. Edit a complete mechanic
+## 5. Edit a dedicated numeric combat field
 
-In the loaded candidate editor, change at least one **mechanical** field, e.g.:
+SBW05 ships **dedicated controls**, not a full typed-mechanic editor. Attack
+bonus, damage dice, save DC, speed, activation/usage, and mechanic JSON are
+protected/review-only today. Do not treat those as available for this gate.
 
-- an action’s attack bonus, damage, or save DC; or
-- HP / AC / speed; or
-- a trait that alters combat behavior
+In the loaded candidate editor, change at least one **dedicated numeric** field
+that affects combat math:
 
-Do **not** count rename-only or flavor-only edits.
+- primary AC value; or
+- the HP scalar the editor mutates (`displayed_average`, `fixed_value`, or
+  `formula.modifier`); or
+- any ability score
 
-Capture: field(s) changed and before/after values.
+Do **not** count: creature rename, element rename, or `rules_text`-only edits.
+Those dirty the working copy but are not the R0-A edit proof.
+
+Capture: field path, before value, after value.
+
+(Post-gate editor expansion can add typed mechanic controls; that is a separate
+slice, not a soft-pass substitute here.)
 
 ## 6. Validate working copy
 
@@ -166,30 +181,27 @@ Capture: field(s) changed and before/after values.
 
 Capture: validation request outcome / issue counts if any.
 
-## 7. Revise once
+## 7. Revise once — DEFERRED (optional)
+
+**Not required for R0-A PASS.** Skip unless deliberately probing revise UX.
+If skipped, write `DEFERRED_REVISE_UX` in the report and continue to Accept.
+
+Optional probe only (expect friction):
 
 1. Open **Revise with AI**.
-2. Enter explicit instruction lines (one per line), e.g.:
-
-```text
-Increase hit points modestly for a sticky ambusher
-Add one latching reaction that uses the edited grapple fiction
-Keep element keys where possible
-```
-
-3. Leave **Preserve element keys where possible** checked unless you are
-   intentionally testing key churn.
+2. Enter explicit instruction lines (one per line).
+3. Leave **Preserve element keys where possible** checked.
 4. Click **Create revised proposal**.
-5. On success: confirm Proposal history shows **source + new** refs, source
-   status unchanged, new lineage is edited-working-copy.
-6. If transport fails: hard reload, confirm **Resume same revise** keeps the
-   same request ID (do not Start new unless terminal).
+5. On success: Proposal history shows source + new refs.
+6. Transport failure: **Resume same revise** (same request ID) — do not
+   Start new unless terminal.
 
-Capture: revise `request_id`, result label, new candidate ID.
+Capture if attempted: revise `request_id`, result label, new candidate ID.
 
 ## 8. Accept exact revision
 
-1. Ensure the candidate you want saved is active and re-validated if needed.
+1. Ensure the candidate you want saved is active (the edited generate
+   candidate is fine — revise is not required) and re-validated if needed.
 2. Click **Accept/Save mechanics**.
 3. Wait for a durable success that shows exact locator:
 
@@ -227,18 +239,19 @@ Docs/Reports/MAGIC-MOMENT-R0-A-<YYYY-MM-DD>.md
 Minimum durable identities to fill:
 
 - draft ID/version
-- candidate ID(s) (source + revised)
-- revise request_id / result
+- candidate ID(s) accepted (and source if revise was attempted)
+- `DEFERRED_REVISE_UX` (or revise `request_id` / result if probed)
 - accepted `statblock_id` / `revision_id` / `digest`
-- graph revision used at create
+- graph revision used at create (`null` ok for freestanding)
 - readiness snapshot (`available`, `downstream_status`)
 
 ## 11. Verdict cheat-sheet
 
 | Observation | Result |
 |---|---|
-| Full path + exact locator survives reload | `PASS` |
+| Hard path (no revise) + exact locator survives reload | `PASS` |
 | Path works but reopen/browse is painful | `PASS_WITH_FRICTION` |
+| Skipped revise because UX is hostile | expected — note `DEFERRED_REVISE_UX`; not a fail |
 | Workbench/UI/contract wrong while provider is up | `FAIL_PRODUCT` or `FAIL_ARCHITECTURE` |
 | DM `:7860` down / auth / provider unavailable | `BLOCKED_DEPENDENCY` |
 

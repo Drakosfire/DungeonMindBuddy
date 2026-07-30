@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getEvents, getJobs, getPlanView, getSurface } from "./api/liveApi";
 import type {
@@ -12,6 +12,9 @@ import type {
   SurfaceModuleDefinition,
 } from "./api/types";
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
+import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
+import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
+import { usePublishAgentSurfaceContext } from "./agentInteraction/usePublishAgentSurfaceContext";
 import { AdaptiveProjectionContainer } from "./planSurface/projection/AdaptiveProjectionContainer";
 import { AppChrome, type AppChromeTools } from "./chrome/AppChrome";
 import { MemoryIngestPage } from "./ingestSurface/MemoryIngestPage";
@@ -35,9 +38,27 @@ function currentRoute(): AppRoute {
   return "index";
 }
 
+function IndexSurfacePublisher() {
+  const context = useMemo(
+    () => ({
+      surfaceId: "index",
+      label: "Command Board",
+      campaignId: null,
+      documentId: null,
+      sessionNumber: null,
+      ambientSummary: "Launcher · pick Plan, Ingest, Build, or Combat",
+      sourceEnvelope: null,
+    }),
+    [],
+  );
+  usePublishAgentSurfaceContext(context);
+  return null;
+}
+
 function MirewardIndex() {
   return (
     <main className="launcher-root">
+      <IndexSurfacePublisher />
       <header className="launcher-header">
         <h1>Command Board</h1>
         <p>Core surfaces for prep, memory review, worldbuilding, and combat.</p>
@@ -243,8 +264,11 @@ export function App() {
   }
   return (
     <AgentInteractionProvider>
-      {content}
-      <AdaptiveProjectionContainer />
+      <AskPluginSlotProvider>
+        {content}
+        <AdaptiveProjectionContainer />
+        <AgentInteractionChrome />
+      </AskPluginSlotProvider>
     </AgentInteractionProvider>
   );
 }

@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement, type ReactNode } from "react";
 
 import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractionProvider";
+import { AskPluginSlotProvider } from "../../agentInteraction/AskPluginSlot";
+import { AgentInteractionChrome } from "../../agentInteraction/AgentInteractionChrome";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { PlanGraphLensProvider } from "../PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
@@ -24,12 +26,17 @@ function wrapper({ children }: { children: ReactNode }) {
     AgentInteractionProvider,
     null,
     createElement(
-      PlanGraphLensProvider,
-      { planCampaignId: sessionDescriptor.campaignId },
+      AskPluginSlotProvider,
+      null,
       createElement(
-        PlanGraphReferenceResolverProvider,
-        { sessionDescriptor },
-        children,
+        PlanGraphLensProvider,
+        { planCampaignId: sessionDescriptor.campaignId },
+        createElement(
+          PlanGraphReferenceResolverProvider,
+          { sessionDescriptor },
+          createElement(AgentInteractionChrome),
+          children,
+        ),
       ),
     ),
   );
@@ -101,7 +108,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
       { wrapper },
     );
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(screen.getByText(/C1 only · no session focus/)).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Question"), "Tell me about campaign 1");
@@ -116,6 +123,17 @@ describe("PlanAgentInteractionBar graph lens", () => {
       campaign_id: "longmont-c1",
       scope_mode: "campaign",
     });
+
+    await waitFor(() => {
+      expect(screen.getByText("C1 only answer")).toBeInTheDocument();
+    });
+    expect(document.querySelector(".plan-agent-chat-row-user")).toBeTruthy();
+    expect(document.querySelector(".plan-agent-chat-row-assistant")).toBeTruthy();
+    expect(document.querySelector(".plan-agent-chat-bubble-user")).toBeTruthy();
+    expect(document.querySelector(".plan-agent-chat-bubble-assistant")).toBeTruthy();
+    // R10b chrome owns the open shell; Plan Ask pane portals into the host.
+    expect(screen.getByLabelText("DungeonBuddy agent").className).toContain("open");
+    expect(screen.getByLabelText("Ask DungeonBuddy").className).toContain("plan-agent-pane");
   });
 
   it("disables Ask and shows warning when no campaigns are selected", async () => {
@@ -138,7 +156,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
       { wrapper },
     );
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     const c2 = screen.getByRole("checkbox", { name: /Longmont C2/i });
     await user.click(c2);
 
@@ -159,7 +177,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
       { wrapper },
     );
 
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(screen.getByText(/C2 only · no session focus/)).toBeInTheDocument();
     expect(screen.queryByText(/Union · C1\+C2/)).not.toBeInTheDocument();
   });
