@@ -18,6 +18,12 @@ from graph_memory.union_supergraph.redirects import (
     identity_redirect_dicts_from_fixture,
     validate_identity_redirects,
 )
+from graph_memory.union_supergraph.statblock_binding import (
+    ExternalResourceV1,
+    ThreatStatblockBindingV1,
+    edge_id_from_binding_id,
+    external_statblock_node_id,
+)
 
 REQUIRED_MAPS = (
     "nodes",
@@ -181,6 +187,24 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                 errors,
                 f"node {node_id} evidence_ref_id {ref} does not resolve",
             )
+        external_resource = node.get("external_resource")
+        if external_resource is not None:
+            try:
+                resource = ExternalResourceV1.model_validate(external_resource)
+            except ValidationError as exc:
+                errors.append(f"node {node_id} external_resource is invalid: {exc}")
+            else:
+                _require(
+                    node_id == external_statblock_node_id(resource.resource_id),
+                    errors,
+                    f"node {node_id} external_resource does not match node_id",
+                )
+                _require(
+                    node.get("kind") == "external_resource"
+                    and node.get("role") == "statblock",
+                    errors,
+                    f"node {node_id} external_resource requires kind/role contract",
+                )
 
     for edge_id, edge in edges.items():
         _require(
@@ -229,6 +253,40 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                 errors,
                 f"edge {edge_id} evidence_ref_id {ref} does not resolve",
             )
+        raw_binding = edge.get("threat_statblock_binding")
+        if raw_binding is not None:
+            try:
+                binding = ThreatStatblockBindingV1.model_validate(raw_binding)
+            except ValidationError as exc:
+                errors.append(f"edge {edge_id} threat_statblock_binding is invalid: {exc}")
+            else:
+                _require(
+                    edge_id == edge_id_from_binding_id(binding.binding_id),
+                    errors,
+                    f"edge {edge_id} does not match deterministic binding_id",
+                )
+                _require(
+                    edge.get("predicate") == "uses_statblock"
+                    and edge.get("direction") == "outbound",
+                    errors,
+                    f"edge {edge_id} binding requires uses_statblock outbound contract",
+                )
+                _require(
+                    edge.get("target_node_id")
+                    == external_statblock_node_id(binding.statblock_id),
+                    errors,
+                    f"edge {edge_id} binding target does not match statblock_id",
+                )
+                target = nodes.get(edge.get("target_node_id"))
+                target_resource = (
+                    target.get("external_resource") if isinstance(target, dict) else None
+                )
+                _require(
+                    isinstance(target_resource, dict)
+                    and target_resource.get("resource_id") == binding.statblock_id,
+                    errors,
+                    f"edge {edge_id} binding target lacks matching external_resource",
+                )
 
     for ref_id, item in evidence.items():
         _require(
@@ -550,6 +608,7 @@ def validate_union_supergraph_fixture(fixture: dict[str, Any]) -> dict[str, Any]
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("fixture", nargs="?", default=str(DEFAULT_FIXTURE_PATH))
+    ap.add_argument("--json", action="store_true", help="emit the JSON validation report")
     args = ap.parse_args()
     result = validate_union_supergraph_fixture(load_fixture(Path(args.fixture)))
     print(json.dumps(result, indent=2, sort_keys=True))

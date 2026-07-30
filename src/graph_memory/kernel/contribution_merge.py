@@ -39,6 +39,10 @@ from graph_memory.union_supergraph.model import (
     UnionSupergraphSourceArtifact,
     UnionSupergraphStore,
 )
+from graph_memory.union_supergraph.statblock_binding import (
+    parse_external_resource_assertion,
+    parse_threat_statblock_binding_assertion,
+)
 from graph_memory.world_supergraph.contribution_store import (
     load_contribution_index,
     load_contribution_record,
@@ -747,6 +751,10 @@ def _apply_node_assertion(
         raise ValueError(
             f"node assertion {assertion.assertion_id} missing subject_node_id"
         )
+    external_resource = parse_external_resource_assertion(
+        subject_node_id=assertion.subject_node_id,
+        value=value,
+    )
 
     nodes = dict(store.nodes)
     aliases = dict(store.aliases)
@@ -800,8 +808,17 @@ def _apply_node_assertion(
                 "campaign_scope": assertion.campaign_scope,
                 "introduced_by_contribution_id": contribution.contribution_id,
             },
+            external_resource=external_resource,
         )
     else:
+        if (
+            external_resource is not None
+            and existing.external_resource is not None
+            and existing.external_resource != external_resource
+        ):
+            raise ValueError(
+                f"external resource node {node_id!r} conflicts with existing resource"
+            )
         merged_aliases = list(existing.aliases)
         for alias in node_aliases:
             if alias not in merged_aliases:
@@ -824,6 +841,7 @@ def _apply_node_assertion(
                     "support_state": "supported",
                     "memory_state": "contribution_accepted",
                 },
+                "external_resource": external_resource or existing.external_resource,
             }
         )
 
@@ -853,10 +871,27 @@ def _apply_edge_assertion(
     predicate = assertion.predicate or str(value.get("predicate") or "related_to")
     if not source_id or not target_id:
         raise ValueError(f"edge assertion {assertion.assertion_id} missing endpoints")
+    threat_statblock_binding = parse_threat_statblock_binding_assertion(
+        subject_node_id=assertion.subject_node_id,
+        target_node_id=assertion.target_node_id,
+        predicate=assertion.predicate,
+        value=value,
+    )
     if source_id not in store.nodes or target_id not in store.nodes:
         raise ValueError(
             f"edge assertion {assertion.assertion_id} endpoints must exist before merge"
         )
+    if threat_statblock_binding is not None:
+        if store.nodes[source_id].kind != "threat":
+            raise ValueError("statblock binding source node must be a Threat")
+        target_resource = store.nodes[target_id].external_resource
+        if (
+            target_resource is None
+            or target_resource.resource_id != threat_statblock_binding.statblock_id
+        ):
+            raise ValueError(
+                "statblock binding target must be the matching external resource node"
+            )
 
     edge_id = str(value.get("edge_id") or f"edge:{source_id}:{predicate}:{target_id}")
     edges = dict(store.edges)
@@ -907,8 +942,17 @@ def _apply_edge_assertion(
                 "campaign_scope": assertion.campaign_scope,
                 "introduced_by_contribution_id": contribution.contribution_id,
             },
+            threat_statblock_binding=threat_statblock_binding,
         )
     else:
+        if (
+            threat_statblock_binding is not None
+            and existing.threat_statblock_binding is not None
+            and existing.threat_statblock_binding != threat_statblock_binding
+        ):
+            raise ValueError(
+                f"statblock binding edge {edge_id!r} conflicts with existing binding"
+            )
         merged_evidence = list(existing.evidence_ref_ids)
         for ref in evidence_ids:
             if ref not in merged_evidence:
@@ -933,6 +977,9 @@ def _apply_edge_assertion(
                     "support_state": "supported",
                     "memory_state": "contribution_accepted",
                 },
+                "threat_statblock_binding": (
+                    threat_statblock_binding or existing.threat_statblock_binding
+                ),
             }
         )
 
