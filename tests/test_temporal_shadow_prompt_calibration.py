@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -872,6 +873,48 @@ def test_live_rejects_dirty_worktree(tmp_path: Path) -> None:
                 skip_seal_verification=False,
                 fake=False,
             )
+
+
+def test_live_rejects_untracked_nonignored_file() -> None:
+    """Non-ignored untracked files must block live execution (no ``-uno``)."""
+    probe = REPO_ROOT / ".tl01c_untracked_dirty_check_probe.py"
+    assert not probe.exists()
+    try:
+        probe.write_text("# untracked non-ignored probe\n", encoding="utf-8")
+        ignored = subprocess.run(
+            ["git", "check-ignore", "-q", str(probe)],
+            cwd=REPO_ROOT,
+            check=False,
+        )
+        assert ignored.returncode == 1  # not ignored
+        with pytest.raises(
+            calibration.DirtyWorktreeError,
+            match="non-ignored untracked",
+        ):
+            calibration._assert_clean_worktree_for_live(
+                repo_root=REPO_ROOT, fake=False
+            )
+    finally:
+        probe.unlink(missing_ok=True)
+
+
+def test_development_and_baseline_fixtures_tracked_at_head() -> None:
+    execution_sha = calibration._repository_sha(repo_root=REPO_ROOT).split("+", 1)[0]
+    for case_path in (
+        DEVELOPMENT_CASE,
+        CANDIDATE_DEVELOPMENT_CASE,
+        HOLDOUT_CASE,
+    ):
+        record = calibration.verify_fixtures_tracked_at_commit(
+            case_path=case_path,
+            commit_sha=execution_sha,
+            repo_root=REPO_ROOT,
+        )
+        assert record.case_sha256
+        assert record.verified_paths
+        assert case_path.name in "/".join(record.verified_paths) or any(
+            Path(path).name == case_path.name for path in record.verified_paths
+        )
 
 
 def test_expected_case_id_mismatch_fail_closed(tmp_path: Path) -> None:

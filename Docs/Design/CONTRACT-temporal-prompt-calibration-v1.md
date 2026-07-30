@@ -114,6 +114,8 @@ CLI:
 
 There is **no** `--holdout-seal-sha` arbitrary digest override. Aggregate records `seals_verified`; READY requires `seals_verified=true`.
 
+Live cleanliness uses `git status --porcelain` **without** `-uno`, so non-ignored untracked files block execution. Ignored/generated calibration artifacts remain excluded via pathspec. Development and baseline-mirror case/base/gold/evidence paths are verified against blobs at the execution commit (`verify_fixtures_tracked_at_commit`).
+
 ### Aggregate seal fields (separated)
 
 `TemporalPromptCalibrationAggregateV1` records:

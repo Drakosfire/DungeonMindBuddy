@@ -131,8 +131,21 @@ def _normalize_temporal_value(value: Any) -> str:
     return _canonical_json(value)
 
 
+_CLEAN_WORKTREE_PATHSPECS = (
+    ".",
+    ":(exclude)node_modules",
+    ":(exclude)node_modules/**",
+    ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration",
+    ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**",
+)
+
+
 def _repository_sha(*, repo_root: Path) -> str:
-    """Match extraction provenance: HEAD, or HEAD+dirty when tracked files differ."""
+    """Match extraction provenance: HEAD, or HEAD+dirty when the worktree is dirty.
+
+    Untracked non-ignored files count as dirty (``git status --porcelain`` without
+    ``-uno``). Ignored/generated calibration artifacts remain excluded via pathspec.
+    """
     try:
         completed = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -147,13 +160,8 @@ def _repository_sha(*, repo_root: Path) -> str:
                 "git",
                 "status",
                 "--porcelain",
-                "-uno",
                 "--",
-                ".",
-                ":(exclude)node_modules",
-                ":(exclude)node_modules/**",
-                ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration",
-                ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**",
+                *_CLEAN_WORKTREE_PATHSPECS,
             ],
             cwd=repo_root,
             check=True,
@@ -173,7 +181,7 @@ def _git_commit_sha(value: str) -> str:
 
 
 def _assert_clean_worktree_for_live(*, repo_root: Path, fake: bool) -> None:
-    """Refuse real provider runs when uncommitted changes could skew provenance."""
+    """Refuse real provider runs when uncommitted or untracked changes could skew provenance."""
     if fake:
         return
     try:
@@ -181,13 +189,8 @@ def _assert_clean_worktree_for_live(*, repo_root: Path, fake: bool) -> None:
             repo_root,
             "status",
             "--porcelain",
-            "-uno",
             "--",
-            ".",
-            ":(exclude)node_modules",
-            ":(exclude)node_modules/**",
-            ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration",
-            ":(exclude)evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**",
+            *_CLEAN_WORKTREE_PATHSPECS,
         )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise DirtyWorktreeError(
@@ -195,7 +198,8 @@ def _assert_clean_worktree_for_live(*, repo_root: Path, fake: bool) -> None:
         ) from exc
     if porcelain.strip():
         raise DirtyWorktreeError(
-            "live calibration requires a clean git worktree; "
+            "live calibration requires a clean git worktree "
+            "(tracked modifications and non-ignored untracked files block execution); "
             "commit or stash changes before running, or use --fake"
         )
 
@@ -313,6 +317,28 @@ def verify_cohort_seal(
         seal_commit_sha=_git_stdout(repo_root, "rev-parse", seal),
         case_id=case.case_id,
         verified_paths=tuple(verified),
+    )
+
+
+def verify_fixtures_tracked_at_commit(
+    *,
+    case_path: Path,
+    commit_sha: str,
+    repo_root: Path,
+) -> CohortSealRecord:
+    """Require case/base/gold/evidence blobs at ``commit_sha`` match the worktree.
+
+    Used for development and baseline-mirror inputs that are not sealed to an
+    earlier cohort commit: they must still be Git-tracked at the execution commit.
+    """
+    commit = _git_commit_sha(commit_sha.strip())
+    if not commit or commit == "unknown":
+        raise CohortSealError("commit_sha is required to verify tracked fixtures")
+    return verify_cohort_seal(
+        case_path=case_path,
+        seal_commit_sha=commit,
+        repo_root=repo_root,
+        execution_commit_sha=commit,
     )
 
 
@@ -1334,6 +1360,23 @@ def run_prompt_calibration(
             seal_commit_sha=adversarial_seal_commit_sha,
             repo_root=root,
             execution_commit_sha=execution_sha,
+        )
+        # Development and baseline-mirror inputs are not sealed to an earlier cohort
+        # commit; require their case/base/gold/evidence blobs match the execution commit.
+        verify_fixtures_tracked_at_commit(
+            case_path=development_case,
+            commit_sha=execution_sha,
+            repo_root=root,
+        )
+        verify_fixtures_tracked_at_commit(
+            case_path=candidate_development_case,
+            commit_sha=execution_sha,
+            repo_root=root,
+        )
+        verify_fixtures_tracked_at_commit(
+            case_path=holdout_case,
+            commit_sha=execution_sha,
+            repo_root=root,
         )
         seals_verified = True
 

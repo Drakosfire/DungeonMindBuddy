@@ -732,7 +732,7 @@ Implemented in `compute_calibration_decision`. Evaluate **in this order**; first
 Additional READY requirements (enforced by priority order before step 11):
 
 * `seals_verified=True` (skip-seal only allowed with `fake=True`; skipped seals cannot READY)
-* Live runs require a clean git worktree; aggregate records `aggregate_build_sha` and `provider_run_repository_shas`, which must be identical (`[aggregate_build_sha]`) for READY
+* Live runs require a clean git worktree via `git status --porcelain` **without** `-uno` (non-ignored untracked files block); ignored calibration artifacts stay excluded by pathspec. Development and baseline-mirror fixtures are verified against execution-commit blobs (`verify_fixtures_tracked_at_commit`). Aggregate records `aggregate_build_sha` and `provider_run_repository_shas`, which must be identical (`[aggregate_build_sha]`) for READY
 * Zero unsafe / source leakage / grounding / failed runs
 * Manifest consistency OK on **all** cohorts (baseline and candidate), including exact expected case ID per lane/cohort
 * Every failure/success manifest must include `repository_sha`

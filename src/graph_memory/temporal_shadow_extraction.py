@@ -1790,7 +1790,6 @@ def _repository_sha(*, repo_root: Path) -> str:
                 "git",
                 "status",
                 "--porcelain",
-                "-uno",
                 "--",
                 ".",
                 ":(exclude)node_modules",
