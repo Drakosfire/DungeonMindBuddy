@@ -1365,9 +1365,19 @@ def _repository_sha(*, repo_root: Path) -> str:
             text=True,
         )
         sha = completed.stdout.strip() or "unknown"
-        # Ignore untracked files (eval run dirs); only tracked dirtiness marks +dirty.
+        # Ignore untracked files and node_modules noise; only tracked
+        # project dirtiness marks +dirty on the recorded SHA.
         dirty = subprocess.run(
-            ["git", "status", "--porcelain", "-uno"],
+            [
+                "git",
+                "status",
+                "--porcelain",
+                "-uno",
+                "--",
+                ".",
+                ":(exclude)node_modules",
+                ":(exclude)node_modules/**",
+            ],
             cwd=repo_root,
             check=True,
             capture_output=True,
