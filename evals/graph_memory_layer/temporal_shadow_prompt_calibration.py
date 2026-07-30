@@ -699,7 +699,7 @@ def main(argv: list[str] | None = None) -> int:
         model_id=args.model_id,
         repetitions=args.repetitions,
         repo_root=repo_root,
-        holdout_seal_sha256=args.holdout_seal,
+        holdout_seal_sha256=args.holdout_seal_sha,
         fake=args.fake,
         fake_batches=fake_batches,
     )
