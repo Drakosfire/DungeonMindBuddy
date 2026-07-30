@@ -3343,14 +3343,27 @@ export interface ThreatDraftGraphContextSnapshotV1 {
   admitted_source_anchor_ids: string[];
 }
 
+/** Bootstrap lifecycle states from `WorldGraphBootstrapStatusResponse`. */
+export type WorldGraphBootstrapStateV1 =
+  | "ready"
+  | "invalid_bundle"
+  | "active"
+  | "active_head_advanced"
+  | "blocked_existing_world"
+  | "inconsistent_lineage"
+  | "error";
+
 /** CamelCase wire shape from `/api/live/world-graph-bootstrap/status`. */
 export interface WorldGraphBootstrapStatusV1 {
   schema: "dmb_world_graph_bootstrap_status_v1";
-  state: string;
+  state: WorldGraphBootstrapStateV1 | string;
   worldId: string;
   campaignId: string;
+  /** False for certification failures (`invalid_bundle`); true when the locked bundle certified. */
+  bundleValid?: boolean;
   currentHeadRevisionId?: string | null;
   initialHeadRevisionId?: string | null;
+  diagnostics?: Array<{ code: string; message: string; severity?: string }>;
 }
 
 export interface ThreatDraftFocusV1 {

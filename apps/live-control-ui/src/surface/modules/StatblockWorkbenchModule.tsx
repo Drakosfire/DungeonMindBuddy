@@ -339,6 +339,30 @@ function buildCreateThreatDraftRequest(
   };
 }
 
+const FREESTANDING_OPT_IN_HINT =
+  "Enter an exact graph revision (rev:…) under Optional & advanced, or check " +
+  '"Continue freestanding without a graph head" to create without provenance.';
+
+function freestandingScope(worldId: string, campaignId: string): ResolvedCreateScope {
+  return {
+    world_id: worldId,
+    campaign_id: campaignId,
+    graph_revision_id: null,
+  };
+}
+
+function requireFreestandingOptIn(
+  fields: CreateFormFields,
+  worldId: string,
+  campaignId: string,
+  reason: string,
+): { ok: true; scope: ResolvedCreateScope } | { ok: false; message: string } {
+  if (fields.allowFreestandingWithoutBootstrap) {
+    return { ok: true, scope: freestandingScope(worldId, campaignId) };
+  }
+  return { ok: false, message: `${reason} ${FREESTANDING_OPT_IN_HINT}` };
+}
+
 async function resolveCreateScope(
   fields: CreateFormFields,
 ): Promise<{ ok: true; scope: ResolvedCreateScope } | { ok: false; message: string }> {
@@ -368,35 +392,66 @@ async function resolveCreateScope(
       typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
         ? status.currentHeadRevisionId.trim()
         : null;
-    // Confirmed missing head (successful bootstrap) is a known freestanding state.
-    return {
-      ok: true,
-      scope: {
-        world_id: worldId,
-        campaign_id: campaignId,
-        graph_revision_id: head,
-      },
-    };
-  } catch (error) {
-    // Lookup failure ≠ "no head". Graph authority is unknown — do not silently freestand.
-    if (fields.allowFreestandingWithoutBootstrap) {
+    const state = typeof status.state === "string" ? status.state.trim() : "";
+    const bundleValid = status.bundleValid === true;
+
+    // Active worlds must pin a concrete head — null head here is contradictory.
+    if (state === "active" || state === "active_head_advanced") {
+      if (head) {
+        return {
+          ok: true,
+          scope: {
+            world_id: worldId,
+            campaign_id: campaignId,
+            graph_revision_id: head,
+          },
+        };
+      }
+      return requireFreestandingOptIn(
+        fields,
+        worldId,
+        campaignId,
+        `World Graph bootstrap reports state=${state} but no current head — graph authority is contradictory.`,
+      );
+    }
+
+    // Ready + valid bundle + null head: known uninitialized world; freestanding is legitimate.
+    if (state === "ready" && bundleValid) {
       return {
         ok: true,
         scope: {
-          world_id: LIVE_CONTROL_CREATE_CONTEXT.world_id,
-          campaign_id: LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
-          graph_revision_id: null,
+          world_id: worldId,
+          campaign_id: campaignId,
+          graph_revision_id: head,
         },
       };
     }
+
+    // Typed failure/blocked states arrive as HTTP 200 with null head — not auto-freestanding.
+    const diagnosticHint =
+      Array.isArray(status.diagnostics) && status.diagnostics.length > 0
+        ? ` Diagnostics: ${status.diagnostics
+            .slice(0, 3)
+            .map((d) => d.message || d.code)
+            .filter(Boolean)
+            .join("; ")}.`
+        : "";
+    return requireFreestandingOptIn(
+      fields,
+      worldId,
+      campaignId,
+      `World Graph bootstrap is not ready for automatic provenance ` +
+        `(state=${state || "unknown"}, bundleValid=${bundleValid}).${diagnosticHint}`,
+    );
+  } catch (error) {
+    // Lookup failure ≠ "no head". Graph authority is unknown — do not silently freestand.
     const detail = error instanceof Error ? error.message : String(error);
-    return {
-      ok: false,
-      message:
-        `Unable to retrieve World Graph bootstrap status — graph authority is unknown (${detail}). ` +
-        "Enter an exact graph revision (rev:…) under Optional & advanced, or check " +
-        '"Continue freestanding without a graph head" to create without provenance.',
-    };
+    return requireFreestandingOptIn(
+      fields,
+      LIVE_CONTROL_CREATE_CONTEXT.world_id,
+      LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
+      `Unable to retrieve World Graph bootstrap status — graph authority is unknown (${detail}).`,
+    );
   }
 }
 
@@ -3031,8 +3086,8 @@ export function StatblockWorkbenchModule() {
                     data-testid="create-threat-allow-freestanding"
                   />
                   <span className="statblock-create-field-label">
-                    Continue freestanding without a graph head (only when bootstrap status cannot be
-                    retrieved)
+                    Continue freestanding without a graph head (when bootstrap is unknown, not ready,
+                    or contradictory)
                   </span>
                 </label>
               </div>

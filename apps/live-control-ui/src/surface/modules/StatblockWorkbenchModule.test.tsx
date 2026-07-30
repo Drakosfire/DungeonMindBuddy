@@ -2495,11 +2495,31 @@ describe("StatblockWorkbenchModule", () => {
     function mockBootstrapHead(head: string | null = GRAPH_HEAD) {
       return vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
         schema: "dmb_world_graph_bootstrap_status_v1",
-        state: head ? "active" : "invalid_bundle",
+        // Null head is only auto-freestanding for ready + valid bundle (uninitialized world).
+        state: head ? "active" : "ready",
+        bundleValid: true,
         worldId: "eldyrwild",
         campaignId: "longmont-c2",
         currentHeadRevisionId: head,
         initialHeadRevisionId: head,
+      });
+    }
+
+    function mockBootstrapFailureState(
+      state: "invalid_bundle" | "inconsistent_lineage" | "blocked_existing_world" | "error",
+      options?: { bundleValid?: boolean; diagnostics?: Array<{ code: string; message: string }> },
+    ) {
+      return vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
+        schema: "dmb_world_graph_bootstrap_status_v1",
+        state,
+        bundleValid: options?.bundleValid ?? false,
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        currentHeadRevisionId: null,
+        initialHeadRevisionId: null,
+        diagnostics: options?.diagnostics ?? [
+          { code: state, message: `Bootstrap reported ${state}.` },
+        ],
       });
     }
 
@@ -2563,7 +2583,7 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", DRAFT_ID);
     });
 
-    it("creates freestanding when bootstrap head is missing", async () => {
+    it("creates freestanding when bootstrap is ready with a valid bundle and no head", async () => {
       mockBootstrapHead(null);
       const user = userEvent.setup();
       const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
@@ -2591,6 +2611,69 @@ describe("StatblockWorkbenchModule", () => {
         [],
       );
       expect(screen.queryByText(/No authoritative World Graph head/i)).toBeNull();
+    });
+
+    it("stops on invalid_bundle bootstrap status unless freestanding is explicitly allowed", async () => {
+      mockBootstrapFailureState("invalid_bundle", {
+        diagnostics: [{ code: "invalid_bundle", message: "Locked bundle failed acceptance." }],
+      });
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft");
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(screen.getByTestId("create-threat-error").textContent).toMatch(
+          /not ready for automatic provenance/i,
+        );
+      });
+      expect(screen.getByTestId("create-threat-error").textContent).toMatch(/invalid_bundle/);
+      expect(createSpy).not.toHaveBeenCalled();
+
+      await user.click(screen.getByTestId("create-threat-allow-freestanding"));
+      vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: DRAFT_ID,
+        generated_from_draft_version: 1,
+        request_id: "req_invalid_bundle_opt_in",
+        outcome: "success",
+        candidate,
+        cache_status: "stored",
+        persistence_failures: [],
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      createSpy.mockResolvedValue(mockCreatedDraft());
+
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalledTimes(1);
+      });
+      expect(createSpy.mock.calls[0][0].graph_context_snapshot.graph_revision_id).toBeNull();
+    });
+
+    it("stops on active bootstrap with null head unless freestanding is explicitly allowed", async () => {
+      vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
+        schema: "dmb_world_graph_bootstrap_status_v1",
+        state: "active",
+        bundleValid: true,
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        currentHeadRevisionId: null,
+        initialHeadRevisionId: null,
+      });
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft");
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(screen.getByTestId("create-threat-error").textContent).toMatch(
+          /contradictory/i,
+        );
+      });
+      expect(createSpy).not.toHaveBeenCalled();
     });
 
     it("stops when bootstrap lookup fails unless freestanding is explicitly allowed", async () => {
