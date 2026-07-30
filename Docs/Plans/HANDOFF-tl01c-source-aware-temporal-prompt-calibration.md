@@ -705,7 +705,8 @@ Implemented in `compute_calibration_decision`. Evaluate **in this order**; first
 | 7 | `BLOCKED_BY_INPUT_REPRESENTATION` | `total_wrong_temporal_value >= 2` AND `total_wrong_temporal_lane == 0` AND `total_status_mismatch == 0` (correct status/lane, wrong payload) |
 | 8 | `ITERATE_PROMPT` | Missing candidate holdout or development aggregate |
 | 9 | `ITERATE_PROMPT` | Any candidate cohort `failure_count > 0` |
-| 10 | `ITERATE_PROMPT` | Any candidate cohort `manifest_consistency_ok == false` |
+| 10 | `ITERATE_PROMPT` | Any cohort (baseline or candidate) `manifest_consistency_ok == false` |
+| 10b | `ITERATE_PROMPT` | Live: `provider_run_repository_shas != [aggregate_build_sha]` |
 | 11 | `PROMPT_READY_FOR_BROADER_SHADOW` | All READY thresholds met (below) |
 | 12 | `ITERATE_PROMPT` | Default — quality insufficient |
 
@@ -725,20 +726,23 @@ Implemented in `compute_calibration_decision`. Evaluate **in this order**; first
 | `READY_DEV_RESOLVED_EXACT_RUNS` | 2 | At least 2 development runs with resolved exact ≥ 2 (not min-across-all) |
 | `READY_MIN_HOLDOUT_STATUS_ACCURACY` | 0.80 | Holdout min status accuracy ≥ 0.80 |
 | `READY_MIN_NOT_APPLICABLE_ACCURACY` | 1.0 | All candidate cohorts min not_applicable accuracy ≥ 1.0 |
-| `READY_MIN_HOLDOUT_EXACT_OCCURRENCE` | 1 | Holdout `exact_occurrence_match.max` ≥ 1 |
-| `READY_MIN_HOLDOUT_EXACT_VALID_TIME` | 1 | Holdout `exact_valid_time_match.max` ≥ 1 |
+| `READY_MIN_HOLDOUT_EXACT_OCCURRENCE` | 1 | Holdout `exact_occurrence_match.min` ≥ 1 |
+| `READY_MIN_HOLDOUT_EXACT_VALID_TIME` | 1 | Holdout `exact_valid_time_match.min` ≥ 1 |
 
 Additional READY requirements (enforced by priority order before step 11):
 
 * `seals_verified=True` (skip-seal only allowed with `fake=True`; skipped seals cannot READY)
-* Zero unsafe / source leakage / grounding / failed runs / manifest inconsistency on candidate cohorts
+* Live runs require a clean git worktree; aggregate records `aggregate_build_sha` and `provider_run_repository_shas`, which must be identical (`[aggregate_build_sha]`) for READY
+* Zero unsafe / source leakage / grounding / failed runs
+* Manifest consistency OK on **all** cohorts (baseline and candidate), including exact expected case ID per lane/cohort
+* Every failure/success manifest must include `repository_sha`
 
 * Zero candidate unsafe over-resolution **across all cohorts and repetitions**.
 * Zero candidate source leakage false positives.
 * Zero candidate failed runs (`failure_count == 0` everywhere).
-* Manifest consistency OK on all candidate cohorts.
+* Manifest consistency OK on all cohorts.
 
-**Non-negotiable:** one successful repetition cannot hide unsafe repetitions.
+**Non-negotiable:** one successful repetition cannot hide unsafe or lane-coverage failures in other repetitions (`exact_*_match.min`, not `.max`).
 
 ---
 

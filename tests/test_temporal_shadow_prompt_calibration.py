@@ -166,9 +166,13 @@ def _ready_development_aggregate(
 
 def _ready_holdout_aggregate(
     *,
-    occurrence_max: float = 2.0,
-    valid_max: float = 2.0,
+    occurrence_min: float = 2.0,
+    occurrence_max: float | None = None,
+    valid_min: float = 2.0,
+    valid_max: float | None = None,
 ) -> CalibrationCohortAggregateV1:
+    occ_max = occurrence_min if occurrence_max is None else occurrence_max
+    val_max = valid_min if valid_max is None else valid_max
     return CalibrationCohortAggregateV1(
         prompt_lane="candidate",
         cohort="holdout",
@@ -179,12 +183,10 @@ def _ready_holdout_aggregate(
             min=2.0, median=2.0, max=2.0
         ),
         exact_occurrence_match=CalibrationMetricDistributionV1(
-            min=occurrence_max, median=occurrence_max, max=occurrence_max
+            min=occurrence_min, median=max(occurrence_min, occ_max), max=occ_max
         ),
         exact_valid_time_match=CalibrationMetricDistributionV1(
-            min=0.0 if valid_max == 0 else valid_max,
-            median=0.0 if valid_max == 0 else valid_max,
-            max=valid_max,
+            min=valid_min, median=max(valid_min, val_max), max=val_max
         ),
         min_status_accuracy=1.0,
         min_not_applicable_accuracy=1.0,
@@ -338,7 +340,7 @@ def test_mixed_safe_unsafe_set_cannot_receive_ready_verdict() -> None:
         min_not_applicable_accuracy=1.0,
     )
     decision, _ = calibration.compute_calibration_decision(
-        candidate_aggregates=[safe, unsafe, holdout],
+        cohort_aggregates=[safe, unsafe, holdout],
     )
     assert decision == "ITERATE_PROMPT"
 
@@ -366,7 +368,7 @@ def test_one_correct_run_cannot_hide_unsafe_repetitions() -> None:
         min_not_applicable_accuracy=1.0,
     )
     decision, diagnostics = calibration.compute_calibration_decision(
-        candidate_aggregates=[good, bad],
+        cohort_aggregates=[good, bad],
     )
     assert decision == "ITERATE_PROMPT"
     assert any("unsafe_over_resolution" in note for note in diagnostics)
@@ -467,7 +469,7 @@ def test_input_representation_blocked_when_wrong_value_dominates() -> None:
         min_not_applicable_accuracy=1.0,
     )
     decision, _ = calibration.compute_calibration_decision(
-        candidate_aggregates=[dev, holdout],
+        cohort_aggregates=[dev, holdout],
     )
     assert decision == "BLOCKED_BY_INPUT_REPRESENTATION"
 
@@ -496,7 +498,7 @@ def test_unsafe_blocks_before_input_representation() -> None:
         min_not_applicable_accuracy=1.0,
     )
     decision, diagnostics = calibration.compute_calibration_decision(
-        candidate_aggregates=[dev, holdout],
+        cohort_aggregates=[dev, holdout],
     )
     assert decision == "ITERATE_PROMPT"
     assert not any("wrong_temporal_value_dominates" in note for note in diagnostics)
@@ -511,7 +513,7 @@ def test_evidence_case_failure_is_blocked_by_evidence() -> None:
         total_evidence_or_case_failures=1,
     )
     decision, diagnostics = calibration.compute_calibration_decision(
-        candidate_aggregates=[aggregate],
+        cohort_aggregates=[aggregate],
     )
     assert decision == "BLOCKED_BY_EVIDENCE"
     assert any("evidence_or_case_failures" in note for note in diagnostics)
@@ -526,7 +528,7 @@ def test_provider_failure_decision() -> None:
         total_provider_failures=1,
     )
     decision, _ = calibration.compute_calibration_decision(
-        candidate_aggregates=[aggregate],
+        cohort_aggregates=[aggregate],
     )
     assert decision == "PROVIDER_FAILURE"
 
@@ -697,14 +699,14 @@ def test_ready_requires_seals_verified() -> None:
     holdout = _ready_holdout_aggregate()
 
     decision_unverified, diagnostics_unverified = calibration.compute_calibration_decision(
-        candidate_aggregates=[development, holdout],
+        cohort_aggregates=[development, holdout],
         seals_verified=False,
     )
     assert decision_unverified == "ITERATE_PROMPT"
     assert any("seals_not_verified" in note for note in diagnostics_unverified)
 
     decision_verified, diagnostics_verified = calibration.compute_calibration_decision(
-        candidate_aggregates=[development, holdout],
+        cohort_aggregates=[development, holdout],
         seals_verified=True,
     )
     assert decision_verified == "PROMPT_READY_FOR_BROADER_SHADOW"
@@ -759,25 +761,69 @@ def test_paired_case_equivalence_accepts_real_dev_and_holdout_pairs() -> None:
 
 def test_holdout_ready_requires_both_temporal_lanes() -> None:
     development = _ready_development_aggregate()
-    holdout_missing_valid = _ready_holdout_aggregate(occurrence_max=2.0, valid_max=0.0)
+    holdout_missing_valid = _ready_holdout_aggregate(
+        occurrence_min=2.0, valid_min=0.0
+    )
 
     decision, diagnostics = calibration.compute_calibration_decision(
-        candidate_aggregates=[development, holdout_missing_valid],
+        cohort_aggregates=[development, holdout_missing_valid],
         seals_verified=True,
     )
     assert decision == "ITERATE_PROMPT"
     assert any(
-        "holdout_exact_valid_max=0.000" in note or "candidate_quality_insufficient" in note
+        "holdout_exact_valid_min=0.000" in note or "candidate_quality_insufficient" in note
         for note in diagnostics
     )
 
-    holdout_both_lanes = _ready_holdout_aggregate(occurrence_max=2.0, valid_max=1.0)
+    holdout_both_lanes = _ready_holdout_aggregate(occurrence_min=2.0, valid_min=1.0)
     decision_ready, diagnostics_ready = calibration.compute_calibration_decision(
-        candidate_aggregates=[development, holdout_both_lanes],
+        cohort_aggregates=[development, holdout_both_lanes],
         seals_verified=True,
     )
     assert decision_ready == "PROMPT_READY_FOR_BROADER_SHADOW"
     assert any("candidate_metrics_met_ready_thresholds" in note for note in diagnostics_ready)
+
+
+def test_holdout_ready_requires_lane_min_not_max() -> None:
+    """One successful repetition must not hide lane failures in the others."""
+    development = _ready_development_aggregate()
+    holdout_occ_unstable = _ready_holdout_aggregate(
+        occurrence_min=0.0,
+        occurrence_max=2.0,
+        valid_min=1.0,
+        valid_max=1.0,
+    )
+    decision_occ, diagnostics_occ = calibration.compute_calibration_decision(
+        cohort_aggregates=[development, holdout_occ_unstable],
+        seals_verified=True,
+    )
+    assert decision_occ == "ITERATE_PROMPT"
+    assert any("holdout_exact_occurrence_min=0.000" in note for note in diagnostics_occ)
+
+    holdout_valid_unstable = _ready_holdout_aggregate(
+        occurrence_min=1.0,
+        occurrence_max=1.0,
+        valid_min=0.0,
+        valid_max=2.0,
+    )
+    decision_valid, diagnostics_valid = calibration.compute_calibration_decision(
+        cohort_aggregates=[development, holdout_valid_unstable],
+        seals_verified=True,
+    )
+    assert decision_valid == "ITERATE_PROMPT"
+    assert any("holdout_exact_valid_min=0.000" in note for note in diagnostics_valid)
+
+    holdout_stable = _ready_holdout_aggregate(
+        occurrence_min=1.0,
+        occurrence_max=2.0,
+        valid_min=1.0,
+        valid_max=2.0,
+    )
+    decision_ready, _ = calibration.compute_calibration_decision(
+        cohort_aggregates=[development, holdout_stable],
+        seals_verified=True,
+    )
+    assert decision_ready == "PROMPT_READY_FOR_BROADER_SHADOW"
 
 
 def test_dev_resolved_qualifying_runs_not_min_proxy() -> None:
@@ -786,7 +832,7 @@ def test_dev_resolved_qualifying_runs_not_min_proxy() -> None:
     )
     holdout = _ready_holdout_aggregate()
     decision_ok, _ = calibration.compute_calibration_decision(
-        candidate_aggregates=[development_two_qualifying, holdout],
+        cohort_aggregates=[development_two_qualifying, holdout],
         seals_verified=True,
     )
     assert decision_ok == "PROMPT_READY_FOR_BROADER_SHADOW"
@@ -795,10 +841,130 @@ def test_dev_resolved_qualifying_runs_not_min_proxy() -> None:
         run_resolved_counts=[3, 1, 1],
     )
     decision_fail, diagnostics_fail = calibration.compute_calibration_decision(
-        candidate_aggregates=[development_one_qualifying, holdout],
+        cohort_aggregates=[development_one_qualifying, holdout],
         seals_verified=True,
     )
     assert decision_fail == "ITERATE_PROMPT"
     assert any(
         "dev_qualifying_resolved_runs=1" in note for note in diagnostics_fail
     )
+
+
+def test_live_rejects_dirty_worktree(tmp_path: Path) -> None:
+    with patch.object(
+        calibration,
+        "_git_stdout",
+        return_value=" M src/graph_memory/temporal_shadow_extraction.py\n",
+    ):
+        with pytest.raises(calibration.DirtyWorktreeError, match="clean git worktree"):
+            calibration.run_prompt_calibration(
+                development_case=DEVELOPMENT_CASE,
+                candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+                holdout_case=HOLDOUT_CASE,
+                candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+                adversarial_case=ADVERSARIAL_CASE,
+                output_dir=tmp_path,
+                model_id="fake-model",
+                repetitions=1,
+                repo_root=REPO_ROOT,
+                holdout_seal_commit_sha=KNOWN_HOLDOUT_SEAL_COMMIT,
+                adversarial_seal_commit_sha=KNOWN_HOLDOUT_SEAL_COMMIT,
+                skip_seal_verification=False,
+                fake=False,
+            )
+
+
+def test_expected_case_id_mismatch_fail_closed(tmp_path: Path) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="baseline",
+        cohort="development",
+        repetition=1,
+    )
+    _write_success_run(
+        run_dir,
+        comparison=_comparison_payload(),
+        case_id="wrong-case-id",
+        manifest_extra={
+            "model_id": "fake-model",
+            "prompt_version": "tl01b-v1",
+            "repository_sha": "abc123",
+        },
+    )
+    outcome = calibration.load_run_outcome(_spec("baseline", "development", 1), run_dir)
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="baseline",
+        cohort="development",
+        outcomes=[outcome],
+        expected_model_id="fake-model",
+        expected_prompt_version="tl01b-v1",
+        expected_case_id="tl01b-temporal-shadow-cohort-v1",
+        expected_repository_sha="abc123",
+    )
+    assert not aggregate.manifest_consistency_ok
+    assert any("case_id_mismatch" in item for item in aggregate.manifest_diagnostics)
+
+
+def test_baseline_manifest_inconsistency_blocks_ready() -> None:
+    development = _ready_development_aggregate()
+    holdout = _ready_holdout_aggregate()
+    baseline_bad = CalibrationCohortAggregateV1(
+        prompt_lane="baseline",
+        cohort="development",
+        run_count=1,
+        success_count=1,
+        manifest_consistency_ok=False,
+        manifest_diagnostics=["missing_repository_sha repetition=3"],
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[baseline_bad, development, holdout],
+        seals_verified=True,
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert any("manifest_inconsistency" in note for note in diagnostics)
+
+
+def test_provider_revision_mismatch_blocks_ready() -> None:
+    development = _ready_development_aggregate()
+    holdout = _ready_holdout_aggregate()
+    decision, diagnostics = calibration.compute_calibration_decision(
+        cohort_aggregates=[development, holdout],
+        seals_verified=True,
+        aggregate_build_sha="aaa111",
+        provider_run_repository_shas=["bbb222", "ccc333"],
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert any("provider_run_revision_mismatch" in note for note in diagnostics)
+
+
+def test_fake_run_records_aggregate_build_and_provider_shas(tmp_path: Path) -> None:
+    aggregate = calibration.run_prompt_calibration(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        output_dir=tmp_path,
+        model_id="fake-model",
+        repetitions=1,
+        repo_root=REPO_ROOT,
+        skip_seal_verification=True,
+        fake=True,
+    )
+    assert aggregate.aggregate_build_sha
+    assert aggregate.repository_sha == aggregate.aggregate_build_sha
+    assert aggregate.provider_run_repository_shas == [aggregate.aggregate_build_sha]
+    # Every cohort must validate against its exact expected case id.
+    expected = {
+        ("baseline", "development"): "tl01b-temporal-shadow-cohort-v1",
+        ("baseline", "holdout"): "tl01c-temporal-shadow-holdout-v1-baseline",
+        ("candidate", "development"): "tl01c-temporal-shadow-cohort-v1",
+        ("candidate", "holdout"): "tl01c-temporal-shadow-holdout-v1",
+        ("candidate", "adversarial"): "tl01c-temporal-shadow-adversarial-v2",
+    }
+    for slice_ in aggregate.slices:
+        for cohort_agg in slice_.cohort_aggregates:
+            key = (cohort_agg.prompt_lane, cohort_agg.cohort)
+            assert cohort_agg.case_id == expected[key]
+            assert cohort_agg.manifest_consistency_ok, cohort_agg.manifest_diagnostics
+

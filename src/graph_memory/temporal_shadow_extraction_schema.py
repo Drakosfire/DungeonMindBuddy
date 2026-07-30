@@ -397,6 +397,8 @@ class TemporalPromptCalibrationAggregateV1(_TransportModel):
     )
     calibration_id: str
     repository_sha: str
+    aggregate_build_sha: str
+    provider_run_repository_shas: list[str] = Field(default_factory=list)
     holdout_case_sha256: str
     holdout_base_sha256: str
     holdout_gold_sha256: str

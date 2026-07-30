@@ -162,9 +162,12 @@ The aggregate is the **durable source of truth** for report regeneration.
 ### Top-level fields
 
 - `calibration_id`, `repository_sha`, `model_id`, `repetitions`
+- `aggregate_build_sha` — HEAD SHA when the aggregate was written (equals `repository_sha`)
+- `provider_run_repository_shas` — sorted unique SHAs from every run/failure manifest
 - `baseline_prompt_sha256`, `candidate_prompt_sha256`
 - Holdout seal fields: `holdout_case_sha256`, `holdout_base_sha256`, `holdout_gold_sha256`, `holdout_seal_commit_sha`
 - Adversarial seal fields: `adversarial_case_sha256`, `adversarial_base_sha256`, `adversarial_gold_sha256`, `adversarial_seal_commit_sha`
+- `seals_verified`
 - `slices` (baseline + candidate), `decision`, `diagnostics`
 
 ### Metrics slice (`TemporalPromptCalibrationMetricsSliceV1`)
@@ -223,8 +226,8 @@ Encoded as named constants in `temporal_shadow_prompt_calibration.py` (`compute_
 | 5 | `ITERATE_PROMPT` | Any candidate `total_source_leakage_false_positives > 0` |
 | 6 | `ITERATE_PROMPT` | Any candidate `total_grounding_failures > 0` |
 | 7 | `BLOCKED_BY_INPUT_REPRESENTATION` | `total_wrong_temporal_value >= 2` with zero wrong lane and zero status mismatch |
-| 8 | `ITERATE_PROMPT` | Missing holdout/development aggregate, any failed run, or manifest inconsistency |
-| 9 | `PROMPT_READY_FOR_BROADER_SHADOW` | All READY thresholds met |
+| 8 | `ITERATE_PROMPT` | Missing holdout/development aggregate, any failed run, any-cohort manifest inconsistency, or live provider-run revision ≠ `aggregate_build_sha` |
+| 9 | `PROMPT_READY_FOR_BROADER_SHADOW` | All READY thresholds met (holdout lane coverage uses `.min`, not `.max`) |
 | 10 | `ITERATE_PROMPT` | Default |
 
 Unsafe and source-leakage are evaluated **before** the input-representation heuristic.
@@ -240,10 +243,10 @@ Unsafe and source-leakage are evaluated **before** the input-representation heur
 | `READY_DEV_RESOLVED_EXACT_RUNS` | 2 (qualifying development runs with resolved exact ≥ 2) |
 | `READY_MIN_HOLDOUT_STATUS_ACCURACY` | 0.80 |
 | `READY_MIN_NOT_APPLICABLE_ACCURACY` | 1.0 |
-| `READY_MIN_HOLDOUT_EXACT_OCCURRENCE` | 1 (`exact_occurrence_match.max`) |
-| `READY_MIN_HOLDOUT_EXACT_VALID_TIME` | 1 (`exact_valid_time_match.max`) |
+| `READY_MIN_HOLDOUT_EXACT_OCCURRENCE` | 1 (`exact_occurrence_match.min`) |
+| `READY_MIN_HOLDOUT_EXACT_VALID_TIME` | 1 (`exact_valid_time_match.min`) |
 
-Additional READY requirements: `seals_verified=true`; zero unsafe; zero source leakage; zero failed runs; manifest consistency OK (every run supplies case_id/model_id/prompt_version/repository_sha). Paired baseline/candidate cases must share contribution, gold, assertions, and evidence before provider execution.
+Additional READY requirements: `seals_verified=true`; zero unsafe; zero source leakage; zero failed runs; manifest consistency OK on **all** cohorts (every run supplies case_id/model_id/prompt_version/repository_sha, and each cohort validates against its exact expected case ID). Live runs require a clean git worktree. Aggregate records `aggregate_build_sha` plus `provider_run_repository_shas`; READY requires a single provider-run revision equal to the aggregate build SHA. Paired baseline/candidate cases must share contribution, gold, assertions, and evidence before provider execution.
 
 **Non-negotiable:** one successful repetition cannot hide unsafe repetitions.
 

@@ -109,6 +109,10 @@ class PairedCaseError(ValueError):
     """Baseline/candidate paired cases are not equivalent fixtures."""
 
 
+class DirtyWorktreeError(ValueError):
+    """Live calibration refused because the git worktree is dirty."""
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -128,6 +132,7 @@ def _normalize_temporal_value(value: Any) -> str:
 
 
 def _repository_sha(*, repo_root: Path) -> str:
+    """Match extraction provenance: HEAD, or HEAD+dirty when tracked files differ."""
     try:
         completed = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -136,9 +141,59 @@ def _repository_sha(*, repo_root: Path) -> str:
             capture_output=True,
             text=True,
         )
-        return completed.stdout.strip() or "unknown"
+        sha = completed.stdout.strip() or "unknown"
+        dirty = subprocess.run(
+            [
+                "git",
+                "status",
+                "--porcelain",
+                "-uno",
+                "--",
+                ".",
+                ":(exclude)node_modules",
+                ":(exclude)node_modules/**",
+            ],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
+    if dirty.stdout.strip():
+        return f"{sha}+dirty"
+    return sha
+
+
+def _git_commit_sha(value: str) -> str:
+    """Strip provenance suffixes (e.g. +dirty) before git ancestry/object checks."""
+    return value.split("+", 1)[0]
+
+
+def _assert_clean_worktree_for_live(*, repo_root: Path, fake: bool) -> None:
+    """Refuse real provider runs when uncommitted changes could skew provenance."""
+    if fake:
+        return
+    try:
+        porcelain = _git_stdout(
+            repo_root,
+            "status",
+            "--porcelain",
+            "-uno",
+            "--",
+            ".",
+            ":(exclude)node_modules",
+            ":(exclude)node_modules/**",
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise DirtyWorktreeError(
+            "unable to determine git worktree cleanliness for live calibration"
+        ) from exc
+    if porcelain.strip():
+        raise DirtyWorktreeError(
+            "live calibration requires a clean git worktree; "
+            "commit or stash changes before running, or use --fake"
+        )
 
 
 def _git_stdout(repo_root: Path, *args: str) -> str:
@@ -198,7 +253,8 @@ def verify_cohort_seal(
     execution = execution_commit_sha or _repository_sha(repo_root=repo_root)
     if execution == "unknown":
         raise CohortSealError("cannot resolve execution commit SHA")
-    if not _git_ok(repo_root, "merge-base", "--is-ancestor", seal, execution):
+    execution_commit = _git_commit_sha(execution)
+    if not _git_ok(repo_root, "merge-base", "--is-ancestor", seal, execution_commit):
         raise CohortSealError(
             f"seal commit {seal} is not an ancestor of execution commit {execution}"
         )
@@ -888,12 +944,14 @@ def aggregate_cohort_runs(
 
 def compute_calibration_decision(
     *,
-    candidate_aggregates: list[CalibrationCohortAggregateV1],
+    cohort_aggregates: list[CalibrationCohortAggregateV1],
     diagnostics: list[str] | None = None,
     seals_verified: bool = False,
+    aggregate_build_sha: str | None = None,
+    provider_run_repository_shas: list[str] | None = None,
 ) -> tuple[CalibrationDecision, list[str]]:
     notes = list(diagnostics or [])
-    candidate = [a for a in candidate_aggregates if a.prompt_lane == "candidate"]
+    candidate = [a for a in cohort_aggregates if a.prompt_lane == "candidate"]
     holdout = next((a for a in candidate if a.cohort == "holdout"), None)
 
     total_provider = sum(a.total_provider_failures for a in candidate)
@@ -955,9 +1013,22 @@ def compute_calibration_decision(
         notes.append("candidate_has_failed_runs")
         return "ITERATE_PROMPT", notes
 
-    if any(not a.manifest_consistency_ok for a in candidate):
-        notes.append("candidate_manifest_inconsistency")
+    if any(not a.manifest_consistency_ok for a in cohort_aggregates):
+        notes.append("manifest_inconsistency")
         return "ITERATE_PROMPT", notes
+
+    provider_shas = list(provider_run_repository_shas or [])
+    if aggregate_build_sha:
+        if not provider_shas:
+            notes.append("missing_provider_run_repository_shas")
+            return "ITERATE_PROMPT", notes
+        if provider_shas != [aggregate_build_sha]:
+            notes.append(
+                "provider_run_revision_mismatch "
+                f"aggregate_build_sha={aggregate_build_sha} "
+                f"provider_run_repository_shas={provider_shas}"
+            )
+            return "ITERATE_PROMPT", notes
 
     if not seals_verified:
         notes.append("seals_not_verified")
@@ -982,11 +1053,11 @@ def compute_calibration_decision(
     holdout_valid = holdout.exact_valid_time_match
     holdout_has_occurrence = (
         holdout_occurrence is not None
-        and float(holdout_occurrence.max) >= READY_MIN_HOLDOUT_EXACT_OCCURRENCE
+        and float(holdout_occurrence.min) >= READY_MIN_HOLDOUT_EXACT_OCCURRENCE
     )
     holdout_has_valid = (
         holdout_valid is not None
-        and float(holdout_valid.max) >= READY_MIN_HOLDOUT_EXACT_VALID_TIME
+        and float(holdout_valid.min) >= READY_MIN_HOLDOUT_EXACT_VALID_TIME
     )
 
     ready = (
@@ -1007,10 +1078,10 @@ def compute_calibration_decision(
         f"dev_qualifying_resolved_runs={qualifying_resolved_runs}, "
         f"min_not_applicable={min_not_applicable:.3f}, "
         f"holdout_status={holdout.min_status_accuracy:.3f}, "
-        f"holdout_exact_occurrence_max="
-        f"{(float(holdout_occurrence.max) if holdout_occurrence is not None else 0.0):.3f}, "
-        f"holdout_exact_valid_max="
-        f"{(float(holdout_valid.max) if holdout_valid is not None else 0.0):.3f})"
+        f"holdout_exact_occurrence_min="
+        f"{(float(holdout_occurrence.min) if holdout_occurrence is not None else 0.0):.3f}, "
+        f"holdout_exact_valid_min="
+        f"{(float(holdout_valid.min) if holdout_valid is not None else 0.0):.3f})"
     )
     return "ITERATE_PROMPT", notes
 
@@ -1149,12 +1220,14 @@ def run_prompt_calibration(
     fake_batches: dict[str, dict[str, Any]] | None = None,
 ) -> TemporalPromptCalibrationAggregateV1:
     root = repo_root or _repo_root()
-    execution_sha = _repository_sha(repo_root=root)
 
     if skip_seal_verification and not fake:
         raise CohortSealError(
             "skip_seal_verification requires fake=True; real provider runs must verify seals"
         )
+
+    _assert_clean_worktree_for_live(repo_root=root, fake=fake)
+    execution_sha = _repository_sha(repo_root=root)
 
     seals_verified = False
     if skip_seal_verification:
@@ -1218,6 +1291,16 @@ def run_prompt_calibration(
         pair_name="holdout",
     )
 
+    baseline_development = load_temporal_shadow_extraction_case(
+        development_case, repo_root=root
+    )
+    candidate_development = load_temporal_shadow_extraction_case(
+        candidate_development_case, repo_root=root
+    )
+    baseline_holdout = load_temporal_shadow_extraction_case(
+        holdout_case, repo_root=root
+    )
+
     run_specs: list[CalibrationRunSpec] = []
     for repetition in range(1, repetitions + 1):
         run_specs.extend(
@@ -1257,6 +1340,9 @@ def run_prompt_calibration(
         ("candidate", "adversarial"): "tl01c-v1",
     }
     expected_case = {
+        ("baseline", "development"): baseline_development.case_id,
+        ("baseline", "holdout"): baseline_holdout.case_id,
+        ("candidate", "development"): candidate_development.case_id,
         ("candidate", "holdout"): holdout_seal.case_id,
         ("candidate", "adversarial"): adversarial_seal.case_id,
     }
@@ -1274,15 +1360,28 @@ def run_prompt_calibration(
             outcomes=group_outcomes,
             expected_model_id=model_id,
             expected_prompt_version=expected_prompt.get((prompt_lane, cohort)),
-            expected_case_id=expected_case.get((prompt_lane, cohort)),
+            expected_case_id=expected_case[(prompt_lane, cohort)],
             expected_repository_sha=None if fake else execution_sha,
         )
         for (prompt_lane, cohort), group_outcomes in sorted(cohort_groups.items())
     ]
 
+    provider_run_repository_shas = sorted(
+        {
+            record.repository_sha
+            for aggregate in cohort_aggregates
+            for record in aggregate.run_records
+            if isinstance(record.repository_sha, str) and record.repository_sha
+        }
+    )
+
     decision, diagnostics = compute_calibration_decision(
-        candidate_aggregates=cohort_aggregates,
+        cohort_aggregates=cohort_aggregates,
         seals_verified=seals_verified,
+        aggregate_build_sha=None if fake else execution_sha,
+        provider_run_repository_shas=(
+            None if fake else provider_run_repository_shas
+        ),
     )
 
     calibration_id_payload = {
@@ -1294,6 +1393,8 @@ def run_prompt_calibration(
         "model_id": model_id,
         "repetitions": repetitions,
         "repository_sha": execution_sha,
+        "aggregate_build_sha": execution_sha,
+        "provider_run_repository_shas": provider_run_repository_shas,
     }
     calibration_id = hashlib.sha256(
         json.dumps(calibration_id_payload, sort_keys=True).encode("utf-8")
@@ -1302,6 +1403,8 @@ def run_prompt_calibration(
     aggregate = TemporalPromptCalibrationAggregateV1(
         calibration_id=f"temporal-prompt-calibration:{calibration_id}",
         repository_sha=execution_sha,
+        aggregate_build_sha=execution_sha,
+        provider_run_repository_shas=provider_run_repository_shas,
         holdout_case_sha256=holdout_seal.case_sha256,
         holdout_base_sha256=holdout_seal.base_sha256,
         holdout_gold_sha256=holdout_seal.gold_sha256,
