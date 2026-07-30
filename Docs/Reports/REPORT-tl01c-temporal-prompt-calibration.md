@@ -2,18 +2,18 @@
 
 ## Executive result
 
-**Calibration decision:** `BLOCKED_BY_CONTRACT`
+**Calibration decision:** `ITERATE_PROMPT`
 
-Source-aware packet V2 + frozen `tl01c-v1` still improves development resolved exact matches (baseline 0 → candidate 3) and median exact matches (1 → 4). This live matrix failed closed on a candidate adversarial schema violation (`invalid_model_output`: ambiguous annotation included temporal extents). Aggregate diagnostic: `candidate_invalid_payloads=1`.
+Source-aware packet V2 + frozen `tl01c-v1` still improves development resolved exact matches (baseline 0 → candidate 3) and median exact matches (1 → 4). Aggregate diagnostic: `candidate_unsafe_over_resolution=12`. Schema-invalid adversarial responses (`invalid_model_output`: ambiguous + extents) are counted as `total_model_output_failures` and route to `ITERATE_PROMPT`, not `BLOCKED_BY_CONTRACT` — the frozen contract already represents ambiguous-with-null-extents.
 
 Durable aggregate (committed): `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/live/calibration/aggregate.json` with `seals_verified=true`. All cohorts report `manifest_consistency_ok=true`, and every lane validates its exact expected case ID.
 
-PR453 provenance hardening reflected in this report refresh:
+Evaluator-integrity hardening reflected in this report refresh:
 
-1. Live cleanliness uses `git status --porcelain` **without** `-uno` (non-ignored untracked files block).
-2. Development and baseline-mirror case/base/gold/evidence verified against execution-commit blobs.
-3. Holdout READY lane coverage uses `.min` (repetition-stable).
-4. Aggregate records `aggregate_build_sha` + matching `provider_run_repository_shas`.
+1. `invalid_model_output` / `target_set_mismatch` → `total_model_output_failures` → `ITERATE_PROMPT`.
+2. `BLOCKED_BY_CONTRACT` reserved for true contract gaps (`overlay_assembly_failed`, `unsupported_prompt_version`).
+3. Post-provider typed failures publish `failure-manifest.json` with `provider_response_id` (no success artifacts).
+4. Live cleanliness still uses `git status --porcelain` without `-uno`; development/baseline fixtures verified against execution-commit blobs.
 
 Development improvements remain non-independent. Holdout is independent. Adversarial V2 is synthetic and independent of few-shots; not canonical corpus.
 
@@ -22,12 +22,12 @@ Development improvements remain non-independent. Holdout is independent. Adversa
 | Item | Value |
 | --- | --- |
 | PR #452 merge (dependency) | `6eeffe239c582f129f0c6bf167b0f6d6fc51f6c6` |
-| Implementation commit (live matrix) | `eef52aba10f97f72a9b8a0571d97492ff8b771b4` |
+| Implementation commit (live matrix) | `6d0d3ce6b2eefec63f77cf2aead409973220f835` |
 | Holdout seal commit | `2c3be373fdaf6a713c4cae9c5ab75f9ffad5bc1d` |
 | Adversarial V2 seal commit | `cd9463f254f86390bddd43081d1ba3f7de272383` |
-| Aggregate `repository_sha` / `aggregate_build_sha` | `eef52aba10f97f72a9b8a0571d97492ff8b771b4` |
-| `provider_run_repository_shas` | `["eef52aba10f97f72a9b8a0571d97492ff8b771b4"]` |
-| Calibration id | `temporal-prompt-calibration:c3bd74cf83a6327a` |
+| Aggregate `repository_sha` / `aggregate_build_sha` | `6d0d3ce6b2eefec63f77cf2aead409973220f835` |
+| `provider_run_repository_shas` | `["6d0d3ce6b2eefec63f77cf2aead409973220f835"]` |
+| Calibration id | `temporal-prompt-calibration:45e67fb4b8175da2` |
 
 Provider-run revisions match the aggregate-build revision (single clean execution SHA). This report/aggregate commit is documentation-only relative to that implementation commit.
 
@@ -77,13 +77,13 @@ Case: `tl01b-temporal-shadow-cohort-v1` / candidate mirror `tl01c-temporal-shado
 
 | Metric | Baseline (`tl01b-v1`) | Candidate (`tl01c-v1`) |
 | --- | ---: | ---: |
-| Exact matches (min/med/max) | 1 / 1 / 1 | 3 / 4 / 4 |
+| Exact matches (min/med/max) | 1 / 1 / 1 | 4 / 4 / 4 |
 | Resolved exact (min/med/max) | 0 / 0 / 0 | 3 / 3 / 3 |
-| Unsafe over-resolution (total) | 4 | 6 |
-| Source→occurrence FP (total) | 0 | 5 |
+| Unsafe over-resolution (total) | 3 | 4 |
+| Source→occurrence FP (total) | 0 | 3 |
 | Source→valid-time FP (total) | 0 | 1 |
-| Min status accuracy | 0.67 | 0.50 |
-| Success / failure reps | 3 / 0 | 3 / 0 |
+| Min status accuracy | 0.67 | 0.67 |
+| Success / failure reps | 2 / 1 (grounding) | 3 / 0 |
 
 ## Holdout cohort
 
@@ -91,15 +91,15 @@ Case: `tl01c-temporal-shadow-holdout-v1` (7 assertions; IDs/evidence disjoint fr
 
 | Metric | Baseline | Candidate |
 | --- | ---: | ---: |
-| Exact matches (min/med/max) | 0 / 0 / 0 | 2 / 2 / 2 |
-| Resolved exact (min/med/max) | 0 / 0 / 0 | 2 / 2 / 2 |
+| Exact matches (min/med/max) | 0 / 0 / 0 | 2 / 3 / 3 |
+| Resolved exact (min/med/max) | 0 / 0 / 0 | 2 / 2 / 3 |
 | Exact occurrence (min/med/max) | 0 / 0 / 0 | 2 / 2 / 2 |
-| Exact valid-time (min/med/max) | 0 / 0 / 0 | 0 / 0 / 0 |
-| Unsafe over-resolution (total) | 9 | 6 |
-| Source→occurrence FP (total) | 0 | 5 |
-| Source→valid-time FP (total) | 0 | 3 |
-| Min status accuracy | 0.29 | 0.57 |
-| Success / failure reps | 3 / 0 | 2 / 1 (grounding) |
+| Exact valid-time (min/med/max) | 0 / 0 / 0 | 0 / 0 / 1 |
+| Unsafe over-resolution (total) | 9 | 8 |
+| Source→occurrence FP (total) | 0 | 6 |
+| Source→valid-time FP (total) | 0 | 4 |
+| Min status accuracy | 0.57 | 0.57 |
+| Success / failure reps | 3 / 0 | 3 / 0 |
 
 Holdout READY lane gate requires `exact_occurrence_match.min >= 1` and `exact_valid_time_match.min >= 1`. This matrix fails the valid-time `.min` gate (0).
 
@@ -111,11 +111,11 @@ V1 adversarial retained only as contaminated historical reference.
 
 | Run | Exact | Resolved exact | Unsafe | Src→occ FP | Status acc | NA acc | Notes |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| 01 | — | — | — | — | — | — | `invalid_model_output` (ambiguous + extents) |
-| 02 | 1 | 0 | 0 | 1 | 0.80 | 1.00 |  |
+| 01 | — | — | — | — | — | — | `invalid_model_output` (ambiguous + extents); response id preserved |
+| 02 | — | — | — | — | — | — | `invalid_model_output` (ambiguous + extents); response id preserved |
 | 03 | 1 | 0 | 0 | 0 | 0.80 | 1.00 |  |
 
-Aggregate: success 2/3; one contract failure drives `BLOCKED_BY_CONTRACT`.
+Aggregate: success 1/3; `total_model_output_failures=2`, `total_invalid_payloads=0` → model noncompliance contributes to `ITERATE_PROMPT`, not contract block.
 
 ## Repetition methodology
 
@@ -129,17 +129,18 @@ Aggregate: success 2/3; one contract failure drives `BLOCKED_BY_CONTRACT`.
 
 From `aggregate.json` cohort totals:
 
-- Invalid payloads: 1 (adversarial run-01) → decision `BLOCKED_BY_CONTRACT`
-- Unsafe over-resolutions: 12 across development+holdout (adversarial successful runs: 0)
-- Source→occurrence FP: 11; source→valid-time FP: 4
-- Grounding failures: 1 candidate holdout
+- Model-output failures: 2 (adversarial run-01/02) → contribute to `ITERATE_PROMPT`
+- Invalid payloads (true contract): 0
+- Unsafe over-resolutions: 12 across development+holdout (first diagnostic match)
+- Source→occurrence FP: 9; source→valid-time FP: 5 (leakage total 14)
+- Grounding failures: 0 candidate (baseline development had 1)
 - Evidence/case failures: 0
 - Provider failures: 0
 - Manifest consistency: OK on every cohort
 
 ## Aggregate quality metrics
 
-Candidate clears development median-exact ≥4 and resolved-exact ≥2 on successful runs, but does not reach READY: contract failure short-circuits first; unsafe/leakage and holdout valid-time `.min=0` remain.
+Candidate clears development median-exact ≥4 and resolved-exact ≥2 on successful runs, but does not reach READY: unsafe over-resolution short-circuits first; source leakage and holdout valid-time `.min=0` remain independently blocking.
 
 Candidate slice `case_ids`: `tl01c-temporal-shadow-adversarial-v2`, `tl01c-temporal-shadow-cohort-v1`, `tl01c-temporal-shadow-holdout-v1`.
 
@@ -149,26 +150,28 @@ Assertion stability in aggregate includes classification counts, predicted-statu
 
 ## Provider metadata
 
-Response IDs live in each run’s `provider-metadata.json` and `run_records` in aggregate. Adversarial V2 successful runs:
+Response IDs live in each run’s `provider-metadata.json`, typed `failure-manifest.json` (post-provider failures), and `run_records` in aggregate. Adversarial V2:
 
-| Run | Response ID |
-| --- | --- |
-| 02 | `resp_0cd64c84d2a48fb5006a6b8631448c8196bbf21da7d1f05daf` |
-| 03 | `resp_00bfaa2a41abde9d006a6b864d1ca081909432bc7e99fb120f` |
+| Run | Outcome | Response ID |
+| --- | --- | --- |
+| 01 | `invalid_model_output` | `resp_088804419dcb994a006a6b8d1d0880819695b055d326f05ef1` |
+| 02 | `invalid_model_output` | `resp_0e20e747f8ce41d8006a6b8d39995c81938c1ee7738723aabb` |
+| 03 | success | `resp_034724b5bbaafc31006a6b8d55e6908194adbd425ba5dba9ee` |
 
 ## Coverage limitations
 
 - Live corpus still thin on sealed source≠occurrence / valid-time-end cases (adversarial V2 covers synthetically, independently of few-shots).
-- One candidate holdout repetition failed grounding; one adversarial repetition failed contract validation.
+- Two adversarial repetitions failed model-output validation (ambiguous + extents) while preserving provider response IDs.
 
 ## Calibration decision
 
-`BLOCKED_BY_CONTRACT`
+`ITERATE_PROMPT`
 
-Rationale (aggregate diagnostics: `candidate_invalid_payloads=1`):
+Rationale (aggregate diagnostics: `candidate_unsafe_over_resolution=12`):
 
-- Adversarial run-01 returned `ambiguous` with occurrence/valid extents, rejected by schema.
-- Separately, safety/quality still would not READY (unsafe, leakage, holdout valid-time `.min=0`).
+- Unsafe over-resolution is the highest-priority blocking safety finding.
+- Source leakage and zero exact holdout valid-time coverage (`.min=0`) independently prevent READY.
+- Adversarial `invalid_model_output` (ambiguous + extents) is model/prompt noncompliance against a representable contract → `ITERATE_PROMPT`, not `BLOCKED_BY_CONTRACT`.
 - Do **not** edit `tl01c-v1`; next candidate needs a new version id (and should reinforce ambiguous-without-extents).
 
 ## Successor recommendation
