@@ -32,7 +32,10 @@ When set: paired equivalence is validated against `adversarial_case`; fixtures a
 
 ### Calibration identity
 
-`calibration_id` payload includes both control and candidate prompt versions and sha256 hashes so changing either prompt changes the id. Keys (baseline adversarial omitted when not run):
+`calibration_id` payload includes control/candidate prompt versions and hashes,
+seal digests, model/repetition/repo identity, **and** the normalized run matrix
+so five-lane vs six-lane matrices (and regression vs promotion roles) cannot
+collide:
 
 ```text
 baseline_prompt_version, candidate_prompt_version,
@@ -40,8 +43,15 @@ baseline_prompt_sha256, candidate_prompt_sha256,
 holdout_case_sha256, holdout_seal_commit_sha,
 adversarial_case_sha256, adversarial_seal_commit_sha,
 model_id, repetitions, repository_sha, aggregate_build_sha,
-provider_run_repository_shas
+provider_run_repository_shas,
+experiment_role,                 # observed_regression | promotion
+control_adversarial_enabled,     # bool
+control_adversarial_case_id,     # null when lane absent
+run_matrix                       # sorted [{prompt_lane, cohort, case_id}, ...]
 ```
+
+CLI requires `--experiment-role {observed_regression,promotion}`. Aggregate fields
+mirror the same identities.
 
 ### Artifact paths (TL01D)
 
@@ -51,6 +61,8 @@ Regression and promotion aggregates are separated under:
 evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01d/regression/calibration/aggregate.json
 evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01d/promotion/calibration/aggregate.json
 ```
+
+Fresh promotion holdout is `temporal_shadow_holdout_v3/` (holdout V2 is retired).
 
 TL01C live aggregate remains at `live/calibration/aggregate.json` (frozen).
 

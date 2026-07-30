@@ -1,0 +1,216 @@
+{
+  "contribution_id": "contribution:358db0086a7b274d",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01d-temporal-shadow-holdout-v3",
+  "produced_at": "2026-07-30T21:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:1d021fde1a4a821d",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": "creature:canopy-prowlers",
+      "predicate": "cast_dust_devil_on",
+      "label": "Caelynn casts Dust Devil on attacking Canopy Prowlers",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v3:s16-dust-devil",
+            "session_id": "session-16"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s16-dust-devil"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:358db0086a7b274d"
+    },
+    {
+      "assertion_id": "assertion:f04fce6d3accbc47",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:ephanna",
+      "target_node_id": "feature:mireward-approach",
+      "predicate": "cast_hunger_of_hadar_on",
+      "label": "Ephanna casts Hunger of Hadar on the approaching path",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v3:s23-hunger",
+            "session_id": "session-23"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s23-hunger"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:358db0086a7b274d"
+    },
+    {
+      "assertion_id": "assertion:c6d665dd7165ad05",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:glimmering-globe",
+      "target_node_id": "loc:lake-mirathorn",
+      "predicate": "situated_at_edge_of",
+      "label": "Glimmering Globe is situated at the edge of Lake Mirathorn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v3:s2-glimmering-globe",
+            "session_id": "session-2"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s2-glimmering-globe"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:358db0086a7b274d"
+    },
+    {
+      "assertion_id": "assertion:abbfa5871334b2e8",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "loc:inn",
+      "predicate": "present_at",
+      "label": "Questionable Company is present at the Inn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v3:s3-inn",
+            "session_id": "session-3"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s3-inn"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:358db0086a7b274d"
+    },
+    {
+      "assertion_id": "assertion:a71ba5d0808acd83",
+      "assertion_kind": "attribute",
+      "subject_node_id": "name:seraphine-bladewind",
+      "target_node_id": null,
+      "predicate": "named_in_roster",
+      "label": "Someone named Seraphine Bladewind is named in the Steel Fangs roster",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v3:s2-seraphine-mention",
+            "session_id": "session-2"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s2-seraphine-mention"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:358db0086a7b274d"
+    },
+    {
+      "assertion_id": "assertion:77a41b4fe502698d",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:edge-messenger",
+      "target_node_id": "loc:mireward",
+      "predicate": "arrived_before_party",
+      "label": "A messenger from Edge arrived at Mireward before the party",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v3:s23-messenger-before",
+            "session_id": "session-23"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s23-messenger-before"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:358db0086a7b274d"
+    },
+    {
+      "assertion_id": "assertion:20341a3812cd8590",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:orik-tane",
+      "target_node_id": null,
+      "predicate": "is_mayor_of",
+      "label": "Orik Tane is mayor of Mireward",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v3:s23-orik-mayor",
+            "session_id": "session-23"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v3:s23-orik-mayor"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:358db0086a7b274d"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

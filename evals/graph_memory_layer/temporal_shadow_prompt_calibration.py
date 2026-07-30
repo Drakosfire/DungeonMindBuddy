@@ -31,7 +31,9 @@ from graph_memory.temporal_shadow_extraction_schema import (
     CalibrationAssertionStabilityV1,
     CalibrationCohortAggregateV1,
     CalibrationDecision,
+    CalibrationExperimentRole,
     CalibrationMetricDistributionV1,
+    CalibrationRunMatrixEntryV1,
     CalibrationRunRecordV1,
     TemporalPromptCalibrationAggregateV1,
     TemporalPromptCalibrationMetricsSliceV1,
@@ -39,6 +41,7 @@ from graph_memory.temporal_shadow_extraction_schema import (
 
 PromptLane = Literal["baseline", "candidate"]
 CohortName = Literal["development", "holdout", "adversarial"]
+ExperimentRole = CalibrationExperimentRole
 
 PROVIDER_FAILURE_CODES = frozenset(
     {"provider_refusal", "provider_incomplete", "provider_error"}
@@ -1351,6 +1354,25 @@ def _bounded_or_plain(diagnostics: list[str]) -> list[str]:
     return bounded
 
 
+def build_calibration_run_matrix(
+    *,
+    expected_case: dict[tuple[PromptLane, CohortName], str],
+) -> list[CalibrationRunMatrixEntryV1]:
+    """Normalize lane/cohort/case identities for aggregate + calibration_id."""
+    entries = [
+        CalibrationRunMatrixEntryV1(
+            prompt_lane=prompt_lane,
+            cohort=cohort,
+            case_id=case_id,
+        )
+        for (prompt_lane, cohort), case_id in expected_case.items()
+    ]
+    return sorted(
+        entries,
+        key=lambda item: (item.prompt_lane, item.cohort, item.case_id),
+    )
+
+
 def run_prompt_calibration(
     *,
     development_case: Path,
@@ -1361,6 +1383,7 @@ def run_prompt_calibration(
     output_dir: Path,
     model_id: str,
     repetitions: int,
+    experiment_role: ExperimentRole,
     repo_root: Path | None = None,
     holdout_seal_commit_sha: str | None = None,
     adversarial_seal_commit_sha: str | None = None,
@@ -1559,6 +1582,12 @@ def run_prompt_calibration(
         expected_prompt[("baseline", "adversarial")] = baseline_prompt_version
         expected_case[("baseline", "adversarial")] = baseline_adversarial.case_id
 
+    run_matrix = build_calibration_run_matrix(expected_case=expected_case)
+    control_adversarial_enabled = baseline_adversarial_case is not None
+    control_adversarial_case_id = (
+        baseline_adversarial.case_id if baseline_adversarial is not None else None
+    )
+
     cohort_groups: dict[tuple[PromptLane, CohortName], list[RunOutcome]] = defaultdict(
         list
     )
@@ -1610,6 +1639,17 @@ def run_prompt_calibration(
         "repository_sha": execution_sha,
         "aggregate_build_sha": execution_sha,
         "provider_run_repository_shas": provider_run_repository_shas,
+        "experiment_role": experiment_role,
+        "control_adversarial_enabled": control_adversarial_enabled,
+        "control_adversarial_case_id": control_adversarial_case_id,
+        "run_matrix": [
+            {
+                "prompt_lane": entry.prompt_lane,
+                "cohort": entry.cohort,
+                "case_id": entry.case_id,
+            }
+            for entry in run_matrix
+        ],
     }
     calibration_id = hashlib.sha256(
         json.dumps(calibration_id_payload, sort_keys=True).encode("utf-8")
@@ -1635,6 +1675,10 @@ def run_prompt_calibration(
         baseline_prompt_sha256=compute_prompt_sha256(baseline_prompt_version),
         model_id=model_id,
         repetitions=repetitions,
+        experiment_role=experiment_role,
+        run_matrix=run_matrix,
+        control_adversarial_enabled=control_adversarial_enabled,
+        control_adversarial_case_id=control_adversarial_case_id,
         slices=[
             _build_metrics_slice(
                 prompt_lane="baseline",
@@ -1686,6 +1730,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-id", default="gpt-5.4-mini")
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument(
+        "--experiment-role",
+        required=True,
+        choices=["observed_regression", "promotion"],
+        help="Aggregate role; participates in calibration_id",
+    )
+    parser.add_argument(
         "--output-dir",
         default="evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/",
     )
@@ -1729,6 +1779,7 @@ def main(argv: list[str] | None = None) -> int:
         output_dir=output_dir,
         model_id=args.model_id,
         repetitions=args.repetitions,
+        experiment_role=args.experiment_role,
         repo_root=repo_root,
         holdout_seal_commit_sha=args.holdout_seal_commit,
         adversarial_seal_commit_sha=args.adversarial_seal_commit,
@@ -1746,6 +1797,8 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "ok": True,
                 "calibration_id": aggregate.calibration_id,
+                "experiment_role": aggregate.experiment_role,
+                "control_adversarial_enabled": aggregate.control_adversarial_enabled,
                 "decision": aggregate.decision,
                 "holdout_case_sha256": aggregate.holdout_case_sha256,
                 "holdout_seal_commit_sha": aggregate.holdout_seal_commit_sha,
