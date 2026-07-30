@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 
 import {
   getSourceBundle,
@@ -30,6 +31,10 @@ import {
   threadTitleFromQuestion,
   turnFromResponse,
 } from "../../agentInteraction/agentInteractionStorage";
+import {
+  useAskPluginSlotOptional,
+  useRegisterAskPluginPresence,
+} from "../../agentInteraction/AskPluginSlot";
 import { buildHermesConversationHistory } from "../../agentInteraction/hermesConversationHistory";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { ContextSufficiencyPanel } from "./ContextSufficiencyPanel";
@@ -450,6 +455,8 @@ export function PlanAgentInteractionBar({
   checkCitationFreshness = postCitationFreshness,
 }: PlanAgentInteractionBarProps) {
   const agentInteraction = useAgentInteraction();
+  useRegisterAskPluginPresence(true);
+  const askSlot = useAskPluginSlotOptional();
   const { projection, projectionState, projectionError } = usePlanGraphReferenceResolver();
   const {
     lens,
@@ -582,28 +589,29 @@ export function PlanAgentInteractionBar({
     setAskStatus("idle");
   }
 
-  async function openPane() {
-    setOpen(true);
-    if (bundle || status === "loading") return;
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
     setStatus("loading");
     setError(null);
-    try {
-      const response = await loadBundle("campaign-ingested", sessionDescriptor.campaignId);
-      setBundle(response);
-      setStatus("ready");
-    } catch (loadError) {
-      setStatus("error");
-      setError(loadError instanceof Error ? loadError.message : "Unable to load source bundle");
-    }
-  }
-
-  async function toggleDrawer() {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    await openPane();
-  }
+    (async () => {
+      try {
+        const response = await loadBundle("campaign-ingested", sessionDescriptor.campaignId);
+        if (!cancelled) {
+          setBundle(response);
+          setStatus("ready");
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setStatus("error");
+          setError(loadError instanceof Error ? loadError.message : "Unable to load source bundle");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loadBundle, sessionDescriptor.campaignId]);
 
   function clearHistory() {
     if (thread) {
@@ -894,14 +902,9 @@ export function PlanAgentInteractionBar({
   const activeSessionComplete = bundle ? missingStages.length === 0 : false;
   const latestSessions = bundle ? sessionNumbers(bundle).slice(0, 5) : [];
 
-  return (
-    <section
-      className={`plan-agent-shell ${open ? "open" : "closed"}`}
-      aria-label="Ask DungeonBuddy"
-      data-expanded={open ? "true" : "false"}
-    >
-      {open ? (
-        <div className="plan-agent-pane" role="complementary" aria-label="DungeonBuddy drawer">
+  // R10b: shell/bar live in AgentInteractionChrome; this component is the Plan Ask plugin.
+  const askPane = (
+        <div className="plan-agent-pane" role="complementary" aria-label="Ask DungeonBuddy">
           <header className="plan-agent-pane-header">
             <div>
               {renaming ? (
@@ -998,7 +1001,7 @@ export function PlanAgentInteractionBar({
                   </div>
                 ) : null}
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close DungeonBuddy drawer">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close Ask DungeonBuddy">
                 Close
               </button>
             </div>
@@ -1456,18 +1459,25 @@ export function PlanAgentInteractionBar({
             ) : null}
           </form>
         </div>
-      ) : null}
-
-      {open ? null : (
-        <div className="plan-agent-bar">
-          <div>
-            <strong>Ask DungeonBuddy · {threadTitle}</strong>
-          </div>
-          <button type="button" onClick={toggleDrawer} aria-expanded={open}>
-            Open drawer
-          </button>
-        </div>
-      )}
-    </section>
   );
+
+  if (askSlot?.hostElement) {
+    return createPortal(askPane, askSlot.hostElement);
+  }
+
+  // Test / no-chrome fallback: render the Ask pane only when already open.
+  if (open) {
+    return (
+      <section
+        className="plan-agent-shell open"
+        aria-label="Ask DungeonBuddy"
+        data-expanded="true"
+        data-testid="plan-ask-fallback-shell"
+      >
+        {askPane}
+      </section>
+    );
+  }
+
+  return null;
 }

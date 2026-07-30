@@ -287,6 +287,22 @@
   pointer-events: auto;
 }
 
+.agent-interaction-ask-host:empty {
+  display: none;
+}
+
+.agent-interaction-ask-host:not(:empty) {
+  display: contents;
+}
+
+.agent-interaction-empty {
+  padding: 0.25rem 0 0.5rem;
+}
+
+.agent-interaction-empty a {
+  color: var(--accent, #7aa2f7);
+}
+
 .plan-agent-bar {
   display: flex;
   align-items: center;
