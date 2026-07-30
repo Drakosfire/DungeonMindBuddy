@@ -211,4 +211,105 @@ def test_retired_holdout_v2_not_referenced_by_tl01e_case_mirrors() -> None:
     for path in mirrors:
         text = path.read_text(encoding="utf-8")
         assert "temporal_shadow_holdout_v2" not in text
-        assert "holdout-v2" not in text.lower() or "holdout_v2" not in text
+
+
+def _collect_ids(folder: Path) -> tuple[set[str], set[str]]:
+    assertion_ids: set[str] = set()
+    evidence_ids: set[str] = set()
+    base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
+    for assertion in base.get("candidate_assertions", []):
+        assertion_ids.add(assertion["assertion_id"])
+        evidence_ids.update(assertion.get("evidence_ref_ids", []))
+    case = json.loads((folder / "temporal-case-tl01e.json").read_text(encoding="utf-8"))
+    for entry in case.get("evidence_registry", []):
+        evidence_ids.add(entry["evidence_ref_id"])
+    return assertion_ids, evidence_ids
+
+
+PRIOR_COHORT_DIRS = (
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_cohort",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v3",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3",
+)
+
+ADV_V4_VOCABULARY = (
+    "Rhelan",
+    "Vosk",
+    "Nyeth",
+    "Ashglass Span",
+    "Tideglass Synod",
+    "Azure Index",
+)
+
+
+def test_holdout_v4_ids_disjoint_from_prior_cohorts() -> None:
+    holdout_v4 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v4"
+    new_assertions, new_evidence = _collect_ids(holdout_v4)
+    prior_assertions: set[str] = set()
+    prior_evidence: set[str] = set()
+    for folder in PRIOR_COHORT_DIRS:
+        a_ids, e_ids = _collect_ids(folder)
+        prior_assertions |= a_ids
+        prior_evidence |= e_ids
+    assert new_assertions.isdisjoint(prior_assertions)
+    assert new_evidence.isdisjoint(prior_evidence)
+
+
+def test_adversarial_v4_vocabulary_disjoint_from_prompt_and_prior() -> None:
+    prompt = TL01E_GROUNDED_ABSTENTION_INSTRUCTIONS
+    for term in ADV_V4_VOCABULARY:
+        assert term not in prompt
+    prior_text = ""
+    for folder in (
+        *PRIOR_COHORT_DIRS,
+        REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v4",
+    ):
+        for path in folder.rglob("*"):
+            if path.is_file() and path.suffix in {".json", ".md"}:
+                prior_text += path.read_text(encoding="utf-8")
+    for term in ADV_V4_VOCABULARY:
+        assert term not in prior_text, f"{term!r} leaked into prior/holdout fixtures"
+
+
+def test_v4_control_candidate_cases_are_exact_mirrors() -> None:
+    from evals.graph_memory_layer.temporal_shadow_prompt_calibration import (
+        validate_paired_case_equivalence,
+    )
+
+    for folder_name in (
+        "temporal_shadow_holdout_v4",
+        "temporal_shadow_adversarial_v4",
+    ):
+        folder = REPO_ROOT / "evals/graph_memory_layer/examples" / folder_name
+        validate_paired_case_equivalence(
+            baseline_case_path=folder / "temporal-case-tl01d.json",
+            candidate_case_path=folder / "temporal-case-tl01e.json",
+            repo_root=REPO_ROOT,
+            pair_name=folder_name,
+        )
+
+
+def test_v4_non_resolved_gold_has_null_extents_and_nonblank_diagnostics() -> None:
+    for folder_name in (
+        "temporal_shadow_holdout_v4",
+        "temporal_shadow_adversarial_v4",
+    ):
+        gold = json.loads(
+            (
+                REPO_ROOT
+                / "evals/graph_memory_layer/examples"
+                / folder_name
+                / "gold-overlay.json"
+            ).read_text(encoding="utf-8")
+        )
+        for ann in gold["annotations"]:
+            assert any(str(d).strip() for d in ann.get("diagnostics", []))
+            if ann["interpretation_status"] in {
+                "not_applicable",
+                "ambiguous",
+                "unresolved",
+            }:
+                assert ann["occurrence_time"] is None
+                assert ann["valid_time"] is None

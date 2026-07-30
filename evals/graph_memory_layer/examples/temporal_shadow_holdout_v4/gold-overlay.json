@@ -1,0 +1,214 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:50716ef5b97b2aeb",
+  "base_contribution_id": "contribution:b45f06ee4d0740f9",
+  "base_contribution_source_payload_sha256": "85c98c051d284996fca561322cabb9813d2c0d60e425cb186bc07612ae23ddc3",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01e-holdout-v4",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:5c41d27200f1e01a",
+      "base_assertion_id": "assertion:313e3dc379962186",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-4",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s4-magic-missile"
+      ],
+      "source_phrase": null,
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:3f25c2bb3c7a88b3",
+      "base_assertion_id": "assertion:e6e39a5f3c61b446",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-20",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s20-eldritch"
+      ],
+      "source_phrase": null,
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:e30ef9f1a5ca41e8",
+      "base_assertion_id": "assertion:689dfb7e3009f58a",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-4",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s4-faceoff-again"
+      ],
+      "source_phrase": null,
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:c906eaad5de98cb1",
+      "base_assertion_id": "assertion:0ec3be9ce9029152",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s19-mayor"
+      ],
+      "source_phrase": "The redscale Dragonborn Mayor",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:6245384c9b92c2bd",
+      "base_assertion_id": "assertion:467b880721372fda",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-15",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s15-new-rank"
+      ],
+      "source_phrase": "now in her new uniform and sporting her new rank",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "explicit new-rank boundary observed in narrated episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:e012547b4be853e9",
+      "base_assertion_id": "assertion:943bfadb7272ae36",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s15-mossford-topo"
+      ],
+      "source_phrase": "small town along a river that has been dammed to create a reservoir",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "static structural proposition; no temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:123312afef354600",
+      "base_assertion_id": "assertion:f6e09801f993eb84",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s19-inn-scene"
+      ],
+      "source_phrase": "Back at the Mossford Inn",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "scene framing; no useful assertion boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:ba0bf836a4986923",
+      "base_assertion_id": "assertion:23cb00e564c7f14f",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s4-flock-mention"
+      ],
+      "source_phrase": "Flock",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "identity mention is ambiguous"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:453f396095344227",
+      "base_assertion_id": "assertion:284be91acdc5b4c5",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": "longmont-c2",
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "needed to move after a \u201cshiny rain\u201d fell over the forest",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s17-shiny-rain"
+      ],
+      "source_phrase": "needed to move after a \u201cshiny rain\u201d fell over the forest",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "incomplete historical phrasing; textual occurrence; do not invent session anchor"
+      ]
+    }
+  ]
+}

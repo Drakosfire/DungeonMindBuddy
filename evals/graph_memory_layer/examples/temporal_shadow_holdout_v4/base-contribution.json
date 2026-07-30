@@ -1,0 +1,272 @@
+{
+  "contribution_id": "contribution:b45f06ee4d0740f9",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01e-temporal-shadow-holdout-v4",
+  "produced_at": "2026-07-30T22:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:313e3dc379962186",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": "npc:drow-illusionist",
+      "predicate": "cast_magic_missile_on",
+      "label": "Caelynn casts Magic Missile on a Drow Illusionist",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s4-magic-missile",
+            "session_id": "session-4"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s4-magic-missile"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    },
+    {
+      "assertion_id": "assertion:e6e39a5f3c61b446",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:ephanna",
+      "target_node_id": "creature:red-gnat-swarm",
+      "predicate": "cast_eldritch_blast_on",
+      "label": "Ephanna casts Eldritch Blast on the red gnat swarm",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s20-eldritch",
+            "session_id": "session-20"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s20-eldritch"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    },
+    {
+      "assertion_id": "assertion:689dfb7e3009f58a",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "npc:human-barbarian-druid",
+      "predicate": "faces_off_again_against",
+      "label": "Combat trial team faces off again against a Human Barbarian Druid",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s4-faceoff-again",
+            "session_id": "session-4"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s4-faceoff-again"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    },
+    {
+      "assertion_id": "assertion:0ec3be9ce9029152",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:mossford-mayor",
+      "target_node_id": null,
+      "predicate": "is_mayor_of_mossford",
+      "label": "The redscale Dragonborn is mayor of Mossford",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s19-mayor",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s19-mayor"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    },
+    {
+      "assertion_id": "assertion:467b880721372fda",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": null,
+      "predicate": "holds_elevated_rank",
+      "label": "Lysandra holds her elevated guard rank",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s15-new-rank",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s15-new-rank"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    },
+    {
+      "assertion_id": "assertion:943bfadb7272ae36",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:mossford",
+      "target_node_id": "feature:mossford-reservoir",
+      "predicate": "situated_along_dammed_river",
+      "label": "Mossford is a town along a dammed river with a reservoir",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s15-mossford-topo",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s15-mossford-topo"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    },
+    {
+      "assertion_id": "assertion:f6e09801f993eb84",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:questionable-company",
+      "target_node_id": "loc:mossford-inn",
+      "predicate": "present_at",
+      "label": "Party present at the Mossford Inn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s19-inn-scene",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s19-inn-scene"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    },
+    {
+      "assertion_id": "assertion:23cb00e564c7f14f",
+      "assertion_kind": "attribute",
+      "subject_node_id": "entity:flock",
+      "target_node_id": null,
+      "predicate": "mentioned_as",
+      "label": "\"Flock\" entity mention",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s4-flock-mention",
+            "session_id": "session-4"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s4-flock-mention"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    },
+    {
+      "assertion_id": "assertion:284be91acdc5b4c5",
+      "assertion_kind": "attribute",
+      "subject_node_id": "feature:migrating-forest",
+      "target_node_id": null,
+      "predicate": "moved_after_shiny_rain",
+      "label": "Migrating forest needed to move after a shiny rain",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-holdout-v4:s17-shiny-rain",
+            "session_id": "session-17"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-holdout-v4:s17-shiny-rain"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:b45f06ee4d0740f9"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
