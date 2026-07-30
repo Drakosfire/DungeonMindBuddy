@@ -1,0 +1,171 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:39bebbdec3f6df33",
+  "base_contribution_id": "contribution:24ef41eeebcf0c8e",
+  "base_contribution_source_payload_sha256": "fe3f11084068b7caebd5989cb2dd090bc7b065b4b548f5c1f7e16b5891a2d6c4",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01c-holdout",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:e45ae867d707cad6",
+      "base_assertion_id": "assertion:e8928fdf42ed899b",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-8",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s8-portal"
+      ],
+      "source_phrase": "she destroys the portal",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:99de7052e40c7176",
+      "base_assertion_id": "assertion:e1107056b95677ea",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-8",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s8-coord"
+      ],
+      "source_phrase": "Lysandra begins to coordinate guards",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent coordination role starts in narrated episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:c88c605ce97d2853",
+      "base_assertion_id": "assertion:dc5df997c1f83736",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s14-crypt"
+      ],
+      "source_phrase": "a very beautiful large family crypt",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "structural location containment; no fiction-time boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:4ac0d9036018de54",
+      "base_assertion_id": "assertion:611986efd886c01f",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s11-inn"
+      ],
+      "source_phrase": "Back at the Copper and Quartz",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "scene framing / location visit without assertion temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:288ffdafbeba3dc2",
+      "base_assertion_id": "assertion:c6b660b1b92cfa6e",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s8-sorin"
+      ],
+      "source_phrase": "file on someone named Sorin Holdrom",
+      "extraction_confidence": "low",
+      "diagnostics": [
+        "name discovery vs Dustwalker identity cannot be temporally fixed from snippet alone"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:cce5e9600b1d68e5",
+      "base_assertion_id": "assertion:724a3007ebdf2478",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": "longmont-c2",
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "left about 30 years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s11-professor"
+      ],
+      "source_phrase": "He left about 30 years ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "relative/incomplete historical time; do not invent session or campaign date"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:91a1223fa304cd32",
+      "base_assertion_id": "assertion:9ae29cfddddf92c9",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-18",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s18-mother"
+      ],
+      "source_phrase": "deals the final killing blow",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "same-session fiction event"
+      ]
+    }
+  ]
+}

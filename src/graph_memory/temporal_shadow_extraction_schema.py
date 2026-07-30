@@ -19,6 +19,16 @@ TEMPORAL_MODEL_ANNOTATION_BATCH_SCHEMA = "dmb_temporal_model_annotation_batch_v1
 TEMPORAL_SHADOW_COMPARISON_SCHEMA = "dmb_temporal_shadow_comparison_v1"
 TEMPORAL_SHADOW_EXTRACTION_RUN_SCHEMA = "dmb_temporal_shadow_extraction_run_v1"
 TEMPORAL_SHADOW_PROMPT_VERSION = "tl01b-v1"
+TEMPORAL_PROMPT_CALIBRATION_SCHEMA = "dmb_temporal_prompt_calibration_v1"
+
+CalibrationDecision = Literal[
+    "PROMPT_READY_FOR_BROADER_SHADOW",
+    "ITERATE_PROMPT",
+    "BLOCKED_BY_INPUT_REPRESENTATION",
+    "BLOCKED_BY_EVIDENCE",
+    "BLOCKED_BY_CONTRACT",
+    "PROVIDER_FAILURE",
+]
 
 InterpretationStatusTransport = Literal[
     "resolved",
@@ -286,8 +296,84 @@ class TemporalModelAnnotationBatchTransportV1(_TransportModel):
         return value
 
 
+class CalibrationMetricDistributionV1(_TransportModel):
+    min: float
+    median: float
+    max: float
+
+
+class CalibrationAssertionStabilityV1(_TransportModel):
+    base_assertion_id: str
+    classification_counts: dict[str, int] = Field(default_factory=dict)
+    status_counts: dict[str, int] = Field(default_factory=dict)
+
+
+class CalibrationCohortAggregateV1(_TransportModel):
+    prompt_lane: Literal["baseline", "candidate"]
+    cohort: Literal["development", "holdout", "adversarial"]
+    run_count: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    exact_match: CalibrationMetricDistributionV1 | None = None
+    resolved_exact_match: CalibrationMetricDistributionV1 | None = None
+    min_status_accuracy: float = 0.0
+    min_not_applicable_accuracy: float = 0.0
+    total_unsafe_over_resolution: int = 0
+    total_source_leakage_false_positives: int = 0
+    total_evidence_selection_mismatches: int = 0
+    total_provider_failures: int = 0
+    total_grounding_failures: int = 0
+    total_invalid_payloads: int = 0
+    total_wrong_temporal_value: int = 0
+    total_wrong_temporal_lane: int = 0
+    total_status_mismatch: int = 0
+    min_exact_match_ratio: float = 0.0
+    min_resolved_exact_ratio: float = 0.0
+    assertion_stability: list[CalibrationAssertionStabilityV1] = Field(
+        default_factory=list
+    )
+
+
+class TemporalPromptCalibrationMetricsSliceV1(_TransportModel):
+    """Per-prompt-lane rollup across cohorts."""
+
+    prompt_lane: Literal["baseline", "candidate"]
+    prompt_version: str
+    prompt_sha256: str
+    case_ids: list[str] = Field(default_factory=list)
+    pass_count: int = 0
+    partial_count: int = 0
+    fail_count: int = 0
+    blocked_count: int = 0
+    cohort_aggregates: list[CalibrationCohortAggregateV1] = Field(default_factory=list)
+
+
+class TemporalPromptCalibrationAggregateV1(_TransportModel):
+    """Cross-case prompt calibration aggregate for TL01C."""
+
+    schema_: Literal["dmb_temporal_prompt_calibration_v1"] = Field(
+        default=TEMPORAL_PROMPT_CALIBRATION_SCHEMA,
+        alias="schema",
+    )
+    calibration_id: str
+    repository_sha: str
+    holdout_seal_sha256: str
+    candidate_prompt_sha256: str
+    baseline_prompt_sha256: str
+    model_id: str
+    repetitions: int
+    slices: list[TemporalPromptCalibrationMetricsSliceV1] = Field(default_factory=list)
+    decision: CalibrationDecision = "ITERATE_PROMPT"
+    diagnostics: list[str] = Field(default_factory=list)
+
+
 __all__ = [
+    "CalibrationAssertionStabilityV1",
+    "CalibrationCohortAggregateV1",
+    "CalibrationDecision",
+    "CalibrationMetricDistributionV1",
     "TEMPORAL_MODEL_ANNOTATION_BATCH_SCHEMA",
+    "TEMPORAL_PROMPT_CALIBRATION_SCHEMA",
     "TEMPORAL_SHADOW_COMPARISON_SCHEMA",
     "TEMPORAL_SHADOW_EXTRACTION_CASE_SCHEMA",
     "TEMPORAL_SHADOW_EXTRACTION_RUN_SCHEMA",
@@ -296,6 +382,8 @@ __all__ = [
     "TemporalModelAnnotationBatchTransportV1",
     "TemporalModelAnnotationTransportV1",
     "TemporalPointTransportV1",
+    "TemporalPromptCalibrationAggregateV1",
+    "TemporalPromptCalibrationMetricsSliceV1",
     "ValidTimeTransportV1",
     "temporal_model_annotation_batch_json_schema",
     "temporal_model_annotation_batch_text_format",

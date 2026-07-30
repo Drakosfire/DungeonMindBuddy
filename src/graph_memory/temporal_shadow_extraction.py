@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -67,6 +67,10 @@ from graph_memory.temporal_shadow_extraction_schema import (
 )
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+TL01B_PACKET_VERSION = "tl01b-packet-v1"
+TL01C_PACKET_VERSION = "tl01c-packet-v1"
+_SUPPORTED_PACKET_VERSIONS = frozenset({TL01B_PACKET_VERSION, TL01C_PACKET_VERSION})
 
 
 class TemporalShadowExtractionError(Exception):
@@ -505,18 +509,95 @@ def load_temporal_shadow_extraction_case(
     return case
 
 
-def resolve_prompt_instructions(prompt_version: str) -> tuple[str, str]:
-    """Return (instructions, executed_prompt_version) or fail closed."""
-    if prompt_version != TEMPORAL_SHADOW_PROMPT_VERSION:
+def _derive_packet_source_context(
+    assertion: GraphContributionAssertion,
+) -> dict[str, Any]:
+    """Build TL01C source_context from TL01 derive_assertion_source_time only."""
+    try:
+        source_time, derivation, diagnostics = derive_assertion_source_time(assertion)
+    except TemporalShadowBuildError as exc:
+        code = exc.code
+        if code in {"source_time_conflict", "multiple_source_sessions"}:
+            raise TemporalShadowExtractionError(
+                str(exc),
+                code=code,
+                affected_assertion_id=exc.affected_assertion_id or assertion.assertion_id,
+                diagnostics=list(exc.diagnostics),
+            ) from exc
+        raise TemporalShadowExtractionError(
+            str(exc),
+            code="unsafe_source_time_derivation",
+            affected_assertion_id=exc.affected_assertion_id or assertion.assertion_id,
+            diagnostics=list(exc.diagnostics),
+        ) from exc
+
+    if derivation == "skipped":
+        raise TemporalShadowExtractionError(
+            "Source-time derivation skipped; cannot supply source_context",
+            code="unsafe_source_time_derivation",
+            affected_assertion_id=assertion.assertion_id,
+            diagnostics=list(diagnostics),
+        )
+
+    source_time_payload: dict[str, Any] | None
+    if derivation == "none" or source_time is None:
+        source_time_payload = None
+    else:
+        source_time_payload = source_time.model_dump(by_alias=True)
+
+    return {
+        "source_time": source_time_payload,
+        "derivation": derivation,
+        "semantic_authority": "provenance_only",
+    }
+
+
+@dataclass(frozen=True)
+class TemporalPromptSpec:
+    version: str
+    instructions: str
+    packet_version: str
+    render_user_content: Callable[..., str]
+
+
+def resolve_prompt_spec(prompt_version: str) -> TemporalPromptSpec:
+    spec = TEMPORAL_PROMPT_SPECS.get(prompt_version)
+    if spec is None:
         raise TemporalShadowExtractionError(
             f"Unsupported prompt_version: {prompt_version!r}",
             code="unsupported_prompt_version",
             diagnostics=[
-                f"supported={TEMPORAL_SHADOW_PROMPT_VERSION!r}",
+                f"supported={sorted(TEMPORAL_PROMPT_SPECS)!r}",
                 f"declared={prompt_version!r}",
             ],
         )
-    return TEMPORAL_SHADOW_SYSTEM_INSTRUCTIONS, TEMPORAL_SHADOW_PROMPT_VERSION
+    return spec
+
+
+def resolve_prompt_instructions(prompt_version: str) -> tuple[str, str]:
+    """Return (instructions, executed_prompt_version) or fail closed."""
+    spec = resolve_prompt_spec(prompt_version)
+    return spec.instructions, spec.version
+
+
+def compute_prompt_sha256(prompt_version: str) -> str:
+    spec = resolve_prompt_spec(prompt_version)
+    payload = {
+        "instructions": spec.instructions,
+        "packet_version": spec.packet_version,
+        "version": spec.version,
+    }
+    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def baseline_prompt_fingerprint() -> dict[str, str]:
+    return {
+        "prompt_version": TEMPORAL_SHADOW_PROMPT_VERSION,
+        "instructions_sha256": hashlib.sha256(
+            TL01B_BASELINE_INSTRUCTIONS.encode("utf-8")
+        ).hexdigest(),
+        "packet_version": TL01B_PACKET_VERSION,
+    }
 
 
 def load_bound_gold_overlay(
@@ -619,7 +700,15 @@ def build_assertion_evidence_packets(
     case: TemporalShadowExtractionCaseV1,
     *,
     repo_root: Path,
+    packet_version: str = TL01B_PACKET_VERSION,
 ) -> dict[str, dict[str, Any]]:
+    if packet_version not in _SUPPORTED_PACKET_VERSIONS:
+        raise TemporalShadowExtractionError(
+            f"Unsupported packet_version: {packet_version!r}",
+            code="unsupported_packet_version",
+            diagnostics=[f"supported={sorted(_SUPPORTED_PACKET_VERSIONS)!r}"],
+        )
+    include_source_context = packet_version == TL01C_PACKET_VERSION
     base_by_id = {a.assertion_id: a for a in contribution.candidate_assertions}
     registry_by_evidence = {e.evidence_ref_id: e for e in case.evidence_registry}
     text_artifacts = _load_text_artifacts(case, repo_root=repo_root)
@@ -686,7 +775,7 @@ def build_assertion_evidence_packets(
                 }
             )
 
-        packets[assertion_id] = {
+        packet: dict[str, Any] = {
             "base_assertion_id": assertion_id,
             "assertion_kind": assertion.assertion_kind,
             "subject_node_id": assertion.subject_node_id,
@@ -698,10 +787,13 @@ def build_assertion_evidence_packets(
             "temporal_scope": assertion.temporal_scope,
             "evidence_snippets": snippets,
         }
+        if include_source_context:
+            packet["source_context"] = _derive_packet_source_context(assertion)
+        packets[assertion_id] = packet
     return packets
 
 
-TEMPORAL_SHADOW_SYSTEM_INSTRUCTIONS = """You annotate temporal interpretation for candidate graph assertions using ONLY the supplied evidence snippets.
+TL01B_BASELINE_INSTRUCTIONS = """You annotate temporal interpretation for candidate graph assertions using ONLY the supplied evidence snippets.
 
 Rules (fail closed):
 - source_time / recap session is NOT occurrence_time. Never set occurrence_time or valid_time merely because the evidence comes from a session recap or legacy temporal_scope.session_id.
@@ -722,8 +814,72 @@ Temporal point kind-exclusive fields (all other point fields MUST be JSON null):
 - kind=unknown → optional raw_expression, campaign_id; forbid session_id, value, calendar_id, relation, anchor_ref
 """
 
+TEMPORAL_SHADOW_SYSTEM_INSTRUCTIONS = TL01B_BASELINE_INSTRUCTIONS
 
-def render_temporal_shadow_user_content(
+TL01C_SOURCE_AWARE_INSTRUCTIONS = """You annotate temporal interpretation for candidate graph assertions using ONLY the supplied evidence snippets and packet metadata.
+
+Decision sequence (apply in order for each assertion packet):
+1. Identify the assertion proposition from assertion_kind, subject_node_id, target_node_id, predicate, label, and semantic_value. Evidence events must not override the proposition type.
+2. Choose the temporal lane: occurrence_time (fiction event), valid_time (persistent state), not_applicable, ambiguous, or unresolved.
+3. Treat source_context.source_time as provenance_only. Never copy it automatically into occurrence_time or valid_time. You may reuse it only when the source episode narrates the same event/state boundary in evidence and the evidence does not establish a different fictional time.
+4. Normalize conservatively. For same-source events, use the supplied source_time object as-is when appropriate; do not reconstruct session ids from paths or filenames. Preserve relative and textual incompleteness when evidence is partial.
+5. Ground results per TL01B rules: resolved requires snippet-grounded occurrence_time and/or valid_time; evidence_ref_ids must be owned subsets; source_phrase must be a verbatim snippet substring when supplied.
+
+Rules (fail closed):
+- source_time / recap session is NOT occurrence_time. Never set occurrence_time or valid_time merely because source_context or recap session metadata exists.
+- occurrence_time is when the described fiction event happened; valid_time is when a persistent state holds.
+- Use interpretation_status=resolved only when you supply occurrence_time and/or valid_time grounded in the snippet text.
+- Use not_applicable when fiction-time does not apply to the assertion (scene framing, structural edges, observation-only scope).
+- Use ambiguous when multiple distinct fiction-time readings are plausible; include source_phrase and diagnostics.
+- Use unresolved when fiction-time may apply but cannot be grounded; include source_phrase and/or diagnostics.
+- evidence_ref_ids must be subsets of the packet's owned evidence only.
+- source_phrase must be a verbatim substring of a cited snippet (whitespace may differ).
+- Return one annotation per requested base_assertion_id, no extras, no omissions.
+
+Temporal point kind-exclusive fields (all other point fields MUST be JSON null):
+- kind=session → require session_id; optional campaign_id, raw_expression; forbid value, calendar_id, relation, anchor_ref
+- kind=campaign_date → require value; optional calendar_id, campaign_id, raw_expression; forbid session_id, relation, anchor_ref
+- kind=relative → require relation+anchor_ref OR raw_expression; optional campaign_id; forbid session_id, value, calendar_id
+- kind=textual → require raw_expression; optional campaign_id; forbid session_id, value, calendar_id, relation, anchor_ref
+- kind=unknown → optional raw_expression, campaign_id; forbid session_id, value, calendar_id, relation, anchor_ref
+
+Few-shot examples (synthetic invented campaigns only; patterns, not sealed-cohort answers):
+
+Example A — event in narrated source episode:
+assertion: Arin shattered the beacon
+source_context: session-9 (provenance_only)
+evidence: "Arin’s hammer splits the beacon in two."
+→ resolved; occurrence_time = source_context.source_time; valid_time = null
+
+Example B — persistent role begins:
+assertion: Nera serves as watch captain
+source_context: session-12 (provenance_only)
+evidence: "The council appoints Nera watch captain."
+→ resolved; occurrence_time = null; valid_time.start = source_context.source_time
+
+Example C — structural assertion despite eventive prose:
+assertion: East Road connects Vale to Tor
+evidence: "The travelers turn east and follow the road to Tor."
+→ not_applicable
+
+Example D — ambiguous name or password:
+assertion: Veyra entity mention
+evidence: "The inscription opens when they say Veyra."
+→ ambiguous
+
+Example E — explicit past time overrides source:
+source_context: session-20 (provenance_only)
+evidence: "The tower fell three winters before the expedition."
+→ relative or textual occurrence; NOT session-20
+
+Example F — re-attestation without boundary:
+assertion: Mara belongs to the Red Company
+evidence: "Mara again travels with the Red Company."
+→ not_applicable or unresolved; do not invent a valid-time start
+"""
+
+
+def render_temporal_shadow_user_content_v1(
     packets: dict[str, dict[str, Any]],
     selected_ids: list[str],
 ) -> str:
@@ -734,6 +890,39 @@ def render_temporal_shadow_user_content(
         "assertion_packets": ordered,
     }
     return json.dumps(payload, indent=2, ensure_ascii=True)
+
+
+def render_temporal_shadow_user_content_v2(
+    packets: dict[str, dict[str, Any]],
+    selected_ids: list[str],
+) -> str:
+    ordered = [packets[assertion_id] for assertion_id in selected_ids]
+    payload = {
+        "schema": TEMPORAL_MODEL_ANNOTATION_BATCH_SCHEMA,
+        "packet_version": TL01C_PACKET_VERSION,
+        "selected_assertion_ids": list(selected_ids),
+        "assertion_packets": ordered,
+    }
+    return json.dumps(payload, indent=2, ensure_ascii=True)
+
+
+render_temporal_shadow_user_content = render_temporal_shadow_user_content_v1
+
+
+TEMPORAL_PROMPT_SPECS: dict[str, TemporalPromptSpec] = {
+    "tl01b-v1": TemporalPromptSpec(
+        version="tl01b-v1",
+        instructions=TL01B_BASELINE_INSTRUCTIONS,
+        packet_version=TL01B_PACKET_VERSION,
+        render_user_content=render_temporal_shadow_user_content_v1,
+    ),
+    "tl01c-v1": TemporalPromptSpec(
+        version="tl01c-v1",
+        instructions=TL01C_SOURCE_AWARE_INSTRUCTIONS,
+        packet_version=TL01C_PACKET_VERSION,
+        render_user_content=render_temporal_shadow_user_content_v2,
+    ),
+}
 
 
 class TemporalShadowExtractionClient(Protocol):
@@ -1734,18 +1923,21 @@ def run_temporal_shadow_extraction(
     try:
         case = load_temporal_shadow_extraction_case(case_path, repo_root=root)
         contribution = _load_contribution_for_case(case, repo_root=root)
-        packets = build_assertion_evidence_packets(contribution, case, repo_root=root)
-        resolved_model = resolve_category_graph_model(model_id)
-        instructions, executed_prompt_version = resolve_prompt_instructions(
-            case.prompt_version
+        spec = resolve_prompt_spec(case.prompt_version)
+        packets = build_assertion_evidence_packets(
+            contribution,
+            case,
+            repo_root=root,
+            packet_version=spec.packet_version,
         )
+        resolved_model = resolve_category_graph_model(model_id)
+        instructions = spec.instructions
+        executed_prompt_version = spec.version
         active_client = client or OpenAITemporalShadowExtractionClient()
         case_digest = _file_sha256(Path(case_path))
         base_digest = compute_contribution_source_payload_sha256(contribution)
 
-        user_content = render_temporal_shadow_user_content(
-            packets, case.selected_assertion_ids
-        )
+        user_content = spec.render_user_content(packets, case.selected_assertion_ids)
         try:
             raw_batch, provider_meta = active_client.extract_annotations(
                 instructions=instructions,
@@ -1901,22 +2093,33 @@ __all__ = [
     "FakeTemporalShadowExtractionClient",
     "OpenAITemporalShadowExtractionClient",
     "ProviderMeta",
+    "TEMPORAL_PROMPT_SPECS",
+    "TEMPORAL_SHADOW_SYSTEM_INSTRUCTIONS",
+    "TL01B_BASELINE_INSTRUCTIONS",
+    "TL01B_PACKET_VERSION",
+    "TL01C_PACKET_VERSION",
+    "TL01C_SOURCE_AWARE_INSTRUCTIONS",
+    "TemporalPromptSpec",
     "TemporalShadowComparisonV1",
     "TemporalShadowExtractionCaseV1",
     "TemporalShadowExtractionClient",
     "TemporalShadowExtractionError",
     "TemporalShadowExtractionFailureV1",
     "TemporalShadowExtractionRunV1",
-    "TEMPORAL_SHADOW_SYSTEM_INSTRUCTIONS",
     "assemble_temporal_overlay",
+    "baseline_prompt_fingerprint",
     "build_assertion_evidence_packets",
     "compare_temporal_overlays",
+    "compute_prompt_sha256",
     "compute_temporal_annotation_id",
     "compute_temporal_shadow_run_id",
     "ground_and_convert_model_batch",
     "load_bound_gold_overlay",
     "load_temporal_shadow_extraction_case",
     "render_temporal_shadow_user_content",
+    "render_temporal_shadow_user_content_v1",
+    "render_temporal_shadow_user_content_v2",
     "resolve_prompt_instructions",
+    "resolve_prompt_spec",
     "run_temporal_shadow_extraction",
 ]

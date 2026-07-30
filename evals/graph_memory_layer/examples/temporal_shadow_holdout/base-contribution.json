@@ -1,0 +1,216 @@
+{
+  "contribution_id": "contribution:24ef41eeebcf0c8e",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01c-temporal-shadow-holdout",
+  "produced_at": "2026-07-30T00:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:e8928fdf42ed899b",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": "feature:space-rip-portal",
+      "predicate": "destroyed",
+      "label": "Karsemine destroys the portal",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-holdout:s8-portal",
+            "session_id": "session-8"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s8-portal"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:24ef41eeebcf0c8e"
+    },
+    {
+      "assertion_id": "assertion:e1107056b95677ea",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": null,
+      "predicate": "coordinates_guards",
+      "label": "Lysandra begins coordinating guards",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-holdout:s8-coord",
+            "session_id": "session-8"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s8-coord"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:24ef41eeebcf0c8e"
+    },
+    {
+      "assertion_id": "assertion:dc5df997c1f83736",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:wolf-manor",
+      "target_node_id": "loc:wolf-manor-crypt",
+      "predicate": "contains",
+      "label": "Wolf Manor contains family crypt",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-holdout:s14-crypt",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s14-crypt"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:24ef41eeebcf0c8e"
+    },
+    {
+      "assertion_id": "assertion:611986efd886c01f",
+      "assertion_kind": "node",
+      "subject_node_id": "loc:copper-and-quartz",
+      "target_node_id": null,
+      "predicate": null,
+      "label": "Party at Copper and Quartz after arena day",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-holdout:s11-inn",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s11-inn"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:24ef41eeebcf0c8e"
+    },
+    {
+      "assertion_id": "assertion:c6b660b1b92cfa6e",
+      "assertion_kind": "node",
+      "subject_node_id": "npc:sorin-holdrom",
+      "target_node_id": null,
+      "predicate": null,
+      "label": "Sorin Holdrom named in guardhouse file",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-holdout:s8-sorin",
+            "session_id": "session-8"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s8-sorin"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:24ef41eeebcf0c8e"
+    },
+    {
+      "assertion_id": "assertion:724a3007ebdf2478",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:storm-professor",
+      "target_node_id": null,
+      "predicate": "left_academy",
+      "label": "Professor left academy about 30 years ago",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-holdout:s11-professor",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s11-professor"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:24ef41eeebcf0c8e"
+    },
+    {
+      "assertion_id": "assertion:9ae29cfddddf92c9",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:karsemine",
+      "target_node_id": "creature:mother",
+      "predicate": "killed",
+      "label": "Karsemine deals final killing blow to the Mother",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01c-holdout:s18-mother",
+            "session_id": "session-18"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-holdout:s18-mother"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:24ef41eeebcf0c8e"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
