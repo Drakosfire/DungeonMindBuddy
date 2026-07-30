@@ -109,10 +109,10 @@ CLI:
 ```bash
 --holdout-seal-commit <sha>       # required for live runs
 --adversarial-seal-commit <sha>   # required for live runs
---skip-seal-verification          # --fake and unit tests only
+--skip-seal-verification          # requires --fake; rejected for real provider runs
 ```
 
-There is **no** `--holdout-seal-sha` arbitrary digest override.
+There is **no** `--holdout-seal-sha` arbitrary digest override. Aggregate records `seals_verified`; READY requires `seals_verified=true`.
 
 ### Aggregate seal fields (separated)
 
@@ -128,6 +128,7 @@ There is **no** `--holdout-seal-sha` arbitrary digest override.
 | `adversarial_base_sha256` | Adversarial V2 base contribution |
 | `adversarial_gold_sha256` | Adversarial V2 gold overlay |
 | `adversarial_seal_commit_sha` | Git seal commit |
+| `seals_verified` | True only after successful commit/blob verification |
 
 ## Repetition protocol
 
@@ -235,13 +236,14 @@ Unsafe and source-leakage are evaluated **before** the input-representation heur
 | Constant | Value |
 | --- | --- |
 | `READY_DEV_MEDIAN_EXACT_MATCHES` | 4 (of 6 development gold rows) |
-| `READY_DEV_RESOLVED_EXACT_MATCHES` | 2 (of 3 resolved gold rows) |
-| `READY_DEV_RESOLVED_EXACT_RUNS` | 2 (successful development runs) |
+| `READY_DEV_RESOLVED_EXACT_MATCHES` | 2 (per-run qualifying threshold) |
+| `READY_DEV_RESOLVED_EXACT_RUNS` | 2 (qualifying development runs with resolved exact ≥ 2) |
 | `READY_MIN_HOLDOUT_STATUS_ACCURACY` | 0.80 |
 | `READY_MIN_NOT_APPLICABLE_ACCURACY` | 1.0 |
-| Holdout resolved min | ≥ 2.0 (occurrence + valid coverage) |
+| `READY_MIN_HOLDOUT_EXACT_OCCURRENCE` | 1 (`exact_occurrence_match.max`) |
+| `READY_MIN_HOLDOUT_EXACT_VALID_TIME` | 1 (`exact_valid_time_match.max`) |
 
-Additional READY requirements: zero unsafe, zero source leakage, zero failed runs, manifest consistency OK across all candidate cohorts.
+Additional READY requirements: `seals_verified=true`; zero unsafe; zero source leakage; zero failed runs; manifest consistency OK (every run supplies case_id/model_id/prompt_version/repository_sha). Paired baseline/candidate cases must share contribution, gold, assertions, and evidence before provider execution.
 
 **Non-negotiable:** one successful repetition cannot hide unsafe repetitions.
 

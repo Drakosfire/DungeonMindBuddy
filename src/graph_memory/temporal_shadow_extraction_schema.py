@@ -327,6 +327,8 @@ class CalibrationRunRecordV1(_TransportModel):
     failure_code: str | None = None
     exact_match_count: int | None = None
     resolved_exact_match_count: int | None = None
+    exact_occurrence_match_count: int | None = None
+    exact_valid_time_match_count: int | None = None
     status_accuracy: float | None = None
     not_applicable_accuracy: float | None = None
     unsafe_over_resolution_count: int | None = None
@@ -346,6 +348,8 @@ class CalibrationCohortAggregateV1(_TransportModel):
     failure_count: int = 0
     exact_match: CalibrationMetricDistributionV1 | None = None
     resolved_exact_match: CalibrationMetricDistributionV1 | None = None
+    exact_occurrence_match: CalibrationMetricDistributionV1 | None = None
+    exact_valid_time_match: CalibrationMetricDistributionV1 | None = None
     min_status_accuracy: float = 0.0
     min_not_applicable_accuracy: float = 0.0
     total_unsafe_over_resolution: int = 0
@@ -401,6 +405,7 @@ class TemporalPromptCalibrationAggregateV1(_TransportModel):
     adversarial_base_sha256: str | None = None
     adversarial_gold_sha256: str | None = None
     adversarial_seal_commit_sha: str | None = None
+    seals_verified: bool = False
     candidate_prompt_sha256: str
     baseline_prompt_sha256: str
     model_id: str

@@ -6,13 +6,16 @@
 
 Source-aware packet V2 + frozen `tl01c-v1` still improves development resolved exact matches (baseline 0 → candidate 3) and median exact matches (1 → 4), but candidate development/holdout runs retain unsafe over-resolution and source leakage. Decision diagnostic from durable aggregate: `candidate_unsafe_over_resolution=10`.
 
+Durable aggregate (committed): `evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/live/calibration/aggregate.json` with `seals_verified=true`.
+
 PR453 corrections applied before this report refresh:
 
 1. Independent adversarial cohort **V2** (no few-shot cast/template overlap).
-2. Holdout/adversarial seal fields separated and verified against commit ancestry + fixture blobs.
-3. `aggregate.json` regenerated as report source of truth.
+2. Holdout/adversarial seal fields separated and verified against commit ancestry + fixture blobs (`seals_verified` is a READY precondition; skip-seal requires `--fake`).
+3. `aggregate.json` regenerated as report source of truth and checked in.
 4. Baseline freeze tests use hardcoded instruction + V1 packet hashes.
 5. Full TL01C handoff checked in.
+6. READY holdout lane coverage uses `exact_occurrence_match` / `exact_valid_time_match` (not `resolved_exact.min>=2`).
 
 Development improvements remain non-independent. Holdout is independent. Adversarial V2 is synthetic and independent of few-shots; not canonical corpus.
 

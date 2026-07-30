@@ -73,8 +73,8 @@ secrets.txt
 # TL01B local live-run artifacts (not committed)
 evals/graph_memory_layer/artifacts/temporal_shadow_cohort/
 
-# TL01C prompt calibration run artifacts (not committed)
-evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/
-
-# TL01C local calibration artifacts
-evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/
+# TL01C prompt calibration run artifacts (not committed), except durable aggregate
+evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/live/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/live/calibration/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/live/calibration/aggregate.json

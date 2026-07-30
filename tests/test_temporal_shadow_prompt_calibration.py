@@ -14,6 +14,7 @@ from evals.graph_memory_layer import temporal_shadow_prompt_calibration as calib
 from graph_memory.temporal_shadow_extraction_schema import (
     CalibrationCohortAggregateV1,
     CalibrationMetricDistributionV1,
+    CalibrationRunRecordV1,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -105,24 +106,89 @@ def _write_success_run(
     *,
     comparison: dict[str, Any],
     case_id: str = "test-case",
+    manifest_extra: dict[str, Any] | None = None,
 ) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "comparison.json").write_text(
         json.dumps(comparison, indent=2) + "\n",
         encoding="utf-8",
     )
+    manifest: dict[str, Any] = {
+        "schema": "dmb_temporal_shadow_extraction_run_v1",
+        "run_id": "temporal-shadow-run:test",
+        "case_id": case_id,
+        "comparison_verdict": comparison["verdict"],
+    }
+    if manifest_extra is not None:
+        manifest.update(manifest_extra)
     (run_dir / "run-manifest.json").write_text(
-        json.dumps(
-            {
-                "schema": "dmb_temporal_shadow_extraction_run_v1",
-                "run_id": "temporal-shadow-run:test",
-                "case_id": case_id,
-                "comparison_verdict": comparison["verdict"],
-            },
-            indent=2,
-        )
-        + "\n",
+        json.dumps(manifest, indent=2) + "\n",
         encoding="utf-8",
+    )
+
+
+def _dev_run_record(*, repetition: int, resolved_exact: int) -> CalibrationRunRecordV1:
+    return CalibrationRunRecordV1(
+        prompt_lane="candidate",
+        cohort="development",
+        repetition=repetition,
+        succeeded=True,
+        resolved_exact_match_count=resolved_exact,
+    )
+
+
+def _ready_development_aggregate(
+    *,
+    run_resolved_counts: list[int] | None = None,
+) -> CalibrationCohortAggregateV1:
+    resolved_counts = run_resolved_counts or [3, 3, 3]
+    run_records = [
+        _dev_run_record(repetition=index + 1, resolved_exact=count)
+        for index, count in enumerate(resolved_counts)
+    ]
+    return CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="development",
+        run_count=len(run_records),
+        success_count=len(run_records),
+        exact_match=CalibrationMetricDistributionV1(min=4.0, median=5.0, max=6.0),
+        resolved_exact_match=CalibrationMetricDistributionV1(
+            min=float(min(resolved_counts)),
+            median=float(sorted(resolved_counts)[len(resolved_counts) // 2]),
+            max=float(max(resolved_counts)),
+        ),
+        min_status_accuracy=1.0,
+        min_not_applicable_accuracy=1.0,
+        manifest_consistency_ok=True,
+        run_records=run_records,
+    )
+
+
+def _ready_holdout_aggregate(
+    *,
+    occurrence_max: float = 2.0,
+    valid_max: float = 2.0,
+) -> CalibrationCohortAggregateV1:
+    return CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="holdout",
+        run_count=3,
+        success_count=3,
+        exact_match=CalibrationMetricDistributionV1(min=7.0, median=7.0, max=7.0),
+        resolved_exact_match=CalibrationMetricDistributionV1(
+            min=2.0, median=2.0, max=2.0
+        ),
+        exact_occurrence_match=CalibrationMetricDistributionV1(
+            min=occurrence_max, median=occurrence_max, max=occurrence_max
+        ),
+        exact_valid_time_match=CalibrationMetricDistributionV1(
+            min=0.0 if valid_max == 0 else valid_max,
+            median=0.0 if valid_max == 0 else valid_max,
+            max=valid_max,
+        ),
+        min_status_accuracy=1.0,
+        min_not_applicable_accuracy=1.0,
+        manifest_consistency_ok=True,
     )
 
 
@@ -607,3 +673,132 @@ def test_run_prompt_calibration_writes_separate_lane_dirs(
     assert (
         tmp_path / "calibration" / "candidate" / "adversarial" / "run-02"
     ).is_dir()
+
+
+def test_skip_seal_verification_requires_fake(tmp_path: Path) -> None:
+    with pytest.raises(calibration.CohortSealError, match="skip_seal_verification requires fake=True"):
+        calibration.run_prompt_calibration(
+            development_case=DEVELOPMENT_CASE,
+            candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+            holdout_case=HOLDOUT_CASE,
+            candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+            adversarial_case=ADVERSARIAL_CASE,
+            output_dir=tmp_path,
+            model_id="fake-model",
+            repetitions=1,
+            repo_root=REPO_ROOT,
+            skip_seal_verification=True,
+            fake=False,
+        )
+
+
+def test_ready_requires_seals_verified() -> None:
+    development = _ready_development_aggregate()
+    holdout = _ready_holdout_aggregate()
+
+    decision_unverified, diagnostics_unverified = calibration.compute_calibration_decision(
+        candidate_aggregates=[development, holdout],
+        seals_verified=False,
+    )
+    assert decision_unverified == "ITERATE_PROMPT"
+    assert any("seals_not_verified" in note for note in diagnostics_unverified)
+
+    decision_verified, diagnostics_verified = calibration.compute_calibration_decision(
+        candidate_aggregates=[development, holdout],
+        seals_verified=True,
+    )
+    assert decision_verified == "PROMPT_READY_FOR_BROADER_SHADOW"
+    assert not any("seals_not_verified" in note for note in diagnostics_verified)
+
+
+def test_manifest_missing_identity_fields_fail_closed(tmp_path: Path) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="development",
+        repetition=1,
+    )
+    _write_success_run(
+        run_dir,
+        comparison=_comparison_payload(),
+        case_id="",
+        manifest_extra={"case_id": ""},
+    )
+    outcome = calibration.load_run_outcome(_spec("candidate", "development", 1), run_dir)
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="candidate",
+        cohort="development",
+        outcomes=[outcome],
+        expected_model_id="fake-model",
+        expected_prompt_version="tl01c-v1",
+        expected_case_id="expected-case",
+        expected_repository_sha="abc123",
+    )
+    assert not aggregate.manifest_consistency_ok
+    joined = "\n".join(aggregate.manifest_diagnostics)
+    assert "missing_case_id" in joined
+    assert "missing_model_id" in joined
+    assert "missing_prompt_version" in joined
+    assert "missing_repository_sha" in joined
+
+
+def test_paired_case_equivalence_accepts_real_dev_and_holdout_pairs() -> None:
+    calibration.validate_paired_case_equivalence(
+        baseline_case_path=DEVELOPMENT_CASE,
+        candidate_case_path=CANDIDATE_DEVELOPMENT_CASE,
+        repo_root=REPO_ROOT,
+        pair_name="development",
+    )
+    calibration.validate_paired_case_equivalence(
+        baseline_case_path=HOLDOUT_CASE,
+        candidate_case_path=CANDIDATE_HOLDOUT_CASE,
+        repo_root=REPO_ROOT,
+        pair_name="holdout",
+    )
+
+
+def test_holdout_ready_requires_both_temporal_lanes() -> None:
+    development = _ready_development_aggregate()
+    holdout_missing_valid = _ready_holdout_aggregate(occurrence_max=2.0, valid_max=0.0)
+
+    decision, diagnostics = calibration.compute_calibration_decision(
+        candidate_aggregates=[development, holdout_missing_valid],
+        seals_verified=True,
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert any(
+        "holdout_exact_valid_max=0.000" in note or "candidate_quality_insufficient" in note
+        for note in diagnostics
+    )
+
+    holdout_both_lanes = _ready_holdout_aggregate(occurrence_max=2.0, valid_max=1.0)
+    decision_ready, diagnostics_ready = calibration.compute_calibration_decision(
+        candidate_aggregates=[development, holdout_both_lanes],
+        seals_verified=True,
+    )
+    assert decision_ready == "PROMPT_READY_FOR_BROADER_SHADOW"
+    assert any("candidate_metrics_met_ready_thresholds" in note for note in diagnostics_ready)
+
+
+def test_dev_resolved_qualifying_runs_not_min_proxy() -> None:
+    development_two_qualifying = _ready_development_aggregate(
+        run_resolved_counts=[3, 1, 3],
+    )
+    holdout = _ready_holdout_aggregate()
+    decision_ok, _ = calibration.compute_calibration_decision(
+        candidate_aggregates=[development_two_qualifying, holdout],
+        seals_verified=True,
+    )
+    assert decision_ok == "PROMPT_READY_FOR_BROADER_SHADOW"
+
+    development_one_qualifying = _ready_development_aggregate(
+        run_resolved_counts=[3, 1, 1],
+    )
+    decision_fail, diagnostics_fail = calibration.compute_calibration_decision(
+        candidate_aggregates=[development_one_qualifying, holdout],
+        seals_verified=True,
+    )
+    assert decision_fail == "ITERATE_PROMPT"
+    assert any(
+        "dev_qualifying_resolved_runs=1" in note for note in diagnostics_fail
+    )

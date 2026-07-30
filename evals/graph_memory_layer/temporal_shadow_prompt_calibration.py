@@ -55,11 +55,20 @@ GROUNDING_FAILURE_CODE = "grounding_failure"
 # Handoff READY thresholds (development + holdout).
 READY_DEV_MEDIAN_EXACT_MATCHES = 4  # of 6 development gold rows
 READY_DEV_RESOLVED_EXACT_MATCHES = 2  # of 3 resolved gold rows
-READY_DEV_RESOLVED_EXACT_RUNS = 2  # at least two development runs
+READY_DEV_RESOLVED_EXACT_RUNS = 2  # at least two qualifying development runs
 READY_MIN_HOLDOUT_STATUS_ACCURACY = 0.80
 READY_MIN_NOT_APPLICABLE_ACCURACY = 1.0
+READY_MIN_HOLDOUT_EXACT_OCCURRENCE = 1
+READY_MIN_HOLDOUT_EXACT_VALID_TIME = 1
 
 INPUT_REP_MIN_WRONG_TEMPORAL_VALUE = 2
+
+REQUIRED_MANIFEST_IDENTITY_FIELDS = (
+    "case_id",
+    "model_id",
+    "prompt_version",
+    "repository_sha",
+)
 
 
 @dataclass(frozen=True)
@@ -94,6 +103,10 @@ class CohortSealRecord:
 
 class CohortSealError(ValueError):
     """Holdout/adversarial seal verification failed."""
+
+
+class PairedCaseError(ValueError):
+    """Baseline/candidate paired cases are not equivalent fixtures."""
 
 
 def _repo_root() -> Path:
@@ -243,6 +256,63 @@ def verify_cohort_seal(
     )
 
 
+def validate_paired_case_equivalence(
+    *,
+    baseline_case_path: Path,
+    candidate_case_path: Path,
+    repo_root: Path,
+    pair_name: str,
+) -> None:
+    """Require baseline/candidate pairs share contribution, gold, assertions, evidence.
+
+    Only ``prompt_version`` (and case_id / case path) may differ.
+    """
+    baseline = load_temporal_shadow_extraction_case(baseline_case_path, repo_root=repo_root)
+    candidate = load_temporal_shadow_extraction_case(
+        candidate_case_path, repo_root=repo_root
+    )
+    errors: list[str] = []
+    if baseline.base_contribution_path != candidate.base_contribution_path:
+        errors.append("base_contribution_path mismatch")
+    if baseline.base_contribution_sha256 != candidate.base_contribution_sha256:
+        errors.append("base_contribution_sha256 mismatch")
+    if baseline.gold_overlay_path != candidate.gold_overlay_path:
+        errors.append("gold_overlay_path mismatch")
+    if baseline.gold_overlay_sha256 != candidate.gold_overlay_sha256:
+        errors.append("gold_overlay_sha256 mismatch")
+    if list(baseline.selected_assertion_ids) != list(candidate.selected_assertion_ids):
+        errors.append("selected_assertion_ids mismatch")
+    if baseline.snippet_max_chars != candidate.snippet_max_chars:
+        errors.append("snippet_max_chars mismatch")
+
+    def _evidence_key(entry: Any) -> tuple[Any, ...]:
+        return (
+            entry.evidence_ref_id,
+            entry.source_artifact_id,
+            entry.source_artifact_path,
+            entry.content_sha256,
+            entry.source_ref_id,
+            entry.start_line,
+            entry.end_line,
+            entry.label,
+        )
+
+    baseline_evidence = [_evidence_key(entry) for entry in baseline.evidence_registry]
+    candidate_evidence = [_evidence_key(entry) for entry in candidate.evidence_registry]
+    if baseline_evidence != candidate_evidence:
+        errors.append("evidence_registry mismatch")
+
+    if baseline.prompt_version == candidate.prompt_version:
+        errors.append(
+            "prompt_version must differ between baseline and candidate "
+            f"(both={baseline.prompt_version!r})"
+        )
+    if errors:
+        raise PairedCaseError(
+            f"paired case equivalence failed for {pair_name}: " + "; ".join(errors)
+        )
+
+
 def _distribution(values: list[float | int]) -> CalibrationMetricDistributionV1:
     if not values:
         return CalibrationMetricDistributionV1(min=0.0, median=0.0, max=0.0)
@@ -375,20 +445,72 @@ def _validate_manifest_consistency(
         manifest = outcome.run_manifest if outcome.succeeded else None
         failure = outcome.failure_manifest
         payload = manifest or failure or {}
+        if not payload:
+            diagnostics.append(
+                f"missing_manifest repetition={outcome.spec.repetition}"
+            )
+            continue
+
         case_id = payload.get("case_id")
         model_id = payload.get("model_id")
         prompt_version = payload.get("prompt_version") or payload.get(
             "executed_prompt_version"
         )
         repository_sha = payload.get("repository_sha")
-        if isinstance(case_id, str) and case_id:
-            case_ids.add(case_id)
-        if isinstance(model_id, str) and model_id:
-            model_ids.add(model_id)
-        if isinstance(prompt_version, str) and prompt_version:
-            prompt_versions.add(prompt_version)
-        if isinstance(repository_sha, str) and repository_sha:
-            repo_shas.add(repository_sha)
+
+        identity = {
+            "case_id": case_id if isinstance(case_id, str) and case_id else None,
+            "model_id": model_id if isinstance(model_id, str) and model_id else None,
+            "prompt_version": (
+                prompt_version if isinstance(prompt_version, str) and prompt_version else None
+            ),
+            "repository_sha": (
+                repository_sha
+                if isinstance(repository_sha, str) and repository_sha
+                else None
+            ),
+        }
+        for field in REQUIRED_MANIFEST_IDENTITY_FIELDS:
+            if identity[field] is None:
+                diagnostics.append(
+                    f"missing_{field} repetition={outcome.spec.repetition}"
+                )
+
+        if identity["case_id"] is not None:
+            case_ids.add(identity["case_id"])
+        if identity["model_id"] is not None:
+            model_ids.add(identity["model_id"])
+        if identity["prompt_version"] is not None:
+            prompt_versions.add(identity["prompt_version"])
+        if identity["repository_sha"] is not None:
+            repo_shas.add(identity["repository_sha"])
+
+        if expected_case_id and identity["case_id"] is not None:
+            if identity["case_id"] != expected_case_id:
+                diagnostics.append(
+                    f"case_id_mismatch repetition={outcome.spec.repetition} "
+                    f"expected={expected_case_id} observed={identity['case_id']}"
+                )
+        if expected_model_id and identity["model_id"] is not None:
+            if identity["model_id"] != expected_model_id:
+                diagnostics.append(
+                    f"model_id_mismatch repetition={outcome.spec.repetition} "
+                    f"expected={expected_model_id} observed={identity['model_id']}"
+                )
+        if expected_prompt_version and identity["prompt_version"] is not None:
+            if identity["prompt_version"] != expected_prompt_version:
+                diagnostics.append(
+                    f"prompt_version_mismatch repetition={outcome.spec.repetition} "
+                    f"expected={expected_prompt_version} "
+                    f"observed={identity['prompt_version']}"
+                )
+        if expected_repository_sha and identity["repository_sha"] is not None:
+            if identity["repository_sha"] != expected_repository_sha:
+                diagnostics.append(
+                    f"repository_sha_mismatch repetition={outcome.spec.repetition} "
+                    f"expected={expected_repository_sha} "
+                    f"observed={identity['repository_sha']}"
+                )
 
     if len(set(repetitions)) != len(repetitions):
         diagnostics.append("duplicate_repetition_identity")
@@ -401,35 +523,57 @@ def _validate_manifest_consistency(
     if len(repo_shas) > 1:
         diagnostics.append(f"inconsistent_repository_shas={sorted(repo_shas)}")
 
-    observed_case = next(iter(case_ids), None)
-    if expected_case_id and observed_case and observed_case != expected_case_id:
+    # Fail closed when expected identity exists but no run supplied that field.
+    if expected_case_id and not case_ids:
+        diagnostics.append(f"missing_all_case_ids expected={expected_case_id}")
+    if expected_model_id and not model_ids:
+        diagnostics.append(f"missing_all_model_ids expected={expected_model_id}")
+    if expected_prompt_version and not prompt_versions:
         diagnostics.append(
-            f"case_id_mismatch expected={expected_case_id} observed={observed_case}"
+            f"missing_all_prompt_versions expected={expected_prompt_version}"
         )
-    if expected_model_id and model_ids and expected_model_id not in model_ids:
+    if expected_repository_sha and not repo_shas:
         diagnostics.append(
-            f"model_id_mismatch expected={expected_model_id} observed={sorted(model_ids)}"
-        )
-    if (
-        expected_prompt_version
-        and prompt_versions
-        and expected_prompt_version not in prompt_versions
-    ):
-        diagnostics.append(
-            "prompt_version_mismatch "
-            f"expected={expected_prompt_version} observed={sorted(prompt_versions)}"
-        )
-    if (
-        expected_repository_sha
-        and repo_shas
-        and expected_repository_sha not in repo_shas
-    ):
-        diagnostics.append(
-            "repository_sha_mismatch "
-            f"expected={expected_repository_sha} observed={sorted(repo_shas)}"
+            f"missing_all_repository_shas expected={expected_repository_sha}"
         )
 
+    observed_case = next(iter(case_ids), None)
     return (not diagnostics), diagnostics, observed_case
+
+
+def _count_exact_matches_by_lane(
+    *,
+    comparison: dict[str, Any] | None,
+    overlay: dict[str, Any] | None,
+) -> tuple[int, int]:
+    """Count exact-match rows that carry occurrence vs valid-time payloads."""
+    if comparison is None or overlay is None:
+        return 0, 0
+    rows = comparison.get("rows")
+    annotations = overlay.get("annotations")
+    if not isinstance(rows, list) or not isinstance(annotations, list):
+        return 0, 0
+    by_id = {
+        item.get("base_assertion_id"): item
+        for item in annotations
+        if isinstance(item, dict) and isinstance(item.get("base_assertion_id"), str)
+    }
+    occurrence = 0
+    valid_time = 0
+    for row in rows:
+        if not isinstance(row, dict) or row.get("classification") != "exact_match":
+            continue
+        assertion_id = row.get("base_assertion_id")
+        if not isinstance(assertion_id, str):
+            continue
+        annotation = by_id.get(assertion_id)
+        if not isinstance(annotation, dict):
+            continue
+        if annotation.get("occurrence_time") is not None:
+            occurrence += 1
+        if annotation.get("valid_time") is not None:
+            valid_time += 1
+    return occurrence, valid_time
 
 
 def aggregate_cohort_runs(
@@ -444,6 +588,8 @@ def aggregate_cohort_runs(
 ) -> CalibrationCohortAggregateV1:
     exact_values: list[int] = []
     resolved_exact_values: list[int] = []
+    occurrence_exact_values: list[int] = []
+    valid_exact_values: list[int] = []
     status_accuracies: list[float] = []
     not_applicable_accuracies: list[float] = []
 
@@ -497,6 +643,12 @@ def aggregate_cohort_runs(
             resolved_exact_values.append(
                 int(metrics.get("resolved_exact_match_count") or 0)
             )
+            occ_exact, valid_exact = _count_exact_matches_by_lane(
+                comparison=outcome.comparison,
+                overlay=outcome.overlay,
+            )
+            occurrence_exact_values.append(occ_exact)
+            valid_exact_values.append(valid_exact)
             status_accuracies.append(float(metrics.get("status_accuracy") or 0.0))
             not_applicable_accuracies.append(
                 float(metrics.get("not_applicable_accuracy") or 0.0)
@@ -574,6 +726,8 @@ def aggregate_cohort_runs(
                     resolved_exact_match_count=int(
                         metrics.get("resolved_exact_match_count") or 0
                     ),
+                    exact_occurrence_match_count=occ_exact,
+                    exact_valid_time_match_count=valid_exact,
                     status_accuracy=float(metrics.get("status_accuracy") or 0.0),
                     not_applicable_accuracy=float(
                         metrics.get("not_applicable_accuracy") or 0.0
@@ -703,6 +857,8 @@ def aggregate_cohort_runs(
         failure_count=failure_count,
         exact_match=_distribution(exact_values),
         resolved_exact_match=_distribution(resolved_exact_values),
+        exact_occurrence_match=_distribution(occurrence_exact_values),
+        exact_valid_time_match=_distribution(valid_exact_values),
         min_status_accuracy=min(status_accuracies) if status_accuracies else 0.0,
         min_not_applicable_accuracy=(
             min(not_applicable_accuracies) if not_applicable_accuracies else 0.0
@@ -734,6 +890,7 @@ def compute_calibration_decision(
     *,
     candidate_aggregates: list[CalibrationCohortAggregateV1],
     diagnostics: list[str] | None = None,
+    seals_verified: bool = False,
 ) -> tuple[CalibrationDecision, list[str]]:
     notes = list(diagnostics or [])
     candidate = [a for a in candidate_aggregates if a.prompt_lane == "candidate"]
@@ -802,22 +959,34 @@ def compute_calibration_decision(
         notes.append("candidate_manifest_inconsistency")
         return "ITERATE_PROMPT", notes
 
+    if not seals_verified:
+        notes.append("seals_not_verified")
+        return "ITERATE_PROMPT", notes
+
     dev_exact = development.exact_match
-    dev_resolved = development.resolved_exact_match
     median_exact = float(dev_exact.median) if dev_exact is not None else 0.0
-    resolved_runs_ok = (
-        development.success_count >= READY_DEV_RESOLVED_EXACT_RUNS
-        and dev_resolved is not None
-        and float(dev_resolved.min) >= READY_DEV_RESOLVED_EXACT_MATCHES
+    qualifying_resolved_runs = sum(
+        1
+        for record in development.run_records
+        if record.succeeded
+        and int(record.resolved_exact_match_count or 0)
+        >= READY_DEV_RESOLVED_EXACT_MATCHES
     )
+    resolved_runs_ok = qualifying_resolved_runs >= READY_DEV_RESOLVED_EXACT_RUNS
     min_not_applicable = min(
         (a.min_not_applicable_accuracy for a in candidate if a.success_count),
         default=0.0,
     )
     holdout_status_ok = holdout.min_status_accuracy >= READY_MIN_HOLDOUT_STATUS_ACCURACY
-    holdout_resolved = holdout.resolved_exact_match
-    holdout_has_occurrence_and_valid = (
-        holdout_resolved is not None and float(holdout_resolved.min) >= 2.0
+    holdout_occurrence = holdout.exact_occurrence_match
+    holdout_valid = holdout.exact_valid_time_match
+    holdout_has_occurrence = (
+        holdout_occurrence is not None
+        and float(holdout_occurrence.max) >= READY_MIN_HOLDOUT_EXACT_OCCURRENCE
+    )
+    holdout_has_valid = (
+        holdout_valid is not None
+        and float(holdout_valid.max) >= READY_MIN_HOLDOUT_EXACT_VALID_TIME
     )
 
     ready = (
@@ -825,7 +994,8 @@ def compute_calibration_decision(
         and resolved_runs_ok
         and min_not_applicable >= READY_MIN_NOT_APPLICABLE_ACCURACY
         and holdout_status_ok
-        and holdout_has_occurrence_and_valid
+        and holdout_has_occurrence
+        and holdout_has_valid
     )
     if ready:
         notes.append("candidate_metrics_met_ready_thresholds")
@@ -834,12 +1004,13 @@ def compute_calibration_decision(
     notes.append(
         "candidate_quality_insufficient "
         f"(dev_median_exact={median_exact:.3f}, "
-        f"dev_resolved_min="
-        f"{(float(dev_resolved.min) if dev_resolved is not None else 0.0):.3f}, "
+        f"dev_qualifying_resolved_runs={qualifying_resolved_runs}, "
         f"min_not_applicable={min_not_applicable:.3f}, "
         f"holdout_status={holdout.min_status_accuracy:.3f}, "
-        f"holdout_resolved_min="
-        f"{(float(holdout_resolved.min) if holdout_resolved is not None else 0.0):.3f})"
+        f"holdout_exact_occurrence_max="
+        f"{(float(holdout_occurrence.max) if holdout_occurrence is not None else 0.0):.3f}, "
+        f"holdout_exact_valid_max="
+        f"{(float(holdout_valid.max) if holdout_valid is not None else 0.0):.3f})"
     )
     return "ITERATE_PROMPT", notes
 
@@ -980,6 +1151,12 @@ def run_prompt_calibration(
     root = repo_root or _repo_root()
     execution_sha = _repository_sha(repo_root=root)
 
+    if skip_seal_verification and not fake:
+        raise CohortSealError(
+            "skip_seal_verification requires fake=True; real provider runs must verify seals"
+        )
+
+    seals_verified = False
     if skip_seal_verification:
         holdout_loaded = load_temporal_shadow_extraction_case(
             candidate_holdout_case, repo_root=root
@@ -1024,6 +1201,22 @@ def run_prompt_calibration(
             repo_root=root,
             execution_commit_sha=execution_sha,
         )
+        seals_verified = True
+
+    # Paired baseline/candidate fixtures must share contribution/gold/assertions/evidence
+    # before any provider call.
+    validate_paired_case_equivalence(
+        baseline_case_path=development_case,
+        candidate_case_path=candidate_development_case,
+        repo_root=root,
+        pair_name="development",
+    )
+    validate_paired_case_equivalence(
+        baseline_case_path=holdout_case,
+        candidate_case_path=candidate_holdout_case,
+        repo_root=root,
+        pair_name="holdout",
+    )
 
     run_specs: list[CalibrationRunSpec] = []
     for repetition in range(1, repetitions + 1):
@@ -1089,6 +1282,7 @@ def run_prompt_calibration(
 
     decision, diagnostics = compute_calibration_decision(
         candidate_aggregates=cohort_aggregates,
+        seals_verified=seals_verified,
     )
 
     calibration_id_payload = {
@@ -1116,6 +1310,7 @@ def run_prompt_calibration(
         adversarial_base_sha256=adversarial_seal.base_sha256,
         adversarial_gold_sha256=adversarial_seal.gold_sha256,
         adversarial_seal_commit_sha=adversarial_seal.seal_commit_sha,
+        seals_verified=seals_verified,
         candidate_prompt_sha256=compute_prompt_sha256("tl01c-v1"),
         baseline_prompt_sha256=compute_prompt_sha256(TEMPORAL_SHADOW_PROMPT_VERSION),
         model_id=model_id,
@@ -1180,7 +1375,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--skip-seal-verification",
         action="store_true",
-        help="Skip seal verification (tests / --fake only)",
+        help="Skip seal verification (requires --fake; never allowed for real provider runs)",
     )
     parser.add_argument("--fake", action="store_true")
     parser.add_argument(
@@ -1195,6 +1390,7 @@ def main(argv: list[str] | None = None) -> int:
     fake_batches = _load_fake_batches(
         Path(args.fake_batches_json) if args.fake_batches_json else None
     )
+    # --fake implies skip; --skip-seal-verification alone is rejected unless fake=True.
     skip_seal = bool(args.skip_seal_verification or args.fake)
 
     aggregate = run_prompt_calibration(

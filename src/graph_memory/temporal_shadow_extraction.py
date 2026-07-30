@@ -266,6 +266,7 @@ class TemporalShadowExtractionFailureV1(_CaseModel):
     provider_response_id: str | None = None
     affected_assertion_id: str | None = None
     foreign_evidence_attempts: int = 0
+    repository_sha: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1855,6 +1856,7 @@ def _write_provider_failure_manifest(
     executed_prompt_version: str,
     error: TemporalShadowExtractionError,
     provider_response_id: str | None = None,
+    repository_sha: str | None = None,
 ) -> TemporalShadowExtractionFailureV1:
     failure = TemporalShadowExtractionFailureV1(
         case_id=case.case_id,
@@ -1870,6 +1872,7 @@ def _write_provider_failure_manifest(
         provider_response_id=provider_response_id,
         affected_assertion_id=error.affected_assertion_id,
         foreign_evidence_attempts=error.foreign_evidence_attempts,
+        repository_sha=repository_sha,
     )
     (out / "failure-manifest.json").write_text(
         json.dumps(failure.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
@@ -1955,6 +1958,7 @@ def run_temporal_shadow_extraction(
                     executed_prompt_version=executed_prompt_version,
                     error=exc,
                     provider_response_id=exc.provider_response_id,
+                    repository_sha=_repository_sha(repo_root=root),
                 )
                 _publish_run_directory(staging, out)
                 published = True
@@ -1980,6 +1984,7 @@ def run_temporal_shadow_extraction(
                     executed_prompt_version=executed_prompt_version,
                     error=exc,
                     provider_response_id=provider_meta.response_id,
+                    repository_sha=_repository_sha(repo_root=root),
                 )
                 _publish_run_directory(staging, out)
                 published = True

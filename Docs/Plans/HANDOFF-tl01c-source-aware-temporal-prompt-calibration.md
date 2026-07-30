@@ -721,13 +721,17 @@ Implemented in `compute_calibration_decision`. Evaluate **in this order**; first
 | Constant | Value | Meaning |
 | --- | --- | --- |
 | `READY_DEV_MEDIAN_EXACT_MATCHES` | 4 | Development median exact matches ≥ 4 of 6 gold rows |
-| `READY_DEV_RESOLVED_EXACT_MATCHES` | 2 | Development min resolved exact ≥ 2 of 3 resolved gold rows |
-| `READY_DEV_RESOLVED_EXACT_RUNS` | 2 | At least 2 successful development runs |
+| `READY_DEV_RESOLVED_EXACT_MATCHES` | 2 | Per-run threshold for a qualifying development run |
+| `READY_DEV_RESOLVED_EXACT_RUNS` | 2 | At least 2 development runs with resolved exact ≥ 2 (not min-across-all) |
 | `READY_MIN_HOLDOUT_STATUS_ACCURACY` | 0.80 | Holdout min status accuracy ≥ 0.80 |
 | `READY_MIN_NOT_APPLICABLE_ACCURACY` | 1.0 | All candidate cohorts min not_applicable accuracy ≥ 1.0 |
-| (implicit) | holdout `resolved_exact_match.min >= 2.0` | Holdout covers occurrence + valid resolved rows |
+| `READY_MIN_HOLDOUT_EXACT_OCCURRENCE` | 1 | Holdout `exact_occurrence_match.max` ≥ 1 |
+| `READY_MIN_HOLDOUT_EXACT_VALID_TIME` | 1 | Holdout `exact_valid_time_match.max` ≥ 1 |
 
 Additional READY requirements (enforced by priority order before step 11):
+
+* `seals_verified=True` (skip-seal only allowed with `fake=True`; skipped seals cannot READY)
+* Zero unsafe / source leakage / grounding / failed runs / manifest inconsistency on candidate cohorts
 
 * Zero candidate unsafe over-resolution **across all cohorts and repetitions**.
 * Zero candidate source leakage false positives.
