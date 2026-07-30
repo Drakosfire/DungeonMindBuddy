@@ -1,0 +1,187 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:6e6d28f8153c2b18",
+  "base_contribution_id": "contribution:8a920a90920b1a90",
+  "base_contribution_source_payload_sha256": "78c3bb0ec6a4a7cbc4e3f5cfe26b9696ea590aebda36917ec4406c18bc0ff01a",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01d-adversarial-v3",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:c71c42fd9ec2b417",
+      "base_assertion_id": "assertion:bf5ef8e00aed4f4a",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-4",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:src-diff-occ"
+      ],
+      "source_phrase": "during Session 4",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "source session-21 differs from occurrence session-4"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:ef6cb0486be1d320",
+      "base_assertion_id": "assertion:c042ed2ad50da72c",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-7",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:src-diff-valid"
+      ],
+      "source_phrase": "in Session 7",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "source session-21 differs from valid-time start session-7"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:6929df5d71c91ef6",
+      "base_assertion_id": "assertion:117ee12e98ad447f",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-21",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:valid-end"
+      ],
+      "source_phrase": "Vell relinquishes the Saltspan keys",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "valid-time end in narrated episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:da1514ccf8f7dbd9",
+      "base_assertion_id": "assertion:6906453d55f7de4f",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:structural"
+      ],
+      "source_phrase": "Saltspan Quay contains the iron warehouse",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "structural containment amid eventive prose; no fiction-time boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:75bf77555b074992",
+      "base_assertion_id": "assertion:897ca8d636678e13",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:scene"
+      ],
+      "source_phrase": "Back at the Pale Wardens' hall",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "scene framing with obvious source session; no assertion temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:fe82d5d452679281",
+      "base_assertion_id": "assertion:d9db4178d7482c78",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:reattest"
+      ],
+      "source_phrase": "Nerys again rides with the Pale Wardens",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "re-attestation without start/end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:b4c7c5bb79a53f82",
+      "base_assertion_id": "assertion:987a228f92411b84",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:ambiguous-id"
+      ],
+      "source_phrase": "Someone named Corin Vale",
+      "extraction_confidence": "low",
+      "diagnostics": [
+        "ambiguous identity; extents must remain null"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:601463f09644fc4b",
+      "base_assertion_id": "assertion:457195f08daaade1",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": "longmont-c2",
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "many winters past",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01d-adv3:textual-hist"
+      ],
+      "source_phrase": "many winters past",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "textual historical time with no stable structured anchor"
+      ]
+    }
+  ]
+}

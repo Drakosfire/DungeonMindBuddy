@@ -1,0 +1,244 @@
+{
+  "contribution_id": "contribution:3f359a6e13e0f908",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01d-temporal-shadow-holdout-v2",
+  "produced_at": "2026-07-30T18:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:4fff984b71d26edb",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": "feature:ale-elemental",
+      "predicate": "attacked",
+      "label": "Bonogo attacks the glass-of-ale elemental",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v2:s10-ale",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s10-ale"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:3f359a6e13e0f908"
+    },
+    {
+      "assertion_id": "assertion:bfb66504a03c6d50",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:caelynn",
+      "target_node_id": "creature:red-gnat-swarm",
+      "predicate": "cast_thunderwave_on",
+      "label": "Caelynn casts Thunderwave on the red gnat swarm",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v2:s20-thunderwave",
+            "session_id": "session-20"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s20-thunderwave"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:3f359a6e13e0f908"
+    },
+    {
+      "assertion_id": "assertion:f5fbde70b96bc687",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:lysandra",
+      "target_node_id": null,
+      "predicate": "commands_quest",
+      "label": "Lysandra begins commanding the swamp investigation",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v2:s15-command",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s15-command"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:3f359a6e13e0f908"
+    },
+    {
+      "assertion_id": "assertion:5b0ac288735e0372",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:mirathorn",
+      "target_node_id": "feature:city-walls",
+      "predicate": "bounded_by",
+      "label": "Mirathorn is bounded by ten-foot-thick walls",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v2:s15-walls",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s15-walls"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:3f359a6e13e0f908"
+    },
+    {
+      "assertion_id": "assertion:6108ee549096a48a",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": "loc:mossford-inn",
+      "predicate": "present_at",
+      "label": "Bonogo is present at the Mossford Inn",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v2:s19-inn",
+            "session_id": "session-19"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s19-inn"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:3f359a6e13e0f908"
+    },
+    {
+      "assertion_id": "assertion:1f8580500f4fa97c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:dark-hooded-figure",
+      "target_node_id": null,
+      "predicate": "observed_watching",
+      "label": "A dark hooded figure is observed watching from the stands",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v2:s10-hooded",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s10-hooded"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:3f359a6e13e0f908"
+    },
+    {
+      "assertion_id": "assertion:0f962497e9adf1f2",
+      "assertion_kind": "edge",
+      "subject_node_id": "feature:wandering-forest",
+      "target_node_id": "loc:mirathorn",
+      "predicate": "destroyed_parts_of",
+      "label": "Wandering forest destroyed parts of Mirathorn in the past",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v2:s15-forest-past",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s15-forest-past"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:3f359a6e13e0f908"
+    },
+    {
+      "assertion_id": "assertion:b042d6ef548a1ce0",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:thrin",
+      "target_node_id": "party:questionable-company",
+      "predicate": "thanks",
+      "label": "Thrin thanks Questionable Company again",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01d-holdout-v2:s21-thanks-again",
+            "session_id": "session-21"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01d-holdout-v2:s21-thanks-again"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:3f359a6e13e0f908"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
