@@ -17,7 +17,7 @@ _STATBLOCK_ID_PATTERN = r"^sb_[a-z0-9]+$"
 _REVISION_ID_PATTERN = r"^rev_[a-z0-9]+$"
 _DIGEST_PATTERN = r"^sha256:[0-9a-f]{64}$"
 _EXTERNAL_NODE_PREFIX = "external:dungeonmind:statblock:"
-_FORBIDDEN_MECHANICS_KEYS = frozenset(
+FORBIDDEN_MECHANICS_KEYS = frozenset(
     {
         "definition",
         "rules_elements",
@@ -49,27 +49,25 @@ class ExternalResourceV1(_StrictModel):
     schema_: Literal["dmb_external_resource_v1"] = Field(
         validation_alias="schema",
         serialization_alias="schema",
-        default=EXTERNAL_RESOURCE_SCHEMA,
     )
-    provider: Literal["dungeonmind"] = PROVIDER
-    resource_type: Literal["statblock"] = "statblock"
+    provider: Literal["dungeonmind"]
+    resource_type: Literal["statblock"]
     resource_id: str = Field(pattern=_STATBLOCK_ID_PATTERN)
-    contract: Literal["dungeonmind.dungeonbuddy-statblocks"] = CONTRACT
-    contract_version: Literal["1.0.0"] = CONTRACT_VERSION
+    contract: Literal["dungeonmind.dungeonbuddy-statblocks"]
+    contract_version: Literal["1.0.0"]
 
 
 class ThreatStatblockBindingV1(_StrictModel):
     schema_: Literal["dmb_threat_statblock_binding_v1"] = Field(
         validation_alias="schema",
         serialization_alias="schema",
-        default=THREAT_STATBLOCK_BINDING_SCHEMA,
     )
     binding_id: str
-    provider: Literal["dungeonmind"] = PROVIDER
+    provider: Literal["dungeonmind"]
     statblock_id: str = Field(pattern=_STATBLOCK_ID_PATTERN)
     revision_id: str = Field(pattern=_REVISION_ID_PATTERN)
-    contract: Literal["dungeonmind.dungeonbuddy-statblocks"] = CONTRACT
-    contract_version: Literal["1.0.0"] = CONTRACT_VERSION
+    contract: Literal["dungeonmind.dungeonbuddy-statblocks"]
+    contract_version: Literal["1.0.0"]
     definition_digest: str = Field(pattern=_DIGEST_PATTERN)
     role: Literal["primary", "alternate", "phase", "encounter_variant", "template"]
     phase_key: str | None = None
@@ -85,7 +83,16 @@ class ThreatStatblockBindingV1(_StrictModel):
 
 
 def external_statblock_node_id(statblock_id: str) -> str:
-    ExternalResourceV1(resource_id=statblock_id)
+    ExternalResourceV1.model_validate(
+        {
+            "schema": EXTERNAL_RESOURCE_SCHEMA,
+            "provider": PROVIDER,
+            "resource_type": "statblock",
+            "resource_id": statblock_id,
+            "contract": CONTRACT,
+            "contract_version": CONTRACT_VERSION,
+        }
+    )
     return f"{_EXTERNAL_NODE_PREFIX}{statblock_id}"
 
 
@@ -124,10 +131,27 @@ def edge_id_from_binding_id(binding_id: str) -> str:
     return f"edge:{binding_id}"
 
 
-def _reject_mechanics_keys(value: Mapping[str, Any], *, context: str) -> None:
-    forbidden = sorted(_FORBIDDEN_MECHANICS_KEYS.intersection(value))
+def reject_mechanics_keys(value: Mapping[str, Any], *, context: str) -> None:
+    forbidden: set[str] = set()
+
+    def collect(candidate: Any) -> None:
+        if isinstance(candidate, Mapping):
+            forbidden.update(FORBIDDEN_MECHANICS_KEYS.intersection(candidate))
+            for nested in candidate.values():
+                collect(nested)
+        elif isinstance(candidate, list):
+            for nested in candidate:
+                collect(nested)
+
+    collect(value)
     if forbidden:
-        raise ValueError(f"{context} must not contain mechanics fields: {forbidden}")
+        raise ValueError(
+            f"{context} must not contain mechanics fields: {sorted(forbidden)}"
+        )
+
+
+def _reject_mechanics_keys(value: Mapping[str, Any], *, context: str) -> None:
+    reject_mechanics_keys(value, context=context)
 
 
 def _reject_unsupported_value_fields(

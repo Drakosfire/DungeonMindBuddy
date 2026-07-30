@@ -868,13 +868,14 @@ def _apply_edge_assertion(
     value = dict(assertion.value)
     source_id = assertion.subject_node_id or str(value.get("source_node_id") or "")
     target_id = assertion.target_node_id or str(value.get("target_node_id") or "")
-    predicate = assertion.predicate or str(value.get("predicate") or "related_to")
+    effective_predicate = assertion.predicate or value.get("predicate")
+    predicate = str(effective_predicate or "related_to")
     if not source_id or not target_id:
         raise ValueError(f"edge assertion {assertion.assertion_id} missing endpoints")
     threat_statblock_binding = parse_threat_statblock_binding_assertion(
-        subject_node_id=assertion.subject_node_id,
-        target_node_id=assertion.target_node_id,
-        predicate=assertion.predicate,
+        subject_node_id=source_id,
+        target_node_id=target_id,
+        predicate=str(effective_predicate) if effective_predicate else None,
         value=value,
     )
     if source_id not in store.nodes or target_id not in store.nodes:

@@ -21,8 +21,10 @@ from graph_memory.union_supergraph.redirects import (
 from graph_memory.union_supergraph.statblock_binding import (
     ExternalResourceV1,
     ThreatStatblockBindingV1,
+    compute_binding_id,
     edge_id_from_binding_id,
     external_statblock_node_id,
+    reject_mechanics_keys,
 )
 
 REQUIRED_MAPS = (
@@ -95,6 +97,13 @@ def _structural_report(fixture: dict[str, Any]) -> dict[str, Any]:
         ),
         "focus_session_ids": focus_session_ids,
     }
+
+
+def _reject_mechanics_fields(errors: list[str], payload: dict[str, Any], *, context: str) -> None:
+    try:
+        reject_mechanics_keys(payload, context=context)
+    except ValueError as exc:
+        errors.append(str(exc))
 
 
 def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str, Any]:
@@ -188,6 +197,20 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                 f"node {node_id} evidence_ref_id {ref} does not resolve",
             )
         external_resource = node.get("external_resource")
+        is_external_statblock_marker = (
+            node.get("kind") == "external_resource" or node.get("role") == "statblock"
+        )
+        if is_external_statblock_marker:
+            _require(
+                external_resource is not None,
+                errors,
+                f"node {node_id} external_resource kind/role requires external_resource payload",
+            )
+            _reject_mechanics_fields(
+                errors,
+                node,
+                context=f"node {node_id} external resource",
+            )
         if external_resource is not None:
             try:
                 resource = ExternalResourceV1.model_validate(external_resource)
@@ -204,6 +227,11 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                     and node.get("role") == "statblock",
                     errors,
                     f"node {node_id} external_resource requires kind/role contract",
+                )
+                _reject_mechanics_fields(
+                    errors,
+                    external_resource,
+                    context=f"node {node_id} external_resource payload",
                 )
 
     for edge_id, edge in edges.items():
@@ -254,20 +282,69 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                 f"edge {edge_id} evidence_ref_id {ref} does not resolve",
             )
         raw_binding = edge.get("threat_statblock_binding")
+        predicate = edge.get("predicate")
+        direction = edge.get("direction")
+        is_statblock_binding_edge = predicate == "uses_statblock" or raw_binding is not None
+        if is_statblock_binding_edge:
+            _require(
+                raw_binding is not None,
+                errors,
+                f"edge {edge_id} recognized statblock binding requires typed "
+                "threat_statblock_binding",
+            )
+            if predicate == "uses_statblock":
+                _require(
+                    direction == "outbound",
+                    errors,
+                    f"edge {edge_id} uses_statblock requires outbound direction",
+                )
+            source_node = nodes.get(edge.get("source_node_id"))
+            _require(
+                isinstance(source_node, dict) and source_node.get("kind") == "threat",
+                errors,
+                f"edge {edge_id} statblock binding source must be a Threat node",
+            )
+            _reject_mechanics_fields(
+                errors,
+                edge,
+                context=f"edge {edge_id} statblock binding",
+            )
         if raw_binding is not None:
             try:
                 binding = ThreatStatblockBindingV1.model_validate(raw_binding)
             except ValidationError as exc:
                 errors.append(f"edge {edge_id} threat_statblock_binding is invalid: {exc}")
             else:
+                _reject_mechanics_fields(
+                    errors,
+                    raw_binding,
+                    context=f"edge {edge_id} threat_statblock_binding payload",
+                )
+                expected_binding_id = compute_binding_id(
+                    threat_node_id=str(edge.get("source_node_id")),
+                    provider=binding.provider,
+                    statblock_id=binding.statblock_id,
+                    revision_id=binding.revision_id,
+                    contract=binding.contract,
+                    contract_version=binding.contract_version,
+                    definition_digest=binding.definition_digest,
+                    role=binding.role,
+                    phase_key=binding.phase_key,
+                    variant_label=binding.variant_label,
+                )
+                _require(
+                    binding.binding_id == expected_binding_id,
+                    errors,
+                    f"edge {edge_id} binding_id does not match immutable semantic identity",
+                )
                 _require(
                     edge_id == edge_id_from_binding_id(binding.binding_id),
                     errors,
                     f"edge {edge_id} does not match deterministic binding_id",
                 )
                 _require(
-                    edge.get("predicate") == "uses_statblock"
-                    and edge.get("direction") == "outbound",
+                    predicate == "uses_statblock"
+                    and direction == "outbound",
                     errors,
                     f"edge {edge_id} binding requires uses_statblock outbound contract",
                 )
@@ -287,6 +364,13 @@ def validate_union_supergraph_store_payload(fixture: dict[str, Any]) -> dict[str
                     errors,
                     f"edge {edge_id} binding target lacks matching external_resource",
                 )
+                if isinstance(target, dict):
+                    _require(
+                        target.get("kind") == "external_resource"
+                        and target.get("role") == "statblock",
+                        errors,
+                        f"edge {edge_id} binding target must be external_resource/statblock",
+                    )
 
     for ref_id, item in evidence.items():
         _require(
