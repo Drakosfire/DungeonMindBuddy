@@ -192,6 +192,11 @@ type CreateFormFields = {
   terrainNotes: string;
   /** Exact World Graph revision override (e.g. rev:…). Empty → resolve bootstrap head. */
   graphRevisionId: string;
+  /**
+   * Explicit operator opt-in when bootstrap status cannot be retrieved.
+   * Confirmed missing head (successful bootstrap, null head) does not require this.
+   */
+  allowFreestandingWithoutBootstrap: boolean;
 };
 
 const DEFAULT_CREATE_FORM: CreateFormFields = {
@@ -209,6 +214,7 @@ const DEFAULT_CREATE_FORM: CreateFormFields = {
   partySize: "",
   terrainNotes: "",
   graphRevisionId: "",
+  allowFreestandingWithoutBootstrap: false,
 };
 
 type ResolvedCreateScope = {
@@ -262,7 +268,8 @@ function buildCreateThreatDraftRequest(
   if (!description) return { ok: false, message: "Provide a threat description." };
 
   // Freestanding drafts may omit graph grounding — create/generate do not write the graph.
-  const graphRevisionId = scope.graph_revision_id.trim() || null;
+  // Grounded drafts carry a concrete revision; freestanding must keep pointer lists empty.
+  const graphRevisionId = scope.graph_revision_id?.trim() || null;
 
   const name = deriveThreatNameFromDescription(description);
 
@@ -360,8 +367,8 @@ async function resolveCreateScope(
     const head =
       typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
         ? status.currentHeadRevisionId.trim()
-        : "";
-    // Missing head is fine for freestanding create/generate — stamp null provenance.
+        : null;
+    // Confirmed missing head (successful bootstrap) is a known freestanding state.
     return {
       ok: true,
       scope: {
@@ -370,15 +377,25 @@ async function resolveCreateScope(
         graph_revision_id: head,
       },
     };
-  } catch {
-    // Bootstrap status is best-effort context. Create/generate must not depend on it.
+  } catch (error) {
+    // Lookup failure ≠ "no head". Graph authority is unknown — do not silently freestand.
+    if (fields.allowFreestandingWithoutBootstrap) {
+      return {
+        ok: true,
+        scope: {
+          world_id: LIVE_CONTROL_CREATE_CONTEXT.world_id,
+          campaign_id: LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
+          graph_revision_id: null,
+        },
+      };
+    }
+    const detail = error instanceof Error ? error.message : String(error);
     return {
-      ok: true,
-      scope: {
-        world_id: LIVE_CONTROL_CREATE_CONTEXT.world_id,
-        campaign_id: LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
-        graph_revision_id: "",
-      },
+      ok: false,
+      message:
+        `Unable to retrieve World Graph bootstrap status — graph authority is unknown (${detail}). ` +
+        "Enter an exact graph revision (rev:…) under Optional & advanced, or check " +
+        '"Continue freestanding without a graph head" to create without provenance.',
     };
   }
 }
@@ -3003,6 +3020,20 @@ export function StatblockWorkbenchModule() {
                     autoComplete="off"
                     data-testid="create-threat-graph-revision"
                   />
+                </label>
+                <label className="statblock-create-field statblock-create-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={createForm.allowFreestandingWithoutBootstrap}
+                    onChange={(event) =>
+                      updateCreateField("allowFreestandingWithoutBootstrap", event.target.checked)
+                    }
+                    data-testid="create-threat-allow-freestanding"
+                  />
+                  <span className="statblock-create-field-label">
+                    Continue freestanding without a graph head (only when bootstrap status cannot be
+                    retrieved)
+                  </span>
                 </label>
               </div>
               <label className="statblock-create-field">

@@ -2586,7 +2586,50 @@ describe("StatblockWorkbenchModule", () => {
         expect(createSpy).toHaveBeenCalledTimes(1);
       });
       expect(createSpy.mock.calls[0][0].graph_context_snapshot.graph_revision_id).toBeNull();
+      expect(createSpy.mock.calls[0][0].graph_context_snapshot.selected_node_ids).toEqual([]);
+      expect(createSpy.mock.calls[0][0].graph_context_snapshot.admitted_source_anchor_ids).toEqual(
+        [],
+      );
       expect(screen.queryByText(/No authoritative World Graph head/i)).toBeNull();
+    });
+
+    it("stops when bootstrap lookup fails unless freestanding is explicitly allowed", async () => {
+      vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockRejectedValue(
+        new Error("bootstrap unreachable"),
+      );
+      const user = userEvent.setup();
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft");
+
+      render(<StatblockWorkbenchModule />);
+      await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(screen.getByTestId("create-threat-error").textContent).toMatch(
+          /graph authority is unknown/i,
+        );
+      });
+      expect(createSpy).not.toHaveBeenCalled();
+
+      await user.click(screen.getByTestId("create-threat-allow-freestanding"));
+      vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: DRAFT_ID,
+        generated_from_draft_version: 1,
+        request_id: "req_opt_in_freestanding",
+        outcome: "success",
+        candidate,
+        cache_status: "stored",
+        persistence_failures: [],
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      createSpy.mockResolvedValue(mockCreatedDraft());
+
+      await user.click(screen.getByTestId("create-and-generate-submit"));
+      await waitFor(() => {
+        expect(createSpy).toHaveBeenCalledTimes(1);
+      });
+      expect(createSpy.mock.calls[0][0].graph_context_snapshot.graph_revision_id).toBeNull();
+      expect(createSpy.mock.calls[0][0].graph_context_snapshot.selected_node_ids).toEqual([]);
     });
 
     it("uses exact Advanced graph revision override without inventing a token", async () => {

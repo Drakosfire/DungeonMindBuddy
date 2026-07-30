@@ -98,6 +98,36 @@ def test_graph_revision_id_rejects_whitespace_and_slash() -> None:
         GraphContextSnapshotV1(graph_revision_id="rev:../escape")
 
 
+def test_graph_context_snapshot_freestanding_requires_empty_pointers() -> None:
+    freestanding = GraphContextSnapshotV1(graph_revision_id=None)
+    assert freestanding.graph_revision_id is None
+    assert freestanding.selected_node_ids == []
+    assert freestanding.admitted_source_anchor_ids == []
+
+    with pytest.raises(ValidationError, match="freestanding"):
+        GraphContextSnapshotV1(
+            graph_revision_id=None,
+            selected_node_ids=["node_a"],
+        )
+    with pytest.raises(ValidationError, match="freestanding"):
+        GraphContextSnapshotV1(
+            graph_revision_id=None,
+            admitted_source_anchor_ids=["anchor_1"],
+        )
+
+
+def test_graph_context_snapshot_grounded_allows_optional_pointers() -> None:
+    grounded = GraphContextSnapshotV1(graph_revision_id="rev_graph_1")
+    assert grounded.selected_node_ids == []
+    with_pointers = GraphContextSnapshotV1(
+        graph_revision_id="rev_graph_1",
+        selected_node_ids=["node_a"],
+        admitted_source_anchor_ids=["anchor_1"],
+    )
+    assert with_pointers.selected_node_ids == ["node_a"]
+    assert with_pointers.admitted_source_anchor_ids == ["anchor_1"]
+
+
 def test_update_increments_version_once(tmp_path: Path) -> None:
     created = create_threat_draft(tmp_path, _create_request())
     updated = update_threat_draft(

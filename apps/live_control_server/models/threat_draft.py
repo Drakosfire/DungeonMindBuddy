@@ -113,6 +113,8 @@ class EncounterContextV1(StrictModel):
 
 
 class GraphContextSnapshotV1(StrictModel):
+    # Freestanding: null revision + empty pointer lists.
+    # Grounded: concrete revision, with optional node/source pointers.
     graph_revision_id: str | None = None
     selected_node_ids: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     admitted_source_anchor_ids: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
@@ -126,6 +128,16 @@ class GraphContextSnapshotV1(StrictModel):
     @classmethod
     def _pointer_ids(cls, values: list[str]) -> list[str]:
         return [_require_id(item, label="graph pointer id") for item in values]
+
+    @model_validator(mode="after")
+    def _freestanding_or_grounded(self) -> GraphContextSnapshotV1:
+        has_pointers = bool(self.selected_node_ids or self.admitted_source_anchor_ids)
+        if self.graph_revision_id is None and has_pointers:
+            raise ValueError(
+                "freestanding graph_context_snapshot requires empty "
+                "selected_node_ids and admitted_source_anchor_ids"
+            )
+        return self
 
 
 class FocusV1(StrictModel):
