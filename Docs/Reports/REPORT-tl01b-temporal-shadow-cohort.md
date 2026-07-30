@@ -1,9 +1,11 @@
 # REPORT — TL01B temporal shadow cohort
 
 **Status:** Live provider run completed (evaluator integrity corrections applied)
-**Live execution commit (manifest `repository_sha`):** _pending clean live rerun_
+**Live execution commit (manifest `repository_sha`):** `c1d9988e830908e9e549a84deeaf29b6e83240ed`
 **Implementation base (TL01 merge):** `d6ea4959c9bcc2f113ef50d912629864c1a1c04b`
 **Evaluation verdict:** `ITERATE_PROMPT` (model quality) with documented coverage stop conditions below
+
+The live-proof SHA above is copied from the generated `run-manifest.json` for this run. It is the clean repository HEAD that executed the provider call.
 
 ## Cohort matrix
 
@@ -83,79 +85,92 @@ Current state: still missing from the sealed live cohort (Session 11 relative pr
 
 ## Live run
 
-_Filled after clean-commit provider rerun._
-
 | Field | Value |
 | --- | --- |
 | Case ID | `tl01b-temporal-shadow-cohort-v1` |
 | Base contribution ID | `contribution:8408dabc602b750f` |
-| Model | _pending_ |
+| Model | `gpt-5.4-mini` |
 | Prompt version (executed) | `tl01b-v1` |
-| Provider response ID | _pending_ |
+| Provider response ID | `resp_038135877b008464006a6ab12ed34481909d1f2db3007012fe` |
 | Selected assertions | 6 |
-| Overlay ID | _pending_ |
-| Run ID | _pending_ |
-| Preview verdict | _pending_ |
-| Comparison verdict | _pending_ |
-| Evaluation verdict | _pending_ |
-| Input tokens | _pending_ |
-| Output tokens | _pending_ |
-| Elapsed ms | _pending_ |
+| Overlay ID | `temporal-overlay:a5e8c6e460348195` |
+| Run ID | `temporal-shadow-run:1ab66a01a6627b66` |
+| Preview verdict | `complete` |
+| Comparison verdict | `fail` |
+| Evaluation verdict | `ITERATE_PROMPT` |
+| Input tokens | 3525 |
+| Output tokens | 928 |
+| Elapsed ms | ~6733 |
 | Cost | not reported by client |
 
 Artifacts (local, gitignored): `evals/graph_memory_layer/artifacts/temporal_shadow_cohort/live-run/`
 
 ## Metrics (live vs gold)
 
-_Filled after clean-commit provider rerun with corrected evaluator._
+Regenerated with the corrected evaluator (source-time leakage vs derived source point; foreign evidence fail-closed; evidence-selection mismatch separate).
 
 ### Classification
 
 | Metric | Count |
 | --- | ---: |
-| Exact semantic match | _pending_ |
-| Resolved exact match | _pending_ |
-| Wrong temporal value | _pending_ |
-| Wrong temporal lane | _pending_ |
-| Unsafe over-resolution / unsupported resolved | _pending_ |
-| Status mismatch | _pending_ |
-| Safe under-resolution | _pending_ |
-| Missing / extra | _pending_ |
-| Evidence-selection mismatch | _pending_ |
+| Exact semantic match | 1 |
+| Resolved exact match | 0 |
+| Wrong temporal value | 3 |
+| Wrong temporal lane | 0 |
+| Unsafe over-resolution / unsupported resolved | 2 |
+| Status mismatch | 0 |
+| Safe under-resolution | 0 |
+| Missing / extra | 0 / 0 |
+| Evidence-selection mismatch | 0 |
+
+### Per-assertion classifications
+
+| Assertion | Gold | Predicted | Classification |
+| --- | --- | --- | --- |
+| Stafl revives Caelynn | resolved | resolved | wrong_temporal_value |
+| Lysandra assigned to lead | resolved | resolved | wrong_temporal_value |
+| Hybrid destroyed | resolved | resolved | wrong_temporal_value |
+| Party at Copper and Quartz | not_applicable | resolved | unsafe_over_resolution |
+| Road observation | not_applicable | not_applicable | exact_match |
+| Maelthor password mention | ambiguous | resolved | unsafe_over_resolution |
 
 ### Safety
 
 | Metric | Count |
 | --- | ---: |
-| Source→occurrence false positives | _pending_ |
-| Source→valid-time false positives | _pending_ |
-| Unsupported resolved annotations | _pending_ |
+| Source→occurrence false positives | 0 |
+| Source→valid-time false positives | 0 |
+| Unsupported resolved annotations | 2 |
 | Foreign evidence attempts | 0 (success precondition) |
 | Ungrounded source phrases | 0 (success precondition) |
 | Invalid temporal payloads | 0 (success precondition) |
 
-Zero live source-leakage counts must be read with the coverage stop conditions above.
+Zero live source-leakage counts must be read with the coverage stop conditions above. They are **not** evidence of model safety on unrepresented source≠occurrence or valid-time-end categories.
 
 ### Quality
 
 | Metric | Value |
 | --- | --- |
-| Status accuracy | _pending_ |
-| Exact semantic match count | _pending_ |
-| Resolved exact match count | _pending_ |
-| Ambiguous or unresolved (gold) | _pending_ |
-| Not-applicable accuracy | _pending_ |
+| Status accuracy | 0.667 (4/6) |
+| Exact semantic match count | 1 |
+| Resolved exact match count | 0 |
+| Ambiguous or unresolved (gold) | 1 |
+| Not-applicable accuracy | 0.5 (1/2) |
 
 ## Strengths
 
 - Source-leakage metrics now compare against TL01-derived assertion source time
 - Foreign evidence is fail-closed at grounding; gold evidence differences are `evidence_selection_mismatch_count`
-- Atomic overwrite and sealed run-manifest provenance retained from prior corrective commits
+- Atomic overwrite and sealed run-manifest provenance retained
 - Synthetic A/B regressions cover unavailable live adversarial categories
+- Preview verdict `complete`
 
 ## Failure modes
 
-_Filled after live rerun._
+- Three resolved rows with wrong temporal value (same status/lane, different payload)
+- Two unsupported resolved annotations (gold `not_applicable` / `ambiguous` → predicted `resolved`)
+- Model quality still insufficient for TL02
+- Live cohort still lacks source≠occurrence and valid-time-end adversarial cases
 
 ## Next decision
 
