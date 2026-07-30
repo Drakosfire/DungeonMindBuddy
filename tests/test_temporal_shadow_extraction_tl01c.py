@@ -10,13 +10,14 @@ import pytest
 
 from graph_memory.temporal_shadow_extraction import (
     FakeTemporalShadowExtractionClient,
-    TL01B_BASELINE_INSTRUCTIONS,
     TL01B_PACKET_VERSION,
     TL01C_PACKET_VERSION,
     TL01C_SOURCE_AWARE_INSTRUCTIONS,
     baseline_prompt_fingerprint,
     build_assertion_evidence_packets,
+    compute_prompt_sha256,
     load_temporal_shadow_extraction_case,
+    render_temporal_shadow_user_content_v1,
     resolve_prompt_spec,
     run_temporal_shadow_extraction,
 )
@@ -35,6 +36,22 @@ HOLDOUT_CASE = (
     REPO_ROOT
     / "evals/graph_memory_layer/examples/temporal_shadow_holdout/temporal-case.json"
 )
+ADV_V2_CASE = (
+    REPO_ROOT
+    / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/temporal-case.json"
+)
+
+# Frozen at TL01B merge — do NOT recompute from live TL01B_BASELINE_INSTRUCTIONS.
+FROZEN_TL01B_INSTRUCTIONS_SHA256 = (
+    "c036558b52b8a44e5358fb7f3062dbf9db5b7f5bf86cb7fa2d986e7fddd0ceec"
+)
+FROZEN_TL01B_PROMPT_SHA256 = (
+    "c7606bb6a97f358dc275c5681f0c819e0db84da14d07e8f19ff56b870402bf51"
+)
+# Canonical V1 rendered user packet for sealed development case (tl01b-packet-v1).
+FROZEN_TL01B_V1_PACKET_SHA256 = (
+    "9925e9fb65c124a560cd231707b174139c5911e3f2eaab5d7088b001f80f8430"
+)
 
 FORBIDDEN_SYNTHETIC_TERMS = (
     "Stafl",
@@ -43,6 +60,17 @@ FORBIDDEN_SYNTHETIC_TERMS = (
     "Maelthor",
     "Hybrid",
     "Copper and Quartz",
+)
+
+# Must not appear in adversarial V2 fixture payload files (few-shot contamination).
+FEW_SHOT_CONTAMINATION_TERMS = (
+    "Arin",
+    "Nera",
+    "Mara",
+    "Veyra",
+    "Red Company",
+    "watch captain",
+    "shattered the beacon",
 )
 
 
@@ -58,10 +86,26 @@ def _load_contribution(case_path: Path):
 
 def test_baseline_instructions_fingerprint_stable() -> None:
     fingerprint = baseline_prompt_fingerprint()
-    expected = hashlib.sha256(TL01B_BASELINE_INSTRUCTIONS.encode("utf-8")).hexdigest()
     assert fingerprint["prompt_version"] == TEMPORAL_SHADOW_PROMPT_VERSION
-    assert fingerprint["instructions_sha256"] == expected
+    assert fingerprint["instructions_sha256"] == FROZEN_TL01B_INSTRUCTIONS_SHA256
     assert fingerprint["packet_version"] == TL01B_PACKET_VERSION
+    assert compute_prompt_sha256(TEMPORAL_SHADOW_PROMPT_VERSION) == FROZEN_TL01B_PROMPT_SHA256
+
+
+def test_baseline_v1_rendered_packet_fingerprint_stable() -> None:
+    case, contribution = _load_contribution(DEV_CASE)
+    packets = build_assertion_evidence_packets(
+        contribution,
+        case,
+        repo_root=REPO_ROOT,
+        packet_version=TL01B_PACKET_VERSION,
+    )
+    rendered = render_temporal_shadow_user_content_v1(
+        packets, case.selected_assertion_ids
+    )
+    digest = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+    assert digest == FROZEN_TL01B_V1_PACKET_SHA256
+    assert "source_context" not in rendered
 
 
 def test_v1_packet_lacks_source_context_v2_includes_provenance_only() -> None:
@@ -126,6 +170,17 @@ def test_tl01c_synthetic_examples_exclude_sealed_cohort_terms() -> None:
     text = TL01C_SOURCE_AWARE_INSTRUCTIONS
     for term in FORBIDDEN_SYNTHETIC_TERMS:
         assert term not in text
+
+
+def test_adversarial_v2_excludes_few_shot_contamination() -> None:
+    root = ADV_V2_CASE.parent
+    blobs: list[str] = []
+    for path in root.rglob("*"):
+        if path.is_file() and path.suffix in {".json", ".md"} and path.name != "README.md":
+            blobs.append(path.read_text(encoding="utf-8"))
+    joined = "\n".join(blobs)
+    for term in FEW_SHOT_CONTAMINATION_TERMS:
+        assert term not in joined, f"adversarial v2 contaminated by {term!r}"
 
 
 def test_development_and_holdout_assertion_ids_do_not_overlap() -> None:

@@ -306,11 +306,41 @@ class CalibrationAssertionStabilityV1(_TransportModel):
     base_assertion_id: str
     classification_counts: dict[str, int] = Field(default_factory=dict)
     status_counts: dict[str, int] = Field(default_factory=dict)
+    occurrence_normalized_counts: dict[str, int] = Field(default_factory=dict)
+    valid_time_normalized_counts: dict[str, int] = Field(default_factory=dict)
+    failure_counts: dict[str, int] = Field(default_factory=dict)
+
+
+class CalibrationRunRecordV1(_TransportModel):
+    """Per-repetition audit row — durable enough to regenerate report slices."""
+
+    prompt_lane: Literal["baseline", "candidate"]
+    cohort: Literal["development", "holdout", "adversarial"]
+    repetition: int
+    succeeded: bool
+    case_id: str | None = None
+    model_id: str | None = None
+    prompt_version: str | None = None
+    repository_sha: str | None = None
+    run_id: str | None = None
+    provider_response_id: str | None = None
+    failure_code: str | None = None
+    exact_match_count: int | None = None
+    resolved_exact_match_count: int | None = None
+    status_accuracy: float | None = None
+    not_applicable_accuracy: float | None = None
+    unsafe_over_resolution_count: int | None = None
+    source_to_occurrence_false_positives: int | None = None
+    source_to_valid_time_false_positives: int | None = None
+    evidence_selection_mismatch_count: int | None = None
+    manifest_consistent: bool = True
+    manifest_diagnostics: list[str] = Field(default_factory=list)
 
 
 class CalibrationCohortAggregateV1(_TransportModel):
     prompt_lane: Literal["baseline", "candidate"]
     cohort: Literal["development", "holdout", "adversarial"]
+    case_id: str | None = None
     run_count: int = 0
     success_count: int = 0
     failure_count: int = 0
@@ -319,8 +349,11 @@ class CalibrationCohortAggregateV1(_TransportModel):
     min_status_accuracy: float = 0.0
     min_not_applicable_accuracy: float = 0.0
     total_unsafe_over_resolution: int = 0
+    total_source_to_occurrence_false_positives: int = 0
+    total_source_to_valid_time_false_positives: int = 0
     total_source_leakage_false_positives: int = 0
     total_evidence_selection_mismatches: int = 0
+    total_evidence_or_case_failures: int = 0
     total_provider_failures: int = 0
     total_grounding_failures: int = 0
     total_invalid_payloads: int = 0
@@ -332,6 +365,9 @@ class CalibrationCohortAggregateV1(_TransportModel):
     assertion_stability: list[CalibrationAssertionStabilityV1] = Field(
         default_factory=list
     )
+    run_records: list[CalibrationRunRecordV1] = Field(default_factory=list)
+    manifest_consistency_ok: bool = True
+    manifest_diagnostics: list[str] = Field(default_factory=list)
 
 
 class TemporalPromptCalibrationMetricsSliceV1(_TransportModel):
@@ -357,7 +393,14 @@ class TemporalPromptCalibrationAggregateV1(_TransportModel):
     )
     calibration_id: str
     repository_sha: str
-    holdout_seal_sha256: str
+    holdout_case_sha256: str
+    holdout_base_sha256: str
+    holdout_gold_sha256: str
+    holdout_seal_commit_sha: str
+    adversarial_case_sha256: str | None = None
+    adversarial_base_sha256: str | None = None
+    adversarial_gold_sha256: str | None = None
+    adversarial_seal_commit_sha: str | None = None
     candidate_prompt_sha256: str
     baseline_prompt_sha256: str
     model_id: str
@@ -372,6 +415,7 @@ __all__ = [
     "CalibrationCohortAggregateV1",
     "CalibrationDecision",
     "CalibrationMetricDistributionV1",
+    "CalibrationRunRecordV1",
     "TEMPORAL_MODEL_ANNOTATION_BATCH_SCHEMA",
     "TEMPORAL_PROMPT_CALIBRATION_SCHEMA",
     "TEMPORAL_SHADOW_COMPARISON_SCHEMA",

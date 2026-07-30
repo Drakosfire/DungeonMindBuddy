@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -17,6 +18,30 @@ from graph_memory.temporal_shadow_extraction_schema import (
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+KNOWN_HOLDOUT_SEAL_COMMIT = "2c3be373fdaf6a713c4cae9c5ab75f9ffad5bc1d"
+
+DEVELOPMENT_CASE = (
+    REPO_ROOT
+    / "evals/graph_memory_layer/examples/temporal_shadow_cohort/temporal-case.json"
+)
+CANDIDATE_DEVELOPMENT_CASE = (
+    REPO_ROOT
+    / "evals/graph_memory_layer/examples/temporal_shadow_cohort/temporal-case-tl01c.json"
+)
+HOLDOUT_CASE = (
+    REPO_ROOT
+    / "evals/graph_memory_layer/examples/temporal_shadow_holdout/temporal-case-tl01b.json"
+)
+CANDIDATE_HOLDOUT_CASE = (
+    REPO_ROOT
+    / "evals/graph_memory_layer/examples/temporal_shadow_holdout/temporal-case.json"
+)
+ADVERSARIAL_CASE = (
+    REPO_ROOT
+    / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/temporal-case.json"
+)
+
 
 def _comparison_payload(
     *,
@@ -28,6 +53,8 @@ def _comparison_payload(
     wrong_temporal_value: int = 0,
     wrong_temporal_lane: int = 0,
     status_mismatch_count: int = 0,
+    source_to_occurrence_false_positives: int = 0,
+    source_to_valid_time_false_positives: int = 0,
     total_gold: int = 6,
 ) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
@@ -64,8 +91,8 @@ def _comparison_payload(
             "unsafe_over_resolution_count": unsafe_over_resolution_count,
             "status_mismatch_count": status_mismatch_count,
             "wrong_temporal_lane_count": wrong_temporal_lane,
-            "source_to_occurrence_false_positives": 0,
-            "source_to_valid_time_false_positives": 0,
+            "source_to_occurrence_false_positives": source_to_occurrence_false_positives,
+            "source_to_valid_time_false_positives": source_to_valid_time_false_positives,
             "evidence_selection_mismatch_count": 0,
             "invalid_temporal_payloads": 0,
         },
@@ -279,14 +306,10 @@ def test_one_correct_run_cannot_hide_unsafe_repetitions() -> None:
     assert any("unsafe_over_resolution" in note for note in diagnostics)
 
 
-def test_holdout_seal_sha_and_prompt_hash_recorded_in_aggregate(
+def test_holdout_seal_fields_recorded_in_aggregate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    holdout_case = (
-        REPO_ROOT
-        / "evals/graph_memory_layer/examples/temporal_shadow_holdout/temporal-case.json"
-    )
-    holdout_seal = "abc123deadbeef"
+    holdout_seal_commit = "abc123deadbeef"
 
     def fake_repetition(spec: calibration.CalibrationRunSpec, **kwargs: Any) -> calibration.RunOutcome:
         run_dir = calibration._lane_run_dir(
@@ -308,26 +331,51 @@ def test_holdout_seal_sha_and_prompt_hash_recorded_in_aggregate(
     monkeypatch.setattr(calibration, "run_calibration_repetition", fake_repetition)
 
     aggregate = calibration.run_prompt_calibration(
-        development_case=REPO_ROOT
-        / "evals/graph_memory_layer/examples/temporal_shadow_cohort/temporal-case.json",
-        candidate_development_case=REPO_ROOT
-        / "evals/graph_memory_layer/examples/temporal_shadow_cohort/temporal-case-tl01c.json",
-        holdout_case=REPO_ROOT
-        / "evals/graph_memory_layer/examples/temporal_shadow_holdout/temporal-case-tl01b.json",
-        candidate_holdout_case=holdout_case,
-        adversarial_case=REPO_ROOT
-        / "evals/graph_memory_layer/examples/temporal_shadow_adversarial/temporal-case.json",
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
         output_dir=tmp_path,
         model_id="fake-model",
         repetitions=1,
         repo_root=REPO_ROOT,
-        holdout_seal_sha256=holdout_seal,
+        holdout_seal_commit_sha=holdout_seal_commit,
+        skip_seal_verification=True,
         fake=True,
     )
-    assert aggregate.holdout_seal_sha256 == holdout_seal
+    assert HEX64.match(aggregate.holdout_case_sha256)
+    assert HEX64.match(aggregate.holdout_base_sha256)
+    assert HEX64.match(aggregate.holdout_gold_sha256)
+    assert aggregate.holdout_seal_commit_sha == holdout_seal_commit
+    assert HEX64.match(aggregate.adversarial_case_sha256 or "")
+    assert HEX64.match(aggregate.adversarial_base_sha256 or "")
+    assert HEX64.match(aggregate.adversarial_gold_sha256 or "")
     assert len(aggregate.candidate_prompt_sha256) == 64
     assert len(aggregate.baseline_prompt_sha256) == 64
     assert (tmp_path / "calibration" / "aggregate.json").is_file()
+
+
+def test_verify_cohort_seal_rejects_unknown_commit() -> None:
+    with pytest.raises(calibration.CohortSealError, match="does not exist"):
+        calibration.verify_cohort_seal(
+            case_path=CANDIDATE_HOLDOUT_CASE,
+            seal_commit_sha="0" * 40,
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_verify_cohort_seal_accepts_known_holdout_seal() -> None:
+    record = calibration.verify_cohort_seal(
+        case_path=CANDIDATE_HOLDOUT_CASE,
+        seal_commit_sha=KNOWN_HOLDOUT_SEAL_COMMIT,
+        repo_root=REPO_ROOT,
+    )
+    assert HEX64.match(record.case_sha256)
+    assert HEX64.match(record.base_sha256)
+    assert HEX64.match(record.gold_sha256)
+    assert record.seal_commit_sha == KNOWN_HOLDOUT_SEAL_COMMIT
+    assert record.case_id == "tl01c-temporal-shadow-holdout-v1"
 
 
 def test_input_representation_blocked_when_wrong_value_dominates() -> None:
@@ -358,6 +406,51 @@ def test_input_representation_blocked_when_wrong_value_dominates() -> None:
     assert decision == "BLOCKED_BY_INPUT_REPRESENTATION"
 
 
+def test_unsafe_blocks_before_input_representation() -> None:
+    dev = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="development",
+        run_count=1,
+        success_count=1,
+        total_unsafe_over_resolution=1,
+        total_wrong_temporal_value=2,
+        exact_match=CalibrationMetricDistributionV1(min=4.0, median=4.0, max=4.0),
+        resolved_exact_match=CalibrationMetricDistributionV1(min=2.0, median=2.0, max=2.0),
+        min_status_accuracy=1.0,
+        min_not_applicable_accuracy=1.0,
+    )
+    holdout = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="holdout",
+        run_count=1,
+        success_count=1,
+        exact_match=CalibrationMetricDistributionV1(min=7.0, median=7.0, max=7.0),
+        resolved_exact_match=CalibrationMetricDistributionV1(min=4.0, median=4.0, max=4.0),
+        min_status_accuracy=1.0,
+        min_not_applicable_accuracy=1.0,
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        candidate_aggregates=[dev, holdout],
+    )
+    assert decision == "ITERATE_PROMPT"
+    assert not any("wrong_temporal_value_dominates" in note for note in diagnostics)
+
+
+def test_evidence_case_failure_is_blocked_by_evidence() -> None:
+    aggregate = CalibrationCohortAggregateV1(
+        prompt_lane="candidate",
+        cohort="development",
+        run_count=1,
+        failure_count=1,
+        total_evidence_or_case_failures=1,
+    )
+    decision, diagnostics = calibration.compute_calibration_decision(
+        candidate_aggregates=[aggregate],
+    )
+    assert decision == "BLOCKED_BY_EVIDENCE"
+    assert any("evidence_or_case_failures" in note for note in diagnostics)
+
+
 def test_provider_failure_decision() -> None:
     aggregate = CalibrationCohortAggregateV1(
         prompt_lane="candidate",
@@ -370,6 +463,113 @@ def test_provider_failure_decision() -> None:
         candidate_aggregates=[aggregate],
     )
     assert decision == "PROVIDER_FAILURE"
+
+
+def test_aggregate_splits_occurrence_and_valid_leakage(tmp_path: Path) -> None:
+    run_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="holdout",
+        repetition=1,
+    )
+    comparison = _comparison_payload(
+        source_to_occurrence_false_positives=1,
+        source_to_valid_time_false_positives=2,
+    )
+    _write_success_run(run_dir, comparison=comparison)
+    outcome = calibration.load_run_outcome(_spec("candidate", "holdout", 1), run_dir)
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="candidate",
+        cohort="holdout",
+        outcomes=[outcome],
+    )
+    assert aggregate.total_source_to_occurrence_false_positives == 1
+    assert aggregate.total_source_to_valid_time_false_positives == 2
+    assert aggregate.total_source_leakage_false_positives == 3
+
+
+def test_failed_repetition_appears_in_assertion_stability(tmp_path: Path) -> None:
+    success_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="development",
+        repetition=1,
+    )
+    failure_dir = calibration._lane_run_dir(
+        output_dir=tmp_path,
+        prompt_lane="candidate",
+        cohort="development",
+        repetition=2,
+    )
+    comparison = _comparison_payload(
+        exact_match_count=1,
+        resolved_exact_match_count=1,
+        total_gold=1,
+    )
+    comparison["rows"] = [
+        {
+            "base_assertion_id": "assertion:stability-target",
+            "classification": "exact_match",
+            "gold_interpretation_status": "resolved",
+            "predicted_interpretation_status": "resolved",
+            "diagnostics": [],
+        }
+    ]
+    _write_success_run(success_dir, comparison=comparison)
+    _write_failure_run(failure_dir, failure_code="provider_error")
+    success = calibration.load_run_outcome(_spec("candidate", "development", 1), success_dir)
+    failure = calibration.load_run_outcome(_spec("candidate", "development", 2), failure_dir)
+    aggregate = calibration.aggregate_cohort_runs(
+        prompt_lane="candidate",
+        cohort="development",
+        outcomes=[success, failure],
+    )
+    assert aggregate.failure_count == 1
+    assert aggregate.total_provider_failures == 1
+    assert aggregate.assertion_stability
+    assert any(
+        entry.classification_counts.get("run_failed", 0) > 0
+        for entry in aggregate.assertion_stability
+    )
+
+
+def test_case_ids_populated_in_metrics_slice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_repetition(spec: calibration.CalibrationRunSpec, **kwargs: Any) -> calibration.RunOutcome:
+        run_dir = calibration._lane_run_dir(
+            output_dir=kwargs["output_dir"],
+            prompt_lane=spec.prompt_lane,
+            cohort=spec.cohort,
+            repetition=spec.repetition,
+        )
+        case_id = f"{spec.prompt_lane}-{spec.cohort}"
+        _write_success_run(
+            run_dir,
+            comparison=_comparison_payload(),
+            case_id=case_id,
+        )
+        return calibration.load_run_outcome(spec, run_dir)
+
+    monkeypatch.setattr(calibration, "run_calibration_repetition", fake_repetition)
+
+    aggregate = calibration.run_prompt_calibration(
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
+        output_dir=tmp_path,
+        model_id="fake-model",
+        repetitions=1,
+        repo_root=REPO_ROOT,
+        skip_seal_verification=True,
+        fake=True,
+    )
+    candidate_slice = next(
+        slice_ for slice_ in aggregate.slices if slice_.prompt_lane == "candidate"
+    )
+    assert candidate_slice.case_ids
 
 
 @patch.object(calibration, "run_calibration_repetition")
@@ -388,16 +588,16 @@ def test_run_prompt_calibration_writes_separate_lane_dirs(
 
     mock_repetition.side_effect = side_effect
     calibration.run_prompt_calibration(
-        development_case=Path("dev.json"),
-        candidate_development_case=Path("cdev.json"),
-        holdout_case=Path("hold.json"),
-        candidate_holdout_case=Path("chold.json"),
-        adversarial_case=Path("adv.json"),
+        development_case=DEVELOPMENT_CASE,
+        candidate_development_case=CANDIDATE_DEVELOPMENT_CASE,
+        holdout_case=HOLDOUT_CASE,
+        candidate_holdout_case=CANDIDATE_HOLDOUT_CASE,
+        adversarial_case=ADVERSARIAL_CASE,
         output_dir=tmp_path,
         model_id="fake-model",
         repetitions=2,
         repo_root=REPO_ROOT,
-        holdout_seal_sha256="seal",
+        skip_seal_verification=True,
         fake=True,
     )
     assert mock_repetition.call_count == 10

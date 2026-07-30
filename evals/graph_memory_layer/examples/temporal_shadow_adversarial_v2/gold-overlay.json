@@ -1,0 +1,129 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:83915b2b1914be76",
+  "base_contribution_id": "contribution:9c0177a8af8d18a0",
+  "base_contribution_source_payload_sha256": "4bfd05e5cb4caba52876792de1b17021b8b389ab94a94b0f01960e241b55ef57",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01c-adversarial-v2",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:8d7a47e526091e94",
+      "base_assertion_id": "assertion:80ab2f97e9399d23",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-3",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:src-diff-occ"
+      ],
+      "source_phrase": "during Session 3",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "source session-18 differs from occurrence session-3"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:d29979084277f648",
+      "base_assertion_id": "assertion:9adb1fc11471c417",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-9",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:src-diff-valid"
+      ],
+      "source_phrase": "in Session 9",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "source session-18 differs from valid-time start session-9"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:d5c83e3dbd4320b2",
+      "base_assertion_id": "assertion:176650b913c1b469",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-18",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:valid-end"
+      ],
+      "source_phrase": "Pella relinquishes the harbor keys",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "valid-time end in narrated episode"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:6256bb13565cac17",
+      "base_assertion_id": "assertion:7b251c1ef7fd9b59",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:reattest"
+      ],
+      "source_phrase": "Tovin again rides with the Ash Riders",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "re-attestation without start/end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:923621faa02a64a6",
+      "base_assertion_id": "assertion:57e6edbc69c271ec",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01c-adv2:amb-rel"
+      ],
+      "source_phrase": "countless seasons ago",
+      "extraction_confidence": "low",
+      "diagnostics": [
+        "ambiguous relative history; do not invent campaign date"
+      ]
+    }
+  ]
+}
