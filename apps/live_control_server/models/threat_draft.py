@@ -42,8 +42,18 @@ def _require_id(value: str, *, label: str) -> str:
     return cleaned
 
 
-def _require_graph_revision_id(value: str) -> str:
+def _require_graph_revision_id(value: str | None) -> str | None:
+    """Accept None for freestanding drafts; otherwise require a concrete revision id.
+
+    ThreatDraft creation and candidate generation do not write to the World Graph.
+    A graph revision is provenance for later publication / grounding, not a
+    prerequisite for authoring or generation.
+    """
+    if value is None:
+        return None
     cleaned = value.strip()
+    if not cleaned:
+        return None
     if not _GRAPH_REVISION_ID_RE.fullmatch(cleaned):
         raise ValueError("invalid graph_revision_id")
     return cleaned
@@ -103,13 +113,13 @@ class EncounterContextV1(StrictModel):
 
 
 class GraphContextSnapshotV1(StrictModel):
-    graph_revision_id: str
+    graph_revision_id: str | None = None
     selected_node_ids: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
     admitted_source_anchor_ids: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
 
     @field_validator("graph_revision_id")
     @classmethod
-    def _graph_revision_id(cls, value: str) -> str:
+    def _graph_revision_id(cls, value: str | None) -> str | None:
         return _require_graph_revision_id(value)
 
     @field_validator("selected_node_ids", "admitted_source_anchor_ids")

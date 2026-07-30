@@ -193,6 +193,7 @@
             "title": "Condition"
           },
           "default": {
+            "description": "Exactly one profile in defenses.armor_classes must set true; all others false.",
             "title": "Default",
             "type": "boolean"
           },
@@ -585,9 +586,6 @@
           "kind": {
             "const": "attack",
             "default": "attack",
-            "enum": [
-              "attack"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -758,9 +756,6 @@
           "kind": {
             "const": "attack",
             "default": "attack",
-            "enum": [
-              "attack"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -869,6 +864,7 @@
         "type": "string"
       },
       "AutomationSupport": {
+        "description": "Must be 'manual' when mechanic.kind is 'human_adjudicated'.",
         "enum": [
           "full",
           "partial",
@@ -892,6 +888,7 @@
         "additionalProperties": false,
         "properties": {
           "proficiency_bonus": {
+            "description": "Must match rating on the standard 5e challenge-rating table.",
             "minimum": 0.0,
             "title": "Proficiency Bonus",
             "type": "integer"
@@ -1050,9 +1047,6 @@
           "kind": {
             "const": "composite",
             "default": "composite",
-            "enum": [
-              "composite"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -1137,9 +1131,6 @@
           "kind": {
             "const": "composite",
             "default": "composite",
-            "enum": [
-              "composite"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -1178,9 +1169,6 @@
           "kind": {
             "const": "condition",
             "default": "condition",
-            "enum": [
-              "condition"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1212,9 +1200,6 @@
           "kind": {
             "const": "condition",
             "default": "condition",
-            "enum": [
-              "condition"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1351,6 +1336,7 @@
         "additionalProperties": false,
         "properties": {
           "default": {
+            "description": "Exactly one phase must set true whenever phases are present.",
             "title": "Default",
             "type": "boolean"
           },
@@ -1422,9 +1408,6 @@
           "kind": {
             "const": "damage",
             "default": "damage",
-            "enum": [
-              "damage"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1460,9 +1443,6 @@
           "kind": {
             "const": "damage",
             "default": "damage",
-            "enum": [
-              "damage"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1629,9 +1609,6 @@
           "kind": {
             "const": "disable_elements",
             "default": "disable_elements",
-            "enum": [
-              "disable_elements"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1646,11 +1623,7 @@
         "additionalProperties": false,
         "properties": {
           "unit": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DistanceUnit"
-              }
-            ],
+            "$ref": "#/components/schemas/DistanceUnit",
             "default": "feet"
           },
           "value": {
@@ -1666,7 +1639,6 @@
         "type": "object"
       },
       "DistanceUnit": {
-        "const": "feet",
         "enum": [
           "feet"
         ],
@@ -1759,9 +1731,6 @@
           "kind": {
             "const": "enable_elements",
             "default": "enable_elements",
-            "enum": [
-              "enable_elements"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1816,9 +1785,6 @@
           "kind": {
             "const": "enter_phase",
             "default": "enter_phase",
-            "enum": [
-              "enter_phase"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -1900,6 +1866,34 @@
         "title": "ExactRevisionLocatorV1",
         "type": "object"
       },
+      "ExplainsEdge": {
+        "additionalProperties": false,
+        "description": "Descriptive-only edge: this element gives narrative context for another.",
+        "properties": {
+          "element_key": {
+            "description": "Key of the rule element being explained. Descriptive only; the engine ignores it.",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Element Key",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "element_key"
+        ],
+        "title": "ExplainsEdge",
+        "type": "object"
+      },
       "ForcedMovementEffect-Input": {
         "additionalProperties": false,
         "properties": {
@@ -1914,9 +1908,6 @@
           "kind": {
             "const": "forced_movement",
             "default": "forced_movement",
-            "enum": [
-              "forced_movement"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -1942,9 +1933,6 @@
           "kind": {
             "const": "forced_movement",
             "default": "forced_movement",
-            "enum": [
-              "forced_movement"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2033,17 +2021,11 @@
           },
           "contract": {
             "const": "dungeonmind.dungeonbuddy-statblocks",
-            "enum": [
-              "dungeonmind.dungeonbuddy-statblocks"
-            ],
             "title": "Contract",
             "type": "string"
           },
           "contract_version": {
             "const": "1.0.0",
-            "enum": [
-              "1.0.0"
-            ],
             "title": "Contract Version",
             "type": "string"
           },
@@ -2340,9 +2322,6 @@
           "kind": {
             "const": "healing",
             "default": "healing",
-            "enum": [
-              "healing"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2365,17 +2344,11 @@
           },
           "contract": {
             "const": "dungeonmind.dungeonbuddy-statblocks",
-            "enum": [
-              "dungeonmind.dungeonbuddy-statblocks"
-            ],
             "title": "Contract",
             "type": "string"
           },
           "contract_version": {
             "const": "1.0.0",
-            "enum": [
-              "1.0.0"
-            ],
             "title": "Contract Version",
             "type": "string"
           },
@@ -2405,6 +2378,7 @@
                 "type": "null"
               }
             ],
+            "description": "When set, must equal the average of the typed formula.",
             "title": "Displayed Average"
           },
           "fixed_value": {
@@ -2430,6 +2404,7 @@
             ]
           },
           "method": {
+            "description": "'formula' sets formula and leaves fixed_value null; 'fixed' sets fixed_value and leaves formula null.",
             "enum": [
               "formula",
               "fixed"
@@ -2455,9 +2430,6 @@
           "kind": {
             "const": "human_adjudicated",
             "default": "human_adjudicated",
-            "enum": [
-              "human_adjudicated"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2481,9 +2453,6 @@
           "kind": {
             "const": "human_adjudicated",
             "default": "human_adjudicated",
-            "enum": [
-              "human_adjudicated"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2571,9 +2540,6 @@
           "kind": {
             "const": "movement",
             "default": "movement",
-            "enum": [
-              "movement"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -2609,9 +2575,6 @@
           "kind": {
             "const": "movement",
             "default": "movement",
-            "enum": [
-              "movement"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -2746,9 +2709,6 @@
           "kind": {
             "const": "multiattack",
             "default": "multiattack",
-            "enum": [
-              "multiattack"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -2834,9 +2794,6 @@
           "kind": {
             "const": "passive",
             "default": "passive",
-            "enum": [
-              "passive"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2911,9 +2868,6 @@
           "kind": {
             "const": "passive",
             "default": "passive",
-            "enum": [
-              "passive"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -2993,9 +2947,6 @@
           "kind": {
             "const": "phase_transition",
             "default": "phase_transition",
-            "enum": [
-              "phase_transition"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -3078,9 +3029,6 @@
           "kind": {
             "const": "phase_transition",
             "default": "phase_transition",
-            "enum": [
-              "phase_transition"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -3092,6 +3040,7 @@
         "type": "object"
       },
       "ProficiencyDerivation": {
+        "description": "'standard' means value equals ability modifier plus proficiency bonus; 'expertise' adds proficiency twice; use 'explicit_override' for any other value.",
         "enum": [
           "standard",
           "expertise",
@@ -3196,9 +3145,6 @@
         "properties": {
           "contract": {
             "const": "dungeonmind.dungeonbuddy-statblocks",
-            "enum": [
-              "dungeonmind.dungeonbuddy-statblocks"
-            ],
             "title": "Contract",
             "type": "string"
           },
@@ -3276,9 +3222,6 @@
           "kind": {
             "const": "resource_change",
             "default": "resource_change",
-            "enum": [
-              "resource_change"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -3304,6 +3247,7 @@
             "type": "integer"
           },
           "resource_key": {
+            "description": "Must name a declared resources[].key. A pool may appear at most once per element, and combined costs must not exceed that pool's maximum.",
             "pattern": "^[a-z][a-z0-9_]*$",
             "title": "Resource Key",
             "type": "string"
@@ -3476,6 +3420,14 @@
             "title": "Costs",
             "type": "array"
           },
+          "explains": {
+            "description": "Descriptive-only edges naming elements this one gives narrative context for. Not executable: the combat engine ignores them. Most elements need none; use only for a genuine cross-reference that rules_text alone cannot lift.",
+            "items": {
+              "$ref": "#/components/schemas/ExplainsEdge"
+            },
+            "title": "Explains",
+            "type": "array"
+          },
           "key": {
             "pattern": "^[a-z][a-z0-9_]*$",
             "title": "Key",
@@ -3585,6 +3537,14 @@
               "$ref": "#/components/schemas/ResourceCost"
             },
             "title": "Costs",
+            "type": "array"
+          },
+          "explains": {
+            "description": "Descriptive-only edges naming elements this one gives narrative context for. Not executable: the combat engine ignores them. Most elements need none; use only for a genuine cross-reference that rules_text alone cannot lift.",
+            "items": {
+              "$ref": "#/components/schemas/ExplainsEdge"
+            },
+            "title": "Explains",
             "type": "array"
           },
           "key": {
@@ -3732,7 +3692,6 @@
         "type": "object"
       },
       "RulesetSystem": {
-        "const": "dnd5e",
         "enum": [
           "dnd5e"
         ],
@@ -3806,9 +3765,6 @@
           "kind": {
             "const": "save_effect",
             "default": "save_effect",
-            "enum": [
-              "save_effect"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -3954,9 +3910,6 @@
           "kind": {
             "const": "save_effect",
             "default": "save_effect",
-            "enum": [
-              "save_effect"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4150,6 +4103,7 @@
         "additionalProperties": false,
         "properties": {
           "passive_perception": {
+            "description": "Must equal 10 + the Perception skill value when proficiencies.skills contains a Perception entry.",
             "minimum": 1.0,
             "title": "Passive Perception",
             "type": "integer"
@@ -4172,6 +4126,7 @@
         "additionalProperties": false,
         "properties": {
           "passive_perception": {
+            "description": "Must equal 10 + the Perception skill value when proficiencies.skills contains a Perception entry.",
             "minimum": 1.0,
             "title": "Passive Perception",
             "type": "integer"
@@ -4456,9 +4411,6 @@
           "kind": {
             "const": "spellcasting",
             "default": "spellcasting",
-            "enum": [
-              "spellcasting"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4532,9 +4484,6 @@
           "kind": {
             "const": "spellcasting",
             "default": "spellcasting",
-            "enum": [
-              "spellcasting"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4574,9 +4523,6 @@
           "kind": {
             "const": "stat_modifier",
             "default": "stat_modifier",
-            "enum": [
-              "stat_modifier"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4613,9 +4559,6 @@
           "kind": {
             "const": "stat_modifier",
             "default": "stat_modifier",
-            "enum": [
-              "stat_modifier"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -4899,17 +4842,11 @@
           },
           "contract": {
             "const": "dungeonmind.dungeonbuddy-statblocks",
-            "enum": [
-              "dungeonmind.dungeonbuddy-statblocks"
-            ],
             "title": "Contract",
             "type": "string"
           },
           "contract_version": {
             "const": "1.0.0",
-            "enum": [
-              "1.0.0"
-            ],
             "title": "Contract Version",
             "type": "string"
           },
@@ -4991,9 +4928,6 @@
           "kind": {
             "const": "summon",
             "default": "summon",
-            "enum": [
-              "summon"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -5025,9 +4959,6 @@
           "kind": {
             "const": "summon",
             "default": "summon",
-            "enum": [
-              "summon"
-            ],
             "title": "Kind",
             "type": "string"
           }
@@ -5210,7 +5141,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Required for kind 'recharge' (ordered d6 window); must be null for every other kind."
           },
           "refresh_text": {
             "anyOf": [
@@ -5233,6 +5165,7 @@
                 "type": "null"
               }
             ],
+            "description": "Required for kind 'resource' and must name a declared resources[].key. Optional for kind 'manual'; must be null for every other kind.",
             "title": "Resource Key"
           },
           "uses": {
@@ -5245,6 +5178,7 @@
                 "type": "null"
               }
             ],
+            "description": "Required for per_turn, per_round, and per_day. For 'once' it is null or exactly 1. Must be null for at_will, recharge, resource, and spell_slots.",
             "title": "Uses"
           }
         },
@@ -5255,6 +5189,7 @@
         "type": "object"
       },
       "UsageKind": {
+        "description": "Determines which sibling fields are allowed. recharge: recharge_range required, uses and resource_key null. at_will: all three null. per_turn/per_round/per_day: uses required, others null. once: uses null or 1, others null. resource: resource_key required, uses null. spell_slots: leveled spell groups only, uses and resource_key null. manual: recharge_range null, others optional.",
         "enum": [
           "at_will",
           "recharge",
@@ -5810,6 +5745,26 @@
             },
             "description": "Source statblock or revision not found"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Idempotency conflict or revision already in progress"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
+                }
+              }
+            },
+            "description": "Completed revision points to an expired or TTL-deleted candidate"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5859,26 +5814,6 @@
               }
             },
             "description": "Provider timeout"
-          },
-          "409": {
-            "description": "Idempotency conflict or revision already in progress",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "Completed revision points to an expired or TTL-deleted candidate",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelopeV1"
-                }
-              }
-            }
           }
         },
         "summary": "Revise Candidate",

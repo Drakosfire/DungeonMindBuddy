@@ -214,7 +214,8 @@ const DEFAULT_CREATE_FORM: CreateFormFields = {
 type ResolvedCreateScope = {
   world_id: string;
   campaign_id: string;
-  graph_revision_id: string;
+  /** Null when freestanding — generation does not write to or require the World Graph. */
+  graph_revision_id: string | null;
 };
 
 /** Derive a short ThreatDraft name from pasted prose (not a full paragraph dump). */
@@ -260,14 +261,8 @@ function buildCreateThreatDraftRequest(
   const description = fields.description.trim();
   if (!description) return { ok: false, message: "Provide a threat description." };
 
-  const graphRevisionId = scope.graph_revision_id.trim();
-  if (!graphRevisionId) {
-    return {
-      ok: false,
-      message:
-        "No authoritative World Graph head — bootstrap Eldyrwild or enter an exact graph revision (rev:…) in Optional controls.",
-    };
-  }
+  // Freestanding drafts may omit graph grounding — create/generate do not write the graph.
+  const graphRevisionId = scope.graph_revision_id.trim() || null;
 
   const name = deriveThreatNameFromDescription(description);
 
@@ -366,13 +361,7 @@ async function resolveCreateScope(
       typeof status.currentHeadRevisionId === "string" && status.currentHeadRevisionId.trim()
         ? status.currentHeadRevisionId.trim()
         : "";
-    if (!head) {
-      return {
-        ok: false,
-        message:
-          "No authoritative World Graph head from bootstrap — bootstrap Eldyrwild or enter an exact graph revision (rev:…) in Optional controls.",
-      };
-    }
+    // Missing head is fine for freestanding create/generate — stamp null provenance.
     return {
       ok: true,
       scope: {
@@ -381,12 +370,15 @@ async function resolveCreateScope(
         graph_revision_id: head,
       },
     };
-  } catch (error) {
+  } catch {
+    // Bootstrap status is best-effort context. Create/generate must not depend on it.
     return {
-      ok: false,
-      message: `Could not resolve World Graph head: ${
-        error instanceof Error ? error.message : String(error)
-      }. Enter an exact graph revision (rev:…) in Optional controls, or retry.`,
+      ok: true,
+      scope: {
+        world_id: LIVE_CONTROL_CREATE_CONTEXT.world_id,
+        campaign_id: LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
+        graph_revision_id: "",
+      },
     };
   }
 }

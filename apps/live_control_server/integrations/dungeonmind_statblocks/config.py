@@ -15,7 +15,9 @@ TIMEOUT_SECONDS_ENV = "DUNGEONMIND_STATBLOCKS_TIMEOUT_SECONDS"
 INTERNAL_KEY_HEADER = "X-DungeonBuddy-Internal-Key"
 API_PREFIX = "/api/internal/dungeonbuddy/v1"
 
-DEFAULT_TIMEOUT_SECONDS = 30.0
+# gpt-5.6-luna structured generations commonly land 35–60s; 30s caused false
+# downstream_timeout while DMS still finished successfully.
+DEFAULT_TIMEOUT_SECONDS = 90.0
 MAX_TIMEOUT_SECONDS = 120.0
 _SUPPORTED_SCHEMES = frozenset({"http", "https"})
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})

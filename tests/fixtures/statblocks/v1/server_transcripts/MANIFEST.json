@@ -8,9 +8,9 @@
     "worktree_clean": true,
     "statblocks_v1_package_path": "/tmp/dms-sbw07a-clean/statblocks_v1/__init__.py",
     "openapi_path": "openapi/dungeonbuddy-statblocks-v1.json",
-    "openapi_fingerprint": "sha256:75bef3f4d3cffa30532e557fb822fe1d0cb3877a9a46d5b83ff637f3078cd748"
+    "openapi_fingerprint": "sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a"
   },
-  "buddy_vendored_openapi_fingerprint": "sha256:75bef3f4d3cffa30532e557fb822fe1d0cb3877a9a46d5b83ff637f3078cd748",
+  "buddy_vendored_openapi_fingerprint": "sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a",
   "openapi_fingerprint_match": true,
   "server_source_fixtures": [
     {
@@ -78,6 +78,7 @@
     "Capture refuses dirty worktrees and imported packages outside --server-repo.",
     "Create request definition bytes match the cited simple_bruiser source fixture.",
     "Buddy client tests must consume these recorded bodies; mocks may only replay them.",
-    "validation_failed is terminal only when details.is_persistence_ready is exactly false."
+    "validation_failed is terminal only when details.is_persistence_ready is exactly false.",
+    "Consumer OpenAPI fingerprint advanced to sha256:df46327f24180150aadd28a8fe6477ceabde40c300b64c931b27e639a762f36a for ExplainsEdge sync; create leaf fixtures remain prior capture."
   ]
 }

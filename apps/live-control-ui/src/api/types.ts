@@ -3337,7 +3337,8 @@ export interface ThreatDraftEncounterContextV1 {
 }
 
 export interface ThreatDraftGraphContextSnapshotV1 {
-  graph_revision_id: string;
+  /** Null/omitted for freestanding drafts; generation does not require a graph head. */
+  graph_revision_id: string | null;
   selected_node_ids: string[];
   admitted_source_anchor_ids: string[];
 }

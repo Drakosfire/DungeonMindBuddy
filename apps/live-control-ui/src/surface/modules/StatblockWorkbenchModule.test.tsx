@@ -2563,17 +2563,30 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", DRAFT_ID);
     });
 
-    it("blocks create when bootstrap head is missing and no override is provided", async () => {
+    it("creates freestanding when bootstrap head is missing", async () => {
       mockBootstrapHead(null);
       const user = userEvent.setup();
-      const createSpy = vi.spyOn(liveApi, "createThreatDraft");
+      const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
+      vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
+        schema: "dmb_generate_threat_draft_candidate_response_v1",
+        draft_id: DRAFT_ID,
+        generated_from_draft_version: 1,
+        request_id: "req_freestanding",
+        outcome: "success",
+        candidate,
+        cache_status: "stored",
+        persistence_failures: [],
+      });
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+
       render(<StatblockWorkbenchModule />);
       await fillRequiredCreateFields(user);
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
-        expect(screen.getByText(/No authoritative World Graph head/i)).toBeTruthy();
+        expect(createSpy).toHaveBeenCalledTimes(1);
       });
-      expect(createSpy).not.toHaveBeenCalled();
+      expect(createSpy.mock.calls[0][0].graph_context_snapshot.graph_revision_id).toBeNull();
+      expect(screen.queryByText(/No authoritative World Graph head/i)).toBeNull();
     });
 
     it("uses exact Advanced graph revision override without inventing a token", async () => {
