@@ -1,28 +1,28 @@
-# PR Tracker — Grounded Threat + Statblock Magic Moment
+# PR Tracker — Threat + Statblock Publication, Query, and Placement
 
-**Status:** ACTIVE REANCHORED TRACKER  
-**Date:** 2026-07-28  
-**Repository anchor:** `main` at `0f6f48ed6502a9a4e69b57f351ae9c795da54694`  
-**Latest completed PR:** `#439` — `SBW06c` Workbench revise UX  
-**Immediate authority:** restore the real provider and re-run `R0-A`; keep `R0-B` blocked until strict authoritative Graph V1 projection is restored  
+**Status:** ACTIVE PUBLICATION-FIRST TRACKER  
+**Date:** 2026-07-30  
+**Repository anchor:** `main` after merged PR `#454`  
+**Latest merged workstream PR:** `#454` — R0 reports, Workbench unblockers, Hermes UX  
+**Immediate authority:** rerun `R0-A` on merged `main`; obtain one exact accepted revision; then dispatch a re-anchored `SBW08` contract slice  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
-**Dogfood runbook:** [`../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md`](../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md)  
-**Re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-28.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-28.md)  
-**Current R0-A report:** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-28.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-28.md) — `BLOCKED_DEPENDENCY`
+**Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
+**R0-A evidence:** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md) — `FAIL_PRODUCT`  
+**R0-B evidence:** [`../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md`](../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md) — `IN_PROGRESS`
 
-This tracker is the sequencing authority for the Threat + Statblock magic-moment workstream. It does not override unrelated Campaign Supergraph or Hermes cleanup sequencing.
+This tracker is the sequencing authority for the Threat + Statblock workstream. The critical path is accepted mechanics → governed publication → query/hydration → projection → placement → combat. Grounded Hermes authoring is a parallel enhancement lane after the accepted-revision prerequisite is met.
 
 ## 1. Dispatch rules
 
-1. Dogfood gates are blocking dependencies, not retrospective demos.
-2. Every implementation PR proves one independently useful capability and one invariant.
-3. Stateful, idempotent, partial-completion, or recoverable workflows require a doc-only contract/transition review before code when the contract is not already frozen.
-4. No slice silently adds graph writes, mechanics persistence, document mutation, placement mutation, or combat mutation outside its mission.
-5. Exact consumers pin exact revision identity; no latest fallback.
-6. Saved mechanics, graph publication, placement, and runtime activation remain distinct states.
-7. Pre-designed SBW handoffs must be re-anchored to current paths, contracts, fixtures, and base SHA before dispatch.
-8. Every runtime slice names the dogfood gate it enables and the predecessor behavior it removes.
+1. Every implementation PR proves one independently useful capability and one invariant.
+2. Stateful, idempotent, partial-completion, or recoverable workflows require a frozen contract/transition review before code when the contract is not already accepted.
+3. No slice silently adds graph writes, mechanics persistence, document mutation, placement mutation, or combat mutation outside its mission.
+4. Exact consumers pin exact revision identity; no `latest` fallback.
+5. Saved mechanics, graph publication, projection, placement, and runtime activation remain distinct.
+6. Existing SBW handoffs must be re-anchored to current paths, contracts, fixtures, and base SHA before dispatch.
+7. Product dogfood is required at the gate enabled by the slice; a prior unrelated gate does not block a lane unless it is a real technical prerequisite.
+8. Hermes-to-draft convenience work does not block publication when one exact accepted revision already exists.
 
 Required demolition declaration:
 
@@ -40,48 +40,46 @@ Required deletion owner:
 |---|---|---|
 | `SBW01` | MERGED `#386` | Server-owned DungeonMind statblock client/readiness. |
 | `SBW02` | MERGED `#387` | Durable versioned `ThreatDraftV1`. |
-| `SBW03` | MERGED `#388` | Exact draft-version candidate generation. |
-| `SBW04` | MERGED `#397`; live-provider debt | Shared semantic renderer and candidate Workbench. |
-| `SBW05a–c` | COMPLETE `#398`, `#402`, `#404` | Complete-definition editing and validation. |
+| `SBW03` | MERGED `#388` | Exact draft-version candidate generation contract. |
+| `SBW04` | MERGED `#397` | Shared semantic renderer and candidate Workbench. |
+| `SBW05a–c` | COMPLETE `#398`, `#402`, `#404` | Dedicated editing and authoritative validation. |
 | `SBW07 contract/a–c` | COMPLETE `#405–#409` | Immutable accepted mechanics persistence. |
-| `SBW06 contract/a` | MERGED `#413`, `#417` | Revise contract and revise from edited definition. |
-| `Dogfood Gate A` | MERGED `#425` | Context-aware draft create/generate Workbench entry. Historical partial proof only: create succeeded; real-provider generate was unavailable. |
-| `SBW06b` | MERGED `#435` | Candidate-ref status and lineage persistence. |
-| `SBW06c` | MERGED `#439` | Workbench revise UX, prior proposal inspection, stable retry behavior. Real-provider dogfood was not run. |
+| `SBW06 contract/a–c` | MERGED `#413`, `#417`, `#435`, `#439` | Revise contracts, lineage, durable status, proposal UX, and retry behavior. |
+| `Dogfood Gate A` | MERGED `#425` | Context-aware Workbench create/generate entry; historical partial attempt only. |
+| PR `#454` | MERGED | R0 reports, current provider-contract sync, timeout alignment, freestanding provenance honesty, and Hermes UX unblockers. |
 
-## 3. Reboot queue
+## 3. Current evidence and prerequisite queue
 
-| ID | Type | Mission | Exit / next action |
+| ID | Status | Mission | Exit / next action |
 |---|---|---|---|
-| `R0-A` | `BLOCKED_DEPENDENCY` / DOGFOOD / CONTRACT AUDIT | Prove current real-provider create→generate→edit→validate→revise→accept→reload. | Current agent could not reach the operator runtime/provider. Start configured DMS + Live Control, re-run through the normal Workbench, and replace the blocked report with actual product evidence. No implementation slice is selected yet. |
-| `R0-B` | `IN_PROGRESS` / DOGFOOD / HERMES AUDIT | Prove broad query across admitted unioned graph/source context and produce editable grounded Threat description. | Live Hermes probes are now running and recorded in `Docs/Reports/MAGIC-MOMENT-R0-B-2026-07-30.md`. Complete exact revision/session/node/anchor capture and obtain the paste-ready Threat description before marking the gate. |
-| `SBW06d` | PRE-DESIGNED; RE-ANCHOR REQUIRED | Revise from exact accepted mechanics locator. | No latest fallback; dispatch only after R0 observations. |
-| `AOW01` | NEW; CONTRACT FIRST | Grounded authored-object context envelope. | Exact revision/nodes/source anchors survive handoff. |
-| `AOW02` | NEW | Hermes “Develop as Threat” creates/opens exact ThreatDraft. | Enables `MAGIC-D1`. |
-| `AUTHORING-LIBRARY` | DECOMPOSE | Browse/reopen/update real ThreatDrafts and accepted mechanics; local recovery as separate slice if needed. | Backend `GET /api/live/threat-drafts` list already exists; Workbench + `liveApi` ThreatDraft list/update clients and accepted-mechanics library UI do not. Record the actual R0-A reopening friction before dispatch. |
+| `R0-A` | `FAIL_PRODUCT` | Prove real-provider create→generate→edit→validate→accept→reload. | Rerun on merged `main`. If generation still fails, preserve structured provider diagnostics and fix only the owning producer/contract/presentation boundary. Exit with exact `(statblock_id, revision_id, digest)` surviving reopen. |
+| `R0-B` | `IN_PROGRESS` / PROVISIONAL PASS | Prove unioned-graph investigation and useful Threat-description authoring. | Capture final authoring trace/verdict. Does not block publication-first work. |
+| `R0-A-DIAGNOSTICS` | CONDITIONAL NARROW SLICE | Surface field/reference validation diagnostics and classify producer vs consumer ownership. | Dispatch only if the merged rerun still returns `definition_invalid` or another opaque validation failure. |
+| `ACCEPTED-REVISION-PROOF` | DOGFOOD REQUIRED | Produce one exact accepted revision through the normal Workbench. | Unlocks `SBW08`. |
 
-## 4. Graph publication queue
+## 4. Critical publication queue
 
-Existing `SBW08–SBW10` handoffs are strategic designs, not dispatch-ready implementation instructions.
+Existing `SBW08–SBW10` designs are strategic inputs and must be re-anchored before dispatch.
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
-| `SBW08` | PRE-DESIGNED / RE-ANCHOR | Typed external-resource identity and `ThreatStatblockBinding` graph contract. | Contract only; no product write. |
-| `SBW09a` | NEW SPLIT | Publication operation/state and recoverable partial completion. | Separate from match resolution and commit. |
-| `SBW09b` | NEW SPLIT | Create-new versus connect-existing Threat resolution. | Must expose candidate matches and explicit refusal. |
-| `SBW09c` | NEW SPLIT | Governed preview/confirm Threat + exact binding commit. | Existing graph governance path; stale-safe. |
-| `SBW10` | PRE-DESIGNED / RE-ANCHOR | Exact-revision Threat projection. | Binding-selection policy must be explicit. |
+| `SBW08` | NEXT CONTRACT; RE-ANCHOR | Freeze exact external-resource identity and `ThreatStatblockBinding`. | Contract only; no product graph write. Requires one accepted-revision proof, not `MAGIC-D1`. |
+| `SBW09a` | NEW SPLIT | Durable publication operation and recoverable partial state. | Expected graph revision, retry, cancellation, stale behavior. |
+| `SBW09b` | NEW SPLIT | Create-new versus connect-existing Threat resolution. | Candidate matches, explicit selection, explicit refusal, no silent merge. |
+| `SBW09c` | NEW SPLIT | Governed preview/confirm Threat + exact binding commit. | Existing graph governance path; server success plus graph failure remains recoverable. |
+| `SBW10a` | NEW EXPLICIT SLICE | Hermes query and exact mechanics hydration for published Threats. | Query by name, role, capability, relationship, and campaign context. |
+| `SBW10b` | RE-ANCHOR FROM OLD `SBW10` | Compact/full exact-revision Threat projection. | Useful game information first; explicit binding-selection behavior. |
 
-`MAGIC-D3` blocks cross-surface placement implementation.
+`MAGIC-D3` now proves publication, queryability, hydration, and projection. It blocks placement.
 
-## 5. Projection and placement queue
+## 5. Placement and shared-capability queue
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
-| `SBW11` | RE-AUDIT | Identify only the missing Plan document hydration/shared-canvas capability. | Original handoff predates current authoring hook/shared canvas foundation. |
-| `SBW12` | PRE-DESIGNED / RE-ANCHOR | Exact statblock revision embed with honest unresolved state. | Embed is not placement. |
-| `AOW03` | NEW; CONTRACT FIRST | Durable generic `ObjectPlacementV1` plus Threat placement extension. | Quantity/role/trigger/notes/exact revision. |
-| `AOW04` | NEW; DECOMPOSE | Shared object capability routing from Ingest, Build, Plan, and projections. | Surface initiates; owning service performs write. |
+| `SBW11` | RE-AUDIT | Identify only missing Plan hydration/shared-canvas capability. | Original handoff predates current authoring foundations. |
+| `SBW12` | PRE-DESIGNED / RE-ANCHOR | Exact Threat/statblock embed with honest unresolved state. | Embed is not placement. |
+| `AOW03` | CONTRACT FIRST | Durable `ObjectPlacementV1` plus exact Threat extension. | Threat, binding, revision, host, quantity, role, trigger, notes, local adjustments. |
+| `AOW04` | DECOMPOSE | Shared object capability routing from Hermes, graph inspection, Ingest, Build, Plan, and projections. | Surface initiates; owning service performs write. |
 
 `MAGIC-D4` blocks combat integration.
 
@@ -89,76 +87,91 @@ Existing `SBW08–SBW10` handoffs are strategic designs, not dispatch-ready impl
 
 Current truth:
 
-- the original static Mireward page is a harness, not the product;
-- a live server-backed `CombatRosterModule` exists;
-- current combat persists to standalone `combat/current_combat.json` state (with automatic backups);
-- combat entity statblock identity remains legacy `statblock_path` / `statblock_artifact_id` / `statblock_title` shaped;
-- exact graph Threat + binding + accepted revision is not authoritative;
-- the old Statblock View still offers add-to-combat for corpus-promotion / generated artifacts, but that is not the new Workbench → accepted-revision path;
-- exact-revision insertion, reload, and mechanics drilldown from the new lifecycle remain absent.
+- the live server-backed `CombatRosterModule` exists;
+- current combat persists to `combat/current_combat.json`;
+- combat identity remains legacy `statblock_path` / `statblock_artifact_id` / `statblock_title` shaped;
+- exact Threat, binding, accepted revision, and placement lineage are absent;
+- corpus-promotion add-to-combat is not the Workbench accepted-revision lifecycle.
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
-| `COMBAT01-contract` | NEW DOC-ONLY | Freeze exact source locator, insertion/idempotency, reload, drilldown, and migration semantics. | Required before code. |
-| `COMBAT01` | NEW | Evolve live combat store/module to retain Threat/binding/revision/placement lineage. | Retain mutable runtime independence. |
-| `SBW15` | PRE-DESIGNED / RE-ANCHOR | Deterministic exact-revision or exact-placement `CombatantSeed` and insertion. | Not a thin button over legacy state. |
+| `COMBAT01-contract` | DOC-ONLY FIRST | Freeze exact source locator, insertion/idempotency, reload, drilldown, and migration. | Required before runtime code. |
+| `COMBAT01` | NEW | Evolve live combat persistence/module to retain Threat/binding/revision/placement lineage. | Runtime HP/initiative/conditions remain independent. |
+| `SBW15` | RE-ANCHOR | Deterministic exact-revision or exact-placement `CombatantSeed`. | Not a thin button over legacy state. |
 
-`MAGIC-D5` is the core roadmap completion gate.
+`MAGIC-D5` is the core statblock roadmap completion gate.
 
-## 7. Later queue
+## 7. Parallel authoring and usability queue
+
+These do not block `SBW08–SBW10` after an exact accepted revision exists.
+
+| ID | Status | Outcome |
+|---|---|---|
+| `AOW01` | CONTRACT FIRST / PARALLEL | Grounded authored-object context envelope. |
+| `AOW02` | PARALLEL | Hermes “Develop as Threat” creates/opens exact ThreatDraft. |
+| `AUTHORING-ARTIFACT` | NEW | Stable editable/copyable markdown artifact with separate provenance. |
+| `GRAPH-CHIPS` | NEW | Response evidence chips and query node anchors. |
+| `AUTHORING-LIBRARY` | DECOMPOSE | Browse/reopen/update ThreatDrafts and accepted mechanics. |
+| `SBW06d` | DEFERRED / RE-ANCHOR | Revise from exact accepted locator. |
+| `REVISE-UX` | BACKLOG | GM-facing instruction flow; hide transport recovery until needed. |
+| `EDITOR-EXPANSION` | BACKLOG | Dedicated speed, attack, damage, and save fields. |
+| `HERMES-LIVENESS` | BACKLOG | Honest long-turn state, recovery, and telemetry. |
+
+## 8. Later queue
 
 | ID | Status | Outcome |
 |---|---|---|
 | `SBW13` | PRE-DESIGNED | Append immutable child revision and compare exact parent/child. |
-| `SBW14` | PRE-DESIGNED | Governed adoption for one Threat binding only. |
+| `SBW14` | PRE-DESIGNED | Governed adoption for one Threat binding. |
 | embed repin successor | UNNUMBERED | Explicitly repin one document embed. |
-| placement repin successor | UNNUMBERED | Explicitly repin one durable placement. |
-| `SBW16` | PRE-DESIGNED / PARALLEL | Optional image generation. |
-| `SBW17` | PRE-DESIGNED | Durable image selection/binding. |
+| placement repin successor | UNNUMBERED | Explicitly repin one placement. |
+| `SBW16` | PARALLEL LATER | Optional image generation. |
+| `SBW17` | LATER | Durable image selection/binding. |
 | `SBW18` | DEFERRED | 3D reconnaissance. |
-| `AOW05` | FUTURE PROVING DOMAIN | Item Generator through the same lifecycle. |
+| `AOW05` | FUTURE PROVING DOMAIN | Item lifecycle through the same architecture. |
 
-## 8. Dogfood gate ledger
+## 9. Gate ledger
 
-| Gate | Current status | Capability proved | Blocks |
-|---|---|---|---|
-| `R0-A` | `BLOCKED_DEPENDENCY` | Existing real statblock dependency path actually works. | `SBW06d` and broad statblock continuation. |
-| `R0-B` | `IN_PROGRESS` | Hermes has demonstrated multi-hop investigation and uncertainty honesty; the exact evidence package and paste-ready editable Threat description remain unproved. | `AOW01–02`. |
-| `MAGIC-D1` | DOGFOOD REQUIRED | Query → grounded description → durable ThreatDraft handoff. | Full authoring continuation. |
-| `MAGIC-D2` | DOGFOOD REQUIRED | Grounded draft → accepted immutable statblock revision. | Graph publication. |
-| `MAGIC-D3` | BLOCKED_DEPENDENCY | Accepted revision → governed reusable Threat + binding. | Placement. |
-| `MAGIC-D4` | BLOCKED_DEPENDENCY | Same Threat placed from Ingest, Build, and Plan. | Combat integration. |
-| `MAGIC-D5` | BLOCKED_DEPENDENCY | Exact graph-backed Threat/placement imported into live combat and reloaded. | Core completion. |
-| `AOW05` gate | DEFERRED | Item lifecycle reuses the architecture. | General architecture completion. |
+| Gate | Current status | Capability / dependency |
+|---|---|---|
+| `R0-A` | `FAIL_PRODUCT`; rerun required | Exact accepted revision through real current provider |
+| `R0-B` | `IN_PROGRESS`; provisional grounding pass | Grounded-authoring enhancement lane only |
+| `MAGIC-D1` | DOGFOOD REQUIRED / PARALLEL | Query → grounded description → durable ThreatDraft |
+| `MAGIC-D2` | DOGFOOD REQUIRED / PARALLEL | Grounded draft → connected accepted mechanics |
+| `MAGIC-D3` | BLOCKED | Accepted revision → published/queryable/projectable Threat |
+| `MAGIC-D4` | BLOCKED | Same exact Threat placed from relevant surfaces |
+| `MAGIC-D5` | BLOCKED | Exact published Threat/placement enters live combat |
+| `AOW05` | DEFERRED | Second domain proves general architecture |
 
-## 9. Immediate next dispatch logic
+## 10. Immediate dispatch logic
 
 ```text
-complete R0-B evidence capture from the live Hermes session
-→ ask the bounded authoring follow-up
-→ record PASS / PASS_WITH_FRICTION / FAIL with exact artifacts
-→ re-anchor one smallest slice from observed friction
-→ dispatch only that slice
+rerun R0-A on merged PR #454 state
+→ if generation still fails opaquely: dispatch R0-A-DIAGNOSTICS only
+→ obtain exact accepted revision and reopen proof
+→ re-anchor and dispatch SBW08 contract
+→ SBW09a publication operation
+→ SBW09b create-or-connect resolution
+→ SBW09c governed commit
+→ SBW10a Hermes query + exact hydration
+→ SBW10b exact projection
+→ dogfood MAGIC-D3
+→ AOW03 / AOW04 placement
+→ dogfood MAGIC-D4
+→ COMBAT01 / SBW15
+→ dogfood MAGIC-D5
 ```
 
-Expected branches after the gates:
+Parallel work may close R0-B and improve grounded authoring, but it does not preempt the critical sequence above.
 
-- provider/contract mismatch found → narrow consumer contract-sync slice;
-- real mechanics path works but normal reopening remains opaque-ID recovery → smallest ThreatDraft browse/reopen client + Workbench library slice;
-- local in-progress edits are destroyed by dependency failure → separate local recovery slice;
-- Hermes cannot search the required admitted union → narrow retrieval/tooling slice;
-- Hermes can answer but cannot preserve context → `AOW01`;
-- exact accepted revision revise is the next isolated gap → re-anchor `SBW06d`;
-- multiple gaps found → sequence them by the earliest blocked dogfood gate, not by the old SBW numbering alone.
-
-## 10. PR body requirements
+## 11. PR body requirements
 
 Every PR in this workstream states:
 
-- the magic-moment segment it enables;
-- the exact dogfood gate affected;
+- the exact lifecycle segment and gate enabled;
 - why the slice is the smallest useful capability;
 - authority and persistence boundaries;
 - current/legacy path retained or demolished;
+- success, failure, retry, stale, and reload behavior;
 - tests run;
 - live dogfood still required after merge.

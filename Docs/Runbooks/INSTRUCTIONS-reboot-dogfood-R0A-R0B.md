@@ -1,175 +1,166 @@
-# Instructions — Reboot dogfood (`R0-A` then `R0-B`)
+# Instructions — R0 Closeout and Publication-First Pickup
 
-**Status:** ACTIVE operator pickup  
-**Created:** 2026-07-28  
-**Repo tip at write:** `686ccb7e` on `main`  
+**Status:** ACTIVE operator and implementation pickup  
+**Updated:** 2026-07-30  
 **Sequencing authority:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md) + [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
-**Result template / gate rules:** [`RUNBOOK-authored-world-object-magic-moment-dogfood.md`](RUNBOOK-authored-world-object-magic-moment-dogfood.md)
+**Result template / gate rules:** [`RUNBOOK-authored-world-object-magic-moment-dogfood.md`](RUNBOOK-authored-world-object-magic-moment-dogfood.md)  
+**Current re-anchor:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)
 
-This is the **start-here** brief after Graph V1 projection recovery. Do not advance `SBW06d` / `AOW*` / graph-publication slices until both reboot gates have recorded reports.
+This file previously instructed a fresh `R0-A` then `R0-B` reboot. Both reports now exist. Use this as the closeout and next-action brief.
 
----
+## 0. Current evidence
 
-## 0. Current-state hypothesis (reanchor)
-
-| Fact | Truth now |
+| Gate / slice | Truth now |
 |---|---|
-| Implementation through | `SBW06c` MERGED `#439` — Workbench revise UX exists |
-| Blocking work before new slices | Recorded **`R0-A`** and **`R0-B`** dogfood reports |
-| Graph projection | Restored. Blocking edge `baergrom:serves:caelynn` governed-superseded. See [`../Reports/REPORT-main-graph-v1-projection-repair.md`](../Reports/REPORT-main-graph-v1-projection-repair.md) |
-| Integrity gates | Still strict — do **not** treat PR `#444` first-wins as authority |
-| Deeper event/label design | Parked: backlog `[READY] Event-vs-relationship and label/predicate packaging` + temporal / Graph V2 |
-| Hermes “list all sessions” | **Retrieval budget**, not merge miss. Agent search caps at 12 nodes (`graph_query_truncated_nodes`). Session-1/2 **are** in the contribution index |
-| Product door | Always start at `http://127.0.0.1:5173/` — never deep-link as the dogfood door |
+| PR `#454` | MERGED — R0 evidence, provider-contract sync, timeout alignment, freestanding provenance honesty, Hermes UX unblockers |
+| `R0-A` | `FAIL_PRODUCT` on 2026-07-29: provider reachable; draft created; generate returned `definition_invalid / HTTP 422`; no candidate |
+| `R0-B` | `IN_PROGRESS`, provisional grounding/description pass; durable authoring artifact and evidence interaction remain incomplete |
+| Immediate prerequisite | One exact accepted `(statblock_id, revision_id, digest)` must survive reopen |
+| Critical next architecture | `SBW08` exact Threat/statblock binding, then governed publication, query/hydration, projection, placement, combat |
+| Parallel authoring work | Graph chips, copyable artifact, `AOW01–02`, library, revise/editor UX, liveness |
 
-**Concrete next action:** run **`R0-A`** end-to-end and write `Docs/Reports/MAGIC-MOMENT-R0-A-<YYYY-MM-DD>.md`. Only then run **`R0-B`**.
+Raw evidence:
 
----
+- [`../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md)
+- [`../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md`](../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md)
 
-## 1. Environment (verify before touching UI)
+## 1. Immediate operator action — rerun only the accepted-revision path
 
-Three processes must be up:
+Start at the product door:
+
+```text
+http://127.0.0.1:5173/
+→ Plan
+→ Tools
+→ Statblock
+```
+
+Verify:
 
 | Process | URL | Check |
 |---|---|---|
-| DungeonMindServer | `http://127.0.0.1:7860` | `curl -fsS …/statblocks/health/live` → live |
-| Buddy live-control API | `http://127.0.0.1:8000` | surface 200; readiness `configured/available` true |
+| DungeonMindServer | `http://127.0.0.1:7860` | statblocks health live |
+| Buddy live-control API | `http://127.0.0.1:8000` | readiness configured/available |
 | Live Control UI | `http://127.0.0.1:5173` | HTTP 200 |
 
-Suggested API session dir (matches recent C2 dogfood):
-
-```bash
-export DUNGEONMIND_LIVE_SESSION_DIR=evals/c2_live_prep/live/session_22
-```
-
-Record into every report:
+Record:
 
 ```bash
 git rev-parse HEAD
 git show -s --format='%h %s' HEAD
-# and current Eldyrwild head
 python3 -c 'import json;from pathlib import Path;print(json.loads(Path("out/graph_memory/worlds/eldyrwild/head.json").read_text())["head_revision_id"])'
 ```
 
-If projection returns `409 projection_integrity_error` again, **stop dogfood** and reopen the repair path — do not soft-pass Hermes on a broken graph.
+Run:
 
----
+1. Create a real nontrivial ThreatDraft.
+2. Create and generate through the real provider.
+3. If a candidate appears, edit one shipped dedicated numeric field: primary AC, HP scalar, or ability score.
+4. Validate the working copy.
+5. Accept/save mechanics.
+6. Capture `(statblock_id, revision_id, digest)`.
+7. Hard reload.
+8. Reopen the exact accepted identity.
 
-## 2. Gate order (do not skip)
+AI revise remains `DEFERRED_REVISE_UX`; it is not required for this prerequisite.
+
+## 2. Failure classification
+
+| Observation | Correct action |
+|---|---|
+| Provider/auth unavailable | `BLOCKED_DEPENDENCY` |
+| `definition_invalid` or another structured provider validation failure | `FAIL_PRODUCT`; capture raw field/reference diagnostics and dispatch only the owning-boundary fix |
+| Buddy collapses structured diagnostics to a generic sentence | Include diagnostic-presentation repair in the narrow R0-A recovery slice |
+| Candidate succeeds but accepted identity cannot reopen | `PASS_WITH_FRICTION` or `FAIL_PRODUCT` depending on whether exact recovery is possible; likely `AUTHORING-LIBRARY` or accepted-mechanics browse slice |
+| Exact accepted identity survives reopen | Close prerequisite and begin `SBW08` re-anchor |
+
+Do not count:
+
+- corpus-promotion Statblock View;
+- mocks;
+- a draft without a candidate;
+- a provider-side object that Buddy cannot retrieve;
+- remembered IDs without an actual reopen check.
+
+## 3. Publication-first implementation sequence
+
+After one exact accepted revision exists:
 
 ```text
-R0-A  Statblock live dependency proof   ← do this first
-  ↓  report + verdict
-R0-B  Unioned graph sensemaking proof
-  ↓  report + verdict
-Re-anchor next implementation handoff from observed friction only
+SBW08
+exact external-resource + ThreatStatblockBinding contract
+        ↓
+SBW09a
+durable recoverable publication operation
+        ↓
+SBW09b
+create-new versus connect-existing Threat resolution
+        ↓
+SBW09c
+governed Threat + exact binding commit
+        ↓
+SBW10a
+Hermes query + exact mechanics hydration
+        ↓
+SBW10b
+compact/full exact-revision Threat projection
+        ↓
+MAGIC-D3 dogfood
+        ↓
+AOW03 / AOW04
+durable placement + shared surface capability routing
+        ↓
+MAGIC-D4
+        ↓
+COMBAT01 / SBW15
+        ↓
+MAGIC-D5
 ```
 
-`MAGIC-D1`…`D5` stay blocked until reboot reports exist.
+`MAGIC-D3` must include a non-exact-name Hermes query that finds the published Threat through role, capability, relationship, or campaign context and hydrates the exact bound revision.
 
----
+## 4. R0-B closeout — parallel, not blocking publication
 
-## 3. `R0-A` — follow the operator script
+Do not rerun R0-B merely to unlock `SBW08`.
 
-**Full step-by-step:** [`SCRIPT-R0-A-statblock-live-dependency-proof.md`](SCRIPT-R0-A-statblock-live-dependency-proof.md)
+The existing report already demonstrates:
 
-Short checklist (every step must be the **Workbench** path, not Statblock View):
+- multi-hop investigation;
+- uncertainty honesty;
+- premise rejection;
+- a useful provisional Threat description;
+- pinned revision, matched nodes, anchors, diagnostics, and recovery behavior.
 
-1. Open `http://127.0.0.1:5173/` → `/surface` → enable **Statblock Workbench**.
-2. Create a **real** C2/Eldyrwild ThreatDraft (nontrivial concept).
-3. **Create & generate** via real provider (readiness must be available).
-4. Edit ≥1 **dedicated numeric** combat field — primary AC, HP scalar, or ability score (not rename / `rules_text`-only; typed mechanics are out of scope for R0-A).
-5. **Validate working copy** — clean preview receipt.
-6. **Accept/Save mechanics** — capture `(statblock_id, revision_id, digest)`. (AI revise deferred — note `DEFERRED_REVISE_UX`.)
-7. Hard browser reload → reopen exact accepted identity.
-8. Write `Docs/Reports/MAGIC-MOMENT-R0-A-<YYYY-MM-DD>.md` from the runbook template.
+Closeout work may capture the final authoring trace and verdict. The related implementation lane may include:
 
-| Verdict | When |
-|---|---|
-| `PASS` | Hard path (no revise) + exact locator survives reload |
-| `PASS_WITH_FRICTION` | Works but reopen/browse is painful (likely **AUTHORING-LIBRARY**) |
-| `FAIL_PRODUCT` / `FAIL_ARCHITECTURE` | Workbench/contract wrong while provider is up |
-| `BLOCKED_DEPENDENCY` | DM `:7860` / auth / provider down |
+- response-side graph evidence chips;
+- query node anchors;
+- explicit established/inferred/creative proposal/unknown state;
+- stable editable/copyable markdown artifact;
+- honest long-turn liveness;
+- `AOW01` context envelope;
+- `AOW02` “Develop as Threat.”
 
-Do **not** count corpus-promotion Statblock View, mocks, or “draft exists but generate failed” as pass.
+These improve how Threats are authored. They do not replace or block governed publication/query/placement.
 
----
+## 5. Stop conditions
 
-## 4. `R0-B` — unioned graph → editable Threat description
+Stop and report rather than widening scope when:
 
-**Protocol authority:** runbook §5. No separate SCRIPT yet — follow this section.
+- the current provider returns a new contract shape not represented by the checked-in contract;
+- field/reference diagnostics are unavailable at the provider boundary;
+- publication would require bypassing the graph-governance path;
+- create-or-connect cannot distinguish explicit existing-node selection from inferred matching;
+- query hydration would copy mechanics into the graph;
+- placement ownership is ambiguous across Plan, Build, and Ingest;
+- combat integration would mutate graph or immutable mechanics state.
 
-### 4.1 Choose the question
-
-Must be:
-
-- partly forgotten / not one obvious recent file;
-- needs relationships or multi-session context;
-- useful for designing a Threat;
-- **not** answered by naming a source path yourself.
-
-Example shape (adapt, don’t copy blindly):
-
-> What do we actually know about the buried or singing creatures connected to Mireward, the Shepherds, and the recovered meat-goo magic? What is established, what is inferred, and what kind of creature description follows from that?
-
-### 4.2 How to ask (honest retrieval)
-
-1. Start at launcher → Plan / Agent Interaction (Hermes) for campaign **`longmont-c2`** / world **`eldyrwild`**.
-2. Prefer a **focused** or **specific** question over “what sessions exist?” Meta-inventory questions hit the **12-node** search cap and look like missing merges.
-3. If probing early sessions, set **session focus** or ask about concrete objects (e.g. session-2 alchemy room), not “can you see session 1?”
-4. Allow Hermes to open admitted sources when the graph points there. Graph IDs are navigation, not citation authority.
-5. Require the answer to separate: **established / inferred / creative proposal / unknown**.
-
-### 4.3 Pass artifacts to capture
-
-Write `Docs/Reports/MAGIC-MOMENT-R0-B-<YYYY-MM-DD>.md` with:
-
-- question text;
-- graph `revision_id` (and whether head);
-- retrieval session id if shown;
-- selected / matched durable node IDs;
-- admitted source anchors opened (or why none);
-- acceptance / warning codes (`partial_coverage`, `graph_query_truncated_nodes`, `source_anchor_unreadable`, etc.);
-- the **editable Threat description** Hermes produced (paste as the description candidate);
-- gaps Hermes disclosed;
-- verdict + smallest next slice if fail/friction.
-
-Pass only when you get a grounded, editable description you would actually paste into a ThreatDraft — even though automated Hermes→ThreatDraft handoff (`AOW02` / `MAGIC-D1`) does not exist yet.
-
-### 4.4 Known non-failures (do not mis-grade)
-
-| Observation | Correct reading |
-|---|---|
-| `graph_query_truncated_nodes` | Search budget (12 nodes), not “session not merged” |
-| Hermes abstains on “sessions 1 and 2?” | Truncation / ranking; contributions for S1/S2 are active |
-| `partial_coverage` + `source_anchor_unreadable` | Expected today’s grounding honesty — not automatic fail |
-| `graph_context_detail_not_persisted` | UI kept summary only for the turn — expected |
-| Empty `selected_node_ids` on Workbench create | Known gap; R0-B records what envelope `AOW01` must carry |
-
----
-
-## 5. After both reports
-
-1. Link both report paths from the PR tracker dogfood ledger (or note them in the next handoff).
-2. Re-anchor **one** next slice from friction only:
-
-| Friction seen | Likely smallest slice |
-|---|---|
-| Provider/OpenAPI/fixture mismatch | Narrow contract-sync / readiness |
-| Reload/reopen needs remembered IDs | `AUTHORING-LIBRARY` (list client + Workbench browse) |
-| Hermes answer good but no draft handoff | `AOW01` then `AOW02` |
-| Revise-from-accepted-locator needed | Re-anchor `SBW06d` |
-| Event/label ontology pain mid-query | Stay on dogfood; park in temporal / Graph V2 — do not soften main integrity |
-
-3. Do **not** auto-start `SBW08` or combat integration ahead of `MAGIC-D2` / `MAGIC-D3` sequencing.
-
----
-
-## 6. Links (keep this brief short)
+## 6. Links
 
 | Doc | Role |
 |---|---|
-| [`SCRIPT-R0-A-statblock-live-dependency-proof.md`](SCRIPT-R0-A-statblock-live-dependency-proof.md) | R0-A click-path |
-| [`RUNBOOK-authored-world-object-magic-moment-dogfood.md`](RUNBOOK-authored-world-object-magic-moment-dogfood.md) | Gate rules + report template |
-| [`../Reports/REPORT-main-graph-v1-projection-repair.md`](../Reports/REPORT-main-graph-v1-projection-repair.md) | Why Plan/Hermes graph path is usable again |
-| [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md) | Product lifecycle north star |
+| [`SCRIPT-R0-A-statblock-live-dependency-proof.md`](SCRIPT-R0-A-statblock-live-dependency-proof.md) | Detailed R0-A click path |
+| [`RUNBOOK-authored-world-object-magic-moment-dogfood.md`](RUNBOOK-authored-world-object-magic-moment-dogfood.md) | Gate rules and result template |
+| [`../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md) | Real provider failure evidence |
+| [`../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md`](../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md) | Hermes dogfood evidence |
+| [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md) | Lifecycle authority |
