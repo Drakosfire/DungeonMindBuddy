@@ -1,11 +1,11 @@
 # REPORT — TL01B temporal shadow cohort
 
 **Status:** Live provider run completed (evaluator integrity corrections applied)
-**Live execution commit (manifest `repository_sha`):** `c1d9988e830908e9e549a84deeaf29b6e83240ed`
+**Live execution commit (manifest `repository_sha`):** `6b76513fb65980fa046f091e12316fb8fd337474`
 **Implementation base (TL01 merge):** `d6ea4959c9bcc2f113ef50d912629864c1a1c04b`
 **Evaluation verdict:** `ITERATE_PROMPT` (model quality) with documented coverage stop conditions below
 
-The live-proof SHA above is copied from the generated `run-manifest.json` for this run. It is the clean repository HEAD that executed the provider call.
+The live-proof SHA above is copied from the generated `run-manifest.json` for this run. It is the clean repository HEAD that executed the provider call (includes kind-specific temporal identity for source-leakage metrics).
 
 ## Cohort matrix
 
@@ -43,6 +43,7 @@ Why no sealed canonical case was available:
 Synthetic regression coverage:
 
 - A1–A7 in `tests/test_temporal_shadow_extraction.py` (source copied over null gold, different non-null gold, unrelated session, legitimate same-session, valid-time copy, relative gold, fail-closed unsafe derivation)
+- A4b–A4e: omitted `campaign_id`, different certainty/`raw_expression`, same-session metadata differences (no leakage), conflicting non-null campaign (not identity)
 
 Consequence for interpreting live source-leakage metrics:
 
@@ -91,23 +92,23 @@ Current state: still missing from the sealed live cohort (Session 11 relative pr
 | Base contribution ID | `contribution:8408dabc602b750f` |
 | Model | `gpt-5.4-mini` |
 | Prompt version (executed) | `tl01b-v1` |
-| Provider response ID | `resp_038135877b008464006a6ab12ed34481909d1f2db3007012fe` |
+| Provider response ID | `resp_0a3c2ad0de7143f3006a6abe32f03481969875ca277f606833` |
 | Selected assertions | 6 |
-| Overlay ID | `temporal-overlay:a5e8c6e460348195` |
-| Run ID | `temporal-shadow-run:1ab66a01a6627b66` |
+| Overlay ID | `temporal-overlay:63af292e4ccc3200` |
+| Run ID | `temporal-shadow-run:de661c230064606a` |
 | Preview verdict | `complete` |
 | Comparison verdict | `fail` |
 | Evaluation verdict | `ITERATE_PROMPT` |
 | Input tokens | 3525 |
-| Output tokens | 928 |
-| Elapsed ms | ~6733 |
+| Output tokens | 896 |
+| Elapsed ms | ~5635 |
 | Cost | not reported by client |
 
 Artifacts (local, gitignored): `evals/graph_memory_layer/artifacts/temporal_shadow_cohort/live-run/`
 
 ## Metrics (live vs gold)
 
-Regenerated with the corrected evaluator (source-time leakage vs derived source point; foreign evidence fail-closed; evidence-selection mismatch separate).
+Regenerated with kind-specific temporal identity for source-leakage (session identity ignores certainty/`raw_expression`; omitted campaign compatible with assertion campaign).
 
 ### Classification
 
@@ -159,10 +160,10 @@ Zero live source-leakage counts must be read with the coverage stop conditions a
 
 ## Strengths
 
-- Source-leakage metrics now compare against TL01-derived assertion source time
+- Source-leakage metrics use kind-specific temporal identity (metadata cannot hide source-session copying)
 - Foreign evidence is fail-closed at grounding; gold evidence differences are `evidence_selection_mismatch_count`
 - Atomic overwrite and sealed run-manifest provenance retained
-- Synthetic A/B regressions cover unavailable live adversarial categories
+- Synthetic A/B regressions cover unavailable live adversarial categories and metadata-equivalence cases
 - Preview verdict `complete`
 
 ## Failure modes
