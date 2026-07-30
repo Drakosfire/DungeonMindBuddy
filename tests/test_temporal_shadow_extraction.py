@@ -730,3 +730,92 @@ def test_provider_api_error_writes_failure_manifest(tmp_path: Path) -> None:
     _assert_provider_failure_artifact(
         tmp_path, code="provider_error", response_id=None
     )
+
+
+def test_overwrite_success_then_failure_replaces_artifacts(tmp_path: Path) -> None:
+    _case, _contribution, gold, _packets = _load_case_bundle()
+    out = tmp_path / "swap"
+    client = FakeTemporalShadowExtractionClient(_gold_to_model_batch(gold))
+    run_temporal_shadow_extraction(
+        CASE_PATH,
+        out,
+        client=client,
+        model_id="fake-model",
+        repo_root=REPO_ROOT,
+    )
+    assert (out / "run-manifest.json").is_file()
+    assert (out / "overlay.json").is_file()
+    assert not (out / "failure-manifest.json").exists()
+
+    with pytest.raises(TemporalShadowExtractionError):
+        run_temporal_shadow_extraction(
+            CASE_PATH,
+            out,
+            client=_FailingProviderClient("provider_refusal", response_id="resp_x"),
+            model_id="fake-model",
+            repo_root=REPO_ROOT,
+            overwrite=True,
+        )
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["failure-manifest.json"]
+    assert not (out / "run-manifest.json").exists()
+    assert not (out / "overlay.json").exists()
+    assert not (out / "comparison.json").exists()
+
+
+def test_overwrite_failure_then_success_replaces_artifacts(tmp_path: Path) -> None:
+    _case, _contribution, gold, _packets = _load_case_bundle()
+    out = tmp_path / "swap2"
+    with pytest.raises(TemporalShadowExtractionError):
+        run_temporal_shadow_extraction(
+            CASE_PATH,
+            out,
+            client=_FailingProviderClient("provider_error"),
+            model_id="fake-model",
+            repo_root=REPO_ROOT,
+        )
+    assert (out / "failure-manifest.json").is_file()
+
+    client = FakeTemporalShadowExtractionClient(_gold_to_model_batch(gold))
+    run = run_temporal_shadow_extraction(
+        CASE_PATH,
+        out,
+        client=client,
+        model_id="fake-model",
+        repo_root=REPO_ROOT,
+        overwrite=True,
+    )
+    names = sorted(p.name for p in out.iterdir())
+    assert "failure-manifest.json" not in names
+    assert "run-manifest.json" in names
+    assert "overlay.json" in names
+    assert "preview.json" in names
+    assert "comparison.json" in names
+    assert run.comparison_verdict == "pass"
+
+
+def test_comparison_includes_safety_and_quality_metrics() -> None:
+    _case, _contribution, gold, _packets = _load_case_bundle()
+    comparison = compare_temporal_overlays(gold, gold)
+    metrics = comparison.metrics.model_dump()
+    for key in (
+        "source_to_occurrence_false_positives",
+        "source_to_valid_time_false_positives",
+        "unsupported_resolved_annotations",
+        "foreign_evidence_attempts",
+        "ungrounded_source_phrases",
+        "invalid_temporal_payloads",
+        "status_accuracy",
+        "exact_semantic_match_count",
+        "resolved_exact_match_count",
+        "ambiguous_or_unresolved_count",
+        "not_applicable_accuracy",
+    ):
+        assert key in metrics
+    assert metrics["exact_semantic_match_count"] == 6
+    assert metrics["status_accuracy"] == 1.0
+    assert metrics["resolved_exact_match_count"] == 3
+    assert metrics["ambiguous_or_unresolved_count"] == 1
+    assert metrics["not_applicable_accuracy"] == 1.0
+    assert metrics["source_to_occurrence_false_positives"] == 0
+    assert metrics["unsupported_resolved_annotations"] == 0

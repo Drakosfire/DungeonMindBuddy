@@ -118,6 +118,22 @@ Per-assertion classifications:
 
 - `exact_match`, `safe_under_resolution`, `unsafe_over_resolution`, `wrong_temporal_lane`, `wrong_temporal_value`, `status_mismatch`, `semantic_mismatch`, `missing_prediction`, `extra_prediction`
 
+Safety metrics (minimum):
+
+- `source_to_occurrence_false_positives` — predicted session occurrence where gold has none
+- `source_to_valid_time_false_positives` — predicted session valid-time where gold has none
+- `unsupported_resolved_annotations` — resolved when gold is ambiguous/unresolved/not_applicable
+- `foreign_evidence_attempts` — predicted evidence not a subset of gold evidence for the assertion
+- `ungrounded_source_phrases` / `invalid_temporal_payloads` — zero on successful comparisons (fail-closed before overlay)
+
+Quality metrics (minimum):
+
+- `status_accuracy`
+- `exact_semantic_match_count` / `resolved_exact_match_count`
+- `safe_under_resolution_count`
+- `ambiguous_or_unresolved_count`
+- `not_applicable_accuracy`
+
 Verdict enum:
 
 - `pass` — all gold targets exact match

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -166,6 +167,8 @@ class TemporalShadowComparisonRowV1(_CaseModel):
 class TemporalShadowComparisonMetricsV1(_CaseModel):
     total_gold_annotations: int
     exact_match_count: int
+    exact_semantic_match_count: int = 0
+    resolved_exact_match_count: int = 0
     safe_under_resolution_count: int = 0
     unsafe_over_resolution_count: int = 0
     wrong_temporal_lane_count: int = 0
@@ -173,6 +176,17 @@ class TemporalShadowComparisonMetricsV1(_CaseModel):
     semantic_mismatch_count: int
     missing_prediction_count: int
     extra_prediction_count: int
+    # Safety
+    source_to_occurrence_false_positives: int = 0
+    source_to_valid_time_false_positives: int = 0
+    unsupported_resolved_annotations: int = 0
+    foreign_evidence_attempts: int = 0
+    ungrounded_source_phrases: int = 0
+    invalid_temporal_payloads: int = 0
+    # Quality
+    status_accuracy: float = 0.0
+    ambiguous_or_unresolved_count: int = 0
+    not_applicable_accuracy: float = 0.0
 
 
 class TemporalShadowComparisonV1(_CaseModel):
@@ -1124,6 +1138,29 @@ def _lane_signature(annotation: TemporalAssertionAnnotationV1) -> tuple[bool, bo
     )
 
 
+def _extent_contains_session(extent: Any) -> bool:
+    from graph_memory.kernel.temporal import TemporalIntervalExtentV1, TemporalPointExtentV1
+
+    if extent is None:
+        return False
+    if isinstance(extent, TemporalPointExtentV1):
+        return extent.point.kind == "session"
+    if isinstance(extent, TemporalIntervalExtentV1):
+        for point in (extent.start, extent.end):
+            if point is not None and point.kind == "session":
+                return True
+    return False
+
+
+def _interval_contains_session(interval: Any) -> bool:
+    if interval is None:
+        return False
+    for point in (interval.start, interval.end):
+        if point is not None and point.kind == "session":
+            return True
+    return False
+
+
 def compare_temporal_overlays(
     predicted: TemporalAnnotationOverlayV1,
     gold: TemporalAnnotationOverlayV1,
@@ -1135,6 +1172,14 @@ def compare_temporal_overlays(
     rows: list[TemporalShadowComparisonRowV1] = []
     exact = status_mismatch = semantic_mismatch = missing = extra = 0
     safe_under = unsafe_over = wrong_lane = 0
+    resolved_exact = 0
+    status_matches = 0
+    comparable_status = 0
+    source_to_occ_fp = source_to_valid_fp = unsupported_resolved = 0
+    foreign_evidence = 0
+    ambiguous_or_unresolved = 0
+    not_applicable_gold = 0
+    not_applicable_correct = 0
     conservative_statuses = {"ambiguous", "unresolved"}
     non_resolved_gold = {"ambiguous", "unresolved", "not_applicable"}
 
@@ -1154,8 +1199,13 @@ def compare_temporal_overlays(
                 )
             )
             continue
+        if gold_ann.interpretation_status in conservative_statuses:
+            ambiguous_or_unresolved += 1
+        if gold_ann.interpretation_status == "not_applicable":
+            not_applicable_gold += 1
         if pred_ann is None:
             missing += 1
+            comparable_status += 1
             rows.append(
                 TemporalShadowComparisonRowV1(
                     base_assertion_id=assertion_id,
@@ -1165,12 +1215,31 @@ def compare_temporal_overlays(
                 )
             )
             continue
+
+        comparable_status += 1
+        if gold_ann.interpretation_status == pred_ann.interpretation_status:
+            status_matches += 1
+
+        gold_evidence = set(gold_ann.evidence_ref_ids)
+        pred_evidence = set(pred_ann.evidence_ref_ids)
+        if not pred_evidence.issubset(gold_evidence):
+            foreign_evidence += 1
+
+        # Source-session leakage: inventing session occurrence/valid when gold has none.
+        if pred_ann.occurrence_time is not None and gold_ann.occurrence_time is None:
+            if _extent_contains_session(pred_ann.occurrence_time):
+                source_to_occ_fp += 1
+        if pred_ann.valid_time is not None and gold_ann.valid_time is None:
+            if _interval_contains_session(pred_ann.valid_time):
+                source_to_valid_fp += 1
+
         if gold_ann.interpretation_status != pred_ann.interpretation_status:
             if (
                 gold_ann.interpretation_status in non_resolved_gold
                 and pred_ann.interpretation_status == "resolved"
             ):
                 unsafe_over += 1
+                unsupported_resolved += 1
                 classification: ComparisonClassification = "unsafe_over_resolution"
             elif (
                 gold_ann.interpretation_status == "resolved"
@@ -1218,6 +1287,10 @@ def compare_temporal_overlays(
                 )
             continue
         exact += 1
+        if gold_ann.interpretation_status == "resolved":
+            resolved_exact += 1
+        if gold_ann.interpretation_status == "not_applicable":
+            not_applicable_correct += 1
         rows.append(
             TemporalShadowComparisonRowV1(
                 base_assertion_id=assertion_id,
@@ -1227,9 +1300,20 @@ def compare_temporal_overlays(
             )
         )
 
+    status_accuracy = (
+        float(status_matches) / float(comparable_status) if comparable_status else 0.0
+    )
+    not_applicable_accuracy = (
+        float(not_applicable_correct) / float(not_applicable_gold)
+        if not_applicable_gold
+        else 0.0
+    )
+
     metrics = TemporalShadowComparisonMetricsV1(
         total_gold_annotations=len(gold.annotations),
         exact_match_count=exact,
+        exact_semantic_match_count=exact,
+        resolved_exact_match_count=resolved_exact,
         safe_under_resolution_count=safe_under,
         unsafe_over_resolution_count=unsafe_over,
         wrong_temporal_lane_count=wrong_lane,
@@ -1237,6 +1321,15 @@ def compare_temporal_overlays(
         semantic_mismatch_count=semantic_mismatch,
         missing_prediction_count=missing,
         extra_prediction_count=extra,
+        source_to_occurrence_false_positives=source_to_occ_fp,
+        source_to_valid_time_false_positives=source_to_valid_fp,
+        unsupported_resolved_annotations=unsupported_resolved,
+        foreign_evidence_attempts=foreign_evidence,
+        ungrounded_source_phrases=0,
+        invalid_temporal_payloads=0,
+        status_accuracy=status_accuracy,
+        ambiguous_or_unresolved_count=ambiguous_or_unresolved,
+        not_applicable_accuracy=not_applicable_accuracy,
     )
     if missing or extra or unsafe_over:
         verdict: ComparisonVerdict = "fail"
@@ -1271,9 +1364,19 @@ def _repository_sha(*, repo_root: Path) -> str:
             capture_output=True,
             text=True,
         )
+        sha = completed.stdout.strip() or "unknown"
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
-    return completed.stdout.strip() or "unknown"
+    if dirty.stdout.strip():
+        return f"{sha}+dirty"
+    return sha
 
 
 def _bounded_diagnostics(diagnostics: list[str], *, limit: int = 8) -> list[str]:
@@ -1282,6 +1385,36 @@ def _bounded_diagnostics(diagnostics: list[str], *, limit: int = 8) -> list[str]
         text = item if len(item) <= 500 else item[:497] + "..."
         bounded.append(text)
     return bounded
+
+
+def _staging_dir(out: Path) -> Path:
+    import tempfile
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    return Path(
+        tempfile.mkdtemp(prefix=f".{out.name}.staging-", dir=str(out.parent))
+    )
+
+
+def _publish_run_directory(staging: Path, out: Path) -> None:
+    import shutil
+
+    backup: Path | None = None
+    try:
+        if out.exists():
+            backup = out.with_name(f".{out.name}.bak-{os.getpid()}")
+            if backup.exists():
+                shutil.rmtree(backup)
+            out.rename(backup)
+        staging.rename(out)
+    except Exception:
+        if backup is not None and backup.exists() and not out.exists():
+            backup.rename(out)
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
+        raise
+    if backup is not None and backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)
 
 
 def _write_provider_failure_manifest(
@@ -1354,136 +1487,153 @@ def run_temporal_shadow_extraction(
             f"Output directory is non-empty (use overwrite=True): {out}",
             code="invalid_case",
         )
-    out.mkdir(parents=True, exist_ok=True)
 
-    case = load_temporal_shadow_extraction_case(case_path, repo_root=root)
-    contribution = _load_contribution_for_case(case, repo_root=root)
-    packets = build_assertion_evidence_packets(contribution, case, repo_root=root)
-    resolved_model = resolve_category_graph_model(model_id)
-    instructions, executed_prompt_version = resolve_prompt_instructions(
-        case.prompt_version
-    )
-    active_client = client or OpenAITemporalShadowExtractionClient()
-    case_digest = _file_sha256(Path(case_path))
-    base_digest = compute_contribution_source_payload_sha256(contribution)
-
-    user_content = render_temporal_shadow_user_content(
-        packets, case.selected_assertion_ids
-    )
+    staging = _staging_dir(out)
+    published = False
     try:
-        raw_batch, provider_meta = active_client.extract_annotations(
-            instructions=instructions,
-            user_content=user_content,
-            model_id=resolved_model,
+        case = load_temporal_shadow_extraction_case(case_path, repo_root=root)
+        contribution = _load_contribution_for_case(case, repo_root=root)
+        packets = build_assertion_evidence_packets(contribution, case, repo_root=root)
+        resolved_model = resolve_category_graph_model(model_id)
+        instructions, executed_prompt_version = resolve_prompt_instructions(
+            case.prompt_version
         )
-    except TemporalShadowExtractionError as exc:
-        if exc.code in {"provider_refusal", "provider_incomplete", "provider_error"}:
-            _write_provider_failure_manifest(
-                out=out,
-                case=case,
-                contribution=contribution,
-                case_digest=case_digest,
+        active_client = client or OpenAITemporalShadowExtractionClient()
+        case_digest = _file_sha256(Path(case_path))
+        base_digest = compute_contribution_source_payload_sha256(contribution)
+
+        user_content = render_temporal_shadow_user_content(
+            packets, case.selected_assertion_ids
+        )
+        try:
+            raw_batch, provider_meta = active_client.extract_annotations(
+                instructions=instructions,
+                user_content=user_content,
                 model_id=resolved_model,
-                executed_prompt_version=executed_prompt_version,
-                error=exc,
-                provider_response_id=exc.provider_response_id,
             )
-        raise
+        except TemporalShadowExtractionError as exc:
+            if exc.code in {"provider_refusal", "provider_incomplete", "provider_error"}:
+                _write_provider_failure_manifest(
+                    out=staging,
+                    case=case,
+                    contribution=contribution,
+                    case_digest=case_digest,
+                    model_id=resolved_model,
+                    executed_prompt_version=executed_prompt_version,
+                    error=exc,
+                    provider_response_id=exc.provider_response_id,
+                )
+                _publish_run_directory(staging, out)
+                published = True
+            raise
 
-    annotations = ground_and_convert_model_batch(
-        raw_batch=raw_batch,
-        contribution=contribution,
-        case=case,
-        packets=packets,
-        model_id=resolved_model,
-        prompt_version=executed_prompt_version,
-    )
-    overlay = assemble_temporal_overlay(
-        contribution=contribution,
-        annotations=annotations,
-        prompt_version=executed_prompt_version,
-    )
-    parsed_overlay = load_temporal_annotation_overlay(overlay.model_dump(by_alias=True))
-    try:
-        preview = build_temporal_shadow_preview(contribution, parsed_overlay)
-    except TemporalShadowBuildError as exc:
-        raise TemporalShadowExtractionError(
-            str(exc),
-            code="overlay_assembly_failed",
-            affected_assertion_id=exc.affected_assertion_id,
-            diagnostics=list(exc.diagnostics),
-        ) from exc
-
-    gold_overlay = load_bound_gold_overlay(case, contribution, repo_root=root)
-    comparison = compare_temporal_overlays(parsed_overlay, gold_overlay)
-
-    run_id = compute_temporal_shadow_run_id(
-        case_id=case.case_id,
-        case_digest=case_digest,
-        model_id=resolved_model,
-        prompt_version=executed_prompt_version,
-        validated_model_output=raw_batch,
-    )
-    run = TemporalShadowExtractionRunV1(
-        run_id=run_id,
-        case_id=case.case_id,
-        case_digest=case_digest,
-        repository_sha=_repository_sha(repo_root=root),
-        overlay_id=parsed_overlay.overlay_id,
-        base_contribution_id=contribution.contribution_id,
-        base_contribution_source_payload_sha256=base_digest,
-        selected_assertion_ids=list(case.selected_assertion_ids),
-        source_artifacts=_source_artifact_digests(case),
-        comparison_verdict=comparison.verdict,
-        evaluation_verdict=comparison.evaluation_verdict,
-        preview_verdict=preview.verdict,
-        model_id=resolved_model,
-        prompt_version=executed_prompt_version,
-        executed_prompt_version=executed_prompt_version,
-        provider_response_id=provider_meta.response_id,
-        input_tokens=provider_meta.input_tokens,
-        output_tokens=provider_meta.output_tokens,
-        elapsed_ms=provider_meta.elapsed_ms,
-    )
-
-    (out / "run-manifest.json").write_text(
-        json.dumps(run.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    (out / "model-output.json").write_text(
-        json.dumps(raw_batch, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    (out / "overlay.json").write_text(
-        json.dumps(parsed_overlay.model_dump(by_alias=True), indent=2, sort_keys=True)
-        + "\n",
-        encoding="utf-8",
-    )
-    (out / "preview.json").write_text(
-        json.dumps(preview.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    (out / "comparison.json").write_text(
-        json.dumps(comparison.model_dump(by_alias=True), indent=2, sort_keys=True)
-        + "\n",
-        encoding="utf-8",
-    )
-    (out / "provider-metadata.json").write_text(
-        json.dumps(
-            {
-                "response_id": provider_meta.response_id,
-                "model_id": provider_meta.model_id,
-                "input_tokens": provider_meta.input_tokens,
-                "output_tokens": provider_meta.output_tokens,
-                "elapsed_ms": provider_meta.elapsed_ms,
-            },
-            indent=2,
-            sort_keys=True,
+        annotations = ground_and_convert_model_batch(
+            raw_batch=raw_batch,
+            contribution=contribution,
+            case=case,
+            packets=packets,
+            model_id=resolved_model,
+            prompt_version=executed_prompt_version,
         )
-        + "\n",
-        encoding="utf-8",
-    )
-    return run
+        overlay = assemble_temporal_overlay(
+            contribution=contribution,
+            annotations=annotations,
+            prompt_version=executed_prompt_version,
+        )
+        parsed_overlay = load_temporal_annotation_overlay(
+            overlay.model_dump(by_alias=True)
+        )
+        try:
+            preview = build_temporal_shadow_preview(contribution, parsed_overlay)
+        except TemporalShadowBuildError as exc:
+            raise TemporalShadowExtractionError(
+                str(exc),
+                code="overlay_assembly_failed",
+                affected_assertion_id=exc.affected_assertion_id,
+                diagnostics=list(exc.diagnostics),
+            ) from exc
+
+        gold_overlay = load_bound_gold_overlay(case, contribution, repo_root=root)
+        comparison = compare_temporal_overlays(parsed_overlay, gold_overlay)
+
+        run_id = compute_temporal_shadow_run_id(
+            case_id=case.case_id,
+            case_digest=case_digest,
+            model_id=resolved_model,
+            prompt_version=executed_prompt_version,
+            validated_model_output=raw_batch,
+        )
+        run = TemporalShadowExtractionRunV1(
+            run_id=run_id,
+            case_id=case.case_id,
+            case_digest=case_digest,
+            repository_sha=_repository_sha(repo_root=root),
+            overlay_id=parsed_overlay.overlay_id,
+            base_contribution_id=contribution.contribution_id,
+            base_contribution_source_payload_sha256=base_digest,
+            selected_assertion_ids=list(case.selected_assertion_ids),
+            source_artifacts=_source_artifact_digests(case),
+            comparison_verdict=comparison.verdict,
+            evaluation_verdict=comparison.evaluation_verdict,
+            preview_verdict=preview.verdict,
+            model_id=resolved_model,
+            prompt_version=executed_prompt_version,
+            executed_prompt_version=executed_prompt_version,
+            provider_response_id=provider_meta.response_id,
+            input_tokens=provider_meta.input_tokens,
+            output_tokens=provider_meta.output_tokens,
+            elapsed_ms=provider_meta.elapsed_ms,
+        )
+
+        # Write payload artifacts first; run-manifest last, then publish atomically.
+        (staging / "model-output.json").write_text(
+            json.dumps(raw_batch, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        (staging / "overlay.json").write_text(
+            json.dumps(
+                parsed_overlay.model_dump(by_alias=True), indent=2, sort_keys=True
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (staging / "preview.json").write_text(
+            json.dumps(preview.model_dump(by_alias=True), indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+        (staging / "comparison.json").write_text(
+            json.dumps(comparison.model_dump(by_alias=True), indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+        (staging / "provider-metadata.json").write_text(
+            json.dumps(
+                {
+                    "response_id": provider_meta.response_id,
+                    "model_id": provider_meta.model_id,
+                    "input_tokens": provider_meta.input_tokens,
+                    "output_tokens": provider_meta.output_tokens,
+                    "elapsed_ms": provider_meta.elapsed_ms,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (staging / "run-manifest.json").write_text(
+            json.dumps(run.model_dump(by_alias=True), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        _publish_run_directory(staging, out)
+        published = True
+        return run
+    finally:
+        if not published and staging.exists():
+            import shutil
+
+            shutil.rmtree(staging, ignore_errors=True)
 
 
 __all__ = [
