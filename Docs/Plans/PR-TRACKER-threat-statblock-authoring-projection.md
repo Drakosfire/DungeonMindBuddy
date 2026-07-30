@@ -2,16 +2,17 @@
 
 **Status:** ACTIVE PUBLICATION-FIRST TRACKER  
 **Date:** 2026-07-30  
-**Repository anchor:** `main` after merged PR `#454`  
+**Repository anchor:** `main` after merged PR `#455` and the PR457 dispatch correction  
 **Latest merged workstream PR:** `#454` — R0 reports, Workbench unblockers, Hermes UX  
-**Immediate authority:** rerun `R0-A` on merged `main`; obtain one exact accepted revision; then dispatch a re-anchored `SBW08` contract slice  
+**Immediate authority:** dispatch [`HANDOFF-pr457-sbw08-statblock-binding-contract.md`](HANDOFF-pr457-sbw08-statblock-binding-contract.md)  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
-**R0-A evidence:** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md) — `FAIL_PRODUCT`  
+**Historical R0-A report:** [`../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md`](../Reports/MAGIC-MOMENT-R0-A-2026-07-29.md) — `FAIL_PRODUCT` before the merged unblockers  
+**Accepted-revision prerequisite:** `SATISFIED_BY_OPERATOR_CONFIRMATION` — the GM manually completed create → generate → edit → validate → accept → hard reload → reopen at least twice; exact run IDs were not captured as a checked-in report  
 **R0-B evidence:** [`../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md`](../Reports/MAGIC-MOMENT-R0-B-2026-07-30.md) — `IN_PROGRESS`
 
-This tracker is the sequencing authority for the Threat + Statblock workstream. The critical path is accepted mechanics → governed publication → query/hydration → projection → placement → combat. Grounded Hermes authoring is a parallel enhancement lane after the accepted-revision prerequisite is met.
+This tracker is the sequencing authority for the Threat + Statblock workstream. The critical path is accepted mechanics → governed publication → query/hydration → projection → placement → combat. Grounded Hermes authoring is a parallel enhancement lane. The accepted-revision prerequisite is closed by operator confirmation and must not be redispatched as PR457.
 
 ## 1. Dispatch rules
 
@@ -23,6 +24,7 @@ This tracker is the sequencing authority for the Threat + Statblock workstream. 
 6. Existing SBW handoffs must be re-anchored to current paths, contracts, fixtures, and base SHA before dispatch.
 7. Product dogfood is required at the gate enabled by the slice; a prior unrelated gate does not block a lane unless it is a real technical prerequisite.
 8. Hermes-to-draft convenience work does not block publication when one exact accepted revision already exists.
+9. Operator-confirmed product evidence is authoritative for dispatch readiness when recorded honestly as operator-reported rather than CI- or repo-attested evidence.
 
 Required demolition declaration:
 
@@ -47,30 +49,31 @@ Required deletion owner:
 | `SBW06 contract/a–c` | MERGED `#413`, `#417`, `#435`, `#439` | Revise contracts, lineage, durable status, proposal UX, and retry behavior. |
 | `Dogfood Gate A` | MERGED `#425` | Context-aware Workbench create/generate entry; historical partial attempt only. |
 | PR `#454` | MERGED | R0 reports, current provider-contract sync, timeout alignment, freestanding provenance honesty, and Hermes UX unblockers. |
+| `ACCEPTED-REVISION-PROOF` | OPERATOR-CONFIRMED | The GM completed the normal real-provider acceptance and reopen lifecycle at least twice. This is sufficient to dispatch the graph contract; it is not represented as automated or checked-in run evidence. |
 
 ## 3. Current evidence and prerequisite queue
 
 | ID | Status | Mission | Exit / next action |
 |---|---|---|---|
-| `R0-A` | `FAIL_PRODUCT` | Prove real-provider create→generate→edit→validate→accept→reload. | Rerun on merged `main`. If generation still fails, preserve structured provider diagnostics and fix only the owning producer/contract/presentation boundary. Exit with exact `(statblock_id, revision_id, digest)` surviving reopen. |
+| `R0-A` | `OPERATOR_CONFIRMED_PASS` | Prove real-provider create→generate→edit→validate→accept→reload. | Closed for dispatch purposes. Preserve the 2026-07-29 failure as historical evidence; do not create another proof-only PR unless a future regression reopens the gate. |
 | `R0-B` | `IN_PROGRESS` / PROVISIONAL PASS | Prove unioned-graph investigation and useful Threat-description authoring. | Capture final authoring trace/verdict. Does not block publication-first work. |
-| `R0-A-DIAGNOSTICS` | CONDITIONAL NARROW SLICE | Surface field/reference validation diagnostics and classify producer vs consumer ownership. | Dispatch only if the merged rerun still returns `definition_invalid` or another opaque validation failure. |
-| `ACCEPTED-REVISION-PROOF` | DOGFOOD REQUIRED | Produce one exact accepted revision through the normal Workbench. | Unlocks `SBW08`. |
+| `R0-A-DIAGNOSTICS` | NOT DISPATCHED | Surface field/reference validation diagnostics and classify producer vs consumer ownership. | Conditional future regression slice only; the successful operator runs mean it is not the current next action. |
+| `ACCEPTED-REVISION-PROOF` | `SATISFIED_BY_OPERATOR_CONFIRMATION` | Produce one exact accepted revision through the normal Workbench. | `SBW08` is unlocked. Exact IDs remain runtime data rather than checked-in authority. |
 
 ## 4. Critical publication queue
 
-Existing `SBW08–SBW10` designs are strategic inputs and must be re-anchored before dispatch.
+`SBW08` is re-anchored and dispatch-ready. Existing `SBW09–SBW10` designs remain strategic inputs and must be re-anchored before dispatch.
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
-| `SBW08` | NEXT CONTRACT; RE-ANCHOR | Freeze exact external-resource identity and `ThreatStatblockBinding`. | Contract only; no product graph write. Requires one accepted-revision proof, not `MAGIC-D1`. |
+| `SBW08` / PR `#457` | ACTIVE HANDOFF | Freeze exact external-resource identity and `ThreatStatblockBinding`. | Contract only; no product graph write. Authority: [`HANDOFF-pr457-sbw08-statblock-binding-contract.md`](HANDOFF-pr457-sbw08-statblock-binding-contract.md). |
 | `SBW09a` | NEW SPLIT | Durable publication operation and recoverable partial state. | Expected graph revision, retry, cancellation, stale behavior. |
 | `SBW09b` | NEW SPLIT | Create-new versus connect-existing Threat resolution. | Candidate matches, explicit selection, explicit refusal, no silent merge. |
 | `SBW09c` | NEW SPLIT | Governed preview/confirm Threat + exact binding commit. | Existing graph governance path; server success plus graph failure remains recoverable. |
 | `SBW10a` | NEW EXPLICIT SLICE | Hermes query and exact mechanics hydration for published Threats. | Query by name, role, capability, relationship, and campaign context. |
 | `SBW10b` | RE-ANCHOR FROM OLD `SBW10` | Compact/full exact-revision Threat projection. | Useful game information first; explicit binding-selection behavior. |
 
-`MAGIC-D3` now proves publication, queryability, hydration, and projection. It blocks placement.
+`MAGIC-D3` proves publication, queryability, hydration, and projection. It blocks placement.
 
 ## 5. Placement and shared-capability queue
 
@@ -134,11 +137,11 @@ These do not block `SBW08–SBW10` after an exact accepted revision exists.
 
 | Gate | Current status | Capability / dependency |
 |---|---|---|
-| `R0-A` | `FAIL_PRODUCT`; rerun required | Exact accepted revision through real current provider |
+| `R0-A` | `OPERATOR_CONFIRMED_PASS` | Exact accepted revision lifecycle manually completed at least twice; no further proof-only PR required |
 | `R0-B` | `IN_PROGRESS`; provisional grounding pass | Grounded-authoring enhancement lane only |
 | `MAGIC-D1` | DOGFOOD REQUIRED / PARALLEL | Query → grounded description → durable ThreatDraft |
 | `MAGIC-D2` | DOGFOOD REQUIRED / PARALLEL | Grounded draft → connected accepted mechanics |
-| `MAGIC-D3` | BLOCKED | Accepted revision → published/queryable/projectable Threat |
+| `MAGIC-D3` | BLOCKED ON `SBW08–SBW10` | Accepted revision → published/queryable/projectable Threat |
 | `MAGIC-D4` | BLOCKED | Same exact Threat placed from relevant surfaces |
 | `MAGIC-D5` | BLOCKED | Exact published Threat/placement enters live combat |
 | `AOW05` | DEFERRED | Second domain proves general architecture |
@@ -146,10 +149,7 @@ These do not block `SBW08–SBW10` after an exact accepted revision exists.
 ## 10. Immediate dispatch logic
 
 ```text
-rerun R0-A on merged PR #454 state
-→ if generation still fails opaquely: dispatch R0-A-DIAGNOSTICS only
-→ obtain exact accepted revision and reopen proof
-→ re-anchor and dispatch SBW08 contract
+dispatch PR457 / SBW08 exact statblock resource + ThreatStatblockBinding contract
 → SBW09a publication operation
 → SBW09b create-or-connect resolution
 → SBW09c governed commit
