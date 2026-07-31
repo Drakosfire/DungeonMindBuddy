@@ -120,7 +120,7 @@ Observed TL01F motivation check on V5 holdout:
 
 ## Normalization findings
 
-Textual-value mismatches remain separate from lane failures (V5 founding phrase span; adversarial historical spans; forest phrase truncation). Restaurant is now a clean lane miss under attribute→valid-start gold, not an occurrence/source-different scoring artifact. Evaluation-only `cohort_tag` is stripped from `semantic_assertion_value` and absent from V7 fixtures.
+Textual-value mismatches remain separate from lane failures (V5 founding phrase span; adversarial historical spans; forest phrase truncation). Restaurant is now a clean lane miss under attribute→valid-start gold, not an occurrence/source-different scoring artifact. Evaluation-only `cohort_tag` remains absent from V7 fixtures (no Graph Kernel contract change).
 
 ## Interpretation
 

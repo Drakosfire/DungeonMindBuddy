@@ -123,19 +123,6 @@ def test_assertion_identity_excludes_only_top_level_provenance() -> None:
     assert value == original
 
 
-def test_semantic_assertion_value_strips_evaluation_cohort_tag() -> None:
-    value = {
-        "kind": "location",
-        "role": "town",
-        "cohort_tag": "tl01f-holdout-v7",
-        "evidence_ref_ids": ["evidence:example"],
-    }
-    assert semantic_assertion_value(value) == {
-        "kind": "location",
-        "role": "town",
-    }
-
-
 def test_assertion_identity_retains_semantic_scope_and_governance_fields() -> None:
     common = dict(
         assertion_kind="edge",
