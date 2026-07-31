@@ -1,0 +1,91 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01f-temporal-shadow-holdout-v3-candidate",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v3/base-contribution.json",
+  "base_contribution_sha256": "4be4efc43aa2f0412e3e65e271bf0a86a0cbfcfb2d27e667b636d9d58bb5f52f",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v3/gold-overlay.json",
+  "gold_overlay_sha256": "e7b69df24a5bedbc9ac4b518803782c89d01b8cef774d707ff6c44dc8ec34724",
+  "selected_assertion_ids": [
+    "assertion:1d021fde1a4a821d",
+    "assertion:f04fce6d3accbc47",
+    "assertion:c6d665dd7165ad05",
+    "assertion:abbfa5871334b2e8",
+    "assertion:a71ba5d0808acd83",
+    "assertion:77a41b4fe502698d",
+    "assertion:20341a3812cd8590"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v3:s16-dust-devil",
+      "source_artifact_id": "source-artifact:session-16---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 16 - Recap.md",
+      "content_sha256": "38fe100ba220bb6faf544fe79f6b77a4c8aa0219d9535aa608ca04743caef535",
+      "source_ref_id": "source-ref:session-16---recap",
+      "start_line": 22,
+      "end_line": 22,
+      "label": "Session 16 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v3:s23-hunger",
+      "source_artifact_id": "source-artifact:session-23---mireward-gate-battle",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "source_ref_id": "source-ref:session-23---mireward-gate-battle",
+      "start_line": 26,
+      "end_line": 26,
+      "label": "Session 23 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v3:s2-glimmering-globe",
+      "source_artifact_id": "source-artifact:session-2---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+      "content_sha256": "8a4080ac953780c13b30f5613907fb55c9fd4a1f891aa093fd9d3f245ebbca56",
+      "source_ref_id": "source-ref:session-2---recap",
+      "start_line": 36,
+      "end_line": 36,
+      "label": "Session 2 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v3:s3-inn",
+      "source_artifact_id": "source-artifact:session-3---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 3 - Recap.md",
+      "content_sha256": "7080c5f78d97bc39d2ac21a08e7f8b889da77844c376e64d67ea9269f5468bec",
+      "source_ref_id": "source-ref:session-3---recap",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 3 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v3:s2-seraphine-mention",
+      "source_artifact_id": "source-artifact:session-2---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 2 - Recap.md",
+      "content_sha256": "8a4080ac953780c13b30f5613907fb55c9fd4a1f891aa093fd9d3f245ebbca56",
+      "source_ref_id": "source-ref:session-2---recap",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 2 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v3:s23-messenger-before",
+      "source_artifact_id": "source-artifact:session-23---mireward-gate-battle",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "source_ref_id": "source-ref:session-23---mireward-gate-battle",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 23 - Mireward Gate Battle.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01d-holdout-v3:s23-orik-mayor",
+      "source_artifact_id": "source-artifact:session-23---mireward-gate-battle",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 23 - Mireward Gate Battle.md",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "source_ref_id": "source-ref:session-23---mireward-gate-battle",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 23 - Mireward Gate Battle.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01f-v1"
+}

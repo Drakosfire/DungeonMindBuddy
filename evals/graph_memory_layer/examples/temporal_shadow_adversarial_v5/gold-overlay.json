@@ -1,0 +1,187 @@
+{
+  "schema": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:57a718f787f30f33",
+  "base_contribution_id": "contribution:0f87097040871132",
+  "base_contribution_source_payload_sha256": "46888886a317fed943eae25cca3a8dfafadb5d3a2c0a655d856c99de5094a9f6",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01f-adversarial-v5",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:a500000000000001",
+      "base_assertion_id": "assertion:9ecb2757becf544e",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:eventive-on-state"
+      ],
+      "source_phrase": "Corveth as he continues to hold the Amber Ledger",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a500000000000002",
+      "base_assertion_id": "assertion:2eecfd7a21c3c7cb",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-12",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:stative-on-event"
+      ],
+      "source_phrase": "she destroys the Driftglass beacon",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a500000000000003",
+      "base_assertion_id": "assertion:5060296933983f85",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:tempting-source"
+      ],
+      "source_phrase": "Pelloric still serves with the Nightspine Order",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a500000000000004",
+      "base_assertion_id": "assertion:81c0374c2e642483",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "left the Driftglass Causeway about thirty years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:source-diff"
+      ],
+      "source_phrase": "Ysanna left the Driftglass Causeway about thirty years ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane; reject source session"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a500000000000005",
+      "base_assertion_id": "assertion:38721e12a3dca478",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-9",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:valid-start"
+      ],
+      "source_phrase": "Beginning in Session 9, Corveth reports to Amber Ledger Hall",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a500000000000006",
+      "base_assertion_id": "assertion:47ef679ede7cc6f5",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-11",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:valid-end"
+      ],
+      "source_phrase": "Pelloric no longer controls the Nightspine seal",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a500000000000007",
+      "base_assertion_id": "assertion:bcd474ba51700b9c",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:restatement"
+      ],
+      "source_phrase": "As Nightspine archivist, Ysanna presents the Amber Ledger",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:a500000000000008",
+      "base_assertion_id": "assertion:5857680ba2bafb7d",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:ambiguous-lane"
+      ],
+      "source_phrase": "has the Amber Ledger since the fire, or maybe he only recovered it then",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "proposition with multiple materially plausible temporal readings"
+      ]
+    }
+  ]
+}

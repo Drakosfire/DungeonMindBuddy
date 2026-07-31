@@ -225,3 +225,172 @@ def test_unknown_prompt_version_still_fails_closed(tmp_path: Path) -> None:
         )
     message = str(excinfo.value).lower()
     assert "unsupported" in message or "prompt_version" in message
+
+
+def _collect_ids(folder: Path) -> tuple[set[str], set[str]]:
+    assertion_ids: set[str] = set()
+    evidence_ids: set[str] = set()
+    base = json.loads((folder / "base-contribution.json").read_text(encoding="utf-8"))
+    for assertion in base.get("candidate_assertions", []):
+        assertion_ids.add(assertion["assertion_id"])
+        evidence_ids.update(assertion.get("evidence_ref_ids", []))
+    case_path = folder / "temporal-case-tl01f.json"
+    if not case_path.is_file():
+        case_path = folder / "temporal-case-tl01e.json"
+    case = json.loads(case_path.read_text(encoding="utf-8"))
+    for entry in case.get("evidence_registry", []):
+        evidence_ids.add(entry["evidence_ref_id"])
+    return assertion_ids, evidence_ids
+
+
+HOLDOUT_V6 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v6"
+ADV_V5 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v5"
+
+PRIOR_COHORT_DIRS = (
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_cohort",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v3",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v4",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v5",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3",
+    REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v4",
+)
+
+ADV_V5_VOCABULARY = (
+    "Corveth",
+    "Ysanna",
+    "Pelloric",
+    "Driftglass Causeway",
+    "Amber Ledger Hall",
+    "Nightspine Order",
+)
+
+
+def test_holdout_v6_fixture_files_and_prompt_versions() -> None:
+    for name in (
+        "README.md",
+        "GOLD-AUDIT.md",
+        "base-contribution.json",
+        "gold-overlay.json",
+        "temporal-case-tl01e.json",
+        "temporal-case-tl01f.json",
+    ):
+        assert (HOLDOUT_V6 / name).is_file(), name
+    tl01e = json.loads((HOLDOUT_V6 / "temporal-case-tl01e.json").read_text(encoding="utf-8"))
+    tl01f = json.loads((HOLDOUT_V6 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
+    assert tl01e["prompt_version"] == "tl01e-v1"
+    assert tl01f["prompt_version"] == "tl01f-v1"
+    assert len(tl01f["selected_assertion_ids"]) >= 8
+
+
+def test_v6_and_adv5_control_candidate_cases_are_exact_mirrors() -> None:
+    from evals.graph_memory_layer.temporal_shadow_prompt_calibration import (
+        validate_paired_case_equivalence,
+    )
+
+    for folder_name in ("temporal_shadow_holdout_v6", "temporal_shadow_adversarial_v5"):
+        folder = REPO_ROOT / "evals/graph_memory_layer/examples" / folder_name
+        validate_paired_case_equivalence(
+            baseline_case_path=folder / "temporal-case-tl01e.json",
+            candidate_case_path=folder / "temporal-case-tl01f.json",
+            repo_root=REPO_ROOT,
+            pair_name=folder_name,
+        )
+
+
+def test_holdout_v6_ids_disjoint_from_prior_and_adversarial_v5() -> None:
+    new_a, new_e = _collect_ids(HOLDOUT_V6)
+    prior_a: set[str] = set()
+    prior_e: set[str] = set()
+    for folder in (*PRIOR_COHORT_DIRS, ADV_V5):
+        a_ids, e_ids = _collect_ids(folder)
+        prior_a |= a_ids
+        prior_e |= e_ids
+    assert new_a.isdisjoint(prior_a)
+    assert new_e.isdisjoint(prior_e)
+
+
+def test_adversarial_v5_vocabulary_disjoint_from_prompt_and_holdout_v6() -> None:
+    prompt = TL01F_PROPOSITION_TYPE_TEMPORAL_LANE_INSTRUCTIONS
+    for term in ADV_V5_VOCABULARY:
+        assert term not in prompt
+    holdout_text = ""
+    for path in HOLDOUT_V6.rglob("*"):
+        if path.is_file() and path.suffix in {".json", ".md"}:
+            holdout_text += path.read_text(encoding="utf-8")
+    for term in ADV_V5_VOCABULARY:
+        assert term not in holdout_text
+
+
+def test_holdout_v6_promotion_gold_covers_required_lane_classes() -> None:
+    gold = json.loads((HOLDOUT_V6 / "gold-overlay.json").read_text(encoding="utf-8"))
+    anns = gold["annotations"]
+    assert len(anns) >= 8
+
+    def has_occurrence(ann: dict) -> bool:
+        return ann.get("occurrence_time") is not None
+
+    def has_valid_start(ann: dict) -> bool:
+        vt = ann.get("valid_time") or {}
+        return vt.get("start") is not None and vt.get("end") is None
+
+    def has_valid_end(ann: dict) -> bool:
+        vt = ann.get("valid_time") or {}
+        return vt.get("end") is not None and vt.get("start") is None
+
+    assert any(
+        a["interpretation_status"] == "resolved" and has_occurrence(a) and a["valid_time"] is None
+        for a in anns
+    )
+    assert any(
+        a["interpretation_status"] == "resolved" and has_valid_start(a) and a["occurrence_time"] is None
+        for a in anns
+    )
+    assert any(
+        a["interpretation_status"] == "resolved" and has_valid_end(a) and a["occurrence_time"] is None
+        for a in anns
+    )
+    assert any(a["interpretation_status"] == "not_applicable" for a in anns)
+    assert any(a["interpretation_status"] == "unresolved" for a in anns)
+    assert any(a["interpretation_status"] == "ambiguous" for a in anns)
+    # source-different textual occurrence present
+    assert any(
+        a["interpretation_status"] == "resolved"
+        and (a.get("occurrence_time") or {}).get("point", {}).get("kind") == "textual"
+        for a in anns
+    )
+    for a in anns:
+        assert any(str(d).strip() for d in a.get("diagnostics", []))
+        if a["interpretation_status"] in {"not_applicable", "ambiguous", "unresolved"}:
+            assert a["occurrence_time"] is None
+            assert a["valid_time"] is None
+
+
+def test_gold_audit_files_exist_for_promotion_cohorts() -> None:
+    for folder in (HOLDOUT_V6, ADV_V5):
+        audit = (folder / "GOLD-AUDIT.md").read_text(encoding="utf-8")
+        assert "Audit result" in audit
+        assert "Supported" in audit
+        assert "Rejected alternative" in audit
+
+
+def test_tl01f_regression_mirrors_exist() -> None:
+    expected = [
+        REPO_ROOT
+        / "evals/graph_memory_layer/examples/temporal_shadow_cohort/temporal-case-tl01f.json",
+        REPO_ROOT
+        / "evals/graph_memory_layer/examples/temporal_shadow_holdout/temporal-case-tl01f.json",
+        REPO_ROOT
+        / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v2/temporal-case-tl01f.json",
+        REPO_ROOT
+        / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v3/temporal-case-tl01f.json",
+        REPO_ROOT
+        / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v3/temporal-case-tl01f.json",
+        REPO_ROOT
+        / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v5/temporal-case-tl01f.json",
+    ]
+    for path in expected:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["prompt_version"] == "tl01f-v1"
+        assert "tl01f" in payload["case_id"]

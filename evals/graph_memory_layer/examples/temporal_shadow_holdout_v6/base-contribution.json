@@ -1,0 +1,244 @@
+{
+  "contribution_id": "contribution:da43669de97903fc",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01f-holdout-v6",
+  "produced_at": "2026-07-31T12:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:130e2c303989e455",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:stafl",
+      "target_node_id": "feature:peacemaker-fiddle",
+      "predicate": "played_song_of_shattering",
+      "label": "Stafl played the Song of Shattering",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-holdout-v6:s6-shattering",
+            "session_id": "session-6"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v6:s6-shattering"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:da43669de97903fc"
+    },
+    {
+      "assertion_id": "assertion:694c0497d27efa0c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:winna",
+      "target_node_id": null,
+      "predicate": "in_charge_of_dustwalker_door",
+      "label": "Winna is in charge of the Dustwalker cell door",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-holdout-v6:s8-winna-door",
+            "session_id": "session-8"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v6:s8-winna-door"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:da43669de97903fc"
+    },
+    {
+      "assertion_id": "assertion:ae464c1577720f3a",
+      "assertion_kind": "attribute",
+      "subject_node_id": "pc:bonogo",
+      "target_node_id": null,
+      "predicate": "compelled_to_attack_meatwings",
+      "label": "Bonogo is compelled to attack the meatwings",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-holdout-v6:s23-compulsion-end",
+            "session_id": "session-23"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v6:s23-compulsion-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:da43669de97903fc"
+    },
+    {
+      "assertion_id": "assertion:9e895a8230bbe0b8",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:mossford-farmhouse-family",
+      "target_node_id": null,
+      "predicate": "are_moss_farmers",
+      "label": "The farmhouse family are moss farmers",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-holdout-v6:s18-moss-farmers",
+            "session_id": "session-18"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v6:s18-moss-farmers"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:da43669de97903fc"
+    },
+    {
+      "assertion_id": "assertion:32481ece274e25b6",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:wolf-manor-basement",
+      "target_node_id": "feature:summoning-circle",
+      "predicate": "contains",
+      "label": "Wolf Manor basement contains a summoning circle",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-holdout-v6:s14-summoning-circle",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v6:s14-summoning-circle"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:da43669de97903fc"
+    },
+    {
+      "assertion_id": "assertion:bc93e34fa8b21796",
+      "assertion_kind": "attribute",
+      "subject_node_id": "loc:reach-abandoned-restaurant",
+      "target_node_id": null,
+      "predicate": "abandoned",
+      "label": "The Reach roadside restaurant was abandoned",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-holdout-v6:s22-abandoned-week",
+            "session_id": "session-22"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v6:s22-abandoned-week"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:da43669de97903fc"
+    },
+    {
+      "assertion_id": "assertion:5df8d8029cf5a34c",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:migrating-forest",
+      "target_node_id": "loc:mossford",
+      "predicate": "will_reach",
+      "label": "The migrating forest will reach Mossford",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-holdout-v6:s18-forest-arrival",
+            "session_id": "session-18"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v6:s18-forest-arrival"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:da43669de97903fc"
+    },
+    {
+      "assertion_id": "assertion:c18c29870e398a23",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:dustwalker",
+      "target_node_id": null,
+      "predicate": "present_in_academy_cell",
+      "label": "Dustwalker is present in the Academy cell",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-holdout-v6:s12-dustwalker-cell",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v6:s12-dustwalker-cell"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:da43669de97903fc"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
