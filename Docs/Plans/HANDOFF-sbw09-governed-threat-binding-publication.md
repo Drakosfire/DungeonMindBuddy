@@ -9,10 +9,10 @@
 
 ## Current dispatch sequence
 
-1. [`HANDOFF-pr459-sbw09a-publication-operation-ledger.md`](HANDOFF-pr459-sbw09a-publication-operation-ledger.md)  
-   Durable, no-write publication operation authority pinned to one exact mechanics-saved ThreatDraft snapshot and expected World Graph parent.
+1. [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md)  
+   Durable, no-write publication operation authority pinned to one exact mechanics-saved ThreatDraft snapshot and expected World Graph parent. No future PR number is assigned by that handoff.
 
-2. `SBW09b` — handoff to be designed after PR `#459`  
+2. `SBW09b` — handoff to be designed after `SBW09a` merges  
    Explicit create-new versus connect-existing Threat resolution; no silent duplicate or merge.
 
 3. `SBW09c` — handoff to be designed after `SBW09b`  
@@ -34,6 +34,6 @@ The old design remains useful only as research for successor re-anchoring:
 
 ## Authority
 
-The active publication-first roadmap and tracker, followed by the numbered handoff for the current slice, supersede every dispatch instruction formerly contained here.
+The active publication-first roadmap and tracker, followed by the unnumbered handoff for the current slice, supersede every dispatch instruction formerly contained here.
 
-Do not implement this file as one capability. Do not copy its old allowlist or UI scope into PR `#459`.
+Do not implement this file as one capability. Do not copy its old allowlist or UI scope into `SBW09a`.
