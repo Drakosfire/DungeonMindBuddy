@@ -1,6 +1,7 @@
 """SBW09a: durable Threat publication-operation route contract tests."""
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,8 @@ from apps.live_control_server.services.threat_draft_store import (
     attach_accepted_mechanics_ref,
     create_threat_draft,
 )
+from graph_memory.world_supergraph.paths import head_path
+from graph_memory.world_supergraph.storage import open_world_graph_head
 
 DEFAULT_DIGEST = "sha256:" + "a" * 64
 
@@ -158,6 +161,31 @@ def test_begin_route_parent_mismatch_returns_409(tmp_path: Path, monkeypatch) ->
     )
     assert response.status_code == 409
     assert response.json()["result_label"] == "publication_parent_mismatch"
+    assert response.json()["operation"] is None
+
+
+def test_begin_route_corrupt_canonical_graph_head_returns_503(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _make_mechanics_saved_draft(tmp_path, monkeypatch)
+    graph_root = tmp_path / "world-graph"
+    monkeypatch.setattr(svc, "world_graph_root", lambda: graph_root)
+    monkeypatch.setattr(svc.kernel, "open_world_graph_head", open_world_graph_head)
+    head_file = head_path(graph_root, "world_1")
+    head_file.parent.mkdir(parents=True, exist_ok=True)
+    head_file.write_text(
+        json.dumps({"world_id": "world_1", "updated_at": "2020-01-01T00:00:00Z"}),
+        encoding="utf-8",
+    )
+    client = _client(tmp_path, monkeypatch)
+
+    response = client.post(
+        f"/api/live/threat-drafts/{draft.draft_id}/publication-operations",
+        json=_begin_body(expected_draft_version=draft.version),
+    )
+
+    assert response.status_code == 503
+    assert response.json()["result_label"] == "publication_graph_unavailable"
     assert response.json()["operation"] is None
 
 

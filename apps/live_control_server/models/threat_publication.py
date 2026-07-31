@@ -409,6 +409,8 @@ class ThreatPublicationLedgerV1(StrictModel):
             raise ValueError("active operation exists without active_operation_id pointer")
 
         for op in self.operations:
+            if op.source_snapshot.draft_id != self.draft_id:
+                raise ValueError("operation source_snapshot.draft_id must match ledger draft_id")
             expected_digest = _expected_request_digest_for_operation(self.draft_id, op)
             if expected_digest != op.request_digest:
                 raise ValueError("request_digest does not match recomputed operation identity")
@@ -428,18 +430,14 @@ class ThreatPublicationLedgerV1(StrictModel):
                 if successor.supersedes_operation_id != op.operation_id:
                     raise ValueError("supersession link is not bidirectional")
 
-        visited: set[str] = set()
-        current = self.active_operation_id
-        while current is not None:
-            if current in visited:
-                raise ValueError("publication lineage contains a cycle")
-            visited.add(current)
-            op = by_id.get(current)
-            if op is None:
-                break
-            current = op.supersedes_operation_id
-        if len(visited) > len(self.operations):
-            raise ValueError("publication lineage contains a cycle")
+        for start_id in by_id:
+            visited: set[str] = set()
+            current: str | None = start_id
+            while current is not None:
+                if current in visited:
+                    raise ValueError("publication lineage contains a cycle")
+                visited.add(current)
+                current = by_id[current].supersedes_operation_id
         return self
 
 

@@ -241,6 +241,11 @@ def _read_graph_head(root: Path, world_id: str) -> str:
         raise GraphHeadUnavailable(str(exc)) from exc
     except OSError as exc:
         raise GraphHeadUnavailable(str(exc)) from exc
+    except Exception as exc:
+        # The canonical loader owns JSON decoding and WorldGraphHead validation.
+        # Convert every parser/model failure into the dependency failure contract;
+        # never let corrupt head bytes escape the typed publication response.
+        raise GraphHeadUnavailable(str(exc)) from exc
     return head.head_revision_id
 
 

@@ -31,6 +31,7 @@ from apps.live_control_server.models.threat_publication import (
     ThreatPublicationOperationV1,
     ThreatPublicationSourceSnapshotV1,
     build_source_snapshot,
+    retry_request_digest,
     source_digest_for_snapshot,
     validate_publication_operation_id,
 )
@@ -41,6 +42,7 @@ from apps.live_control_server.services.threat_draft_store import (
     get_threat_draft,
     update_threat_draft,
 )
+from graph_memory.world_supergraph.paths import head_path
 
 DEFAULT_DIGEST = "sha256:" + "a" * 64
 
@@ -54,6 +56,32 @@ def _mock_head(monkeypatch, revision_id: str) -> None:
     monkeypatch.setattr(
         svc.kernel, "open_world_graph_head", lambda root, world_id: _FakeHead(revision_id)
     )
+
+
+def _write_canonical_head(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    revision_id: str = "rev:parent1",
+    payload: dict[str, Any] | None = None,
+) -> Path:
+    graph_root = tmp_path / "world-graph"
+    monkeypatch.setattr(svc, "world_graph_root", lambda: graph_root)
+    path = head_path(graph_root, "world_1")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            payload
+            if payload is not None
+            else {
+                "world_id": "world_1",
+                "head_revision_id": revision_id,
+                "updated_at": "2020-01-01T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 def _create_draft(tmp_path: Path, **overrides: Any):
@@ -164,6 +192,52 @@ def test_begin_rejects_non_mechanics_saved_draft_without_record(
 
     ledger = svc._load_ledger_unlocked(tmp_path, draft.draft_id)
     assert ledger.operations == []
+
+
+def test_begin_reads_canonical_world_graph_head_storage(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _create_draft(tmp_path)
+    draft = _accept_mechanics(tmp_path, draft)
+    _write_canonical_head(tmp_path, monkeypatch)
+
+    outcome = svc.begin_publication_operation(
+        tmp_path,
+        draft.draft_id,
+        _begin_request(expected_draft_version=draft.version),
+    )
+
+    assert outcome.created is True
+    assert outcome.response.result_label == "publication_ready"
+    assert outcome.response.operation.expected_parent_revision_id == "rev:parent1"
+
+
+@pytest.mark.parametrize(
+    "head_bytes",
+    [
+        "{not valid json",
+        json.dumps({"world_id": "world_1", "updated_at": "2020-01-01T00:00:00Z"}),
+    ],
+    ids=["malformed-json", "invalid-world-graph-head-model"],
+)
+def test_corrupt_canonical_world_graph_head_returns_typed_failure(
+    tmp_path: Path, monkeypatch, head_bytes: str
+) -> None:
+    draft = _create_draft(tmp_path)
+    draft = _accept_mechanics(tmp_path, draft)
+    head_file = _write_canonical_head(tmp_path, monkeypatch)
+    head_file.write_text(head_bytes, encoding="utf-8")
+
+    outcome = svc.begin_publication_operation(
+        tmp_path,
+        draft.draft_id,
+        _begin_request(expected_draft_version=draft.version),
+    )
+
+    assert outcome.created is False
+    assert outcome.response.result_label == "publication_graph_unavailable"
+    assert outcome.response.operation is None
+    assert outcome.response.schema_name == "dmb_threat_publication_operation_response_v1"
 
 
 def test_begin_exact_replay_does_not_resnapshot_current_state(
@@ -700,6 +774,95 @@ def test_source_digest_tamper_detected_on_load() -> None:
     }
     with pytest.raises(ValidationError, match="source_digest"):
         ThreatPublicationOperationV1.model_validate(payload)
+
+
+def test_ledger_rejects_cross_draft_source_snapshot(tmp_path: Path, monkeypatch) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch)
+    svc.begin_publication_operation(
+        tmp_path,
+        draft.draft_id,
+        _begin_request(expected_draft_version=draft.version),
+    )
+    payload = svc._load_ledger_unlocked(tmp_path, draft.draft_id).model_dump(
+        mode="json", by_alias=True
+    )
+
+    tampered_snapshot_payload = dict(payload["operations"][0]["source_snapshot"])
+    tampered_snapshot_payload["draft_id"] = str(uuid.uuid4())
+    tampered_snapshot = ThreatPublicationSourceSnapshotV1.model_validate(
+        tampered_snapshot_payload
+    )
+    payload["operations"][0]["source_snapshot"] = tampered_snapshot.model_dump(
+        mode="json", by_alias=True
+    )
+    payload["operations"][0]["source_digest"] = source_digest_for_snapshot(tampered_snapshot)
+
+    with pytest.raises(ValidationError, match="source_snapshot.draft_id"):
+        ThreatPublicationLedgerV1.model_validate(payload)
+
+
+def test_ledger_rejects_disconnected_supersession_cycle(
+    tmp_path: Path, monkeypatch
+) -> None:
+    draft = _mechanics_saved_draft(tmp_path, monkeypatch)
+    begin = svc.begin_publication_operation(
+        tmp_path,
+        draft.draft_id,
+        _begin_request(expected_draft_version=draft.version),
+    )
+    base = begin.response.operation
+    first_id = str(uuid.uuid4())
+    second_id = str(uuid.uuid4())
+
+    first_request = RetryThreatPublicationOperationRequestV1(
+        new_operation_id=first_id,
+        expected_parent_revision_id=base.expected_parent_revision_id,
+        actor=base.created_by,
+        operator_note=base.operator_note,
+    )
+    second_request = RetryThreatPublicationOperationRequestV1(
+        new_operation_id=second_id,
+        expected_parent_revision_id=base.expected_parent_revision_id,
+        actor=base.created_by,
+        operator_note=base.operator_note,
+    )
+    first = svc._revalidate_operation(
+        base.model_copy(
+            update={
+                "operation_id": first_id,
+                "request_digest": retry_request_digest(
+                    draft.draft_id, second_id, first_request
+                ),
+                "state": "superseded",
+                "supersedes_operation_id": second_id,
+                "superseded_by_operation_id": second_id,
+            }
+        )
+    )
+    second = svc._revalidate_operation(
+        base.model_copy(
+            update={
+                "operation_id": second_id,
+                "request_digest": retry_request_digest(
+                    draft.draft_id, first_id, second_request
+                ),
+                "state": "superseded",
+                "supersedes_operation_id": first_id,
+                "superseded_by_operation_id": first_id,
+            }
+        )
+    )
+    payload = {
+        "draft_id": draft.draft_id,
+        "active_operation_id": None,
+        "operations": [
+            first.model_dump(mode="json", by_alias=True),
+            second.model_dump(mode="json", by_alias=True),
+        ],
+    }
+
+    with pytest.raises(ValidationError, match="lineage contains a cycle"):
+        ThreatPublicationLedgerV1.model_validate(payload)
 
 
 def test_ledger_rejects_unbound_extra_field(tmp_path: Path, monkeypatch) -> None:
