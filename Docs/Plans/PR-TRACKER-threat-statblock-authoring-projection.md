@@ -4,7 +4,7 @@
 **Date:** 2026-07-30  
 **Repository anchor:** `main` after merged PR `#455` and the PR457 dispatch correction  
 **Latest merged workstream PR:** `#454` — R0 reports, Workbench unblockers, Hermes UX  
-**Immediate authority:** dispatch [`HANDOFF-pr457-sbw08-statblock-binding-contract.md`](HANDOFF-pr457-sbw08-statblock-binding-contract.md)  
+**Immediate authority:** dispatch [`HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md`](HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md)
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
@@ -62,13 +62,13 @@ Required deletion owner:
 
 ## 4. Critical publication queue
 
-`SBW08` is re-anchored and dispatch-ready. Existing `SBW09–SBW10` designs remain strategic inputs and must be re-anchored before dispatch.
+`SBW08` is merged and `SBW09a` is delivered. `SBW09b–SBW10` remain bounded successor slices and must be re-anchored before dispatch.
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
-| `SBW08` / PR `#457` | ACTIVE HANDOFF | Freeze exact external-resource identity and `ThreatStatblockBinding`. | Contract only; no product graph write. Authority: [`HANDOFF-pr457-sbw08-statblock-binding-contract.md`](HANDOFF-pr457-sbw08-statblock-binding-contract.md). |
-| `SBW09a` | NEW SPLIT | Durable publication operation and recoverable partial state. | Expected graph revision, retry, cancellation, stale behavior. |
-| `SBW09b` | NEW SPLIT | Create-new versus connect-existing Threat resolution. | Candidate matches, explicit selection, explicit refusal, no silent merge. |
+| `SBW08` / PR `#457` | MERGED | Freeze exact external-resource identity and `ThreatStatblockBinding`. | Contract only; no product graph write. |
+| `SBW09a` / PR `#459` | DELIVERED | Durable publication operation and recoverable partial state. | Begin/reload/reconcile/cancel only; no identity resolution or graph commit. Authority: [`HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md`](HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md). |
+| `SBW09b` | NEXT SUCCESSOR | Create-new versus connect-existing Threat resolution. | Candidate matches, explicit selection, explicit refusal, no silent merge. |
 | `SBW09c` | NEW SPLIT | Governed preview/confirm Threat + exact binding commit. | Existing graph governance path; server success plus graph failure remains recoverable. |
 | `SBW10a` | NEW EXPLICIT SLICE | Hermes query and exact mechanics hydration for published Threats. | Query by name, role, capability, relationship, and campaign context. |
 | `SBW10b` | RE-ANCHOR FROM OLD `SBW10` | Compact/full exact-revision Threat projection. | Useful game information first; explicit binding-selection behavior. |

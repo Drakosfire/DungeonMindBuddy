@@ -5,7 +5,7 @@
 **Repository anchor:** `main` after merged PR `#455` and the PR457 dispatch correction  
 **Latest completed authoring foundation:** `SBW06c` merged in PR `#439`  
 **Latest dogfood / unblocker slice:** PR `#454`  
-**Immediate implementation authority:** [`../Plans/HANDOFF-pr457-sbw08-statblock-binding-contract.md`](../Plans/HANDOFF-pr457-sbw08-statblock-binding-contract.md)  
+**Immediate implementation authority:** [`../Plans/HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md`](../Plans/HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md)
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
 **Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
@@ -142,7 +142,7 @@ This is sufficient to begin the graph contract. Exact runtime IDs were not captu
 
 ### `SBW08` / PR `#457` — Exact external-resource and Threat binding contract
 
-Current dispatch authority: [`../Plans/HANDOFF-pr457-sbw08-statblock-binding-contract.md`](../Plans/HANDOFF-pr457-sbw08-statblock-binding-contract.md).
+Historical dispatch authority: [`../Plans/HANDOFF-pr457-sbw08-statblock-binding-contract.md`](../Plans/HANDOFF-pr457-sbw08-statblock-binding-contract.md).
 
 Freeze:
 
@@ -159,6 +159,8 @@ Freeze:
 Contract only. No product graph write, DungeonMind call, or Workbench/UI action.
 
 ### `SBW09a` — Durable publication operation
+
+**Implementation checkpoint (2026-07-30):** implemented from base `f4508854`. Live-control backend exposes begin/read/reconcile/cancel for one durable publication operation bound to an exact mechanics-saved ThreatDraft snapshot and expected World Graph parent. Reachable states: `awaiting_identity_resolution`, `stale`, `cancelled`. Identity resolution, graph prepare/confirm, receipt/verification, hydration, projection, and UI remain false.
 
 Represent:
 
