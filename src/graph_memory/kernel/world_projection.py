@@ -72,6 +72,12 @@ from graph_memory.projection.world_projection import (
     rank_search_node_matches,
 )
 from graph_memory.union_supergraph.model import UnionSupergraphEdge, UnionSupergraphNode, UnionSupergraphStore
+from graph_memory.union_supergraph.statblock_binding import (
+    ExternalResourceV1,
+    ThreatStatblockBindingV1,
+    parse_external_resource_assertion,
+    parse_threat_statblock_binding_assertion,
+)
 from graph_memory.union_supergraph.projection_identity import (
     UnionProjectionIdentityContext,
     build_union_projection_identity_context,
@@ -1284,6 +1290,7 @@ def _convert_node_view(
     evidence_badges: list[GraphProjectionEvidenceBadge] | None = None,
     anchored_to_focus_session: bool | None = None,
     campaign_scope: str | None = None,
+    external_resource: ExternalResourceV1 | None = None,
 ) -> WorldGraphProjectionNodeView:
     return WorldGraphProjectionNodeView(
         node_id=view.node_id,
@@ -1319,6 +1326,7 @@ def _convert_node_view(
         ],
         evidence_ref_ids=list(evidence_ref_ids),
         source_artifact_ids=list(source_artifact_ids),
+        external_resource=external_resource,
     )
 
 
@@ -1468,6 +1476,7 @@ def _build_relationship_views(
         visibility = _edge_state_field(edge.state or {}, "visibility")
         campaign_scope = _edge_state_field(edge.state or {}, "campaign_scope")
         epistemic_kind = _edge_state_field(edge.state or {}, "epistemic_kind")
+        threat_statblock_binding: ThreatStatblockBindingV1 | None = None
         if active_supports:
             (
                 active_contribution_ids,
@@ -1508,9 +1517,25 @@ def _build_relationship_views(
                         label_override = nested_label
                 if label_override is not None:
                     relationship_label = label_override
+                threat_statblock_binding = parse_threat_statblock_binding_assertion(
+                    subject_node_id=representative_assertion.subject_node_id,
+                    target_node_id=representative_assertion.target_node_id,
+                    predicate=representative_assertion.predicate,
+                    value=assertion_value,
+                )
+                if (
+                    threat_statblock_binding is not None
+                    and edge.threat_statblock_binding != threat_statblock_binding
+                ):
+                    raise _integrity_error(
+                        "Stored statblock binding disagrees with active assertion authority.",
+                        detail=f"edge_id={edge_id!r}",
+                    )
         elif edge.evidence_ref_ids:
             evidence_ref_ids = list(edge.evidence_ref_ids)
             source_artifact_ids = _source_artifact_ids_for_evidence(store, evidence_ref_ids)
+        if not active_supports:
+            threat_statblock_binding = edge.threat_statblock_binding
         if not _campaign_scope_is_visible(
             campaign_scope,
             request_campaign_id=request_campaign_id,
@@ -1551,6 +1576,7 @@ def _build_relationship_views(
                 evidence_ref_ids=evidence_ref_ids,
                 source_artifact_ids=source_artifact_ids,
                 active_contribution_ids=active_contribution_ids,
+                threat_statblock_binding=threat_statblock_binding,
             )
         )
     return relationships
@@ -1738,6 +1764,44 @@ def _active_node_semantics(
         root, world_id, store, node_id, identity_context, base_aliases
     )
     return label, kind, role, aliases, summary
+
+
+def _active_external_resource(
+    root: Path,
+    world_id: str,
+    store: UnionSupergraphStore,
+    node_id: str,
+    fallback: UnionSupergraphNode,
+) -> ExternalResourceV1 | None:
+    supports = [
+        support
+        for support in _active_supports_for_graph_object(store, node_id)
+        if support.assertion_kind == "node"
+    ]
+    if not supports:
+        return fallback.external_resource
+    resources: list[ExternalResourceV1] = []
+    for support in supports:
+        assertion = _resolve_assertion_from_support(root, world_id, store, support)
+        resource = parse_external_resource_assertion(
+            subject_node_id=assertion.subject_node_id,
+            value=dict(assertion.value),
+        )
+        if resource is not None:
+            resources.append(resource)
+    if not resources:
+        return None
+    if any(resource != resources[0] for resource in resources[1:]):
+        raise _integrity_error(
+            "Active external-resource assertions disagree.",
+            detail=f"node_id={node_id!r}",
+        )
+    if fallback.external_resource != resources[0]:
+        raise _integrity_error(
+            "Stored external-resource state disagrees with active assertion authority.",
+            detail=f"node_id={node_id!r}",
+        )
+    return resources[0]
 
 
 def _endpoint_relative_direction(
@@ -2113,6 +2177,13 @@ def _build_node_views(
                 evidence_badges=filtered_badges,
                 anchored_to_focus_session=anchored_to_focus_session,
                 campaign_scope=node_campaign_scope,
+                external_resource=_active_external_resource(
+                    root,
+                    world_id,
+                    store,
+                    node_id,
+                    node,
+                ),
             )
         )
     return nodes

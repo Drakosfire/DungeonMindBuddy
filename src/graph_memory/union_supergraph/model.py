@@ -6,6 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from graph_memory.evidence.evidence_ref import GraphMemoryEvidenceRef
 from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+from graph_memory.union_supergraph.statblock_binding import (
+    ExternalResourceV1,
+    ThreatStatblockBindingV1,
+)
 
 
 class _UnionSupergraphModel(BaseModel):
@@ -39,6 +43,7 @@ class UnionSupergraphNode(_UnionSupergraphModel):
     source_domains: list[str]
     evidence_ref_ids: list[str]
     state: dict[str, Any]
+    external_resource: ExternalResourceV1 | None = None
 
 
 class UnionSupergraphEdge(_UnionSupergraphModel):
@@ -52,6 +57,7 @@ class UnionSupergraphEdge(_UnionSupergraphModel):
     session_ids: list[str] = Field(default_factory=list)
     evidence_ref_ids: list[str]
     state: dict[str, Any]
+    threat_statblock_binding: ThreatStatblockBindingV1 | None = None
 
 
 class UnionSupergraphEvidence(GraphMemoryEvidenceRef):

@@ -7,6 +7,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
+from graph_memory.union_supergraph.statblock_binding import (
+    ExternalResourceV1,
+    ThreatStatblockBindingV1,
+)
 
 PROJECTION_REQUEST_SCHEMA = "dmb_world_graph_projection_request_v1"
 PROJECTION_RESPONSE_SCHEMA = "dmb_world_graph_projection_v1"
@@ -213,6 +217,7 @@ class WorldGraphProjectionNodeView(_ProjectionModel):
     )
     evidence_ref_ids: list[str] = Field(default_factory=list)
     source_artifact_ids: list[str] = Field(default_factory=list)
+    external_resource: ExternalResourceV1 | None = None
 
 
 class WorldGraphProjectionAttributeView(_ProjectionModel):
@@ -247,6 +252,7 @@ class WorldGraphProjectionRelationshipView(_ProjectionModel):
     evidence_ref_ids: list[str] = Field(default_factory=list)
     source_artifact_ids: list[str] = Field(default_factory=list)
     active_contribution_ids: list[str] = Field(default_factory=list)
+    threat_statblock_binding: ThreatStatblockBindingV1 | None = None
 
 
 class WorldGraphProjectionEvidenceView(_ProjectionModel):
