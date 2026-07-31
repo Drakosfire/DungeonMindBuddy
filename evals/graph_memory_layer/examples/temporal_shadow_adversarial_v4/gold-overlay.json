@@ -1,0 +1,202 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:e74bdac39161a65a",
+  "base_contribution_id": "contribution:85e09b6dfa874025",
+  "base_contribution_source_payload_sha256": "f29a9a23dbc6bb6bc811ea16114c5f7ca44afa391d9da1b54e0df05be0d28cf5",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01e-adversarial-v4",
+    "version": "1"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:281e357950230740",
+      "base_assertion_id": "assertion:ee9b352847256bac",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-12",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:again-event"
+      ],
+      "source_phrase": "Rhelan strikes the harbor gong again",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "repeated bounded event remains occurrence"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:8509ae0465e64928",
+      "base_assertion_id": "assertion:988cb7cd845840ac",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:as-role"
+      ],
+      "source_phrase": "As Tideglass archivist, Vosk presents the Azure Index",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:4d15bbaaf5aeed8f",
+      "base_assertion_id": "assertion:07b197bbd9ce70c9",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:still-role"
+      ],
+      "source_phrase": "Nyeth remains captain of the Ashglass Span watch",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:e80026938a7d6441",
+      "base_assertion_id": "assertion:eadc22663edacf08",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:structural"
+      ],
+      "source_phrase": "Ashglass Span",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "static structural proposition; no temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:e12650ae5576a26d",
+      "base_assertion_id": "assertion:81a7ecaf50c2de78",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:scene"
+      ],
+      "source_phrase": "Back at Tideglass Synod",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "scene framing; no useful assertion boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:efb8839464d0bb46",
+      "base_assertion_id": "assertion:faf08e3fe61707c4",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:ambiguous"
+      ],
+      "source_phrase": "Azure",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "identity mention is ambiguous"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:9e17d81af3bd42c1",
+      "base_assertion_id": "assertion:822d9212be1f02a0",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-12",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:valid-start"
+      ],
+      "source_phrase": "appoints Rhelan keeper of the Azure Index",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "explicit appointment boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:44509844c56a8340",
+      "base_assertion_id": "assertion:52e33d5ee07517fd",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-12",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:valid-end"
+      ],
+      "source_phrase": "Vosk relinquishes the Azure Index keys before dawn",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "explicit relinquish boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:b3f409e36bc31a0e",
+      "base_assertion_id": "assertion:03012e2a79cb15c2",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": "longmont-c2",
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "left the Ashglass Span watch about forty years ago",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:historical"
+      ],
+      "source_phrase": "left the Ashglass Span watch about forty years ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "explicit historical time; do not copy source session"
+      ]
+    }
+  ]
+}

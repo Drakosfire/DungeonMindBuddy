@@ -997,6 +997,137 @@ evidence: "Dessa again rides with the Lantern Court."
 → not_applicable; occurrence_time = null; valid_time = null; do not invent a valid-time start
 """
 
+TL01E_GROUNDED_ABSTENTION_INSTRUCTIONS = """You annotate temporal interpretation for candidate graph assertions using ONLY the supplied evidence snippets and packet metadata.
+
+Annotation-completeness gate (non-negotiable; apply before semantic decisions):
+- Every requested assertion must produce exactly one annotation.
+- Every annotation MUST contain diagnostics with at least one nonblank string.
+- For interpretation_status in {not_applicable, ambiguous, unresolved}: occurrence_time MUST be null AND valid_time MUST be null. diagnostics MUST explain why no temporal extent is emitted.
+- Do not emit a bare status with empty diagnostics.
+- Do not omit diagnostics because the status appears self-explanatory.
+- The first diagnostic must name the actual decision reason, for example:
+  - static structural proposition; no temporal boundary
+  - scene framing; no useful assertion boundary
+  - persistent role restated without start or end boundary
+  - identity mention is ambiguous
+  - temporal proposition lacks enough evidence to select a safe value
+- One short nonblank diagnostic is enough; do not write elaborate prose.
+
+Output-validity gate (non-negotiable):
+- For interpretation_status in {not_applicable, ambiguous, unresolved}: occurrence_time MUST be null AND valid_time MUST be null. No exceptions. Ambiguous is not partial resolution.
+- For interpretation_status=resolved: normally populate exactly one lane.
+  - Bounded event or change → occurrence_time non-null, valid_time null.
+  - Persistent-state boundary → occurrence_time null, valid_time non-null (start and/or end).
+  - Do not emit both lanes merely because an event creates a later state. Use both only if the assertion proposition explicitly combines both semantics.
+
+Decision sequence (apply in order for each assertion packet):
+
+1. Temporal eligibility — classify the assertion PROPOSITION (from assertion_kind, subject_node_id, target_node_id, predicate, label, semantic_value) into exactly one class BEFORE inspecting source_context.source_time:
+   A. Bounded event or change (destroyed, arrived, killed, opened, collapsed, departed, discovered, revived, rang, attacked, thanked, returned) → resolved + occurrence_time.
+   B. Persistent state with an explicit boundary (appointed, elected, became, began serving, first held, started controlling, ceased, resigned, relinquished, left, stopped, no longer held) → resolved + valid_time.start or valid_time.end. The selected assertion is the state/role/condition/ownership/relationship — not the grammatical action used to establish its boundary.
+   C. Static structure or topology (contains, connects, is north of, has a crypt, road between locations) → not_applicable. An eventive evidence sentence does not make a structural proposition temporal.
+   D. Scene, section, or observation framing (party at a location, back at the inn, scene set in the guardhouse, observation during a recap) → not_applicable. The scene happened in time, but the extracted framing proposition does not express a useful temporal boundary.
+   E. Mention or identity ambiguity (a name appears in a file, a word may be a person or password, an entity may or may not be identified) → ambiguous with null extents.
+   F. Temporally relevant but insufficient → unresolved only when the proposition is temporal but the evidence cannot safely identify lane or value. Do not use unresolved as a substitute for clearly structural or scene-framing not_applicable.
+
+2. Source-time gate — only AFTER selecting proposition class and temporal lane may you inspect source_context.source_time (provenance_only):
+   Gate 1 — Source time is INELIGIBLE for: static structure, scene framing, observation scope, mention/identity ambiguity, re-attestation without boundary, persistent state restatement without boundary, background lore, quoted names or passwords. When ineligible: do not copy source time.
+   Gate 2 — When evidence states another fictional time (Session 3, three winters earlier, about 30 years ago, before the expedition, after the coronation): reject source_context.source_time. The explicit fictional time wins.
+   Gate 3 — Source time may be copied only when: (a) the selected proposition is an event or explicit state boundary; (b) the evidence states that same proposition; (c) it occurs within the narrated source episode; (d) no different fictional time is supplied.
+   Gate 4 — Copy, never reconstruct: when eligible, copy the supplied TemporalPoint object as-is. Never reconstruct a session from source filenames, evidence IDs, labels, path names, source-phrase strings, or invented anchor_ref values.
+
+3. Temporal normalization:
+   - Session time: use a session point only from an eligible copied source_context.source_time or an explicit structured session reference in the packet/evidence. Do not invent session IDs.
+   - Relative time: use kind=relative only when a valid structured relation and stable anchor are actually available. Do not invent anchors such as source_phrase:He left, session:session-11, or event:the expedition unless that exact stable reference is supplied in the packet.
+   - Textual time: when evidence provides an incomplete historical phrase but no stable structured anchor, use kind=textual. raw_expression must be a verbatim contiguous substring of the cited evidence. Preserve enough of the phrase to identify the temporal proposition. Do not paraphrase. Do not discard the proposition-bearing verb when it is part of the complete temporal expression.
+
+4. Valid-time / persistent-state boundary gate:
+   - A persistent state, role, ownership, membership, or relationship receives valid_time only when the evidence explicitly establishes a start or end boundary.
+   - Positive boundary evidence includes: appointed, elected, became, began serving, first held, started controlling, ceased, resigned, relinquished, left, stopped, no longer held.
+   - The following are NOT boundaries by themselves: "X is mayor"; "As mayor, X..."; "the captain ordered..."; "X remains captain"; "X is still captain"; "X again serves with the order"; "X belongs to the order"; "the owner opened the shop".
+   - For those non-boundary forms: interpretation_status = not_applicable; occurrence_time = null; valid_time = null; diagnostics = ["persistent state restated without start or end boundary"].
+   - Do not use the source session to manufacture a boundary that the evidence does not state.
+   - Start boundary (appointed, becomes, first holds, began serving, starts controlling) → resolved; occurrence_time null; valid_time.start = grounded point; valid_time.end null.
+   - End boundary (relinquishes, ceases, resigns, left the role, stopped, no longer held) → resolved; occurrence_time null; valid_time.start null; valid_time.end = grounded point.
+   - Do not convert the boundary verb into occurrence_time when the selected assertion represents the persistent state or relationship.
+
+5. Re-attestation applies only to state propositions:
+   - Words such as again, another time, or once more do not automatically mean re-attestation.
+   - First classify the selected assertion proposition.
+   - If the proposition is itself a bounded event (thanked again, attacked again, returned again, rang the bell again), it remains an occurrence event.
+   - Re-attestation applies when a persistent state or relationship is merely stated again without a new start or end boundary.
+
+6. Grounding (fail closed):
+   - resolved requires snippet-grounded occurrence_time and/or valid_time.
+   - evidence_ref_ids must be owned subsets of the packet.
+   - source_phrase must be a verbatim snippet substring when supplied.
+   - Return one annotation per requested base_assertion_id, no extras, no omissions.
+   - diagnostics must contain at least one nonblank string on every annotation.
+
+Temporal point kind-exclusive fields (all other point fields MUST be JSON null):
+- kind=session → require session_id; optional campaign_id, raw_expression; forbid value, calendar_id, relation, anchor_ref
+- kind=campaign_date → require value; optional calendar_id, campaign_id, raw_expression; forbid session_id, relation, anchor_ref
+- kind=relative → require relation+anchor_ref OR raw_expression; optional campaign_id; forbid session_id, value, calendar_id
+- kind=textual → require raw_expression; optional campaign_id; forbid session_id, value, calendar_id, relation, anchor_ref
+- kind=unknown → optional raw_expression, campaign_id; forbid session_id, value, calendar_id, relation, anchor_ref
+
+Few-shot examples (synthetic invented campaigns only; reserved vocabulary; exactly one expected answer each):
+
+Example 1 — repeated bounded event remains occurrence:
+assertion: Ivara rang the warning bell again
+source_context: session-4 (provenance_only)
+evidence: "Ivara strikes the warning bell again as the gates close."
+→ resolved; occurrence_time = source_context.source_time; valid_time = null; diagnostics include nonblank reason
+
+Example 2 — same-source valid-time start:
+assertion: Kelren holds the Cobalt Register
+source_context: session-7 (provenance_only)
+evidence: "The council appoints Kelren keeper of the Cobalt Register."
+→ resolved; occurrence_time = null; valid_time.start = source_context.source_time; valid_time.end = null; diagnostics include nonblank reason
+
+Example 3 — same-source valid-time end:
+assertion: Mothe holds the council keys
+source_context: session-11 (provenance_only)
+evidence: "Mothe relinquishes the council keys before dawn."
+→ resolved; occurrence_time = null; valid_time.start = null; valid_time.end = source_context.source_time; diagnostics include nonblank reason
+
+Example 4 — structural proposition despite eventive prose:
+assertion: Starfall Viaduct connects two districts
+evidence: "Couriers race across the Starfall Viaduct toward Brasswater Council."
+→ not_applicable; occurrence_time = null; valid_time = null; diagnostics = ["static structural proposition; no temporal boundary"]
+
+Example 5 — scene framing:
+assertion: party present at Brasswater Council
+evidence: "Back at Brasswater Council, the envoys wait for the roll call."
+→ not_applicable; occurrence_time = null; valid_time = null; diagnostics = ["scene framing; no useful assertion boundary"]
+
+Example 6 — ambiguous identity with null extents:
+assertion: "Cobalt" entity mention
+evidence: "The clerk mutters Cobalt as if it were either a name or a password."
+→ ambiguous; occurrence_time = null; valid_time = null; diagnostics = ["identity mention is ambiguous"]; include source_phrase
+
+Example 7 — persistent role restatement without boundary:
+assertion: Ivara is archivist of the council
+evidence: "As council archivist, Ivara presents the register."
+→ not_applicable; occurrence_time = null; valid_time = null; diagnostics = ["persistent state restated without start or end boundary"]
+
+Example 8 — explicit alternate historical time overrides source:
+assertion: Mothe left the viaduct watch
+source_context: session-15 (provenance_only)
+evidence: "Mothe left the watch about forty years ago."
+→ resolved; occurrence_time = textual point with raw_expression="left the watch about forty years ago"; valid_time = null; do NOT copy session-15; diagnostics include nonblank reason
+
+Final response checklist (mandatory before returning JSON):
+Before returning the batch, verify every selected_assertion_id:
+1. Exactly one annotation exists.
+2. diagnostics contains at least one nonblank string.
+3. not_applicable / ambiguous / unresolved have null occurrence_time and valid_time.
+4. resolved normally uses exactly one temporal lane.
+5. evidence_ref_ids are owned by that assertion packet.
+6. source_phrase, when supplied, is a verbatim substring of cited evidence.
+7. No session, anchor, or temporal value was reconstructed from filenames or IDs.
+"""
+
 
 def render_temporal_shadow_user_content_v1(
     packets: dict[str, dict[str, Any]],
@@ -1044,6 +1175,12 @@ TEMPORAL_PROMPT_SPECS: dict[str, TemporalPromptSpec] = {
     "tl01d-v1": TemporalPromptSpec(
         version="tl01d-v1",
         instructions=TL01D_CONSERVATIVE_INSTRUCTIONS,
+        packet_version=TL01C_PACKET_VERSION,
+        render_user_content=render_temporal_shadow_user_content_v2,
+    ),
+    "tl01e-v1": TemporalPromptSpec(
+        version="tl01e-v1",
+        instructions=TL01E_GROUNDED_ABSTENTION_INSTRUCTIONS,
         packet_version=TL01C_PACKET_VERSION,
         render_user_content=render_temporal_shadow_user_content_v2,
     ),
@@ -2235,6 +2372,7 @@ __all__ = [
     "TL01C_PACKET_VERSION",
     "TL01C_SOURCE_AWARE_INSTRUCTIONS",
     "TL01D_CONSERVATIVE_INSTRUCTIONS",
+    "TL01E_GROUNDED_ABSTENTION_INSTRUCTIONS",
     "TemporalPromptSpec",
     "TemporalShadowComparisonV1",
     "TemporalShadowExtractionCaseV1",

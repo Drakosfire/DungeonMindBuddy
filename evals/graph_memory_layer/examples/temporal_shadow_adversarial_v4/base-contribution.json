@@ -1,0 +1,272 @@
+{
+  "contribution_id": "contribution:85e09b6dfa874025",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01e-temporal-shadow-adversarial-v4",
+  "produced_at": "2026-07-30T22:00:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:ee9b352847256bac",
+      "assertion_kind": "edge",
+      "subject_node_id": "pc:rhelan",
+      "target_node_id": "feature:harbor-gong",
+      "predicate": "rang_gong_again",
+      "label": "Rhelan rang the harbor gong again",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:again-event",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:again-event"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    },
+    {
+      "assertion_id": "assertion:988cb7cd845840ac",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:vosk",
+      "target_node_id": null,
+      "predicate": "is_tideglass_archivist",
+      "label": "Vosk is archivist of Tideglass Synod",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:as-role",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:as-role"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    },
+    {
+      "assertion_id": "assertion:07b197bbd9ce70c9",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:nyeth",
+      "target_node_id": null,
+      "predicate": "is_ashglass_captain",
+      "label": "Nyeth is captain of the Ashglass Span watch",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:still-role",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:still-role"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    },
+    {
+      "assertion_id": "assertion:eadc22663edacf08",
+      "assertion_kind": "edge",
+      "subject_node_id": "loc:ashglass-span",
+      "target_node_id": "loc:tideglass-synod",
+      "predicate": "connects_to",
+      "label": "Ashglass Span connects districts toward Tideglass Synod",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:structural",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:structural"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    },
+    {
+      "assertion_id": "assertion:81a7ecaf50c2de78",
+      "assertion_kind": "edge",
+      "subject_node_id": "party:envoys",
+      "target_node_id": "loc:tideglass-synod",
+      "predicate": "present_at",
+      "label": "Envoys present at Tideglass Synod",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:scene",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:scene"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    },
+    {
+      "assertion_id": "assertion:faf08e3fe61707c4",
+      "assertion_kind": "attribute",
+      "subject_node_id": "entity:azure",
+      "target_node_id": null,
+      "predicate": "mentioned_as",
+      "label": "\"Azure\" entity mention",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:ambiguous",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:ambiguous"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    },
+    {
+      "assertion_id": "assertion:822d9212be1f02a0",
+      "assertion_kind": "attribute",
+      "subject_node_id": "pc:rhelan",
+      "target_node_id": null,
+      "predicate": "holds_azure_index",
+      "label": "Rhelan holds the Azure Index",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:valid-start",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:valid-start"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    },
+    {
+      "assertion_id": "assertion:52e33d5ee07517fd",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:vosk",
+      "target_node_id": null,
+      "predicate": "holds_azure_keys",
+      "label": "Vosk holds the Azure Index keys",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:valid-end",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:valid-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    },
+    {
+      "assertion_id": "assertion:03012e2a79cb15c2",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:nyeth",
+      "target_node_id": "feature:ashglass-watch",
+      "predicate": "left_watch",
+      "label": "Nyeth left the Ashglass Span watch",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01e-adv4:historical",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01e-adv4:historical"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:85e09b6dfa874025"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}

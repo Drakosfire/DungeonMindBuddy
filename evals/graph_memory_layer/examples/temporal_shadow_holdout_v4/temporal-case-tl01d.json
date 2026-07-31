@@ -1,0 +1,113 @@
+{
+  "schema": "dmb_temporal_shadow_extraction_case_v1",
+  "case_id": "tl01e-temporal-shadow-holdout-v4-control",
+  "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v4/base-contribution.json",
+  "base_contribution_sha256": "1f98c0d50577d4d5407b57f5aba2774a651b2e1df7dbaffac226ebd6b8ef3b28",
+  "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v4/gold-overlay.json",
+  "gold_overlay_sha256": "addf5af1763e17c7e752a6e4cb5f4503d103eed96b4c6b1806657728ef5edbf1",
+  "selected_assertion_ids": [
+    "assertion:313e3dc379962186",
+    "assertion:e6e39a5f3c61b446",
+    "assertion:689dfb7e3009f58a",
+    "assertion:0ec3be9ce9029152",
+    "assertion:467b880721372fda",
+    "assertion:943bfadb7272ae36",
+    "assertion:f6e09801f993eb84",
+    "assertion:23cb00e564c7f14f",
+    "assertion:284be91acdc5b4c5"
+  ],
+  "evidence_registry": [
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s4-magic-missile",
+      "source_artifact_id": "source-artifact:session-4---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+      "content_sha256": "0263725f40f846b0c731d5e28688a119582a948e05373f6d1c17e92f9a630832",
+      "source_ref_id": "source-ref:session-4---recap",
+      "start_line": 22,
+      "end_line": 22,
+      "label": "Session 4 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s20-eldritch",
+      "source_artifact_id": "source-artifact:session-20---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 20 - Recap.md",
+      "content_sha256": "70f3983a0182f2a12651a301c29de8e709296edee699184cdf06cbd1a071fa35",
+      "source_ref_id": "source-ref:session-20---recap",
+      "start_line": 16,
+      "end_line": 16,
+      "label": "Session 20 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s4-faceoff-again",
+      "source_artifact_id": "source-artifact:session-4---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+      "content_sha256": "0263725f40f846b0c731d5e28688a119582a948e05373f6d1c17e92f9a630832",
+      "source_ref_id": "source-ref:session-4---recap",
+      "start_line": 26,
+      "end_line": 26,
+      "label": "Session 4 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s19-mayor",
+      "source_artifact_id": "source-artifact:session-19---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+      "content_sha256": "c5a033c25e53e5dd40ba751efafbd39b49c4f1aa9ed910142d70b20e8b3a4b7d",
+      "source_ref_id": "source-ref:session-19---recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 19 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s15-new-rank",
+      "source_artifact_id": "source-artifact:session-15---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "content_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+      "source_ref_id": "source-ref:session-15---recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 15 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s15-mossford-topo",
+      "source_artifact_id": "source-artifact:session-15---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 15 - Recap.md",
+      "content_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+      "source_ref_id": "source-ref:session-15---recap",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 15 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s19-inn-scene",
+      "source_artifact_id": "source-artifact:session-19---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 19 - Recap.md",
+      "content_sha256": "c5a033c25e53e5dd40ba751efafbd39b49c4f1aa9ed910142d70b20e8b3a4b7d",
+      "source_ref_id": "source-ref:session-19---recap",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 19 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s4-flock-mention",
+      "source_artifact_id": "source-artifact:session-4---recap",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 4 - Recap.md",
+      "content_sha256": "0263725f40f846b0c731d5e28688a119582a948e05373f6d1c17e92f9a630832",
+      "source_ref_id": "source-ref:session-4---recap",
+      "start_line": 14,
+      "end_line": 14,
+      "label": "Session 4 - Recap.md"
+    },
+    {
+      "evidence_ref_id": "evidence:tl01e-holdout-v4:s17-shiny-rain",
+      "source_artifact_id": "source-artifact:session-17---migrating-forest-and-thrin",
+      "source_artifact_path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Recaps/Session 17 - Migrating Forest and Thrin.md",
+      "content_sha256": "6f01fc518deabfd705cfc76ba9754a72de6061f4e3e8443a0df2dbf8e088f97a",
+      "source_ref_id": "source-ref:session-17---migrating-forest-and-thrin",
+      "start_line": 18,
+      "end_line": 18,
+      "label": "Session 17 - Migrating Forest and Thrin.md"
+    }
+  ],
+  "snippet_max_chars": 2000,
+  "prompt_version": "tl01d-v1"
+}

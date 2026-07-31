@@ -85,3 +85,13 @@ evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/**
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01d/promotion/
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01d/promotion/calibration/
 !evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01d/promotion/calibration/aggregate.json
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/regression-current/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/regression-current/calibration/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/regression-current/calibration/aggregate.json
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/regression-legacy/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/regression-legacy/calibration/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/regression-legacy/calibration/aggregate.json
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/promotion/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/promotion/calibration/
+!evals/graph_memory_layer/artifacts/temporal_shadow_prompt_calibration/tl01e/promotion/calibration/aggregate.json
