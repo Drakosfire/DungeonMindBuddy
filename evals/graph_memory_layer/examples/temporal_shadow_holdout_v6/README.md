@@ -1,3 +1,9 @@
+# RETIRED as TL01F promotion evidence
+
+Sealed V6 remains immutable for audit history, but its forest-arrival row marked `unresolved` despite an explicit relative phrase (`in 4-5 hours`) that the temporal contract can represent as textual/relative occurrence. Promotion authority moved to `temporal_shadow_holdout_v7`.
+
+Do not edit gold, cases, or digests in this directory.
+
 # Temporal shadow holdout cohort V6 (TL01F promotion evidence)
 
 Fresh canonical holdout for TL01F promotion evidence. Eight independently selected rows targeting proposition-type / temporal-lane coverage.

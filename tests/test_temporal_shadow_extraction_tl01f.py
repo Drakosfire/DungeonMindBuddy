@@ -244,6 +244,7 @@ def _collect_ids(folder: Path) -> tuple[set[str], set[str]]:
 
 
 HOLDOUT_V6 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v6"
+HOLDOUT_V7 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_holdout_v7"
 ADV_V5 = REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v5"
 
 PRIOR_COHORT_DIRS = (
@@ -257,6 +258,16 @@ PRIOR_COHORT_DIRS = (
     REPO_ROOT / "evals/graph_memory_layer/examples/temporal_shadow_adversarial_v4",
 )
 
+# Prior dirs for adversarial V5 independence (excludes V6/V7, which are later).
+ADV_V5_PRIOR_COHORT_DIRS = PRIOR_COHORT_DIRS
+
+# Prior dirs for holdout V7 independence include sealed retired V6.
+HOLDOUT_V7_PRIOR_COHORT_DIRS = (
+    *PRIOR_COHORT_DIRS,
+    HOLDOUT_V6,
+    ADV_V5,
+)
+
 ADV_V5_VOCABULARY = (
     "Corveth",
     "Ysanna",
@@ -267,7 +278,25 @@ ADV_V5_VOCABULARY = (
 )
 
 
-def test_holdout_v6_fixture_files_and_prompt_versions() -> None:
+def _union_ids(folders: tuple[Path, ...]) -> tuple[set[str], set[str]]:
+    assertions: set[str] = set()
+    evidence: set[str] = set()
+    for folder in folders:
+        a_ids, e_ids = _collect_ids(folder)
+        assertions |= a_ids
+        evidence |= e_ids
+    return assertions, evidence
+
+
+def _folder_text(folder: Path) -> str:
+    chunks: list[str] = []
+    for path in folder.rglob("*"):
+        if path.is_file() and path.suffix in {".json", ".md"}:
+            chunks.append(path.read_text(encoding="utf-8"))
+    return "".join(chunks)
+
+
+def test_holdout_v6_retired_fixture_files_remain_sealed() -> None:
     for name in (
         "README.md",
         "GOLD-AUDIT.md",
@@ -277,6 +306,8 @@ def test_holdout_v6_fixture_files_and_prompt_versions() -> None:
         "temporal-case-tl01f.json",
     ):
         assert (HOLDOUT_V6 / name).is_file(), name
+    readme = (HOLDOUT_V6 / "README.md").read_text(encoding="utf-8")
+    assert "RETIRED as TL01F promotion evidence" in readme
     tl01e = json.loads((HOLDOUT_V6 / "temporal-case-tl01e.json").read_text(encoding="utf-8"))
     tl01f = json.loads((HOLDOUT_V6 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
     assert tl01e["prompt_version"] == "tl01e-v1"
@@ -284,12 +315,33 @@ def test_holdout_v6_fixture_files_and_prompt_versions() -> None:
     assert len(tl01f["selected_assertion_ids"]) >= 8
 
 
-def test_v6_and_adv5_control_candidate_cases_are_exact_mirrors() -> None:
+def test_holdout_v7_fixture_files_and_prompt_versions() -> None:
+    for name in (
+        "README.md",
+        "GOLD-AUDIT.md",
+        "base-contribution.json",
+        "gold-overlay.json",
+        "temporal-case-tl01e.json",
+        "temporal-case-tl01f.json",
+    ):
+        assert (HOLDOUT_V7 / name).is_file(), name
+    tl01e = json.loads((HOLDOUT_V7 / "temporal-case-tl01e.json").read_text(encoding="utf-8"))
+    tl01f = json.loads((HOLDOUT_V7 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
+    assert tl01e["prompt_version"] == "tl01e-v1"
+    assert tl01f["prompt_version"] == "tl01f-v1"
+    assert len(tl01f["selected_assertion_ids"]) >= 8
+
+
+def test_v6_v7_and_adv5_control_candidate_cases_are_exact_mirrors() -> None:
     from evals.graph_memory_layer.temporal_shadow_prompt_calibration import (
         validate_paired_case_equivalence,
     )
 
-    for folder_name in ("temporal_shadow_holdout_v6", "temporal_shadow_adversarial_v5"):
+    for folder_name in (
+        "temporal_shadow_holdout_v6",
+        "temporal_shadow_holdout_v7",
+        "temporal_shadow_adversarial_v5",
+    ):
         folder = REPO_ROOT / "evals/graph_memory_layer/examples" / folder_name
         validate_paired_case_equivalence(
             baseline_case_path=folder / "temporal-case-tl01e.json",
@@ -299,32 +351,49 @@ def test_v6_and_adv5_control_candidate_cases_are_exact_mirrors() -> None:
         )
 
 
-def test_holdout_v6_ids_disjoint_from_prior_and_adversarial_v5() -> None:
+def test_holdout_v6_ids_disjoint_from_prior_cohorts() -> None:
     new_a, new_e = _collect_ids(HOLDOUT_V6)
-    prior_a: set[str] = set()
-    prior_e: set[str] = set()
-    for folder in (*PRIOR_COHORT_DIRS, ADV_V5):
-        a_ids, e_ids = _collect_ids(folder)
-        prior_a |= a_ids
-        prior_e |= e_ids
+    prior_a, prior_e = _union_ids(PRIOR_COHORT_DIRS)
     assert new_a.isdisjoint(prior_a)
     assert new_e.isdisjoint(prior_e)
 
 
-def test_adversarial_v5_vocabulary_disjoint_from_prompt_and_holdout_v6() -> None:
+def test_adversarial_v5_ids_disjoint_from_prior_cohorts() -> None:
+    adv_assertions, adv_evidence = _collect_ids(ADV_V5)
+    prior_assertions, prior_evidence = _union_ids(ADV_V5_PRIOR_COHORT_DIRS)
+    assert adv_assertions.isdisjoint(prior_assertions)
+    assert adv_evidence.isdisjoint(prior_evidence)
+
+
+def test_holdout_v6_ids_disjoint_from_adversarial_v5() -> None:
+    v6_a, v6_e = _collect_ids(HOLDOUT_V6)
+    adv_a, adv_e = _collect_ids(ADV_V5)
+    assert v6_a.isdisjoint(adv_a)
+    assert v6_e.isdisjoint(adv_e)
+
+
+def test_holdout_v7_ids_disjoint_from_prior_cohorts_including_v6_and_adv_v5() -> None:
+    new_a, new_e = _collect_ids(HOLDOUT_V7)
+    prior_a, prior_e = _union_ids(HOLDOUT_V7_PRIOR_COHORT_DIRS)
+    assert new_a.isdisjoint(prior_a)
+    assert new_e.isdisjoint(prior_e)
+
+
+def test_adversarial_v5_vocabulary_disjoint_from_prompt_prior_cohorts_and_holdouts() -> None:
     prompt = TL01F_PROPOSITION_TYPE_TEMPORAL_LANE_INSTRUCTIONS
     for term in ADV_V5_VOCABULARY:
         assert term not in prompt
-    holdout_text = ""
-    for path in HOLDOUT_V6.rglob("*"):
-        if path.is_file() and path.suffix in {".json", ".md"}:
-            holdout_text += path.read_text(encoding="utf-8")
+    prior_text = "".join(_folder_text(folder) for folder in PRIOR_COHORT_DIRS)
+    holdout_v6_text = _folder_text(HOLDOUT_V6)
+    holdout_v7_text = _folder_text(HOLDOUT_V7)
     for term in ADV_V5_VOCABULARY:
-        assert term not in holdout_text
+        assert term not in prior_text
+        assert term not in holdout_v6_text
+        assert term not in holdout_v7_text
 
 
-def test_holdout_v6_promotion_gold_covers_required_lane_classes() -> None:
-    gold = json.loads((HOLDOUT_V6 / "gold-overlay.json").read_text(encoding="utf-8"))
+def test_holdout_v7_promotion_gold_covers_required_lane_classes() -> None:
+    gold = json.loads((HOLDOUT_V7 / "gold-overlay.json").read_text(encoding="utf-8"))
     anns = gold["annotations"]
     assert len(anns) >= 8
 
@@ -354,12 +423,18 @@ def test_holdout_v6_promotion_gold_covers_required_lane_classes() -> None:
     assert any(a["interpretation_status"] == "not_applicable" for a in anns)
     assert any(a["interpretation_status"] == "unresolved" for a in anns)
     assert any(a["interpretation_status"] == "ambiguous" for a in anns)
-    # source-different textual occurrence present
+    # source-different / forecast textual occurrence present
     assert any(
         a["interpretation_status"] == "resolved"
         and (a.get("occurrence_time") or {}).get("point", {}).get("kind") == "textual"
         for a in anns
     )
+    # forest forecast must be resolved textual, not unresolved
+    forest_phrase = "the forest is set to arrive at the town in 4-5 hours"
+    forest = next(a for a in anns if a.get("source_phrase") == forest_phrase)
+    assert forest["interpretation_status"] == "resolved"
+    assert forest["occurrence_time"]["point"]["kind"] == "textual"
+    assert forest["occurrence_time"]["point"]["raw_expression"] == forest_phrase
     for a in anns:
         assert any(str(d).strip() for d in a.get("diagnostics", []))
         if a["interpretation_status"] in {"not_applicable", "ambiguous", "unresolved"}:
@@ -368,7 +443,7 @@ def test_holdout_v6_promotion_gold_covers_required_lane_classes() -> None:
 
 
 def test_gold_audit_files_exist_for_promotion_cohorts() -> None:
-    for folder in (HOLDOUT_V6, ADV_V5):
+    for folder in (HOLDOUT_V7, ADV_V5):
         audit = (folder / "GOLD-AUDIT.md").read_text(encoding="utf-8")
         assert "Audit result" in audit
         assert "Supported" in audit
