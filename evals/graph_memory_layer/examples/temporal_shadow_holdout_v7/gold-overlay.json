@@ -1,0 +1,219 @@
+{
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:5d03962405a0a80e",
+  "base_contribution_id": "contribution:feb507287837c629",
+  "base_contribution_source_payload_sha256": "9ae0787773774af5e65ce8788a472bcdff8e1ea44b787079871aee61eebce49c",
+  "producer": {
+    "kind": "human_gold",
+    "name": "tl01f-holdout-v7",
+    "version": "2"
+  },
+  "annotations": [
+    {
+      "annotation_id": "temporal-annotation:v700000000000001",
+      "base_assertion_id": "assertion:130e2c303989e455",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-6",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s6-shattering"
+      ],
+      "source_phrase": "plays the Song of Shattering",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event or transition proposition; occurrence lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v700000000000002",
+      "base_assertion_id": "assertion:694c0497d27efa0c",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-8",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s8-winna-door"
+      ],
+      "source_phrase": "Winna is placed in charge of the door",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state start boundary; valid-time start lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v700000000000003",
+      "base_assertion_id": "assertion:ae464c1577720f3a",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": null,
+        "end": {
+          "kind": "session",
+          "campaign_id": "longmont-c2",
+          "session_id": "session-23",
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": null,
+          "certainty": "explicit"
+        },
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s23-compulsion-end"
+      ],
+      "source_phrase": "Both Bonogo and Ephanna no longer feel compelled to attack the meatwings",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "persistent-state end boundary; valid-time end lane"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v700000000000004",
+      "base_assertion_id": "assertion:9e895a8230bbe0b8",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s18-moss-farmers"
+      ],
+      "source_phrase": "discover that they are moss farmers",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "persistent state restated without start or end boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v700000000000005",
+      "base_assertion_id": "assertion:32481ece274e25b6",
+      "interpretation_status": "not_applicable",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s14-summoning-circle"
+      ],
+      "source_phrase": "the floor is painted to create a summoning circle",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "static structural proposition; no temporal boundary"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v700000000000006",
+      "base_assertion_id": "assertion:bc93e34fa8b21796",
+      "interpretation_status": "resolved",
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "only recently abandoned, no more than a week ago",
+          "certainty": "explicit"
+        },
+        "end": null,
+        "raw_expression": null
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s22-abandoned-week"
+      ],
+      "source_phrase": "only recently abandoned, no more than a week ago",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "attribute/persistent-state proposition with explicit start boundary; valid-time start lane",
+        "reject occurrence-only (proposition is abandoned state, not an event)",
+        "reject session-22 provenance copy as abandonment start",
+        "reject not_applicable restatement (explicit recent-start phrase present)"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v700000000000007",
+      "base_assertion_id": "assertion:5df8d8029cf5a34c",
+      "interpretation_status": "resolved",
+      "occurrence_time": {
+        "kind": "point",
+        "point": {
+          "kind": "textual",
+          "campaign_id": null,
+          "session_id": null,
+          "calendar_id": null,
+          "value": null,
+          "relation": null,
+          "anchor_ref": null,
+          "raw_expression": "the forest is set to arrive at the town in 4-5 hours",
+          "certainty": "explicit"
+        }
+      },
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s18-forest-arrival"
+      ],
+      "source_phrase": "the forest is set to arrive at the town in 4-5 hours",
+      "extraction_confidence": "high",
+      "diagnostics": [
+        "event/transition proposition with explicit relative forecast; occurrence textual lane; reject session-18 provenance copy"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v700000000000008",
+      "base_assertion_id": "assertion:c18c29870e398a23",
+      "interpretation_status": "ambiguous",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s12-dustwalker-cell"
+      ],
+      "source_phrase": "They discover the Dustwalker sitting in his cell, right where they left him",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "proposition with multiple materially plausible temporal readings"
+      ]
+    },
+    {
+      "annotation_id": "temporal-annotation:v700000000000009",
+      "base_assertion_id": "assertion:0cd480dde6597bfe",
+      "interpretation_status": "unresolved",
+      "occurrence_time": null,
+      "valid_time": null,
+      "evidence_ref_ids": [
+        "evidence:tl01f-holdout-v7:s3-lysandra-contacts"
+      ],
+      "source_phrase": "She will work through her contacts in the city and use her position to access old records",
+      "extraction_confidence": "medium",
+      "diagnostics": [
+        "future-tense commitment without schedulable duration, relative offset, or calendar cue; reject session-3 as invented execution time"
+      ]
+    }
+  ]
+}

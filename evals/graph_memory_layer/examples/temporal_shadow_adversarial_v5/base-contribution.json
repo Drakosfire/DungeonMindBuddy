@@ -1,0 +1,244 @@
+{
+  "contribution_id": "contribution:0f87097040871132",
+  "world_id": "eldyrwild",
+  "source_kind": "source_extraction",
+  "source_artifact_id": null,
+  "source_revision_id": null,
+  "extraction_profile": "tl01f-adversarial-v5",
+  "produced_at": "2026-07-31T12:30:00Z",
+  "campaign_scope": "longmont-c2",
+  "status": "active",
+  "supersedes_contribution_id": null,
+  "candidate_assertions": [
+    {
+      "assertion_id": "assertion:9ecb2757becf544e",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:corveth",
+      "target_node_id": null,
+      "predicate": "holds_amber_ledger",
+      "label": "Corveth holds the Amber Ledger",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-adv5:eventive-on-state",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:eventive-on-state"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:0f87097040871132"
+    },
+    {
+      "assertion_id": "assertion:2eecfd7a21c3c7cb",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:ysanna",
+      "target_node_id": "feature:driftglass-beacon",
+      "predicate": "destroyed",
+      "label": "Ysanna destroyed the Driftglass beacon",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-adv5:stative-on-event",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:stative-on-event"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:0f87097040871132"
+    },
+    {
+      "assertion_id": "assertion:5060296933983f85",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:pelloric",
+      "target_node_id": null,
+      "predicate": "serves_with_nightspine_order",
+      "label": "Pelloric serves with the Nightspine Order",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-adv5:tempting-source",
+            "session_id": "session-14"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:tempting-source"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:0f87097040871132"
+    },
+    {
+      "assertion_id": "assertion:81c0374c2e642483",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:ysanna",
+      "target_node_id": "loc:driftglass-causeway",
+      "predicate": "left",
+      "label": "Ysanna left the Driftglass Causeway",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-adv5:source-diff",
+            "session_id": "session-15"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:source-diff"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:0f87097040871132"
+    },
+    {
+      "assertion_id": "assertion:38721e12a3dca478",
+      "assertion_kind": "edge",
+      "subject_node_id": "npc:corveth",
+      "target_node_id": "loc:amber-ledger-hall",
+      "predicate": "reports_to",
+      "label": "Corveth reports to Amber Ledger Hall",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-adv5:valid-start",
+            "session_id": "session-9"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:valid-start"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:0f87097040871132"
+    },
+    {
+      "assertion_id": "assertion:47ef679ede7cc6f5",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:pelloric",
+      "target_node_id": null,
+      "predicate": "controls_nightspine_seal",
+      "label": "Pelloric controls the Nightspine seal",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-adv5:valid-end",
+            "session_id": "session-11"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:valid-end"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:0f87097040871132"
+    },
+    {
+      "assertion_id": "assertion:bcd474ba51700b9c",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:ysanna",
+      "target_node_id": null,
+      "predicate": "is_nightspine_archivist",
+      "label": "Ysanna is archivist of the Nightspine Order",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-adv5:restatement",
+            "session_id": "session-12"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:restatement"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:0f87097040871132"
+    },
+    {
+      "assertion_id": "assertion:5857680ba2bafb7d",
+      "assertion_kind": "attribute",
+      "subject_node_id": "npc:corveth",
+      "target_node_id": null,
+      "predicate": "holds_or_recovered_amber_ledger",
+      "label": "Corveth holds or recovered the Amber Ledger at the fire",
+      "value": {
+        "evidence": [
+          {
+            "evidence_ref_id": "evidence:tl01f-adv5:ambiguous-lane",
+            "session_id": "session-10"
+          }
+        ]
+      },
+      "evidence_ref_ids": [
+        "evidence:tl01f-adv5:ambiguous-lane"
+      ],
+      "source_artifact_id": null,
+      "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
+      "acceptance_state": "candidate",
+      "identity_resolution_outcome": null,
+      "contribution_id": "contribution:0f87097040871132"
+    }
+  ],
+  "accepted_assertions": [],
+  "rejected_assertions": [],
+  "unresolved_mentions": [],
+  "identity_decision_ids": [],
+  "authored_by": null,
+  "diagnostics": []
+}
