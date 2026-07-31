@@ -49,7 +49,7 @@ pr_body_template: |
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw09a-publication-operation-ledger.md`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Design anchor:** `103b727cbfe7ce5f816e381c7dc8fab64fd76372`  
-**Required implementation base:**  — exact commit that lands this handoff and its tracker-pointer correction.  
+**Required implementation base:** `a58c49ace4859c166529f3c7778355fa50ddb342` — exact commit that lands this handoff and its tracker-pointer correction.  
 **Suggested branch:** `feat/sbw09a-publication-operation-ledger`
 
 No future PR number is assigned by this handoff. The hosting system or operator may assign one when a pull request is actually opened.
@@ -66,7 +66,7 @@ Current `main` contains a numbered draft handoff and tracker language that pre-a
 2. mark the numbered draft as superseded or remove it so only one handoff is ACTIVE;
 3. update the Threat/statblock tracker and superseded bundled SBW09 document to point to this unnumbered path;
 4. remove future-number language from the active SBW09a tracker row and immediate-dispatch text;
-5. replace `a58c49ace4859c166529f3c7778355fa50ddb342` in the PR-body template with the resulting immutable main SHA;
+5. replace `{{EXACT_HANDOFF_COMMIT_SHA}}` in the PR-body template with the resulting immutable main SHA (done: `a58c49ace4859c166529f3c7778355fa50ddb342`);
 6. dispatch the worker from that exact SHA.
 
 Do not combine those documentation corrections with the implementation slice unless repository process explicitly requires the handoff file to travel in the implementation branch.
