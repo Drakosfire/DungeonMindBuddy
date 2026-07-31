@@ -1,8 +1,8 @@
 import type { GraphProjectionNodeView } from "../api/types";
 import {
-  buildRecapNodePresentation,
-  fallbackRecapNodePresentation,
-} from "../planSurface/graphPreview/recapNodePresentation";
+  buildGraphNodeGlancePresentation,
+  fallbackGraphNodeGlancePresentation,
+} from "./nodeGlancePresentation";
 import type { GraphNodeGlancePresentation } from "./types";
 
 export function presentationForNodeId(
@@ -11,11 +11,11 @@ export function presentationForNodeId(
   label: string,
 ): GraphNodeGlancePresentation {
   const node = nodeViews[nodeId];
-  return node ? buildRecapNodePresentation(node) : fallbackGlance(nodeId, label);
+  return node ? buildGraphNodeGlancePresentation(node) : fallbackGlance(nodeId, label);
 }
 
 export function fallbackGlance(nodeId: string, label: string): GraphNodeGlancePresentation {
-  return fallbackRecapNodePresentation(nodeId, label);
+  return fallbackGraphNodeGlancePresentation(nodeId, label);
 }
 
 export function roleClass(role: string): string {
