@@ -2,19 +2,19 @@
   "schema": "dmb_temporal_shadow_extraction_case_v1",
   "case_id": "tl01e-temporal-shadow-holdout-v7-v1",
   "base_contribution_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v7/base-contribution.json",
-  "base_contribution_sha256": "f0fead590672e158a02c9131607c08b7cd8049ae564bcd5d4202192cf94f4772",
+  "base_contribution_sha256": "5a7bdc35d8beedbc77db4b3d321ed8cb2715c8b6755bdbb1b5a137a0699d3673",
   "gold_overlay_path": "evals/graph_memory_layer/examples/temporal_shadow_holdout_v7/gold-overlay.json",
-  "gold_overlay_sha256": "73799326382486f82d8218eb2180e330e51bf62947c26d981a77934ec883b1b1",
+  "gold_overlay_sha256": "f5c2fc31c21da68e21b5355564703fbd8ea5136c6facab8bea338d2d230c3486",
   "selected_assertion_ids": [
-    "assertion:ae3203c2ac4871df",
-    "assertion:f38f7d44e4890e99",
-    "assertion:ad8f9795792eb501",
-    "assertion:316efafeb04f34d7",
-    "assertion:f8941f36b57d401e",
-    "assertion:142e4910f554c446",
-    "assertion:e2b2653aa56abc35",
-    "assertion:8b08ee37c7050c8c",
-    "assertion:e09663d1767d3dcc"
+    "assertion:130e2c303989e455",
+    "assertion:694c0497d27efa0c",
+    "assertion:ae464c1577720f3a",
+    "assertion:9e895a8230bbe0b8",
+    "assertion:32481ece274e25b6",
+    "assertion:bc93e34fa8b21796",
+    "assertion:5df8d8029cf5a34c",
+    "assertion:c18c29870e398a23",
+    "assertion:0cd480dde6597bfe"
   ],
   "evidence_registry": [
     {

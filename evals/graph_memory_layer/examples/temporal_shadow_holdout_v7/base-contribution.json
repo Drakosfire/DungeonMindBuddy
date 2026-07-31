@@ -1,5 +1,5 @@
 {
-  "contribution_id": "contribution:aa8b1f408fc19925",
+  "contribution_id": "contribution:feb507287837c629",
   "world_id": "eldyrwild",
   "source_kind": "source_extraction",
   "source_artifact_id": null,
@@ -11,7 +11,7 @@
   "supersedes_contribution_id": null,
   "candidate_assertions": [
     {
-      "assertion_id": "assertion:ae3203c2ac4871df",
+      "assertion_id": "assertion:130e2c303989e455",
       "assertion_kind": "edge",
       "subject_node_id": "pc:stafl",
       "target_node_id": "feature:peacemaker-fiddle",
@@ -23,8 +23,7 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s6-shattering",
             "session_id": "session-6"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s6-shattering"
@@ -37,10 +36,10 @@
       "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     },
     {
-      "assertion_id": "assertion:f38f7d44e4890e99",
+      "assertion_id": "assertion:694c0497d27efa0c",
       "assertion_kind": "attribute",
       "subject_node_id": "npc:winna",
       "target_node_id": null,
@@ -52,8 +51,7 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s8-winna-door",
             "session_id": "session-8"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s8-winna-door"
@@ -66,10 +64,10 @@
       "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     },
     {
-      "assertion_id": "assertion:ad8f9795792eb501",
+      "assertion_id": "assertion:ae464c1577720f3a",
       "assertion_kind": "attribute",
       "subject_node_id": "pc:bonogo",
       "target_node_id": null,
@@ -81,8 +79,7 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s23-compulsion-end",
             "session_id": "session-23"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s23-compulsion-end"
@@ -95,10 +92,10 @@
       "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     },
     {
-      "assertion_id": "assertion:316efafeb04f34d7",
+      "assertion_id": "assertion:9e895a8230bbe0b8",
       "assertion_kind": "attribute",
       "subject_node_id": "npc:mossford-farmhouse-family",
       "target_node_id": null,
@@ -110,8 +107,7 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s18-moss-farmers",
             "session_id": "session-18"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s18-moss-farmers"
@@ -124,10 +120,10 @@
       "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     },
     {
-      "assertion_id": "assertion:f8941f36b57d401e",
+      "assertion_id": "assertion:32481ece274e25b6",
       "assertion_kind": "edge",
       "subject_node_id": "loc:wolf-manor-basement",
       "target_node_id": "feature:summoning-circle",
@@ -139,8 +135,7 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s14-summoning-circle",
             "session_id": "session-14"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s14-summoning-circle"
@@ -153,10 +148,10 @@
       "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     },
     {
-      "assertion_id": "assertion:142e4910f554c446",
+      "assertion_id": "assertion:bc93e34fa8b21796",
       "assertion_kind": "attribute",
       "subject_node_id": "loc:reach-abandoned-restaurant",
       "target_node_id": null,
@@ -168,8 +163,7 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s22-abandoned-week",
             "session_id": "session-22"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s22-abandoned-week"
@@ -182,10 +176,10 @@
       "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     },
     {
-      "assertion_id": "assertion:e2b2653aa56abc35",
+      "assertion_id": "assertion:5df8d8029cf5a34c",
       "assertion_kind": "edge",
       "subject_node_id": "loc:migrating-forest",
       "target_node_id": "loc:mossford",
@@ -197,8 +191,7 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s18-forest-arrival",
             "session_id": "session-18"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s18-forest-arrival"
@@ -211,10 +204,10 @@
       "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     },
     {
-      "assertion_id": "assertion:8b08ee37c7050c8c",
+      "assertion_id": "assertion:c18c29870e398a23",
       "assertion_kind": "attribute",
       "subject_node_id": "npc:dustwalker",
       "target_node_id": null,
@@ -226,8 +219,7 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s12-dustwalker-cell",
             "session_id": "session-12"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s12-dustwalker-cell"
@@ -240,9 +232,10 @@
       "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     },
     {
+      "assertion_id": "assertion:0cd480dde6597bfe",
       "assertion_kind": "attribute",
       "subject_node_id": "npc:lysandra",
       "target_node_id": null,
@@ -254,22 +247,20 @@
             "evidence_ref_id": "evidence:tl01f-holdout-v7:s3-lysandra-contacts",
             "session_id": "session-3"
           }
-        ],
-        "cohort_tag": "tl01f-holdout-v7"
+        ]
       },
-      "campaign_scope": "longmont-c2",
-      "temporal_scope": null,
-      "epistemic_kind": null,
-      "visibility": null,
-      "assertion_id": "assertion:e09663d1767d3dcc",
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s3-lysandra-contacts"
       ],
       "source_artifact_id": null,
       "source_revision_id": null,
+      "campaign_scope": "longmont-c2",
+      "temporal_scope": null,
+      "visibility": null,
+      "epistemic_kind": null,
       "acceptance_state": "candidate",
       "identity_resolution_outcome": null,
-      "contribution_id": "contribution:aa8b1f408fc19925"
+      "contribution_id": "contribution:feb507287837c629"
     }
   ],
   "accepted_assertions": [],

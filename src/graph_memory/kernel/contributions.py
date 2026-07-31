@@ -24,6 +24,9 @@ PROVENANCE_ONLY_ASSERTION_VALUE_KEYS = frozenset(
         "source_revision_id",
         "evidence",
         "evidence_ref_ids",
+        # Evaluation-only cohort labels must never participate in assertion identity
+        # or enter the temporal packet's semantic_value payload.
+        "cohort_tag",
     }
 )
 

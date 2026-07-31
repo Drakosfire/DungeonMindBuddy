@@ -1,17 +1,17 @@
 {
-  "schema": "dmb_temporal_annotation_overlay_v1",
-  "overlay_id": "temporal-overlay:93bf1e705b0ca61d",
-  "base_contribution_id": "contribution:aa8b1f408fc19925",
-  "base_contribution_source_payload_sha256": "9bee352032bf82955e860751ff3e78b5ec3afe23ab948ce3b8b03f4e38aad4ed",
+  "schema_": "dmb_temporal_annotation_overlay_v1",
+  "overlay_id": "temporal-overlay:5d03962405a0a80e",
+  "base_contribution_id": "contribution:feb507287837c629",
+  "base_contribution_source_payload_sha256": "9ae0787773774af5e65ce8788a472bcdff8e1ea44b787079871aee61eebce49c",
   "producer": {
     "kind": "human_gold",
     "name": "tl01f-holdout-v7",
-    "version": "1"
+    "version": "2"
   },
   "annotations": [
     {
       "annotation_id": "temporal-annotation:v700000000000001",
-      "base_assertion_id": "assertion:ae3203c2ac4871df",
+      "base_assertion_id": "assertion:130e2c303989e455",
       "interpretation_status": "resolved",
       "occurrence_time": {
         "kind": "point",
@@ -39,7 +39,7 @@
     },
     {
       "annotation_id": "temporal-annotation:v700000000000002",
-      "base_assertion_id": "assertion:f38f7d44e4890e99",
+      "base_assertion_id": "assertion:694c0497d27efa0c",
       "interpretation_status": "resolved",
       "occurrence_time": null,
       "valid_time": {
@@ -68,7 +68,7 @@
     },
     {
       "annotation_id": "temporal-annotation:v700000000000003",
-      "base_assertion_id": "assertion:ad8f9795792eb501",
+      "base_assertion_id": "assertion:ae464c1577720f3a",
       "interpretation_status": "resolved",
       "occurrence_time": null,
       "valid_time": {
@@ -97,7 +97,7 @@
     },
     {
       "annotation_id": "temporal-annotation:v700000000000004",
-      "base_assertion_id": "assertion:316efafeb04f34d7",
+      "base_assertion_id": "assertion:9e895a8230bbe0b8",
       "interpretation_status": "not_applicable",
       "occurrence_time": null,
       "valid_time": null,
@@ -112,7 +112,7 @@
     },
     {
       "annotation_id": "temporal-annotation:v700000000000005",
-      "base_assertion_id": "assertion:f8941f36b57d401e",
+      "base_assertion_id": "assertion:32481ece274e25b6",
       "interpretation_status": "not_applicable",
       "occurrence_time": null,
       "valid_time": null,
@@ -127,11 +127,11 @@
     },
     {
       "annotation_id": "temporal-annotation:v700000000000006",
-      "base_assertion_id": "assertion:142e4910f554c446",
+      "base_assertion_id": "assertion:bc93e34fa8b21796",
       "interpretation_status": "resolved",
-      "occurrence_time": {
-        "kind": "point",
-        "point": {
+      "occurrence_time": null,
+      "valid_time": {
+        "start": {
           "kind": "textual",
           "campaign_id": null,
           "session_id": null,
@@ -141,21 +141,25 @@
           "anchor_ref": null,
           "raw_expression": "only recently abandoned, no more than a week ago",
           "certainty": "explicit"
-        }
+        },
+        "end": null,
+        "raw_expression": null
       },
-      "valid_time": null,
       "evidence_ref_ids": [
         "evidence:tl01f-holdout-v7:s22-abandoned-week"
       ],
       "source_phrase": "only recently abandoned, no more than a week ago",
       "extraction_confidence": "high",
       "diagnostics": [
-        "event or transition proposition; occurrence lane; reject source session"
+        "attribute/persistent-state proposition with explicit start boundary; valid-time start lane",
+        "reject occurrence-only (proposition is abandoned state, not an event)",
+        "reject session-22 provenance copy as abandonment start",
+        "reject not_applicable restatement (explicit recent-start phrase present)"
       ]
     },
     {
       "annotation_id": "temporal-annotation:v700000000000007",
-      "base_assertion_id": "assertion:e2b2653aa56abc35",
+      "base_assertion_id": "assertion:5df8d8029cf5a34c",
       "interpretation_status": "resolved",
       "occurrence_time": {
         "kind": "point",
@@ -183,7 +187,7 @@
     },
     {
       "annotation_id": "temporal-annotation:v700000000000008",
-      "base_assertion_id": "assertion:8b08ee37c7050c8c",
+      "base_assertion_id": "assertion:c18c29870e398a23",
       "interpretation_status": "ambiguous",
       "occurrence_time": null,
       "valid_time": null,
@@ -198,7 +202,7 @@
     },
     {
       "annotation_id": "temporal-annotation:v700000000000009",
-      "base_assertion_id": "assertion:e09663d1767d3dcc",
+      "base_assertion_id": "assertion:0cd480dde6597bfe",
       "interpretation_status": "unresolved",
       "occurrence_time": null,
       "valid_time": null,

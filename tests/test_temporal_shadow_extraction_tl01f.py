@@ -261,13 +261,6 @@ PRIOR_COHORT_DIRS = (
 # Prior dirs for adversarial V5 independence (excludes V6/V7, which are later).
 ADV_V5_PRIOR_COHORT_DIRS = PRIOR_COHORT_DIRS
 
-# Prior dirs for holdout V7 independence include sealed retired V6.
-HOLDOUT_V7_PRIOR_COHORT_DIRS = (
-    *PRIOR_COHORT_DIRS,
-    HOLDOUT_V6,
-    ADV_V5,
-)
-
 ADV_V5_VOCABULARY = (
     "Corveth",
     "Ysanna",
@@ -325,11 +318,50 @@ def test_holdout_v7_fixture_files_and_prompt_versions() -> None:
         "temporal-case-tl01f.json",
     ):
         assert (HOLDOUT_V7 / name).is_file(), name
+    readme = (HOLDOUT_V7 / "README.md").read_text(encoding="utf-8")
+    assert "Not independent promotion evidence" in readme
+    assert "corrective replay" in readme.lower()
     tl01e = json.loads((HOLDOUT_V7 / "temporal-case-tl01e.json").read_text(encoding="utf-8"))
     tl01f = json.loads((HOLDOUT_V7 / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
     assert tl01e["prompt_version"] == "tl01e-v1"
     assert tl01f["prompt_version"] == "tl01f-v1"
     assert len(tl01f["selected_assertion_ids"]) >= 8
+
+
+def _proposition_source_fingerprint(
+    assertion: dict,
+    evidence_by_id: dict[str, dict],
+) -> tuple[str, str, str | None, str | None, str, tuple[tuple[str, int, int], ...]]:
+    """Normalized proposition + source path/line fingerprint (not assertion/evidence IDs)."""
+    spans: list[tuple[str, int, int]] = []
+    for evidence_ref_id in assertion.get("evidence_ref_ids") or []:
+        entry = evidence_by_id.get(str(evidence_ref_id))
+        if not entry:
+            continue
+        spans.append(
+            (
+                str(entry.get("source_artifact_path") or ""),
+                int(entry.get("start_line") or 0),
+                int(entry.get("end_line") or 0),
+            )
+        )
+    return (
+        str(assertion.get("assertion_kind") or ""),
+        str(assertion.get("subject_node_id") or ""),
+        assertion.get("target_node_id"),
+        assertion.get("predicate"),
+        str(assertion.get("label") or ""),
+        tuple(sorted(spans)),
+    )
+
+
+def _case_evidence_by_id(folder: Path) -> dict[str, dict]:
+    case = json.loads((folder / "temporal-case-tl01f.json").read_text(encoding="utf-8"))
+    return {
+        str(entry["evidence_ref_id"]): entry
+        for entry in case.get("evidence_registry", [])
+        if entry.get("evidence_ref_id")
+    }
 
 
 def test_v6_v7_and_adv5_control_candidate_cases_are_exact_mirrors() -> None:
@@ -372,11 +404,42 @@ def test_holdout_v6_ids_disjoint_from_adversarial_v5() -> None:
     assert v6_e.isdisjoint(adv_e)
 
 
-def test_holdout_v7_ids_disjoint_from_prior_cohorts_including_v6_and_adv_v5() -> None:
-    new_a, new_e = _collect_ids(HOLDOUT_V7)
-    prior_a, prior_e = _union_ids(HOLDOUT_V7_PRIOR_COHORT_DIRS)
-    assert new_a.isdisjoint(prior_a)
-    assert new_e.isdisjoint(prior_e)
+def test_holdout_v7_is_corrective_replay_of_v6_not_independent() -> None:
+    """V7 reuses V6 propositions/spans; shared rows keep V6 assertion IDs."""
+    v6_base = json.loads((HOLDOUT_V6 / "base-contribution.json").read_text(encoding="utf-8"))
+    v7_base = json.loads((HOLDOUT_V7 / "base-contribution.json").read_text(encoding="utf-8"))
+    v6_evidence = _case_evidence_by_id(HOLDOUT_V6)
+    v7_evidence = _case_evidence_by_id(HOLDOUT_V7)
+
+    v6_by_fp = {
+        _proposition_source_fingerprint(a, v6_evidence): a["assertion_id"]
+        for a in v6_base["candidate_assertions"]
+    }
+    v7_by_fp = {
+        _proposition_source_fingerprint(a, v7_evidence): a["assertion_id"]
+        for a in v7_base["candidate_assertions"]
+    }
+    shared = set(v6_by_fp) & set(v7_by_fp)
+    assert len(shared) == 8
+    for fp in shared:
+        assert v7_by_fp[fp] == v6_by_fp[fp]
+    only_v7 = set(v7_by_fp) - set(v6_by_fp)
+    assert len(only_v7) == 1
+    lysandra_id = next(iter(only_v7))
+    assert "Lysandra" in lysandra_id[4] or "lysandra" in lysandra_id[4].lower()
+    # Evidence registry IDs may be renamed for fixture bookkeeping; that is not
+    # semantic independence. Only the Lysandra assertion ID is new.
+    v6_a, _v6_e = _collect_ids(HOLDOUT_V6)
+    v7_a, _v7_e = _collect_ids(HOLDOUT_V7)
+    assert len(v7_a & v6_a) == 8
+    assert len(v7_a - v6_a) == 1
+
+
+def test_holdout_v7_assertion_values_exclude_cohort_tag() -> None:
+    base = json.loads((HOLDOUT_V7 / "base-contribution.json").read_text(encoding="utf-8"))
+    for assertion in base["candidate_assertions"]:
+        value = assertion.get("value") or {}
+        assert "cohort_tag" not in value
 
 
 def test_adversarial_v5_vocabulary_disjoint_from_prompt_prior_cohorts_and_holdouts() -> None:
@@ -423,7 +486,7 @@ def test_holdout_v7_promotion_gold_covers_required_lane_classes() -> None:
     assert any(a["interpretation_status"] == "not_applicable" for a in anns)
     assert any(a["interpretation_status"] == "unresolved" for a in anns)
     assert any(a["interpretation_status"] == "ambiguous" for a in anns)
-    # source-different / forecast textual occurrence present
+    # forecast textual occurrence present
     assert any(
         a["interpretation_status"] == "resolved"
         and (a.get("occurrence_time") or {}).get("point", {}).get("kind") == "textual"
@@ -435,6 +498,14 @@ def test_holdout_v7_promotion_gold_covers_required_lane_classes() -> None:
     assert forest["interpretation_status"] == "resolved"
     assert forest["occurrence_time"]["point"]["kind"] == "textual"
     assert forest["occurrence_time"]["point"]["raw_expression"] == forest_phrase
+    # abandoned restaurant attribute → valid_time.start textual, not occurrence
+    abandoned_phrase = "only recently abandoned, no more than a week ago"
+    abandoned = next(a for a in anns if a.get("source_phrase") == abandoned_phrase)
+    assert abandoned["interpretation_status"] == "resolved"
+    assert abandoned["occurrence_time"] is None
+    assert abandoned["valid_time"]["start"]["kind"] == "textual"
+    assert abandoned["valid_time"]["start"]["raw_expression"] == abandoned_phrase
+    assert abandoned["valid_time"]["end"] is None
     for a in anns:
         assert any(str(d).strip() for d in a.get("diagnostics", []))
         if a["interpretation_status"] in {"not_applicable", "ambiguous", "unresolved"}:
