@@ -4,7 +4,7 @@
 **Date:** 2026-07-30  
 **Foundation anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`
 **Authority-sync main:** `c371d43178a2b83da299319a047f93bae50d0959` — current `main` merge containing the unnumbered handoff and tracker correction
-**SBW09a implementation base:** `c371d43178a2b83da299319a047f93bae50d0959` — or a later deliberate authority-sync commit
+**SBW09a implementation base:** `a8a5edf1fc978b3b7026b5d0d8a20da478e80839` — or a later deliberate authority-sync commit
 **Latest completed publication foundation:** `SBW08` merged in PR `#457`  
 **Immediate implementation authority:** [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md)  
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
@@ -132,7 +132,7 @@ The graph contract is complete enough to begin publication orchestration. It doe
 
 ### `SBW09a` — Durable publication operation ledger
 
-Current dispatch authority: [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md), from implementation base `c371d43178a2b83da299319a047f93bae50d0959` or a later deliberate authority-sync commit. No future PR number is assigned until a pull request opens.
+Current dispatch authority: [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md), from implementation base `a8a5edf1fc978b3b7026b5d0d8a20da478e80839` or a later deliberate authority-sync commit. No future PR number is assigned until a pull request opens.
 
 Deliver one no-write capability:
 

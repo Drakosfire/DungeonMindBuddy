@@ -19,7 +19,7 @@ pr_body_template: |
   | Existing ThreatDraft, accepted-mechanics, and SBW08 contracts do not regress | predecessor boundaries | focused regression commands | {{TODO}} |
 
   ## Scope and explicit deferrals
-  - Required base: `c371d43178a2b83da299319a047f93bae50d0959`
+  - Required base: `a8a5edf1fc978b3b7026b5d0d8a20da478e80839`
   - Actual base/head: {{TODO}}
   - Actual changed paths: {{TODO}}
   - Paths outside the handoff allowlist: {{TODO: none or stop report}}
@@ -50,7 +50,7 @@ pr_body_template: |
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Design anchor:** `103b727cbfe7ce5f816e381c7dc8fab64fd76372`  
 **Authority-sync main:** `c371d43178a2b83da299319a047f93bae50d0959` — current `main` merge containing the unnumbered handoff and tracker-pointer correction.
-**Required implementation base:** `c371d43178a2b83da299319a047f93bae50d0959` — exact authority-sync commit, or a later deliberate authority-sync commit.
+**Required implementation base:** `a8a5edf1fc978b3b7026b5d0d8a20da478e80839` — exact authority-sync commit containing the corrected handoff, tracker, and roadmap, or a later deliberate authority-sync commit.
 **Suggested branch:** `feat/sbw09a-publication-operation-ledger`
 
 No future PR number is assigned by this handoff. The hosting system or operator may assign one when a pull request is actually opened.
@@ -67,8 +67,8 @@ Current `main` contains a numbered draft handoff and tracker language that pre-a
 2. mark the numbered draft as superseded or remove it so only one handoff is ACTIVE;
 3. update the Threat/statblock tracker and superseded bundled SBW09 document to point to this unnumbered path;
 4. remove future-number language from the active SBW09a tracker row and immediate-dispatch text;
-5. replace `{{EXACT_HANDOFF_COMMIT_SHA}}` in the PR-body template with the resulting immutable main SHA (current authority-sync base: `c371d43178a2b83da299319a047f93bae50d0959`);
-6. dispatch the worker from `c371d43178a2b83da299319a047f93bae50d0959`, or from a later deliberate authority-sync commit that contains this complete handoff, tracker, and roadmap state.
+5. replace `{{EXACT_HANDOFF_COMMIT_SHA}}` in the PR-body template with the resulting immutable authority-sync SHA (current corrected handoff commit: `a8a5edf1fc978b3b7026b5d0d8a20da478e80839`);
+6. dispatch the worker from `a8a5edf1fc978b3b7026b5d0d8a20da478e80839`, or from a later deliberate authority-sync commit that contains this complete handoff, tracker, and roadmap state.
 
 Do not combine those documentation corrections with the implementation slice unless repository process explicitly requires the handoff file to travel in the implementation branch.
 
@@ -114,7 +114,7 @@ ThreatDraft, accepted-mechanics, or World Graph mutation.
 | Parent authority | `Docs/Design/DECISION-grounded-authored-world-object-lifecycle.md`; active Threat/statblock roadmap and tracker |
 | Repository rules | `AGENTS.md`; `.cursor/rules/external-agent-pr-loop.mdc`; `.cursor/skills/external-agent-pr-loop/SKILL.md`; canonical handoff template |
 | Design anchor | `103b727cbfe7ce5f816e381c7dc8fab64fd76372` |
-| Implementation base | `c371d43178a2b83da299319a047f93bae50d0959`, or a later deliberate authority-sync commit that contains this complete handoff, tracker, and roadmap state |
+| Implementation base | `a8a5edf1fc978b3b7026b5d0d8a20da478e80839`, or a later deliberate authority-sync commit that contains this complete handoff, tracker, and roadmap state |
 | Predecessor contracts | `ThreatDraftV1`; `AcceptedMechanicsRefV1`; `MechanicsLocatorV1`; SBW08 `ExternalResourceV1` and `ThreatStatblockBindingV1`; immutable World Graph head |
 | Existing precedent | `AcceptanceOperationV1` and its reconciliation journal; reuse durability, replay, and fail-closed lessons without reusing its schema or authority states blindly |
 | Exact input consumed | Route `draft_id`; caller-supplied `operation_id`, expected draft version, expected World Graph parent, actor, optional note; server-loaded current ThreatDraft and observed current graph head |
@@ -737,7 +737,7 @@ uv run python -m compileall -q \
   apps/live_control_server/routes/threat_publication.py
 
 git diff --check
-git diff --name-only c371d43178a2b83da299319a047f93bae50d0959...HEAD
+git diff --name-only a8a5edf1fc978b3b7026b5d0d8a20da478e80839...HEAD
 ```
 
 For every required command failure that also occurs on base:

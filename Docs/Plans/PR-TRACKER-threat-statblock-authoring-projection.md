@@ -4,7 +4,7 @@
 **Date:** 2026-07-30  
 **Foundation anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`
 **Authority-sync main:** `c371d43178a2b83da299319a047f93bae50d0959` — current `main` merge containing the unnumbered handoff and tracker correction
-**SBW09a implementation base:** `c371d43178a2b83da299319a047f93bae50d0959` — or a later deliberate authority-sync commit
+**SBW09a implementation base:** `a8a5edf1fc978b3b7026b5d0d8a20da478e80839` — or a later deliberate authority-sync commit
 **Latest merged workstream PR:** `#457` — exact external statblock resource and `ThreatStatblockBinding` graph contract  
 **Immediate authority:** dispatch [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md) after the handoff's §0 repository synchronization gate is on `main`  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
@@ -163,7 +163,7 @@ These do not block `SBW09–SBW10`.
 
 ```text
 dispatch SBW09a durable publication operation ledger
-  (from `c371d43178a2b83da299319a047f93bae50d0959`, or a later deliberate
+  (from `a8a5edf1fc978b3b7026b5d0d8a20da478e80839`, or a later deliberate
    authority-sync main SHA containing the complete handoff/tracker/roadmap state)
 → design/dispatch SBW09b explicit create-or-connect resolution
 → SBW09c governed preview/confirm/verify
