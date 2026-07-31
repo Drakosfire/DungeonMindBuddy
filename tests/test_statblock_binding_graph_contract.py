@@ -621,3 +621,116 @@ def test_two_primary_bindings_project_without_implicit_winner(seeded_root: Path)
     ]
     assert len(bindings) == 2
     assert {item.revision_id for item in bindings if item is not None} == {"rev_1", "rev_2"}
+
+
+def test_untyped_node_assertion_cannot_reuse_typed_external_resource_id(
+    seeded_root: Path,
+) -> None:
+    _resource_payload, binding, revision_id, _published_contribution = _publish_statblock_contract(
+        seeded_root
+    )
+    resource_node_id = external_statblock_node_id(STATBLOCK_ID)
+
+    generic_resource = kernel.build_assertion(
+        assertion_kind="node",
+        acceptance_state="accepted",
+        subject_node_id=resource_node_id,
+        label="Hijack attempt",
+        campaign_scope=CAMPAIGN_ID,
+        value={"kind": "npc", "role": "npc", "source_domains": ["manual_seed"]},
+    )
+    adversarial = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="graph-native:sbw08",
+        source_revision_id="sbw08-adversarial-untyped-node",
+        campaign_scope=CAMPAIGN_ID,
+        accepted_assertions=[generic_resource],
+    )
+    result = kernel.merge_contribution_to_revision(
+        seeded_root,
+        world_id=WORLD_ID,
+        contribution=adversarial,
+    )
+    assert result.published is False
+    assert result.revision_id is None
+    assert any("merge_failed" in item for item in result.diagnostics)
+
+    head, _revision, store = kernel.open_current_world_graph(seeded_root, WORLD_ID)
+    assert head.head_revision_id == revision_id
+    resource_node = store.nodes[resource_node_id]
+    assert resource_node.external_resource is not None
+
+    projection = kernel.project_world_graph(
+        seeded_root, _request(revision_pin=revision_id)
+    )
+    resource_view = next(
+        node for node in projection.nodes if node.node_id == resource_node_id
+    )
+    assert resource_view.external_resource is not None
+    assert (
+        resource_view.external_resource.model_dump(mode="json", by_alias=True)
+        == _resource_payload
+    )
+    edge_id = edge_id_from_binding_id(str(binding["binding_id"]))
+    binding_view = next(item for item in projection.relationships if item.edge_id == edge_id)
+    assert binding_view.threat_statblock_binding is not None
+
+
+def test_untyped_edge_assertion_cannot_reuse_typed_statblock_binding_id(
+    seeded_root: Path,
+) -> None:
+    _resource_payload, binding, revision_id, _published_contribution = _publish_statblock_contract(
+        seeded_root
+    )
+    edge_id = edge_id_from_binding_id(str(binding["binding_id"]))
+    resource_node_id = external_statblock_node_id(STATBLOCK_ID)
+
+    generic_edge = kernel.build_assertion(
+        assertion_kind="edge",
+        acceptance_state="accepted",
+        subject_node_id=THREAT_ID,
+        target_node_id=resource_node_id,
+        predicate="related_to",
+        campaign_scope=CAMPAIGN_ID,
+        value={
+            "edge_id": edge_id,
+            "source_node_id": THREAT_ID,
+            "target_node_id": resource_node_id,
+            "predicate": "related_to",
+            "direction": "outbound",
+        },
+    )
+    adversarial = kernel.create_graph_contribution(
+        world_id=WORLD_ID,
+        source_kind="manual_import",
+        source_artifact_id="graph-native:sbw08",
+        source_revision_id="sbw08-adversarial-untyped-edge",
+        campaign_scope=CAMPAIGN_ID,
+        accepted_assertions=[generic_edge],
+    )
+    result = kernel.merge_contribution_to_revision(
+        seeded_root,
+        world_id=WORLD_ID,
+        contribution=adversarial,
+    )
+    assert result.published is False
+    assert result.revision_id is None
+    assert any("merge_failed" in item for item in result.diagnostics)
+
+    head, _revision, store = kernel.open_current_world_graph(seeded_root, WORLD_ID)
+    assert head.head_revision_id == revision_id
+    stored_edge = store.edges[edge_id]
+    assert stored_edge.threat_statblock_binding is not None
+    assert stored_edge.predicate == "uses_statblock"
+
+    projection = kernel.project_world_graph(
+        seeded_root, _request(revision_pin=revision_id)
+    )
+    binding_view = next(item for item in projection.relationships if item.edge_id == edge_id)
+    assert binding_view.predicate == "uses_statblock"
+    assert binding_view.threat_statblock_binding is not None
+    assert (
+        binding_view.threat_statblock_binding.model_dump(mode="json", by_alias=True)
+        == binding
+    )

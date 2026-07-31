@@ -756,6 +756,16 @@ def _apply_node_assertion(
         value=value,
     )
 
+    existing = store.nodes.get(node_id)
+    if (
+        existing is not None
+        and existing.external_resource is not None
+        and external_resource is None
+    ):
+        raise ValueError(
+            f"untyped node assertion cannot reuse typed external resource node {node_id!r}"
+        )
+
     nodes = dict(store.nodes)
     aliases = dict(store.aliases)
     evidence, artifacts, evidence_ids = _materialize_assertion_provenance(
@@ -787,7 +797,6 @@ def _apply_node_assertion(
     role = str(value.get("role") or kind)
     node_aliases = list(value.get("aliases") or ([label] if label else []))
 
-    existing = nodes.get(node_id)
     if existing is None:
         nodes[node_id] = UnionSupergraphNode(
             node_id=node_id,
@@ -895,6 +904,23 @@ def _apply_edge_assertion(
             )
 
     edge_id = str(value.get("edge_id") or f"edge:{source_id}:{predicate}:{target_id}")
+    existing = store.edges.get(edge_id)
+    if existing is not None and existing.threat_statblock_binding is not None:
+        if threat_statblock_binding is None:
+            raise ValueError(
+                f"untyped edge assertion cannot reuse typed statblock binding edge {edge_id!r}"
+            )
+        if (
+            existing.source_node_id != source_id
+            or existing.target_node_id != target_id
+            or existing.predicate != predicate
+            or existing.edge_id != edge_id
+            or existing.threat_statblock_binding != threat_statblock_binding
+        ):
+            raise ValueError(
+                f"typed statblock binding edge {edge_id!r} disagrees with existing edge"
+            )
+
     edges = dict(store.edges)
     evidence, artifacts, evidence_ids = _materialize_assertion_provenance(
         store, assertion, contribution, context="edge"
@@ -922,7 +948,6 @@ def _apply_edge_assertion(
     label = assertion.label or str(value.get("label") or predicate.replace("_", " "))
     session_ids = list(value.get("session_ids") or [])
 
-    existing = edges.get(edge_id)
     if existing is None:
         edges[edge_id] = UnionSupergraphEdge(
             edge_id=edge_id,
