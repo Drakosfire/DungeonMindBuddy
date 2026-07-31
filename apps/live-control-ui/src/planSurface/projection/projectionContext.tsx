@@ -1,9 +1,13 @@
 import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookReferences";
-import type { PlanGraphProjectionState, PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
+import type {
+  GraphReferenceProjectionBinding,
+  GraphReferenceProjectionState,
+  GraphReferenceResolution,
+  OpenGraphReferenceArgs,
+} from "../../graphReference/types";
 import type { ActiveProjection, ProjectionSize } from "../types";
 import type {
   GraphReviewDiagnosticsProjectionPayload,
-  PlanReferenceProjectionBinding,
   RegisterableToolProjectionId,
   ToolProjectionPayloadMap,
 } from "./projectionBindings";
@@ -16,24 +20,21 @@ import {
 export interface ProjectionContextValue {
   projectionSurface: ValidatedProjectionSurface | null;
   active: ActiveProjection | null;
-  activePlanReference: PlanReferenceResolution | null;
-  planProjectionState: PlanGraphProjectionState | null;
-  planReferenceBinding: PlanReferenceProjectionBinding | null;
+  activeGraphReference: GraphReferenceResolution | null;
+  graphReferenceProjectionState: GraphReferenceProjectionState | null;
+  graphReferenceBinding: GraphReferenceProjectionBinding | null;
   graphReviewDiagnosticsPayload: GraphReviewDiagnosticsProjectionPayload | null;
   openTool: (toolId: string) => void;
   openContentFromChip: (
     ref: RunbookReferenceAttrs,
-    resolution: PlanReferenceResolution,
+    resolution: GraphReferenceResolution,
     glanceOnly?: boolean,
-    projectionState?: PlanGraphProjectionState | null,
+    projectionState?: GraphReferenceProjectionState | null,
   ) => void;
-  openPlanReferenceResolution: (
-    resolution: PlanReferenceResolution,
-    projectionState?: PlanGraphProjectionState | null,
-  ) => void;
+  openGraphReference: (args: OpenGraphReferenceArgs) => void;
   expandContent: () => void;
   close: () => void;
-  registerPlanReferenceBinding: (binding: PlanReferenceProjectionBinding) => () => void;
+  registerGraphReferenceBinding: (binding: GraphReferenceProjectionBinding) => () => void;
   registerToolProjectionPayload: <K extends RegisterableToolProjectionId>(
     toolId: K,
     payload: ToolProjectionPayloadMap[K],
@@ -44,16 +45,16 @@ function mapAgentInteractionToProjection(host: ReturnType<typeof useAgentInterac
   return {
     projectionSurface: host.projectionSurface,
     active: host.active,
-    activePlanReference: host.activePlanReference,
-    planProjectionState: host.planProjectionState,
-    planReferenceBinding: host.planReferenceBinding,
+    activeGraphReference: host.activeGraphReference,
+    graphReferenceProjectionState: host.graphReferenceProjectionState,
+    graphReferenceBinding: host.graphReferenceBinding,
     graphReviewDiagnosticsPayload: host.graphReviewDiagnosticsPayload,
     openTool: host.openTool,
     openContentFromChip: host.openContentFromChip,
-    openPlanReferenceResolution: host.openPlanReferenceResolution,
+    openGraphReference: host.openGraphReference,
     expandContent: host.expandContent,
     close: host.close,
-    registerPlanReferenceBinding: host.registerPlanReferenceBinding,
+    registerGraphReferenceBinding: host.registerGraphReferenceBinding,
     registerToolProjectionPayload: host.registerToolProjectionPayload,
   };
 }

@@ -10,10 +10,10 @@ import {
 
 import type { AgentInteractionThread, LiveQueryBackend } from "../api/types";
 import type { RunbookReferenceAttrs } from "../tiptap/references/runbookReferences";
-import type { PlanGraphProjectionState, PlanReferenceResolution } from "../planSurface/reference/graphAwareReferenceResolver";
+import type { GraphReferenceProjectionState, GraphReferenceResolution } from "../graphReference/types";
 import type {
   GraphReviewDiagnosticsProjectionPayload,
-  PlanReferenceProjectionBinding,
+  GraphReferenceProjectionBinding,
   RegisterableToolProjectionId,
   ToolProjectionPayloadMap,
 } from "../planSurface/projection/projectionBindings";
@@ -40,6 +40,7 @@ import type {
   AgentInteractionSelectedSource,
   AgentInteractionSurfaceContext,
 } from "./agentInteractionTypes";
+import type { OpenGraphReferenceArgs } from "../graphReference/types";
 import {
   sameProjectionSurfaceIdentity,
   validateProjectionSurfacePublication,
@@ -75,18 +76,18 @@ interface LeasedActiveProjection {
   projection: ActiveProjection;
 }
 
-interface LeasedPlanReference {
+interface LeasedGraphReference {
   surfaceToken: symbol;
-  resolution: PlanReferenceResolution;
+  resolution: GraphReferenceResolution;
 }
 
-interface LeasedPlanProjectionState {
+interface LeasedGraphProjectionState {
   surfaceToken: symbol;
-  state: PlanGraphProjectionState | null;
+  state: GraphReferenceProjectionState | null;
 }
 
-function contentSize(resolution: PlanReferenceResolution): ProjectionSize {
-  if (resolution.kind === "graph-node" || resolution.kind === "corpus-index") return "wide";
+function contentSize(resolution: GraphReferenceResolution): ProjectionSize {
+  if (resolution.kind === "resolved_graph" || resolution.kind === "resolved_corpus_fallback") return "wide";
   return "compact";
 }
 
@@ -155,14 +156,14 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   const [leasedActive, setLeasedActive] = useState<LeasedActiveProjection | null>(null);
   const leasedActiveRef = useRef<LeasedActiveProjection | null>(null);
-  const [leasedPlanReference, setLeasedPlanReference] = useState<LeasedPlanReference | null>(null);
-  const [leasedPlanProjectionState, setLeasedPlanProjectionState] = useState<LeasedPlanProjectionState | null>(
+  const [leasedGraphReference, setLeasedGraphReference] = useState<LeasedGraphReference | null>(null);
+  const [leasedGraphProjectionState, setLeasedGraphProjectionState] = useState<LeasedGraphProjectionState | null>(
     null,
   );
 
-  const planReferenceRegistrationRef = useRef<BindingRegistration<PlanReferenceProjectionBinding> | null>(null);
-  const [planReferenceRegistration, setPlanReferenceRegistration] = useState<
-    BindingRegistration<PlanReferenceProjectionBinding> | null
+  const graphReferenceRegistrationRef = useRef<BindingRegistration<GraphReferenceProjectionBinding> | null>(null);
+  const [graphReferenceRegistration, setGraphReferenceRegistration] = useState<
+    BindingRegistration<GraphReferenceProjectionBinding> | null
   >(null);
   const diagnosticsRegistrationRef = useRef<BindingRegistration<GraphReviewDiagnosticsProjectionPayload> | null>(
     null,
@@ -174,8 +175,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   const clearSelectedProjection = useCallback(() => {
     leasedActiveRef.current = null;
     setLeasedActive(null);
-    setLeasedPlanReference(null);
-    setLeasedPlanProjectionState(null);
+    setLeasedGraphReference(null);
+    setLeasedGraphProjectionState(null);
   }, []);
 
   // Same-identity update: the surface lease continues, so its token and live
@@ -195,13 +196,13 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       leasedActiveRef.current = nextLeased;
       setLeasedActive(nextLeased);
       if (!nextLeased || nextLeased.projection.kind !== "content") {
-        setLeasedPlanReference(null);
-        setLeasedPlanProjectionState(null);
+        setLeasedGraphReference(null);
+        setLeasedGraphProjectionState(null);
       }
       // Invalid same-identity publications must not retain readable dependencies.
       if (!isAuthorizedPlanPublication(next)) {
-        planReferenceRegistrationRef.current = null;
-        setPlanReferenceRegistration(null);
+        graphReferenceRegistrationRef.current = null;
+        setGraphReferenceRegistration(null);
       }
       if (!isAuthorizedDiagnosticsPublication(next)) {
         diagnosticsRegistrationRef.current = null;
@@ -292,8 +293,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       };
       leasedActiveRef.current = next;
       setLeasedActive(next);
-      setLeasedPlanReference(null);
-      setLeasedPlanProjectionState(null);
+      setLeasedGraphReference(null);
+      setLeasedGraphProjectionState(null);
     },
     [currentSurfaceToken],
   );
@@ -301,9 +302,9 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
   const openContentFromChip = useCallback(
     (
       ref: RunbookReferenceAttrs,
-      resolution: PlanReferenceResolution,
+      resolution: GraphReferenceResolution,
       glanceOnly = true,
-      projectionState: PlanGraphProjectionState | null = resolution.graphProjectionState ?? null,
+      projectionState: GraphReferenceProjectionState | null = resolution.projectionState ?? null,
     ) => {
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
@@ -323,40 +324,44 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       };
       leasedActiveRef.current = next;
       setLeasedActive(next);
-      setLeasedPlanReference({ surfaceToken: activeToken, resolution });
-      setLeasedPlanProjectionState({ surfaceToken: activeToken, state: projectionState });
+      setLeasedGraphReference({ surfaceToken: activeToken, resolution });
+      setLeasedGraphProjectionState({ surfaceToken: activeToken, state: projectionState });
     },
     [currentSurfaceToken],
   );
 
-  const openPlanReferenceResolution = useCallback(
-    (
-      resolution: PlanReferenceResolution,
-      projectionState: PlanGraphProjectionState | null = resolution.graphProjectionState ?? null,
-    ) => {
+  const openGraphReference = useCallback(
+    (args: OpenGraphReferenceArgs) => {
+      const {
+        resolution,
+        projectionState = resolution.projectionState ?? null,
+        glanceOnly = false,
+        reference = resolution.reference,
+      } = args;
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
       if (!surfaceTokenGuard(capturedToken, reg) || !isAuthorizedPlanPublication(reg)) return;
       const activeToken = reg!.token;
       const title =
-        resolution.graphObject?.label
-        ?? resolution.fallback?.ref.label
+        (resolution.kind === "resolved_graph" ? resolution.graphObject?.label : null)
+        ?? (resolution.kind === "resolved_corpus_fallback" ? resolution.fallback.ref.label : null)
+        ?? reference?.label
         ?? resolution.locator
         ?? "Related object";
       const next: LeasedActiveProjection = {
         surfaceToken: activeToken,
         projection: {
           kind: "content",
-          key: resolution.refType ?? resolution.graphNodeId ?? "plan-reference",
-          size: contentSize(resolution),
+          key: reference?.refType ?? (resolution.kind === "resolved_graph" ? resolution.graphNodeId : resolution.locator) ?? "graph-reference",
+          size: glanceOnly ? "compact" : contentSize(resolution),
           title,
-          glanceOnly: false,
+          glanceOnly,
         },
       };
       leasedActiveRef.current = next;
       setLeasedActive(next);
-      setLeasedPlanReference({ surfaceToken: activeToken, resolution });
-      setLeasedPlanProjectionState({ surfaceToken: activeToken, state: projectionState });
+      setLeasedGraphReference({ surfaceToken: activeToken, resolution });
+      setLeasedGraphProjectionState({ surfaceToken: activeToken, state: projectionState });
     },
     [currentSurfaceToken],
   );
@@ -381,26 +386,26 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
 
   // Registrars capture the surface lease they were supplied under AND require
   // an authorized capability on that lease. Token/surfaceId alone is not enough.
-  const registerPlanReferenceBinding = useCallback(
-    (binding: PlanReferenceProjectionBinding) => {
+  const registerGraphReferenceBinding = useCallback(
+    (binding: GraphReferenceProjectionBinding) => {
       const capturedToken = currentSurfaceToken;
       const reg = surfaceRegistrationRef.current;
       if (!capturedToken || reg?.token !== capturedToken || !isAuthorizedPlanPublication(reg)) {
         return () => undefined;
       }
-      const token = Symbol("plan-reference-binding");
-      const registration: BindingRegistration<PlanReferenceProjectionBinding> = {
+      const token = Symbol("graph-reference-binding");
+      const registration: BindingRegistration<GraphReferenceProjectionBinding> = {
         surfaceToken: capturedToken,
         token,
         value: binding,
       };
-      planReferenceRegistrationRef.current = registration;
-      setPlanReferenceRegistration(registration);
+      graphReferenceRegistrationRef.current = registration;
+      setGraphReferenceRegistration(registration);
       return () => {
-        if (planReferenceRegistrationRef.current?.token === token) {
-          planReferenceRegistrationRef.current = null;
+        if (graphReferenceRegistrationRef.current?.token === token) {
+          graphReferenceRegistrationRef.current = null;
         }
-        setPlanReferenceRegistration((current) => (current?.token === token ? null : current));
+        setGraphReferenceRegistration((current) => (current?.token === token ? null : current));
       };
     },
     [currentSurfaceToken],
@@ -439,8 +444,8 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     [currentSurfaceToken],
   );
 
-  const planReferenceBinding = useMemo((): PlanReferenceProjectionBinding | null => {
-    const registration = planReferenceRegistration;
+  const graphReferenceBinding = useMemo((): GraphReferenceProjectionBinding | null => {
+    const registration = graphReferenceRegistration;
     const reg = surfaceRegistration;
     const surfaceToken = reg?.token;
     // Derived access re-checks authorized Plan publication, not only token equality.
@@ -451,21 +456,21 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
       resolverState: binding.resolverState,
       resolveRelationship: (relationship) => binding.resolveRelationship(relationship),
       openResolvedReference: (resolution, projectionState) => {
-        const current = planReferenceRegistrationRef.current;
+        const current = graphReferenceRegistrationRef.current;
         const live = surfaceRegistrationRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
         if (!isAuthorizedPlanPublication(live) || live?.token !== surfaceToken) return;
         current.value.openResolvedReference(resolution, projectionState);
       },
       openTool: (toolId) => {
-        const current = planReferenceRegistrationRef.current;
+        const current = graphReferenceRegistrationRef.current;
         const live = surfaceRegistrationRef.current;
         if (!current || current.token !== token || current.surfaceToken !== surfaceToken) return;
         if (!isAuthorizedPlanPublication(live) || live?.token !== surfaceToken) return;
         current.value.openTool(toolId);
       },
     };
-  }, [planReferenceRegistration, surfaceRegistration]);
+  }, [graphReferenceRegistration, surfaceRegistration]);
 
   const projectionSurface = surfaceRegistration?.validated ?? null;
 
@@ -482,25 +487,25 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     return leasedActive.projection;
   }, [currentSurfaceToken, leasedActive, surfaceRegistration]);
 
-  const activePlanReference = useMemo(() => {
-    if (!leasedPlanReference || !currentSurfaceToken || leasedPlanReference.surfaceToken !== currentSurfaceToken) {
+  const activeGraphReference = useMemo(() => {
+    if (!leasedGraphReference || !currentSurfaceToken || leasedGraphReference.surfaceToken !== currentSurfaceToken) {
       return null;
     }
     if (!isAuthorizedPlanPublication(surfaceRegistration)) return null;
-    return leasedPlanReference.resolution;
-  }, [currentSurfaceToken, leasedPlanReference, surfaceRegistration]);
+    return leasedGraphReference.resolution;
+  }, [currentSurfaceToken, leasedGraphReference, surfaceRegistration]);
 
-  const planProjectionState = useMemo(() => {
+  const graphReferenceProjectionState = useMemo(() => {
     if (
-      !leasedPlanProjectionState
+      !leasedGraphProjectionState
       || !currentSurfaceToken
-      || leasedPlanProjectionState.surfaceToken !== currentSurfaceToken
+      || leasedGraphProjectionState.surfaceToken !== currentSurfaceToken
     ) {
       return null;
     }
     if (!isAuthorizedPlanPublication(surfaceRegistration)) return null;
-    return leasedPlanProjectionState.state;
-  }, [currentSurfaceToken, leasedPlanProjectionState, surfaceRegistration]);
+    return leasedGraphProjectionState.state;
+  }, [currentSurfaceToken, leasedGraphProjectionState, surfaceRegistration]);
 
   const graphReviewDiagnosticsPayload = useMemo(() => {
     const registration = diagnosticsRegistration;
@@ -662,18 +667,18 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     selectedSource,
     projectionSurface,
     active,
-    activePlanReference,
-    planProjectionState,
-    planReferenceBinding,
+    activeGraphReference,
+    graphReferenceProjectionState,
+    graphReferenceBinding,
     graphReviewDiagnosticsPayload,
     publishProjectionSurface,
     updateProjectionSurfaceConfig,
     openTool,
     openContentFromChip,
-    openPlanReferenceResolution,
+    openGraphReference,
     expandContent,
     close,
-    registerPlanReferenceBinding,
+    registerGraphReferenceBinding,
     registerToolProjectionPayload,
     publishSurfaceContext: setActiveSurfaceContext,
     setPaneOpen: (isOpen) => setPaneState((current) => ({ ...current, isOpen, mode: isOpen ? "pane" : "bar" })),
@@ -692,7 +697,7 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     updateTurnFreshness,
   }), [
     active,
-    activePlanReference,
+    activeGraphReference,
     activeSurfaceContext,
     activeThread,
     appendResponseTurn,
@@ -702,17 +707,17 @@ export function AgentInteractionProvider({ children }: { children: ReactNode }) 
     deleteThread,
     ensureThread,
     expandContent,
+    graphReferenceBinding,
+    graphReferenceProjectionState,
     graphReviewDiagnosticsPayload,
     openContentFromChip,
-    openPlanReferenceResolution,
+    openGraphReference,
     openTool,
     paneState,
-    planProjectionState,
-    planReferenceBinding,
     projectionSurface,
     publishProjectionSurface,
     rehydrateScope,
-    registerPlanReferenceBinding,
+    registerGraphReferenceBinding,
     registerToolProjectionPayload,
     renameThread,
     scope,

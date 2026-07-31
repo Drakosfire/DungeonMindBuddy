@@ -1,22 +1,14 @@
-import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
+import type {
+  GraphReferenceProjectionBinding,
+  GraphReferenceProjectionState,
+  GraphReferenceResolution,
+} from "../../graphReference/types";
 import type { GraphReviewLiveStateContextValue } from "../graphReviewWorkbench/GraphReviewLiveStateContext";
-import type { PlanGraphProjectionState, PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 
-/** In-memory Plan reference actions for projected content (not durable). */
-export interface PlanReferenceProjectionBinding {
-  resolverState: PlanGraphProjectionState | null;
-
-  resolveRelationship(
-    relationship: GraphObjectRelationshipViewModel,
-  ): Promise<PlanReferenceResolution>;
-
-  openResolvedReference(
-    resolution: PlanReferenceResolution,
-    projectionState?: PlanGraphProjectionState | null,
-  ): void;
-
-  openTool(toolId: string): void;
-}
+/** Neutral graph-reference binding exposed through Plan projection host. */
+export type PlanReferenceProjectionBinding = GraphReferenceProjectionBinding;
+export type PlanGraphProjectionState = GraphReferenceProjectionState;
+export type PlanReferenceResolution = GraphReferenceResolution;
 
 /**
  * Exact fields consumed by GraphReviewDiagnosticsToolPanel.
@@ -66,3 +58,5 @@ export type ToolProjectionPayloadMap = {
 };
 
 export type RegisterableToolProjectionId = keyof ToolProjectionPayloadMap;
+
+export type { GraphReferenceProjectionBinding, GraphReferenceResolution };

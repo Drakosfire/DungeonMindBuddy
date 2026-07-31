@@ -3,12 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { referenceFromGraphNode } from "../../graphReference";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import { AgentInteractionProjectionTestHost } from "./projectionTestHost";
 import { useProjection } from "./projectionContext";
 import type { SurfaceConfig } from "../types";
-import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 
 const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
@@ -41,29 +42,26 @@ const innNode: GraphProjectionNodeView = {
 };
 
 function Probe() {
-  const { active, activePlanReference, openPlanReferenceResolution } = useProjection();
+  const { active, activeGraphReference, openGraphReference } = useProjection();
   return (
     <div>
       <p data-testid="active-key">{active?.key ?? "none"}</p>
-      <p data-testid="active-plan-ref">{activePlanReference?.message ?? "none"}</p>
+      <p data-testid="active-plan-ref">{activeGraphReference?.message ?? "none"}</p>
       <button
         type="button"
         onClick={() =>
-          openPlanReferenceResolution(
-            {
-              kind: "graph-node",
+          openGraphReference({
+            resolution: {
+              kind: "resolved_graph",
               locator: `dmb-node:${innNode.node_id}`,
-              refType: innNode.kind,
-              refId: innNode.node_id,
+              reference: referenceFromGraphNode(innNode),
               graphObject: buildGraphObjectCardFromNodeView(innNode),
               graphNodeId: innNode.node_id,
-              fallback: null,
-              source: "world-graph",
               message: `Resolved graph node ${innNode.label}.`,
-              graphProjectionState: "ready",
-            } satisfies PlanReferenceResolution,
-            "ready",
-          )
+              projectionState: "ready",
+            } satisfies GraphReferenceResolution,
+            projectionState: "ready",
+          })
         }
       >
         Open graph node
@@ -84,7 +82,7 @@ describe("projectionContext", () => {
     await user.click(screen.getByRole("button", { name: "Open graph node" }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("active-key")).toHaveTextContent("location");
+      expect(screen.getByTestId("active-key")).toHaveTextContent("graph-node");
     });
     expect(screen.getByTestId("active-plan-ref")).toHaveTextContent("Resolved graph node Inn.");
   });
