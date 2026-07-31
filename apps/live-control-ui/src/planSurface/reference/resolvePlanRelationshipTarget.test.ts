@@ -90,7 +90,7 @@ describe("resolvePlanRelationshipTarget", () => {
       projectionState: "ready",
     });
 
-    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.kind).toBe("resolved_graph");
     expect(resolution.locator).toBe("dmb-node:location-inn");
     expect(resolution.graphNodeId).toBe("location-inn");
     expect(resolution.graphObject?.label).toBe("Inn");
@@ -107,7 +107,7 @@ describe("resolvePlanRelationshipTarget", () => {
       projectionState: "ready",
     });
 
-    expect(resolution.kind).toBe("graph-node");
+    expect(resolution.kind).toBe("resolved_graph");
     expect(resolution.graphNodeId).toBe("npc-glowkindle");
   });
 
@@ -122,8 +122,10 @@ describe("resolvePlanRelationshipTarget", () => {
       projectionState: "ready",
     });
 
-    expect(resolution.kind).toBe("unresolved");
-    expect(resolution.ambiguousNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    expect(resolution.kind).toBe("ambiguous");
+    if (resolution.kind === "ambiguous") {
+      expect(resolution.matchingGraphNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    }
     expect(resolution.message).toMatch(/uniquely resolve/i);
   });
 
@@ -145,7 +147,6 @@ describe("resolvePlanRelationshipTarget", () => {
     });
 
     expect(resolution.kind).toBe("unresolved");
-    expect(resolution.graphObject).toBeNull();
     expect(resolution.message).toMatch(/ingest/i);
   });
 
@@ -167,8 +168,6 @@ describe("resolvePlanRelationshipTarget", () => {
     });
 
     expect(resolution.kind).toBe("unresolved");
-    expect(resolution.graphNodeId).toBeNull();
-    expect(resolution.graphObject).toBeNull();
     expect(resolution.locator).toBe("dmb-node:location-missing");
   });
 
@@ -193,7 +192,6 @@ describe("resolvePlanRelationshipTarget", () => {
     });
 
     expect(resolution.kind).toBe("error");
-    expect(resolution.source).toBe("error");
     expect(resolution.message).toMatch(/corpus fallback disabled/i);
     expect(fetchCount).toBe(0);
   });

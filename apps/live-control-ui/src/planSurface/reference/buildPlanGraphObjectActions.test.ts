@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { referenceFromGraphNode } from "../../graphReference";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
 import {
   buildPlanGraphObjectActions,
   hasPlanSourceOrEvidence,
 } from "./buildPlanGraphObjectActions";
-import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
 
 const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
@@ -39,25 +40,32 @@ function makeNode(overrides: Partial<GraphProjectionNodeView> = {}): GraphProjec
   };
 }
 
+function resolvedGraphFromNode(
+  node: GraphProjectionNodeView,
+  overrides: Partial<Extract<GraphReferenceResolution, { kind: "resolved_graph" }>> = {},
+): GraphReferenceResolution {
+  return {
+    kind: "resolved_graph",
+    locator: `dmb-node:${node.node_id}`,
+    reference: referenceFromGraphNode(node),
+    graphObject: buildGraphObjectCardFromNodeView(node),
+    graphNodeId: node.node_id,
+    projectionState: null,
+    ...overrides,
+  };
+}
+
 describe("buildPlanGraphObjectActions", () => {
   it("orders source, grounded tools, then /ingest for graph hits", () => {
     const onOpenStatblock = vi.fn();
-    const resolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:statblock-tripod",
-      refType: "statblock",
-      graphObject: buildGraphObjectCardFromNodeView(
-        makeNode({
-          node_id: "statblock-tripod",
-          label: "Tripod Null-Calf",
-          kind: "statblock",
-          role: "creature",
-        }),
-      ),
-      graphNodeId: "statblock-tripod",
-      fallback: null,
-      source: "world-graph",
-    };
+    const resolution = resolvedGraphFromNode(
+      makeNode({
+        node_id: "statblock-tripod",
+        label: "Tripod Null-Calf",
+        kind: "statblock",
+        role: "creature",
+      }),
+    );
 
     const actions = buildPlanGraphObjectActions({
       resolution,
@@ -77,31 +85,17 @@ describe("buildPlanGraphObjectActions", () => {
   });
 
   it("includes Inspect source/evidence only when evidence or source data exists", () => {
-    const withEvidence: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(makeNode()),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-    };
-    const withoutEvidence: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-empty",
-      graphObject: buildGraphObjectCardFromNodeView(
-        makeNode({
-          node_id: "npc-empty",
-          label: "Empty",
-          source_domains: [],
-          evidence_badges: [],
-          source_anchor_text: null,
-          summary: null,
-        }),
-      ),
-      graphNodeId: "npc-empty",
-      fallback: null,
-      source: "world-graph",
-    };
+    const withEvidence = resolvedGraphFromNode(makeNode());
+    const withoutEvidence = resolvedGraphFromNode(
+      makeNode({
+        node_id: "npc-empty",
+        label: "Empty",
+        source_domains: [],
+        evidence_badges: [],
+        source_anchor_text: null,
+        summary: null,
+      }),
+    );
 
     expect(
       buildPlanGraphObjectActions({ resolution: withEvidence, sessionDescriptor }).some(
@@ -117,42 +111,28 @@ describe("buildPlanGraphObjectActions", () => {
 
   it("adds Open statblock tool when grounded and open behavior is provided", () => {
     const onOpenStatblock = vi.fn();
-    const relatedStatblock: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-lysandra",
-      graphObject: buildGraphObjectCardFromNodeView(
-        makeNode({
-          node_id: "npc-lysandra",
-          label: "Lysandra",
-          adjacency: [
-            {
-              edge_id: "edge-sb",
-              node_id: "statblock-lysandra",
-              label: "Lysandra statblock",
-              kind: "statblock",
-              predicate: "has_statblock",
-              direction: "outgoing",
-              related_summary: null,
-              evidence_ref_ids: [],
-              source_domains: [],
-              anchored_to_focus_session: true,
-              session_ids: [],
-            },
-          ],
-        }),
-      ),
-      graphNodeId: "npc-lysandra",
-      fallback: null,
-      source: "world-graph",
-    };
-    const noStatblock: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(makeNode()),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-    };
+    const relatedStatblock = resolvedGraphFromNode(
+      makeNode({
+        node_id: "npc-lysandra",
+        label: "Lysandra",
+        adjacency: [
+          {
+            edge_id: "edge-sb",
+            node_id: "statblock-lysandra",
+            label: "Lysandra statblock",
+            kind: "statblock",
+            predicate: "has_statblock",
+            direction: "outgoing",
+            related_summary: null,
+            evidence_ref_ids: [],
+            source_domains: [],
+            anchored_to_focus_session: true,
+            session_ids: [],
+          },
+        ],
+      }),
+    );
+    const noStatblock = resolvedGraphFromNode(makeNode());
 
     const withAction = buildPlanGraphObjectActions({
       resolution: relatedStatblock,
@@ -183,30 +163,15 @@ describe("buildPlanGraphObjectActions", () => {
 
   it("adds Open roll table tool when grounded and open behavior is provided", () => {
     const onOpenRollTable = vi.fn();
-    const rollTable: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:roll-table-gate",
-      refType: "roll-table",
-      graphObject: buildGraphObjectCardFromNodeView(
-        makeNode({
-          node_id: "roll-table-gate",
-          label: "Gate Dilemma d12",
-          kind: "roll-table",
-          role: "table",
-        }),
-      ),
-      graphNodeId: "roll-table-gate",
-      fallback: null,
-      source: "world-graph",
-    };
-    const noRollTable: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(makeNode()),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-    };
+    const rollTable = resolvedGraphFromNode(
+      makeNode({
+        node_id: "roll-table-gate",
+        label: "Gate Dilemma d12",
+        kind: "roll-table",
+        role: "table",
+      }),
+    );
+    const noRollTable = resolvedGraphFromNode(makeNode());
 
     const withAction = buildPlanGraphObjectActions({
       resolution: rollTable,
@@ -236,13 +201,15 @@ describe("buildPlanGraphObjectActions", () => {
   });
 
   it("keeps corpus fallback actions from implying authoritative graph memory", () => {
-    const resolution: PlanReferenceResolution = {
-      kind: "corpus-index",
+    const resolution: GraphReferenceResolution = {
+      kind: "resolved_corpus_fallback",
       locator: "#dmb-ref:location:north-reach-gate",
-      refType: "location",
-      refId: "north-reach-gate",
-      graphObject: null,
-      graphNodeId: null,
+      reference: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
       fallback: {
         status: "resolved",
         ref: {
@@ -255,7 +222,7 @@ describe("buildPlanGraphObjectActions", () => {
         sourcePath: "corpus/locations/north_reach_gate.md",
         message: "Resolved from live location index.",
       },
-      source: "corpus-index",
+      projectionState: null,
     };
 
     const actions = buildPlanGraphObjectActions({ resolution, sessionDescriptor });
@@ -264,17 +231,18 @@ describe("buildPlanGraphObjectActions", () => {
   });
 
   it("uses Fix memory copy for unresolved resolutions", () => {
-    const resolution: PlanReferenceResolution = {
+    const resolution: GraphReferenceResolution = {
       kind: "unresolved",
       locator: "#dmb-ref:npc:lysandra",
-      refType: "npc",
-      refId: "lysandra",
-      graphObject: null,
-      graphNodeId: null,
-      ambiguousNodeIds: ["npc-a", "npc-b"],
-      fallback: null,
-      source: "unresolved",
+      reference: {
+        kind: "ref",
+        refType: "npc",
+        refId: "lysandra",
+        label: "Lysandra",
+      },
+      matchingGraphNodeIds: ["npc-a", "npc-b"],
       message: "Could not uniquely resolve this object from graph memory.",
+      projectionState: null,
     };
 
     const actions = buildPlanGraphObjectActions({ resolution, sessionDescriptor });

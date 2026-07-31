@@ -9,13 +9,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GraphProjectionNodeView, UnionSupergraphProjectionResponse } from "../../api/types";
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { referenceFromGraphNode } from "../../graphReference";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import type { PlanReferenceProjectionBinding } from "../projection/projectionBindings";
 import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import { useProjection } from "../projection/projectionContext";
 import type { SurfaceConfig } from "../types";
 import { PlanReferenceObjectCard } from "./PlanReferenceObjectCard";
 import { PlanReferenceProjectionBinding as PlanReferenceProjectionBindingMount } from "./PlanReferenceProjectionBinding";
-import type { PlanReferenceResolution } from "./graphAwareReferenceResolver";
 import { PlanGraphReferenceResolverProvider } from "./usePlanGraphReferenceResolver";
 
 vi.mock("../../api/liveApi", async () => {
@@ -144,6 +145,21 @@ const surfaceConfig: SurfaceConfig = {
   sessionDescriptor,
 };
 
+function resolvedGraphFromNode(
+  node: GraphProjectionNodeView,
+  overrides: Partial<Extract<GraphReferenceResolution, { kind: "resolved_graph" }>> = {},
+): GraphReferenceResolution {
+  return {
+    kind: "resolved_graph",
+    locator: `dmb-node:${node.node_id}`,
+    reference: referenceFromGraphNode(node),
+    graphObject: buildGraphObjectCardFromNodeView(node),
+    graphNodeId: node.node_id,
+    projectionState: "ready",
+    ...overrides,
+  };
+}
+
 function renderBare(ui: ReactElement) {
   return render(ui);
 }
@@ -151,38 +167,41 @@ function renderBare(ui: ReactElement) {
 function PlanReferenceProjectionHarness({
   initialResolution,
 }: {
-  initialResolution: PlanReferenceResolution;
+  initialResolution: GraphReferenceResolution;
 }) {
   const {
-    activePlanReference,
-    planProjectionState,
-    openPlanReferenceResolution,
-    planReferenceBinding,
+    activeGraphReference,
+    graphReferenceProjectionState,
+    openGraphReference,
+    graphReferenceBinding,
   } = useProjection();
 
   // Seed only once the surface lease is live: a callback captured before
   // publication is a permanent no-op, so retry until the seed lands.
   useEffect(() => {
-    if (activePlanReference) return;
-    openPlanReferenceResolution(initialResolution, initialResolution.graphProjectionState ?? "ready");
-  }, [activePlanReference, initialResolution, openPlanReferenceResolution]);
+    if (activeGraphReference) return;
+    openGraphReference({
+      resolution: initialResolution,
+      projectionState: initialResolution.projectionState ?? "ready",
+    });
+  }, [activeGraphReference, initialResolution, openGraphReference]);
 
-  if (!activePlanReference) {
+  if (!activeGraphReference) {
     return <p>Seeding projection…</p>;
   }
 
   return (
     <PlanReferenceObjectCard
-      resolution={activePlanReference}
+      resolution={activeGraphReference}
       sessionDescriptor={sessionDescriptor}
-      projectionState={planProjectionState}
-      planReferenceBinding={planReferenceBinding}
+      projectionState={graphReferenceProjectionState}
+      graphReferenceBinding={graphReferenceBinding}
       glanceOnly={false}
     />
   );
 }
 
-function renderHarness(initialResolution: PlanReferenceResolution) {
+function renderHarness(initialResolution: GraphReferenceResolution) {
   return render(
     <AgentInteractionProjectionTestHost config={surfaceConfig}>
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
@@ -195,12 +214,12 @@ function renderHarness(initialResolution: PlanReferenceResolution) {
 
 function renderWithLiveBinding(card: ReactElement) {
   function BoundCard() {
-    const { planReferenceBinding } = useProjection();
+    const { graphReferenceBinding } = useProjection();
     const props = card.props as React.ComponentProps<typeof PlanReferenceObjectCard>;
     return (
       <PlanReferenceObjectCard
         {...props}
-        planReferenceBinding={planReferenceBinding}
+        graphReferenceBinding={graphReferenceBinding}
         glanceOnly={false}
       />
     );
@@ -264,15 +283,7 @@ describe("PlanReferenceObjectCard", () => {
   });
 
   it("renders GraphObjectCard for graph-node hits", async () => {
-    const resolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const resolution = resolvedGraphFromNode(glowkindleNode);
 
     const user = userEvent.setup();
     renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
@@ -303,15 +314,7 @@ describe("PlanReferenceObjectCard", () => {
   });
 
   it("opens Details when Inspect source/evidence is clicked", async () => {
-    const resolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const resolution = resolvedGraphFromNode(glowkindleNode);
 
     const user = userEvent.setup();
     renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
@@ -326,22 +329,13 @@ describe("PlanReferenceObjectCard", () => {
   });
 
   it("renders Open statblock tool for grounded statblock graph nodes when projection can open tools", async () => {
-    const resolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:statblock-tripod",
-      refType: "statblock",
-      graphObject: buildGraphObjectCardFromNodeView({
-        ...glowkindleNode,
-        node_id: "statblock-tripod",
-        label: "Tripod Null-Calf",
-        kind: "statblock",
-        role: "creature",
-      }),
-      graphNodeId: "statblock-tripod",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const resolution = resolvedGraphFromNode({
+      ...glowkindleNode,
+      node_id: "statblock-tripod",
+      label: "Tripod Null-Calf",
+      kind: "statblock",
+      role: "creature",
+    });
 
     const user = userEvent.setup();
     const openTool = vi.fn();
@@ -349,7 +343,7 @@ describe("PlanReferenceObjectCard", () => {
       <PlanReferenceObjectCard
         resolution={resolution}
         sessionDescriptor={sessionDescriptor}
-        planReferenceBinding={mockBinding({ openTool })}
+        graphReferenceBinding={mockBinding({ openTool })}
       />,
     );
 
@@ -366,22 +360,13 @@ describe("PlanReferenceObjectCard", () => {
   });
 
   it("omits Open statblock tool when projection context is unavailable", () => {
-    const resolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:statblock-tripod",
-      refType: "statblock",
-      graphObject: buildGraphObjectCardFromNodeView({
-        ...glowkindleNode,
-        node_id: "statblock-tripod",
-        label: "Tripod Null-Calf",
-        kind: "statblock",
-        role: "creature",
-      }),
-      graphNodeId: "statblock-tripod",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const resolution = resolvedGraphFromNode({
+      ...glowkindleNode,
+      node_id: "statblock-tripod",
+      label: "Tripod Null-Calf",
+      kind: "statblock",
+      role: "creature",
+    });
 
     renderBare(<PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />);
 
@@ -391,15 +376,7 @@ describe("PlanReferenceObjectCard", () => {
 
   it("opens related graph node by targetId and updates the projection rail", async () => {
     const user = userEvent.setup();
-    const initialResolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const initialResolution = resolvedGraphFromNode(glowkindleNode);
 
     renderHarness(initialResolution);
 
@@ -423,15 +400,7 @@ describe("PlanReferenceObjectCard", () => {
       () => new Promise(() => undefined),
     );
 
-    const resolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(glowkindleNode),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const resolution = resolvedGraphFromNode(glowkindleNode);
 
     renderWithLiveBinding(
       <PlanReferenceObjectCard resolution={resolution} sessionDescriptor={sessionDescriptor} />,
@@ -462,15 +431,7 @@ describe("PlanReferenceObjectCard", () => {
       ],
     };
 
-    const initialResolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(nodeWithAmbiguousRelation),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const initialResolution = resolvedGraphFromNode(nodeWithAmbiguousRelation);
 
     renderHarness(initialResolution);
 
@@ -511,15 +472,7 @@ describe("PlanReferenceObjectCard", () => {
       ],
     };
 
-    const initialResolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(nodeWithMissingRelation),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const initialResolution = resolvedGraphFromNode(nodeWithMissingRelation);
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
@@ -575,15 +528,7 @@ describe("PlanReferenceObjectCard", () => {
       ],
     };
 
-    const initialResolution: PlanReferenceResolution = {
-      kind: "graph-node",
-      locator: "dmb-node:npc-glowkindle",
-      graphObject: buildGraphObjectCardFromNodeView(nodeWithMultipleLabelOnly),
-      graphNodeId: "npc-glowkindle",
-      fallback: null,
-      source: "world-graph",
-      graphProjectionState: "ready",
-    };
+    const initialResolution = resolvedGraphFromNode(nodeWithMultipleLabelOnly);
 
     renderHarness(initialResolution);
 
@@ -601,19 +546,19 @@ describe("PlanReferenceObjectCard", () => {
   });
 
   it("renders unresolved state for ambiguous graph matches", () => {
-    const resolution: PlanReferenceResolution = {
+    const resolution: GraphReferenceResolution = {
       kind: "unresolved",
       locator: "#dmb-ref:npc:lysandra",
-      refType: "npc",
-      refId: "lysandra",
-      graphObject: null,
-      graphNodeId: null,
-      ambiguousNodeIds: ["npc-lysandra-a", "npc-lysandra-b"],
-      fallback: null,
-      source: "unresolved",
+      reference: {
+        kind: "ref",
+        refType: "npc",
+        refId: "lysandra",
+        label: "Lysandra Ironveil",
+      },
+      matchingGraphNodeIds: ["npc-lysandra-a", "npc-lysandra-b"],
       message:
         "Could not uniquely resolve this object from graph memory. Use /ingest to review aliases or identity. Open /ingest to fix memory.",
-      graphProjectionState: "ready",
+      projectionState: "ready",
     };
 
     renderBare(
@@ -634,13 +579,15 @@ describe("PlanReferenceObjectCard", () => {
   });
 
   it("renders corpus fallback as fallback, not authoritative graph memory", () => {
-    const resolution: PlanReferenceResolution = {
-      kind: "corpus-index",
+    const resolution: GraphReferenceResolution = {
+      kind: "resolved_corpus_fallback",
       locator: "#dmb-ref:location:north-reach-gate",
-      refType: "location",
-      refId: "north-reach-gate",
-      graphObject: null,
-      graphNodeId: null,
+      reference: {
+        kind: "ref",
+        refType: "location",
+        refId: "north-reach-gate",
+        label: "North Reach Gate",
+      },
       fallback: {
         status: "resolved",
         ref: {
@@ -658,8 +605,7 @@ describe("PlanReferenceObjectCard", () => {
         sourcePath: "corpus/locations/north_reach_gate.md",
         message: "Resolved from live location index.",
       },
-      source: "corpus-index",
-      graphProjectionState: "ready",
+      projectionState: "ready",
     };
 
     renderBare(
@@ -690,26 +636,17 @@ describe("PlanReferenceObjectCard", () => {
   });
 
   it("shows projection-unavailable note on unresolved cards", () => {
-    const resolution: PlanReferenceResolution = {
+    const resolution: GraphReferenceResolution = {
       kind: "unresolved",
       locator: "#dmb-ref:npc:missing",
-      refType: "npc",
-      refId: "missing",
-      graphObject: null,
-      graphNodeId: null,
-      fallback: {
-        status: "unresolved",
-        ref: {
-          kind: "ref",
-          refType: "npc",
-          refId: "missing",
-          label: "Missing NPC",
-        },
-        message: "Could not resolve this reference.",
+      reference: {
+        kind: "ref",
+        refType: "npc",
+        refId: "missing",
+        label: "Missing NPC",
       },
-      source: "unresolved",
       message: "Could not resolve this reference from graph memory or corpus indexes. Open /ingest to fix memory.",
-      graphProjectionState: "unavailable",
+      projectionState: "unavailable",
     };
 
     renderBare(

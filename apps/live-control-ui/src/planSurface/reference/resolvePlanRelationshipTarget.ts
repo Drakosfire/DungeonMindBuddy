@@ -1,11 +1,10 @@
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
 import type { WorldGraphProjection } from "../../api/types";
+import type { GraphReferenceProjectionState, GraphReferenceResolution } from "../../graphReference/types";
 import {
   isCorpusFallbackAllowed,
   resolvePlanReferenceFromGraphProjection,
-  type PlanGraphProjectionState,
-  type PlanReferenceResolution,
 } from "./graphAwareReferenceResolver";
 import { REFERENCE_INDEX_ENDPOINTS, resolveReference } from "./referenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "./worldGraphProjectionAdapter";
@@ -16,84 +15,62 @@ function appendIngestEscalationHint(message: string): string {
 }
 
 function withProjectionState(
-  resolution: PlanReferenceResolution,
-  projectionState: PlanGraphProjectionState | null,
-): PlanReferenceResolution {
+  resolution: GraphReferenceResolution,
+  projectionState: GraphReferenceProjectionState | null,
+): GraphReferenceResolution {
   return {
     ...resolution,
-    graphProjectionState: projectionState,
+    projectionState,
   };
 }
 
 function unresolvedRelationshipMiss(
   locator: string,
-  refType: string | null,
+  reference: GraphReferenceResolution["reference"],
   label: string,
-  projectionState: PlanGraphProjectionState | null,
-): PlanReferenceResolution {
+  projectionState: GraphReferenceProjectionState | null,
+): GraphReferenceResolution {
   return {
     kind: "unresolved",
     locator,
-    refType,
-    refId: null,
-    graphObject: null,
-    graphNodeId: null,
-    fallback: null,
-    source: "unresolved",
+    reference,
+    projectionState,
     message: appendIngestEscalationHint(
       `Could not resolve related object "${label}" from graph memory.`,
     ),
-    graphProjectionState: projectionState,
   };
 }
 
 function deferredRelationshipResolution(
   locator: string,
-  refType: string | null,
-  projectionState: PlanGraphProjectionState | null,
-): PlanReferenceResolution {
+  reference: GraphReferenceResolution["reference"],
+  projectionState: GraphReferenceProjectionState | null,
+): GraphReferenceResolution {
   return {
     kind: "unresolved",
     locator,
-    refType,
-    refId: null,
-    graphObject: null,
-    graphNodeId: null,
-    fallback: null,
-    source: "unresolved",
+    reference,
+    projectionState,
     message: "World Graph projection is loading; relationship resolution deferred.",
-    graphProjectionState: projectionState,
   };
 }
 
 function worldGraphErrorRelationshipResolution(
   locator: string,
-  refType: string | null,
-  projectionState: PlanGraphProjectionState | null,
-): PlanReferenceResolution {
+  reference: GraphReferenceResolution["reference"],
+  projectionState: GraphReferenceProjectionState | null,
+): GraphReferenceResolution {
   return {
     kind: "error",
     locator,
-    refType,
-    refId: null,
-    graphObject: null,
-    graphNodeId: null,
-    fallback: null,
-    source: "error",
+    reference,
+    projectionState,
     message: "World Graph projection failed; corpus fallback disabled.",
-    graphProjectionState: projectionState,
   };
 }
 
 /**
  * Resolve a GraphObjectCard relationship target through the Plan graph-aware ladder.
- *
- * Rules:
- * - loading / error fail closed (no corpus fallback), matching chip resolution
- * - targetId → exact `projection.nodes[].nodeId` only (no label fallback)
- * - label-only → unique label/alias match only; ambiguous stays unresolved
- * - never first-win on duplicate aliases
- * - corpus fallback only when graph is unavailable or an ordinary miss in a ready projection
  */
 export async function resolvePlanRelationshipTarget({
   relationship,
@@ -103,37 +80,36 @@ export async function resolvePlanRelationshipTarget({
 }: {
   relationship: GraphObjectRelationshipViewModel;
   projection?: WorldGraphProjection | null;
-  projectionState?: PlanGraphProjectionState | null;
+  projectionState?: GraphReferenceProjectionState | null;
   fetchImpl?: typeof fetch;
-}): Promise<PlanReferenceResolution> {
+}): Promise<GraphReferenceResolution> {
   const label = String(relationship.label || "").trim() || "Related object";
   const targetId = String(relationship.targetId || "").trim() || null;
   const targetKind = String(relationship.targetKind || "").trim() || null;
   const locator = targetId ? `dmb-node:${targetId}` : label;
+  const reference = targetKind && targetId
+    ? { kind: "ref" as const, refType: targetKind, refId: targetId, label }
+    : null;
 
   if (projectionState === "loading") {
-    return deferredRelationshipResolution(locator, targetKind, projectionState);
+    return deferredRelationshipResolution(locator, reference, projectionState);
   }
 
   if (projectionState === "error") {
-    return worldGraphErrorRelationshipResolution(locator, targetKind, projectionState);
+    return worldGraphErrorRelationshipResolution(locator, reference, projectionState);
   }
 
   if (targetId) {
-    // Exact node-id lookup only — do not pass label into the general resolver,
-    // which would otherwise unique-match a different node by label on miss.
     const exactNode = projection?.nodes.find((node) => node.nodeId === targetId) ?? null;
     if (exactNode) {
       return withProjectionState(
         {
-          kind: "graph-node",
+          kind: "resolved_graph",
           locator,
-          refType: targetKind,
-          refId: targetId,
-          graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeForPlanCard(exactNode)),
+          reference,
           graphNodeId: exactNode.nodeId,
-          fallback: null,
-          source: "world-graph",
+          graphObject: buildGraphObjectCardFromNodeView(adaptWorldGraphNodeForPlanCard(exactNode)),
+          projectionState,
           message: `Resolved graph node ${exactNode.label}.`,
         },
         projectionState,
@@ -153,7 +129,6 @@ export async function resolvePlanRelationshipTarget({
         },
         fetchImpl,
       );
-      // Omit label so an exact graph miss cannot label-fallback before corpus adapt.
       return withProjectionState(
         resolvePlanReferenceFromGraphProjection({
           locator,
@@ -161,27 +136,28 @@ export async function resolvePlanRelationshipTarget({
           refId: targetId,
           projection: projection ?? null,
           fallbackResolution,
+          projectionState,
         }),
         projectionState,
       );
     }
 
-    return unresolvedRelationshipMiss(locator, targetKind, label, projectionState);
+    return unresolvedRelationshipMiss(locator, reference, label, projectionState);
   }
 
-  // Label-only: graph unique match only — never invent a corpus refId from the label.
   if (projection) {
     const graphResolution = resolvePlanReferenceFromGraphProjection({
       locator: label,
       label,
       refType: targetKind,
       projection,
+      projectionState,
     });
 
-    if (graphResolution.kind === "graph-node" || graphResolution.ambiguousNodeIds?.length) {
+    if (graphResolution.kind === "resolved_graph" || graphResolution.kind === "ambiguous") {
       return withProjectionState(graphResolution, projectionState);
     }
   }
 
-  return unresolvedRelationshipMiss(label, targetKind, label, projectionState);
+  return unresolvedRelationshipMiss(label, reference, label, projectionState);
 }

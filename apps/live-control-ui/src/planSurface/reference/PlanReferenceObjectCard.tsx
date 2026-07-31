@@ -2,29 +2,32 @@ import { useCallback, useRef, useState } from "react";
 
 import { GraphObjectCard } from "../../graphObjectCard";
 import type { GraphObjectRelationshipViewModel } from "../../graphObjectCard";
+import type {
+  GraphReferenceProjectionBinding,
+  GraphReferenceProjectionState,
+  GraphReferenceResolution,
+} from "../../graphReference/types";
 import { GraphObjectProjectionCard } from "../../graphObjectCard/GraphObjectProjectionCard";
 import { buildPlanIngestHref } from "../config/planSessionDescriptor";
-import type { PlanReferenceProjectionBinding } from "../projection/projectionBindings";
 import type { PlanSessionDescriptor } from "../types";
 import { buildGraphObjectCardFromCorpusFallback } from "./buildGraphObjectCardFromCorpusFallback";
 import { buildPlanGraphObjectActions } from "./buildPlanGraphObjectActions";
-import type { PlanGraphProjectionState, PlanReferenceResolution } from "./graphAwareReferenceResolver";
 
 export interface PlanReferenceObjectCardProps {
-  resolution: PlanReferenceResolution;
+  resolution: GraphReferenceResolution;
   sessionDescriptor?: PlanSessionDescriptor;
-  projectionState?: PlanGraphProjectionState | null;
-  /** Explicit registered Plan projection binding; absent → content only, actions fail closed. */
-  planReferenceBinding?: PlanReferenceProjectionBinding | null;
+  projectionState?: GraphReferenceProjectionState | null;
+  /** Explicit registered graph projection binding; absent → content only, actions fail closed. */
+  graphReferenceBinding?: GraphReferenceProjectionBinding | null;
   /** Compact chip open stays glance-only; Expand unlocks relationship provenance. */
   glanceOnly?: boolean;
 }
 
 function projectionStateNote(
-  projectionState: PlanGraphProjectionState | null | undefined,
-  resolution: PlanReferenceResolution,
+  projectionState: GraphReferenceProjectionState | null | undefined,
+  resolution: GraphReferenceResolution,
 ): string | null {
-  if (resolution.kind === "graph-node") return null;
+  if (resolution.kind === "resolved_graph") return null;
 
   if (projectionState === "loading") {
     return "World Graph projection is still loading. Resolution may change once graph memory is available.";
@@ -45,8 +48,8 @@ function PlanReferenceFallbackBanner({
   resolution,
   projectionState,
 }: {
-  resolution: PlanReferenceResolution;
-  projectionState?: PlanGraphProjectionState | null;
+  resolution: Extract<GraphReferenceResolution, { kind: "resolved_corpus_fallback" }>;
+  projectionState?: GraphReferenceProjectionState | null;
 }) {
   const projectionNote = projectionStateNote(projectionState, resolution);
 
@@ -58,7 +61,7 @@ function PlanReferenceFallbackBanner({
     >
       <p>
         Graph memory did not resolve this yet. Corpus index fallback found{" "}
-        <strong>{resolution.fallback?.ref.label ?? resolution.locator}</strong>.
+        <strong>{resolution.fallback.ref.label ?? resolution.locator}</strong>.
       </p>
       {projectionNote ? <p className="plan-reference-object-card__muted">{projectionNote}</p> : null}
     </div>
@@ -71,18 +74,19 @@ function PlanReferenceUnresolvedCard({
   projectionState,
 }: PlanReferenceObjectCardProps) {
   const ingestHref = sessionDescriptor ? buildPlanIngestHref(sessionDescriptor) : "/ingest";
-  const ambiguousIds = resolution.ambiguousNodeIds ?? [];
+  const ambiguousIds = resolution.kind === "ambiguous" ? resolution.matchingGraphNodeIds : [];
   const projectionNote = projectionStateNote(projectionState, resolution);
+  const title = resolution.reference?.label ?? resolution.locator;
 
   return (
     <article
       className="plan-reference-object-card plan-reference-object-card--unresolved"
-      aria-label={`${resolution.fallback?.ref.label ?? resolution.locator} unresolved reference`}
+      aria-label={`${title} unresolved reference`}
       data-testid="plan-reference-unresolved-card"
     >
       <header className="plan-reference-object-card__header">
         <p className="plan-surface-kicker">Graph memory</p>
-        <h3>{resolution.fallback?.ref.label ?? resolution.locator}</h3>
+        <h3>{title}</h3>
       </header>
       <p className="plan-reference-object-card__message">
         {resolution.message
@@ -117,19 +121,19 @@ export function PlanReferenceObjectCard({
   resolution,
   sessionDescriptor,
   projectionState,
-  planReferenceBinding = null,
+  graphReferenceBinding = null,
   glanceOnly = false,
 }: PlanReferenceObjectCardProps) {
   const [navigatingRelationshipId, setNavigatingRelationshipId] = useState<string | null>(null);
-  const planReferenceBindingRef = useRef(planReferenceBinding);
-  planReferenceBindingRef.current = planReferenceBinding;
+  const graphReferenceBindingRef = useRef(graphReferenceBinding);
+  graphReferenceBindingRef.current = graphReferenceBinding;
 
-  const resolverProjectionState = planReferenceBinding?.resolverState ?? null;
+  const resolverProjectionState = graphReferenceBinding?.resolverState ?? null;
   const effectiveProjectionState =
-    projectionState ?? resolution.graphProjectionState ?? resolverProjectionState ?? null;
-  const onOpenStatblock = planReferenceBinding
+    projectionState ?? resolution.projectionState ?? resolverProjectionState ?? null;
+  const onOpenStatblock = graphReferenceBinding
     ? () => {
-        const current = planReferenceBindingRef.current;
+        const current = graphReferenceBindingRef.current;
         if (!current) return;
         current.openTool("statblock");
       }
@@ -138,7 +142,7 @@ export function PlanReferenceObjectCard({
 
   const onSelectRelationship = useCallback(
     async (relationship: GraphObjectRelationshipViewModel) => {
-      const bindingAtStart = planReferenceBinding;
+      const bindingAtStart = graphReferenceBinding;
       if (!bindingAtStart || navigatingRelationshipId) return;
       if (resolverProjectionState === "loading" || resolverProjectionState === "error") return;
 
@@ -146,11 +150,11 @@ export function PlanReferenceObjectCard({
       try {
         const nextResolution = await bindingAtStart.resolveRelationship(relationship);
         // Stale-operation rule: commit only through the still-current binding.
-        const current = planReferenceBindingRef.current;
+        const current = graphReferenceBindingRef.current;
         if (!current || current !== bindingAtStart) return;
         current.openResolvedReference(
           nextResolution,
-          nextResolution.graphProjectionState ?? effectiveProjectionState,
+          nextResolution.projectionState ?? effectiveProjectionState,
         );
       } finally {
         setNavigatingRelationshipId(null);
@@ -159,7 +163,7 @@ export function PlanReferenceObjectCard({
     [
       effectiveProjectionState,
       navigatingRelationshipId,
-      planReferenceBinding,
+      graphReferenceBinding,
       resolverProjectionState,
     ],
   );
@@ -169,7 +173,7 @@ export function PlanReferenceObjectCard({
     || resolverProjectionState === "loading"
     || resolverProjectionState === "error";
 
-  if (resolution.kind === "graph-node" && resolution.graphObject) {
+  if (resolution.kind === "resolved_graph") {
     const model = {
       ...resolution.graphObject,
       actions: buildPlanGraphObjectActions({
@@ -185,14 +189,14 @@ export function PlanReferenceObjectCard({
         mode="plan"
         aria-label={`${model.label} graph object`}
         showRelationshipProvenance={showRelationshipProvenance}
-        onSelectRelationship={planReferenceBinding ? onSelectRelationship : undefined}
+        onSelectRelationship={graphReferenceBinding ? onSelectRelationship : undefined}
         selectedRelationshipId={navigatingRelationshipId}
         disabled={relationshipsDisabled}
       />
     );
   }
 
-  if (resolution.kind === "corpus-index") {
+  if (resolution.kind === "resolved_corpus_fallback") {
     const fallbackModel = buildGraphObjectCardFromCorpusFallback(resolution);
     if (fallbackModel) {
       const model = {

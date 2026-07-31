@@ -8,21 +8,26 @@ import { useProjection } from "../projection/projectionContext";
  * Must mount under PlanGraphReferenceResolverProvider and the app projection host.
  */
 export function PlanReferenceProjectionBinding() {
-  const { registerPlanReferenceBinding, openPlanReferenceResolution, openTool } = useProjection();
+  const { registerGraphReferenceBinding, openGraphReference, openTool } = useProjection();
   const { resolvePlanRelationship, projectionState } = usePlanGraphReferenceResolver();
 
   useEffect(() => {
-    return registerPlanReferenceBinding({
+    return registerGraphReferenceBinding({
       resolverState: projectionState,
       resolveRelationship: resolvePlanRelationship,
-      openResolvedReference: openPlanReferenceResolution,
+      openResolvedReference: (resolution, state) => {
+        openGraphReference({
+          resolution,
+          projectionState: state ?? projectionState,
+        });
+      },
       openTool,
     });
   }, [
-    openPlanReferenceResolution,
+    openGraphReference,
     openTool,
     projectionState,
-    registerPlanReferenceBinding,
+    registerGraphReferenceBinding,
     resolvePlanRelationship,
   ]);
 

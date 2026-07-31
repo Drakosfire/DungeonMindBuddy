@@ -9,11 +9,14 @@ import { GraphReviewDiagnosticsToolPanel } from "../graphReviewWorkbench/GraphRe
 import { ManualReviewModule } from "../manualReview/ManualReviewModule";
 import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import type { PlanContextDescriptor, SurfaceConfig } from "../types";
-import type { PlanGraphProjectionState, PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
+import type {
+  GraphReferenceProjectionBinding,
+  GraphReferenceProjectionState,
+  GraphReferenceResolution,
+} from "../../graphReference/types";
 import { PlanReferenceObjectCard } from "../reference/PlanReferenceObjectCard";
 import type {
   GraphReviewDiagnosticsProjectionPayload,
-  PlanReferenceProjectionBinding,
 } from "./projectionBindings";
 import { GRAPH_REVIEW_DIAGNOSTICS_TOOL_ID } from "./projectionBindings";
 
@@ -22,8 +25,8 @@ export interface ToolProjectionProps {
 }
 
 export interface ContentProjectionProps {
-  resolution: PlanReferenceResolution;
-  projectionState?: PlanGraphProjectionState | null;
+  resolution: GraphReferenceResolution;
+  projectionState?: GraphReferenceProjectionState | null;
 }
 
 export interface RenderToolProjectionDeps {
@@ -31,7 +34,7 @@ export interface RenderToolProjectionDeps {
 }
 
 export interface RenderContentProjectionDeps {
-  planReferenceBinding?: PlanReferenceProjectionBinding | null;
+  graphReferenceBinding?: GraphReferenceProjectionBinding | null;
   glanceOnly?: boolean;
 }
 
@@ -77,9 +80,9 @@ export function renderToolProjection(
 }
 
 export function renderContentProjection(
-  resolution: PlanReferenceResolution,
+  resolution: GraphReferenceResolution,
   config: SurfaceConfig,
-  projectionState?: PlanGraphProjectionState | null,
+  projectionState?: GraphReferenceProjectionState | null,
   deps: RenderContentProjectionDeps = {},
 ): ReactNode {
   return (
@@ -87,7 +90,7 @@ export function renderContentProjection(
       resolution={resolution}
       sessionDescriptor={config.sessionDescriptor}
       projectionState={projectionState}
-      planReferenceBinding={deps.planReferenceBinding}
+      graphReferenceBinding={deps.graphReferenceBinding}
       glanceOnly={deps.glanceOnly}
     />
   );

@@ -5,7 +5,11 @@ import { EditorContent } from "@tiptap/react";
 import type { AppChromeTools } from "../../chrome/AppChrome";
 import {
   GraphNodeChipRuntimeProvider,
+  GraphReferenceSearch,
+  insertMarkdownReference,
+  referenceFromGraphNode,
   type GraphNodeChipRuntimeValue,
+  type GraphReferenceSearchItem,
 } from "../../graphReference";
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
@@ -27,17 +31,18 @@ import type { WorkspaceDocumentLocalKind } from "../../tiptap/state/tiptapLocalS
 import { isEditorInteractive } from "../../workspaceDocument/workspaceDocumentAuthoringMachine";
 import { useWorkspaceDocumentAuthoring } from "../../workspaceDocument/useWorkspaceDocumentAuthoring";
 import { useEditCapability } from "../edit/editCapability";
-import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import type { GraphProjectionNodeView } from "../../api/types";
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
 import { useProjection } from "../projection/projectionContext";
 import { readReferenceFromElement } from "../reference/referenceResolver";
 import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenceResolver";
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
+import { formatReviewCampaignLabel } from "../sessionCampaignContext";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import { PlanGraphLoadPanel } from "./PlanGraphLoadPanel";
-import { PlanGraphRefSearch } from "./PlanGraphRefSearch";
 import "../../../../../evals/c2_live_prep/mireward-prep/assets/prep-markdown-themes.css";
 import "../../tiptap/tiptapSpike.css";
+import "../../graphReference/graphReference.css";
 
 interface PlanSurfaceCanvasProps {
   sessionDescriptor: PlanSessionDescriptor;
@@ -45,6 +50,12 @@ interface PlanSurfaceCanvasProps {
   onEditorToolsChange?: (tools: AppChromeTools | null) => void;
   onSaveStatusChange?: (statusLabel: string) => void;
   onPlanningDocumentCommitted?: (document: PlanDocumentDescriptor) => void;
+}
+
+function nodeScopeLabel(node: GraphProjectionNodeView): string {
+  const scope = node.campaign_scope?.trim();
+  if (!scope) return "world";
+  return formatReviewCampaignLabel(scope);
 }
 
 export function PlanSurfaceCanvas({
@@ -57,7 +68,7 @@ export function PlanSurfaceCanvas({
   const planningDocument = sessionDescriptor.planningDocument;
   const documentKind = planningDocument.kind as WorkspaceDocumentLocalKind;
   const { isLocked, canEdit, toggleLock } = useEditCapability();
-  const { openContentFromChip, openPlanReferenceResolution } = useProjection();
+  const { openContentFromChip, openGraphReference } = useProjection();
   const {
     resolvePlanReference,
     projection,
@@ -142,7 +153,7 @@ export function PlanSurfaceCanvas({
 
   const insertRunbookReference = useCallback(
     (attrs: RunbookReferenceAttrs) => {
-      editor?.chain().focus().insertRunbookReference(attrs).run();
+      insertMarkdownReference(editor, attrs);
     },
     [editor],
   );
@@ -152,46 +163,59 @@ export function PlanSurfaceCanvas({
     [projection],
   );
 
-  const handleViewGraphNode = useCallback(
-    (node: GraphProjectionNodeView) => {
-      openPlanReferenceResolution(
-        {
-          kind: "graph-node",
-          locator: `dmb-node:${node.node_id}`,
-          refType: node.kind,
-          refId: node.node_id,
-          graphObject: buildGraphObjectCardFromNodeView(node),
-          graphNodeId: node.node_id,
-          fallback: null,
-          source: "world-graph",
-          message: `Resolved graph node ${node.label}.`,
-          graphProjectionState: projectionState,
+  const graphReferenceSearchItems = useMemo<GraphReferenceSearchItem[]>(
+    () =>
+      projectionNodes.map((node) => ({
+        nodeId: node.node_id,
+        label: node.label,
+        kind: node.kind,
+        role: node.role,
+        summary: node.summary ?? null,
+        aliases: node.aliases ?? [],
+        scopeLabel: nodeScopeLabel(node),
+        reference: referenceFromGraphNode(node),
+        nodeView: node,
+      })),
+    [projectionNodes],
+  );
+
+  const handleViewGraphReference = useCallback(
+    (item: GraphReferenceSearchItem) => {
+      openGraphReference({
+        resolution: {
+          kind: "resolved_graph",
+          locator: `dmb-node:${item.nodeId}`,
+          reference: item.reference,
+          graphObject: buildGraphObjectCardFromNodeView(item.nodeView),
+          graphNodeId: item.nodeId,
+          projectionState,
+          message: `Resolved graph node ${item.label}.`,
         },
         projectionState,
-      );
+      });
     },
-    [openPlanReferenceResolution, projectionState],
+    [openGraphReference, projectionState],
   );
 
   const graphRefSearchPanel = useMemo(
     () => (
-      <PlanGraphRefSearch
-        nodes={projectionNodes}
+      <GraphReferenceSearch
+        items={graphReferenceSearchItems}
         projectionState={projectionState}
         projectionError={projectionError}
         insertDisabled={!editor || isLocked || !editorInteractive}
         onInsert={insertRunbookReference}
-        onView={handleViewGraphNode}
+        onView={handleViewGraphReference}
       />
     ),
     [
       editor,
       editorInteractive,
-      handleViewGraphNode,
+      graphReferenceSearchItems,
+      handleViewGraphReference,
       insertRunbookReference,
       isLocked,
       projectionError,
-      projectionNodes,
       projectionState,
     ],
   );
@@ -285,7 +309,6 @@ export function PlanSurfaceCanvas({
         actions: [
           {
             id: "plan-remove-block",
-            eyebrow: "Remove",
             label: "Remove block",
             onClick: removeActiveBlock,
             disabled: !editor || isLocked || !editorInteractive,

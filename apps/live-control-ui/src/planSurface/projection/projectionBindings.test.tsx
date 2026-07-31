@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { referenceFromGraphNode } from "../../graphReference";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
-import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import { PlanReferenceProjectionBinding } from "../reference/PlanReferenceProjectionBinding";
 import { PlanGraphLensProvider } from "../PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
@@ -114,17 +115,14 @@ const innNode: GraphProjectionNodeView = {
   summary: "Meeting place.",
 };
 
-const innResolution: PlanReferenceResolution = {
-  kind: "graph-node",
+const innResolution: GraphReferenceResolution = {
+  kind: "resolved_graph",
   locator: "dmb-node:location-inn",
-  refType: "location",
-  refId: "location-inn",
+  reference: referenceFromGraphNode(innNode),
   graphObject: buildGraphObjectCardFromNodeView(innNode),
   graphNodeId: "location-inn",
-  fallback: null,
-  source: "world-graph",
   message: "Resolved Inn.",
-  graphProjectionState: "ready",
+  projectionState: "ready",
 };
 
 const readyWorldGraphProjection = {
@@ -186,26 +184,23 @@ const readyWorldGraphProjection = {
 };
 
 function OpenReferenceButton() {
-  const { openPlanReferenceResolution } = useProjection();
+  const { openGraphReference } = useProjection();
   return (
     <button
       type="button"
       onClick={() =>
-        openPlanReferenceResolution(
-          {
-            kind: "graph-node",
+        openGraphReference({
+          resolution: {
+            kind: "resolved_graph",
             locator: `dmb-node:${bubblesNode.node_id}`,
-            refType: bubblesNode.kind,
-            refId: bubblesNode.node_id,
+            reference: referenceFromGraphNode(bubblesNode),
             graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
             graphNodeId: bubblesNode.node_id,
-            fallback: null,
-            source: "world-graph",
             message: `Resolved graph node ${bubblesNode.label}.`,
-            graphProjectionState: "ready",
-          } satisfies PlanReferenceResolution,
-          "ready",
-        )
+            projectionState: "ready",
+          } satisfies GraphReferenceResolution,
+          projectionState: "ready",
+        })
       }
     >
       Open Bubbles
@@ -227,10 +222,10 @@ function BindingReader({
 }: {
   onBinding: (binding: PlanBinding | null) => void;
 }) {
-  const { planReferenceBinding } = useProjection();
+  const { graphReferenceBinding } = useProjection();
   useEffect(() => {
-    onBinding(planReferenceBinding);
-  }, [onBinding, planReferenceBinding]);
+    onBinding(graphReferenceBinding);
+  }, [onBinding, graphReferenceBinding]);
   return null;
 }
 
@@ -393,24 +388,24 @@ describe("projectionBindings sibling topology", () => {
 
   it("does not open projection when Plan binding is superseded during relationship resolve", async () => {
     const user = userEvent.setup();
-    let resolveDeferred!: (resolution: PlanReferenceResolution) => void;
-    const deferred = new Promise<PlanReferenceResolution>((resolve) => {
+    let resolveDeferred!: (resolution: GraphReferenceResolution) => void;
+    const deferred = new Promise<GraphReferenceResolution>((resolve) => {
       resolveDeferred = resolve;
     });
     const openFromFirst = vi.fn();
     const openFromSecond = vi.fn();
 
     function ControllablePlanBinding() {
-      const { registerPlanReferenceBinding } = useProjection();
+      const { registerGraphReferenceBinding } = useProjection();
       const [generation, setGeneration] = useState(0);
       useEffect(() => {
-        return registerPlanReferenceBinding({
+        return registerGraphReferenceBinding({
           resolverState: "ready",
           resolveRelationship: () => deferred,
           openResolvedReference: generation === 0 ? openFromFirst : openFromSecond,
           openTool: vi.fn(),
         });
-      }, [generation, registerPlanReferenceBinding]);
+      }, [generation, registerGraphReferenceBinding]);
       return (
         <button type="button" onClick={() => setGeneration(1)}>
           Supersede binding
@@ -450,10 +445,10 @@ describe("projectionBindings sibling topology", () => {
     let register: ((binding: PlanBinding) => () => void) | null = null;
 
     function Registrar() {
-      const { registerPlanReferenceBinding } = useProjection();
+      const { registerGraphReferenceBinding } = useProjection();
       useEffect(() => {
-        register = registerPlanReferenceBinding;
-      }, [registerPlanReferenceBinding]);
+        register = registerGraphReferenceBinding;
+      }, [registerGraphReferenceBinding]);
       return <BindingReader onBinding={(binding) => seen.push(binding)} />;
     }
 
@@ -507,10 +502,10 @@ describe("projectionBindings sibling topology", () => {
     let register: ((binding: PlanBinding) => () => void) | null = null;
 
     function Registrar() {
-      const { registerPlanReferenceBinding } = useProjection();
+      const { registerGraphReferenceBinding } = useProjection();
       useEffect(() => {
-        register = registerPlanReferenceBinding;
-      }, [registerPlanReferenceBinding]);
+        register = registerGraphReferenceBinding;
+      }, [registerGraphReferenceBinding]);
       return <BindingReader onBinding={(binding) => seen.push(binding)} />;
     }
 
@@ -556,10 +551,10 @@ describe("projectionBindings sibling topology", () => {
     let register: ((binding: PlanBinding) => () => void) | null = null;
 
     function Registrar() {
-      const { registerPlanReferenceBinding } = useProjection();
+      const { registerGraphReferenceBinding } = useProjection();
       useEffect(() => {
-        register = registerPlanReferenceBinding;
-      }, [registerPlanReferenceBinding]);
+        register = registerGraphReferenceBinding;
+      }, [registerGraphReferenceBinding]);
       return <BindingReader onBinding={(binding) => seen.push(binding)} />;
     }
 

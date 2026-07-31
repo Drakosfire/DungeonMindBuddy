@@ -16,12 +16,11 @@ import type { RunbookReferenceAttrs } from "../../tiptap/references/runbookRefer
 import type { PlanSessionDescriptor } from "../types";
 import { useOptionalPlanGraphLens } from "../PlanGraphLensContext";
 import { isFocusValidationBlocking } from "../planGraphFocusOptions";
+import type { GraphReferenceProjectionState, GraphReferenceResolution } from "../../graphReference/types";
 import {
   isCorpusFallbackAllowed,
   isGraphNativeReference,
   resolvePlanReferenceFromGraphProjection,
-  type PlanGraphProjectionState,
-  type PlanReferenceResolution,
 } from "./graphAwareReferenceResolver";
 import { resolveReference } from "./referenceResolver";
 import { resolvePlanRelationshipTarget } from "./resolvePlanRelationshipTarget";
@@ -33,16 +32,16 @@ import {
 
 export interface UsePlanGraphReferenceResolverResult {
   projection: WorldGraphProjection | null;
-  projectionState: PlanGraphProjectionState;
+  projectionState: GraphReferenceProjectionState;
   projectionError: string | null;
   /** Dogfood: last projection load duration in ms (null until a terminal outcome). */
   lastProjectionLoadMs: number | null;
   /** Dogfood: last projection load outcome. */
-  lastProjectionLoadOutcome: PlanGraphProjectionState | null;
-  resolvePlanReference: (ref: RunbookReferenceAttrs) => Promise<PlanReferenceResolution>;
+  lastProjectionLoadOutcome: GraphReferenceProjectionState | null;
+  resolvePlanReference: (ref: RunbookReferenceAttrs) => Promise<GraphReferenceResolution>;
   resolvePlanRelationship: (
     relationship: GraphObjectRelationshipViewModel,
-  ) => Promise<PlanReferenceResolution>;
+  ) => Promise<GraphReferenceResolution>;
 }
 
 const PlanGraphReferenceResolverContext =
@@ -61,7 +60,7 @@ function markProjectionLoadStart(): string {
 
 function measureProjectionLoad(
   startMark: string,
-  outcome: PlanGraphProjectionState,
+  outcome: GraphReferenceProjectionState,
   meta: {
     campaignId: string;
     scopeMode: string;
@@ -114,35 +113,29 @@ export { isCorpusFallbackAllowed };
 
 function unresolvedResolution(
   ref: RunbookReferenceAttrs,
-  projectionState: PlanGraphProjectionState | null,
+  projectionState: GraphReferenceProjectionState | null,
   message: string,
-): PlanReferenceResolution {
+): GraphReferenceResolution {
   return {
     kind: "unresolved",
     locator: ref.refId ?? ref.label ?? "unknown",
-    refType: ref.refType ?? null,
-    refId: ref.refId ?? null,
-    fallback: null,
-    source: "unresolved",
+    reference: ref,
+    projectionState,
     message,
-    graphProjectionState: projectionState,
   };
 }
 
 function worldGraphErrorResolution(
   ref: RunbookReferenceAttrs,
-  projectionState: PlanGraphProjectionState | null,
+  projectionState: GraphReferenceProjectionState | null,
   message: string,
-): PlanReferenceResolution {
+): GraphReferenceResolution {
   return {
     kind: "error",
     locator: ref.refId ?? ref.label ?? "unknown",
-    refType: ref.refType ?? null,
-    refId: ref.refId ?? null,
-    fallback: null,
-    source: "error",
+    reference: ref,
+    projectionState,
     message,
-    graphProjectionState: projectionState,
   };
 }
 
@@ -150,11 +143,11 @@ export async function resolvePlanReferenceWithFallback(
   ref: RunbookReferenceAttrs,
   options: {
     projection?: WorldGraphProjection | null;
-    projectionState?: PlanGraphProjectionState | null;
+    projectionState?: GraphReferenceProjectionState | null;
     lensSummary?: string | null;
     fetchImpl?: typeof fetch;
   } = {},
-): Promise<PlanReferenceResolution> {
+): Promise<GraphReferenceResolution> {
   const projectionState = options.projectionState ?? null;
   const lensSummary = options.lensSummary ?? null;
 
@@ -188,12 +181,10 @@ export async function resolvePlanReferenceWithFallback(
       ref,
       projection: options.projection,
       lensSummary,
+      projectionState,
     });
 
-    return {
-      ...graphResolution,
-      graphProjectionState: projectionState,
-    };
+    return graphResolution;
   }
 
   if (options.projection) {
@@ -201,48 +192,35 @@ export async function resolvePlanReferenceWithFallback(
       ref,
       projection: options.projection,
       lensSummary,
+      projectionState,
     });
 
-    if (graphResolution.kind === "graph-node") {
-      return {
-        ...graphResolution,
-        graphProjectionState: projectionState,
-      };
+    if (graphResolution.kind === "resolved_graph") {
+      return graphResolution;
     }
 
-    if (graphResolution.ambiguousNodeIds?.length) {
-      return {
-        ...graphResolution,
-        graphProjectionState: projectionState,
-      };
+    if (graphResolution.kind === "ambiguous") {
+      return graphResolution;
     }
 
     const fallbackResolution = await resolveReference(ref, options.fetchImpl);
-    const resolution = resolvePlanReferenceFromGraphProjection({
+    return resolvePlanReferenceFromGraphProjection({
       ref,
       projection: options.projection,
       fallbackResolution,
       lensSummary,
+      projectionState,
     });
-
-    return {
-      ...resolution,
-      graphProjectionState: projectionState,
-    };
   }
 
   const fallbackResolution = await resolveReference(ref, options.fetchImpl);
-  const resolution = resolvePlanReferenceFromGraphProjection({
+  return resolvePlanReferenceFromGraphProjection({
     ref,
     projection: null,
     fallbackResolution,
     lensSummary,
+    projectionState,
   });
-
-  return {
-    ...resolution,
-    graphProjectionState: projectionState,
-  };
 }
 
 function usePlanGraphReferenceResolverLoad(
@@ -250,10 +228,10 @@ function usePlanGraphReferenceResolverLoad(
   revisionRefreshToken?: string | number | null,
 ): UsePlanGraphReferenceResolverResult {
   const [projection, setProjection] = useState<WorldGraphProjection | null>(null);
-  const [projectionState, setProjectionState] = useState<PlanGraphProjectionState>("loading");
+  const [projectionState, setProjectionState] = useState<GraphReferenceProjectionState>("loading");
   const [projectionError, setProjectionError] = useState<string | null>(null);
   const [lastProjectionLoadMs, setLastProjectionLoadMs] = useState<number | null>(null);
-  const [lastProjectionLoadOutcome, setLastProjectionLoadOutcome] = useState<PlanGraphProjectionState | null>(null);
+  const [lastProjectionLoadOutcome, setLastProjectionLoadOutcome] = useState<GraphReferenceProjectionState | null>(null);
   const [revisionEventBump, setRevisionEventBump] = useState(0);
   const graphLens = useOptionalPlanGraphLens();
   const focusValidationStatus = graphLens?.focusValidationStatus ?? "none";
@@ -311,7 +289,7 @@ function usePlanGraphReferenceResolverLoad(
       const focusSessionId =
         context.focus.kind === "session" ? context.focus.sessionId : null;
 
-      const finish = (outcome: PlanGraphProjectionState) => {
+      const finish = (outcome: GraphReferenceProjectionState) => {
         const durationMs = measureProjectionLoad(startMark, outcome, {
           campaignId: context.campaignId,
           scopeMode: context.scopeMode,

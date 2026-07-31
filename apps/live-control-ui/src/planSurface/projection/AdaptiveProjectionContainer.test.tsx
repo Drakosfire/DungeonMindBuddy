@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect } from "react";
 
 import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { referenceFromGraphNode } from "../../graphReference";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import { getRecapArtifacts } from "../../api/liveApi";
 import type { GraphProjectionNodeView, RecapArtifactsListResponse } from "../../api/types";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
-import type { PlanReferenceResolution } from "../reference/graphAwareReferenceResolver";
 import type { SurfaceConfig } from "../types";
 import { AdaptiveProjectionContainer } from "./AdaptiveProjectionContainer";
 import {
@@ -66,26 +67,23 @@ const bubblesNode: GraphProjectionNodeView = {
 };
 
 function OpenReferenceButton() {
-  const { openPlanReferenceResolution } = useProjection();
+  const { openGraphReference } = useProjection();
   return (
     <button
       type="button"
       onClick={() =>
-        openPlanReferenceResolution(
-          {
-            kind: "graph-node",
+        openGraphReference({
+          resolution: {
+            kind: "resolved_graph",
             locator: `dmb-node:${bubblesNode.node_id}`,
-            refType: bubblesNode.kind,
-            refId: bubblesNode.node_id,
+            reference: referenceFromGraphNode(bubblesNode),
             graphObject: buildGraphObjectCardFromNodeView(bubblesNode),
             graphNodeId: bubblesNode.node_id,
-            fallback: null,
-            source: "world-graph",
             message: `Resolved graph node ${bubblesNode.label}.`,
-            graphProjectionState: "ready",
-          } satisfies PlanReferenceResolution,
-          "ready",
-        )
+            projectionState: "ready",
+          } satisfies GraphReferenceResolution,
+          projectionState: "ready",
+        })
       }
     >
       Open Bubbles

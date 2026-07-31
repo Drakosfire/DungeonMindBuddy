@@ -8,10 +8,14 @@ import type {
   WorldGraphProjection,
   WorldGraphProjectionNodeView,
 } from "../../api/types";
+import { buildGraphObjectCardFromNodeView } from "../../graphObjectCard";
+import { referenceFromGraphNode } from "../../graphReference";
+import type { GraphReferenceResolution } from "../../graphReference/types";
 import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import { useProjection } from "../projection/projectionContext";
 import { PlanGraphReferenceResolverProvider } from "../reference/usePlanGraphReferenceResolver";
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
+import type { SurfaceConfig } from "../types";
 import { GraphObjectDogfoodPanel } from "./GraphObjectDogfoodPanel";
 import { graphObjectDogfoodStorageKey } from "./graphObjectDogfoodStorage";
 
@@ -159,6 +163,18 @@ const projection: WorldGraphProjection = {
   diagnostics: [],
 };
 
+function graphResolutionFromNode(node: GraphProjectionNodeView): GraphReferenceResolution {
+  return {
+    kind: "resolved_graph",
+    locator: `dmb-node:${node.node_id}`,
+    reference: referenceFromGraphNode(node),
+    graphObject: buildGraphObjectCardFromNodeView(node),
+    graphNodeId: node.node_id,
+    projectionState: "ready",
+    message: `Resolved graph node ${node.label}.`,
+  };
+}
+
 const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: 21 });
 
 const surfaceConfig: SurfaceConfig = {
@@ -171,7 +187,7 @@ const surfaceConfig: SurfaceConfig = {
     headerLabel: sessionDescriptor.planningDocument.title,
   },
   sessionDescriptor,
-  tools: [],
+  tools: [{ id: "statblock", label: "Statblock", size: "wide" }],
   canvas: { documentId: sessionDescriptor.planningDocument.documentId },
   theme: {},
 };
@@ -190,12 +206,12 @@ function seedDogfoodList(nodeIds: string[]) {
 }
 
 function ActiveTitleProbe() {
-  const { active, activePlanReference } = useProjection();
+  const { active, activeGraphReference } = useProjection();
   return (
     <div data-testid="active-probe">
       <span data-testid="active-title">{active?.title ?? ""}</span>
-      <span data-testid="active-kind">{activePlanReference?.kind ?? ""}</span>
-      <span data-testid="active-node">{activePlanReference?.graphNodeId ?? ""}</span>
+      <span data-testid="active-kind">{activeGraphReference?.kind ?? ""}</span>
+      <span data-testid="active-node">{activeGraphReference?.graphNodeId ?? ""}</span>
     </div>
   );
 }
@@ -230,32 +246,22 @@ describe("GraphObjectDogfoodPanel", () => {
   it("adds the currently viewed related card without a duplicate search UI", async () => {
     const user = userEvent.setup();
 
-    function SeedRelatedView() {
-      const { openPlanReferenceResolution } = useProjection();
+    function SeedRelatedView({ node }: { node: GraphProjectionNodeView }) {
+      const { activeGraphReference, openGraphReference } = useProjection();
       useEffect(() => {
-        openPlanReferenceResolution({
-          kind: "graph-node",
-          locator: "dmb-node:npc-glowkindle",
-          refType: "npc",
-          refId: "npc-glowkindle",
-          graphObject: {
-            id: "npc-glowkindle",
-            label: "Glowkindle",
-            typeBadgeLabel: "Npc",
-            actions: [],
-          },
-          graphNodeId: "npc-glowkindle",
-          fallback: null,
-          source: "world-graph",
+        if (activeGraphReference) return;
+        openGraphReference({
+          resolution: graphResolutionFromNode(node),
+          projectionState: "ready",
         });
-      }, [openPlanReferenceResolution]);
+      }, [activeGraphReference, node, openGraphReference]);
       return null;
     }
 
     render(
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
         <AgentInteractionProjectionTestHost config={surfaceConfig}>
-          <SeedRelatedView />
+          <SeedRelatedView node={richNode} />
           <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
         </AgentInteractionProjectionTestHost>
       </PlanGraphReferenceResolverProvider>,
@@ -285,7 +291,7 @@ describe("GraphObjectDogfoodPanel", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("active-title")).toHaveTextContent("Glowkindle");
-      expect(screen.getByTestId("active-kind")).toHaveTextContent("graph-node");
+      expect(screen.getByTestId("active-kind")).toHaveTextContent("resolved_graph");
       expect(screen.getByTestId("active-node")).toHaveTextContent("npc-glowkindle");
     });
 
@@ -364,32 +370,22 @@ describe("GraphObjectDogfoodPanel relationship traversal handoff", () => {
   });
 
   it("does not auto-add a related card opened outside Add", async () => {
-    function SeedRelatedView() {
-      const { openPlanReferenceResolution } = useProjection();
+    function SeedRelatedView({ node }: { node: GraphProjectionNodeView }) {
+      const { activeGraphReference, openGraphReference } = useProjection();
       useEffect(() => {
-        openPlanReferenceResolution({
-          kind: "graph-node",
-          locator: "dmb-node:location-inn",
-          refType: "location",
-          refId: "location-inn",
-          graphObject: {
-            id: "location-inn",
-            label: "Inn",
-            typeBadgeLabel: "Location",
-            actions: [],
-          },
-          graphNodeId: "location-inn",
-          fallback: null,
-          source: "world-graph",
+        if (activeGraphReference) return;
+        openGraphReference({
+          resolution: graphResolutionFromNode(node),
+          projectionState: "ready",
         });
-      }, [openPlanReferenceResolution]);
+      }, [activeGraphReference, node, openGraphReference]);
       return null;
     }
 
     render(
       <PlanGraphReferenceResolverProvider sessionDescriptor={sessionDescriptor}>
         <AgentInteractionProjectionTestHost config={surfaceConfig}>
-          <SeedRelatedView />
+          <SeedRelatedView node={innNode} />
           <GraphObjectDogfoodPanel sessionDescriptor={sessionDescriptor} />
         </AgentInteractionProjectionTestHost>
       </PlanGraphReferenceResolverProvider>,

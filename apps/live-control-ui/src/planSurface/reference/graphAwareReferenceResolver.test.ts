@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach } from "vitest";
 
 import type { WorldGraphProjection, WorldGraphProjectionNodeView } from "../../api/types";
 import {
@@ -7,6 +7,8 @@ import {
   parseGraphNodeLocator,
   resolvePlanReferenceFromGraphProjection,
 } from "./graphAwareReferenceResolver";
+import { resetReferenceIndexCache } from "./referenceResolver";
+import { resolvePlanReferenceWithFallback } from "./usePlanGraphReferenceResolver";
 
 const glowkindleNode: WorldGraphProjectionNodeView = {
   nodeId: "npc-glowkindle",
@@ -36,6 +38,10 @@ const projection: WorldGraphProjection = {
 };
 
 describe("graphAwareReferenceResolver", () => {
+  beforeEach(() => {
+    resetReferenceIndexCache();
+  });
+
   it("parses graph-node locator prefixes", () => {
     expect(parseGraphNodeLocator("dmb-node:npc-glowkindle")).toBe("npc-glowkindle");
     expect(parseGraphNodeLocator("graph_node:npc-glowkindle")).toBe("npc-glowkindle");
@@ -44,20 +50,20 @@ describe("graphAwareReferenceResolver", () => {
     expect(parseGraphNodeLocator("npc-index:lysandro")).toBeNull();
   });
 
-  it("returns graph-node result for exact node id", () => {
+  it("returns resolved_graph for exact node id", () => {
     const result = resolvePlanReferenceFromGraphProjection({
       locator: "dmb-node:npc-glowkindle",
       projection,
     });
 
-    expect(result.kind).toBe("graph-node");
-    expect(result.source).toBe("world-graph");
-    expect(result.graphNodeId).toBe("npc-glowkindle");
-    expect(result.graphObject?.label).toBe("Glowkindle");
-    expect(result.fallback).toBeNull();
+    expect(result.kind).toBe("resolved_graph");
+    if (result.kind === "resolved_graph") {
+      expect(result.graphNodeId).toBe("npc-glowkindle");
+      expect(result.graphObject.label).toBe("Glowkindle");
+    }
   });
 
-  it("returns graph-node result for exact alias match when alias is unique", () => {
+  it("returns resolved_graph for exact alias match when alias is unique", () => {
     const index = buildWorldGraphNodeIndex(projection);
     const lookup = findGraphNodeInProjection(index, { label: "Glow" });
 
@@ -73,11 +79,13 @@ describe("graphAwareReferenceResolver", () => {
       projection,
     });
 
-    expect(result.kind).toBe("graph-node");
-    expect(result.graphNodeId).toBe("npc-glowkindle");
+    expect(result.kind).toBe("resolved_graph");
+    if (result.kind === "resolved_graph") {
+      expect(result.graphNodeId).toBe("npc-glowkindle");
+    }
   });
 
-  it("returns unresolved when duplicate label or alias keys are ambiguous", () => {
+  it("returns ambiguous when duplicate label or alias keys are ambiguous", () => {
     const lysandraA: WorldGraphProjectionNodeView = {
       ...glowkindleNode,
       nodeId: "npc-lysandra-a",
@@ -106,10 +114,10 @@ describe("graphAwareReferenceResolver", () => {
       projection: ambiguousProjection,
     });
 
-    expect(result.kind).toBe("unresolved");
-    expect(result.source).toBe("unresolved");
-    expect(result.graphObject).toBeNull();
-    expect(result.ambiguousNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    expect(result.kind).toBe("ambiguous");
+    if (result.kind === "ambiguous") {
+      expect(result.matchingGraphNodeIds).toEqual(["npc-lysandra-a", "npc-lysandra-b"]);
+    }
     expect(result.message).toMatch(/Could not uniquely resolve this object from graph memory/i);
     expect(result.message).toMatch(/ingest/i);
   });
@@ -136,10 +144,10 @@ describe("graphAwareReferenceResolver", () => {
       fallbackResolution: fallback,
     });
 
-    expect(result.kind).toBe("corpus-index");
-    expect(result.source).toBe("corpus-index");
-    expect(result.fallback).toEqual(fallback);
-    expect(result.graphObject).toBeNull();
+    expect(result.kind).toBe("resolved_corpus_fallback");
+    if (result.kind === "resolved_corpus_fallback") {
+      expect(result.fallback).toEqual(fallback);
+    }
   });
 
   it("returns unresolved when both graph and corpus fallback miss", () => {
@@ -163,8 +171,6 @@ describe("graphAwareReferenceResolver", () => {
     });
 
     expect(result.kind).toBe("unresolved");
-    expect(result.source).toBe("unresolved");
-    expect(result.graphObject).toBeNull();
     expect(result.message).toMatch(/ingest/i);
   });
 
@@ -213,9 +219,6 @@ describe("graphAwareReferenceResolver", () => {
     });
 
     expect(result.kind).toBe("unresolved");
-    expect(result.graphNodeId).toBeNull();
-    expect(result.graphObject).toBeNull();
-    expect(result.fallback).toBeNull();
     expect(result.message).toMatch(/threat:tripod-null-calf/i);
     expect(result.message).not.toMatch(/invalid reference locator/i);
   });
@@ -235,5 +238,55 @@ describe("graphAwareReferenceResolver", () => {
     expect(result.kind).toBe("unresolved");
     expect(result.message).toMatch(/node:bubbles/i);
     expect(result.message).toMatch(/C2 only · no session focus/);
+  });
+
+  it("graph error + available corpus fallback stays error with fallback disabled", async () => {
+    const ref = {
+      kind: "ref" as const,
+      refType: "npc",
+      refId: "lysandro-ironveil",
+      label: "Lysandro Ironveil",
+    };
+
+    const result = await resolvePlanReferenceWithFallback(ref, {
+      projection,
+      projectionState: "error",
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          json: async () => ({
+            npcs: [{ slug: "lysandro-ironveil", title: "Lysandro Ironveil" }],
+          }),
+        }) as Response,
+    });
+
+    expect(result.kind).toBe("error");
+    expect(result.message).toMatch(/corpus fallback disabled/i);
+  });
+
+  it("graph unavailable + legacy + corpus succeeds via Plan fallback", async () => {
+    const ref = {
+      kind: "ref" as const,
+      refType: "npc",
+      refId: "lysandro-ironveil",
+      label: "Lysandro Ironveil",
+    };
+
+    const result = await resolvePlanReferenceWithFallback(ref, {
+      projection: null,
+      projectionState: "unavailable",
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          json: async () => ({
+            npcs: [{ slug: "lysandro-ironveil", title: "Lysandro Ironveil" }],
+          }),
+        }) as Response,
+    });
+
+    expect(result.kind).toBe("resolved_corpus_fallback");
+    if (result.kind === "resolved_corpus_fallback") {
+      expect(result.fallback.status).toBe("resolved");
+    }
   });
 });
