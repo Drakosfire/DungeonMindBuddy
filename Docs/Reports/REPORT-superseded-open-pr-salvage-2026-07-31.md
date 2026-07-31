@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-31  
 **Required base / actual base:** `c371d43178a2b83da299319a047f93bae50d0959`  
-**Actual head:** see `git rev-parse origin/chore/mine-retire-superseded-prs` after push (single salvage commit on this branch)
+**Actual head:** `04a2fe5bc438972338e25a9f1385877436f55970`
 **Salvage branch:** `chore/mine-retire-superseded-prs`  
 **Evidence ledger authority:** This report is the canonical disposition ledger for the eight source PRs listed below. Dispatch record: [`Docs/Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md`](../Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md).
 
@@ -189,7 +189,7 @@ When reviewing SBW09a implementation, verify these adversarial cases called out 
 | `git diff --name-only c371d431...HEAD` (post-commit) | Only §4 allowlist paths | **PASS** pending commit — expected 3 code + 6 docs |
 | `git diff --check` | Exit 0 | **PASS** |
 | Conditional UI / graph-kernel / PDF lineage | N/A — no UI, projection, or PDF paths changed | **not applicable** |
-| Source PR retirement | Eight source PRs CLOSED with disposition comments; none MERGED by this op | `{{VERIFY_GITHUB_CLOSURE}}` (filled after PR open + close) |
+| Source PR retirement | Eight source PRs CLOSED with disposition comments; none MERGED by this op | **PASS** — #231/#395 comment-only (already CLOSED); #432/#433/#444/#449/#459/#460 closed 2026-07-31 via salvage; salvage PR #464; #442 remains OPEN |
 
 ---
 
@@ -240,3 +240,20 @@ Salvage **may** reference and name successors that **depend on** #431/#462 mergi
 ## §9 Closure protocol
 
 After the salvage PR is opened remotely with this report committed, close each open source PR (#432, #433, #444, #449, #459, #460) using the §8A template in [`HANDOFF-superseded-open-pr-salvage-and-retirement.md`](../Plans/HANDOFF-superseded-open-pr-salvage-and-retirement.md), and post the same disposition comment on already-CLOSED #231/#395. Do not MERGED any of the eight. Do not close #442. Then fill `{{VERIFY_GITHUB_CLOSURE}}` and `{{HEAD_AFTER_COMMIT}}`.
+
+## §10 Closure evidence (2026-07-31)
+
+Salvage PR: https://github.com/Drakosfire/DungeonMindBuddy/pull/464
+
+| Source PR | State after salvage | Disposition comment |
+|---|---|---|
+| #231 | CLOSED (pre-existing) | https://github.com/Drakosfire/DungeonMindBuddy/pull/231#issuecomment-5144826464 |
+| #395 | CLOSED (pre-existing) | https://github.com/Drakosfire/DungeonMindBuddy/pull/395#issuecomment-5144826729 |
+| #432 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/432#issuecomment-5144826972 |
+| #433 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/433#issuecomment-5144827428 |
+| #444 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/444#issuecomment-5144828122 |
+| #449 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/449#issuecomment-5144828658 |
+| #459 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/459#issuecomment-5144829285 |
+| #460 | CLOSED (not merged) | https://github.com/Drakosfire/DungeonMindBuddy/pull/460#issuecomment-5144829762 |
+
+Protected after salvage: #431 OPEN, #442 OPEN, #462 OPEN, #463 OPEN.
