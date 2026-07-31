@@ -108,6 +108,24 @@ def test_begin_get_reconcile_cancel_routes(publication_client) -> None:
     assert cancel.json()["result_label"] == "publication_cancelled"
 
 
+def test_get_after_app_reconstruction_preserves_exact_operation(publication_client) -> None:
+    client, _repo, _world, saved, head = publication_client
+    op_id = str(uuid.uuid4())
+    begin = client.post(
+        f"/api/live/threat-drafts/{saved.draft_id}/publication-operations",
+        json=_begin_body(saved, operation_id=op_id, parent_revision_id=head),
+    )
+    assert begin.status_code == 200
+    claimed = begin.json()["operation"]
+
+    restarted_client = TestClient(create_app())
+    loaded = restarted_client.get(
+        f"/api/live/threat-drafts/{saved.draft_id}/publication-operations/{op_id}"
+    )
+    assert loaded.status_code == 200
+    assert loaded.json()["operation"] == claimed
+
+
 def test_routes_reject_query_parameters(publication_client) -> None:
     client, _repo, _world, saved, head = publication_client
     op_id = str(uuid.uuid4())

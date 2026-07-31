@@ -89,8 +89,11 @@ def _validated_operation_id(operation_id: str) -> str:
 
 def _draft_directory(root: Path, draft_id: str) -> Path:
     safe = _validated_draft_id(draft_id)
-    store_root = publication_root(root).resolve()
-    directory = (store_root / safe).resolve()
+    try:
+        store_root = publication_root(root).resolve()
+        directory = (store_root / safe).resolve()
+    except OSError:
+        raise _storage_unavailable() from None
     if directory.parent != store_root:
         raise _corrupt_record()
     return directory
@@ -100,7 +103,10 @@ def _record_path(root: Path, *, draft_id: str, operation_id: str) -> Path:
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
     directory = _draft_directory(root, safe_draft)
-    path = (directory / f"{safe_op}.json").resolve()
+    try:
+        path = (directory / f"{safe_op}.json").resolve()
+    except OSError:
+        raise _storage_unavailable() from None
     if path.parent != directory:
         raise _corrupt_record()
     return path
@@ -226,6 +232,16 @@ def _validate_builder_result(
         raise _corrupt_record("publication operation builder identity mismatch")
     if record.claim_request_digest != claim_request_digest:
         raise _corrupt_record("publication operation builder digest mismatch")
+    if (
+        record.authority_state != "awaiting_identity_resolution"
+        or record.operation_version != 1
+        or record.phase_artifacts
+        or record.last_observed_head_revision_id
+        != record.expected_parent_revision_id
+    ):
+        raise _corrupt_record(
+            "new publication operation must begin at awaiting_identity_resolution"
+        )
 
 
 def claim_publication_operation(

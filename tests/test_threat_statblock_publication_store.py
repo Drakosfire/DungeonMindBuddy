@@ -551,6 +551,29 @@ def test_builder_digest_mismatch_rejects_without_write(tmp_path: Path) -> None:
     assert get_publication_operation(tmp_path, draft_id=draft_id, operation_id=op_id) is None
 
 
+def test_new_claim_rejects_reserved_successor_state(tmp_path: Path) -> None:
+    draft_id = str(uuid.uuid4())
+    op_id = str(uuid.uuid4())
+    claim_digest = _claim_digest(draft_id, op_id)
+
+    def build_new_record() -> ThreatStatblockPublicationOperationV1:
+        return _operation(draft_id=draft_id, operation_id=op_id).model_copy(
+            update={"authority_state": "verified"}
+        )
+
+    with pytest.raises(ThreatStatblockPublicationStoreError) as exc:
+        claim_publication_operation(
+            tmp_path,
+            draft_id=draft_id,
+            operation_id=op_id,
+            claim_request_digest=claim_digest,
+            build_new_record=build_new_record,
+        )
+    assert exc.value.status_code == 500
+    assert "must begin" in str(exc.value)
+    assert get_publication_operation(tmp_path, draft_id=draft_id, operation_id=op_id) is None
+
+
 def test_stale_transition_on_cancelled_is_idempotent(tmp_path: Path) -> None:
     draft_id = str(uuid.uuid4())
     op_id = str(uuid.uuid4())

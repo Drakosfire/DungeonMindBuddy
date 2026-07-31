@@ -160,7 +160,7 @@ Contract only. No product graph write, DungeonMind call, or Workbench/UI action.
 
 ### `SBW09a` — Durable publication operation
 
-**Implementation checkpoint (2026-07-30):** implemented from base `f4508854`. Live-control backend exposes begin/read/reconcile/cancel for one durable publication operation bound to an exact mechanics-saved ThreatDraft snapshot and expected World Graph parent. Reachable states: `awaiting_identity_resolution`, `stale`, `cancelled`. Identity resolution, graph prepare/confirm, receipt/verification, hydration, projection, and UI remain false.
+**Implementation checkpoint (2026-07-30):** implemented from base `f4508854`. Live-control backend exposes begin/read/reconcile/cancel for one durable publication operation bound to an exact mechanics-saved ThreatDraft snapshot and expected World Graph parent. Reachable states: `awaiting_identity_resolution`, `stale`, `cancelled`. No predecessor path replaced or deleted; acceptance journal and extract-promote remain consumers. Next successor: SBW09b. Identity resolution, graph prepare/confirm, receipt/verification, hydration, projection, and UI remain false.
 
 Represent:
 

@@ -67,7 +67,7 @@ Required deletion owner:
 | ID | Status | Mission | Notes |
 |---|---|---|---|
 | `SBW08` / PR `#457` | MERGED | Freeze exact external-resource identity and `ThreatStatblockBinding`. | Contract only; no product graph write. |
-| `SBW09a` / PR `#459` | DELIVERED | Durable publication operation and recoverable partial state. | Begin/reload/reconcile/cancel only; no identity resolution or graph commit. Authority: [`HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md`](HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md). |
+| `SBW09a` / PR `#459` | DELIVERED | Durable publication operation and recoverable partial state. | Begin/reload/reconcile/cancel only; no identity resolution or graph commit. Demolition: no path replaced/deleted; acceptance journal and extract-promote remain consumers. Successor: SBW09b. Authority: [`HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md`](HANDOFF-pr459-sbw09a-durable-threat-statblock-publication-operation.md). |
 | `SBW09b` | NEXT SUCCESSOR | Create-new versus connect-existing Threat resolution. | Candidate matches, explicit selection, explicit refusal, no silent merge. |
 | `SBW09c` | NEW SPLIT | Governed preview/confirm Threat + exact binding commit. | Existing graph governance path; server success plus graph failure remains recoverable. |
 | `SBW10a` | NEW EXPLICIT SLICE | Hermes query and exact mechanics hydration for published Threats. | Query by name, role, capability, relationship, and campaign context. |
