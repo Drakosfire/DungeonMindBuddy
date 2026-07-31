@@ -19,7 +19,7 @@ pr_body_template: |
   | Existing ThreatDraft, accepted-mechanics, and SBW08 contracts do not regress | predecessor boundaries | focused regression commands | {{TODO}} |
 
   ## Scope and explicit deferrals
-  - Required base: `a58c49ace4859c166529f3c7778355fa50ddb342`
+  - Required base: `c371d43178a2b83da299319a047f93bae50d0959`
   - Actual base/head: {{TODO}}
   - Actual changed paths: {{TODO}}
   - Paths outside the handoff allowlist: {{TODO: none or stop report}}
@@ -49,7 +49,8 @@ pr_body_template: |
 **Canonical handoff path:** `Docs/Plans/HANDOFF-sbw09a-publication-operation-ledger.md`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Design anchor:** `103b727cbfe7ce5f816e381c7dc8fab64fd76372`  
-**Required implementation base:** `a58c49ace4859c166529f3c7778355fa50ddb342` — exact commit that lands this handoff and its tracker-pointer correction.  
+**Authority-sync main:** `c371d43178a2b83da299319a047f93bae50d0959` — current `main` merge containing the unnumbered handoff and tracker-pointer correction.
+**Required implementation base:** `c371d43178a2b83da299319a047f93bae50d0959` — exact authority-sync commit, or a later deliberate authority-sync commit.
 **Suggested branch:** `feat/sbw09a-publication-operation-ledger`
 
 No future PR number is assigned by this handoff. The hosting system or operator may assign one when a pull request is actually opened.
@@ -66,8 +67,8 @@ Current `main` contains a numbered draft handoff and tracker language that pre-a
 2. mark the numbered draft as superseded or remove it so only one handoff is ACTIVE;
 3. update the Threat/statblock tracker and superseded bundled SBW09 document to point to this unnumbered path;
 4. remove future-number language from the active SBW09a tracker row and immediate-dispatch text;
-5. replace `{{EXACT_HANDOFF_COMMIT_SHA}}` in the PR-body template with the resulting immutable main SHA (done: `a58c49ace4859c166529f3c7778355fa50ddb342`);
-6. dispatch the worker from that exact SHA.
+5. replace `{{EXACT_HANDOFF_COMMIT_SHA}}` in the PR-body template with the resulting immutable main SHA (current authority-sync base: `c371d43178a2b83da299319a047f93bae50d0959`);
+6. dispatch the worker from `c371d43178a2b83da299319a047f93bae50d0959`, or from a later deliberate authority-sync commit that contains this complete handoff, tracker, and roadmap state.
 
 Do not combine those documentation corrections with the implementation slice unless repository process explicitly requires the handoff file to travel in the implementation branch.
 
@@ -113,10 +114,11 @@ ThreatDraft, accepted-mechanics, or World Graph mutation.
 | Parent authority | `Docs/Design/DECISION-grounded-authored-world-object-lifecycle.md`; active Threat/statblock roadmap and tracker |
 | Repository rules | `AGENTS.md`; `.cursor/rules/external-agent-pr-loop.mdc`; `.cursor/skills/external-agent-pr-loop/SKILL.md`; canonical handoff template |
 | Design anchor | `103b727cbfe7ce5f816e381c7dc8fab64fd76372` |
-| Implementation base | Exact commit that lands this unnumbered handoff and tracker correction |
+| Implementation base | `c371d43178a2b83da299319a047f93bae50d0959`, or a later deliberate authority-sync commit that contains this complete handoff, tracker, and roadmap state |
 | Predecessor contracts | `ThreatDraftV1`; `AcceptedMechanicsRefV1`; `MechanicsLocatorV1`; SBW08 `ExternalResourceV1` and `ThreatStatblockBindingV1`; immutable World Graph head |
 | Existing precedent | `AcceptanceOperationV1` and its reconciliation journal; reuse durability, replay, and fail-closed lessons without reusing its schema or authority states blindly |
 | Exact input consumed | Route `draft_id`; caller-supplied `operation_id`, expected draft version, expected World Graph parent, actor, optional note; server-loaded current ThreatDraft and observed current graph head |
+| Storage roots | Publication ledger root and ThreatDraft root are both `repo_root()`; World Graph root is independently `world_graph_root()` from `DUNGEONMIND_WORLD_GRAPH_ROOT` |
 | Named successors | `SBW09b` explicit create/connect resolution; `SBW09c` reviewed proposal, governed commit, and exact verification |
 | What remains false | No Threat identity decision, graph contribution, review preview, confirmation token, committed revision, or published Threat exists |
 | Explicit non-goals | DungeonMind calls; mechanics bodies; graph writes; proposal/confirm contracts; UI; Hermes tools; placement; combat; universal authored-object framework |
@@ -181,7 +183,7 @@ Stop and report if the implementation base changes any predecessor field, graph-
 | Trusted dependency unavailable/corrupt | No contract | Typed unavailable/integrity failure; ledger remains byte-identical | Yes | service |
 | Cancel | No contract | Ready/stale → cancelled; exact replay idempotent; no external dependency read required | Yes | ledger |
 | Retry stale operation | No contract | New ID plus exact still-current source and caller-supplied observed parent atomically supersedes old and installs one ready active operation | Yes | service + ledger |
-| Retry after source drift | No contract | Reject; caller must begin a new publication intent from the current draft | Yes | service |
+| Retry after source drift | No contract | Reject and leave the stale operation active; caller must cancel that stale operation before beginning a new publication intent from the current draft | Yes | service + ledger |
 | Corrupt or over-bound ledger | No contract | Fail closed; never opportunistically repair or overwrite | Yes | parser + store |
 | Downstream successor use | Successors could reconstruct mutable state | Consume exact operation ID and immutable snapshot; no fallback | Yes | durable public contract |
 
@@ -196,6 +198,8 @@ Stop and report if the implementation base changes any predecessor field, graph-
 | Exact same-ID replay after draft/head drift | Return existing operation; never rebuild it from current state | replay test |
 | Same ID with changed draft version, parent, actor, note, or path draft ID | Conflict; no mutation | request-digest test |
 | Two unrelated begins race for one draft | Exactly one ready active operation; loser receives busy | concurrency test |
+| Exact retry replay after old stale operation was superseded | Return the existing child operation before checking the stale-active slot | retry replay-order test |
+| Source-drift retry followed by new begin | Retry rejects unchanged stale operation; cancel frees the slot; new begin succeeds from current source | cancel-before-begin lineage test |
 | Stale operation retries while cancel races | Serialized draft-scoped ledger produces one coherent winner and no broken lineage | concurrency test |
 | Retry persistence fails before atomic replace | Old ledger remains byte-identical and no new operation is visible | injected-write-failure test |
 | Refresh cannot trust draft or graph read | Typed failure; operation does not become stale based on absence or corrupt data | failure-injection test |
@@ -253,13 +257,22 @@ If implementation needs to modify `ThreatDraftV1`, accepted-mechanics models/sto
 
 ### 9.1 Route namespace
 
-```text
-POST /api/live/threat-drafts/{draft_id}/publication-operations
-GET  /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}
-POST /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/refresh
-POST /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/cancel
-POST /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/retry
-```
+The public route contract is frozen as one table. `{operation_id}` on the retry
+route identifies the existing stale predecessor; `new_operation_id` in the
+request body identifies the child operation. A successful retry response carries
+the child operation, not the predecessor.
+
+| Operation | Method and path | Request body | Success response | Success status |
+|---|---|---|---|---:|
+| Begin | `POST /api/live/threat-drafts/{draft_id}/publication-operations` | `BeginThreatPublicationOperationRequestV1` | `ThreatPublicationOperationResponseV1` | `201` new / `200` exact replay |
+| Read | `GET /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}` | none | `ThreatPublicationOperationResponseV1` | `200` |
+| Refresh | `POST /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/refresh` | none | `ThreatPublicationOperationResponseV1` | `200` |
+| Cancel | `POST /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/cancel` | `CancelThreatPublicationOperationRequestV1` | `ThreatPublicationOperationResponseV1` | `200` |
+| Retry | `POST /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/retry` | `RetryThreatPublicationOperationRequestV1` | `ThreatPublicationOperationResponseV1` | `201` new / `200` exact replay |
+
+Every response is the typed `ThreatPublicationOperationResponseV1` envelope,
+including expected errors. The route must not expose FastAPI's untyped default
+error body as its public contract.
 
 Do not add aliases, hidden mutation endpoints, or a route that automatically chooses current/latest parent.
 
@@ -333,6 +346,24 @@ Rules:
 - Recompute and verify `source_digest` every time an operation is loaded.
 - Prove the snapshot's `accepted_mechanics_ref.to_mechanics_locator()` equals the exact locator later consumed by SBW08 binding construction.
 
+Nested wire strictness is part of this contract:
+
+- `ThreatPublicationSourceSnapshotV1` uses `extra="forbid"` and every listed
+  field is required on the wire; nullable fields use explicit `null`, and list
+  fields use explicit lists rather than model defaults.
+- `accepted_mechanics_ref` is loaded first through a publication-owned
+  `ThreatPublicationAcceptedMechanicsRefV1` with `extra="forbid"` and mandatory
+  wire keys: `schema`, `provider`, `statblock_id`, `revision_id`, `contract`,
+  `contract_version`, `definition_digest`, `accepted_from_candidate_id`,
+  `accepted_from_draft_version`, and `accepted_at`.
+- The raw nested mapping must be checked for those keys before constructing the
+  predecessor `AcceptedMechanicsRefV1`; in particular, a missing `provider`
+  must reject rather than inherit `AcceptedMechanicsRefV1`'s
+  `provider="dungeonmind"` default.
+- The strict publication ref must round-trip to the predecessor ref and its
+  six-field `MechanicsLocatorV1` without adding mechanics bodies or silently
+  repairing omitted fields.
+
 ### 9.5 Operation model
 
 ```text
@@ -391,9 +422,17 @@ ThreatPublicationLedgerV1:
 Storage:
 
 ```text
+publication ledger root: repo_root()
 out/threat_publication_operations/<draft_id>/ledger.json
 out/threat_publication_operations/<draft_id>/.publication.lock
 ```
+
+The ThreatDraft store also receives `repo_root()`. The World Graph is a
+separate authority: always call
+`open_current_world_graph(world_graph_root(), draft.world_id)`. Service
+functions accept these roots independently, and tests must provide distinct
+temporary repository and World Graph roots so one root cannot accidentally make
+the contract pass.
 
 Ledger invariants:
 
@@ -438,7 +477,8 @@ ThreatPublicationOperationResponseV1:
   message?
 ```
 
-Result labels must be a closed typed vocabulary covering at least:
+Result labels are a closed typed vocabulary exactly as follows; adding a label
+requires a public-contract revision:
 
 ```text
 publication_ready
@@ -519,9 +559,13 @@ An exact replay must return the existing operation before consulting current dra
 
 **Retry**
 
-1. Only the current stale active operation may retry.
-2. A new operation ID is required.
-3. Exact same new ID and request replay returns the already-created retry record.
+1. Load and strictly validate the ledger. If `new_operation_id` already exists,
+   an identical canonical retry request returns that child record immediately;
+   a changed request is an input conflict. This replay check precedes the
+   stale-active-slot check because a successful retry has superseded its old
+   predecessor.
+2. Only the current stale active operation may create a new retry.
+3. A new operation ID is required.
 4. Load trusted current draft and graph head.
 5. Current source snapshot/digest and accepted locator must equal the stale operation's immutable source.
 6. Caller-supplied expected parent must equal observed current head.
@@ -530,7 +574,9 @@ An exact replay must return the existing operation before consulting current dra
    - `old.superseded_by_operation_id` → new ID;
    - new ready operation supersedes old;
    - `active_operation_id` → new ID.
-8. Any source drift rejects and leaves old operation unchanged; caller must begin a new publication intent.
+8. Any source drift rejects and leaves old operation unchanged. The caller must
+   cancel that stale operation before beginning a new publication intent from
+   the current draft; begin must not implicitly supersede an active stale record.
 
 ## §11 Lock, commit, replay, and failure contract
 
@@ -565,7 +611,7 @@ active slot busy -> no record
 history full -> no record
 refresh dependency unavailable -> operation unchanged
 ledger/digest corruption -> fail closed; never auto-repair
-retry source mismatch -> old operation unchanged
+retry source mismatch -> old operation unchanged; cancel it before a new begin
 cancel/retry terminal conflict -> unchanged
 atomic write failure -> prior ledger remains authoritative
 ```
@@ -654,10 +700,14 @@ test_refresh_marks_source_drift_without_replacing_snapshot
 test_refresh_dependency_failure_leaves_ledger_byte_identical
 test_cancel_is_terminal_and_idempotent
 test_retry_atomically_supersedes_and_installs_one_active_operation
+test_retry_exact_replay_after_supersession_returns_child_before_stale_slot_check
 test_retry_source_drift_rejects_without_mutation
+test_source_drift_retry_requires_cancel_before_new_begin
 test_concurrent_cancel_and_retry_have_one_coherent_winner
 test_atomic_write_failure_preserves_previous_ledger
 test_all_operations_leave_draft_graph_and_dungeonmind_unchanged
+test_storage_roots_are_independently_injected
+test_nested_accepted_ref_missing_provider_rejects
 test_corrupt_ledger_fails_closed_without_rewrite
 ```
 
@@ -687,7 +737,7 @@ uv run python -m compileall -q \
   apps/live_control_server/routes/threat_publication.py
 
 git diff --check
-git diff --name-only a58c49ace4859c166529f3c7778355fa50ddb342...HEAD
+git diff --name-only c371d43178a2b83da299319a047f93bae50d0959...HEAD
 ```
 
 For every required command failure that also occurs on base:
@@ -737,8 +787,12 @@ Required deletion owner: SBW09c must remove any temporary statblock-specific pub
 - [ ] One draft has at most one ready/stale active operation.
 - [ ] Stale is monotonic and records typed reasons without replacing immutable authority.
 - [ ] Retry updates old/new lineage and active pointer in one atomic ledger replacement.
+- [ ] Source-drift retry leaves the stale operation active until explicit cancel; a new begin cannot collide with it.
 - [ ] Cancel is terminal and idempotent.
 - [ ] Dependency failures and corrupt storage do not mutate or auto-repair the ledger.
+- [ ] Publication ledger and ThreatDraft use `repo_root()` while World Graph reads use `world_graph_root()` independently in production and tests.
+- [ ] The route table freezes every endpoint, body, typed response, stable result code, and HTTP mapping.
+- [ ] Nested accepted-mechanics wire fields reject omission before predecessor-model defaults can repair them.
 - [ ] ThreatDraft, accepted mechanics, DungeonMind, and World Graph remain unchanged.
 - [ ] No create/connect, graph proposal, confirm, commit, verification, or UI contract was introduced.
 - [ ] Every changed path is in §7 or a reported bounded exception.

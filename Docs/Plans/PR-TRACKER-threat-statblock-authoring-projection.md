@@ -2,7 +2,9 @@
 
 **Status:** ACTIVE PUBLICATION-FIRST TRACKER  
 **Date:** 2026-07-30  
-**Repository anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`  
+**Foundation anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`
+**Authority-sync main:** `c371d43178a2b83da299319a047f93bae50d0959` — current `main` merge containing the unnumbered handoff and tracker correction
+**SBW09a implementation base:** `c371d43178a2b83da299319a047f93bae50d0959` — or a later deliberate authority-sync commit
 **Latest merged workstream PR:** `#457` — exact external statblock resource and `ThreatStatblockBinding` graph contract  
 **Immediate authority:** dispatch [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md) after the handoff's §0 repository synchronization gate is on `main`  
 **Roadmap:** [`../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md`](../Roadmaps/ROADMAP-threat-statblock-authoring-projection.md)  
@@ -67,7 +69,7 @@ The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` is supers
 
 | ID | Status | Mission | Notes |
 |---|---|---|---|
-| `SBW09a` | ACTIVE HANDOFF | Durable no-write publication operation ledger. | Snapshot exact mechanics-saved source + exact expected graph parent; begin/read/refresh/cancel/retry; no identity resolution or graph mutation. Authority: [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md). No future PR number is assigned until a PR opens. |
+| `SBW09a` | ACTIVE HANDOFF | Durable no-write publication operation ledger. | Snapshot exact mechanics-saved source + exact expected graph parent; independently inject `repo_root()` for the publication ledger and ThreatDraft store, and `world_graph_root()` for World Graph reads; begin/read/refresh/cancel/retry; source-drift retry remains stale until explicit cancel; exact retry replay checks the child before stale-slot enforcement; strict nested accepted-ref wire fields; frozen typed route table; no identity resolution or graph mutation. Authority: [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md). No future PR number is assigned until a PR opens. |
 | `SBW09b` | NEXT DESIGN AFTER `SBW09a` | Create-new versus connect-existing Threat resolution. | Candidate matches, exact selection, explicit refusal, no silent duplicate/merge. Must consume immutable SBW09a operation authority. |
 | `SBW09c` | BLOCKED ON `SBW09b` | Governed preview/confirm Threat + exact binding commit. | Existing immutable World Graph governance path; stale-safe commit; post-commit exact verification; recoverable graph failure. |
 | `SBW10a` | BLOCKED ON PUBLICATION | Hermes query and exact mechanics hydration for published Threats. | Query by name, role, capability, relationship, and campaign context. |
@@ -83,7 +85,7 @@ SBW09b: explicit Threat identity resolution attached to that operation
 SBW09c: reviewed proposal + governed commit + exact verification
 ```
 
-No successor may rewrite SBW09a's source snapshot or silently replace its expected parent. A stale operation requires explicit retry/new authority.
+No successor may rewrite SBW09a's source snapshot or silently replace its expected parent. A stale operation requires explicit retry/new authority; source-drift retry must be cancelled before a new begin can claim the draft.
 
 ## 5. Placement and shared-capability queue
 
@@ -161,7 +163,8 @@ These do not block `SBW09–SBW10`.
 
 ```text
 dispatch SBW09a durable publication operation ledger
-  (from the exact main SHA that lands HANDOFF-sbw09a-publication-operation-ledger.md)
+  (from `c371d43178a2b83da299319a047f93bae50d0959`, or a later deliberate
+   authority-sync main SHA containing the complete handoff/tracker/roadmap state)
 → design/dispatch SBW09b explicit create-or-connect resolution
 → SBW09c governed preview/confirm/verify
 → SBW10a Hermes query + exact hydration

@@ -2,7 +2,9 @@
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP — PUBLICATION-FIRST  
 **Date:** 2026-07-30  
-**Repository anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`  
+**Foundation anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`
+**Authority-sync main:** `c371d43178a2b83da299319a047f93bae50d0959` — current `main` merge containing the unnumbered handoff and tracker correction
+**SBW09a implementation base:** `c371d43178a2b83da299319a047f93bae50d0959` — or a later deliberate authority-sync commit
 **Latest completed publication foundation:** `SBW08` merged in PR `#457`  
 **Immediate implementation authority:** [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md)  
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
@@ -130,7 +132,7 @@ The graph contract is complete enough to begin publication orchestration. It doe
 
 ### `SBW09a` — Durable publication operation ledger
 
-Current dispatch authority: [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md). No future PR number is assigned until a pull request opens.
+Current dispatch authority: [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md), from implementation base `c371d43178a2b83da299319a047f93bae50d0959` or a later deliberate authority-sync commit. No future PR number is assigned until a pull request opens.
 
 Deliver one no-write capability:
 
@@ -152,7 +154,12 @@ Required properties:
 - one active ready/stale operation per draft;
 - exact operation replay and changed-input conflict;
 - monotonic stale reasons for source or parent drift;
+- source-drift retry leaves the stale operation active until explicit cancellation; only then may a new begin establish a new authority;
+- exact retry replay detects an already-created child operation before enforcing the stale-active slot;
 - atomic cancellation/retry lineage;
+- publication ledger and ThreatDraft roots are `repo_root()` while World Graph reads use independently configured `world_graph_root()`;
+- the public begin/read/refresh/cancel/retry route table, typed request/response envelopes, stable result codes, and HTTP mappings are frozen before implementation;
+- nested accepted-mechanics wire fields reject omission before `AcceptedMechanicsRefV1` defaults can repair them;
 - no DMS call, graph contribution, graph mutation, or ThreatDraft mutation.
 
 Why this is separate:
@@ -379,7 +386,7 @@ These improve creation/editing but do not block publication:
 Every implementation handoff must contain:
 
 - one mission and one invariant;
-- exact base SHA and dependencies;
+- exact authority-sync base SHA and dependencies; every base/head verification command must use that same SHA;
 - bounded path allowlist;
 - durable contracts and transition tables before stateful implementation;
 - success, miss, failure, retry, reload, stale, concurrency, and predecessor behavior;
