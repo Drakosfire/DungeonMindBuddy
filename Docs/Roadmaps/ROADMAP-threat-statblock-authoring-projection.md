@@ -4,7 +4,7 @@
 **Date:** 2026-07-30  
 **Repository anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`  
 **Latest completed publication foundation:** `SBW08` merged in PR `#457`  
-**Immediate implementation authority:** [`../Plans/HANDOFF-pr459-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-pr459-sbw09a-publication-operation-ledger.md)  
+**Immediate implementation authority:** [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md)  
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
 **Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
@@ -128,9 +128,9 @@ The graph contract is complete enough to begin publication orchestration. It doe
 
 ## 5. Phase I — Governed Threat publication
 
-### `SBW09a` / PR `#459` — Durable publication operation ledger
+### `SBW09a` — Durable publication operation ledger
 
-Current dispatch authority: [`../Plans/HANDOFF-pr459-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-pr459-sbw09a-publication-operation-ledger.md).
+Current dispatch authority: [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md). No future PR number is assigned until a pull request opens.
 
 Deliver one no-write capability:
 
@@ -170,7 +170,7 @@ What remains false after merge:
 
 ### `SBW09b` — Explicit create-or-connect Threat resolution
 
-Consumes one ready PR459 operation.
+Consumes one ready SBW09a operation.
 
 The GM can:
 
@@ -184,7 +184,7 @@ Required output is a durable or proposal-bound exact identity decision referenci
 
 ### `SBW09c` — Governed Threat + exact binding commit
 
-Consumes the PR459 operation plus the SBW09b identity decision.
+Consumes the SBW09a operation plus the SBW09b identity decision.
 
 Required flow:
 
