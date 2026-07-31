@@ -23,7 +23,7 @@ pr_body_template: |
 
   ## Scope and explicit deferrals
 
-  Base: TODO — exact main SHA containing this checked-in handoff; it must descend from 2c9cb97fa29a4e703f0521f56acfcff8a291f986.
+  Base: a5863ac2a41c351d731b67c4b9885905cb4b4b46 — exact main SHA containing this checked-in handoff; it must descend from 2c9cb97fa29a4e703f0521f56acfcff8a291f986.
 
   Target PR: #431.
 
@@ -64,7 +64,7 @@ pr_body_template: |
 **Authoring anchor:** main at `2c9cb97fa29a4e703f0521f56acfcff8a291f986`  
 **Historical PR head:** `e3919d5b13e0066cc3ed46dc51fddb27c29914a0` — 148 commits behind the authoring anchor; research only.  
 **Suggested branch:** `agent/pr-mc02a-graph-reference`  
-**Implementation base:** TODO_BASE_SHA
+**Implementation base:** `a5863ac2a41c351d731b67c4b9885905cb4b4b46`
 
 > **Mechanical dispatch gate:** The handoff must first be checked into main. Replace the implementation-base TODO with that exact resulting SHA. Before the worker edits code, the target branch tip must equal that SHA exactly. If the old PR branch still contains the historical stacked implementation, the worker must stop. Rebase, merge, cherry-pick, or selective conflict resolution from the old head is not an authorized substitute for a fresh base.
 >
@@ -153,7 +153,7 @@ A temporary compatibility re-export is allowed only when the worker identifies a
 | Graph authority | Docs/Design/ARCHITECTURE-campaign-supergraph.md — World Graph owns identity; projections read one coherent revision; Surfaces do not invent identity or write semantics |
 | Repository rules | AGENTS.md; .cursor/rules/external-agent-pr-loop.mdc; .cursor/skills/external-agent-pr-loop/SKILL.md; canonical handoff template |
 | Authoring anchor | `2c9cb97fa29a4e703f0521f56acfcff8a291f986` |
-| Implementation base | Exact main SHA after this handoff is checked in; replace the TODO before dispatch |
+| Implementation base | `a5863ac2a41c351d731b67c4b9885905cb4b4b46` — immutable base containing this checked-in handoff; descends from authoring anchor `2c9cb97fa29a4e703f0521f56acfcff8a291f986` |
 | Predecessor contract | R10a app-scoped projection host merged in PR #441; current graphReference/ chip runtime; current Plan resolver/search/projection implementation on the finalized base |
 | Historical implementation evidence | PR #431 head `e3919d5b13e0066cc3ed46dc51fddb27c29914a0`; concepts may be re-evaluated, code must not be rebased/cherry-picked |
 | Exact input consumed | WorldGraphProjection; GraphProjectionNodeView / WorldGraphProjectionNodeView; RunbookReferenceAttrs; GraphObjectCardViewModel; current Surface projection publication and lease |
