@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 from apps.live_control_server.config import (
     extract_promote_source_root,
@@ -85,12 +85,16 @@ class ExtractPromoteError(ValueError):
         status_code: int,
         diagnostics: list[ExtractPromoteDiagnostic] | None = None,
         failure_payload: dict[str, Any] | None = None,
+        run_status: str | None = None,
+        inspection_status: Literal["ready", "blocked", "invalid_evidence"] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.status_code = status_code
         self.diagnostics = list(diagnostics or [])
         self.failure_payload = failure_payload
+        self.run_status = run_status
+        self.inspection_status = inspection_status
 
     def response(self) -> ExtractPromoteErrorResponse:
         return ExtractPromoteErrorResponse(
@@ -99,11 +103,40 @@ class ExtractPromoteError(ValueError):
             status_code=self.status_code,
             diagnostics=self.diagnostics,
             failure_result=self.failure_payload,
+            run_status=self.run_status,
+            inspection_status=self.inspection_status,
         )
 
 
 def _diagnostic(code: str, message: str) -> ExtractPromoteDiagnostic:
     return ExtractPromoteDiagnostic(code=code, message=message, severity="error")
+
+
+def _review_package_inspection_status(
+    diagnostics: list[ExtractPromoteDiagnostic],
+) -> Literal["blocked", "invalid_evidence"]:
+    codes = {item.code for item in diagnostics}
+    if "false_anchor_quote" in codes:
+        return "invalid_evidence"
+    return "blocked"
+
+
+def _with_review_package_inspection_context(
+    exc: ExtractPromoteError,
+    *,
+    run_status: str,
+) -> ExtractPromoteError:
+    if exc.code != "run_not_promotable":
+        return exc
+    return ExtractPromoteError(
+        str(exc),
+        code=exc.code,
+        status_code=exc.status_code,
+        diagnostics=exc.diagnostics,
+        failure_payload=exc.failure_payload,
+        run_status=run_status,
+        inspection_status=_review_package_inspection_status(exc.diagnostics),
+    )
 
 
 def _allowed_source_roots() -> list[Path]:
@@ -715,12 +748,17 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
     )
 
     span_index = _load_frozen_span_index_for_resolved_run(resolved)
-    assertions = _assert_and_project_candidate_evidence(
-        candidate_payload=candidate_payload,
-        source_prose=source_prose,
-        source_artifact_id=resolved.source_artifact_id,
-        span_index=span_index,
-    )
+    try:
+        assertions = _assert_and_project_candidate_evidence(
+            candidate_payload=candidate_payload,
+            source_prose=source_prose,
+            source_artifact_id=resolved.source_artifact_id,
+            span_index=span_index,
+        )
+    except ExtractPromoteError as exc:
+        raise _with_review_package_inspection_context(
+            exc, run_status=resolved.status
+        ) from exc
 
     inspect_only = _is_worldbuilding_inspect_only(resolved)
     return ExactRunReviewPackage(

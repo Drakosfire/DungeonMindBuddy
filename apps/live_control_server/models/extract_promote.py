@@ -29,6 +29,7 @@ WORLDBUILDING_WRITE_PLAN_REQUEST_SCHEMA = WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHE
 WORLDBUILDING_WRITE_PLAN_SCHEMA = WORLD_BUILDING_WRITE_PLAN_SCHEMA
 
 DiagnosticSeverity = Literal["error", "warning", "info"]
+ExtractPromoteInspectionStatus = Literal["ready", "blocked", "invalid_evidence"]
 WorldState = Literal["initialized", "uninitialized", "unreadable"]
 
 SERVER_PREPARED_BY = "live_control:extract_promote"
@@ -360,6 +361,8 @@ class ExtractPromoteErrorResponse(_ExtractPromoteModel):
     status_code: int
     diagnostics: list[ExtractPromoteDiagnostic] = Field(default_factory=list)
     failure_result: dict[str, Any] | None = None
+    run_status: str | None = None
+    inspection_status: ExtractPromoteInspectionStatus | None = None
 
 
 class ExactRunReviewEvidence(_ExtractPromoteModel):
