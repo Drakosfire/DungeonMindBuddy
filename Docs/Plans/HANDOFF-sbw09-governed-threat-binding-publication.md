@@ -9,11 +9,11 @@
 
 ## Current dispatch sequence
 
-1. [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md)  
-   Durable, no-write publication operation authority pinned to one exact mechanics-saved ThreatDraft snapshot and expected World Graph parent. No future PR number is assigned by that handoff.
+1. `SBW09a` — merged in PR `#462`  
+   Durable, no-write publication operation authority pinned to one exact mechanics-saved ThreatDraft snapshot and expected World Graph parent. Historical authority: [`HANDOFF-sbw09a-publication-operation-ledger.md`](HANDOFF-sbw09a-publication-operation-ledger.md).
 
-2. `SBW09b` — handoff to be designed after `SBW09a` merges  
-   Explicit create-new versus connect-existing Threat resolution; no silent duplicate or merge.
+2. [`HANDOFF-sbw09b-threat-identity-resolution.md`](HANDOFF-sbw09b-threat-identity-resolution.md)  
+   Exact revision-pinned Threat candidate inspection plus durable explicit create-new / connect-existing / refuse identity resolution; no silent duplicate or merge.
 
 3. `SBW09c` — handoff to be designed after `SBW09b`  
    Governed proposal, review, confirmation, immutable graph commit, and exact post-commit verification.

@@ -2,9 +2,9 @@
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP — PUBLICATION-FIRST  
 **Date:** 2026-07-30  
-**Repository anchor:** `f450885493108ce5d0c46b5a0e9d4e42173e3c8c` — merged PR `#457`  
-**Latest completed publication foundation:** `SBW08` merged in PR `#457`  
-**Immediate implementation authority:** [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md)  
+**Repository anchor:** `2fa5b7909a28f0c7cf15aab35a56db68ef67ca2e` — merged PR `#462`  
+**Latest completed publication foundation:** `SBW09a` merged in PR `#462` (with SBW08 in PR `#457`)  
+**Immediate implementation authority:** [`../Plans/HANDOFF-sbw09b-threat-identity-resolution.md`](../Plans/HANDOFF-sbw09b-threat-identity-resolution.md)  
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
 **Current re-anchor report:** [`../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md`](../Reports/REPORT-threat-statblock-roadmap-reanchor-2026-07-30.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
@@ -86,7 +86,6 @@ Rules:
 
 Current critical gaps:
 
-- There is no durable publication operation pinned to an exact mechanics-saved source and expected graph parent.
 - The GM cannot choose create-new versus connect-existing for publication.
 - Accepted mechanics cannot yet be committed as a governed Threat + exact binding.
 - A published Threat has no Hermes query/hydration acceptance proof.
@@ -130,7 +129,11 @@ The graph contract is complete enough to begin publication orchestration. It doe
 
 ### `SBW09a` — Durable publication operation ledger
 
-Current dispatch authority: [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md). No future PR number is assigned until a pull request opens.
+**Proven in merged PR `#462`:** the live-control server owns a durable,
+no-write publication operation containing an immutable mechanics-saved source
+snapshot, exact accepted-mechanics locator, exact expected World Graph parent,
+and replay-safe ready/stale/cancelled/superseded lifecycle. Historical contract:
+[`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md).
 
 Deliver one no-write capability:
 
@@ -170,6 +173,9 @@ What remains false after merge:
 
 ### `SBW09b` — Explicit create-or-connect Threat resolution
 
+Current implementation authority:
+[`../Plans/HANDOFF-sbw09b-threat-identity-resolution.md`](../Plans/HANDOFF-sbw09b-threat-identity-resolution.md).
+
 Consumes one ready SBW09a operation.
 
 The GM can:
@@ -180,7 +186,12 @@ The GM can:
 - reject incorrect matches;
 - avoid silent duplicate identity.
 
-Required output is a durable or proposal-bound exact identity decision referencing the publication operation. Labels and aliases assist review but never become final durable identity by first-win fallback.
+Required output is a durable exact identity decision referencing the publication
+operation and the exact candidate-set digest. Labels and aliases assist review
+but never become final durable identity by first-win fallback. Candidate
+inspection is pinned to the operation's expected parent and returns only
+projectable Threat nodes; create-new, connect-existing, and refuse are explicit
+typed choices.
 
 ### `SBW09c` — Governed Threat + exact binding commit
 
