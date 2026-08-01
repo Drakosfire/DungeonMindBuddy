@@ -169,6 +169,7 @@ Every implementation path is new. Do not modify predecessor consumers in this sl
 | CSS and visual layout | No host or user-facing change. |
 | Runtime `leaseToken` | Generated and owned by SIH-02 store; never supplied by a Surface publication. |
 | Rich React panel/body content | Do not place `ReactNode`, JSX, or renderer functions in the neutral publication. Current rich panels remain on compatibility paths until host slices design registered content. |
+| Action toggle state (`pressed`) and fold initial-open state (`defaultOpen`) | Both are live on current Plan chrome (lock action and Edit-fold sections in `PlanSurfaceCanvas.tsx`). The legacy render path owns them until SIH-04/SIH-05 host extraction; those slices add neutral fields with adapter evidence before removing the legacy path. See §D. |
 | Persistent serialization or localStorage | Separate public/durable contract and explicit successor. |
 
 ## §6 Implementation contract and conditional matrices
@@ -265,6 +266,8 @@ SurfaceInteractionPublication<TBinding = unknown>
 ```
 
 `unknown` is permitted only as the generic default for a typed binding value. Do not add arbitrary `Record<string, unknown>`, metadata bags, renderer payload bags, or surface-specific context blobs.
+
+Toggle (`pressed`) and fold initial-open (`defaultOpen`) states are deliberately not modeled. Both are live on current Plan chrome and remain owned by the legacy render path until SIH-04/SIH-05 host extraction; those slices extend the neutral contract with adapter evidence before the legacy path is removed. See §D.
 
 ### 6.2 Identity helpers
 
@@ -437,6 +440,8 @@ Not applicable — the contract is runtime-only and no serialization, localStora
 | `SurfaceConfig.tools[]` | `{id,label,size}` | Tool projection activation + Projection descriptor | SIH-02 compatibility adapter; group/order defaults explicit there | Contract cross-reference tests only |
 | `AppChromeAction` | `{id,label,eyebrow?,onClick,disabled?,pressed?}` | Tool command activation or Edit command, based on owning call site | SIH-02/SIH-04/SIH-05 adapter decision; never inferred by neutral package | Callback non-invocation tests |
 | `AppChromeToolSection` | `{id,title,actions,defaultOpen?,panel?: ReactNode}` | Group placement for actions; rich panel deliberately not represented | Rich panel remains compatibility-only until host design | Boundary test rejects React/JSX production imports |
+| `AppChromeAction.pressed` | optional toggle state; live on the Plan lock action (`PlanSurfaceCanvas.tsx`) | Not represented in SIH-01 | Deliberate deferral: legacy chrome renders toggle state until SIH-04/SIH-05 host extraction, which adds a neutral toggle field with adapter evidence before removing the legacy path | Documented only |
+| `AppChromeToolSection.defaultOpen` | optional fold initial-open state; live on Plan Edit-fold sections (`PlanSurfaceCanvas.tsx`) | Not represented in SIH-01 | Deliberate deferral: legacy chrome renders fold state until SIH-04/SIH-05 host extraction, which adds a neutral group field with adapter evidence before removing the legacy path | Documented only |
 | `AgentInteractionSurfaceContext` | label, campaign/document/session IDs, ambient summary, source envelope | Agent-context scalar fields + exact pointer pairs only | No body/source-envelope blob copied | Agent context validation tests |
 | `ActiveProjection` | kind/key/size/title/glance | Not migrated in SIH-01 | SIH-03a owns active-host state | Explicitly out of scope |
 
@@ -481,10 +486,17 @@ npm test -- --run \
   --glob '!*.test.ts' \
   --glob '!*.test.tsx'
 
-! rg -n 'ReactNode|from "react"|from '\''react'\''|<[A-Za-z]|\.tsx' \
+# No React host code in production files: no React imports, no ReactNode, no
+# .tsx import specifiers. JSX is detected by file extension below, never by tag
+# regex — a pattern like '<[A-Za-z]' also matches mandatory generics such as
+# 'Promise<void>' and '<TBinding = unknown>' and would reject conforming code.
+! rg -n 'ReactNode|from "react"|from '\''react'\''|\.tsx' \
   src/surfaceInteraction \
   --glob '!*.test.ts' \
   --glob '!*.test.tsx'
+
+# No JSX host files: the package contains no production .tsx files at all.
+test -z "$(rg --files src/surfaceInteraction --glob '*.tsx' --glob '!*.test.tsx')"
 
 npm run typecheck
 npm run build
