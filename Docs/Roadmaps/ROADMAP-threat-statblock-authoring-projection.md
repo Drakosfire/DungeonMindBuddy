@@ -2,24 +2,27 @@
 
 **Status:** ACTIVE IMPLEMENTATION ROADMAP — PUBLICATION-FIRST  
 **Date:** 2026-08-01  
-**Repository anchor:** `35c3d34c6db44371cba81eb65883b2b76e011cad` — current main after merged PR `#469`; PR `#467` is the latest completed Threat-publication implementation  
-**Latest completed publication foundation:** `SBW09b` merged in PR `#467` (with SBW09a in PR `#462` and SBW08 in PR `#457`)  
-**Immediate implementation authority:** [`../Plans/HANDOFF-sbw09c1-threat-publication-proposal.md`](../Plans/HANDOFF-sbw09c1-threat-publication-proposal.md); dispatch only after this authority merges and the exact immutable main SHA is recorded  
+**Repository anchor:** `25ca4b941ce80e9cfa336c41c59667b9a3ed771d` — current `main`; the preceding placeholder/revert pair has no net file effect  
+**Latest completed Threat implementation:** `SBW09b` merged in PR `#467`  
+**Latest Threat authority:** PR `#471` established SBW09c1 proposal authority  
+**Immediate implementation authorities:**
+- [`../Plans/HANDOFF-sbw09c1-threat-publication-proposal.md`](../Plans/HANDOFF-sbw09c1-threat-publication-proposal.md)
+- [`../Plans/HANDOFF-sbw09c2a-operation-revision-lookup.md`](../Plans/HANDOFF-sbw09c2a-operation-revision-lookup.md) after its docs authority merges
+
 **Implementation tracker:** [`../Plans/PR-TRACKER-threat-statblock-authoring-projection.md`](../Plans/PR-TRACKER-threat-statblock-authoring-projection.md)  
-**Current re-anchor report:** [`../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md`](../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md)  
+**Publication re-anchor:** [`../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md`](../Reports/REPORT-sbw09c-publication-reanchor-2026-08-01.md)  
 **Lifecycle decision:** [`../Design/DECISION-grounded-authored-world-object-lifecycle.md`](../Design/DECISION-grounded-authored-world-object-lifecycle.md)  
 **Dogfood runbook:** [`../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md`](../Runbooks/RUNBOOK-authored-world-object-magic-moment-dogfood.md)
 
 ## 1. Product goal
-
-The critical architecture proof is:
 
 ```text
 accepted immutable statblock revision
 → durable publication operation pinned to exact source + graph parent
 → explicit create-or-connect Threat resolution
 → exact durable no-write publication proposal
-→ proposal-bound governed Threat + exact binding commit
+→ exact operation-to-immutable-revision recovery lookup
+→ proposal-bound governed Threat + exact binding commit with durable receipt
 → Hermes query + exact mechanics hydration
 → exact Threat projection
 → durable cross-surface placement
@@ -27,21 +30,13 @@ accepted immutable statblock revision
 → mutable runtime state without mutating graph truth or mechanics
 ```
 
-Hermes-grounded authoring remains a valuable entry path, not a prerequisite for publication:
+Hermes-grounded authoring remains a valuable entry path, not a prerequisite for publication.
 
-```text
-Hermes research
-→ grounded authoring artifact
-→ ThreatDraft
-→ accepted immutable statblock revision
-→ the same publication lifecycle
-```
-
-The statblock effort is not complete at valid JSON, saved mechanics, an identity decision, or a graph node. It is complete only when one exact authored resource becomes a queryable, projectable, placeable, and combat-usable campaign object.
+The statblock effort is not complete at valid JSON, saved mechanics, identity resolution, proposal preparation, or graph commit alone. It is complete when one exact authored resource becomes queryable, projectable, placeable, and combat-usable through durable exact identity.
 
 ## 2. Authority and state boundaries
 
-These states remain distinct:
+Distinct states:
 
 ```text
 ThreatDraft
@@ -52,6 +47,7 @@ accepted immutable statblock revision
 publication operation
 Threat identity resolution
 reviewed graph proposal
+commit intent / receipt
 published Threat
 ThreatStatblockBinding
 object placement
@@ -61,318 +57,220 @@ combatant runtime instance
 Rules:
 
 - DungeonMind owns generated statblock contract semantics.
-- Buddy owns draft orchestration, validation presentation, accepted-mechanics persistence, publication operations, proposals, projections, placements, and combat activation.
+- Buddy owns draft orchestration, validation presentation, accepted-mechanics persistence, publication operations/proposals/receipts, projections, placements, and combat activation.
 - The World Graph owns governed campaign identity and relationships.
 - Exact consumers pin exact revision identity; no `latest` fallback.
 - Saved mechanics are not automatically published.
-- A publication operation is not an identity decision.
-- An identity decision is not a reviewed proposal.
-- A reviewed proposal is not graph publication.
-- Publication is not placement.
-- Placement is not combat runtime state.
-- Mutable combat changes never alter graph or immutable mechanics truth.
+- An operation is not an identity decision.
+- An identity decision is not a proposal.
+- A proposal is not a commit receipt.
+- A receipt must resolve exact immutable revision authority; current head is not publication history.
+- Publication is not placement; placement is not combat state.
+- Mutable combat state never alters graph or immutable mechanics truth.
 
 ## 3. Completed foundation and current truth
 
 | Slice | Status | Proven capability |
 |---|---|---|
-| `SBW01` | MERGED `#386` | Server-owned DungeonMind statblock client/readiness boundary. |
-| `SBW02` | MERGED `#387` | Durable versioned `ThreatDraftV1` CRUD. |
-| `SBW03` | MERGED `#388` | Exact draft-version candidate generation contract. |
-| `SBW04` | MERGED `#397` | Shared semantic renderer and candidate Workbench. |
-| `SBW05a–c` | COMPLETE `#398`, `#402`, `#404` | Dedicated editing plus authoritative validation. |
-| `SBW07 contract/a–c` | COMPLETE `#405–#409` | Immutable accepted statblock/revision persistence. |
-| `SBW06 contract/a–c` | MERGED through `#439` | Revise contracts, lineage, durable attempts, proposal inspection, retry behavior. |
-| PR `#454` | MERGED | Provider-contract sync, generation timeout alignment, provenance honesty, Hermes UX unblockers. |
-| Accepted-revision prerequisite | OPERATOR-CONFIRMED | GM completed create → generate → edit → validate → accept → hard reload → reopen at least twice. |
-| `SBW08` | MERGED `#457` | Strict external statblock resource and exact immutable `ThreatStatblockBinding` in World Graph revisions and projections; no copied mechanics; deterministic identity; fail-closed collisions. |
-| `SBW09a` | MERGED `#462` | Durable no-write publication operation pinned to one exact source snapshot and expected parent with replay/stale/retry lineage. |
-| `SBW09b` | MERGED `#467` | Exact revision-pinned Threat candidate review plus durable explicit create-new/connect-existing/refuse identity resolution. |
+| `SBW01–05` | COMPLETE through `#404` | Client/readiness, drafts, generation, renderer, editing, validation. |
+| `SBW07` | COMPLETE `#405–#409` | Immutable accepted mechanics persistence. |
+| `SBW06` | COMPLETE through `#439` | Revise contracts, lineage, durable attempts, proposal/retry behavior. |
+| PR `#454` | MERGED | Provider sync, timeout alignment, provenance honesty, Hermes UX unblockers. |
+| Accepted-revision prerequisite | OPERATOR-CONFIRMED | Create→generate→edit→validate→accept→reload→reopen completed at least twice. |
+| `SBW08` | MERGED `#457` | Strict external statblock resource + exact immutable `ThreatStatblockBinding`; no copied mechanics. |
+| `SBW09a` | MERGED `#462` | Durable exact-source / expected-parent operation. |
+| `SBW09b` | MERGED `#467` | Exact Threat candidate review and explicit create/connect/refuse decision. |
 
 Current critical gaps:
 
-- The exact operation and identity decision cannot yet become a durable reviewed publication proposal.
-- Accepted mechanics cannot yet be committed as a governed Threat + exact binding.
-- A committed publication has no durable Threat-specific receipt/recovery contract.
-- A published Threat has no Hermes query/hydration acceptance proof.
-- Exact Threat mechanics are not exposed in the product projection.
-- No durable generic placement contract exists.
-- Live combat still uses legacy artifact/path/title-shaped statblock identity.
+- No durable exact Threat publication proposal implementation yet.
+- No public Kernel lookup from exact operation ID to all immutable matching revisions.
+- No durable Threat commit intent/receipt or crash recovery.
+- No governed Threat + binding commit product path.
+- No Hermes query/hydration acceptance proof or exact Threat projection.
+- No durable generic placement contract.
+- Live combat still uses legacy path/artifact/title-shaped statblock identity.
 
-## 4. Evidence gates already closed
+## 4. Closed evidence gates
 
 ### `R0-A`
 
-The normal real-provider Workbench lifecycle was manually confirmed at least twice:
-
-```text
-create ThreatDraft
-→ generate
-→ edit
-→ validate
-→ accept
-→ hard reload
-→ reopen exact accepted identity
-```
-
-This is operator-reported product evidence, not CI evidence. Do not dispatch another proof-only R0-A slice unless a future regression reopens it.
+Operator-confirmed real-provider create→generate→edit→validate→accept→hard reload→reopen passed at least twice. This is product evidence, not CI evidence.
 
 ### `SBW08`
 
-PR `#457` proves deterministic external resource identity, strict pinned binding identity, immutable round-trip/projection, multiple bindings without an implicit winner, and rejection of copied mechanics and typed collisions.
+PR `#457` proves deterministic resource/binding identity, immutable round-trip/projection, explicit multiple-binding behavior, and rejection of copied mechanics or typed collisions.
 
 ### `SBW09a`
 
-PR `#462` proves that later publication never needs to reconstruct source or parent authority from mutable current state.
+PR `#462` proves later publication need not reconstruct source or parent authority from mutable state.
 
 ### `SBW09b`
 
-PR `#467` proves that the system preserves the GM's exact create-new, connect-existing, or refuse decision and never promotes a ranked name/alias candidate into identity authority automatically.
+PR `#467` proves ranked names/aliases never silently become durable identity; create/connect/refuse is explicit and exact.
 
 ## 5. Phase I — Governed Threat publication
 
-### `SBW09a` — Durable publication operation ledger — MERGED `#462`
+### `SBW09a` — MERGED `#462`
 
-Historical authority: [`../Plans/HANDOFF-sbw09a-publication-operation-ledger.md`](../Plans/HANDOFF-sbw09a-publication-operation-ledger.md).
+Exact immutable source snapshot, accepted-mechanics locator, expected parent, ready/stale/cancelled/superseded lifecycle, replay, and retry lineage. No graph write.
 
-Proven no-write capability:
+### `SBW09b` — MERGED `#467`
 
-```text
-mechanics-saved ThreatDraft
-+ exact AcceptedMechanicsRef
-+ caller-reviewed expected World Graph parent
-→ durable publication source snapshot
-→ ready/stale/cancelled/superseded operation lifecycle
-→ exact reload and explicit retry lineage
-```
+Revision-pinned Threat candidates plus durable explicit create-new/connect-existing/refuse resolution. No graph write.
 
-No identity resolution, proposal, graph contribution, graph mutation, DMS call, or ThreatDraft mutation occurs.
+### `SBW09c1` — Exact durable no-write proposal — NEXT PRODUCT CAPABILITY
 
-### `SBW09b` — Explicit create-or-connect Threat resolution — MERGED `#467`
-
-Historical authority: [`../Plans/HANDOFF-sbw09b-threat-identity-resolution.md`](../Plans/HANDOFF-sbw09b-threat-identity-resolution.md).
-
-Proven no-write capability:
-
-- revision-pinned Threat-only candidate inspection;
-- exact candidate-set digest and full candidate snapshots;
-- explicit `create_new`, `connect_existing`, or `refuse` decision;
-- deterministic proposed Threat ID for create-new;
-- exact reviewed target node ID for connect-existing;
-- replay-safe durable decision and explicit supersession;
-- no graph, mechanics, or ThreatDraft mutation.
-
-### `SBW09c1` — Exact durable no-write Threat publication proposal — NEXT
-
-Current implementation authority: [`../Plans/HANDOFF-sbw09c1-threat-publication-proposal.md`](../Plans/HANDOFF-sbw09c1-threat-publication-proposal.md).
-
-Consumes one exact ready SBW09a operation and one exact active create/connect SBW09b resolution.
-
-Required flow:
+Authority: [`../Plans/HANDOFF-sbw09c1-threat-publication-proposal.md`](../Plans/HANDOFF-sbw09c1-threat-publication-proposal.md).
 
 ```text
-construct exact create-new or connect-existing effects
-→ reuse existing sealed-proposal digest/verification authority
-→ persist one exact review proposal
+exact operation + exact identity resolution
+→ deterministic create/connect effects
+→ existing sealed-proposal verification
+→ durable exact review proposal
 → reload/replay/supersede without graph mutation
 ```
 
-Create-new seals the exact Threat node, deterministic authored description/kind/role/tag attributes, external resource, and exact primary binding. Connect-existing seals only the external resource and exact binding; it does not rewrite the existing Threat. Refuse cannot mint a proposal.
+Create-new seals the Threat node, authored fields, resource, and binding. Connect-existing seals only resource and binding; it never rewrites the existing Threat. Refuse cannot produce a proposal.
 
-### `SBW09c2` — Proposal-bound commit, receipt/recovery, and exact verification — BLOCKED ON `SBW09c1`
+### `SBW09c2a` — Exact operation-to-revision lookup — READ-ONLY PREREQUISITE
 
-Consumes the exact durable SBW09c1 proposal.
+Authority: [`../Plans/HANDOFF-sbw09c2a-operation-revision-lookup.md`](../Plans/HANDOFF-sbw09c2a-operation-revision-lookup.md) after merge.
+
+```text
+exact world_id + exact operation_id
+→ scan one immutable revision-ID snapshot
+→ load every typed manifest
+→ return zero / one / many exact matches in deterministic order
+```
+
+Why this is separate:
+
+- `WorldGraphRevision.operation_ids` is immutable publication evidence.
+- Internal storage already enumerates revision IDs and loads manifests.
+- The public Kernel cannot currently resolve by operation ID.
+- After a process crash, current head may have advanced or rolled back.
+- `merge_contribution_to_revision` checks the original expected parent before idempotent-noop recovery.
+- Application code must not scan storage internals or choose the first match.
+
+This slice is read-only and may run in parallel with SBW09c1 because their production allowlists do not overlap.
+
+### `SBW09c2b` — Proposal-bound commit, receipt/recovery, exact verification — BLOCKED ON c1 + c2a
+
+Consumes one exact durable c1 proposal and the public c2a lookup.
 
 Required flow:
 
 ```text
-revalidate exact operation + active resolution + sealed proposal + parent
-→ proposal-bound explicit confirmation
+load exact active proposal and verify sealed effect
+→ explicit proposal-id/digest/parent-bound confirmation
+→ persist exact commit intent before Kernel write
 → one Kernel contribution merge against exact expected parent
-→ durable exact commit receipt / ambiguous-outcome recovery
-→ verify Threat/resource/binding at exact committed revision
+→ persist committed-unverified receipt immediately after merge
+→ verify exact contribution, parent, Threat/resource/binding, rebuild, and pinned projection
+→ persist verified/degraded/failed terminal receipt
 ```
 
-Required properties:
+Recovery requirements:
 
-- no current-head/latest substitution;
-- atomic Threat/resource/binding result or no graph revision;
-- exact contribution/revision identity survives response loss and restart;
-- retry reconciles a known receipt before any recommit;
-- completed commit plus verification failure reports committed-but-unverified;
-- graph failure never recreates, revises, or moves accepted mechanics;
+- exact replay checks durable receipt before dependencies;
+- a `committing` intent searches immutable revisions by exact contribution/operation ID before any retry;
+- zero matches + unchanged expected parent may retry the exact same contribution once;
+- one match is a recovery candidate only after exact parent/contribution/effect verification;
+- multiple matches fail closed as integrity ambiguity;
+- head advance or rollback cannot hide an existing committed revision;
+- commit success plus verification failure remains committed-but-unverified and must not retry;
+- graph failure never recreates, revises, or repins accepted mechanics;
 - no direct graph-file write or second graph-governance framework.
 
-A separate `SBW09c3` is not currently justified because existing graph governance already provides exact-revision rebuild/projection verification and honest post-commit verification statuses. Split again only if implementation reconnaissance proves a missing public recovery boundary.
+The active c1 proposal—not mutable ThreatDraft, operation, resolution, label, or current head—is the complete content authority. c2b must re-anchor against the actual c1 implementation and decide the exact proposal-claim/lock boundary before dispatch.
 
-The old bundled `HANDOFF-sbw09-governed-threat-binding-publication.md` remains superseded research and must not be dispatched.
+The old bundled SBW09 handoff remains superseded research.
 
 ## 6. Phase II — Queryability, hydration, and projection
 
 ### `SBW10a` — Threat query and exact mechanics hydration
 
-Hermes retrieves a published Threat by exact/alias name, role or capability, graph relationship, and location/faction/event/campaign context.
+Hermes retrieves published Threats by exact/alias name, role/capability, graph relationship, and campaign context.
 
 ```text
 Threat identity
 → exact ThreatStatblockBinding
 → exact accepted statblock revision
-→ hydrated mechanics from the owning store
+→ mechanics from owning store
 ```
 
-The graph stores the exact binding, not a copied statblock definition. Zero/one/many binding behavior must be explicit; there is no implicit winner.
+Zero/one/many bindings are explicit; there is no implicit winner.
 
-Pass probes include:
-
-- “What threats can damage fortifications?”
-- “Which threats are connected to Mireward?”
-- “Show the mechanics for the insectoid siege creature.”
-- “What statblock is bound to this Threat?”
+Pass probes include fortification-damaging threats, Mireward-connected threats, insectoid siege mechanics, and exact bound statblock identity.
 
 ### `SBW10b` — Exact-revision Threat projection
 
-Open compact and full Threat views from graph/object references. Default presentation prioritizes role and threat kind, important mechanics, encounter relevance, connected graph objects, and exact bound revision status. Evidence/provenance remains inspectable without dominating the card.
+Compact/full views prioritize role, threat kind, game-relevant mechanics, encounter relevance, connected graph objects, and exact revision status. Provenance remains inspectable without dominating the default card.
 
-### `MAGIC-D3` — Publish, query, hydrate, and reopen
+### `MAGIC-D3`
 
 ```text
-accepted exact revision
-→ durable publication operation
-→ explicit create/connect
-→ durable reviewed proposal
-→ governed publish
-→ reload graph revision
-→ find through Hermes
-→ open exact mechanics projection
+accepted revision
+→ operation
+→ identity decision
+→ proposal
+→ governed commit + recoverable receipt
+→ reload exact revision
+→ Hermes discovery + hydration
+→ exact Threat projection
 ```
 
-Pass requires no duplicate or silent merge; exact operation/source/resolution/proposal/binding survives reload; graph failure is recoverable; relationship/capability query finds the Threat without exact-name prompting; projection hydrates the exact bound revision; and newer mechanics do not silently move the binding.
+Pass requires no duplicate/silent merge, exact lifecycle identity surviving reload, recoverable graph failure, relationship/capability discovery, exact mechanics hydration, and no silent rebinding to newer mechanics.
 
-**DOGFOOD BREAK 1:** Use the published Threat from both Hermes and graph inspection before placement work begins.
+**DOGFOOD BREAK 1:** Use the published Threat from Hermes and graph inspection before placement work.
 
 ## 7. Phase III — Durable placement and shared capabilities
 
-### `SBW11` — Re-audit Plan hydration only
+- `SBW11`: re-audit Plan hydration only.
+- `SBW12`: exact revision embed; embed is not placement.
+- `AOW03`: durable `ObjectPlacementV1` with exact Threat/binding/revision/host/quantity/role/trigger/visibility/notes/local adjustments.
+- `AOW04`: shared capability routing; initiating surface does not own writes.
+- `MAGIC-D4`: same exact Threat can be durably placed and reopened without repinning.
 
-Re-audit actual document load, local precedence, conflict, and reload behavior; dispatch only missing capability.
-
-### `SBW12` — Exact revision embed
-
-Embed an exact Threat/statblock reference in Markdown/Tiptap with honest unresolved state and shared renderer identity. An embed is not a placement.
-
-### `AOW03` — `ObjectPlacementV1`
-
-Implement the first durable placement contract with a Threat extension:
-
-- exact Threat identity;
-- exact binding identity;
-- exact pinned statblock revision;
-- host document/scene/encounter locator;
-- quantity;
-- role;
-- trigger;
-- visibility;
-- notes;
-- local encounter adjustments.
-
-A placement is durable and reloadable. It does not copy mechanics and does not silently follow a newer revision.
-
-### `AOW04` — Shared capability routing
-
-Expose context-appropriate actions from Ingest, Build, Plan, Hermes results, graph inspection, and exact Threat projections. The initiating surface does not own the underlying write.
-
-### `MAGIC-D4`
-
-Pass requires durable exact Threat/binding/revision/placement locators, editable contextual metadata, no duplicate Threat identity, and no silent repinning.
-
-**DOGFOOD BREAK 2:** Prepare one real scene using placement before combat integration.
+**DOGFOOD BREAK 2:** Prepare one real scene through placement before combat integration.
 
 ## 8. Phase IV — Real combat integration
 
-### `COMBAT01-contract`
-
-Freeze exact source locator, insertion/idempotency, current-combat persistence, exact drilldown, migration/compatibility, and the rule that combat state never mutates graph or mechanics truth.
-
-### `COMBAT01`
-
-Evolve the server-backed `CombatRosterModule` beyond standalone JSON and legacy artifact/path references while preserving mutable runtime independence.
-
-### `SBW15`
-
-Map one exact accepted revision or exact Threat placement to deterministic combat defaults and insert one or many runtime instances.
-
-Mutable runtime state remains HP, initiative, conditions, notes, and defeated state.
-
-### `MAGIC-D5`
-
-Pass requires quantity creating distinct runtime instances; exact Threat/binding/revision/placement lineage surviving reload; deterministic or explicitly confirmed duplicate retry; combat state not altering graph/mechanics; exact mechanics drilldown from a roster row; and no legacy static/eval harness presented as product integration.
+- `COMBAT01-contract`: exact source locator, insertion/idempotency, persistence, drilldown, migration.
+- `COMBAT01`: evolve live combat persistence beyond legacy statblock path/title identity.
+- `SBW15`: deterministic exact-revision or exact-placement `CombatantSeed`.
+- `MAGIC-D5`: distinct runtime instances, exact lineage/reload, no graph/mechanics mutation from combat state, exact drilldown.
 
 ## 9. Parallel authoring lane
 
-These improve creation/editing but do not block publication:
-
-| ID | Outcome |
-|---|---|
-| `R0-B` closeout | Capture final authoring trace/verdict. |
-| `AOW01` | Grounded authored-object context envelope. |
-| `AOW02` | Hermes “Develop as Threat” action. |
-| `AUTHORING-ARTIFACT` | Stable editable/copyable markdown artifact with adjacent provenance. |
-| `GRAPH-CHIPS` | Response evidence chips and query node anchors. |
-| `AUTHORING-LIBRARY` | Browse/reopen/update ThreatDrafts and accepted mechanics. |
-| `SBW06d` | Revise from exact accepted locator; no latest fallback. |
-| Revise UX cleanup | GM-facing instruction flow rather than transport choreography. |
-| Editor expansion | Dedicated speed, attack, damage, and save controls. |
-| Liveness/telemetry | Honest long-turn state and privacy-safe traces. |
-
-`MAGIC-D1` and `MAGIC-D2` remain desired end-to-end authoring proofs, but they do not block `SBW09–SBW10`.
+R0-B closeout, AOW01/AOW02, authoring artifact/library, graph chips, SBW06d, revise UX, editor expansion, and liveness/telemetry remain parallel enhancements. `MAGIC-D1` and `MAGIC-D2` remain desired authoring proofs but do not block publication-first work.
 
 ## 10. Later revision evolution and media
 
-| Slice | Outcome |
-|---|---|
-| `SBW13` | Append immutable child revision and compare exact parent/child. |
-| `SBW14` | Governed adoption of one child revision for one Threat binding. |
-| Embed/placement repin successors | Explicitly move one chosen pinned consumer. |
-| `SBW16` | Optional image generation with typed partial outcomes. |
-| `SBW17` | Durable image selection/binding and projection slots. |
-| `SBW18` | Deferred 3D reconnaissance. |
-| `AOW05` | Prove lifecycle reuse with Item + Item Mechanics. |
+`SBW13` immutable child revision, `SBW14` explicit binding adoption, explicit embed/placement repin successors, `SBW16–18` media work, and `AOW05` second-domain proof remain later.
 
 ## 11. Gate ledger
 
-| Gate | Current status | Blocks |
+| Gate | Status | Blocks |
 |---|---|---|
 | `R0-A` | `OPERATOR_CONFIRMED_PASS` | Closed unless regression |
-| `R0-B` | `IN_PROGRESS`; provisional grounding/description pass | Grounded-authoring enhancement lane only |
-| `SBW08` | `MERGED #457` | Publication operation unlocked |
-| `SBW09a` | `MERGED #462` | Identity resolution unlocked |
-| `SBW09b` | `MERGED #467` | Publication proposal unlocked |
-| `MAGIC-D1` | DOGFOOD REQUIRED, parallel | Hermes-to-draft convenience proof |
-| `MAGIC-D2` | DOGFOOD REQUIRED, parallel | Full connected authoring proof |
-| `MAGIC-D3` | BLOCKED on `SBW09c1–c2` and `SBW10a–b` | Placement |
-| `MAGIC-D4` | BLOCKED on published queryable Threat | Combat |
-| `MAGIC-D5` | BLOCKED on exact placements/combat contract | Core roadmap completion |
+| `R0-B` | `IN_PROGRESS` | Grounded-authoring lane only |
+| `SBW08` | `MERGED #457` | Operation unlocked |
+| `SBW09a` | `MERGED #462` | Identity unlocked |
+| `SBW09b` | `MERGED #467` | Proposal unlocked |
+| `MAGIC-D1/D2` | DOGFOOD REQUIRED / PARALLEL | Authoring convenience proofs |
+| `MAGIC-D3` | BLOCKED on `SBW09c1`, `SBW09c2a`, `SBW09c2b`, `SBW10a`, `SBW10b` | Placement |
+| `MAGIC-D4` | BLOCKED | Combat |
+| `MAGIC-D5` | BLOCKED | Core roadmap completion |
 | `AOW05` | DEFERRED | General architecture claim |
 
 ## 12. Dispatch discipline
 
-Every implementation handoff must contain one mission/invariant, exact base/dependencies, bounded path allowlist, durable state and transition matrices, success/miss/failure/retry/reload/stale/concurrency/predecessor behavior, the exact gate enabled, demolition declaration, owning-boundary tests, and stop conditions that report architectural mismatch instead of widening scope.
+Every implementation handoff contains one mission/invariant, exact base/dependencies, bounded allowlist, state/persistence/fallback/identity/concurrency matrices, exact gate enabled, demolition declaration, owning-boundary tests, and stop conditions.
 
-Pre-designed handoffs are strategic inputs, not dispatch authority. Re-anchor each slice against current code and product evidence.
+Pre-designed handoffs are strategic inputs until re-anchored. SBW09c2b must not dispatch from this roadmap alone; it must be rewritten against the merged c1 proposal contract and c2a public lookup.
 
 ## 13. Completion
 
-The core Threat + Statblock roadmap is complete when:
-
-```text
-one exact accepted revision
-→ durable governed publication
-→ Hermes query + exact hydration
-→ exact projection
-→ durable cross-surface placement
-→ exact live-combat activation and reload
-```
-
-The connected authoring experience is complete when `MAGIC-D1` and `MAGIC-D2` also pass.
-
-The general architecture claim is complete only when `AOW05` proves a second object type through the same publication, query, projection, placement, and activation seams.
+The core roadmap is complete when one exact accepted revision becomes durably published, queryable/hydrated, exactly projected, durably placed, and activated/reloaded in live combat. The general architecture claim requires `AOW05` to prove a second object type.
