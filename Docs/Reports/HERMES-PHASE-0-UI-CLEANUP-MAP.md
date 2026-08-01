@@ -1,5 +1,9 @@
 # Hermes Phase 0 — UI Cleanup Map
 
+> **UI AUTHORITY (2026-08-01):** Shared bar ownership is
+> [`ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md).
+> Plan-local shells listed below are **transitional**; target is publication into shared hosts.
+
 **Date:** 2026-07-15
 **Status:** Evidence-backed cleanup gate; initial Plan-surface removal set approved
 **Scope:** `apps/live-control-ui/`

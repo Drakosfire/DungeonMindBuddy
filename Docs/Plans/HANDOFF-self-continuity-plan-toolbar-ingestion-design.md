@@ -1,5 +1,10 @@
 # HANDOFF — Plan Toolbar / Ingestion Design Reset
 
+> **HISTORICAL / NON-AUTHORITATIVE (2026-08-01):** Self-continuity from 2026-06-21.
+> Shared bar ownership:
+> [`ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md).
+> Plan domain: [`ARCHITECTURE-plan-surface-toolbox.md`](../Design/ARCHITECTURE-plan-surface-toolbox.md).
+
 **Status:** Active self-continuity handoff  
 **Written:** 2026-06-21  
 **Audience:** Fresh in-IDE agent working directly with the user on design before implementation  

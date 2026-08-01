@@ -1,5 +1,9 @@
 # DESIGN — Runbook Roadmap and Session Ingestion
 
+> **HISTORICAL / NON-AUTHORITATIVE (2026-08-01):** Preserved as runbook/ingestion
+> evidence. UI shell:
+> [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md).
+
 **Status:** Design anchor / roadmap capture
 **Created:** 2026-06-18
 **Project area:** DungeonBuddy / Command Board / Tiptap runbook / session prep ingestion

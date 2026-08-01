@@ -1,5 +1,11 @@
 # Design: Command Board Surfaces — Plan, Play, Build
 
+> **HISTORICAL / NON-AUTHORITATIVE (2026-08-01):** Preserved as direction evidence.
+> Current UI shell authority:
+> [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md).
+> Plan domain: [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md).
+> Stale claims below (e.g. Build nebulous, SurfaceShell bar ownership) are not current.
+
 **Status:** Direction record after North Gate Tiptap dogfood; re-anchored 2026-06-22 for React Play surface consolidation
 **Scope:** Command Board surfaces — Plan anchor pane, Play runbook UX, Build (named but not yet designed)
 **Related:** runbook roadmap, Runbook Lantern anchor, PRs #135–#148, `Docs/Plans/HANDOFF-plan-mode-command-board-jumpstart.md`

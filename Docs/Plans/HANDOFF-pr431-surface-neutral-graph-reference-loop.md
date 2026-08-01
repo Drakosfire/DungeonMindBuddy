@@ -59,8 +59,14 @@ pr_body_template: |
 
 # HANDOFF — Surface-neutral existing-object graph reference loop
 
+> **MERGED / HISTORICAL (2026-08-01):** PR **#431** merged
+> `130104442b0ac7ad9a56c7e744014f1b8d56ad62`. Neutral `graphReference` is a **landed
+> primitive**. Plan is **characterized consumer** — not shared API owner. Build enablement
+> successor: SI-04 Build World Reference Loop in
+> [`PLAN-surface-interaction-hoist-build-first.md`](PLAN-surface-interaction-hoist-build-first.md).
+
 **Created:** 2026-07-30.
-**Status:** IMPLEMENTATION IN REVIEW — re-anchored on current main after #464; scope ledger and neutral resolver gates amended 2026-07-31.
+**Status:** **MERGED** — PR #431 / MC-02a complete.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr431-surface-neutral-graph-reference-loop.md`
 **Target pull request:** #431
 **Authoring anchor:** main at `2c9cb97fa29a4e703f0521f56acfcff8a291f986`
